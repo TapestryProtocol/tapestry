@@ -19,7 +19,7 @@ const OPTIONS = [
   { value: 'dark', label: 'Dark', icon: '☾' },
 ];
 
-function RadioGroup({ variant, choice, setChoice, iconsOnly, autoFocus = false }) {
+function RadioGroup({ variant, choice, setChoice, onPick = setChoice, iconsOnly, autoFocus = false }) {
   const refs = useRef([]);
   const index = Math.max(0, OPTIONS.findIndex((o) => o.value === choice));
 
@@ -51,7 +51,7 @@ function RadioGroup({ variant, choice, setChoice, iconsOnly, autoFocus = false }
             aria-label={iconsOnly ? label : undefined}
             title={iconsOnly ? label : undefined}
             className={`bs-appearance-option${checked ? ' is-active' : ''}`}
-            onClick={() => setChoice(value)}
+            onClick={() => onPick(value)}
           >
             <span className="bs-appearance-icon" aria-hidden="true">{icon}</span>
             {!iconsOnly && <span>{label}</span>}
@@ -81,8 +81,16 @@ export default function AppearanceControl({ variant = 'menu' }) {
   if (variant !== 'compact') return <RadioGroup variant={variant} choice={choice} setChoice={setChoice} />;
 
   const current = OPTIONS.find((o) => o.value === choice) || OPTIONS[0];
+  // A choice pressed in the phone popover closes it, and focus goes back to its button; the arrow keys only move it.
+  const chooseAndClose = (value) => {
+    setChoice(value);
+    setOpen(false);
+    if (toggleRef.current) toggleRef.current.focus();
+  };
+  // Tabbing out of the control closes the popover too.
+  const onBlur = (e) => { if (open && wrapRef.current && !wrapRef.current.contains(e.relatedTarget)) setOpen(false); };
   return (
-    <div className="bs-appearance-compact-wrap" ref={wrapRef}>
+    <div className="bs-appearance-compact-wrap" ref={wrapRef} onBlur={onBlur}>
       <RadioGroup variant="compact" choice={choice} setChoice={setChoice} iconsOnly />
       <button
         ref={toggleRef}
@@ -98,7 +106,7 @@ export default function AppearanceControl({ variant = 'menu' }) {
       </button>
       {open && (
         <div className="bs-appearance-popover">
-          <RadioGroup variant="menu" choice={choice} setChoice={setChoice} autoFocus />
+          <RadioGroup variant="menu" choice={choice} setChoice={setChoice} onPick={chooseAndClose} autoFocus />
         </div>
       )}
     </div>

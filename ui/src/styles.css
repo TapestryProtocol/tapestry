@@ -2973,6 +2973,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
+/* In the popover the three stack, so it is narrow enough to open under its button on a 320px screen. */
+.bs-appearance-popover .bs-appearance { flex-direction: column; align-items: stretch; }
+.bs-appearance-popover .bs-appearance-option { justify-content: flex-start; padding: 0.4rem 0.75rem; }
 @media (max-width: 520px) {
   .bs-appearance-compact-wrap > .bs-appearance-compact { display: none; }
   .bs-appearance-toggle { display: inline-flex; }
@@ -9972,6 +9975,8 @@ body:has(.bsd-page) { background: #f2f3f0; }
 .bsd-page .bs-appearance-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--bg); }
 .bsd-page .bs-appearance-toggle:focus-visible { outline-color: var(--accent); }
 .bsd-page .bs-appearance-popover { border-color: var(--border); background: var(--bg); box-shadow: 0 8px 24px var(--bsd-shadow-ink-15); }
+.bsd-page .bs-appearance-popover .bs-appearance { border-radius: 12px; }
+.bsd-page .bs-appearance-popover .bs-appearance-option { border-radius: 8px; }
 @media (max-width: 520px) {
   /* Signed out there is no alert in the middle column; the Sign in group takes the room it needs. */
   .bsd-nav-inner:has(.bs-signin-group) { grid-template-columns: auto 1fr auto; padding-left: 16px; padding-right: 16px; }

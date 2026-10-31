@@ -182,3 +182,16 @@ even when signed in, so E7's earlier signed-in sweep of `/assistants` had read t
 After the fixes: Node `appearance-setting` 16/16. Playwright `appearance-setting.spec.js` 36/36 against a build of the
 fix. The 9 related B-class specs pass 174/174, including `setup-status` B7, which review 1 found broken. 46 of the 47
 screened related Node suites are clean; the 47th skips every test without a live stack.
+
+## Amendment 4 (2026-10-31, after review 2)
+
+E11 now opens the phone popover on `/about` and `/assistants` and checks:
+- the popover's box and each option's box lie within `[0, viewport width]`. A box past the left edge can't be scrolled
+  to, so the sideways-scroll check alone missed it;
+- choosing an option closes it.
+
+It failed at `c84c3dd2b` ("choosing closes the popover"); review 2 measured the overflow there at −27 px (375 px,
+`/assistants`). It passes after the fix. A probe at 320 px puts the popover between 57 px and 231 px on `/`, `/about`,
+`/settings`, `/assistants` and `/dictionary`.
+
+After the fix: Node 16/16, `appearance-setting.spec.js` 36/36, the 9 related specs 174/174.
