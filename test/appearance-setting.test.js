@@ -379,7 +379,9 @@ function resolveVars(value, tokens, depth = 0) {
   }
   return out;
 }
-const norm = (v) => v.toLowerCase().replace(/\s+/g, ' ').replace(/\s*([,()/])\s*/g, '$1').replace(/\s*!important/, ' !important').trim();
+// #rgb reads as #rrggbb (the same colour), so a token holding #ffffff for a rule that said #fff is no change.
+const norm = (v) => v.toLowerCase().replace(/\s+/g, ' ').replace(/\s*([,()/])\s*/g, '$1').replace(/\s*!important/, ' !important')
+  .replace(/#([0-9a-f])([0-9a-f])([0-9a-f])\b/g, '#$1$1$2$2$3$3').trim();
 
 let baseCssCache = null;
 function baseCss() {
@@ -547,6 +549,7 @@ test('K1 in Dark, body text, muted text, links and status colours reach 4.5:1 on
 
 // Pairs K2 may skip, each with its reason. Key: selector.
 const PAIR_ALLOWLIST = new Map([
+  ['.bsd-ma-onmap.is-on .bsd-ma-onmap-dot', 'an empty 7px status dot (aria-hidden): its colour is the mark, it holds no text'],
 ]);
 
 function parseColour(value, under) {

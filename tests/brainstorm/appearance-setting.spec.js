@@ -534,9 +534,11 @@ test.describe('E10 a browser that refuses storage', () => {
 // ── E11 ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 test.describe('E11 at phone widths, the signed-out top bar fits', () => {
+  // David, 2026-10-31 (ADR 0001 Amendment 1): on phones the three icons become one "Appearance" button beside Sign in,
+  // which opens the three choices. Sign in stays on one line and no page scrolls sideways.
   for (const width of [375, 414]) {
-    test(`${width} px: Sign in stays on one line beside the control, and no page scrolls sideways`, async ({ browser }) => {
-      const context = await browser.newContext({ viewport: { width, height: 800 }, colorScheme: 'dark' });
+    test(`${width} px: one Appearance button beside a one-line Sign in, opening the three choices; no sideways scroll`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 800 }, colorScheme: 'light' });
       const page = await context.newPage();
       await mockStack(page);
       const wrong = [];
@@ -544,19 +546,32 @@ test.describe('E11 at phone widths, the signed-out top bar fits', () => {
         await page.goto(url);
         const signIn = page.getByRole('button', { name: 'Sign in with nostr' }).first();
         await expect(signIn).toBeVisible();
-        await expect(group(page).first()).toBeVisible();
+        const toggle = page.getByRole('button', { name: /^Appearance: (System|Light|Dark)$/ }).first();
+        await expect(toggle, `${url}: the Appearance button`).toBeVisible();
+        // In the top bar no radio group shows until the button is pressed (/settings has its own card below the bar).
+        expect(await page.locator('.bs-signin-group').getByRole('radiogroup').count(), `${url}: the bar's three stay folded`).toBe(0);
         const m = await page.evaluate(() => {
           const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Sign in with nostr');
-          const lh = parseFloat(getComputedStyle(btn).lineHeight) || parseFloat(getComputedStyle(btn).fontSize) * 1.3;
           const el = document.scrollingElement;
-          return { lines: Math.round((btn.getBoundingClientRect().height - 2) / lh), h: btn.getBoundingClientRect().height,
-            scroll: el.scrollWidth, view: el.clientWidth };
+          return { h: btn.getBoundingClientRect().height, scroll: el.scrollWidth, view: el.clientWidth };
         });
         if (m.h > 44) wrong.push(`${url}: Sign in is ${m.h}px tall (wrapped)`);
         if (m.scroll > m.view) wrong.push(`${url}: the page is ${m.scroll}px wide in a ${m.view}px viewport`);
-        const [a, b] = [await signIn.boundingBox(), await group(page).first().boundingBox()];
-        if (!(a.y < b.y + b.height && b.y < a.y + a.height)) wrong.push(`${url}: the control isn't on Sign in's row`);
+        const [a, b] = [await signIn.boundingBox(), await toggle.boundingBox()];
+        if (!(a.y < b.y + b.height && b.y < a.y + a.height)) wrong.push(`${url}: the Appearance button isn't on Sign in's row`);
+        const gap = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0);
+        if (gap > 40) wrong.push(`${url}: the Appearance button is ${gap}px from Sign in`);
       }
+      // Pressing it opens the three; choosing Dark applies at once and closes it.
+      await page.goto('/assistants');
+      await page.getByRole('button', { name: /^Appearance: / }).first().click();
+      await expect(radio(page, 'Dark').first()).toBeVisible();
+      await expect(radio(page, 'System').first()).toHaveAttribute('aria-checked', 'true');
+      await radio(page, 'Dark').first().click();
+      await expectLook(page, 'dark');
+      await expect(page.getByRole('button', { name: 'Appearance: Dark' }).first()).toBeVisible();
+      const scrollAfter = await page.evaluate(() => document.scrollingElement.scrollWidth);
+      if (scrollAfter > width) wrong.push(`/assistants with the choices open: ${scrollAfter}px wide`);
       await context.close();
       expect(wrong, `at ${width} px`).toEqual([]);
     });

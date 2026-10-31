@@ -164,3 +164,21 @@ Each new check below fails on the implementation commit `668072907`.
 
 The mock for `GET /api/assistant/my-assistants` now answers `signedIn`. Without it, the page showed its sign-in line
 even when signed in, so E7's earlier signed-in sweep of `/assistants` had read the sign-in line, not the list.
+
+## Amendment 3 (2026-10-31, while fixing review 1)
+
+- **E11 re-aimed to David's phone design** (ADR 0001 Amendment 1, item 2). At 375 and 414 px, signed out, on 7
+  pages, it checks:
+  - one button named `Appearance: <choice>` on Sign in's row, within 40 px of it;
+  - the bar's own three icons folded away (none inside `.bs-signin-group`). `/settings` keeps its own card below the
+    bar, so the check looks only inside the group;
+  - Sign in at most 44 px tall, and no sideways scroll;
+  - pressing the button shows the three choices, and choosing Dark applies.
+- **T1's normalizer reads `#rgb` as `#rrggbb`.** It's the same colour: a token holding `#ffffff` for a rule that said
+  `#fff` paints nothing new. Nothing else is loosened.
+- **K2's allowlist has one entry:** `.bsd-ma-onmap.is-on .bsd-ma-onmap-dot`, an empty, `aria-hidden` 7 px status dot
+  whose colour is the mark itself, with no text.
+
+After the fixes: Node `appearance-setting` 16/16. Playwright `appearance-setting.spec.js` 36/36 against a build of the
+fix. The 9 related B-class specs pass 174/174, including `setup-status` B7, which review 1 found broken. 46 of the 47
+screened related Node suites are clean; the 47th skips every test without a live stack.
