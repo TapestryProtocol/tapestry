@@ -289,6 +289,8 @@ const suites = [
   { file: 'admin-action-sweep-named.test.js' },
   // security-auth-exposure #9 — the config reader logs key names, never values (ngit c549202b).
   { file: 'config-secret-logging.test.js' },
+  // security-auth-exposure #10 — sourcing the config file never puts its contents in a log.
+  { file: 'config-source-stderr.test.js' },
   { file: 'shell-input-hardening.test.js' },
   { file: 'assistant-profile-check.test.js' },
   { file: 'assistant-trusted-content.test.js' },
