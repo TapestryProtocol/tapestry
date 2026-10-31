@@ -17,9 +17,12 @@
 - [ ] A throwaway instance's startup log shows no `NEO4J_PASSWORD` or `SESSION_SECRET` value.
 - [ ] The fix is on ngit `staging` and deployed to the staging droplet, whose startup log shows no values.
 - [ ] Issue `c549202b` carries the commit and the staging evidence, and is marked resolved.
+- [ ] *(Added 2026-10-31 for story 10, the follow-up from story 9's review.)* No JavaScript reader that sources the
+      config file lets bash's stderr or a value into a log, and `addToQueue.mjs` logs names, never values.
 
 ## Epics in this book
-- `security-auth-exposure` — story 9, the config reader logs key names, never values.
+- `security-auth-exposure` — story 9, the config reader logs key names, never values; story 10, sourcing the config
+  file never puts its contents in a log.
 
 ## Provenance
 - **Mode:** Acceptance-frame
