@@ -241,3 +241,34 @@ white.
   is all the story asks.
 - Sharing the choice with Brainstorm-UI or across devices.
 - Recolouring the Dictionary's language swatches, which are data colours.
+
+## Amendment 1 (2026-10-31, after review 1)
+
+Review 1 found the decision incomplete in three places. These additions keep Option A and change nothing else.
+
+1. **The search home has its own avatar menu.** `ui/src/pages/BrainstormSearch.jsx` renders its own `UserMenu`, not
+   `BrainstormUserMenu`, so sub-decision 8's placements apply to both. Signed out, it shows the compact control beside
+   Sign in in a `.bs-signin-group`; signed in, an Appearance section above the dropdown's footer.
+2. **Phones: one button opens the three** (David, 2026-10-31). At 375px the signed-out bar was already full:
+   logo, About and "Sign in with nostr" came to exactly 375px on `/` and `/setup`, so there is no room for three icons.
+   - At 520px and below, the compact variant shows one button beside Sign in. It shows the current choice's icon and
+     is named "Appearance: <choice>" (`aria-haspopup`, `aria-expanded`); pressing it opens the same three-option
+     radio group in a small popover, which closes on a click outside it and on Escape.
+   - Wider screens keep the three icons.
+   - To keep the bar on one line, while signed out (`:has(.bs-signin-group)`) and only at 520px and below:
+     - Sign in doesn't wrap and its side padding drops to 0.8rem;
+     - the profile-family and Settings bars' side padding drops to 0.75rem and their gap to 0.5rem;
+     - the design-shell bar's grid becomes `auto 1fr auto` (there's no alert in the middle column while signed out).
+   - These are the only rules outside the design shell that change at phone widths, and only while signed out.
+3. **Every pair the design shell paints follows the look**, not only its tokens. Palette step 1 now covers the
+   Dictionary's shared `.dict-` rules too:
+   - their literals read tokens with today's colour as the fallback (`var(--bsd-x, <literal>)`), so the admin pages
+     resolve exactly as before;
+   - text on the accent reads `--bsd-on-accent`;
+   - text on the brand cyan reads `--bsd-on-cyan`;
+   - text on `--text` (the Treasure Map's toast) reads `--bsd-on-text`;
+   - `.dict-skin-light.dict-page` takes a dark `--dict-cyan` (`#56d4dd`);
+   - the dark `--bsd-faint` is lifted to `#8b93a0` so it reaches 4.5:1 on the muted surface.
+   - Tokens that matched an existing one in both looks were folded into it (`--bsd-surface` → `--bg`, the `-lit`
+     twins, and so on). A use with a fallback keeps its own token, so the admin pages don't change.
+4. **Keyboard:** each radio group has one tab stop (the checked option), and the arrow keys move the choice.
