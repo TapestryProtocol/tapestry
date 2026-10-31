@@ -221,8 +221,13 @@ test('P2 the pre-render script and the library agree in every combination of sto
   const L = loadLib();
   const code = preRenderScript();
   const storedValues = [undefined, 'system', 'light', 'dark', 'purple', ''];
-  const paths = ['/dictionary', '/dictionary/new', '/treasure-map', '/treasure-map/advanced', '/assistants', '/', '/about',
-    '/settings', '/tapestry/dictionaries/concepts', '/dictionaryx', '/assistant/profile'];
+  // The script's own prefix list must be the library's (review 1, non-blocking 4): a prefix added to one alone fails.
+  const scriptList = (code.match(/\[\s*('[^']*'(?:\s*,\s*'[^']*')*)\s*\]/) || [])[1];
+  const scriptPrefixes = scriptList ? scriptList.split(',').map((x) => x.trim().replace(/^'|'$/g, '')) : null;
+  assert(show(scriptPrefixes) === show(L.DESIGN_SHELL_PATH_PREFIXES),
+    `the pre-render script's design-shell paths ${show(scriptPrefixes)} should equal the library's ${show(L.DESIGN_SHELL_PATH_PREFIXES)}`);
+  const derived = L.DESIGN_SHELL_PATH_PREFIXES.flatMap((pre) => [pre, `${pre}/`, `${pre}/x`, `${pre}x`]);
+  const paths = [...derived, '/', '/about', '/settings', '/tapestry/dictionaries/concepts', '/assistant/profile'];
   const wrong = [];
   for (const stored of storedValues) {
     for (const osDark of [true, false]) {
@@ -416,17 +421,26 @@ test('T1 Light is unchanged inside the design shell: every declaration paints wh
   assert(diffs.length === 0, `${diffs.length} declaration(s) paint differently in Light inside the design shell:${NL}        ${diffs.slice(0, 12).join(`${NL}        `)}`);
 });
 
-test('T2 the design-shell rules hold no literal colours: every colour is a token (var fallbacks and token declarations aside)', () => {
+// Colours allowed to stay literal in design-shell rules: each reads the same in both looks. Key: selector § property.
+// Re-aimed after review 1 (Blocking 5, 6): T2 now covers the Dictionary's .dict- rules too, which render inside the
+// shell, and every exception is named here with its reason.
+const LITERAL_ALLOWLIST = new Map([
+]);
+
+const inShell = (sel) => mentionsShell(sel) || /\.dict-/.test(sel);
+
+test('T2 the design-shell rules (.bsd- and the Dictionary\'s .dict- rules) hold no literal colours outside var() fallbacks and a named allowlist', () => {
   const now = parseCss(fs.readFileSync(STYLES, 'utf8'));
   const LITERAL = /#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|\b(white|black)\b/i;
   const stripFallbacks = (v) => v.replace(/var\(\s*(--[\w-]+)\s*,[^()]*(\([^()]*\)[^()]*)*\)/g, 'var($1)');
   const found = [];
   for (const r of now) {
-    if (!mentionsShell(r.selector) || isAppearanceScoped(r.selector)) continue;
+    if (!inShell(r.selector) || isAppearanceScoped(r.selector)) continue;
     // body and :root sit outside .bsd-page, so .bsd-page tokens can't reach them; they carry their own values.
     if (/^(body|html|:root)\b/.test(r.selector)) continue;
     for (const [prop, value] of r.decls) {
       if (isCustom(prop)) continue;
+      if (LITERAL_ALLOWLIST.has(`${r.selector}§${prop}`)) continue;
       if (LITERAL.test(stripFallbacks(value))) found.push(`${r.context ? r.context + ' ' : ''}${r.selector} { ${prop}: ${value} }`);
     }
   }
@@ -438,12 +452,26 @@ function darkSet(rules) {
   let seen = false;
   for (const r of rules) {
     if (r.context) continue;
-    if (/^(:root|html)\[data-appearance=["']?dark["']?\] \.bsd-page$/.test(r.selector)) {
-      seen = true;
-      for (const [prop, value] of r.decls) dark[prop] = value;
-    }
+    const isBsd = /^(:root|html)\[data-appearance=["']?dark["']?\] \.bsd-page$/.test(r.selector);
+    const isDict = /^(:root|html)\[data-appearance=["']?dark["']?\] .*\.dict-[\w-]+$/.test(r.selector);
+    if (isBsd) seen = true;
+    if (isBsd || isDict) for (const [prop, value] of r.decls) if (isBsd || isCustom(prop)) dark[prop] = value;
   }
   return { seen, dark };
+}
+
+// The tokens a design-shell element reads in Light: every custom property outside the design shell, overlaid with those
+// declared in a design-shell rule (.bsd- or the Dictionary's skin, .dict-skin-light). Appearance-scoped rules never count.
+function shellLightTokens(rules) {
+  const base = {}, over = {};
+  for (const r of rules) {
+    if (r.context || isAppearanceScoped(r.selector)) continue;
+    for (const [prop, value] of r.decls) {
+      if (!isCustom(prop)) continue;
+      if (mentionsShell(r.selector) || /dict-skin-light/.test(r.selector)) over[prop] = value; else base[prop] = value;
+    }
+  }
+  return { ...base, ...over };
 }
 
 const COLOURISH = /#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|gradient\(|\b(white|black)\b/i;
@@ -454,10 +482,11 @@ test('T3 a dark token set exists: every colour token of the design shell has a d
   assert(seen, 'there should be a :root[data-appearance="dark"] .bsd-page rule carrying the dark token set (ADR 0001, Palette step 3)');
   const lightTokens = {};
   for (const r of now) {
-    if (r.context || r.selector !== '.bsd-page') continue;
+    if (r.context || isAppearanceScoped(r.selector)) continue;
+    if (!(r.selector === '.bsd-page' || /dict-skin-light/.test(r.selector))) continue;
     for (const [prop, value] of r.decls) if (isCustom(prop)) lightTokens[prop] = value;
   }
-  const { shell } = tokenMaps(now);
+  const shell = shellLightTokens(now);
   const missing = Object.keys(lightTokens).filter((t) => COLOURISH.test(resolveVars(lightTokens[t], shell)) && !(t in dark));
   assert(missing.length === 0, `${missing.length} design-shell colour token(s) have no dark value: ${missing.join(', ')}`);
   assert(norm(dark['color-scheme'] || '') === 'dark', `the dark set should declare color-scheme: dark (got ${show(dark['color-scheme'])})`);
@@ -489,7 +518,7 @@ test('K1 in Dark, body text, muted text, links and status colours reach 4.5:1 on
   const now = parseCss(fs.readFileSync(STYLES, 'utf8'));
   const { seen, dark } = darkSet(now);
   assert(seen, 'there is no dark token set to measure (see T3)');
-  const tokens = { ...tokenMaps(now).shell, ...dark };
+  const tokens = { ...shellLightTokens(now), ...dark };
   const solid = (t) => {
     const v = norm(resolveVars(tokens[t] || '', tokens));
     const rgb = /^#[0-9a-f]{3}([0-9a-f]{3})?$/.test(v) ? hexToRgb(v) : null;
@@ -503,7 +532,83 @@ test('K1 in Dark, body text, muted text, links and status colours reach 4.5:1 on
     const c = contrast(solid(ink), solid(surface));
     if (c < 4.5) low.push(`${ink} on ${surface}: ${c.toFixed(2)}:1`);
   }
+  // Added after review 1 (Blocking 3, 4): text on the accent, and the Dictionary's cyan on the surfaces.
+  for (const surface of ['--accent', '--accent-hover']) {
+    const c = contrast(solid('--bsd-on-accent'), solid(surface));
+    if (c < 4.5) low.push(`--bsd-on-accent on ${surface}: ${c.toFixed(2)}:1`);
+  }
+  if (!('--dict-cyan' in dark)) low.push('--dict-cyan has no dark value');
+  else for (const surface of surfaces) {
+    const c = contrast(solid('--dict-cyan'), solid(surface));
+    if (c < 4.5) low.push(`--dict-cyan on ${surface}: ${c.toFixed(2)}:1`);
+  }
   assert(low.length === 0, `${low.length} pair(s) below 4.5:1 in Dark:${NL}        ${low.join(`${NL}        `)}`);
+});
+
+// Pairs K2 may skip, each with its reason. Key: selector.
+const PAIR_ALLOWLIST = new Map([
+]);
+
+function parseColour(value, under) {
+  const v = norm(value);
+  if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/.test(v)) return { rgb: hexToRgb(v), a: 1 };
+  if (v === 'white') return { rgb: [255, 255, 255], a: 1 };
+  if (v === 'black') return { rgb: [0, 0, 0], a: 1 };
+  const m = v.match(/^rgba?\(([\d.]+),([\d.]+),([\d.]+)(?:,([\d.]+))?\)$/);
+  if (!m) return null;
+  const a = m[4] === undefined ? 1 : Number(m[4]);
+  const rgb = [m[1], m[2], m[3]].map(Number);
+  if (a >= 1 || !under) return { rgb, a };
+  return { rgb: rgb.map((c, i) => Math.round(c * a + under[i] * (1 - a))), a: 1 };
+}
+
+/**
+ * K2: every pair a design-shell rule paints, in Dark. A rule's text colour against its background; where a rule sets
+ * only one, the other comes from the rule it refines, the longest selector that is a prefix of its own or of its last
+ * compound (`.x.is-local` takes its colour from `.x`; `.row.is-local .avatar` from `.avatar`). A translucent
+ * background is laid over the dark surface (--bg). Added after review 1 (Blocking 3, 6): K1 checks tokens; this checks
+ * the pairs the rules actually paint.
+ */
+test('K2 in Dark, every text-on-background pair a design-shell rule paints reaches 4.5:1 (WCAG AA)', () => {
+  const now = parseCss(fs.readFileSync(STYLES, 'utf8'));
+  const { seen, dark } = darkSet(now);
+  assert(seen, 'there is no dark token set to measure (see T3)');
+  const tokens = { ...shellLightTokens(now), ...dark };
+  const surface = parseColour(resolveVars(tokens['--bg'] || '#000000', tokens)).rgb;
+  const plain = now.filter((r) => !r.context && !isAppearanceScoped(r.selector));
+  const last = (r, props) => { let v = null; for (const [pr, val] of r.decls) if (props.includes(pr)) v = val; return v; };
+  const BG = ['background', 'background-color'];
+  const lastCompound = (sel) => sel.split(/\s*[\s>+~]\s*/).pop();
+  const refines = (sel, base) => sel === base || (sel.startsWith(base) && /^[.:[]/.test(sel.slice(base.length)));
+  function inherited(r, props) {
+    const lc = lastCompound(r.selector);
+    let best = null;
+    for (const c of plain) {
+      if (c === r || !last(c, props)) continue;
+      if (!(refines(r.selector, c.selector) || refines(lc, c.selector))) continue;
+      if (!best || c.selector.length > best.selector.length) best = c;
+    }
+    return best ? last(best, props) : null;
+  }
+  const low = [];
+  for (const r of plain) {
+    if (!inShell(r.selector) || /^(body|html|:root)\b/.test(r.selector)) continue;
+    if (PAIR_ALLOWLIST.has(r.selector)) continue;
+    const ownInk = last(r, ['color']);
+    const ownBg = last(r, BG);
+    if (!ownInk && !ownBg) continue;
+    const ink = ownInk || inherited(r, ['color']);
+    const bg = ownBg || inherited(r, BG);
+    if (!ink || !bg) continue;
+    const bgV = resolveVars(bg, tokens);
+    if (/gradient\(|url\(/.test(bgV) || /^(none|transparent|inherit)$/.test(norm(bgV))) continue;
+    const b = parseColour(bgV, surface);
+    const t = b && parseColour(resolveVars(ink, tokens), b.rgb);
+    if (!b || !t) continue;
+    const c = contrast(t.rgb, b.rgb);
+    if (c < 4.5) low.push(`${r.selector}: ${norm(resolveVars(ink, tokens))} on ${norm(bgV)}, ${c.toFixed(2)}:1`);
+  }
+  assert(low.length === 0, `${low.length} pair(s) below 4.5:1 in Dark:${NL}        ${low.slice(0, 25).join(`${NL}        `)}`);
 });
 
 async function run() {

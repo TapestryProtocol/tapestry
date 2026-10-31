@@ -32,6 +32,12 @@ const { test, expect } = require('@playwright/test');
  *   E9 — the profile family, the Settings page, the search home and the admin pages look as today whatever is
  *        chosen, before and after render (regression).                                                       [AC-6]
  *   E10 — storage blocked: the page follows the computer, the control still works, no page error.            [AC-7]
+ *   E11 — at phone widths (375 and 414 px), signed out, every top bar keeps Sign in on one line beside the control,
+ *         and no page scrolls sideways.                                                                     [AC-2, AC-6]
+ *
+ * Widened after review 1 (Blocking 1, 2, 3, 6): E3 covers the search home's own user menu; E7 also sweeps a
+ * Dictionary entry page and an /assistants list with your local Assistant; E4 checks for writes at its end too; E11
+ * is new.
  */
 
 const VIEWER = 'a1'.repeat(32);
@@ -47,7 +53,7 @@ const LIGHT_INK = 'rgb(10, 14, 24)';
 const json = (r, body, status = 200) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 const EMPTY = { success: true, events: [], profiles: {}, data: [], rows: [], entries: [], relays: [], assistants: [], preferences: {}, items: [], count: 0 };
 
-async function mockStack(page, { session = null } = {}) {
+async function mockStack(page, { session = null, rows = [] } = {}) {
   // Registered first so every specific route below wins (Playwright runs the last-registered match first).
   await page.route('**/api/**', (r) => json(r, EMPTY));
   await page.route('**/api/assistant/pubkey', (r) => json(r, { success: true, pubkey: OWNER_TA }));
@@ -59,7 +65,8 @@ async function mockStack(page, { session = null } = {}) {
     ? { success: true, signedIn: true, hasAssistant: false, actions: {} }
     : { success: true, signedIn: false }));
   await page.route('**/api/assistant/roster', (r) => json(r, { success: true, assistants: [], viewer: null }));
-  await page.route('**/api/assistant/my-assistants', (r) => json(r, { success: true, rows: [] }));
+  // The page's own read says who is signed in (my-assistants ADR 0001): without signedIn it shows the sign-in line.
+  await page.route('**/api/assistant/my-assistants', (r) => json(r, { success: true, signedIn: !!session, rows }));
   await page.route('**/api/auth/status', (r) => json(r, session ? { authenticated: true, pubkey: session.pubkey } : { authenticated: false, pubkey: null }));
   await page.route('**/api/auth/user-classification', (r) => json(r, {
     success: true,
@@ -189,7 +196,7 @@ test.describe('E2 the computer changes while the page is open', () => {
 test.describe('E3 where the Appearance control is offered', () => {
   test('signed in: in the avatar menu, with System, Light and Dark and System checked by default', async ({ page }) => {
     await mockStack(page, { session: CUSTOMER });
-    for (const url of ['/assistants', '/about']) {
+    for (const url of ['/assistants', '/about', '/']) {
       await page.goto(url);
       const menu = await openAvatarMenu(page);
       await expect(group(menu)).toBeVisible();
@@ -210,7 +217,7 @@ test.describe('E3 where the Appearance control is offered', () => {
 
   test('signed out: beside "Sign in with nostr" in the top bar, on the design shell and on a profile-family page', async ({ page }) => {
     await mockStack(page);
-    for (const url of ['/assistants', '/dictionary', '/about']) {
+    for (const url of ['/assistants', '/dictionary', '/about', '/']) {
       await page.goto(url);
       const signIn = page.getByRole('button', { name: 'Sign in with nostr' }).first();
       await expect(signIn).toBeVisible();
@@ -283,6 +290,7 @@ test.describe('E4 a choice applies at once and sticks in this browser', () => {
     await page.reload();
     await expectLook(page, 'light');
     await expect(radio(page, 'System').first()).toHaveAttribute('aria-checked', 'true');
+    expect(writes, 'nothing about the appearance should reach the server, through to the end').toEqual([]);
   });
 
   test('signed in: Light from the avatar menu applies at once on a dark computer, and the menu shows it checked', async ({ page }) => {
@@ -419,6 +427,35 @@ test.describe('E7 in Dark, every design-shell page is dark and readable', () => 
       }
     });
   }
+
+  const ENTRY = `/dictionary/${encodeURIComponent(`39998:${OWNER_TA}:dog-breed`)}`;
+  const LOCAL_ROWS = [
+    { pubkey: '2'.repeat(64), local: true, tags: [{ key: 'tapestry', name: 'My Tapestry Assistant' }] },
+    { pubkey: 'c1'.repeat(32), local: false, tags: [{ key: 'brainstorm', name: 'My Brainstorm Assistant' }] },
+  ];
+  for (const { label, url, rows, sessions, rendered } of [
+    { label: 'a Dictionary entry page', url: ENTRY, rows: [], sessions: [null, CUSTOMER], rendered: 'h1' },
+    { label: '/assistants with your local Assistant listed', url: '/assistants', rows: LOCAL_ROWS, sessions: [CUSTOMER], rendered: '.bsd-ma-row.is-local .bsd-ma-avatar' },
+  ]) {
+    test(`${label}, in Dark`, async ({ browser }) => {
+      for (const session of sessions) {
+        const context = await browser.newContext({ colorScheme: 'dark' });
+        const page = await context.newPage();
+        await mockStack(page, { session, rows });
+        await page.goto(url);
+        await expectLook(page, 'dark');
+        await page.waitForLoadState('networkidle');
+        // The path under test ran: what the sweep is meant to read is on the page.
+        await expect(page.locator(rendered).first(), `${label}: ${rendered} should render`).toBeVisible();
+        const { text, surface, checked } = await darkSweep(page);
+        const who = session ? 'signed in' : 'signed out';
+        expect(checked, `${label} (${who}): the sweep should have read the page's text`).toBeGreaterThan(5);
+        expect(surface, `${label} (${who}): no light surface should be left in Dark`).toEqual([]);
+        expect(text, `${label} (${who}): all text should be readable in Dark`).toEqual([]);
+        await context.close();
+      }
+    });
+  }
 });
 
 // ── E8 ────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -490,6 +527,38 @@ test.describe('E10 a browser that refuses storage', () => {
       await expectLook(page, other.toLowerCase());
       await expect(radio(page, other).first()).toHaveAttribute('aria-checked', 'true');
       expect(errors, 'no page error with storage blocked').toEqual([]);
+    });
+  }
+});
+
+// ── E11 ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+test.describe('E11 at phone widths, the signed-out top bar fits', () => {
+  for (const width of [375, 414]) {
+    test(`${width} px: Sign in stays on one line beside the control, and no page scrolls sideways`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 800 }, colorScheme: 'dark' });
+      const page = await context.newPage();
+      await mockStack(page);
+      const wrong = [];
+      for (const url of ['/', '/about', '/setup', '/settings', '/assistants', '/dictionary', '/treasure-map']) {
+        await page.goto(url);
+        const signIn = page.getByRole('button', { name: 'Sign in with nostr' }).first();
+        await expect(signIn).toBeVisible();
+        await expect(group(page).first()).toBeVisible();
+        const m = await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Sign in with nostr');
+          const lh = parseFloat(getComputedStyle(btn).lineHeight) || parseFloat(getComputedStyle(btn).fontSize) * 1.3;
+          const el = document.scrollingElement;
+          return { lines: Math.round((btn.getBoundingClientRect().height - 2) / lh), h: btn.getBoundingClientRect().height,
+            scroll: el.scrollWidth, view: el.clientWidth };
+        });
+        if (m.h > 44) wrong.push(`${url}: Sign in is ${m.h}px tall (wrapped)`);
+        if (m.scroll > m.view) wrong.push(`${url}: the page is ${m.scroll}px wide in a ${m.view}px viewport`);
+        const [a, b] = [await signIn.boundingBox(), await group(page).first().boundingBox()];
+        if (!(a.y < b.y + b.height && b.y < a.y + a.height)) wrong.push(`${url}: the control isn't on Sign in's row`);
+      }
+      await context.close();
+      expect(wrong, `at ${width} px`).toEqual([]);
     });
   }
 });

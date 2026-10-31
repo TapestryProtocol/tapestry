@@ -144,3 +144,23 @@ Two tests were re-aimed by the Tester once the implementation surfaced them. Nei
   ("background is "#fffbec", want #fffbeb").
 
 After the amendment: Node 15/15, `treasure-map-needs-attention` 6/6, Playwright 32/32 against the implemented build.
+
+## Amendment 2 (2026-10-31, after review 1 CHANGES_REQUESTED, approved by David)
+
+Review 1 found Dark defects the tests let through (Blocking 3-6), the search home's own user menu without a control
+(Blocking 1), and the signed-out top bar breaking at phone width (Blocking 2). The Tester widened the tests first.
+Each new check below fails on the implementation commit `668072907`.
+
+| Finding | Check | File | Fails at `668072907` with |
+|---|---|---|---|
+| B5, B6 literals in the Dictionary's rules | `T2` now covers `.dict-` rules too, with a named allowlist (empty) | `test/appearance-setting.test.js` | 33 literal colours (e.g. `.dict-pill-btn { color: #fff }`) |
+| B4 `--dict-cyan` | `T3` requires a dark value for every colour token in a `.bsd-page` or `.dict-skin-light` rule; `K1` measures `--dict-cyan` and `--bsd-on-accent` | same | `--dict-cyan` has no dark value |
+| B3, B6 pairs | `K2` (new): every text-on-background pair a shell rule paints, in Dark, ≥ 4.5:1. The missing half comes from the rule it refines; translucent backgrounds are laid over `--bg` | same | 17 pairs, e.g. `.bsd-tm-toast` 1.14:1, `.bsd-managed-avatar.is-union` 1.62:1, `.dict-pill-btn` 2.72:1 |
+| non-blocking 4 | `P2` takes its paths from `DESIGN_SHELL_PATH_PREFIXES` and pins the script's list to the library's | same | (passes: the lists agree) |
+| B1 search home | `E3` signed in and signed out now include `/` | `tests/brainstorm/appearance-setting.spec.js` | no Appearance radiogroup on `/` |
+| B2 phone width | `E11` (new): at 375 and 414 px, signed out, on `/`, `/about`, `/setup`, `/settings`, `/assistants`, `/dictionary`, `/treasure-map`: Sign in ≤ 44 px tall, the control on its row, no sideways scroll | same | no control on `/` (the first page checked) |
+| B3, B6 | `E7` also sweeps a Dictionary entry page, and `/assistants` signed in with your local Assistant listed. Each asserts first that what it sweeps rendered | same | `span.bsd-ma-avatar "n": 2.72:1` |
+| non-blocking 2 | `E4` asserts no writes at its end too | same | (passes) |
+
+The mock for `GET /api/assistant/my-assistants` now answers `signedIn`. Without it, the page showed its sign-in line
+even when signed in, so E7's earlier signed-in sweep of `/assistants` had read the sign-in line, not the list.
