@@ -584,6 +584,21 @@ test.describe('E11 at phone widths, the signed-out top bar fits', () => {
         await page.getByRole('button', { name: /^Appearance: / }).first().click();
         await radio(page, 'System').first().click();
       }
+      // WebKit's focus model, imitated (review 3, Blocking 1): Safari doesn't focus a pressed <button>, it blurs the
+      // focused element with no relatedTarget. A press on another option must still apply it, and a press on the
+      // popover's own padding must not close it.
+      await page.goto('/assistants');
+      await page.evaluate(() => document.addEventListener('mousedown', () => {
+        if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+      }, true));
+      await page.getByRole('button', { name: /^Appearance: / }).first().click();
+      await expect(radio(page, 'System').first()).toBeFocused();
+      const pad = await page.locator('.bs-appearance-popover').boundingBox();
+      await page.mouse.click(pad.x + 3, pad.y + 3);
+      await expect(page.locator('.bs-appearance-popover'), 'a press on the popover\'s own padding keeps it open').toHaveCount(1);
+      await radio(page, 'Dark').first().click();
+      await expectLook(page, 'dark');
+      await expect(page.locator('.bs-appearance-popover'), 'the pressed choice applies, then the popover closes').toHaveCount(0);
       await context.close();
       expect(wrong, `at ${width} px`).toEqual([]);
     });
