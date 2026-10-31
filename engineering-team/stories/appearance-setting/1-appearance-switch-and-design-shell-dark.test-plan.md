@@ -129,3 +129,18 @@ FAIL E3 (×4)                                             expect(locator).toBeVi
 FAIL E6 (×4)                                             data-appearance before the bundle runs (null)
 PASS E8, E9 (×8 combinations), E9 pre-render             (regressions: today's colours)
 ```
+
+## Amendment (2026-10-31, during Implementation, approved by David)
+
+Two tests were re-aimed by the Tester once the implementation surfaced them. Neither loosens what it guards.
+
+- **E4 "nothing sent".** It recorded from page load, so it counted the read-only Cypher `POST /api/neo4j/query` that
+  `/assistants` already makes on load, with no click. It now records from the click on, and counts a read-only
+  Cypher POST as a read, by the server's own `WRITE_KEYWORDS`, as `my-assistants.spec.js` does. It still requires
+  that nothing names appearance or theme, and that the look changed, so the path under test ran.
+- **`treasure-map-needs-attention` S3.** It pinned the badge's literal `#b45309` on `#fffbeb`, but ADR 0001 makes
+  those tokens. It now resolves the colour and the background against the design shell's light tokens (every
+  `.bsd-page` rule), with the same values and the same 4.5:1. A mutant light `--bsd-warn-bg: #fffbec` fails it
+  ("background is "#fffbec", want #fffbeb").
+
+After the amendment: Node 15/15, `treasure-map-needs-attention` 6/6, Playwright 32/32 against the implemented build.

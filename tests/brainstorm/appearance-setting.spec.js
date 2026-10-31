@@ -240,15 +240,27 @@ test.describe('E4 a choice applies at once and sticks in this browser', () => {
   test('signed out: Dark applies with no reload, survives a reload and a new tab; System goes back to the computer', async ({ page, context }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await mockStack(page);
+    // Recorded from the click on, not from page load: the page's own load-time reads aren't the choice's (re-aimed in
+    // Implementation, 2026-10-31). A read-only Cypher POST is a read — the server's own write guard decides
+    // (src/api/neo4j/queryPost.js WRITE_KEYWORDS), as in my-assistants.spec.js.
+    const WRITE_KEYWORDS = /\b(CREATE|MERGE|DELETE|SET|REMOVE|DETACH|DROP|CALL\s*\{)\b/i;
     const writes = [];
+    let recording = false;
     page.on('request', (req) => {
+      if (!recording) return;
       const u = req.url();
-      if (!new URL(u).pathname.startsWith('/api/')) return;
-      if (req.method() !== 'GET' || /appearance|theme/i.test(u) || /appearance|theme/i.test(req.postData() || '')) writes.push(`${req.method()} ${u}`);
+      const p = new URL(u).pathname;
+      if (!p.startsWith('/api/')) return;
+      const body = req.postData() || '';
+      let cypher = '';
+      try { cypher = p === '/api/neo4j/query' ? (JSON.parse(body || '{}').cypher || '') : ''; } catch { /* not JSON */ }
+      const read = req.method() === 'GET' || (req.method() === 'POST' && p === '/api/neo4j/query' && cypher && !WRITE_KEYWORDS.test(cypher));
+      if (!read || /appearance|theme/i.test(u) || /appearance|theme/i.test(body)) writes.push(`${req.method()} ${u}`);
     });
     await page.goto('/assistants');
     await expectLook(page, 'light');
     await markNoReload(page);
+    recording = true;
     await radio(page, 'Dark').first().click();
     await expectLook(page, 'dark');
     expect(await stillNoReload(page), 'choosing should not reload the page').toBe(true);
