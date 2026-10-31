@@ -1,6 +1,6 @@
 # Story 1: The Appearance switch, and a dark look for the design-shell pages
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-10-31
 **Type:** Feature
 

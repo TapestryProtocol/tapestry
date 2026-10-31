@@ -426,3 +426,70 @@ Amendment 4) and 86e20ab94 (the fix):
 
 ## Verdict, round 3
 **CHANGES_REQUESTED**
+
+---
+
+# Round 4 (2026-10-31)
+
+**Diff:** `git diff 105b90899..HEAD` (HEAD `f3ae2b970`).
+- 3c56458ff: E11 imitates WebKit's focus model (test plan Amendment 5).
+- f3ae2b970: `onBlur` closes the popover only when `relatedTarget` is non-null and outside the wrapper
+  (`AppearanceControl.jsx:90-95`). Outside presses are left to the existing `mousedown` handler at `:74`. This is
+  option (a) from round 3.
+- Two new ledger rows: `ledger/2026-10-31-profile-bar-overflows-at-320px.md` (bug, OPEN) and
+  `ledger/2026-10-31-webkit-projects-not-installed.md` (meta, OPEN).
+
+## Quality gates, round 4 (run by the Reviewer)
+
+- **Full `npm test`:** not run (forbidden on this machine); there is no `gate:status` record for this branch. **Before
+  merge, the full gate must run on CI** (the staging pipeline, or a scratch stack), and its `gate:status` line must be
+  checked.
+- **Node:** `appearance-setting` 16/16.
+- **Playwright,** chromium, against a fresh build of `f3ae2b970` rebuilt into `:4174`: `appearance-setting.spec.js`
+  plus the same 10 related specs. **228 passed, 0 failed.**
+- **My own interaction probe** (`probe8.js` and `probe9.js` in the session scratchpad), 375 px, signed out, on
+  `/about`, `/assistants` and `/`. Each was run in plain chromium and again under a WebKit-style press: a pressed
+  button isn't focused, and the active element blurs with no `relatedTarget`. Results:
+
+  | Action | Plain chromium | WebKit-style press |
+  |---|---|---|
+  | Press on the popover's padding | stays open | stays open |
+  | Press Dark, then Light | each applies, closes, focus returns to "Appearance: …" | same |
+  | Press outside | closes | closes |
+  | Escape | closes, focus returns to the button | same |
+  | **Tab out** | **closes** (focus to Sign in, a non-null `relatedTarget` outside the control) | same |
+  | Shift+Tab | the first press lands on the control's own button, so the popover stays open (focus is still in the control); the second press leaves the control and closes it | same |
+  | Arrow keys | move and apply the choice, popover stays open | — |
+  | Enter or Space on an option | chooses and closes | — |
+  | Touch tap on Dark (`hasTouch`/`isMobile`) | applies and closes | — |
+
+- **The new check bites.** Round 3's probe showed a padding press closing the popover at `86e20ab94`. That is exactly
+  the E11 check Amendment 5 says failed there.
+
+## Findings, round 4
+
+### Blocking
+None. Round 3's blocker is fixed: a WebKit-style press now applies the choice. Escape, an outside press and Tab out
+still close the popover.
+
+### Non-blocking
+1. **Real WebKit and Mobile Safari are still unrun.** The evidence is a faithful imitation, not the engine. It is
+   tracked in `ledger/2026-10-31-webkit-projects-not-installed.md`. When a machine has WebKit, run E11 under the
+   `webkit` and `Mobile Safari` projects.
+2. **The 320 px overflow** is a follow-up, as I said in round 3. It is tracked in
+   `ledger/2026-10-31-profile-bar-overflows-at-320px.md`.
+3. **Tab to the browser chrome.** Tabbing out of the last focusable element into the browser's address bar gives a
+   `null` `relatedTarget`, so the popover stays open until the next outside press or Escape. That's harmless.
+
+### Harness friction
+None new. The round 1–3 items are filed as ledger rows.
+
+## Summary across the four rounds
+- All seven ACs are met and covered.
+- All six round-1 blockers, round 2's popover blocker and round 3's WebKit blocker are fixed.
+- ADR 0001 and its Amendment 1 match the code.
+- What remains is follow-ups in the ledger, not blockers: real-WebKit runs, the 320 px bar, and `PovContext`
+  storage. Running the full gate on CI before merge is a merge condition, not a finding.
+
+## Verdict, round 4
+**PASS**
