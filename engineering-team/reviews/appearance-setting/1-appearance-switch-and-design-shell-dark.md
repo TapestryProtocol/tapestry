@@ -232,3 +232,118 @@
 
 The story's Status stays as it is. (The template's "On PASS" section is dropped here: it follows the verdict, and the
 last-token verdict rule would read its heading as PASS.)
+
+---
+
+# Round 2 (2026-10-31)
+
+**Diff:** `git diff 51b60ecea..HEAD` (HEAD `c84c3dd2b`). The commits are a6b9d38bb (tests widened, test plan
+Amendment 2), d5695b345 (ADR 0001 Amendment 1), 55835d1cf (test re-aims, Amendment 3) and c84c3dd2b (the fix).
+**Owner decision applied:** for Blocking 2, David chose "one button opens the three" on phones (ADR 0001 Amendment 1
+item 2). Blocking 2 is judged against that design.
+
+## Quality gates, round 2 (run by the Reviewer)
+
+- **Full `npm test`:** still not run (forbidden on this machine), and there is still no `gate:status` record for this
+  branch. The full gate has to run on CI or a scratch stack before merge.
+- **Node suites,** each screened first, run one at a time with `BRAINSTORM_BASE_URL=http://127.0.0.1:9`:
+  - `appearance-setting` 16/16;
+  - `treasure-map-needs-attention` 6/6;
+  - the 12 related suites from round 1 plus `search-results-url`, all passing, 0 failures.
+  - `dictionary-concepts.test.js` was not run, because it matches the safety screen.
+- **The widened tests fail at the round-1 code.** I ran HEAD's `test/appearance-setting.test.js` against `668072907`'s
+  `src/lib/appearance.js`, `ui/index.html` and `ui/src/styles.css` in a scratch copy:
+  - T2 found 33 literals and T3 found `--dict-cyan` with no dark value.
+  - K1 reported the same missing `--dict-cyan` value.
+  - K2 found 16 pairs, including the toast at 1.14:1, the union avatar at 1.62:1, every white-on-`#a78bfa` pair, and
+    `--bsd-faint` on the muted surface at 4.32:1.
+  - T1 and T4 couldn't run there, because the scratch copy has no git history.
+  - E3, E7 and E11 were not re-run against the old build.
+- **Playwright,** chromium, against a fresh build of `c84c3dd2b` rebuilt into the `:4174` directory:
+  `appearance-setting.spec.js` plus assistant-alert, dictionary-concepts, manage-treasure-map,
+  manage-treasure-map-cards, my-assistant-page, my-assistants, setup-alert, setup-status, search-results-url and
+  ta-badged-avatar. **228 passed, 0 failed**, including `setup-status` B7.
+- **My own browser checks on that build:**
+  - **Dark pairs** (computed styles, the real classes inside `.bsd-page`):
+    - the toast is `#0e1016` on `#eef0f4`;
+    - the union avatar is `#0a0e18` on `#13d2e5`;
+    - the local avatars and the Dictionary buttons are `#14102a` on `#a78bfa`;
+    - the firmware/shared pills and marker are `#56d4dd`, and the entry mark is `#e6edf3`;
+    - the GitHub badge and avatar rings are now `#171a22`.
+  - **Search home:** signed in, the dropdown holds one Appearance radiogroup. Signed out, the group sits beside Sign in.
+  - **Phone widths,** signed out on 12 pages, at 375, 414, 521 and 768 px:
+    - Sign in stays on one line (30–38 px tall) and nothing scrolls sideways;
+    - the single button shows at 520 px and below, and the three icons show above.
+  - **Keyboard:** each group has one tab stop and the arrow keys move the choice. Escape closes the popover and returns
+    focus to the button, and a click outside closes it.
+  - **Dangling tokens:** none are left behind by the folded ones (every `var(--x)` without a fallback resolves; only
+    `--hover` and `--card-bg` are undefined, and they were already undefined at BASE).
+  - **Tokens and the admin pages:** no `--bsd-*` token is declared outside the shell, so the admin Dictionary's
+    `var(--bsd-x, literal)` uses still resolve to today's literal.
+
+## Round 1 findings, rechecked
+
+| Round 1 | Status | Evidence |
+|---|---|---|
+| B1 search home | **Fixed** | `BrainstormSearch.jsx:499-506` and `:591-594`; E3 covers `/` signed in and out; probe |
+| B2 phone width | **Fixed for the bar; new defect in the popover** (Blocking R2-1) | B7 passes; E11 passes; probe at 375 and 414 px |
+| B3 light-on-light pairs | **Fixed** | computed styles above; K2 |
+| B4 `--dict-cyan` | **Fixed** | `styles.css:10116`; K1 |
+| B5 literals in the shell | **Fixed** | T2 (empty allowlist); rings and entry mark tokenised |
+| B6 tests | **Fixed** | T2, T3, K1 and K2 fail at `668072907` (above); E7 sweeps an entry page and a local-Assistant row |
+| N1 keyboard | Fixed | `AppearanceControl.jsx:22-60`; probe |
+| N2 E4 end assertion | Fixed | `appearance-setting.spec.js:293` |
+| N3 redundant tokens | Fixed | `-lit` twins, `--bsd-canvas`, `--bsd-ink-strong` and `brand-cyan-ink` removed; no dangling references |
+| N4 P2 path list | Fixed | P2 derives its paths from `DESIGN_SHELL_PATH_PREFIXES` and pins the script's list to the library's |
+| N5 normalize | Fixed | `AppearanceContext.jsx:56-61` |
+| N6 `PovContext.jsx:40` | Open, accepted | Still needs its OPEN.md row (the main session's job) |
+
+ADR 0001 Amendment 1 matches the code: the search home's placements, the phone button, the signed-out padding and gap
+rules at 520 px and below, every painted pair, folded tokens and the keyboard. T1 now reads `#rgb` as `#rrggbb`. That
+is sound, since both spell the same colour, and it loosens nothing. K2's one allowlist entry, an empty `aria-hidden`
+status dot, is justified.
+
+## Findings, round 2
+
+### Blocking
+
+1. **ui/src/styles.css:2965-2975 `.bs-appearance-popover` (`right: 0` of `.bs-appearance-compact-wrap`, `:2946`):
+   the phone popover runs off the left edge of the screen.** This is the owner's design, at the exact widths it was
+   built for. The popover is about 236 px wide and right-aligned to the Appearance button, and the button sits about
+   150 px in from the right edge (Sign in is to its right). Measured on the build, signed out with the popover open:
+
+   | Width | Page | Popover left edge | "System" option |
+   |---|---|---|---|
+   | 375 px | `/assistants` (all four design-shell pages share the bar) | −27 px | −16..64 px |
+   | 375 px | `/about`, `/settings` | −10 px | −1..79 px |
+   | 320 px | `/assistants` | −74 px | −63..17 px |
+   | 320 px | `/about`, `/settings` | −65 px | −56..24 px |
+
+   At 375 px the System icon and the pill's left edge are cut off (screenshot:
+   `/private/tmp/claude-501/-Users-wds4--claude-spares-spare-c1Y81L/f0e41f03-d228-4d5c-a00e-172c913a7315/scratchpad/probe/r2-popover-assistants-375.png`).
+   At 320 px most of the System option is off-screen. Nothing scrolls, because overflow to the left can't be scrolled
+   to, so E11's scroll check passes. Playwright's `toBeVisible` is also satisfied by a partly off-screen element.
+   Asked change:
+   - keep the popover inside the viewport, for example by anchoring it to the whole `.bs-signin-group` (right edge
+     under Sign in), stacking the three vertically, or clamping its left edge;
+   - extend E11 to assert that the open popover's bounding box lies within `[0, viewport width]`, at 375 and 414 px,
+     on `/about` and `/assistants`.
+
+### Non-blocking
+
+1. **tests/brainstorm/appearance-setting.spec.js:565**: the comment says choosing "closes it", but the popover stays
+   open after a choice (`AppearanceControl.jsx:54` only calls `setChoice`), and the test doesn't assert closing.
+   ADR Amendment 1 only promises closing on an outside click or Escape. Optional: either close the popover on choice
+   (and assert it), or fix the comment.
+2. **At 320 px** (below every width the story and tests use), signed out, `/`, `/setup`, `/assistant` and
+   `/user/<pubkey>` are 368 px wide. With the Appearance button hidden they are 332 px, so today's bar already overflows
+   at 320 px, and the button adds 36 px. Optional: fold this in if the popover fix touches the bar.
+3. **ui/src/components/AppearanceControl.jsx:70-77**: the popover stays open when focus leaves it with Tab. Optional:
+   close it on focus-out as well.
+
+### Harness friction
+1. None new. The round-1 meta items (recording the commit of a preview build, and running the existing specs of a
+   changed shared component) still stand. Round 2 did run the related specs, and B7 passes.
+
+## Verdict, round 2
+**CHANGES_REQUESTED**
