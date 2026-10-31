@@ -195,3 +195,14 @@ It failed at `c84c3dd2b` ("choosing closes the popover"); review 2 measured the 
 `/settings`, `/assistants` and `/dictionary`.
 
 After the fix: Node 16/16, `appearance-setting.spec.js` 36/36, the 9 related specs 174/174.
+
+## Amendment 5 (2026-10-31, after review 3)
+
+E11 now imitates WebKit's focus model on the phone popover: Safari doesn't focus a pressed `<button>`, and it blurs
+the focused element with no `relatedTarget`. A capture-phase `mousedown` listener blurs the active element before
+each press. Under it, the check requires that a press on the popover's own padding keeps it open, and that pressing
+Dark applies it and then closes the popover. It failed at `86e20ab94` ("a press on the popover's own padding keeps it
+open"), and passes after the fix. Real WebKit and Mobile Safari runs remain unverified on this machine (ledger row
+`2026-10-31-webkit-projects-not-installed`).
+
+After the fix: `appearance-setting.spec.js` 36/36.

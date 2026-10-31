@@ -87,8 +87,12 @@ export default function AppearanceControl({ variant = 'menu' }) {
     setOpen(false);
     if (toggleRef.current) toggleRef.current.focus();
   };
-  // Tabbing out of the control closes the popover too.
-  const onBlur = (e) => { if (open && wrapRef.current && !wrapRef.current.contains(e.relatedTarget)) setOpen(false); };
+  // Tabbing out of the control closes the popover too. A blur that names no next element is not a Tab: WebKit blurs on
+  // every press of a <button> without focusing it, so that blur is left alone, and a press outside is the mousedown
+  // handler's to close.
+  const onBlur = (e) => {
+    if (open && e.relatedTarget && wrapRef.current && !wrapRef.current.contains(e.relatedTarget)) setOpen(false);
+  };
   return (
     <div className="bs-appearance-compact-wrap" ref={wrapRef} onBlur={onBlur}>
       <RadioGroup variant="compact" choice={choice} setChoice={setChoice} iconsOnly />
