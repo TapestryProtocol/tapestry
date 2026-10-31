@@ -10,6 +10,7 @@ import SetupAlert from '../components/SetupAlert';
 import { personalLinks, destinationLinks, accountLinks } from '../config/avatarMenuLinks';
 import TopBar from '../components/TopBar';
 import TopBarAlert from '../components/TopBarAlert';
+import AppearanceControl from '../components/AppearanceControl';
 import SearchInput from '../components/SearchInput';
 import TagResultRow from '../components/TagResultRow';
 import PinnedTagChips from '../components/PinnedTagChips';
@@ -495,8 +496,14 @@ function UserMenu({ user, login, logout, pov, setPov, filters, setFilters, sortC
     if (onWotReady) onWotReady(myWotReady);
   }, [myWotReady, onWotReady]);
 
+  // Signed out, the Appearance control sits beside Sign in, as in BrainstormUserMenu (appearance-setting #1).
   if (!user) {
-    return <button className="bs-link-btn" onClick={() => login().catch(() => {})}>Sign in with nostr</button>;
+    return (
+      <div className="bs-signin-group">
+        <AppearanceControl variant="compact" />
+        <button className="bs-link-btn" onClick={() => login().catch(() => {})}>Sign in with nostr</button>
+      </div>
+    );
   }
 
   const displayName = user.profile?.name || user.pubkey.slice(0, 8) + '…';
@@ -581,6 +588,11 @@ function UserMenu({ user, login, logout, pov, setPov, filters, setFilters, sortC
           </div>
 
           {/* Settings + Sign out */}
+          <div className="bs-usermenu-section bs-usermenu-appearance">
+            <span className="bs-usermenu-pov-switch-label">Appearance</span>
+            <AppearanceControl variant="menu" />
+          </div>
+
           <div className="bs-usermenu-footer">
             <a
               href="/settings"

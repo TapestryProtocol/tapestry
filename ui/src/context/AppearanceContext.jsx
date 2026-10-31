@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { readStoredChoice, writeStoredChoice, resolveAppearance } from '@tapestry/appearance';
+import { readStoredChoice, writeStoredChoice, resolveAppearance, normalizeChoice } from '@tapestry/appearance';
 
 /**
  * The Appearance setting (appearance-setting #1, ADR 0001): System, Light or Dark, kept in this browser only.
@@ -53,9 +53,9 @@ export function AppearanceProvider({ children }) {
 
   useEffect(() => { apply(resolved); }, [resolved]);
 
-  const setChoice = useCallback((next) => {
-    const nextResolved = resolveAppearance(next, systemPrefersDark());
-    apply(nextResolved); // at once, before React re-renders
+  const setChoice = useCallback((value) => {
+    const next = normalizeChoice(value);
+    apply(resolveAppearance(next, systemPrefersDark())); // at once, before React re-renders
     writeStoredChoice(browserStorage(), next); // a failed write still holds for this page
     setChoiceState(next);
   }, []);
