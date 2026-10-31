@@ -31,6 +31,8 @@ The write surface signs events **as the instance's Tapestry Assistant** and can 
 
 8. `stories/security-auth-exposure/8-admin-action-sweep.md` — the sweep the owner chose (2026-10-10): every route that changes state or starts heavy work, under any method (GET and HEAD included) and however its path is spelled, refuses anyone but the owner, admins and direct-local callers, unless it is on an explicit allowlist the owner approves. A test fails when a new action is added without a guard or an allowlist entry. Book: `audits/admin-action-owner-check/`. Members of the class were described, never named, until their fixes shipped. One route table and a default-deny access check (ADR 0005). **Done** (review PASS 2026-10-10; shipped 2026-10-11 to production, PR #847, deploy run 147, and to `staging` and both sandboxes in the same round).
 
+9. `stories/security-auth-exposure/9-config-reader-logs-no-values.md` — `getConfigFromFile()` logged the value of every config key it read, so the startup log held `NEO4J_PASSWORD` and `SESSION_SECRET` in plain text (ngit issue `c549202b`). It now logs the key's name and how it was resolved, never the value. Book: `audits/config-secret-logging/`. **Done** (review PASS 2026-10-31; ships to staging next).
+
 *(Further stories drawn at Planning as the work proceeds.)*
 
 ## Key facts / guardrails
