@@ -2969,3 +2969,33 @@ page that names customers. The `directory` and `comments` fields are worth a loo
 
 **Classification:** product / security decision first; any change after it is a feature or security story under
 Standard (all phases).
+
+## 2026-10-31 — A config file bash can't parse still leaks through the GrapeRank scripts and the shell scripts (bug, security)
+
+**Raw request:** none; found at the Review of `security-auth-exposure` #10 and queued by the owner's choice to narrow
+that story ("Narrow, file follow-up", 2026-10-31). Source: ngit issue `c549202b` and its follow-ups.
+
+**What was found.** When a line of `/etc/brainstorm.conf` isn't valid bash, `source` prints that line, value and all,
+to stderr. Story 10 closed this for the five shared or standalone JavaScript readers (story 9 had stopped `getConfigFromFile()` logging values). Two groups still leak:
+
+- **11 GrapeRank `.js` files, 27 `execSync` calls**, which source `${CONFIG_FILES.brainstorm}` with stderr inherited and
+  log `error.message`. Some read `NEO4J_PASSWORD`. Eight are live, and one more (`customers/…/updateNeo4j.js`) has no caller:
+  - `src/algos/personalizedGrapeRank/`: `updateNeo4j.js`, `initializeRatings.js` and `calculateGrapeRank.js`;
+  - `src/algos/customers/personalizedGrapeRank/`: `initializeScorecards.js`, `updateNeo4jWithApoc.js`,
+    `interpretRatings.js`, `calculateGrapeRank.js` and `updateNeo4j.js`;
+  - `src/algos/importedGrapeRankEngine/calculateFromLibrary.js`.
+
+  Two are dead copies (`updateNeo4j_copy.js`, `updateNeo4jWithApoc_moreLogsButWithBug.js`).
+- **About 120 `.sh` files** that run `source /etc/brainstorm.conf` directly, including most of the GrapeRank scripts'
+  own wrappers. So patching only the JavaScript still leaves one copy of a broken line in those logs, except on the
+  `calculateFromLibrary.sh` path, whose wrapper doesn't source the conf.
+
+**Likely shape.** Close it at the source: when the entrypoint renders `brainstorm.conf`, check it with `bash -n` and
+refuse to start on a syntax error, naming the line number but never echoing the line. Then patch the 11 scripts the
+way story 10 patched the five (`stdio: ['ignore', 'pipe', 'ignore']`, log `.status`). Story 10's AC-2 check could then
+scan `src/`, `lib/` and `bin/` instead of a fixed list. Delete or patch the two dead copies. `bash -n` doesn't catch a
+line that parses but runs a command (`B=pw TAILY` prints `TAILY: command not found`); decide whether the render step
+should also refuse unquoted values that contain spaces.
+
+**Classification:** bug (security), Standard; all phases. The entrypoint check is a design choice, so Architecture
+applies.
