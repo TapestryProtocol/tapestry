@@ -69,6 +69,6 @@ None. (Default, admin pages and signed-out placement were settled with David on 
 
 ## Linked artifacts
 
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/appearance-setting/0001-appearance-attribute-preload-and-design-shell-tokens.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
