@@ -562,16 +562,28 @@ test.describe('E11 at phone widths, the signed-out top bar fits', () => {
         const gap = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0);
         if (gap > 40) wrong.push(`${url}: the Appearance button is ${gap}px from Sign in`);
       }
-      // Pressing it opens the three; choosing Dark applies at once and closes it.
-      await page.goto('/assistants');
-      await page.getByRole('button', { name: /^Appearance: / }).first().click();
-      await expect(radio(page, 'Dark').first()).toBeVisible();
-      await expect(radio(page, 'System').first()).toHaveAttribute('aria-checked', 'true');
-      await radio(page, 'Dark').first().click();
-      await expectLook(page, 'dark');
-      await expect(page.getByRole('button', { name: 'Appearance: Dark' }).first()).toBeVisible();
-      const scrollAfter = await page.evaluate(() => document.scrollingElement.scrollWidth);
-      if (scrollAfter > width) wrong.push(`/assistants with the choices open: ${scrollAfter}px wide`);
+      // Pressing it opens the three, wholly on screen (review 2, Blocking 1: a box past either edge can't be scrolled
+      // to, so the scroll check alone can't see it); choosing Dark applies at once and closes them.
+      for (const url of ['/about', '/assistants']) {
+        await page.goto(url);
+        await page.getByRole('button', { name: /^Appearance: / }).first().click();
+        await expect(radio(page, 'Dark').first()).toBeVisible();
+        await expect(radio(page, 'System').first()).toHaveAttribute('aria-checked', 'true');
+        const boxes = await page.evaluate(() => [...document.querySelectorAll('.bs-appearance-popover, .bs-appearance-popover [role="radio"]')]
+          .map((e) => { const r = e.getBoundingClientRect(); return { cls: e.getAttribute('aria-label') || e.textContent.trim() || e.className, left: r.left, right: r.right }; }));
+        expect(boxes.length, `${url}: the open popover and its three options`).toBe(4);
+        for (const b of boxes) {
+          if (b.left < 0 || b.right > width) wrong.push(`${url}: "${b.cls}" spans ${Math.round(b.left)}..${Math.round(b.right)} in a ${width}px viewport`);
+        }
+        await radio(page, 'Dark').first().click();
+        await expect.poll(() => attr(page), { message: `${url}: Dark applies` }).toBe('dark'); // /about has no .bsd-page
+        await expect(page.locator('.bs-appearance-popover'), `${url}: choosing closes the popover`).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Appearance: Dark' }).first()).toBeVisible();
+        const scrollAfter = await page.evaluate(() => document.scrollingElement.scrollWidth);
+        if (scrollAfter > width) wrong.push(`${url} after choosing: ${scrollAfter}px wide`);
+        await page.getByRole('button', { name: /^Appearance: / }).first().click();
+        await radio(page, 'System').first().click();
+      }
       await context.close();
       expect(wrong, `at ${width} px`).toEqual([]);
     });
