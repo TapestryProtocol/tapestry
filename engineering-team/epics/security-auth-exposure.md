@@ -33,7 +33,7 @@ The write surface signs events **as the instance's Tapestry Assistant** and can 
 
 9. `stories/security-auth-exposure/9-config-reader-logs-no-values.md` — `getConfigFromFile()` logged the value of every config key it read, so the startup log held `NEO4J_PASSWORD` and `SESSION_SECRET` in plain text (ngit issue `c549202b`). It now logs the key's name and how it was resolved, never the value. Book: `audits/config-secret-logging/`. **Done** (review PASS 2026-10-31; ships to staging next).
 
-10. `stories/security-auth-exposure/10-config-source-stderr-no-values.md` — five JavaScript readers source the config file through bash with its stderr passed through, so a malformed conf line, secret included, reached the log; `addToQueue.mjs` also logged the values it read. Found by story 9's review. Book: `audits/config-secret-logging/`. **Approved** (2026-10-31).
+10. `stories/security-auth-exposure/10-config-source-stderr-no-values.md` — five shared or standalone JavaScript readers (`src/utils/config.js`, `lib/config.js`, `addToQueue.mjs`, `publish_nip85_30382.js`, `personalizedGrapeRank/initializeScorecards.js`) sourced the config file through bash with its stderr passed through, so a malformed conf line, secret included, reached the log; `addToQueue.mjs` also logged the values it read. Found by story 9's review. Narrowed at its own review: 11 GrapeRank scripts with the same pattern, and the shell scripts, are queued in `stories/_intake.md` (2026-10-31). Book: `audits/config-secret-logging/`. **Done** (review PASS 2026-10-31, after narrowing; not yet pushed).
 
 *(Further stories drawn at Planning as the work proceeds.)*
 

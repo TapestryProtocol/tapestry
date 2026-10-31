@@ -1,6 +1,6 @@
 # Story 10: Sourcing the config file never puts its contents in a log
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-10-31
 **Type:** Bug (security / secret exposure)
 **Epic:** `security-auth-exposure`
@@ -24,7 +24,9 @@ The installer and the conf template double-quote every secret, so it takes a han
 make the conf invalid. When that happens, though, every lookup that reaches `source` prints the broken line again, and
 the control panel does several at startup.
 
-Five readers in the JavaScript code do this:
+This story fixes the five shared or standalone readers below. *(Narrowed at Review, 2026-10-31.)* The review found 11
+more `.js` files, all GrapeRank scripts, with 27 more calls that do the same thing. The owner chose to keep this story
+to these five and queue the rest: see *Out of scope*.
 
 | Reader | Inherits stderr | Logs `error.message` |
 |---|---|---|
@@ -75,9 +77,20 @@ scripts. Five small patches are easier to review than a new module. Architecture
 
 ## Out of scope
 
+- **The GrapeRank scripts that source the config file the same way.** Found at Review (2026-10-31): 11 `.js` files
+  make 27 `execSync` calls that source `${CONFIG_FILES.brainstorm}` with stderr inherited and `error.message` logged,
+  some of them reading `NEO4J_PASSWORD`. Eight are live, and one more (`customers/…/updateNeo4j.js`) has no caller:
+  - `src/algos/personalizedGrapeRank/`: `updateNeo4j.js`, `initializeRatings.js` and `calculateGrapeRank.js`;
+  - `src/algos/customers/personalizedGrapeRank/`: `initializeScorecards.js`, `updateNeo4jWithApoc.js`,
+    `interpretRatings.js`, `calculateGrapeRank.js` and `updateNeo4j.js`;
+  - `src/algos/importedGrapeRankEngine/calculateFromLibrary.js`.
+
+  Two are dead copies (`updateNeo4j_copy.js`, `updateNeo4jWithApoc_moreLogsButWithBug.js`). Most of their shell wrappers
+  already `source` the conf themselves, so patching only the JavaScript would still leave one copy of a broken line in
+  those logs; `calculateFromLibrary.sh` doesn't, so on that path the JavaScript patch alone would close it. They're queued in `stories/_intake.md` (2026-10-31) with the shell scripts below.
 - **Shell scripts that source the config file.** About 120 `.sh` files run `source /etc/brainstorm.conf` directly, and
   a malformed line prints to their own logs the same way. The fix there is different: check the rendered file once,
-  when the entrypoint writes it, and refuse to start on a syntax error. That's a separate story if the owner wants it.
+  when the entrypoint writes it, and refuse to start on a syntax error. Queued with the GrapeRank scripts above.
 - **Making `lib/config.js` read a configurable path.** It reads only `/etc/brainstorm.conf`, so AC-2 is checked on its
   source, not by running it against a test file.
 - **Rotating secrets.** Operational, owner's call.
