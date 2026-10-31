@@ -1,6 +1,6 @@
 # Story 9: The config reader logs key names, never values
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-10-31
 **Type:** Bug (security / secret exposure)
 **Epic:** `security-auth-exposure`
