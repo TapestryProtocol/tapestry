@@ -347,3 +347,82 @@ status dot, is justified.
 
 ## Verdict, round 2
 **CHANGES_REQUESTED**
+
+---
+
+# Round 3 (2026-10-31)
+
+**Diff:** `git diff d9951b4de..HEAD` (HEAD `86e20ab94`). The commits are 982e2485e (E11 extended, test plan
+Amendment 4) and 86e20ab94 (the fix):
+- the popover stacks its three options vertically;
+- choosing an option closes the popover and returns focus to its button;
+- the arrow keys only move the choice;
+- a `focusout` handler (`onBlur` on the wrapper) closes the popover when focus leaves it.
+
+## Quality gates, round 3 (run by the Reviewer)
+
+- **Full `npm test`:** not run (forbidden on this machine); there is no `gate:status` record for this branch. The full
+  gate still has to run on CI or a scratch stack before merge.
+- **Node:** `appearance-setting` 16/16.
+- **Playwright,** chromium, against a fresh build of `86e20ab94` rebuilt into `:4174`: `appearance-setting.spec.js`
+  plus the same 10 related specs as round 2. **228 passed, 0 failed.**
+- **My own probe** on that build (`probe7.js` in the session scratchpad), signed out:
+  - **Round-2 blocker fixed.** At 320, 360, 375, 414 and 520 px, the open popover and each of its three options lie
+    within the viewport, on `/`, `/about`, `/settings`, `/setup`, `/assistants`, `/dictionary` and `/user/<pubkey>`.
+    The narrowest case is 320 px on the design shell: popover 57..164, options 68..153.
+  - **Chromium mouse, keyboard and touch all work:**
+    - Mouse: choosing Dark applies it, closes the popover and returns focus to "Appearance: Dark".
+    - Keyboard:
+      - Enter opens the popover with focus on the checked option;
+      - ArrowUp moves the choice and keeps the popover open;
+      - Space chooses and closes it;
+      - Tab out closes it.
+    - Touch (`hasTouch`/`isMobile`): a tap on Dark applies it and closes the popover.
+  - **Round-2 non-blocking 1 and 3** (close on choice; close on Tab-out) are fixed and covered by E11.
+
+## Findings, round 3
+
+### Blocking
+
+1. **ui/src/components/AppearanceControl.jsx:91-93: in WebKit the `onBlur` close is likely to swallow the choice.**
+   - **Why it is likely to break.** On macOS Safari a mouse press on a `<button>` doesn't focus the button. Instead
+     the focused element blurs, with `relatedTarget === null`. When the popover opens, focus sits on the checked
+     option (`autoFocus`). Pressing another option therefore blurs it with `relatedTarget` null. `onBlur` sees
+     "outside the wrapper" and calls `setOpen(false)` on **mousedown**, so React unmounts the popover before the
+     `click`. The choice is never applied, and the popover just closes.
+   - **What the simulation showed.** I reproduced the sequence in chromium by blurring the active element on mousedown
+     of a button, as WebKit does. On both `/about` and `/assistants` at 375 px, pressing "Dark" left `data-appearance`
+     as `light`, and the popover was gone.
+   - **What I couldn't do.** WebKit isn't installed on this machine, so I couldn't run the real thing.
+     `playwright.config.js:63-75` defines `webkit` (Desktop Safari) and `Mobile Safari` (iPhone 12) projects, and the
+     popover exists only at 520 px and below, which is phones. I can't verify that a choice works there, so per the
+     role rule this blocks.
+   - **The same mechanism in every browser.** A click on the popover's own padding (not an option) closes it in
+     chromium too.
+   - **Asked change (either is enough):**
+     - (a) Make the close robust:
+       - ignore a blur whose `relatedTarget` is `null`, leaving outside presses to the existing `mousedown` handler
+         at `:74`;
+       - or defer the check a tick and test `wrapRef.current.contains(document.activeElement)`;
+       - or `preventDefault` on the options' `mousedown`.
+     - (b) Show it works by running E11 under the `webkit` and `Mobile Safari` projects on a machine that has those
+       browsers.
+
+     With (a), please also run E11 under WebKit if a machine has it.
+
+### Non-blocking
+
+1. **Round-2 non-blocking 2, the 320 px bar.** Signed out at 320 px, `/`, `/setup`, `/assistant` and `/user/<pubkey>`
+   are 368 px wide. Today's bar is already 332 px, and the Appearance button adds 36 px. **I don't hold the verdict on
+   it; record it as a follow-up ledger row.** No AC or test names a width below 375 px, and this story didn't create
+   the overflow. The follow-up should make the profile-family bar fit at 320 px with or without the button.
+2. **Correction to my round-1 and round-2 reports.** The `PovContext.jsx:40` ledger row already exists:
+   `ledger/2026-10-31-pov-context-unguarded-storage.md` (Status OPEN), committed in `51b60ecea`. Nothing is owed there.
+
+### Harness friction
+1. Playwright's WebKit and Mobile Safari projects are configured but their browsers aren't installed on the Mac Studio
+   (`~/Library/Caches/ms-playwright` holds only chromium), so phone-only behaviour can't be checked in the browser that
+   most phones use. This is worth an OPEN `meta` row: either install them, or name where WebKit runs happen (CI).
+
+## Verdict, round 3
+**CHANGES_REQUESTED**
