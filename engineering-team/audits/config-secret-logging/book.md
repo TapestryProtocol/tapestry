@@ -1,9 +1,9 @@
 # Book of Work: The config reader stops logging secret values
 
 **Slug:** config-secret-logging
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-10-31
-**Closed:** —
+**Closed:** 2026-10-31
 
 ## Intent anchor
 
@@ -33,7 +33,7 @@
 
 ## Provenance
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high
 
 ## Close artifacts *(filled by `/close-book`)*
 - Build audit: `engineering-team/audits/config-secret-logging/audit.md`
