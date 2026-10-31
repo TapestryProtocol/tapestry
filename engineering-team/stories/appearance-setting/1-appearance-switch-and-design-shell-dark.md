@@ -71,4 +71,4 @@ None. (Default, admin pages and signed-out placement were settled with David on 
 
 - ADR: `engineering-team/decisions/appearance-setting/0001-appearance-attribute-preload-and-design-shell-tokens.md`
 - Test plan: `engineering-team/stories/appearance-setting/1-appearance-switch-and-design-shell-dark.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/appearance-setting/1-appearance-switch-and-design-shell-dark.md`
