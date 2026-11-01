@@ -32,6 +32,9 @@ const relayListCore = fileURLToPath(new URL('../src/lib/relay-list', import.meta
 // The profile checklist's items (src/lib/assistant-profile-items): one list for the server's check and the
 // /assistant/profile page (ADR assistant-profile-checklist/0001 sub-decision 1). Same cross-boundary CJS treatment.
 const assistantProfileItemsCore = fileURLToPath(new URL('../src/lib/assistant-profile-items', import.meta.url))
+// The Appearance setting (src/lib/appearance.js): the choices, how one resolves, and the design-shell paths, also hand
+// copied into index.html's pre-render script (ADR appearance-setting/0001). Same cross-boundary CJS treatment.
+const appearanceCore = fileURLToPath(new URL('../src/lib/appearance.js', import.meta.url))
 
 export default defineConfig({
   plugins: [react()],
@@ -45,13 +48,14 @@ export default defineConfig({
       '@tapestry/concept-header-copy': conceptHeaderCopyCore,
       '@tapestry/relay-list': relayListCore,
       '@tapestry/assistant-profile-items': assistantProfileItemsCore,
+      '@tapestry/appearance': appearanceCore,
     },
   },
   build: {
     outDir: '../dist',
     emptyOutDir: true,
     commonjsOptions: {
-      include: [/src\/lib\/event-tagging/, /src\/lib\/broadcastOutcome/, /src\/lib\/identification-tags/, /src\/lib\/conceptHeaderEdit/, /src\/lib\/conceptHeaderCopy/, /src\/lib\/relay-list/, /src\/lib\/assistant-profile-items/, /node_modules/],
+      include: [/src\/lib\/event-tagging/, /src\/lib\/broadcastOutcome/, /src\/lib\/identification-tags/, /src\/lib\/conceptHeaderEdit/, /src\/lib\/conceptHeaderCopy/, /src\/lib\/relay-list/, /src\/lib\/assistant-profile-items/, /src\/lib\/appearance/, /node_modules/],
     },
   },
   server: {

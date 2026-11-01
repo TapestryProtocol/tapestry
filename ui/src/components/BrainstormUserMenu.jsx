@@ -4,6 +4,7 @@ import { personalLinks, destinationLinks, accountLinks } from '../config/avatarM
 import AvatarMenuLink from './AvatarMenuLink';
 import SetupAlert from './SetupAlert';
 import TopBarAlert from './TopBarAlert';
+import AppearanceControl from './AppearanceControl';
 
 /**
  * Compact user avatar + dropdown menu for Brainstorm Search pages.
@@ -84,8 +85,15 @@ export default function BrainstormUserMenu({ user, login, logout }) {
     })();
   }, [user]);
 
+  // Signed out, the Appearance control sits beside Sign in: it's a per-browser choice, not an account setting
+  // (appearance-setting #1, ADR 0001 sub-decision 8).
   if (!user) {
-    return <button className="bs-link-btn" onClick={() => login().catch(() => {})}>Sign in with nostr</button>;
+    return (
+      <div className="bs-signin-group">
+        <AppearanceControl variant="compact" />
+        <button className="bs-link-btn" onClick={() => login().catch(() => {})}>Sign in with nostr</button>
+      </div>
+    );
   }
 
   const displayName = user.profile?.name || user.pubkey.slice(0, 8) + '…';
@@ -183,6 +191,11 @@ export default function BrainstormUserMenu({ user, login, logout }) {
             {accountLinks.map(link => (
               <AvatarMenuLink key={link.key} link={link} onNavigate={() => setOpen(false)} />
             ))}
+          </div>
+
+          <div className="bs-usermenu-section bs-usermenu-appearance">
+            <span className="bs-usermenu-pov-switch-label">Appearance</span>
+            <AppearanceControl variant="menu" />
           </div>
 
           <div className="bs-usermenu-footer">

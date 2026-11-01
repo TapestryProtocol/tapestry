@@ -13,6 +13,9 @@
  *        the title span, which still holds only the title.                                            [AC-1, AC-4]
  *   S3 — the pill's CSS: the /assistant badge's shape, the light-page amber (#b45309, or the page's --orange
  *        token resolved to it), contrast at least 4.5:1.                                                     [AC-5]
+ *        Re-aimed 2026-10-31 by appearance-setting #1 (ADR appearance-setting/0001): the design shell's colours are
+ *        tokens with a light and a dark value, so the colour AND the background are resolved against the design
+ *        shell's light tokens (every `.bsd-page` rule) — the same amber on cream, at the same 4.5:1.
  *   S4 — the Assistant top-bar alert and its count don't read the Treasure Map themselves (negative pin; since
  *        assistant-trusted-content-status #1 the provider may re-ask the server after the viewer saves a Map). [AC-7]
  *   R1 — regression sentinel: the card states the pill follows, for the story's edge-case Maps E1–E3 — a card is
@@ -75,6 +78,29 @@ function cssRule(css, selector) {
   const re = new RegExp(`(^|\\})\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'm');
   const m = css.match(re);
   return m ? m[2] : '';
+}
+/**
+ * The design shell's LIGHT tokens: the custom properties of every rule whose selector is exactly `.bsd-page`
+ * (appearance-setting #1 split them over more than one rule). Dark-scoped rules are never read.
+ */
+function shellLightTokens(css) {
+  const tokens = {};
+  const re = /(^|\})\s*\.bsd-page\s*\{([^}]*)\}/gm;
+  let m;
+  while ((m = re.exec(css))) {
+    for (const d of m[2].replace(/\/\*[\s\S]*?\*\//g, '').split(';')) {
+      const k = d.indexOf(':');
+      if (k > 0 && d.slice(0, k).trim().startsWith('--')) tokens[d.slice(0, k).trim()] = d.slice(k + 1).trim();
+    }
+  }
+  return tokens;
+}
+/** Resolve a value's var(--x[, fallback]) against `tokens`, recursively. */
+function resolveToken(value, tokens, depth = 0) {
+  const m = String(value).trim().match(/^var\(\s*(--[a-z0-9-]+)\s*(?:,\s*([\s\S]+))?\)$/i);
+  if (!m || depth > 8) return String(value).trim();
+  const next = m[1] in tokens ? tokens[m[1]] : m[2];
+  return next == null ? `${value} (not defined in .bsd-page)` : resolveToken(next, tokens, depth + 1);
 }
 function declaration(rule, prop) {
   const m = rule.match(new RegExp(`(?:^|;|\\s)${prop}\\s*:\\s*([^;]+)`));
@@ -146,14 +172,11 @@ test('S3: .bsd-tm-cat-attention — the /assistant badge\'s pill shape, amber #b
   assert(rule, `${rel(STYLES)} has no .bsd-tm-cat-attention rule`);
   const wrong = [];
   // The colour may be the page's --orange token (Gate B finding 4). It is resolved where the pill meets it: in the
-  // .bsd-page rule, which the light design pages sit in. The stylesheet's root value (#d29922) is the dark pages'.
-  let color = declaration(rule, 'color').toLowerCase();
-  const token = color.match(/^var\(\s*(--[a-z0-9-]+)\s*\)$/);
-  if (token) {
-    const def = declaration(cssRule(css, '.bsd-page'), token[1]).toLowerCase();
-    color = def || `${color} (not defined in .bsd-page)`;
-  }
-  const bg = (declaration(rule, 'background-color') || declaration(rule, 'background')).toLowerCase();
+  // .bsd-page rules, which the light design pages sit in. The stylesheet's root value (#d29922) is the dark pages'.
+  // Since appearance-setting #1 the background is a token too; both resolve to their LIGHT values here.
+  const tokens = shellLightTokens(css);
+  const color = resolveToken(declaration(rule, 'color'), tokens).toLowerCase();
+  const bg = resolveToken(declaration(rule, 'background-color') || declaration(rule, 'background'), tokens).toLowerCase();
   if (color !== '#b45309') wrong.push(`color is ${show(color)}, want #b45309`);
   if (bg !== '#fffbeb') wrong.push(`background is ${show(bg)}, want #fffbeb`);
   if (/^#[0-9a-f]{6}$/.test(color) && /^#[0-9a-f]{6}$/.test(bg) && contrast(color, bg) < 4.5) {

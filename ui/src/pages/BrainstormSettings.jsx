@@ -4,6 +4,7 @@ import { publishToLocalStrfry } from '../utils/nostrPublish';
 import { usePov } from '../context/PovContext';
 import { useConfig } from '../context/ConfigContext';
 import BrainstormUserMenu, { useHouseProfile } from '../components/BrainstormUserMenu';
+import AppearanceControl from '../components/AppearanceControl';
 import { MY_ASSISTANT_PATH } from '../config/avatarMenuLinks';
 
 /* ── Helpers ──────────────────────────────────────────── */
@@ -400,6 +401,7 @@ export default function BrainstormSettings() {
           <BrainstormUserMenu user={user} login={login} logout={logout} />
         </div>
         <div className="bss-content">
+          <AppearanceCard />
           <div className="bss-empty">
             <p>Sign in with nostr to personalize your search experience.</p>
           </div>
@@ -459,6 +461,8 @@ export default function BrainstormSettings() {
             </div>
           </div>
         </div>
+
+        <AppearanceCard />
 
         {/* Pinned tags */}
         <div className="bss-card">
@@ -711,6 +715,17 @@ export default function BrainstormSettings() {
 }
 
 /* ── Status Row helper ── */
+
+// Appearance, signed in or out: a per-browser choice (appearance-setting #1, ADR 0001 sub-decision 8).
+function AppearanceCard() {
+  return (
+    <div className="bss-card">
+      <div className="bss-card-header">Appearance</div>
+      <p className="bss-card-body">Choose System, Light or Dark. It's kept in this browser only.</p>
+      <AppearanceControl variant="card" />
+    </div>
+  );
+}
 
 function StatusRow({ ok, label }) {
   return (

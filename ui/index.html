@@ -5,6 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/brainstorm.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Brainstorm Search</title>
+    <script>
+      // The Appearance setting before the bundle loads, so no page shows the wrong look first (appearance-setting
+      // ADR 0001). A hand copy of src/lib/appearance.js; test/appearance-setting.test.js P2 keeps them in step.
+      (function () {
+        var root = document.documentElement;
+        var dark = false;
+        try { dark = window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { /* no matchMedia: light */ }
+        var choice = 'system';
+        try {
+          var stored = window.localStorage.getItem('tapestry_appearance');
+          if (stored === 'system' || stored === 'light' || stored === 'dark') choice = stored;
+        } catch (e) { /* storage blocked: follow the computer */ }
+        root.setAttribute('data-appearance', choice === 'system' ? (dark ? 'dark' : 'light') : choice);
+        try {
+          var path = window.location.pathname;
+          var shell = ['/dictionary', '/treasure-map', '/assistants'].some(function (p) {
+            return path === p || path.indexOf(p + '/') === 0;
+          });
+          if (shell) root.setAttribute('data-preload-family', 'design');
+        } catch (e) { /* no hint */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
