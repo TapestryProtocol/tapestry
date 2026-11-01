@@ -160,3 +160,30 @@ Sub-decisions:
 - The `/tapestry/*` admin pages (book decision 2), and `NotFound`, which belongs to no family.
 - Widths below 375px.
 - How search, ranking or personalization behave.
+
+## Amendment 1 (2026-11-01, after review 1)
+
+Review 1 (CHANGES_REQUESTED) found three things the decision above didn't cover. Each fix changes Light only; Dark keeps
+today's values.
+
+- **Light-only rules inside the light scope.** A few corrections can't be written as a wrapper over today's value,
+  because Dark's value comes from a different rule or from an opacity that has to stay. These are written as rules
+  under the light scope selector (`:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) <rule>`),
+  in one block after the token declarations. Dark never matches them. Story 3's T1 and this story's T1 ignore scoped
+  rules by construction, and H5 snapshots Dark.
+- **The unavailable point-of-view option holds a working link.**
+  - `.bs-pov-option.disabled` ("Your personalized perspective is being calculated. Settings") is dimmed with
+    `opacity: 0.5`. Under ADR 0002 Amendment 1 and story 3's T4, a disabled state keeps that literal in both looks.
+  - Its Settings link is a working link, though: the way forward for a newly signed-in person. Under the group opacity
+    it reads 2.29:1 in Light.
+  - **Exception, this selector only:** in Light the option has `opacity: 1` and is dimmed by colour (`--bsp-muted`), so
+    the link reads whole in the accent ink. Dark keeps the literal 0.5 (1.81:1 today, unchanged), and T4 still holds for
+    every unscoped disabled rule.
+- **A hovered result card.** The card is a link, so the global `a:hover` colour (the link-hover purple) is inherited by
+  its text, and under the 0.72 dim that reads 3.97:1. In Light, `.bs-result-card:hover` keeps its text in `--bsp-ink`.
+  The hover cue is the card's border and tint, as today.
+- **"Not Personalized" gets a hover cue in Light.** Its `:hover { opacity: 0.8 }` reads the soft token, which is 1 in
+  Light, so hovering showed nothing. In Light it underlines on hover.
+- **`/information-for-agents`** (sub-decision 4 adopted its path): its field's border and fill and its status line's
+  dimming are wrapped like story 3's inline styles (`--bsp-border`, `--bsp-surface`, `--bsp-opacity-soft`), so the
+  field has a visible edge in Light.
