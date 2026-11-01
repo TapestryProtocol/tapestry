@@ -181,7 +181,9 @@ today's values.
     every unscoped disabled rule.
 - **A hovered result card.** The card is a link, so the global `a:hover` colour (the link-hover purple) is inherited by
   its text, and under the 0.72 dim that reads 3.97:1. In Light, `.bs-result-card:hover` keeps its text in `--bsp-ink`.
-  The hover cue is the card's border and tint, as today.
+  The hover cue is the card's border and tint, as today. The hover tint lets the grey page through, so in Light the
+  Verification Score badge on a hovered card reads `--bsp-cyan-ink-strong` (`#155e75`, the next shade of the same cyan):
+  5.27:1, up from 3.88:1 (review 4-R2).
 - **"Not Personalized" gets a hover cue in Light.** Its `:hover { opacity: 0.8 }` reads the soft token, which is 1 in
   Light, so hovering showed nothing. In Light it underlines on hover.
 - **`/information-for-agents`** (sub-decision 4 adopted its path): its field's border and fill and its status line's
