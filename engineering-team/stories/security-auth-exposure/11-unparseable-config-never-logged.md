@@ -109,5 +109,5 @@ decisions) → Test Design → Implementation → Review. Nothing is pushed with
 
 ## Linked artifacts
 - ADR: `decisions/security-auth-exposure/0006-refuse-unsafe-conf-at-render.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `stories/security-auth-exposure/11-unparseable-config-never-logged.test-plan.md`
 - Review: (filled in after Review phase)
