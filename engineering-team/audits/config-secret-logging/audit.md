@@ -84,7 +84,8 @@ and checked live on a scratch instance and on the staging droplet.
       entrypoint `bash -n` check that would close the class. (§4 #2; `stories/_intake.md` 2026-10-31 entry)
       *(Done 2026-11-01 by story `security-auth-exposure` #11, book `config-parse-leak`, merge `04e0d0f1` on
       `staging`.)*
-- [ ] Promote both fixes to `main`; until then production and the sandboxes log the values. (§4 #4)
+- [x] Promote both fixes to `main`; until then production and the sandboxes log the values. (§4 #4)
+      *(Done 2026-11-01: promoted to production as merge `c3335a5d` on ngit and GitHub `main`, deploy run 41338503257; the droplet's logs hold neither value. `tags` and `magic-carpet` deploy from their own branches, not `main`, so they take it when those branches do.)*
 - [ ] Rotate `SESSION_SECRET` and `NEO4J_PASSWORD` wherever old logs may hold them; on `main`-line instances, after
       promotion. (OPEN.md row `2026-10-31-rotate-secrets-after-log-fix`)
 - [x] With stderr ignored, a conf line that parses but runs a command (`B=pw TAILY`) is now silent where it used to
