@@ -634,6 +634,15 @@ docker exec tapestry bash -c '
 # This wins only until the next restart, when the template re-renders.
 ```
 
+### A value the conf can't hold, or a conf bash can't parse, stops the boot
+
+Story `security-auth-exposure` #11 / ADR `security-auth-exposure/0006`. Every shell script and the control panel `source` this file, and bash prints a line it can't parse, secret and all, to stderr, which lands in the logs. So the entrypoint now refuses to start in two cases, and neither message prints a value or a line:
+
+- **`` RenderError: NEO4J_PASSWORD contains a character the config file can't hold safely (" $ ` \ or a line break); refusing to render ``.** A value the entrypoint substitutes (the nine variables it exports, above) holds one of those five characters, which bash would end the string on, expand, or run as a command. Change the value; for `NEO4J_PASSWORD`, change it in Neo4j too. Any other character is fine.
+- **`[check-conf-syntax] /etc/brainstorm.conf is not valid bash near line N`**, then `[entrypoint] FATAL: /etc/brainstorm.conf failed its syntax check`. The rendered file doesn't parse, which means the template itself is broken. Bash reports an unclosed quote at the file's last line, not the line that opened it.
+
+**What this doesn't cover:** a hand edit inside a running container (see the trap above) is never checked. A bad edit there reaches the shell scripts' logs until the next restart, when the file is re-rendered and checked. To check an edit before anything sources it, run `docker exec tapestry bash /usr/local/lib/node_modules/brainstorm/tools/check-conf-syntax.sh /etc/brainstorm.conf`. Bare-metal installs, which copy the template once, run neither check.
+
 ### Drift sentinels
 
 `test/entrypoint-template-rendering.test.js` carries two drift sentinels that fail npm test if:

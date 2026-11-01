@@ -52,6 +52,12 @@ if ! node "${BRAINSTORM_MODULE_BASE_DIR}tools/render-conf-template.js" \
   exit 1
 fi
 chmod 664 /etc/brainstorm.conf
+# Every shell script and the control panel source this file, and bash prints a line it can't parse, value and all,
+# to stderr. Refuse to start instead, naming only the line number (ADR security-auth-exposure/0006).
+if ! bash "${BRAINSTORM_MODULE_BASE_DIR}tools/check-conf-syntax.sh" /etc/brainstorm.conf; then
+  echo "[entrypoint] FATAL: /etc/brainstorm.conf failed its syntax check" >&2
+  exit 1
+fi
 echo "[entrypoint] /etc/brainstorm.conf generated from config/brainstorm.conf.template"
 
 # ── Install algorithm config files from templates (if not already present) ──

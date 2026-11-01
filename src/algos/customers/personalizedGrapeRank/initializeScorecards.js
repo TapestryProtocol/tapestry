@@ -36,13 +36,15 @@ const OWNER_SEED_MAX_HOPS = 3;
 // used for Neo4j credentials).
 function getOwnerPubkey() {
   try {
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #11).
     const ownerPubkey = execSync(
       `source ${CONFIG_FILES.brainstorm} && echo $BRAINSTORM_OWNER_PUBKEY`,
-      { shell: '/bin/bash', encoding: 'utf8' }
+      { shell: '/bin/bash', encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
     ).trim();
     return ownerPubkey || null;
   } catch (error) {
-    console.error(`Error reading BRAINSTORM_OWNER_PUBKEY: ${error.message}`);
+    console.error(`Error reading BRAINSTORM_OWNER_PUBKEY (status ${error.status})`);
     return null;
   }
 }
@@ -129,28 +131,34 @@ function loadOwnerScorecards() {
 // Get Neo4j configuration from brainstorm.conf (same pattern as updateNeo4jWithApoc.js)
 function getNeo4jConfig() {
   try {
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #11).
     const neo4jUri = execSync(`source ${CONFIG_FILES.brainstorm} && echo $NEO4J_URI`, {
       shell: '/bin/bash',
-      encoding: 'utf8'
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
     const neo4jUsername = execSync(`source ${CONFIG_FILES.brainstorm} && echo $NEO4J_USER`, {
       shell: '/bin/bash',
-      encoding: 'utf8'
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
     const neo4jPassword = execSync(`source ${CONFIG_FILES.brainstorm} && echo $NEO4J_PASSWORD`, {
       shell: '/bin/bash',
-      encoding: 'utf8'
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
     if (!neo4jUri || !neo4jUsername || !neo4jPassword) {
-      throw new Error('Missing Neo4j connection details in brainstorm.conf');
+      console.error('Missing Neo4j connection details in brainstorm.conf');
+      return null;
     }
 
     return { uri: neo4jUri, username: neo4jUsername, password: neo4jPassword };
   } catch (error) {
-    console.error(`Error loading Neo4j configuration: ${error.message}`);
+    console.error(`Error loading Neo4j configuration: lookup of NEO4J_URI, NEO4J_USER or NEO4J_PASSWORD failed (status ${error.status})`);
     return null;
   }
 }

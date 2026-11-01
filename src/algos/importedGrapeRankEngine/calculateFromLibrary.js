@@ -77,28 +77,49 @@ main().catch(function (error) {
     process.exit(1);
 });
 function getCalculatorParams() {
-    var params = (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.graperank, " && echo $RIGOR,$ATTENUATION_FACTOR"), {
-        shell: '/bin/bash',
-        encoding: 'utf8'
-    }).trim().split(',');
-    return {
-        rigor: parseFloat(params[0]),
-        attenuation: parseFloat(params[1]),
-    };
+    try {
+        // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+        // value and all (security-auth-exposure #11).
+        var params = (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.graperank, " && echo $RIGOR,$ATTENUATION_FACTOR"), {
+            shell: '/bin/bash',
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
+        }).trim().split(',');
+        return {
+            rigor: parseFloat(params[0]),
+            attenuation: parseFloat(params[1]),
+        };
+    }
+    catch (error) {
+        console.error("Error loading configuration: lookup of RIGOR or ATTENUATION_FACTOR failed (status ".concat(error.status, ")"));
+        process.exit(1);
+    }
 }
 function getPubkey() {
-    // Load Brainstorm config
-    return (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.brainstorm, " && echo $BRAINSTORM_OWNER_PUBKEY"), {
-        shell: '/bin/bash',
-        encoding: 'utf8'
-    }).trim();
+    try {
+        // Load Brainstorm config
+        // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+        // value and all (security-auth-exposure #11).
+        return (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.brainstorm, " && echo $BRAINSTORM_OWNER_PUBKEY"), {
+            shell: '/bin/bash',
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
+        }).trim();
+    }
+    catch (error) {
+        console.error("Error loading configuration: lookup of BRAINSTORM_OWNER_PUBKEY failed (status ".concat(error.status, ")"));
+        process.exit(1);
+    }
 }
 function getConfig() {
     try {
         // Load GrapeRank config
+        // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+        // value and all (security-auth-exposure #11).
         var graperankConfig = (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.graperank, " && echo $FOLLOW_RATING,$FOLLOW_CONFIDENCE,$MUTE_RATING,$MUTE_CONFIDENCE,$REPORT_RATING,$REPORT_CONFIDENCE,$FOLLOW_CONFIDENCE_OF_OBSERVER"), {
             shell: '/bin/bash',
-            encoding: 'utf8'
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
         }).trim().split(',');
         return new Map([
             ['nostr-follows', {
@@ -119,7 +140,7 @@ function getConfig() {
         ]);
     }
     catch (error) {
-        console.error("Error loading configuration: ".concat(error.message));
+        console.error("Error loading configuration: lookup of FOLLOW_RATING, FOLLOW_CONFIDENCE, MUTE_RATING, MUTE_CONFIDENCE, REPORT_RATING, REPORT_CONFIDENCE or FOLLOW_CONFIDENCE_OF_OBSERVER failed (status ".concat(error.status, ")"));
         process.exit(1);
     }
 }
@@ -304,20 +325,26 @@ function updateNeo4j(scorecards) {
 function getNeo4jConfig() {
     try {
         // Load Neo4j connection details from brainstorm.conf
+        // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+        // value and all (security-auth-exposure #11).
         var neo4jUri = (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.brainstorm, " && echo $NEO4J_URI"), {
             shell: '/bin/bash',
-            encoding: 'utf8'
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
         }).trim();
         var neo4jUsername = (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.brainstorm, " && echo $NEO4J_USER"), {
             shell: '/bin/bash',
-            encoding: 'utf8'
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
         }).trim();
         var neo4jPassword = (0, child_process_1.execSync)("source ".concat(CONFIG_FILES.brainstorm, " && echo $NEO4J_PASSWORD"), {
             shell: '/bin/bash',
-            encoding: 'utf8'
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore']
         }).trim();
         if (!neo4jUri || !neo4jUsername || !neo4jPassword) {
-            throw new Error('Missing Neo4j connection details in brainstorm.conf. Please ensure NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD are defined.');
+            console.error('Missing Neo4j connection details in brainstorm.conf. Please ensure NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD are defined.');
+            process.exit(1);
         }
         return {
             uri: neo4jUri,
@@ -326,7 +353,7 @@ function getNeo4jConfig() {
         };
     }
     catch (error) {
-        console.error("Error loading Neo4j configuration: ".concat(error.message));
+        console.error("Error loading Neo4j configuration: lookup of NEO4J_URI, NEO4J_USER or NEO4J_PASSWORD failed (status ".concat(error.status, ")"));
         process.exit(1);
     }
 }
