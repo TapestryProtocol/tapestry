@@ -1,9 +1,9 @@
 # Book of Work: A config file bash can't parse never reaches a log
 
 **Slug:** config-parse-leak
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-10-31
-**Closed:** —
+**Closed:** 2026-11-01
 
 ## Intent anchor
 
@@ -43,7 +43,7 @@ shell scripts"), restated:
 
 ## Provenance
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high
 
 ## Close artifacts *(filled by `/close-book`)*
 - Build audit: `engineering-team/audits/config-parse-leak/audit.md`

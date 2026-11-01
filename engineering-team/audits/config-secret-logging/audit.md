@@ -80,13 +80,17 @@ and checked live on a scratch instance and on the staging droplet.
 
 ## 6. Carry-forward register
 
-- [ ] The 11 GrapeRank scripts and ~120 shell scripts that still pass a broken conf line to their logs, and the
+- [x] The 11 GrapeRank scripts and ~120 shell scripts that still pass a broken conf line to their logs, and the
       entrypoint `bash -n` check that would close the class. (§4 #2; `stories/_intake.md` 2026-10-31 entry)
+      *(Done 2026-11-01 by story `security-auth-exposure` #11, book `config-parse-leak`, merge `04e0d0f1` on
+      `staging`.)*
 - [ ] Promote both fixes to `main`; until then production and the sandboxes log the values. (§4 #4)
 - [ ] Rotate `SESSION_SECRET` and `NEO4J_PASSWORD` wherever old logs may hold them; on `main`-line instances, after
       promotion. (OPEN.md row `2026-10-31-rotate-secrets-after-log-fix`)
-- [ ] With stderr ignored, a conf line that parses but runs a command (`B=pw TAILY`) is now silent where it used to
+- [x] With stderr ignored, a conf line that parses but runs a command (`B=pw TAILY`) is now silent where it used to
       print half the value. (review 10, non-blocking 2; covered by the intake entry's render check)
+      *(Done 2026-11-01: a value can no longer produce such a line, since the renderer refuses `"`; a template line of
+      that shape fails a test. Story `security-auth-exposure` #11, ADR `security-auth-exposure/0006`.)*
 - [ ] `getConfigFromFile()` logs on every call (one startup reads `BRAINSTORM_OWNER_PUBKEY` 15 times); a debug level
       would cut it. (§4 #3)
 - [ ] Small test and log nits: AC-4's check knows only today's variable names; a failed lookup logs `status null` when

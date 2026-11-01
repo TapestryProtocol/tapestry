@@ -20,4 +20,13 @@ Two gaps found while using the scratch instance to rerun suites that need `node_
 Fix shapes: mount `lib/` (read-only) beside `src/`, and copy or mount `test/`; check the image's creation date
 against the checkout's last change to `package.json`, `bin/` or `docker/`, and warn or refuse when it's older.
 
+**Seen again 2026-11-01** (book `config-parse-leak`, story `security-auth-exposure` #11). Running suites under the
+image's bash without the scratch stack hit three more snags: `docker cp` merges into the image's own tree, so files
+the branch deletes (here two dead copies) are still there and fail the suite; the session scratchpad under
+`/private/tmp` isn't shared with Docker Desktop, so a bind mount of it is empty; and macOS `com.apple.provenance`
+xattrs make `docker cp` of a tar stream fail unless it is made with `COPYFILE_DISABLE=1 tar --no-xattrs`. What
+worked: `docker create` a throwaway container from the image, stream `git ls-files … | tar --no-xattrs -cf - -T -`
+into a fresh `/tmp`, link the image's `node_modules` there, and run the suites from `/tmp`. A `scripts/` helper doing
+that would replace the hand recipe.
+
 **Pointer:** `scripts/scratch-stack.sh:24-26,80`; `engineering-team/audits/config-secret-logging/audit.md` §7.
