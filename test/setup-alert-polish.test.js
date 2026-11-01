@@ -323,19 +323,32 @@ function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-test('S1: styles.css — the "Finish setup" chip\'s text is dark on its amber, at 4.5:1 or better (story 3 AC-1)', async () => {
+// Re-aimed by appearance-setting #2 (ADR appearance-setting/0002; owner, 2026-11-01): the chip's colours read
+// var(--bsp-<role>, <Dark value>). Dark is the fallback, where the owner's dark-on-amber call holds; Light is the token's
+// value in the light scope, where the text is white on the deeper amber. Both at 4.5:1 or better.
+function looks(value, lightTokens) {
+  const v = String(value).trim();
+  const m = v.match(/^var\(\s*(--bsp-[\w-]+)\s*,\s*([^)]+)\)$/);
+  return m ? { dark: m[2].trim(), light: (lightTokens[m[1]] || '').trim() } : { dark: v, light: v };
+}
+test('S1: styles.css — the "Finish setup" chip reads at 4.5:1 or better: dark on its amber in Dark (the owner\'s call), white on the deeper amber in Light (story 3 AC-1)', async () => {
   const css = safeRead(STYLES);
   const rule = (css.match(/\.bs-setup-alert-button\s*\{([^}]*)\}/) || [])[1];
   assert(rule, 'styles.css must still have a .bs-setup-alert-button rule');
-  const color = ((rule.match(/(?:^|;|\s)color:\s*([^;]+);/) || [])[1] || '').trim();
-  const background = ((rule.match(/background(?:-color)?:\s*([^;]+);/) || [])[1] || '').trim();
-  const fg = hexToRgb(color);
-  const bg = hexToRgb(background);
-  assert(fg && bg, `the chip's color and background must be hex values to measure; got color ${show(color)}, background ${show(background)}`);
-  assert(bg[0] > 150 && bg[1] > 100 && bg[2] < 100, `the chip must stay amber; its background is ${background}`);
-  const ratio = contrast(fg, bg);
-  assert(luminance(fg) < luminance(bg), `the chip's text must be darker than its amber (the owner's call); got ${color} on ${background}`);
-  assert(ratio >= 4.5, `"Finish setup" is ${color} on ${background}: ${ratio.toFixed(2)}:1, below the 4.5:1 the story asks for`);
+  const lightBlock = (css.match(/:root\[data-appearance="light"\] body:has\(:is\(\.bsp-page, \.bss-page\)\)\s*\{([^}]*)\}/) || [])[1] || '';
+  const lightTokens = Object.fromEntries([...lightBlock.matchAll(/(--bsp-[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2]]));
+  const color = looks(((rule.match(/(?:^|;|\s)color:\s*([^;]+);/) || [])[1] || ''), lightTokens);
+  const background = looks(((rule.match(/background(?:-color)?:\s*([^;]+);/) || [])[1] || ''), lightTokens);
+  for (const look of ['dark', 'light']) {
+    const fg = hexToRgb(color[look]);
+    const bg = hexToRgb(background[look]);
+    assert(fg && bg, `in ${look}, the chip's color and background must be hex values to measure; got color ${show(color[look])}, background ${show(background[look])}`);
+    assert(bg[0] > 150 && bg[1] > 50 && bg[2] < 100, `in ${look}, the chip must stay amber; its background is ${background[look]}`);
+    const ratio = contrast(fg, bg);
+    if (look === 'dark') assert(luminance(fg) < luminance(bg), `in Dark the chip's text must be darker than its amber (the owner's call); got ${color.dark} on ${background.dark}`);
+    else assert(luminance(fg) > luminance(bg), `in Light the chip's text is white on the deeper amber (the owner, 2026-11-01); got ${color.light} on ${background.light}`);
+    assert(ratio >= 4.5, `in ${look}, "Finish setup" is ${color[look]} on ${background[look]}: ${ratio.toFixed(2)}:1, below the 4.5:1 the story asks for`);
+  }
 });
 
 test('S2: only the known pages POST to /api/strfry/publish by hand — a new one must say whether it can carry the viewer\'s kind 3 or kind 10040 (ADR 0003 § 7)', async () => {

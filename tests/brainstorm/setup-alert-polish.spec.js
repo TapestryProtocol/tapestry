@@ -325,14 +325,18 @@ test.describe('The Setup Alert, polished (setup-status-and-alert #3)', () => {
   });
 
   /* ───────── P1 — the button reads clearly (AC-1) ───────── */
-  for (const [width, parts] of [[1280, ['sentence', 'count']], [800, ['sentence']], [375, []]]) {
-    test(`P1: at ${width} px "Finish setup" is dark on its amber at 4.5:1 or better, and the pill's other text keeps 4.5:1 (AC-1)`, async ({ page }) => {
+  // Re-aimed by appearance-setting #2 (owner, 2026-11-01): dark text on the amber is the Dark look's; in Light the amber
+  // deepens and the text is white, as on the design shell's light Setup alert. Both at 4.5:1 or better.
+  for (const scheme of ['dark', 'light']) for (const [width, parts] of [[1280, ['sentence', 'count']], [800, ['sentence']], [375, []]]) {
+    test(`P1 (${scheme}): at ${width} px "Finish setup" reads at 4.5:1 or better on its amber, and the pill's other text keeps 4.5:1 (AC-1)`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
       await page.setViewportSize({ width, height: 800 });
       await mock(page, { answers: [TWO_LEFT] });
       await open(page, '/tags');
       await expect(pill(page)).toBeVisible();
       const chip = await textContrast(pill(page).locator('.bs-setup-alert-button'));
-      expect(chip.color, `the chip's text must be dark (the owner's call); it is ${chip.color}`).toBe('rgb(15, 15, 26)');
+      const want = scheme === 'dark' ? 'rgb(15, 15, 26)' : 'rgb(255, 255, 255)';
+      expect(chip.color, `in ${scheme}, the chip's text must be ${want} (the owner's call); it is ${chip.color}`).toBe(want);
       expect(chip.ratio, `"${chip.text}" contrasts ${chip.ratio.toFixed(2)}:1 with its chip`).toBeGreaterThanOrEqual(4.5);
       for (const part of parts) {
         const c = await textContrast(pill(page).locator(`.bs-setup-alert-${part}`));

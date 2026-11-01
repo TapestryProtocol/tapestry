@@ -43,7 +43,8 @@ const READING_FILES = ['pages/BrainstormAbout.jsx', 'pages/BrainstormAboutSearch
   'pages/BrainstormReporters.jsx', 'pages/BrainstormUserNotes.jsx', 'pages/BrainstormFeed.jsx', 'pages/BrainstormEvent.jsx',
   'components/TopBar.jsx', 'components/BrainstormUserMenu.jsx'];
 // Story 3's families (ADR 0002 sub-decision 7). `.bs-setup-alert` is frame, so only the step rules are story 3's.
-const STORY3 = /^(bs-tag|bs-tagindex|bs-pin|bs-pins|bs-pindetail|bs-tl|ptc-|ptd-|pcd-|bs-assistant|bs-idtags|bs-outbox|bs-setup-step)/;
+// Re-aimed after review 1: the bare ptc, ptd and pcd (the Manage Tags dialog's own box) are story 3's too.
+const STORY3 = /^(bs-tag|bs-tagindex|bs-pin|bs-pins|bs-pindetail|bs-tl|ptc\b|ptd\b|pcd\b|bs-assistant|bs-idtags|bs-outbox|bs-setup-step)/;
 const INLINE_FILES = ['components/AboutThisInstance.jsx', 'pages/BrainstormAboutSearch.jsx', 'pages/BrainstormAbout.jsx',
   'pages/BrainstormPersonalization.jsx', 'pages/BrainstormHowSearchWorks.jsx', 'pages/BrainstormSkill.jsx'];
 // The light scope (ADR 0002 sub-decision 3), compared with quotes and spaces normalized.
@@ -276,6 +277,18 @@ test('T4 every colour a story-2 rule paints reads a --bsp- token (with today\'s 
     }
   }
   assert(bare.length === 0, `${bare.length} colour(s) in story-2 rules don't read a --bsp- token:${NL}        ${bare.slice(0, 15).join(`${NL}        `)}`);
+});
+
+test('T5 story 3\'s families are left as they are: no rule naming one reads a --bsp- token (review 1, Blocking 3)', () => {
+  const now = H.parseCss(nowCss());
+  const touched = [];
+  for (const r of now) {
+    if (scoped(r.selector)) continue;
+    const names = [...r.selector.matchAll(/\.([a-z][\w-]+)/g)].map((m) => m[1]);
+    if (!names.some((c) => STORY3.test(c))) continue;
+    for (const [p, v] of r.decls) if (/var\(\s*--bsp-/.test(v)) touched.push(`${r.context ? r.context + ' ' : ''}${r.selector} { ${p}: ${v} }`);
+  }
+  assert(touched.length === 0, `${touched.length} declaration(s) in story 3's families were converted (story 3 does them; half a conversion leaves dark text on a light box):${NL}        ${touched.slice(0, 12).join(`${NL}        `)}`);
 });
 
 // ── I ─────────────────────────────────────────────────────────────────────────────────────────────────────────────

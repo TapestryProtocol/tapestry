@@ -32,13 +32,15 @@ const PK = 'b2'.repeat(32);
 const OWNER = '1'.repeat(64);
 const OWNER_TA = '2'.repeat(64);
 const CUSTOMER = { pubkey: VIEWER, assistantPubkey: null, classification: 'customer' };
+const OWNER_SESSION = { pubkey: OWNER, assistantPubkey: OWNER_TA, classification: 'owner' };
 const KEY = 'tapestry_appearance';
 
 const READING = ['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization', '/settings',
   `/user/${PK}`, `/user/${PK}/follows`, `/user/${PK}/followers`, `/user/${PK}/reporters`, `/user/${PK}/muters`,
   `/user/${PK}/follows-hops`, `/user/${PK}/notes`, '/feed', '/event'];
 // Story 3 owns these families; on a reading page they may stay dark in Light (story 2, AC-1; ADR 0002 sub-decision 7).
-const STORY3 = '[class*="bs-tag"], [class*="bs-pin"], [class*="bs-tl"], [class*="ptc-"], [class*="ptd-"], [class*="pcd-"], '
+// Re-aimed after review 1: the bare .ptc, .ptd and .pcd (the Manage Tags dialog's box) are story 3's too.
+const STORY3 = '.ptc, .ptd, .pcd, [class*="bs-tag"], [class*="bs-pin"], [class*="bs-tl"], [class*="ptc-"], [class*="ptd-"], [class*="pcd-"], '
   + '[class*="bs-assistant"], [class*="bs-idtags"], [class*="bs-outbox"], [class*="bs-setup-step"]';
 const FRAME = '.bsp-top-bar, .bss-top-bar, .bs-usermenu, .bs-usermenu-dropdown, .bs-signin-group, .bs-setup-alert, .bs-topbar-pill';
 const LIGHT_CANVAS = 'rgb(242, 243, 240)';
@@ -144,6 +146,10 @@ async function lightSweep(page) {
     const L = ({ r, g, b }) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
     const ratio = (a, b) => { const [x, y] = [L(a), L(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
     const bgOf = (el) => { for (let e = el; e; e = e.parentElement) { const c = parse(getComputedStyle(e).backgroundColor); if (c && c.a >= 0.5) return c; } return parse(getComputedStyle(document.body).backgroundColor); };
+    // The text as rendered: its own alpha and every ancestor's opacity laid over the background (review 1, Blocking 2:
+    // links in an opacity 0.85 container read 4.05:1 though their colour alone passes).
+    const opacityOf = (el) => { let o = 1; for (let e = el; e && e !== document.documentElement; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity); return o; };
+    const rendered = (fg, bg, o) => { const a = (fg.a == null ? 1 : fg.a) * o; return { r: fg.r * a + bg.r * (1 - a), g: fg.g * a + bg.g * (1 - a), b: fg.b * a + bg.b * (1 - a) }; };
     const describe = (el) => `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\s+/).join('.') : ''} "${(el.textContent || '').trim().slice(0, 30)}"`;
     const text = []; const surface = []; let checked = 0;
     for (const el of document.body.querySelectorAll('*')) {
@@ -153,8 +159,9 @@ async function lightSweep(page) {
       const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
       if (own && !el.closest(':disabled, [aria-disabled="true"]')) {
         checked++;
-        const c = ratio(parse(s.color), bgOf(el)); const need = el.closest('a, p') ? 4.5 : 3;
-        if (c < need) text.push(`${describe(el)}: ${c.toFixed(2)}:1 (needs ${need}), ${s.color} on ${JSON.stringify(bgOf(el))}`);
+        const bg = bgOf(el); const o = opacityOf(el);
+        const c = ratio(rendered(parse(s.color), bg, o), bg); const need = el.closest('a, p') ? 4.5 : 3;
+        if (c < need) text.push(`${describe(el)}: ${c.toFixed(2)}:1 (needs ${need}), ${s.color} at opacity ${o.toFixed(2)} on ${JSON.stringify(bg)}`);
       }
       const bg = parse(s.backgroundColor);
       if (bg && bg.a >= 0.5 && r.width >= 40 && r.height >= 20 && L(bg) < 0.15 && !['IMG', 'CANVAS', 'VIDEO'].includes(el.tagName)) {
@@ -186,7 +193,8 @@ test.describe('L1 in Light, every reading page is light and readable', () => {
   for (const url of READING) {
     test(`${url}`, async ({ browser }) => {
       test.skip(WRITING, 'baseline run');
-      for (const session of [null, CUSTOMER]) {
+      // An owner on /settings too: its dashboard link shows only to owners and admins (review 1, Blocking 2).
+      for (const session of url === '/settings' ? [null, CUSTOMER, OWNER_SESSION] : [null, CUSTOMER]) {
         const context = await browser.newContext({ colorScheme: 'light' });
         const page = await context.newPage();
         await mockStack(page, { session });
@@ -194,7 +202,7 @@ test.describe('L1 in Light, every reading page is light and readable', () => {
         await expect.poll(() => attr(page)).toBe('light');
         await settle(page);
         if (session) await page.locator('.bs-usermenu-avatar-btn').first().click();
-        const who = session ? 'signed in, menu open' : 'signed out';
+        const who = session ? `signed in (${session.classification}), menu open` : 'signed out';
         await expect.poll(() => pageBox(page).evaluate((e) => getComputedStyle(e).backgroundColor), { message: `${url} (${who}): the page background` }).toBe(LIGHT_CANVAS);
         const { text, surface, checked } = await lightSweep(page);
         expect(checked, `${url} (${who}): the sweep read the page's text`).toBeGreaterThan(5);
