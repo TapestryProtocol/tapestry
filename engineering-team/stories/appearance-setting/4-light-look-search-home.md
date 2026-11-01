@@ -78,6 +78,6 @@ None.
 
 ## Linked artifacts
 
-- ADR: —
+- ADR: `engineering-team/decisions/appearance-setting/0004-search-home-joins-the-light-token-layer.md`
 - Test plan: —
 - Review: —
