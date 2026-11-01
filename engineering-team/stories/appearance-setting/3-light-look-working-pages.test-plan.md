@@ -158,3 +158,14 @@ were wrong. These tests close those gaps; none loosens what an earlier test guar
 
 `.bs-result-age.stale`, which review 1 listed, is the search home's results row (`BrainstormSearch.jsx:749`), not a
 pinned list. It is story 4's.
+
+The finder also had to read nested templates (`ptc-chip ${… `ptc-chip-mine-${…}` …}`), whose backticks pair wrongly.
+It now cuts a string at an unclosed `${`, and reads `-${` class starts from the whole file. With that, the Node checks
+found the tag chips the class probe had already flagged.
+
+After the fixes:
+- Node: `appearance-setting-working` 14/14, `appearance-setting-light` 11/11, `appearance-setting` 16/16.
+- Playwright: story 3's spec 53/53 (W8 included). Stories 1 and 2, `setup-alert-polish`, SC2 and the 9 related specs:
+  283/283.
+- 46 screened related Node suites: 45 clean, and one that skips without a stack. Two H-class suites that write through
+  container `tapestry` were left out (`teach-it-what-matters`, `show-the-four-on-the-goal-screens-that-already-exist`).
