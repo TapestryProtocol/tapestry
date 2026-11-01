@@ -50,12 +50,16 @@ fix `b56f83a1` (base `69e10489`)
 - [x] **AC-4** (name and resolution still logged): every test also asserts the key name and the way it was resolved.
       `quoted`/`unquoted`/`source`/`default`/`not found` all survive. The `\bquoted\b` check can't be satisfied by
       `unquoted` (there is no word boundary inside the word).
-- [ ] **AC-5** (startup log on a scratch instance, then on the staging droplet) — **half done.** Scratch instance
+- [x] **AC-5** (startup log on a scratch instance, then on the staging droplet) — **done.** Scratch instance
       (2026-10-31, session): the startup log `/var/log/supervisor/brainstorm.log` (930 lines) names both keys only as
       `Found NEO4J_PASSWORD (quoted)` and `Found SESSION_SECRET (quoted)`. The real values, read from the instance's
       `/etc/brainstorm.conf`, occur 0 times in it and in 0 files under `/var/log`, and no line has the old
-      `Found <KEY>=`, `Source command result for` or `Using default value for <KEY>: ` form. Staging droplet: pending
-      the deploy. It doesn't block a code-review verdict. It does gate the book's acceptance frame (bullets 3–5).
+      `Found <KEY>=`, `Source command result for` or `Using default value for <KEY>: ` form. Staging droplet
+      (2026-10-31, session, read-only over SSH): after ngit and GitHub `staging` moved to merge `6d3bb659` and deploy
+      run 41235569192 succeeded (1m52s), the droplet's checkout was `6d3bb659`, the container restarted at 19:45:28
+      UTC, and the 858-line startup log named both keys only as `Found <KEY> (quoted)`. The real values occurred 0
+      times in it and in 0 files under `/var/log`, with no old-format line; the site answered 200. Re-checked after
+      story 10's deploy (`17e38803`, run 41243255175): still 0.
 - [x] No criterion dropped. No behavior added beyond the story: only log strings changed, return values are identical.
 - [x] The story's sweep claim holds. `grep` for `console.*(PASSWORD|SECRET|PRIVKEY|NSEC)` and for logs of
       `${neo4jPassword|password|sessionSecret|privkey|nsec}` across `src lib bin` found only `bin/install.js:440`.
@@ -137,13 +141,12 @@ None.
 
 The diff matches the story. All four value-bearing log lines are fixed, and the AC-4 diagnostics remain. The new suite
 passes at HEAD and fails 0/5 at the pre-fix commit. No blocking issues. PASS is for the code review. The six-suite
-regression rerun and the AC-5 live evidence are still pending and are recorded as pending, not as passes.
+regression rerun and the AC-5 live evidence were pending at review time; both have since passed (above).
 
 ## On PASS (same commit)
 
 - [x] Story `**Status:**` flipped to `Done` in place, by the session in the review commit, after the scratch-container
       rerun of the six config-dependent suites confirmed no regression (above).
-- [ ] Completion detection: the book (`audits/config-secret-logging/`) is **not** complete at review time. Frame
-      bullets 1–2 are satisfied. Bullets 3 (scratch-instance startup log), 4 (on ngit `staging` and deployed, with a
-      clean droplet log) and 5 (issue `c549202b` updated and resolved) are outstanding. Offer `/close-book` only
-      after they land.
+- [x] Completion detection: the book (`audits/config-secret-logging/`) was **not** complete at review time (frame
+      bullets 1–2 only). Bullets 3–5 landed later on 2026-10-31, and story 10 met the bullet it added; the owner then
+      ratified the close ("Record and close").
