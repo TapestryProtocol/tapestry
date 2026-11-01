@@ -489,7 +489,10 @@ test('O4: nothing user-facing still sends people to "the My Assistant page (/ass
     const lines = code.split(NL);
     lines.forEach((line, i) => {
       const at = `${rel(file)}:${i + 1}`;
-      if (/(['"`])\/assistant\1/.test(line) && !(file === MENU_MOD && /ASSISTANT_MANAGEMENT_PATH\s*=/.test(line))) hits.push(`${at} writes the literal '/assistant': ${squash(line).slice(0, 120)}`);
+      // The Appearance setting's path list (src/lib/appearance.js) names /assistant as a pre-render path prefix, not a link
+      // (appearance-setting #3, ADR 0003 sub-decision 5).
+      const appearancePaths = /src\/lib\/appearance\.js$/.test(file) && /WORKING_PATH_PREFIXES\s*=/.test(line);
+      if (/(['"`])\/assistant\1/.test(line) && !(file === MENU_MOD && /ASSISTANT_MANAGEMENT_PATH\s*=/.test(line)) && !appearancePaths) hits.push(`${at} writes the literal '/assistant': ${squash(line).slice(0, 120)}`);
       if (/href=["']\/assistant["']/.test(line)) hits.push(`${at} links to /assistant: ${squash(line).slice(0, 120)}`);
       if (/\((?:`)?\/assistant(?:`)?\)/.test(line)) hits.push(`${at} names "(/assistant)": ${squash(line).slice(0, 120)}`);
       if (/My Assistant page/.test(line)) hits.push(`${at} names "the My Assistant page": ${squash(line).slice(0, 120)}`);

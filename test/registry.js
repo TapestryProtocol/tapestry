@@ -361,6 +361,14 @@ const suites = [
   { file: 'assistant-scores-route.test.js' },
   { file: 'assistant-scores-page.test.js' },
   { file: 'task-queue-jobid-valid.test.js' },
+  // appearance-setting #1: the appearance library, the pre-render script, the design shell's tokens (ADR appearance-setting/0001).
+  { file: 'appearance-setting.test.js' },
+  // appearance-setting #2: the reading paths, the light scope, Dark unchanged (ADR appearance-setting/0002).
+  { file: 'appearance-setting-light.test.js' },
+  // appearance-setting #3: the working paths, the whole profile family converted, the /about chip (ADR appearance-setting/0003).
+  { file: 'appearance-setting-working.test.js' },
+  // appearance-setting #4: the search home's exact path, its rules converted, the badges and stale marker (ADR appearance-setting/0004).
+  { file: 'appearance-setting-home.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

@@ -24,7 +24,7 @@ export default function DevelopersTrustedAssertions() {
         specification.
       </p>
 
-      <p style={{ ...S.p, marginTop: '2rem', opacity: 0.6 }}>Documentation coming soon.</p>
+      <p style={{ ...S.p, marginTop: '2rem', opacity: 'var(--bsp-opacity-dim, 0.6)' }}>Documentation coming soon.</p>
     </DevPage>
   );
 }

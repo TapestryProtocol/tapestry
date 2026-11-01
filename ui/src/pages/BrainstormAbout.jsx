@@ -20,7 +20,7 @@ export default function BrainstormAbout() {
       <div className="bsp-content" style={{ maxWidth: 680, margin: '0 auto', padding: '2rem 1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>About Brainstorm</h1>
 
-        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 'var(--bsp-opacity-soft, 0.85)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <p>
             Brainstorm is a search engine for <a href="https://github.com/nostr" target="_blank" rel="noopener noreferrer">nostr</a>,
             the open social-media protocol. It indexes millions of profiles and ranks them through a trust-based filter —
@@ -34,9 +34,9 @@ export default function BrainstormAbout() {
           </p>
 
           <p>
-            Brainstorm is open source. See <a href="/developers" style={{ color: '#a5b4fc' }}>Developers</a> for
-            repository links and integration docs, <a href="/how-search-works" style={{ color: '#a5b4fc' }}>How Search Works</a> for
-            the underlying mechanics, and <a href="/personalization" style={{ color: '#a5b4fc' }}>How Personalization Works</a> for
+            Brainstorm is open source. See <a href="/developers" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>Developers</a> for
+            repository links and integration docs, <a href="/how-search-works" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>How Search Works</a> for
+            the underlying mechanics, and <a href="/personalization" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>How Personalization Works</a> for
             an explanation of the trust filter.
           </p>
         </div>

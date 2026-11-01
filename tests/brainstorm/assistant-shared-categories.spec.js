@@ -148,6 +148,9 @@ test.describe('Done, but shared (assistant-shared-categories #1)', () => {
   });
 
   test('SC2: the look — a shared card keeps ✓ and Done, with Shared after Done in its title row; the Shared pill is neither the Done green nor the Needs attention amber; the line sits under the description in the muted colour (AC-2)', async ({ page }) => {
+    // Re-aimed by appearance-setting #3: the hub follows the Appearance setting, so this pins the Dark look it was
+    // written for; the Light look's muted line is checked at the end.
+    await page.emulateMedia({ colorScheme: 'dark' });
     await mock(page, answerWith(OWNERS_TRIO));
     await open(page, X.HUB);
     const lists = cardOf(page, 'Lists');
@@ -166,6 +169,9 @@ test.describe('Done, but shared (assistant-shared-categories #1)', () => {
     const line = order.findIndex((c) => /bs-assistant-hub-card-shared/.test(c));
     expect(desc >= 0 && line > desc, `the line follows the description: ${JSON.stringify(order)}`).toBe(true);
     expect(await colour(sharedLine(lists))).toBe('rgba(226, 232, 240, 0.6)');
+    // In Light the line is the light site's secondary ink (appearance-setting ADR 0002/0003).
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect.poll(() => colour(sharedLine(cardOf(page, 'Lists')))).toBe('rgb(85, 93, 105)');
   });
 
   test('SC3: "Move it here →" opens /treasure-map, not the card\'s page; the card itself still leads to its page (AC-2)', async ({ page }) => {

@@ -18,13 +18,13 @@ export default function BrainstormSkill() {
       </div>
 
       <div className="bsp-content" style={{ maxWidth: 680, margin: '0 auto', padding: '2rem 1.5rem' }}>
-        <a href="/about-brainstorm-search" style={{ fontSize: '0.85rem', opacity: 0.7, textDecoration: 'none' }}>
+        <a href="/about-brainstorm-search" style={{ fontSize: '0.85rem', opacity: 'var(--bsp-opacity-soft, 0.7)', textDecoration: 'none' }}>
           ← About Brainstorm Search
         </a>
 
         <h1 style={{ fontSize: '1.5rem', margin: '0.75rem 0 1.5rem' }}>Using Your Agent</h1>
 
-        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 'var(--bsp-opacity-soft, 0.85)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <p>
             Google search was revolutionary back in the day. A user goes to the search bar, types in
             keywords or a sentence, and sees a list of results.
@@ -36,7 +36,7 @@ export default function BrainstormSkill() {
           <p>Watch this space for more information.</p>
           <p>
             Building something on nostr?{' '}
-            <Link to="/information-for-agents" style={{ color: '#a5b4fc' }}>
+            <Link to="/information-for-agents" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>
               Ask your agent how to use Brainstorm's technology
             </Link>.
           </p>

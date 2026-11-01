@@ -9,23 +9,23 @@ import { fetchProfilesChunked } from '../utils/profileBatch';
  * /about's own dark styling. The same for every viewer: these are facts about the instance, not a point of view.
  */
 
-const ACCENT = '#a5b4fc';
+const ACCENT = 'var(--bsp-accent, #a5b4fc)';
 
 const labelStyle = {
   display: 'flex', alignItems: 'center', gap: '8px', margin: '1.5rem 0 0.6rem',
-  fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.6,
+  fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 'var(--bsp-opacity-dim, 0.6)',
 };
 const chipStyle = {
-  padding: '0 8px', borderRadius: '999px', background: 'rgba(165, 180, 252, 0.15)', color: ACCENT,
+  padding: '0 8px', borderRadius: '999px', background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: `var(--bsp-accent-ink, ${ACCENT})`,
   fontSize: '0.75rem', letterSpacing: 0,
 };
 const boxStyle = {
   display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px',
-  border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255, 255, 255, 0.03)',
+  border: '1px solid', borderColor: 'var(--bsp-line-2, rgba(255, 255, 255, 0.1))', background: 'var(--bsp-wash-1, rgba(255, 255, 255, 0.03))',
 };
 const avatarStyle = { width: 40, height: 40, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' };
 const ellipsis = { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-const noteStyle = { margin: 0, fontSize: '0.9rem', opacity: 0.7 };
+const noteStyle = { margin: 0, fontSize: '0.9rem', opacity: 'var(--bsp-opacity-soft, 0.7)' };
 
 /** "npub1" and the next four characters, an ellipsis, and the last four. */
 function shortNpub(pubkey) {
@@ -52,16 +52,16 @@ function PersonCard({ pubkey, profile }) {
       ) : (
         <span aria-hidden="true" style={{
           ...avatarStyle, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(165, 180, 252, 0.15)', color: ACCENT, fontWeight: 700,
+          background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: `var(--bsp-accent-ink, ${ACCENT})`, fontWeight: 700,
         }}>
           {Array.from(name)[0].toUpperCase()}
         </span>
       )}
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ ...ellipsis, fontWeight: 600 }}>{name}</span>
-        {nip05 && <span style={{ ...ellipsis, fontSize: '0.85rem', opacity: 0.65 }}>{nip05}</span>}
+        {nip05 && <span style={{ ...ellipsis, fontSize: '0.85rem', opacity: 'var(--bsp-opacity-soft, 0.65)' }}>{nip05}</span>}
       </span>
-      <span aria-hidden="true" style={{ flexShrink: 0, fontSize: '1.25rem', opacity: 0.5 }}>›</span>
+      <span aria-hidden="true" style={{ flexShrink: 0, fontSize: '1.25rem', opacity: 'var(--bsp-opacity-dim, 0.5)' }}>›</span>
     </Link>
   );
 }
@@ -108,9 +108,9 @@ export default function AboutThisInstance() {
   const count = about?.customerCount;
 
   return (
-    <section id="this-instance" style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+    <section id="this-instance" style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid', borderTopColor: 'var(--bsp-line-2, rgba(255, 255, 255, 0.1))' }}>
       <h2 style={{ fontSize: '1.25rem', margin: 0 }}>About this Brainstorm Instance</h2>
-      <p style={{ margin: '0.4rem 0 0', fontSize: '0.95rem', opacity: 0.75 }}>
+      <p style={{ margin: '0.4rem 0 0', fontSize: '0.95rem', opacity: 'var(--bsp-opacity-soft, 0.75)' }}>
         Who runs this instance, and how many customers it serves.
       </p>
 
@@ -143,10 +143,10 @@ export default function AboutThisInstance() {
             {typeof count === 'number' ? (
               <>
                 <span style={{ fontSize: '2rem', fontWeight: 700, color: ACCENT, lineHeight: 1 }}>{count.toLocaleString()}</span>
-                <span style={{ opacity: 0.8 }}>{count === 1 ? 'customer' : 'customers'}</span>
+                <span style={{ opacity: 'var(--bsp-opacity-soft, 0.8)' }}>{count === 1 ? 'customer' : 'customers'}</span>
               </>
             ) : (
-              <span style={{ opacity: 0.8 }}>Customer count unavailable</span>
+              <span style={{ opacity: 'var(--bsp-opacity-soft, 0.8)' }}>Customer count unavailable</span>
             )}
           </div>
         </>

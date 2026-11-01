@@ -19,6 +19,7 @@ Things not in the acceptance criteria but still worth covering.
 - [ ] Concurrent calls.
 - [ ] Concept Graph API unavailable.
 - [ ] Concept handle not found.
+- [ ] For a contrast or colour check in the browser: exempt elements, not containers (never an `a` or a `button`), and after a hover or click wait for transitions to finish before measuring. *(Ratified 2026-11-01, appearance-setting book close, reviews 4-R1/R2.)*
 
 ## Test infrastructure
 - Test framework: Node built-in runner (`node test/test.js`) and/or Playwright. A run's result is read per [Running and reading the test gate](../README.md#running-and-reading-the-test-gate).
