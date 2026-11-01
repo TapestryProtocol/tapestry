@@ -282,7 +282,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
       return (
         <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <h3 style={{ margin: '0 0 0.25rem' }}>🤖 Tapestry Assistant Profile</h3>
-          <p style={{ margin: 0, opacity: 0.8 }}>
+          <p style={{ margin: 0, opacity: 'var(--bsp-opacity-soft, 0.8)' }}>
             This instance's Tapestry Assistant key is missing. It is created when the instance is first set up
             and can't be created from this page; it has to be restored on the server before this assistant's
             profile can be managed here.
@@ -294,7 +294,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
       return (
         <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <h3 style={{ margin: '0 0 0.25rem' }}>🤖 Your Tapestry Assistant Profile</h3>
-          <p style={{ margin: 0, opacity: 0.8 }}>
+          <p style={{ margin: 0, opacity: 'var(--bsp-opacity-soft, 0.8)' }}>
             You don't have a Tapestry Assistant on this instance, and your account can't create one here.
           </p>
         </div>
@@ -303,7 +303,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
     return (
       <div className="settings-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <h3 style={{ margin: '0 0 0.25rem' }}>🤖 Your Tapestry Assistant Profile</h3>
-        <p style={{ margin: 0, opacity: 0.8 }}>
+        <p style={{ margin: 0, opacity: 'var(--bsp-opacity-soft, 0.8)' }}>
           You don't have a server-side Tapestry Assistant key yet. Create one to start publishing a kind 0
           profile and kind 30382 Trust Assertions from your Assistant.
         </p>
@@ -337,14 +337,14 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
         <h3 style={{ margin: '0 0 0.25rem' }}>
           {status.isOwner ? '🤖 Tapestry Assistant Profile' : '🤖 Your Tapestry Assistant Profile'}
         </h3>
-        <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.75 }}>
+        <p style={{ margin: 0, fontSize: '0.85rem', opacity: 'var(--bsp-opacity-soft, 0.75)' }}>
           {status.isOwner
             ? 'The kind 0 profile published by this instance\'s Tapestry Assistant — the server-side identity that signs automated events.'
             : 'The kind 0 profile published by your server-side Tapestry Assistant — the identity that signs your kind 30382 Trust Assertions.'}
         </p>
       </div>
 
-      <div style={{ fontSize: '0.8rem', opacity: 0.8, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <div style={{ fontSize: '0.8rem', opacity: 'var(--bsp-opacity-soft, 0.8)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         <div>
           <strong>Assistant pubkey:</strong>{' '}
           <code>{shortPk}</code>{' '}
@@ -387,7 +387,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
           >
             {generating ? 'Working…' : '🎨 Generate badged avatar'}
           </button>
-          <span style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+          <span style={{ fontSize: '0.8rem', opacity: 'var(--bsp-opacity-soft, 0.75)' }}>
             Stamps your own profile picture with the Tapestry mark.
           </span>
         </div>
@@ -425,7 +425,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
         )}
 
         {compositeNotice && (
-          <div style={{ fontSize: '0.8rem', opacity: 0.85 }}>{compositeNotice}</div>
+          <div style={{ fontSize: '0.8rem', opacity: 'var(--bsp-opacity-soft, 0.85)' }}>{compositeNotice}</div>
         )}
       </div>
 

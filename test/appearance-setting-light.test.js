@@ -263,19 +263,21 @@ function walkFrom(files) {
     const scan = (src, depth = 0) => {
       for (const m of src.matchAll(/(['"`])((?:(?!\1)[^\\\n]|\\.)*)\1/g)) {
         // Only a string shaped like a class list counts: prose ("the Pinned tab.") and URLs ("?tab=pinned") don't.
-        const flat = m[2].replace(/\$\{[^}]*\}/g, ' ');
+        // A nested template pairs its backticks wrongly; an unclosed ${… is cut off where it starts.
+        const flat = m[2].replace(/\$\{[^}]*\}/g, ' ').replace(/\$\{.*$/, ' ').replace(/^[^{]*\}/, ' ');
         if (/^[\w\s-]*$/.test(flat)) for (const word of flat.split(/\s+/)) {
           if (/^[a-z][\w-]+$/.test(word) && defined.has(word) && !STATE_WORD.test(word)) classes.add(word);
         }
         if (m[1] !== '`' || depth > 2) continue;
         for (const inner of m[2].matchAll(/\$\{([^}]*)\}/g)) scan(inner[1], depth + 1);
-        // A class finished in code (`settings-message-${type}`) counts as every class the stylesheet defines with
-        // that start.
-        for (const p of m[2].matchAll(/(?:^|[^\w-])([a-z][\w-]*-)\$\{/g)) for (const c of defined) if (c.startsWith(p[1])) classes.add(c);
       }
     };
     // Comments go first: their apostrophes and quotes would pair with a string's.
-    scan(text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|\s)\/\/.*$/gm, '$1').replace(NOT_A_CLASS, ''));
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|\s)\/\/.*$/gm, '$1').replace(NOT_A_CLASS, '');
+    scan(code);
+    // A class finished in code (`settings-message-${type}`) counts as every class the stylesheet defines with that
+    // start. Only a template literal holds `-${`, so the whole file is read for it (nested templates included).
+    for (const p of code.matchAll(/[`\s'"]([a-z][\w-]*-)\$\{/g)) for (const c of defined) if (c.startsWith(p[1])) classes.add(c);
     for (const m of text.matchAll(/className=(?:"([^"]+)"|\{((?:[^{}]|\{[^{}]*\})*)\})/g)) {
       const strings = m[1] !== undefined ? [m[1]] : [...m[2].matchAll(/(['"`])((?:(?!\1)[^\\])*)\1/g)].map((x) => x[2]);
       for (const str of strings) for (const c of str.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-z][\w-]+$/.test(c)) classes.add(c);

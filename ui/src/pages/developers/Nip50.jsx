@@ -41,19 +41,19 @@ export default function DevelopersNip50() {
 
       <table style={S.table}>
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', textAlign: 'left' }}>
+          <tr style={{ borderBottom: '1px solid', borderBottomColor: 'var(--bsp-line-3, rgba(255,255,255,0.15))', textAlign: 'left' }}>
             <th style={S.th}>Extension</th>
             <th style={S.th}>Format</th>
             <th style={S.th}>Description</th>
           </tr>
         </thead>
         <tbody style={{ opacity: 'var(--bsp-opacity-soft, 0.85)' }}>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <tr style={{ borderBottom: '1px solid', borderBottomColor: 'var(--bsp-line-1, rgba(255,255,255,0.08))' }}>
             <td style={S.td}><code style={S.code}>observer</code></td>
             <td style={{ ...S.td, ...S.mono }}>observer:&lt;hex-pubkey&gt;</td>
             <td style={S.td}>The user's pubkey. Results are processed by that user's community. Omit to use the relay's default point of view.</td>
           </tr>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <tr style={{ borderBottom: '1px solid', borderBottomColor: 'var(--bsp-line-1, rgba(255,255,255,0.08))' }}>
             <td style={S.td}><code style={S.code}>sort</code></td>
             <td style={{ ...S.td, ...S.mono }}>sort:&lt;metric&gt;:&lt;asc|desc&gt;</td>
             <td style={S.td}>Sort by a trust metric. Common metrics: <code style={S.code}>followers</code>, <code style={S.code}>rank</code></td>

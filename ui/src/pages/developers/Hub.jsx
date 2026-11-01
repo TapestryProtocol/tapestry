@@ -3,7 +3,8 @@ import DevPage, { S } from './DevPage';
 
 const card = {
   display: 'block', padding: '1rem 1.2rem', borderRadius: 8,
-  border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)',
+  border: '1px solid', borderColor: 'var(--bsp-line-2, rgba(255,255,255,0.1))',
+  background: 'var(--bsp-wash-1, rgba(255,255,255,0.04))',
   textDecoration: 'none', marginBottom: '0.8rem',
 };
 

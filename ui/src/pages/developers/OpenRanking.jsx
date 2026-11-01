@@ -94,14 +94,14 @@ export default function DevelopersOpenRanking() {
 
       <table style={S.table}>
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', textAlign: 'left' }}>
+          <tr style={{ borderBottom: '1px solid', borderBottomColor: 'var(--bsp-line-3, rgba(255,255,255,0.15))', textAlign: 'left' }}>
             <th style={S.th}>Field</th>
             <th style={S.th}>Meaning</th>
           </tr>
         </thead>
         <tbody style={{ opacity: 'var(--bsp-opacity-soft, 0.85)' }}>
           {FIELDS.map(([f, d]) => (
-            <tr key={f} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <tr key={f} style={{ borderBottom: '1px solid', borderBottomColor: 'var(--bsp-line-1, rgba(255,255,255,0.08))' }}>
               <td style={{ ...S.td, ...S.mono }}>{f}</td>
               <td style={S.td}>{d}</td>
             </tr>
