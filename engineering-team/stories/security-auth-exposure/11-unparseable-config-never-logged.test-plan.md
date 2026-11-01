@@ -112,7 +112,8 @@ suite: **2 passed, 9 failed.**
 - AC-2 refusal: all eight values `rendered (status 0)` and `the output holds the value`.
 - AC-2 nothing runs: all three forms `sourcing the rendered conf ran the command` and `the renderer accepted the value`.
 - The dead copies: both `still present`.
-- The scan: 44 calls flagged, each for the missing `stdio` and for `error.message` in its catch.
+- The scan: 44 calls found and 39 flagged, each for the missing `stdio` and for `error.message` in the catch it was
+  checked against. *(Corrected at Review: the first draft said all 44 were flagged.)*
 - Passing, as they should before the fix: the Option C template guard and the scanner's self-test.
 
 Unchanged suites on the host at the same point: `config-source-stderr` 4/0, `config-secret-logging` 5/0,

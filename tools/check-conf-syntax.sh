@@ -7,7 +7,8 @@
 #
 # `bash -n` writes its complaint to stderr, and for some errors that complaint includes the offending line itself,
 # secret value and all. So its output is captured into a variable here and never printed: only the line number is
-# pulled out of it. Bash reports an unclosed quote at the file's last line, not the line that opened it.
+# pulled out of it (LC_ALL=C keeps bash's wording English, so the number can be found). Bash reports an unclosed
+# quote at the file's last line, not the line that opened it.
 
 conf="$1"
 if [ -z "$conf" ] || [ ! -r "$conf" ]; then
@@ -15,7 +16,7 @@ if [ -z "$conf" ] || [ ! -r "$conf" ]; then
   exit 1
 fi
 
-if out=$(bash -n "$conf" 2>&1 >/dev/null); then
+if out=$(LC_ALL=C bash -n "$conf" 2>&1 >/dev/null); then
   exit 0
 fi
 
