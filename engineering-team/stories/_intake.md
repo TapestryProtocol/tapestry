@@ -2972,6 +2972,8 @@ Standard (all phases).
 
 ## 2026-10-31 — A config file bash can't parse still leaks through the GrapeRank scripts and the shell scripts (bug, security)
 
+**PICKED UP** 2026-10-31 → `stories/security-auth-exposure/11-unparseable-config-never-logged.md` (book `audits/config-parse-leak/`)
+
 **Raw request:** none; found at the Review of `security-auth-exposure` #10 and queued by the owner's choice to narrow
 that story ("Narrow, file follow-up", 2026-10-31). Source: ngit issue `c549202b` and its follow-ups.
 
