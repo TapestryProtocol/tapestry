@@ -42,6 +42,9 @@ const BASE = '7690c8e160f54f2d0d370f55b938e7eca186b7fb';
 const NL = String.fromCharCode(10);
 
 const HOME_FILES = ['pages/BrainstormSearch.jsx'];
+// Light pages no story's inventory walked (review 4-R1, Blocking 2): /information-for-agents renders DevPage, so it has
+// been light since story 3, but its own file was never read by a test.
+const ADOPTED_FILES = ['pages/InformationForAgents.jsx'];
 // Dimmed boxes that hold links read --bsp-opacity-soft whatever their value: a link must reach 4.5:1, and the dim token
 // (0.72) over a box's ink would take it under (ADR 0002 Amendment 1 "soft covers links"; story 3's DevPage intro is the
 // precedent). Key: selector; value: the links it holds.
@@ -61,8 +64,8 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || 'Assertion failed
 const show = (v) => JSON.stringify(v);
 function loadLib() { delete require.cache[require.resolve(LIB)]; return require(LIB); }
 const nowCss = () => fs.readFileSync(STYLES, 'utf8');
-const homeClasses = () => S2.classesFrom(HOME_FILES);
-const homeFiles = () => S2.filesFrom(HOME_FILES).map((f) => path.relative(UI_SRC, f)).filter((rel) => !S3.CONTENT_FILES.includes(rel));
+const homeClasses = () => S2.classesFrom([...HOME_FILES, ...ADOPTED_FILES]);
+const homeFiles = () => S2.filesFrom([...HOME_FILES, ...ADOPTED_FILES]).map((f) => path.relative(UI_SRC, f)).filter((rel) => !S3.CONTENT_FILES.includes(rel));
 const where = (r) => `${r.context ? r.context + ' ' : ''}${r.selector}`;
 
 // ── C ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -97,6 +100,23 @@ test('C3 every top-level route outside /tapestry gets a pre-render hint, or is n
     if (L.preloadFamily(sample) == null) missing.push(`${r} (as ${sample})`);
   }
   assert(missing.length === 0, `${missing.length} route(s) would show the other look first:${NL}        ${missing.join(`${NL}        `)}`);
+});
+
+test('C4 every top-level route with a light pre-render hint has its page file in a test inventory (review 4-R1, Blocking 2)', () => {
+  const L = loadLib();
+  const S3mod = require('./appearance-setting-working.test.js');
+  const app = fs.readFileSync(APP, 'utf8');
+  const imports = new Map([...app.matchAll(/import\s+(\w+)\s+from\s+'(\.\/[^']+)'/g)].map((m) => [m[1], m[2].replace(/^\.\//, '')]));
+  const walked = new Set(S2.filesFrom([...S2.READING_FILES, ...S3mod.WORKING_FILES, ...HOME_FILES, ...ADOPTED_FILES]).map((f) => path.relative(UI_SRC, f).replace(/\.jsx?$/, '').replace(/\/index$/, '')));
+  const missing = [];
+  for (const m of app.matchAll(/path:\s*'(\/[^']*)'\s*,\s*element:\s*<(\w+)/g)) {
+    const [, route, comp] = m;
+    if (L.preloadFamily(route.replace(/:[\w]+/g, 'x')) !== 'profile') continue;
+    const file = imports.get(comp);
+    if (!file) continue; // an inline element (a redirect): nothing to read
+    if (!walked.has(file.replace(/\.jsx?$/, '').replace(/\/index$/, ''))) missing.push(`${route} → ${comp} (${file})`);
+  }
+  assert(missing.length === 0, `${missing.length} light page(s) whose file no test reads:${NL}        ${missing.join(`${NL}        `)}`);
 });
 
 // ── P ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -230,6 +250,23 @@ test('M3 the POV name in the search home\'s avatar menu reads the accent ink (st
   assert(reads(v, '--bsp-accent-ink'), `.bs-usermenu-pov-indicator strong { color } should be var(--bsp-accent-ink, …), got ${show(v)}`);
 });
 
+test('M5 the unavailable point-of-view option dims by colour in Light, so its Settings link is read whole (review 4-R1, Blocking 1; ADR 0004 Amendment 1)', () => {
+  const all = H.parseCss(nowCss());
+  const rules = all.filter((r) => !r.context && S2.scoped(r.selector) && /\.bs-pov-option\.disabled$/.test(S2.normSel(r.selector)));
+  assert(rules.length > 0, 'a Light-only rule for .bs-pov-option.disabled should exist, inside the light scope');
+  const decl = (p) => { let v = null; for (const r of rules) for (const [k, val] of r.decls) if (k === p) v = val; return v; };
+  assert(decl('opacity') === '1', `in Light the option shouldn't fade its link: opacity 1, got ${show(decl('opacity'))}`);
+  assert(/^var\(\s*--bsp-(muted|ink-2)\s*\)$/.test(String(decl('color') || '').trim()), `in Light the option dims by colour (--bsp-muted or --bsp-ink-2), got ${show(decl('color'))}`);
+  for (const r of rules) assert(S2.isScope(S2.normSel(r.selector).replace(/\s+\.bs-pov-option\.disabled$/, '')), `${r.selector} should sit under the light scope`);
+  assert(all.some((r) => !r.context && r.selector === '.bs-pov-option.disabled' && r.decls.some(([p, v]) => p === 'opacity' && v === '0.5')), 'Dark keeps the option\'s literal 0.5 (story 3 T4)');
+});
+
+test('M6 a hovered result card keeps its text in the ink in Light (review 4-R1, non-blocking 1)', () => {
+  const rules = H.parseCss(nowCss()).filter((r) => !r.context && S2.scoped(r.selector) && /\.bs-result-card:hover$/.test(S2.normSel(r.selector)));
+  const color = rules.flatMap((r) => r.decls.filter(([p]) => p === 'color').map(([, v]) => v)).pop();
+  assert(/^var\(\s*--bsp-ink\s*\)$/.test(String(color || '').trim()), `a Light-only .bs-result-card:hover should set color: var(--bsp-ink), got ${show(color)}`);
+});
+
 test('M4 the search home\'s page reads the light canvas and ink', () => {
   const bg = declOf('.bs-page', 'background'); const ink = declOf('.bs-page', 'color');
   assert(reads(bg, '--bsp-canvas'), `.bs-page { background } should be var(--bsp-canvas, …), got ${show(bg)}`);
@@ -258,7 +295,7 @@ test('K1 in Light, every text-on-background pair a search-home rule paints reach
 
 // ── I ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('I1 the inline colours in every file the search home reaches read --bsp- tokens', () => {
+test('I1 the inline colours in every file the search home and /information-for-agents reach read --bsp- tokens', () => {
   const files = homeFiles();
   assert(files.includes('pages/BrainstormSearch.jsx'), 'the walk should start from the search home');
   const bare = S3.inlineColours(files);
@@ -266,6 +303,7 @@ test('I1 the inline colours in every file the search home reaches read --bsp- to
 });
 
 test('I2 no inline style in those files dims with a literal or conditional opacity (a disabled control\'s own aside)', () => {
+  assert(homeFiles().includes('pages/InformationForAgents.jsx'), 'the walk should include /information-for-agents\'s page');
   const bare = S3.inlineOpacities(homeFiles());
   assert(bare.length === 0, `${bare.length} literal inline opacit(ies):${NL}        ${bare.slice(0, 20).join(`${NL}        `)}`);
 });
@@ -292,4 +330,4 @@ if (require.main === module) {
   run().then((r) => process.exit(r.fail ? 1 : 0));
 }
 
-module.exports = { run, HOME_FILES };
+module.exports = { run, HOME_FILES, ADOPTED_FILES };

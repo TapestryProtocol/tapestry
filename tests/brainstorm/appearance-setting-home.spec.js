@@ -137,7 +137,8 @@ async function lightSweep(page, root = 'body') {
       if (r.width === 0 || r.height === 0 || s.visibility === 'hidden' || s.display === 'none' || parseFloat(s.opacity) === 0) continue;
       const typed = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.value;
       const own = typed || [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
-      const inactive = el.closest(':disabled, [aria-disabled="true"], [aria-hidden="true"], .bs-pov-option.disabled');
+      // Narrowed after review 4-R1 (Blocking 1): the unavailable option's text is exempt, a working link inside it isn't.
+      const inactive = el.closest(':disabled, [aria-disabled="true"], [aria-hidden="true"]') || (el.closest('.bs-pov-option.disabled') && !el.closest('a'));
       if (own && !inactive) {
         checked++;
         const { c: bg, o } = backdrop(el);
@@ -464,6 +465,57 @@ test('H10 in Light, the admin dashboard and a page in no family keep today\'s ba
     await settle(page);
     expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), `${url}: body`).toBe(DARK_PRE_RENDER);
   }
+});
+
+// ── H12 ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+test('H12 in Light, /information-for-agents is light and readable, and its field has a visible edge (review 4-R1, Blocking 2)', async ({ page }) => {
+  test.skip(WRITING, 'baseline run');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await mockStack(page);
+  await page.goto('/information-for-agents');
+  await settle(page);
+  await expect.poll(() => page.locator('.bsp-page').first().evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(LIGHT_CANVAS);
+  const field = page.locator('textarea, input[type="text"]').first();
+  await field.fill('A search engine for recipes');
+  const { text, surface, checked } = await lightSweep(page);
+  expect(checked).toBeGreaterThan(3);
+  expect(surface, 'no dark surface').toEqual([]);
+  expect(text, 'all text readable, typed text included').toEqual([]);
+  const edge = await field.evaluate((el) => {
+    const parse = (s) => { const m = String(s).match(/rgba?\(([^)]+)\)/); const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
+    const L = ({ r, g, b }) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+    const over = (t, u) => ({ r: t.r * t.a + u.r * (1 - t.a), g: t.g * t.a + u.g * (1 - t.a), b: t.b * t.a + u.b * (1 - t.a), a: 1 });
+    let behind = parse(getComputedStyle(document.body).backgroundColor);
+    const chain = []; for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) chain.unshift(e);
+    for (const e of chain) { const bg = parse(getComputedStyle(e).backgroundColor); if (bg.a > 0) behind = over(bg, behind); }
+    const border = over(parse(getComputedStyle(el).borderTopColor), behind);
+    const [x, y] = [L(border), L(behind)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+  });
+  // The light site's own field edge (--bsp-border on the canvas) is about 1.3:1; white on white is 1.0:1.
+  expect(edge, 'the field\'s border shows against the page').toBeGreaterThanOrEqual(1.25);
+});
+
+// ── H13 ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+test('H13 in Light, hovering keeps the search home readable and visible: a result card\'s text, and the "Not Personalized" button\'s cue (review 4-R1, non-blocking 1–2)', async ({ page }) => {
+  test.skip(WRITING, 'baseline run');
+  await page.emulateMedia({ colorScheme: 'light' });
+  await mockStack(page);
+  await page.goto('/?q=podcast');
+  await settle(page);
+  await page.locator('.bs-result-card').first().hover();
+  const { text } = await lightSweep(page, '.bs-result-card:hover');
+  expect(text, 'a hovered result card\'s text reads in Light as rendered').toEqual([]);
+  await page.goto('/');
+  await settle(page);
+  const status = page.locator('.bs-personalization-status').first();
+  const look = () => status.evaluate((e) => { const s = getComputedStyle(e); return [s.color, s.opacity, s.textDecorationLine, s.backgroundColor].join(' | '); });
+  await page.mouse.move(0, 0);
+  const before = await look();
+  await status.hover();
+  expect(await look(), '"Not Personalized" changes when hovered, in Light too').not.toBe(before);
 });
 
 // ── H11 ───────────────────────────────────────────────────────────────────────────────────────────────────────────

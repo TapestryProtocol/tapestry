@@ -335,8 +335,11 @@ test('S1: styles.css — the "Finish setup" chip reads at 4.5:1 or better: dark 
   const css = safeRead(STYLES);
   const rule = (css.match(/\.bs-setup-alert-button\s*\{([^}]*)\}/) || [])[1];
   assert(rule, 'styles.css must still have a .bs-setup-alert-button rule');
-  // Re-aimed by appearance-setting #4: the scope's :is() list also holds the search home's .bs-page (ADR 0004).
-  const lightBlock = (css.match(/:root\[data-appearance="light"\] body:has\(:is\(\.bsp-page, \.bss-page(?:, \.bs-page)?\)\)\s*\{([^}]*)\}/) || [])[1] || '';
+  // Re-aimed by appearance-setting #4 (review 4-R1): the light scope is found by its shape, story 2's isScope, so a page
+  // joining its :is() list doesn't break this test again.
+  const { isScope } = require('./appearance-setting-light.test.js').helpers;
+  const blocks = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => isScope(m[1].replace(/\/\*[\s\S]*?\*\//g, '').trim()));
+  const lightBlock = blocks.map((m) => m[2]).join(';');
   const lightTokens = Object.fromEntries([...lightBlock.matchAll(/(--bsp-[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2]]));
   const color = looks(((rule.match(/(?:^|;|\s)color:\s*([^;]+);/) || [])[1] || ''), lightTokens);
   const background = looks(((rule.match(/background(?:-color)?:\s*([^;]+);/) || [])[1] || ''), lightTokens);

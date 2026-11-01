@@ -184,3 +184,30 @@ After the implementation:
 - 44 screened related Node suites: 43 clean (`setup-alert-polish` after the S1 re-aim above), and
   `tag-detail-curated-view-and-pin-polish`, which skips without a stack. The two H-class suites that write through
   container `tapestry` were left out, as before.
+
+## Amendment 2 (2026-11-01, after review 1)
+
+Review 1 (CHANGES_REQUESTED) found two gaps and some hover issues. None of these changes loosens what an earlier test
+guards.
+
+- **Blocking 1, the unavailable point-of-view option:**
+  - H1–H3's sweep narrows its exemption. The option's text stays exempt (an inactive option), but a working link inside
+    it is measured. The Settings link read 2.29:1 in Light.
+  - New **M5:** a Light-only rule, inside the light scope, sets the option's opacity to 1 and dims it by colour
+    (`--bsp-muted` or `--bsp-ink-2`), so its link reads whole. Dark keeps the literal 0.5 (story 3's T4), as ADR 0004
+    Amendment 1 records.
+- **Blocking 2, `/information-for-agents`:**
+  - Its page file joins story 4's Node checks as `ADOPTED_FILES`, so T2, I1 and I2 now read it.
+  - New **C4:** every top-level route with a light pre-render hint has its page file in a test inventory. A light page
+    no test reads can't slip through again.
+  - New **H12:** the page in Light is light and readable, typed text included, and its field's edge shows against the
+    page (1.25:1 or more; white on white was 1.02:1).
+- **Non-blocking 1–2, hovers:**
+  - New **H13:** in Light, a hovered result card's text reads as rendered (it was the link-hover purple at 0.72, 3.97:1),
+    and "Not Personalized" changes when hovered.
+  - New **M6:** a Light-only `.bs-result-card:hover` sets `color: var(--bsp-ink)`.
+- **Non-blocking 3:** `test/setup-alert-polish.test.js` S1 finds the light scope by its shape (story 2's `isScope`), not
+  by a pattern of its selector.
+
+At `5ae5f89b8`, with the UI built from the implementation: M5, M6, I1 and I2 fail (14 passed, 4 failed), and H1–H3's
+picker state, H12 and H13 fail (28 passed, 3 failed).
