@@ -128,3 +128,33 @@ After the implementation:
 - Every other spec that checks a colour (found by searching `tests/brainstorm/` for colour assertions, then screened):
   38/38 after SC2's re-aim.
 - 57 screened related Node suites are clean, apart from one that skips without a stack.
+
+## Amendment 2 (2026-11-01, after review 1)
+
+Review 1 (CHANGES_REQUESTED) found pieces that only show with data, inline styles outside the hand-picked files, greys
+turned into the accent, and disabled states that would look enabled in Light. Every story-3 test passed while they
+were wrong. These tests close those gaps; none loosens what an earlier test guards.
+
+- **The class finder** (story 2's `walkFrom`, shared by both suites) reads every string in a walked file that is shaped
+  like a class list and names a class the stylesheet defines, not only `className` expressions. It reads the strings
+  inside a template's `${…}`. A class finished in code (`settings-message-${type}`) counts as every class the stylesheet
+  defines with that start. Comments, prose, URLs and non-class attribute values (`role="tab"`, `p.set('tab', …)`) are
+  skipped. State words (`active`, `stale`, `missing` …) still count only from `className` expressions.
+- **Story 3's T3** skips disabled and inactive states (`:disabled`, `[disabled]`, `.disabled`, `aria-disabled`,
+  `.saved`, `.is-parked`).
+- **Story 3's T4 (new)**: those states keep today's opacity in both looks. No `--bsp-opacity-*` in their rules
+  (Blocking 4).
+- **Story 3's T5 (new)**: no `--bsp-accent*` wrapper holds a Dark value that is a grey (chroma under 0.2)
+  (Blocking 3).
+- **Story 3's I1** reads every file the reading and working pages reach, except `utils/compositeAvatar.js` (a
+  published image's colours). **I4 (new)**: no literal inline `opacity: 0.x` in those files, apart from a line that
+  dims a disabled control (Blocking 2).
+- **Story 3's W8 (new), the class probe**: for every profile-family rule without a pseudo-class, pseudo-element or
+  disabled state, it builds the elements its selector describes inside the light `/tags` page, puts text in the
+  innermost one, and measures it as rendered (3:1, or 4.5:1 inside `a` or `p`). It also fails any dark grey surface
+  (luminance under 0.15, chroma under 0.2). It doesn't depend on mock data (Blocking 1).
+- **The search home's landing variant** of the shared SearchInput (`*-landing`) is left out of T2 and W8: it renders
+  only on the search home, which is story 4.
+
+`.bs-result-age.stale`, which review 1 listed, is the search home's results row (`BrainstormSearch.jsx:749`), not a
+pinned list. It is story 4's.

@@ -317,3 +317,101 @@ test('W7 one light look: /developers shares the light site\'s canvas, and a body
   expect(got.page).toBe(LIGHT_CANVAS);
   expect(got.link, 'a body link is the light site\'s accent').toBe(ACCENT);
 });
+
+// ── W8 ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * W8 — the class probe (review 1, Blocking 1). The other sweeps only see what empty mocks render, so pieces that
+ * show only with data (tag chips, scored rows, results, stale markers, typed text) were never measured. For every
+ * profile-family rule (the reading and working pages' classes, as the Node suites find them), build the elements its
+ * selector describes inside the light page, put text in the innermost one, and measure it as rendered. Disabled and
+ * inactive states, pseudo-classes and pseudo-elements are left out (WCAG exempts the first; the others can't be built).
+ */
+const AP = require('../../test/appearance-setting.test.js').helpers;
+const AP2 = require('../../test/appearance-setting-light.test.js').helpers;
+const AP3 = require('../../test/appearance-setting-working.test.js');
+// Pieces the probe can't judge fairly, each with its reason. Key: selector.
+const PROBE_ALLOWLIST = new Map([
+  // SearchInput is shared; its landing variant only renders on the search home, which is story 4.
+  ['.bs-search-box-landing', 'the search home\'s box (story 4)'],
+  ['.bs-search-input-landing', 'the search home\'s input (story 4)'],
+]);
+function probeSelectors() {
+  const classes = AP2.classesFrom([...AP2.READING_FILES, ...AP3.WORKING_FILES]);
+  const rules = AP.parseCss(fs.readFileSync(path.join(__dirname, '../../ui/src/styles.css'), 'utf8'));
+  const out = new Set();
+  for (const r of rules) {
+    const sel = r.selector;
+    if (r.context || AP2.scoped(sel) || /\.bsd-|bsd-page|\.dict-|\[|:|\*|svg|img|path|^(html|body)\b/.test(sel)) continue;
+    if (/disabled|\.saved\b|is-parked|is-hidden|hidden/.test(sel)) continue;
+    const names = [...sel.matchAll(/\.([a-z][\w-]+)/g)].map((m) => m[1]);
+    if (!names.some((c) => classes.has(c))) continue;
+    if (!r.decls.some(([p]) => /^(color|background|background-color|opacity)$/.test(p))) continue;
+    if (PROBE_ALLOWLIST.has(sel)) continue;
+    out.add(sel);
+  }
+  return [...out];
+}
+
+test('W8 in Light, every profile-family rule\'s piece reads as rendered, data or no data (class probe)', async ({ page }) => {
+  test.skip(WRITING, 'baseline run');
+  test.setTimeout(120000);
+  const selectors = probeSelectors();
+  expect(selectors.length, 'the probe found the family\'s rules').toBeGreaterThan(100);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await mockStack(page);
+  await page.goto('/tags');
+  await settle(page);
+  const result = await page.evaluate((sels) => {
+    const parse = (s) => { const m = String(s).match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
+    const L = ({ r, g, b }) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+    const ratio = (a, b) => { const [x, y] = [L(a), L(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const over = (top, a, under) => ({ r: top.r * a + under.r * (1 - a), g: top.g * a + under.g * (1 - a), b: top.b * a + under.b * (1 - a) });
+    const host = document.querySelector('.bsp-page');
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;padding:8px';
+    host.appendChild(wrap);
+    const build = (sel) => {
+      const compounds = sel.split(/\s*>\s*|\s+/).filter(Boolean);
+      let parent = wrap; let el = null;
+      for (const c of compounds) {
+        const tag = (c.match(/^[a-z][a-z0-9]*/) || ['div'])[0];
+        el = document.createElement(tag === 'input' || tag === 'textarea' || tag === 'select' ? 'span' : tag);
+        el.className = [...c.matchAll(/\.([\w-]+)/g)].map((m) => m[1]).join(' ');
+        parent.appendChild(el); parent = el;
+      }
+      el.textContent = 'Sample text 123';
+      return el;
+    };
+    const backdrop = (el) => {
+      let c = parse(getComputedStyle(document.body).backgroundColor); let o = 1;
+      const chain = []; for (let e = el; e && e !== document.body; e = e.parentElement) chain.unshift(e);
+      for (const e of chain) { o *= parseFloat(getComputedStyle(e).opacity); const bg = parse(getComputedStyle(e).backgroundColor); if (bg && bg.a > 0) c = over(bg, bg.a * o, c); }
+      return { c, o };
+    };
+    const low = []; let measured = 0;
+    for (const sel of sels) {
+      let el;
+      try { el = build(sel); } catch { continue; }
+      const s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) === 0) { el.remove(); continue; }
+      const { c: bg, o } = backdrop(el);
+      const fg = parse(s.color);
+      if (!fg) continue;
+      const shown = over(fg, (fg.a == null ? 1 : fg.a) * o, bg);
+      const need = /^(a|p)$/i.test(el.tagName) || el.closest('a, p') ? 4.5 : 3;
+      const c = ratio(shown, bg);
+      measured++;
+      if (c < need) low.push(`${sel}: ${c.toFixed(2)}:1 (needs ${need}), ${s.color} at opacity ${o.toFixed(2)}`);
+      const own = parse(s.backgroundColor);
+      // A dark grey or slate surface is the Dark look left behind; a solid hue (the accent button, the done marker) is
+      // the light look's own.
+      const chroma = own ? (Math.max(own.r, own.g, own.b) - Math.min(own.r, own.g, own.b)) / 255 : 0;
+      if (own && own.a >= 0.5 && L(own) < 0.15 && chroma < 0.2) low.push(`${sel}: a dark surface ${s.backgroundColor}`);
+    }
+    wrap.remove();
+    return { low, measured };
+  }, selectors);
+  expect(result.measured, 'the probe measured the family\'s pieces').toBeGreaterThan(100);
+  expect(result.low, 'every piece reads in Light as rendered').toEqual([]);
+});

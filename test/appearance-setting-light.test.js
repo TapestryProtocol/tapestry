@@ -230,9 +230,23 @@ test('T3 every --bsp- token read anywhere (stylesheet or JSX) is declared in the
   assert(missing.length === 0, `${missing.length} token(s) read but not declared in the light scope (they'd stay dark in Light): ${missing.join(', ')}`);
 });
 
-/** The classes the given page files render, through their local imports (the ADR's inventory). */
-function classesFrom(files) {
-  const seen = new Set(); const classes = new Set();
+/**
+ * The page files reached from `files` through their local imports, and the classes they render.
+ *
+ * Re-aimed after appearance-setting #3's review 1 (Blocking 1): a class counts when ANY quoted or template string in a
+ * walked file holds it as a word and the stylesheet defines it. The earlier finder read only className="…" and
+ * className={…} expressions, and missed classes built in nested templates (TagChip), held in variables (TagPageRow,
+ * SearchInput) or chosen inside ${…} (AssistantProfileEditor).
+ */
+const STATE_WORD = /^(active|selected|open|closed|disabled|loading|error|success|warning|info|hidden|visible|expanded|collapsed|current|checked|empty|saved|pending|done|stale|missing|is-[\w-]+|has-[\w-]+)$/;
+let cssClassCache = null;
+function cssClasses() {
+  if (!cssClassCache) cssClassCache = new Set([...fs.readFileSync(STYLES, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.([a-z][\w-]*)/g)].map((m) => m[1]));
+  return cssClassCache;
+}
+const NOT_A_CLASS = /(?:\b(?:role|type|name|id|key|htmlFor|rel|target|method|autoComplete|inputMode|aria-[\w-]+|data-[\w-]+)=\{?|\.(?:get|set|has|delete|append)\()\s*(['"])[\w-]*\1/g;
+function walkFrom(files) {
+  const seen = new Set(); const classes = new Set(); const defined = cssClasses();
   const resolve = (from, spec) => {
     if (!spec.startsWith('.')) return null;
     const base = path.resolve(path.dirname(from), spec);
@@ -242,8 +256,26 @@ function classesFrom(files) {
   const walk = (file) => {
     if (seen.has(file) || !file.startsWith(UI_SRC)) return; seen.add(file);
     const text = fs.readFileSync(file, 'utf8');
-    // Every quoted or template string inside className="…" or className={…}, so NavLink's function form counts too
-    // (re-aimed in Implementation: the first version read only plain strings and missed TopBar's .bsp-top-link).
+    // State words ("active", "loading", "is-open" …) are everywhere in strings; they count only where a className
+    // expression uses them. Every other class the stylesheet defines counts from any string, the strings inside a
+    // template's ${…} included. A non-class attribute's value (role="tab") or a search param's name (p.set('tab', …))
+    // isn't a class, so those are blanked first.
+    const scan = (src, depth = 0) => {
+      for (const m of src.matchAll(/(['"`])((?:(?!\1)[^\\\n]|\\.)*)\1/g)) {
+        // Only a string shaped like a class list counts: prose ("the Pinned tab.") and URLs ("?tab=pinned") don't.
+        const flat = m[2].replace(/\$\{[^}]*\}/g, ' ');
+        if (/^[\w\s-]*$/.test(flat)) for (const word of flat.split(/\s+/)) {
+          if (/^[a-z][\w-]+$/.test(word) && defined.has(word) && !STATE_WORD.test(word)) classes.add(word);
+        }
+        if (m[1] !== '`' || depth > 2) continue;
+        for (const inner of m[2].matchAll(/\$\{([^}]*)\}/g)) scan(inner[1], depth + 1);
+        // A class finished in code (`settings-message-${type}`) counts as every class the stylesheet defines with
+        // that start.
+        for (const p of m[2].matchAll(/(?:^|[^\w-])([a-z][\w-]*-)\$\{/g)) for (const c of defined) if (c.startsWith(p[1])) classes.add(c);
+      }
+    };
+    // Comments go first: their apostrophes and quotes would pair with a string's.
+    scan(text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|\s)\/\/.*$/gm, '$1').replace(NOT_A_CLASS, ''));
     for (const m of text.matchAll(/className=(?:"([^"]+)"|\{((?:[^{}]|\{[^{}]*\})*)\})/g)) {
       const strings = m[1] !== undefined ? [m[1]] : [...m[2].matchAll(/(['"`])((?:(?!\1)[^\\])*)\1/g)].map((x) => x[2]);
       for (const str of strings) for (const c of str.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-z][\w-]+$/.test(c)) classes.add(c);
@@ -251,8 +283,10 @@ function classesFrom(files) {
     for (const m of text.matchAll(/(?:import|from)\s+[^'"]*['"]([^'"]+)['"]/g)) { const r = resolve(file, m[1]); if (r) walk(r); }
   };
   files.forEach((f) => walk(path.join(UI_SRC, f)));
-  return classes;
+  return { files: [...seen], classes };
 }
+const classesFrom = (files) => walkFrom(files).classes;
+const filesFrom = (files) => walkFrom(files).files;
 const story2Classes = () => classesFrom(READING_FILES);
 function isStory2Rule(r, classes) {
   if (scoped(r.selector) || /\.bsd-|bsd-page|\.dict-/.test(r.selector)) return false;
@@ -388,5 +422,5 @@ if (require.main === module) {
 // The stylesheet helpers are shared with test/appearance-setting-working.test.js (appearance-setting #3).
 module.exports = {
   run,
-  helpers: { stripBsp, lightBsp, lastByKey, lightScope, classesFrom, scoped, normSel, READING_FILES, COLOUR_PROPS, LITERAL, SCOPE },
+  helpers: { stripBsp, lightBsp, lastByKey, lightScope, classesFrom, filesFrom, scoped, normSel, READING_FILES, COLOUR_PROPS, LITERAL, SCOPE },
 };

@@ -43,7 +43,11 @@ const WORKING_FILES = ['pages/Tags.jsx', 'pages/Tag.jsx', 'pages/Pins.jsx', 'com
   'pages/assistant/OutboxRelays.jsx', 'pages/assistant/ProfileChecklist.jsx', 'pages/assistant/Scores.jsx',
   'pages/developers/DevPage.jsx', 'pages/developers/Hub.jsx', 'pages/developers/Nip50.jsx', 'pages/developers/OpenRanking.jsx',
   'pages/developers/TrustedAssertions.jsx', 'pages/developers/RelayTools.jsx', 'pages/setup/Index.jsx', 'pages/setup/Placeholders.jsx'];
-const INLINE_FILES = ['components/AssistantProfileEditor.jsx', 'pages/developers/DevPage.jsx'];
+// The disabled and inactive states (review 1, Blocking 4): WCAG exempts them, and their opacity is what shows they're
+// off, so they keep today's value in both looks (ADR 0002 Amendment 1).
+const DISABLED = /:disabled|\[disabled\]|\.disabled\b|is-disabled|aria-disabled|\.saved\b|is-parked/;
+// Files whose colours are content, not appearance (ADR 0003 sub-decision 4).
+const CONTENT_FILES = ['utils/compositeAvatar.js'];
 
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }
@@ -133,6 +137,8 @@ test('T1 Dark and every untouched page are unchanged against this story\'s base:
 const familyClasses = () => S2.classesFrom([...S2.READING_FILES, ...WORKING_FILES]);
 function isFamilyRule(r, classes) {
   if (S2.scoped(r.selector) || /\.bsd-|bsd-page|\.dict-/.test(r.selector)) return false;
+  // SearchInput is shared; its landing variant renders only on the search home, which is story 4.
+  if (/-landing\b/.test(r.selector)) return false;
   const names = [...r.selector.matchAll(/\.([a-z][\w-]+)/g)].map((m) => m[1]);
   return names.some((c) => classes.has(c));
 }
@@ -164,7 +170,7 @@ test('T3 every dimmed text in a profile-family rule reads an opacity token (soft
   const classes = familyClasses();
   const wrong = [];
   for (const r of H.parseCss(nowCss())) {
-    if (!isFamilyRule(r, classes) || /:disabled|\.disabled|is-disabled/.test(r.selector)) continue;
+    if (!isFamilyRule(r, classes) || DISABLED.test(r.selector)) continue;
     for (const [p, v] of r.decls) {
       if (p !== 'opacity') continue;
       const m = v.match(/^var\(\s*(--bsp-opacity-(soft|dim))\s*,\s*([\d.]+)\s*\)$/);
@@ -176,6 +182,48 @@ test('T3 every dimmed text in a profile-family rule reads an opacity token (soft
     }
   }
   assert(wrong.length === 0, `${wrong.length} opacity value(s) not on the ADR 0002 Amendment 1 rule:${NL}        ${wrong.slice(0, 15).join(`${NL}        `)}`);
+});
+
+test('T4 disabled and inactive states keep today\'s opacity in both looks: no --bsp- opacity token in their rules (review 1, Blocking 4)', () => {
+  const wrapped = [];
+  for (const r of H.parseCss(nowCss())) {
+    if (S2.scoped(r.selector) || !DISABLED.test(r.selector)) continue;
+    for (const [p, v] of r.decls) if (p === 'opacity' && /var\(\s*--bsp-opacity/.test(v)) wrapped.push(`${r.context ? r.context + ' ' : ''}${r.selector} { opacity: ${v} }`);
+  }
+  assert(wrapped.length === 0, `${wrapped.length} disabled state(s) would look enabled in Light:${NL}        ${wrapped.slice(0, 15).join(`${NL}        `)}`);
+});
+
+/** A wrapper's Dark value, resolved against :root (the admin palette) like the page resolves it. */
+function rootTokens(rules) {
+  const t = {};
+  for (const r of rules) if (!r.context && r.selector === ':root') for (const [p, v] of r.decls) if (p.startsWith('--')) t[p] = v;
+  return t;
+}
+function darkValue(expr, root, depth = 0) {
+  const m = String(expr).trim().match(/^var\(\s*(--[\w-]+)\s*(?:,\s*([\s\S]+))?\)$/);
+  if (!m || depth > 6) return String(expr).trim();
+  if (m[1] in root) return darkValue(root[m[1]], root, depth + 1);
+  return m[2] ? darkValue(m[2], root, depth + 1) : null;
+}
+
+test('T5 a grey stays a grey: no --bsp-accent token wraps a grey Dark value (review 1, Blocking 3)', () => {
+  const rules = H.parseCss(nowCss());
+  const root = rootTokens(rules);
+  const css = nowCss();
+  const wrong = new Set();
+  for (const m of css.matchAll(/var\(\s*(--bsp-accent[\w-]*)\s*,/g)) {
+    // The wrapper's fallback: from after the comma to its matching parenthesis.
+    let d = 1, j = m.index + m[0].length;
+    for (; j < css.length && d > 0; j++) { if (css[j] === '(') d++; else if (css[j] === ')') d--; }
+    const fallback = css.slice(m.index + m[0].length, j - 1).trim();
+    const dark = darkValue(fallback, root);
+    const c = dark && H.parseColour(dark);
+    if (!c) continue;
+    const [r, g, b] = c.rgb;
+    const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+    if (chroma < 0.2) wrong.add(`${m[1]} wraps ${fallback} (Dark ${dark}, a grey)`);
+  }
+  assert(wrong.size === 0, `${wrong.size} grey(s) turn into the accent in Light (muted text would read as a link):${NL}        ${[...wrong].slice(0, 15).join(`${NL}        `)}`);
 });
 
 // ── K ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -225,9 +273,13 @@ test('K1 in Light, every text-on-background pair a profile-family rule paints re
 
 // ── I ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('I1 the inline colours in the working pages\' JSX read --bsp- tokens', () => {
+// Re-aimed after review 1 (Blocking 2): every file the reading and working pages reach, not a hand-picked list.
+const walkedFiles = () => S2.filesFrom([...S2.READING_FILES, ...WORKING_FILES])
+  .map((f) => path.relative(UI_SRC, f)).filter((rel) => !CONTENT_FILES.includes(rel));
+
+test('I1 the inline colours in every file the reading and working pages reach read --bsp- tokens', () => {
   const bare = [];
-  for (const rel of INLINE_FILES) {
+  for (const rel of walkedFiles()) {
     const text = fs.readFileSync(path.join(UI_SRC, rel), 'utf8');
     for (const m of text.matchAll(/['"`]([^'"`\n]*(?:#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d|var\(--(?!bsp-)[\w-]+\s*,\s*#)[^'"`\n]*)['"`]/g)) {
       if (/^var\(--bsp-[\w-]+\s*,/.test(m[1].trim())) continue;
@@ -235,6 +287,20 @@ test('I1 the inline colours in the working pages\' JSX read --bsp- tokens', () =
     }
   }
   assert(bare.length === 0, `${bare.length} inline colour(s) don't read a --bsp- token:${NL}        ${bare.join(`${NL}        `)}`);
+});
+
+test('I4 no inline style in those files dims with a literal opacity (it reads var(--bsp-opacity-soft|dim, X)) (review 1, Blocking 2)', () => {
+  const bare = [];
+  for (const rel of walkedFiles()) {
+    const text = fs.readFileSync(path.join(UI_SRC, rel), 'utf8');
+    text.split(NL).forEach((line, i) => {
+      for (const m of line.matchAll(/\bopacity:\s*(0?\.\d+)\b/g)) {
+        if (/disabled/i.test(line)) continue; // a disabled control's own dimming stays as it is
+        bare.push(`${rel}:${i + 1}: opacity ${m[1]}`);
+      }
+    });
+  }
+  assert(bare.length === 0, `${bare.length} literal inline opacit(ies):${NL}        ${bare.slice(0, 20).join(`${NL}        `)}`);
 });
 
 test('I2 the /about count chip\'s text reads the darker accent ink in Light, and today\'s accent in Dark', () => {
@@ -274,4 +340,4 @@ if (require.main === module) {
   run().then((r) => process.exit(r.fail ? 1 : 0));
 }
 
-module.exports = { run };
+module.exports = { run, WORKING_FILES };
