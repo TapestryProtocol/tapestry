@@ -22,6 +22,10 @@ const DEFAULT_CHOICE = 'system';
 // The design-shell pages (BrainstormDesignShell). The pre-render script paints their background before React mounts;
 // story 3 retires this list once every Brainstorm family follows the setting (ADR 0001 sub-decision 4).
 const DESIGN_SHELL_PATH_PREFIXES = ['/dictionary', '/treasure-map', '/assistants'];
+// The reading pages (story appearance-setting/2, ADR 0002 sub-decision 5): their pre-render hint paints the light canvas
+// in Light. Story 3 adds the working pages' paths; story 4 retires both lists.
+const READING_PATH_PREFIXES = ['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization',
+  '/settings', '/user', '/feed', '/event'];
 
 function normalizeChoice(value) {
   return CHOICES.includes(value) ? value : DEFAULT_CHOICE;
@@ -53,9 +57,24 @@ function writeStoredChoice(storage, choice) {
   }
 }
 
-function isDesignShellPath(pathname) {
+function underAny(prefixes, pathname) {
   const p = String(pathname || '');
-  return DESIGN_SHELL_PATH_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+  return prefixes.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+}
+
+function isDesignShellPath(pathname) {
+  return underAny(DESIGN_SHELL_PATH_PREFIXES, pathname);
+}
+
+function isReadingPath(pathname) {
+  return underAny(READING_PATH_PREFIXES, pathname);
+}
+
+// The pre-render hint a path gets: 'design', 'profile' or null.
+function preloadFamily(pathname) {
+  if (isDesignShellPath(pathname)) return 'design';
+  if (isReadingPath(pathname)) return 'profile';
+  return null;
 }
 
 module.exports = {
@@ -63,9 +82,12 @@ module.exports = {
   CHOICES,
   DEFAULT_CHOICE,
   DESIGN_SHELL_PATH_PREFIXES,
+  READING_PATH_PREFIXES,
   normalizeChoice,
   resolveAppearance,
   readStoredChoice,
   writeStoredChoice,
   isDesignShellPath,
+  isReadingPath,
+  preloadFamily,
 };

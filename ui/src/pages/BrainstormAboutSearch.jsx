@@ -25,7 +25,7 @@ export default function BrainstormAboutSearch() {
             Brainstorm indexes millions of nostr profiles and ranks them using signals from your community —
             follows, mutes, and reports — so that spam, bots, and impersonators fall away without anyone
             having to police them. For the mechanics behind that, see{' '}
-            <a href="/how-search-works" style={{ color: '#a5b4fc' }}>How Search Works</a>.
+            <a href="/how-search-works" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>How Search Works</a>.
           </p>
 
           <h2 style={{ fontSize: '1.1rem', marginTop: '1.5rem' }}>How to Use Brainstorm Search</h2>
@@ -38,17 +38,17 @@ export default function BrainstormAboutSearch() {
             </li>
             <li style={{ marginBottom: '0.9rem' }}>
               <strong>Using your agent</strong> — let software do the searching for you.{' '}
-              <a href="/brainstorm-skill" style={{ color: '#a5b4fc' }}>Read where this is heading</a>.
+              <a href="/brainstorm-skill" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>Read where this is heading</a>.
             </li>
             <li>
               <strong>Via other nostr clients</strong> — Brainstorm's web of trust is available to any
               client that wants it, over the nostr relay protocol and over HTTP.{' '}
-              <a href="/developers" style={{ color: '#a5b4fc' }}>See the developer documentation</a>.
+              <a href="/developers" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>See the developer documentation</a>.
             </li>
           </ol>
 
           <p style={{ marginTop: '1rem' }}>
-            <a href="/about#this-instance" style={{ color: '#a5b4fc' }}>About this Brainstorm Instance</a>
+            <a href="/about#this-instance" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>About this Brainstorm Instance</a>
           </p>
         </div>
       </div>

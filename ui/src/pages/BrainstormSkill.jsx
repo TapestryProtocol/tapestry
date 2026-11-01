@@ -36,7 +36,7 @@ export default function BrainstormSkill() {
           <p>Watch this space for more information.</p>
           <p>
             Building something on nostr?{' '}
-            <Link to="/information-for-agents" style={{ color: '#a5b4fc' }}>
+            <Link to="/information-for-agents" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>
               Ask your agent how to use Brainstorm's technology
             </Link>.
           </p>

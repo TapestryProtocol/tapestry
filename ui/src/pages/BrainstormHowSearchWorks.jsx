@@ -49,7 +49,7 @@ export default function BrainstormHowSearchWorks() {
 
           <p style={{ marginTop: '2rem', opacity: 0.7, fontSize: '0.9rem' }}>
             Curious how your point of view affects what you see?
-            See <a href="/personalization" style={{ color: '#a5b4fc' }}>How Personalization Works</a>.
+            See <a href="/personalization" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>How Personalization Works</a>.
           </p>
         </div>
       </div>

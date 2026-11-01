@@ -9,19 +9,19 @@ import { fetchProfilesChunked } from '../utils/profileBatch';
  * /about's own dark styling. The same for every viewer: these are facts about the instance, not a point of view.
  */
 
-const ACCENT = '#a5b4fc';
+const ACCENT = 'var(--bsp-accent, #a5b4fc)';
 
 const labelStyle = {
   display: 'flex', alignItems: 'center', gap: '8px', margin: '1.5rem 0 0.6rem',
   fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.6,
 };
 const chipStyle = {
-  padding: '0 8px', borderRadius: '999px', background: 'rgba(165, 180, 252, 0.15)', color: ACCENT,
+  padding: '0 8px', borderRadius: '999px', background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: ACCENT,
   fontSize: '0.75rem', letterSpacing: 0,
 };
 const boxStyle = {
   display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '12px',
-  border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(255, 255, 255, 0.03)',
+  border: '1px solid', borderColor: 'var(--bsp-line-2, rgba(255, 255, 255, 0.1))', background: 'var(--bsp-wash-1, rgba(255, 255, 255, 0.03))',
 };
 const avatarStyle = { width: 40, height: 40, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' };
 const ellipsis = { display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
@@ -52,7 +52,7 @@ function PersonCard({ pubkey, profile }) {
       ) : (
         <span aria-hidden="true" style={{
           ...avatarStyle, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(165, 180, 252, 0.15)', color: ACCENT, fontWeight: 700,
+          background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: ACCENT, fontWeight: 700,
         }}>
           {Array.from(name)[0].toUpperCase()}
         </span>
@@ -108,7 +108,7 @@ export default function AboutThisInstance() {
   const count = about?.customerCount;
 
   return (
-    <section id="this-instance" style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+    <section id="this-instance" style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid', borderTopColor: 'var(--bsp-line-2, rgba(255, 255, 255, 0.1))' }}>
       <h2 style={{ fontSize: '1.25rem', margin: 0 }}>About this Brainstorm Instance</h2>
       <p style={{ margin: '0.4rem 0 0', fontSize: '0.95rem', opacity: 0.75 }}>
         Who runs this instance, and how many customers it serves.

@@ -55,12 +55,12 @@ export default function BrainstormPersonalization() {
             <li style={{ marginBottom: '0.4rem' }}>
               Calculate your personalized Trust Metrics at{' '}
               <a href="https://brainstorm.nosfabrica.com/" target="_blank" rel="noopener noreferrer"
-                style={{ color: '#a5b4fc' }}>
+                style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>
                 brainstorm.nosfabrica.com
               </a>
             </li>
             <li style={{ marginBottom: '0.4rem' }}>
-              Visit <a href="/settings" style={{ color: '#a5b4fc' }}>Settings</a> to
+              Visit <a href="/settings" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>Settings</a> to
               sync your scores and configure your filters
             </li>
             <li>Switch to "My Point of View" from the search page</li>
@@ -73,7 +73,7 @@ export default function BrainstormPersonalization() {
 
           <p style={{ marginTop: '1rem', opacity: 0.7, fontSize: '0.9rem' }}>
             Curious how the underlying mechanics work?
-            See <a href="/how-search-works" style={{ color: '#a5b4fc' }}>How Search Works</a>.
+            See <a href="/how-search-works" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>How Search Works</a>.
           </p>
         </div>
       </div>
