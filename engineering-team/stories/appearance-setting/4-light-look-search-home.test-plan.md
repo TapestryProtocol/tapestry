@@ -175,3 +175,12 @@ This doesn't loosen what K1 guards: H4 measures the badge as rendered.
   The toggle is accent-coloured in both looks.
 - **`test/setup-alert-polish.test.js` S1** finds the light scope by its selector. That selector's `:is()` list now also
   holds `.bs-page`, so S1 accepts it with or without. Its checks are unchanged.
+
+After the implementation:
+- Node: `appearance-setting-home` 15/15, `appearance-setting-working` 14/14, `appearance-setting-light` 11/11,
+  `appearance-setting` 16/16.
+- Playwright: story 4's spec 29/29. Stories 1–4, `setup-alert-polish`, `assistant-shared-categories` and the 9 related
+  specs: 364/364.
+- 44 screened related Node suites: 43 clean (`setup-alert-polish` after the S1 re-aim above), and
+  `tag-detail-curated-view-and-pin-polish`, which skips without a stack. The two H-class suites that write through
+  container `tapestry` were left out, as before.
