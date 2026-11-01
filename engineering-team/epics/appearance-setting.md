@@ -28,7 +28,7 @@ to story 4. The light look throughout matches the design shell's light look.
    `/assistant` and `/assistant/*`, `/setup`, the developer pages) and the tagging, pinning and trusted-list pieces
    wherever they appear. It also takes in story 2's carry-over, the `/about` Admins count chip (David, 2026-11-01).
    Depends on #2; ships with it.
-4. A light look for the search home. Depends on #1.
+4. `4-light-look-search-home.md`: a light look for the search home (`/`, landing and results), with story 2's last carry-over and story 3's round-2 test notes. Depends on #1.
 
 ## Carried forward to stories 3 and 4 (from story 2's review, 2026-11-01)
 
