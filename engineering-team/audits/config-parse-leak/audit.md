@@ -94,10 +94,11 @@ an independent Reviewer (three rounds), and the change was checked on the stagin
 
 ## 6. Carry-forward register
 
-- [ ] Before promoting to `main`, run the values check on `tags`, `magic-carpet` and the agent-memory instance; any
-      with an unsafe character would stop starting. (§4 #7; the counts-only check is described in `book.md`'s AC-5 bullet and the test plan's AC-5 section)
-- [ ] Promote to `main`; until then production and the sandboxes run neither this nor stories 9 and 10. (shared with
-      `config-secret-logging` §6)
+- [ ] Before `tags`, `magic-carpet` or the agent-memory instance take this code, run the values check there; any
+      with an unsafe character would stop starting. *(Corrected 2026-11-01: they deploy from their own branches or
+      rebuilds, not `main`, so the `main` promotion didn't reach them.)* (§4 #7; the counts-only check is described in `book.md`'s AC-5 bullet and the test plan's AC-5 section)
+- [x] Promote to `main`; until then production and the sandboxes run neither this nor stories 9 and 10. (shared with
+      `config-secret-logging` §6) *(Done 2026-11-01: promoted to production as merge `c3335a5d` on ngit and GitHub `main`, deploy run 41338503257; production checked clean after deploy. `tags` and `magic-carpet` deploy from their own branches, not `main`, so they take it when those branches do.)*
 - [ ] A hand edit inside a running container isn't checked until restart. (§4 #6; OPERATIONS.md §11 gives the manual
       check)
 - [ ] `getConfigFromFile()` misreads a value holding `'`, and an empty value. (OPEN.md row
