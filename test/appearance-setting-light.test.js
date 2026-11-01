@@ -229,8 +229,8 @@ test('T3 every --bsp- token read anywhere (stylesheet or JSX) is declared in the
   assert(missing.length === 0, `${missing.length} token(s) read but not declared in the light scope (they'd stay dark in Light): ${missing.join(', ')}`);
 });
 
-/** The classes the reading pages and the frame render, through their local imports (the ADR's inventory). */
-function story2Classes() {
+/** The classes the given page files render, through their local imports (the ADR's inventory). */
+function classesFrom(files) {
   const seen = new Set(); const classes = new Set();
   const resolve = (from, spec) => {
     if (!spec.startsWith('.')) return null;
@@ -249,9 +249,10 @@ function story2Classes() {
     }
     for (const m of text.matchAll(/(?:import|from)\s+[^'"]*['"]([^'"]+)['"]/g)) { const r = resolve(file, m[1]); if (r) walk(r); }
   };
-  READING_FILES.forEach((f) => walk(path.join(UI_SRC, f)));
+  files.forEach((f) => walk(path.join(UI_SRC, f)));
   return classes;
 }
+const story2Classes = () => classesFrom(READING_FILES);
 function isStory2Rule(r, classes) {
   if (scoped(r.selector) || /\.bsd-|bsd-page|\.dict-/.test(r.selector)) return false;
   const names = [...r.selector.matchAll(/\.([a-z][\w-]+)/g)].map((m) => m[1]);
@@ -279,17 +280,9 @@ test('T4 every colour a story-2 rule paints reads a --bsp- token (with today\'s 
   assert(bare.length === 0, `${bare.length} colour(s) in story-2 rules don't read a --bsp- token:${NL}        ${bare.slice(0, 15).join(`${NL}        `)}`);
 });
 
-test('T5 story 3\'s families are left as they are: no rule naming one reads a --bsp- token (review 1, Blocking 3)', () => {
-  const now = H.parseCss(nowCss());
-  const touched = [];
-  for (const r of now) {
-    if (scoped(r.selector)) continue;
-    const names = [...r.selector.matchAll(/\.([a-z][\w-]+)/g)].map((m) => m[1]);
-    if (!names.some((c) => STORY3.test(c))) continue;
-    for (const [p, v] of r.decls) if (/var\(\s*--bsp-/.test(v)) touched.push(`${r.context ? r.context + ' ' : ''}${r.selector} { ${p}: ${v} }`);
-  }
-  assert(touched.length === 0, `${touched.length} declaration(s) in story 3's families were converted (story 3 does them; half a conversion leaves dark text on a light box):${NL}        ${touched.slice(0, 12).join(`${NL}        `)}`);
-});
+// T5 ("story 3's families are left as they are") was story 2's rule while story 3 was unbuilt. Story 3 converts those
+// families on purpose (ADR appearance-setting/0003 sub-decision 1), so it is retired here; story 3's own suite
+// (test/appearance-setting-working.test.js) requires them converted.
 
 // ── I ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -391,4 +384,8 @@ if (require.main === module) {
   run().then((r) => process.exit(r.fail ? 1 : 0));
 }
 
-module.exports = { run };
+// The stylesheet helpers are shared with test/appearance-setting-working.test.js (appearance-setting #3).
+module.exports = {
+  run,
+  helpers: { stripBsp, lightBsp, lastByKey, lightScope, classesFrom, scoped, normSel, READING_FILES, COLOUR_PROPS, LITERAL, SCOPE },
+};

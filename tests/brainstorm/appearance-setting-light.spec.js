@@ -343,8 +343,9 @@ test.describe('L7 in Light, the pages outside story 2 are unchanged', () => {
     { url: '/', skip: '', label: 'the search home' },
     { url: '/tapestry/', skip: '', label: 'the admin dashboard' },
     { url: '/dictionary', skip: '', label: 'the design shell' },
-    // A story-3 page: its frame (and page container) turns light in story 2; its own content must not change.
-    { url: '/tags', skip: `${FRAME}`, label: 'a story-3 page\'s content' },
+    // The /tags entry ("a story-3 page's content is unchanged in Light") was story 2's interim. Story 3 converts that
+    // content on purpose, so it is retired here; story 3's own spec (appearance-setting-working.spec.js) covers /tags
+    // in Light (W1) and in Dark (W3).
   ]) {
     test(`${label} (${url})`, async ({ browser }) => {
       const context = await browser.newContext({ colorScheme: 'light' });

@@ -1,0 +1,98 @@
+# Test Plan: Story 3 — A light look for the working pages
+
+**Story:** `engineering-team/stories/appearance-setting/3-light-look-working-pages.md`
+**ADR:** `engineering-team/decisions/appearance-setting/0003-working-pages-join-the-light-token-layer.md`
+**Date:** 2026-11-01
+
+Two files, plus re-aims in story 2's:
+- `test/appearance-setting-working.test.js` (Node, in the gate);
+- `tests/brainstorm/appearance-setting-working.spec.js` (Playwright, B-class), with its Dark oracle
+  `tests/brainstorm/fixtures/appearance-setting-3-baseline.json`.
+
+## Coverage map
+
+| Criterion | Test name | Test file | Level |
+|---|---|---|---|
+| AC-1 working pages light | `W1` all 22 working pages in Light, signed out and as a customer, plus an owner on `/assistant*` and `/setup*`: the light canvas, no dark surface, text ≥ 3:1 and links and paragraphs ≥ 4.5:1 **as rendered** | spec | browser |
+| AC-1 | `T2` every colour in a profile-family rule (reading and working pages, story 3's families included) reads a `--bsp-` token; `T3` every non-disabled dimmed opacity follows ADR 0002 Amendment 1; `I1` the 13 inline colours in `AssistantProfileEditor.jsx` and `DevPage.jsx` | Node | unit |
+| AC-1, AC-3 contrast | `K1` every pair a profile-family rule paints, in Light, ≥ 4.5:1 | Node | unit |
+| AC-2 working pieces everywhere | `W2` `/user/<pk>` signed in, the Manage Tags dialog opened: no dark surface, all text readable, page and dialog together | spec | browser |
+| AC-3 one look | `W7` `/developers`: the light canvas, and a body link is the accent `rgb(114, 55, 255)`. It already passes, because story 2 did the frame and links | spec | browser |
+| AC-4 Dark unchanged | `T1` with `--bsp-` wrappers stripped, the stylesheet reads as at this story's base `34bd3957b` (regression) | Node | unit |
+| AC-4 | `W3` snapshot of every element's computed colours **and opacity** on all 22 working pages, under Dark-chosen and System-dark, plus an owner on `/assistant*` and `/setup*` (regression) | spec | browser |
+| AC-5 no flash | `C1` `WORKING_PATH_PREFIXES` and `isWorkingPath`; `C2` `preloadFamily` gives `profile` on working paths and keeps `/assistants` (design) apart from `/assistant`; `P1` the script holds the list; `P2` the script agrees with `preloadFamily` on every working path and lookalike | Node | unit |
+| AC-5 | `W4` with the bundle held, `/tags`, `/assistant` and `/developers` (Light on a dark computer) show the light canvas before render | spec | browser |
+| AC-6 phones | `W5` at 375 and 414 px in Light, no working page scrolls sideways. It passes today and must stay that way | spec | browser |
+| AC-7 the /about chip | `I2` `chipStyle.color` reads `var(--bsp-accent-ink, <today's accent>)`; `W6` the instance section reads in Light as rendered (chips included), and the Admins chip is `rgb(165, 180, 252)` in Dark | Node / spec | unit / browser |
+| AC-8 everything else unchanged | story 2's `L7` (the search home, `/tapestry/`, `/dictionary` in Light) and `L3` (the reading pages in Dark) still run; `I3` the published avatar's ring stays `#0d1117` (regression) | story 2's spec / Node | browser / unit |
+
+## Edge cases
+
+- [x] `/assistants` (the design shell) against `/assistant` (story 3), in C2 and P2.
+- [x] Owner-only parts of `/assistant` and `/setup` (W1, W3 owner runs).
+- [x] Text that's dimmed **and** sits on a translucent tint. The W1, W2 and W6 sweep layers every background over the
+      one beneath it and fades each group's backgrounds and text by its opacity. That's story 2's review 2-R2-1, the
+      case story 2's L1 missed.
+- [x] Images drawn by the app for publishing (`compositeAvatar.js`) are content, not appearance: I3.
+
+## Test infrastructure
+
+- **Node:** `test/appearance-setting-working.test.js`, registered in `test/registry.js`.
+  - It reuses story 1's helpers and story 2's: story 2's suite now exports `stripBsp`, `lightBsp`, `lastByKey`,
+    `lightScope`, `classesFrom`, `scoped`, `normSel`, `READING_FILES`, `COLOUR_PROPS`, `LITERAL` and `SCOPE`, and its
+    class finder is generalized to `classesFrom(files)`.
+  - T1 reads the base stylesheet with `git show 34bd3957b:…`.
+- **Playwright:** run against a build, with `/api` mocked and relay sockets closed.
+- **The W3 oracle:** 57 snapshots, 2,211 elements. It records colours, borders, background images and opacity.
+  - **Written:** 2026-11-01, with `APPEARANCE_BASELINE=write`, from a build of `34bd3957b`'s UI.
+  - **Deterministic:** a compare run with 6 workers against the same build passed all 22 W3 tests.
+  - **Rewrite only from a build of the base.**
+- **Re-aimed in story 2's files:**
+  - **`test/appearance-setting-light.test.js`:**
+    - T5 ("story 3's families are left as they are") is retired; story 3 inverts it.
+    - The class finder becomes `classesFrom(files)`.
+    - The helpers are exported.
+  - **`tests/brainstorm/appearance-setting-light.spec.js`:** L7's `/tags` entry ("a story-3 page's content is
+    unchanged") is retired. W1 and W3 cover `/tags` now.
+
+## How to run
+
+```
+node test/appearance-setting-working.test.js
+```
+
+```
+BRAINSTORM_BASE_URL=http://localhost:4174 npx playwright test tests/brainstorm/appearance-setting-working.spec.js --project=chromium
+```
+
+## Verification
+
+The new tests fail with the current code. Confirmed on 2026-11-01 at `34bd3957b`, with the UI built and served on
+`:4174`.
+
+Node, 3 passed and 8 failed:
+
+```
+FAIL C1  WORKING_PATH_PREFIXES should be [...], got undefined
+FAIL C2  preloadFamily("/tags") should be "profile", got null
+FAIL P1  the script should hold the working list
+PASS P2  (the script and the library agree: no hint yet on either side)
+PASS T1  Dark unchanged (regression)
+FAIL T2  481 colour(s) in profile-family rules don't read a --bsp- token
+FAIL T3  50 opacity value(s) not on the ADR 0002 Amendment 1 rule
+FAIL K1  49 pair(s) below 4.5:1 in Light
+FAIL I1  18 inline colour(s) don't read a --bsp- token
+FAIL I2  chipStyle.color should read var(--bsp-accent-ink, …), got "ACCENT"
+PASS I3  the avatar ring is untouched (regression)
+```
+
+Playwright, 25 passed and 27 failed:
+
+```
+FAIL W1 (×22)   text readable / no dark surface in Light
+FAIL W2         no dark surface on the profile or in its dialog
+FAIL W4 (×3)    the light canvas before render
+FAIL W6         the instance section reads in Light as rendered
+PASS W3 (×22)   Dark snapshots equal the base (regression; also proves them deterministic)
+PASS W5 (×2), W7   regression
+```
