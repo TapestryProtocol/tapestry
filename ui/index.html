@@ -24,7 +24,8 @@
             return list.some(function (p) { return path === p || path.indexOf(p + '/') === 0; });
           };
           if (under(['/dictionary', '/treasure-map', '/assistants'])) root.setAttribute('data-preload-family', 'design');
-          else if (under(['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization', '/settings', '/user', '/feed', '/event'])) {
+          else if (under(['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization', '/settings', '/user', '/feed', '/event'])
+            || under(['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers'])) {
             root.setAttribute('data-preload-family', 'profile');
           }
         } catch (e) { /* no hint */ }

@@ -48,17 +48,18 @@ function publishResultTone(result) {
 
 const TONE_ICON = { success: '✅ ', warning: '⚠️ ', info: 'ℹ️ ', error: '❌ ' };
 const TONE_STYLE = {
-  warning: { backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)' },
-  info: { backgroundColor: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)' },
+  warning: { backgroundColor: 'var(--bsp-warn-tint-2, rgba(245, 158, 11, 0.1))', border: '1px solid', borderColor: 'var(--bsp-warn-tint-4, rgba(245, 158, 11, 0.3))' },
+  info: { backgroundColor: 'var(--bsp-wash-3, rgba(148, 163, 184, 0.1))', border: '1px solid', borderColor: 'var(--bsp-line-2, rgba(148, 163, 184, 0.3))' },
 };
 
 const labelStyle = { fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: '0.25rem' };
 const inputStyle = {
   padding: '0.4rem 0.6rem',
   fontSize: '0.85rem',
-  backgroundColor: 'var(--bg-primary, #0f0f23)',
-  color: 'var(--text-primary, #e0e0e0)',
-  border: '1px solid var(--border, #444)',
+  backgroundColor: 'var(--bsp-surface, var(--bg-primary, #0f0f23))',
+  color: 'var(--bsp-ink, var(--text-primary, #e0e0e0))',
+  border: '1px solid',
+  borderColor: 'var(--bsp-border, var(--border, #444))',
   borderRadius: '4px',
   width: '100%',
   boxSizing: 'border-box',
@@ -267,7 +268,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
   if (error) {
     return (
       <div className="settings-group">
-        <p style={{ color: '#ef4444' }}>Error: {error}</p>
+        <p style={{ color: 'var(--bsp-danger, #ef4444)' }}>Error: {error}</p>
         <button className="settings-action-btn" onClick={loadStatus}>Retry</button>
       </div>
     );
@@ -350,7 +351,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
           {/* The public profile — the page search results link to, on the page's own (Brainstorm) side. */}
           <Link
             to={`/user/${status.assistantPubkey}`}
-            style={{ color: '#58a6ff', textDecoration: 'none', marginLeft: '0.25rem' }}
+            style={{ color: 'var(--bsp-accent, #58a6ff)', textDecoration: 'none', marginLeft: '0.25rem' }}
           >
             View public profile →
           </Link>
@@ -358,7 +359,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
         {status.computedNip05?.address && (
           <div>
             <strong>NIP-05:</strong> <code>{status.computedNip05.address}</code>{' '}
-            <span style={{ opacity: 0.6 }}>(server-managed, updates on publish)</span>
+            <span style={{ opacity: 'var(--bsp-opacity-dim, 0.6)' }}>(server-managed, updates on publish)</span>
           </div>
         )}
         {!status.computedNip05?.address && status.isPublicInstance === false && (
@@ -369,8 +370,8 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
         <div>
           <strong>Currently published:</strong>{' '}
           {status.hasProfile
-            ? <span style={{ color: '#22c55e' }}>✅ Yes</span>
-            : <span style={{ color: '#f59e0b' }}>⚠️ Not yet</span>}
+            ? <span style={{ color: 'var(--bsp-success, #22c55e)' }}>✅ Yes</span>
+            : <span style={{ color: 'var(--bsp-warn, #f59e0b)' }}>⚠️ Not yet</span>}
         </div>
       </div>
 
@@ -399,7 +400,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
               alt="Preview of the assistant avatar: your picture with the Tapestry mark"
               width={96}
               height={96}
-              style={{ borderRadius: '50%', border: '1px solid var(--border, #444)' }}
+              style={{ borderRadius: '50%', border: '1px solid', borderColor: 'var(--bsp-border, var(--border, #444))' }}
             />
             <button className="settings-action-btn" onClick={useComposite} disabled={generating}>
               Use this avatar
@@ -415,7 +416,7 @@ export default function AssistantProfileEditor({ customerPubkey, canCreateAssist
               alt="The branded Tapestry Assistant image"
               width={96}
               height={96}
-              style={{ borderRadius: '50%', border: '1px solid var(--border, #444)' }}
+              style={{ borderRadius: '50%', border: '1px solid', borderColor: 'var(--bsp-border, var(--border, #444))' }}
             />
             <button className="settings-action-btn" onClick={useBrandedFallback} disabled={generating}>
               Use the branded image instead

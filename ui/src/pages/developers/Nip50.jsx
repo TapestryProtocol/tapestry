@@ -47,7 +47,7 @@ export default function DevelopersNip50() {
             <th style={S.th}>Description</th>
           </tr>
         </thead>
-        <tbody style={{ opacity: 0.85 }}>
+        <tbody style={{ opacity: 'var(--bsp-opacity-soft, 0.85)' }}>
           <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
             <td style={S.td}><code style={S.code}>observer</code></td>
             <td style={{ ...S.td, ...S.mono }}>observer:&lt;hex-pubkey&gt;</td>

@@ -99,7 +99,7 @@ export default function DevelopersOpenRanking() {
             <th style={S.th}>Meaning</th>
           </tr>
         </thead>
-        <tbody style={{ opacity: 0.85 }}>
+        <tbody style={{ opacity: 'var(--bsp-opacity-soft, 0.85)' }}>
           {FIELDS.map(([f, d]) => (
             <tr key={f} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
               <td style={{ ...S.td, ...S.mono }}>{f}</td>

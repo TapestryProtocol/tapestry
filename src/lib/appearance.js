@@ -26,6 +26,9 @@ const DESIGN_SHELL_PATH_PREFIXES = ['/dictionary', '/treasure-map', '/assistants
 // in Light. Story 3 adds the working pages' paths; story 4 retires both lists.
 const READING_PATH_PREFIXES = ['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization',
   '/settings', '/user', '/feed', '/event'];
+// The working pages (story appearance-setting/3, ADR 0003 sub-decision 5): the same 'profile' hint. /assistant is matched
+// only after the design shell, so /assistants is never taken for it.
+const WORKING_PATH_PREFIXES = ['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers'];
 
 function normalizeChoice(value) {
   return CHOICES.includes(value) ? value : DEFAULT_CHOICE;
@@ -70,10 +73,14 @@ function isReadingPath(pathname) {
   return underAny(READING_PATH_PREFIXES, pathname);
 }
 
+function isWorkingPath(pathname) {
+  return underAny(WORKING_PATH_PREFIXES, pathname);
+}
+
 // The pre-render hint a path gets: 'design', 'profile' or null.
 function preloadFamily(pathname) {
   if (isDesignShellPath(pathname)) return 'design';
-  if (isReadingPath(pathname)) return 'profile';
+  if (isReadingPath(pathname) || isWorkingPath(pathname)) return 'profile';
   return null;
 }
 
@@ -83,11 +90,13 @@ module.exports = {
   DEFAULT_CHOICE,
   DESIGN_SHELL_PATH_PREFIXES,
   READING_PATH_PREFIXES,
+  WORKING_PATH_PREFIXES,
   normalizeChoice,
   resolveAppearance,
   readStoredChoice,
   writeStoredChoice,
   isDesignShellPath,
   isReadingPath,
+  isWorkingPath,
   preloadFamily,
 };

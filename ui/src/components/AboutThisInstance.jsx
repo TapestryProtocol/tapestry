@@ -16,7 +16,7 @@ const labelStyle = {
   fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 'var(--bsp-opacity-dim, 0.6)',
 };
 const chipStyle = {
-  padding: '0 8px', borderRadius: '999px', background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: ACCENT,
+  padding: '0 8px', borderRadius: '999px', background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: `var(--bsp-accent-ink, ${ACCENT})`,
   fontSize: '0.75rem', letterSpacing: 0,
 };
 const boxStyle = {
@@ -52,7 +52,7 @@ function PersonCard({ pubkey, profile }) {
       ) : (
         <span aria-hidden="true" style={{
           ...avatarStyle, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: ACCENT, fontWeight: 700,
+          background: 'var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.15))', color: `var(--bsp-accent-ink, ${ACCENT})`, fontWeight: 700,
         }}>
           {Array.from(name)[0].toUpperCase()}
         </span>
