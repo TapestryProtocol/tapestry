@@ -152,6 +152,18 @@ test('S1 the light scope takes in the search home\'s page: body:has(:is(.bsp-pag
   assert(lists.every((l) => l.includes('.bs-page')), `every light scope rule should list .bs-page; they list ${show(lists)}`);
 });
 
+test('S2 every Light-only rule under the light scope paints with --bsp- tokens, never a literal colour (ADR 0004 Amendment 1; review 4-R2)', () => {
+  const rules = H.parseCss(nowCss()).filter((r) => !r.context && S2.scoped(r.selector) && !S2.isScope(r.selector)
+    && /^:root\[data-appearance="light"\] body:has\(:is\([^)]*\)\)\s+\S/.test(S2.normSel(r.selector)));
+  assert(rules.length >= 3, `the Light-only rules should be found (the picker option, the card hover, the status hover); found ${rules.length}`);
+  const bare = [];
+  for (const r of rules) for (const [p, v] of r.decls) {
+    if (p.startsWith('--') || !S2.COLOUR_PROPS.test(p)) continue;
+    if (S2.LITERAL.test(v) || /var\(\s*--(?!bsp-)/.test(v)) bare.push(`${r.selector} { ${p}: ${v} }`);
+  }
+  assert(bare.length === 0, `${bare.length} Light-only colour(s) aren't --bsp- tokens:${NL}        ${bare.join(`${NL}        `)}`);
+});
+
 // ── T ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 let baseCache = null;

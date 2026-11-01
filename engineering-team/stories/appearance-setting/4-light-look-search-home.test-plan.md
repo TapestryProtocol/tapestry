@@ -211,3 +211,14 @@ guards.
 
 At `5ae5f89b8`, with the UI built from the implementation: M5, M6, I1 and I2 fail (14 passed, 4 failed), and H1–H3's
 picker state, H12 and H13 fail (28 passed, 3 failed).
+
+## Amendment 3 (2026-11-01, after review 2)
+
+- **H13** measures a hovered result card only once every transition inside it has finished
+  (`getAnimations({ subtree: true })`). The card animates its hover background, so measuring straight after the
+  pointer arrived saw the card still white. Measured after the transition, the Verification Score badge on the hover
+  tint read 3.88:1 (review 4-R2, Blocking 1).
+- New **S2:** every Light-only rule under the light scope (ADR 0004 Amendment 1) paints with `--bsp-` tokens, never a
+  literal colour. T2, T3 and K1 don't read scoped rules (review 4-R2, non-blocking). It passes; it's a guard.
+
+At `f5d4a6532`, with the UI built from `c94a8f1b5`: H13 fails on `.bs-wot-rank` at 3.88:1, and S2 passes.

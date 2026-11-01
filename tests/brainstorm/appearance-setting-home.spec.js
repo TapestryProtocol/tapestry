@@ -505,7 +505,11 @@ test('H13 in Light, hovering keeps the search home readable and visible: a resul
   await mockStack(page);
   await page.goto('/?q=podcast');
   await settle(page);
-  await page.locator('.bs-result-card').first().hover();
+  const card = page.locator('.bs-result-card').first();
+  await card.hover();
+  // The card animates its hover (a background transition): measure once every transition in it has finished, not
+  // straight after the pointer arrives (review 4-R2).
+  await card.evaluate((e) => Promise.all(e.getAnimations({ subtree: true }).map((a) => a.finished)));
   const { text } = await lightSweep(page, '.bs-result-card:hover');
   expect(text, 'a hovered result card\'s text reads in Light as rendered').toEqual([]);
   await page.goto('/');
