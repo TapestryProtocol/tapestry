@@ -104,7 +104,11 @@ async function lightSweep(page, root = 'body') {
       const r = el.getBoundingClientRect(); const s = getComputedStyle(el);
       if (r.width === 0 || r.height === 0 || s.visibility === 'hidden' || s.display === 'none' || parseFloat(s.opacity) === 0) continue;
       const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
-      if (own && !el.closest(':disabled, [aria-disabled="true"], [aria-hidden="true"]')) {
+      // An inactive control and its own label are exempt (WCAG 1.4.3): e.g. a parked Identification Tags row, whose
+      // name labels a disabled checkbox (re-aimed in Implementation; it reads under 3:1 in Dark today as well).
+      const label = el.closest('label');
+      const inactive = el.closest(':disabled, [aria-disabled="true"], [aria-hidden="true"]') || (label && label.querySelector('input:disabled, select:disabled, textarea:disabled'));
+      if (own && !inactive) {
         checked++;
         const { c: bg, o } = backdrop(el);
         const fg = parse(s.color);

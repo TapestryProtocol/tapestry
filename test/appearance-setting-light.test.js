@@ -78,7 +78,8 @@ test('C2 preloadFamily: "design" on design-shell paths, "profile" on reading pat
   const L = loadLib();
   assert(typeof L.preloadFamily === 'function', 'preloadFamily should be exported');
   const cases = [['/dictionary', 'design'], ['/treasure-map/advanced', 'design'], ['/assistants', 'design'], ['/about', 'profile'],
-    ['/user/abc/follows', 'profile'], ['/settings', 'profile'], ['/', null], ['/tags', null], ['/tapestry/', null], ['/assistant/profile', null]];
+    ['/user/abc/follows', 'profile'], ['/settings', 'profile'], ['/', null], ['/tapestry/', null]];
+  // Re-aimed by appearance-setting #3: /tags and /assistant/profile are working paths now ('profile'); story 3's C2 pins them.
   for (const [p, want] of cases) {
     const got = L.preloadFamily(p);
     assert(got === want, `preloadFamily(${show(p)}) should be ${show(want)}, got ${show(got)}`);

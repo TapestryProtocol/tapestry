@@ -96,3 +96,35 @@ FAIL W6         the instance section reads in Light as rendered
 PASS W3 (×22)   Dark snapshots equal the base (regression; also proves them deterministic)
 PASS W5 (×2), W7   regression
 ```
+
+## Amendment 1 (2026-11-01, during Implementation)
+
+None of these loosens what its test guards.
+
+- **Story 3's T3** leaves `opacity: 0` alone. It hides an element until a hover or focus shows it, and isn't dimmed
+  text (`.bs-pindetail-naddr-showall`).
+- **Story 3's I2** reads a whole quoted or template value. The wrapper itself holds a comma, and the first version cut
+  the value there.
+- **Story 3's sweep** (W1, W2, W6) exempts the label of a disabled control as well as the control itself
+  (WCAG 1.4.3's exception for inactive components). A parked Identification Tags row's name labels a disabled
+  checkbox, and it reads under 3:1 in Dark today too.
+- **Story 2's C2** drops `/tags` and `/assistant/profile` from its "no hint" list. They're working paths now, and
+  story 3's C2 pins them.
+- **`tests/brainstorm/assistant-shared-categories.spec.js` SC2** runs in Dark explicitly, its exact pin unchanged, and
+  adds the Light value of the Shared line (`rgb(85, 93, 105)`). Playwright's default light scheme now shows the hub in
+  Light.
+- **`test/assistant-shared-categories.test.js` D3** reads each wrapper's Dark fallback for its original checks, and
+  adds the same 4.5:1 for the Light values on the light canvas.
+- **`test/assistant-management-page.test.js` O4**, the guard against links to the old `/assistant` page, allows the
+  one line in `src/lib/appearance.js` that names `/assistant` as a pre-render path prefix. It's a path list, not a
+  link.
+
+One judged exception in the implementation: `DevPage.jsx`'s intro is dimmed at 0.6, but it holds links, so it reads
+`--bsp-opacity-soft` (full in Light). ADR 0002 Amendment 1 says soft "holds links".
+
+After the implementation:
+- Node: `appearance-setting-working` 11/11, `appearance-setting-light` 11/11, `appearance-setting` 16/16.
+- Playwright: story 3's spec 52/52. Stories 1 and 2, `setup-alert-polish` and the 9 related specs: 276/276.
+- Every other spec that checks a colour (found by searching `tests/brainstorm/` for colour assertions, then screened):
+  38/38 after SC2's re-aim.
+- 57 screened related Node suites are clean, apart from one that skips without a stack.

@@ -169,7 +169,8 @@ test('T3 every dimmed text in a profile-family rule reads an opacity token (soft
       if (p !== 'opacity') continue;
       const m = v.match(/^var\(\s*(--bsp-opacity-(soft|dim))\s*,\s*([\d.]+)\s*\)$/);
       const x = m ? parseFloat(m[3]) : parseFloat(v);
-      if (!(x < 1)) continue;
+      // opacity: 0 hides an element until a hover or focus reveals it; it isn't dimmed text (re-aimed in Implementation).
+      if (!(x > 0 && x < 1)) continue;
       const want = x <= 0.6 ? '--bsp-opacity-dim' : '--bsp-opacity-soft';
       if (!m || m[1] !== want) wrong.push(`${r.context ? r.context + ' ' : ''}${r.selector} { opacity: ${v} } (want var(${want}, ${x}))`);
     }
@@ -240,7 +241,8 @@ test('I2 the /about count chip\'s text reads the darker accent ink in Light, and
   const text = fs.readFileSync(path.join(UI_SRC, 'components/AboutThisInstance.jsx'), 'utf8');
   const chip = (text.match(/const chipStyle = \{([\s\S]*?)\};/) || [])[1] || '';
   assert(chip, 'AboutThisInstance.jsx should still define chipStyle');
-  const color = (chip.match(/color:\s*([^,\n]+)/) || [])[1] || '';
+  // A whole quoted or template value: the wrapper itself holds a comma (re-aimed in Implementation).
+  const color = (chip.match(/color:\s*(`[^`]*`|'[^']*'|[^,\n]+)/) || [])[1] || '';
   assert(/var\(--bsp-accent-ink,\s*\$\{ACCENT\}\)|'var\(--bsp-accent-ink, var\(--bsp-accent, #a5b4fc\)\)'|'var\(--bsp-accent-ink, #a5b4fc\)'/.test(color),
     `chipStyle.color should read var(--bsp-accent-ink, <today's accent>) (ADR 0003 sub-decision 6), got ${show(color.trim())}`);
 });
