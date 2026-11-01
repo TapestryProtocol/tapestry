@@ -443,14 +443,14 @@ test('H9 one light look: the search home\'s canvas, card, ink and accent are the
     canvas: getComputedStyle(document.querySelector('.bs-page')).backgroundColor,
     card: getComputedStyle(document.querySelector('.bs-result-card')).backgroundColor,
     ink: getComputedStyle(document.querySelector('.bs-result-name')).color,
+    // "Show 1 more tags": accent-coloured in Dark too. (Amendment 2: "What is this?" is quiet grey text in Dark, not
+    // an accent link, so it reads the ink in Light.)
+    accent: getComputedStyle(document.querySelector('.bs-taghits-toggle')).color,
   }));
   expect(got.canvas, 'the page background').toBe(LIGHT_CANVAS);
   expect(got.card, 'a result card is the light site\'s card surface').toBe('rgb(255, 255, 255)');
   expect(got.ink, 'a result\'s name is the light site\'s ink').toBe('rgb(10, 14, 24)');
-  await page.goto('/');
-  await settle(page);
-  const link = await page.locator('.bs-personalization-link').first().evaluate((e) => getComputedStyle(e).color);
-  expect(link, '"What is this?" is the light site\'s accent').toBe(ACCENT);
+  expect(got.accent, '"Show more tags" is the light site\'s accent').toBe(ACCENT);
 });
 
 // ── H10 ───────────────────────────────────────────────────────────────────────────────────────────────────────────

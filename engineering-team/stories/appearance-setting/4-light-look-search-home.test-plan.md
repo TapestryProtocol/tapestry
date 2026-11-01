@@ -170,3 +170,6 @@ This doesn't loosen what K1 guards: H4 measures the badge as rendered.
 - **Story 4's K1** gets a `PAIR_ALLOWLIST` with one entry, `.bs-wot-rank`. K1 lays a translucent background over the
   page canvas. The Verification Score badge sits on a result card, white in Light, where it reads 4.67:1 (`#0e7490` on
   the 0.10 cyan tint). Laid on the canvas, it would read 4.21:1.
+- **Story 4's H9** reads the accent from "Show N more tags" (`.bs-taghits-toggle`), not "What is this?". In Dark
+  "What is this?" is quiet text in the primary text colour, not an accent link, so in Light it rightly reads the ink.
+  The toggle is accent-coloured in both looks.
