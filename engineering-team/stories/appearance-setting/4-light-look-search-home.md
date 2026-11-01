@@ -1,6 +1,6 @@
 # Story 4: A light look for the search home
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-01
 **Type:** Feature
 

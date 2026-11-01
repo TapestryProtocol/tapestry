@@ -283,3 +283,69 @@ the change: a Dark value that comes from another rule (`a:hover`), or an opacity
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+# Round 3
+
+**Date:** 2026-11-01
+**Diff:** `git diff f5d4a6532..HEAD` (HEAD `9c6e59f6d`)
+- `080d8ebc5`: Tester changes (test plan Amendment 3). H13 now waits for the card's transitions to finish before it
+  sweeps, and the new S2 guards the Light-only rules.
+- `9c6e59f6d`: the fix, plus a line in ADR 0004 Amendment 1.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`:** not run in full on this host, so there is **no `gate:status` line of mine to quote.** The
+      coordinator reports a sealed run (`tapestry-ci-gate-deb`, `--network none`, `CI=true`): "6,346 passed, 0 failed,
+      622 skipped, across 323 suites". I did not see the record.
+- [x] **Node,** screened, one suite at a time:
+  - `appearance-setting-home` **19/19** (S2 is new);
+  - `appearance-setting-working` 14/14, `appearance-setting-light` 11/11, `appearance-setting` 16/16;
+  - `setup-alert-polish` 17/0, `assistant-shared-categories` 21/0, `assistant-management-page` 23/0 (H1 skips
+    without a stack);
+  - the same 57 related suites: none fails.
+- [x] **Playwright, chromium,** against `:4174`, rebuilt from HEAD (`index-BLMWOGj1.css`): stories 1–4,
+      `assistant-shared-categories`, `setup-alert-polish`, `assistant-alert`, `about-this-instance` and
+      `login-failure-and-tag-collapse`: **218/218 pass**, H13 included.
+- [x] **The hovered card, re-probed.** My H13 replica (the spec's own mocks and sweep) finds nothing, run straight
+      after the hover and again 400 ms later.
+  - **The badge:** it now paints `#155e75` on the hover backdrop (the 0.06 accent tint over the canvas, then the 0.10
+    cyan tint), which computes to **5.26:1**. It was 3.88:1.
+  - **The rest, in Light:** my sweep of the landing (both picker states), the results, the owner's menu, the hovered
+    card and the error state finds nothing under the thresholds. The one entry it reports is the menu's "House" label
+    at 4.38:1, above the 3:1 for non-body text.
+- [x] **Dark is identical.** `probe-home-dark.js`, HEAD against my build of `7690c8e16`: **0 differences in all 14
+      states**, the hovered card included (sampled after its transition). The new rule sits under the light scope
+      selector.
+
+## Round-2 finding, re-checked
+
+**Blocking 1 (the badge on a hovered card, and H13's timing): resolved.**
+- H13 waits on `getAnimations({ subtree: true })` → `finished`. That's a sturdier wait than a fixed delay, and the
+  test plan records that it failed against the previous build with 3.88:1.
+- The Light-only `.bs-result-card:hover .bs-wot-rank` rule reads a token, so S2 (no literal colours in Light-only
+  rules) covers it. Round 2's Non-blocking 2 is resolved as well.
+
+## Findings (round 3)
+
+### Blocking
+None.
+
+### Non-blocking
+1. **`--bsp-cyan-ink-strong: #155e75` isn't a design-shell value.** The design shell has no darker cyan; ADR 0004
+   sub-decision 2 expects new roles to take design-shell values. The amendment records the choice ("the next shade of
+   the same cyan"), it's used only on a hovered card, and it keeps the badge cyan rather than accent. Acceptable as
+   recorded.
+2. **Round 2's Non-blocking 1 stands** (the agents page's field edge is about 1.3:1, a site-wide choice), for a book
+   follow-up if David wants WCAG 1.4.11 across the light look.
+
+### Harness friction
+None new. Round 2's note on waiting for transitions is now done in H13.
+
+## On PASS (same commit)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection: done in the hand-off message, not in this file.
+
+## Verdict
+**PASS**
