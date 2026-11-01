@@ -108,6 +108,6 @@ Bug, Standard strictness, all phases: Planning → Architecture (the startup che
 decisions) → Test Design → Implementation → Review. Nothing is pushed without the owner's OK.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `decisions/security-auth-exposure/0006-refuse-unsafe-conf-at-render.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
