@@ -162,3 +162,11 @@ Re-aimed suites at the base:
 - Story 2's C2 and story 3's C1, C2 and T2 fail, for the paths and the landing variant this story changes.
 - Story 3's W8 fails on the landing box only.
 - Stories 1–3's specs are otherwise green: 127 passed, 1 failed (that W8).
+
+## Amendment 1 (2026-11-01, during Implementation)
+
+This doesn't loosen what K1 guards: H4 measures the badge as rendered.
+
+- **Story 4's K1** gets a `PAIR_ALLOWLIST` with one entry, `.bs-wot-rank`. K1 lays a translucent background over the
+  page canvas. The Verification Score badge sits on a result card, white in Light, where it reads 4.67:1 (`#0e7490` on
+  the 0.10 cyan tint). Laid on the canvas, it would read 4.21:1.

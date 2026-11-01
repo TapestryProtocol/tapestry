@@ -238,13 +238,19 @@ test('M4 the search home\'s page reads the light canvas and ink', () => {
 
 // ── K ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+// Pairs K1's model can't judge, each with its reason. K1 lays a translucent background over the page canvas; these sit on
+// something else. Key: selector. (Tester amendment in Implementation, test plan Amendment 1.)
+const PAIR_ALLOWLIST = new Map([
+  ['.bs-wot-rank', 'sits on a result card, white in Light: 4.67:1 as rendered (H4 measures it), 4.21:1 if laid on the canvas'],
+]);
+
 test('K1 in Light, every text-on-background pair a search-home rule paints reaches 4.5:1 (WCAG AA)', () => {
   const now = H.parseCss(nowCss());
   const { seen } = S2.lightScope(now);
   assert(seen, 'there is no light scope to measure');
   const classes = homeClasses();
   // Only pairs where a search-home rule owns the text or the background; lowPairs measures the whole family otherwise.
-  const low = S3.lowPairs(classes);
+  const low = S3.lowPairs(classes).filter((line) => !PAIR_ALLOWLIST.has(line.slice(0, line.indexOf(':'))));
   assert(low.length === 0, `${low.length} pair(s) below 4.5:1 in Light:${NL}        ${low.slice(0, 20).join(`${NL}        `)}`);
   const unwrapped = now.filter((r) => S3.isFamilyRule(r, classes) && r.decls.some(([p, v]) => p === 'color' && !/var\(--bsp-/.test(v) && S2.LITERAL.test(v)));
   assert(unwrapped.length === 0, `${unwrapped.length} search-home text colour(s) aren't measured in Light because they don't read a token yet (T2):${NL}        ${unwrapped.slice(0, 8).map(where).join(`${NL}        `)}`);
