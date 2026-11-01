@@ -99,3 +99,26 @@ FAIL L5        Light doesn't change the page
 PASS L3 (×15), L7 (×4)   snapshots equal the base (regression; also proves them deterministic)
 PASS L4 /settings (Dark), L6 (×2)   regression
 ```
+
+## Amendment 1 (2026-11-01, during Implementation)
+
+The Tester re-aimed four tests once the implementation surfaced them. None loosens what its criterion asks.
+
+- **T4 and K2 find classes in function-form `className`s too.** The first version read only plain strings, so it
+  missed `TopBar`'s NavLink (`className={({ isActive }) => \`bsp-top-link…\`}`), and `.bsp-top-link` went
+  unconverted. L1 caught it on `/user/<pk>` ("About" at 1.11:1). The finder now reads every quoted or template string
+  inside `className={…}`.
+- **K1 measures muted text on the surface (cards) only.** On the canvas, `--bsp-muted` is 4.25:1. That's the design
+  shell's own pair, and AC-2 requires that exact colour. It's secondary text, not AC-1's body text or links. L1, which
+  sweeps the text the pages actually paint, passes on all 15 pages, and K2 checks every pair a rule paints.
+- **Story 1's `test/appearance-setting.test.js` P2** now expects `preloadFamily`'s hint (`design` or `profile`), as
+  ADR 0002 sub-decision 5 requires.
+- **Story 1's `tests/brainstorm/appearance-setting.spec.js` E9** now pins `/about` and `/settings` only while the look
+  resolves to Dark, since they follow the setting from story 2 on. The search home and `/tapestry/` stay pinned under
+  every choice. Its pre-render check moved from `/about` to the search home.
+
+After the implementation:
+- Node: `appearance-setting-light` 11/11, `appearance-setting` 16/16.
+- Playwright: `appearance-setting-light.spec.js` 41/41, including all 17 snapshot tests against the base baseline;
+  `appearance-setting.spec.js` 36/36; the 9 related specs 174/174.
+- 48 of 49 screened related Node suites are clean; the 49th skips every test without a live stack.

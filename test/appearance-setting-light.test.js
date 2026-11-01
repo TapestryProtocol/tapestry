@@ -240,8 +240,11 @@ function story2Classes() {
   const walk = (file) => {
     if (seen.has(file) || !file.startsWith(UI_SRC)) return; seen.add(file);
     const text = fs.readFileSync(file, 'utf8');
-    for (const m of text.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`\}|\{'([^']+)'\})/g)) {
-      for (const c of (m[1] || m[2] || m[3]).replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-z][\w-]+$/.test(c)) classes.add(c);
+    // Every quoted or template string inside className="…" or className={…}, so NavLink's function form counts too
+    // (re-aimed in Implementation: the first version read only plain strings and missed TopBar's .bsp-top-link).
+    for (const m of text.matchAll(/className=(?:"([^"]+)"|\{((?:[^{}]|\{[^{}]*\})*)\})/g)) {
+      const strings = m[1] !== undefined ? [m[1]] : [...m[2].matchAll(/(['"`])((?:(?!\1)[^\\])*)\1/g)].map((x) => x[2]);
+      for (const str of strings) for (const c of str.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-z][\w-]+$/.test(c)) classes.add(c);
     }
     for (const m of text.matchAll(/(?:import|from)\s+[^'"]*['"]([^'"]+)['"]/g)) { const r = resolve(file, m[1]); if (r) walk(r); }
   };
@@ -297,7 +300,13 @@ test('K1 in Light, the core inks reach 4.5:1 on the light canvas and surface', (
   assert(seen, 'there is no light scope to measure (see T2)');
   const solid = (t) => { const c = H.parseColour(tokens[t] || ''); if (!c || c.a < 1) throw new Error(`${t} should be a solid colour, got ${show(tokens[t])}`); return c.rgb; };
   const low = [];
-  for (const ink of ['--bsp-ink', '--bsp-ink-primary', '--bsp-muted', '--bsp-accent']) for (const s of ['--bsp-canvas', '--bsp-surface']) {
+  // Re-aimed in Implementation: muted text is measured on the surface (cards) only. On the canvas it is 4.25:1, the
+  // design shell's own pair (AC-2 requires that exact colour), and it is secondary text, not AC-1's body text or links;
+  // L1 sweeps the text the pages actually paint and K2 every pair a rule paints.
+  const pairs = [];
+  for (const ink of ['--bsp-ink', '--bsp-ink-primary', '--bsp-accent']) for (const s of ['--bsp-canvas', '--bsp-surface']) pairs.push([ink, s]);
+  pairs.push(['--bsp-muted', '--bsp-surface']);
+  for (const [ink, s] of pairs) {
     const c = H.contrast(solid(ink), solid(s)); if (c < 4.5) low.push(`${ink} on ${s}: ${c.toFixed(2)}:1`);
   }
   assert(low.length === 0, `${low.join('; ')}`);

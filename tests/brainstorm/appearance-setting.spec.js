@@ -474,9 +474,12 @@ test('E8 in Light, the design shell looks as it does today, even on a dark compu
 
 // ── E9 ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+// Re-aimed by appearance-setting #2: /about and /settings follow the setting since story 2, so they're pinned here only
+// while the look resolves to Dark (story 2's own spec, appearance-setting-light.spec.js, covers their Light look and
+// snapshots their Dark). The search home and /tapestry/ stay pinned under every choice.
 const OTHERS = [
-  { url: '/about', sel: '.bsp-page', bg: 'rgb(15, 15, 26)', ink: 'rgb(226, 232, 240)' },
-  { url: '/settings', sel: '.bss-page', bg: 'rgb(15, 15, 26)', ink: 'rgb(226, 232, 240)' },
+  { url: '/about', sel: '.bsp-page', bg: 'rgb(15, 15, 26)', ink: 'rgb(226, 232, 240)', darkOnly: true },
+  { url: '/settings', sel: '.bss-page', bg: 'rgb(15, 15, 26)', ink: 'rgb(226, 232, 240)', darkOnly: true },
   { url: '/', sel: '.bs-page', bg: 'rgb(15, 15, 35)', ink: 'rgb(224, 224, 224)' },
   { url: '/tapestry/', sel: 'body', bg: 'rgb(13, 17, 23)', ink: 'rgb(230, 237, 243)' },
 ];
@@ -488,7 +491,9 @@ test.describe('E9 the other pages look as they do today, whatever is chosen (reg
         await page.emulateMedia({ colorScheme: os });
         if (stored) await storeChoiceEveryLoad(context, stored);
         await mockStack(page);
-        for (const { url, sel, bg, ink } of OTHERS) {
+        const resolvedDark = stored === 'dark' || ((stored === null || stored === 'system') && os === 'dark');
+        for (const { url, sel, bg, ink, darkOnly } of OTHERS) {
+          if (darkOnly && !resolvedDark) continue;
           await page.goto(url);
           await page.locator(sel).first().waitFor();
           const got = await page.evaluate((s) => { const el = document.querySelector(s); const cs = getComputedStyle(el); return { bg: cs.backgroundColor, ink: cs.color }; }, sel);
@@ -499,11 +504,13 @@ test.describe('E9 the other pages look as they do today, whatever is chosen (reg
     }
   }
 
-  test('a light choice paints no light background before a profile-family page renders', async ({ page, context }) => {
+  // Re-aimed by appearance-setting #2: the reading pages now paint the light canvas before render (story 2, L4); the
+  // search home is still outside every family until story 4.
+  test('a light choice paints no light background before the search home renders', async ({ page, context }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await storeChoiceEveryLoad(context, 'light');
     await mockStack(page);
-    const samples = await sampleBeforeBundle(page, '/about');
+    const samples = await sampleBeforeBundle(page, '/');
     for (const s of samples) expect(s.body, 'the pre-render background outside the design shell is today\'s').toBe('rgb(13, 17, 23)');
   });
 });
