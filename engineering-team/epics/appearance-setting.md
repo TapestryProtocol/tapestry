@@ -24,9 +24,10 @@ to story 4. The light look throughout matches the design shell's light look.
 2. `2-light-look-frame-and-reading-pages.md`: a light look for the frame every page shares (top bar, avatar menu,
    alerts) and the reading pages (profiles and their people lists, notes, the feed, events, the About pages,
    How-search-works, the skill and personalization pages, Settings). Depends on #1.
-3. A light look for the working pages (`/tags`, `/tag/…`, `/pins`, `/pin/…`, `/assistant` and `/assistant/*`,
-   `/setup`, the developer pages) and the tagging, pinning and trusted-list pieces wherever they appear. Depends on
-   #2; ships with it.
+3. `3-light-look-working-pages.md`: a light look for the working pages (`/tags`, `/tag/…`, `/pins`, `/pin/…`,
+   `/assistant` and `/assistant/*`, `/setup`, the developer pages) and the tagging, pinning and trusted-list pieces
+   wherever they appear. It also takes in story 2's carry-over, the `/about` Admins count chip (David, 2026-11-01).
+   Depends on #2; ships with it.
 4. A light look for the search home. Depends on #1.
 
 ## Carried forward to stories 3 and 4 (from story 2's review, 2026-11-01)
