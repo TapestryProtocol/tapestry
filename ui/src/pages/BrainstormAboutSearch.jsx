@@ -19,7 +19,7 @@ export default function BrainstormAboutSearch() {
       <div className="bsp-content" style={{ maxWidth: 680, margin: '0 auto', padding: '2rem 1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>About Brainstorm Search</h1>
 
-        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 'var(--bsp-opacity-soft, 0.85)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h2 style={{ fontSize: '1.1rem', marginTop: '1.5rem' }}>How Search Works</h2>
           <p>
             Brainstorm indexes millions of nostr profiles and ranks them using signals from your community —

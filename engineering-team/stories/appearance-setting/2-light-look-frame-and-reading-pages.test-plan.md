@@ -122,3 +122,23 @@ After the implementation:
 - Playwright: `appearance-setting-light.spec.js` 41/41, including all 17 snapshot tests against the base baseline;
   `appearance-setting.spec.js` 36/36; the 9 related specs 174/174.
 - 48 of 49 screened related Node suites are clean; the 49th skips every test without a live stack.
+
+## Amendment 2 (2026-11-01, after review 1)
+
+Review 1 found AC-1 failing as the pages render, the Setup chip tests broken, and the Manage Tags dialog
+half-converted. The Tester changed these first, in commit `aa5118610`, before the fix:
+
+- **L1 folds in opacity.** Contrast is measured on the text as rendered, with its own alpha and every ancestor's
+  opacity laid over the background. L1 also signs an owner in on `/settings`, where the dashboard link shows. At
+  `5e30cf41c` it failed on 23 items, from 2.60:1 to 4.05:1.
+- **Story 3's families include the bare `ptc`, `ptd` and `pcd`.** New **T5** requires that no rule naming story 3's
+  families reads a `--bsp-` token. It failed on `.ptd`'s three converted declarations.
+- **The Setup chip in both looks** (owner, 2026-11-01): `test/setup-alert-polish.test.js` S1 and
+  `tests/brainstorm/setup-alert-polish.spec.js` P1 now check dark on amber in Dark (the fallback, the owner's earlier
+  call) and white on the deeper amber in Light (the token's value). Both must be at 4.5:1 or better.
+
+After the fix (`--bsp-opacity-soft` and `--bsp-opacity-dim`, `.ptd` restored, the dashboard link, the hovers):
+- Node: `appearance-setting-light` 12/12.
+- Playwright: `appearance-setting-light.spec.js` 41/41. `appearance-setting.spec.js`, `setup-alert-polish.spec.js`
+  and the 9 related specs: 236/236.
+- 51 of 52 screened Node suites are clean (now including `setup-alert-polish`, `setup-alert` and `setup-status`).

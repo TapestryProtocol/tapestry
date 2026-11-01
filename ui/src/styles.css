@@ -375,7 +375,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 
 .data-table tbody tr:hover {
-  background: var(--bsp-surface, var(--bg-tertiary));
+  background: var(--bsp-wash-2, var(--bg-tertiary));
 }
 
 /* Self-declaration rows. Placed AFTER the :hover rule above by decision, not by accident: at equal
@@ -387,7 +387,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .data-table tbody tr.row-self-declared:hover { background: var(--bsp-accent-tint-2, var(--row-self-declared-hover)); }
 /* The left rule rides on the first cell as an inset shadow: the table is border-collapse: collapse,
    under which a <tr> border does not render reliably. Untouched by either background rule. */
-.data-table tbody tr.row-self-declared td:first-child { box-shadow: inset 3px 0 0 var(--bsp-shadow-3, var(--purple)); }
+.data-table tbody tr.row-self-declared td:first-child { box-shadow: inset 3px 0 0 var(--bsp-accent, var(--purple)); }
 
 .data-table tbody tr.clickable {
   cursor: pointer;
@@ -2835,7 +2835,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-dropdown-pubkey {
   font-size: 0.7rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-family: 'SF Mono', 'Fira Code', monospace;
   margin-top: 0.1rem;
 }
@@ -2848,12 +2848,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   margin-bottom: 0.5rem;
 }
 .bs-usermenu-status-loading {
   font-size: 0.8rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 .bs-usermenu-status-list {
   display: flex;
@@ -2871,7 +2871,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-shrink: 0;
 }
 .bs-usermenu-ta-age {
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   font-size: 0.7rem;
 }
 .bs-usermenu-pov-toggle {
@@ -2926,7 +2926,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
   background: transparent;
   color: inherit;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
   cursor: pointer;
 }
 .bs-appearance-option:hover { opacity: 1; }
@@ -3040,7 +3040,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-pov-indicator {
   font-size: 0.8rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   text-align: center;
 }
 .bs-usermenu-pov-indicator strong {
@@ -3072,7 +3072,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-pov-switch-label {
   font-size: 0.72rem;
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-dim, 0.55);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -3093,7 +3093,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
   background: transparent;
   color: inherit;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   cursor: pointer;
 }
 .bs-usermenu-pov-btn.is-active {
@@ -3148,7 +3148,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
   padding: 0.15rem 0.25rem;
   border-radius: 4px;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin-left: auto;
   flex-shrink: 0;
   transition: opacity 0.15s;
@@ -3162,7 +3162,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-substatus {
   font-size: 0.7rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   padding: 0.15rem 0 0.15rem 1.3rem;
   line-height: 1.3;
 }
@@ -3218,7 +3218,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.75rem;
 }
 .bs-usermenu-filter-op {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.75rem;
 }
 .bs-usermenu-filter-input {
@@ -3825,7 +3825,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-top-link {
   color: var(--bsp-ink, var(--text-primary, #e2e8f0));
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   text-decoration: none;
   font-size: 0.85rem;
   padding: 0.3rem 0.2rem;
@@ -3835,7 +3835,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-top-link.is-active { opacity: 1; }
 
 .bsp-user-name {
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-link-btn {
   background: none;
@@ -3857,7 +3857,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-loading {
   text-align: center;
   padding: 3rem 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 
 /* Banner */
@@ -3910,12 +3910,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-nip05 {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   margin-top: 0.2rem;
 }
 .bsp-age {
   font-size: 0.75rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 
 /* Following / Verified Followers row (under header, above actions) */
@@ -3937,10 +3937,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-count-label {
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-counts-loading .bsp-count-value {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 /* Verified Reporters: negative signal (the app encodes "report" as red). */
 .bsp-count-value-negative {
@@ -3949,7 +3949,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* Per-count loading dim — the reporters count rides trustScores (trustLoading),
    not the row-level userCounts loading, so it dims on its own. */
 .bsp-count-loading .bsp-count-value {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 /* Forces the "bad" indicators (Verified Muters, Verified Reporters) onto the next
    flex line, grouping them visually away from the good ones (verified-muters #2). */
@@ -3976,7 +3976,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-about {
   font-size: 0.9rem;
   line-height: 1.6;
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
   white-space: pre-wrap;
   margin: 0;
 }
@@ -3996,13 +3996,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-id-label {
   width: 110px;
   flex-shrink: 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   font-size: 0.8rem;
 }
 .bsp-id-value {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.8rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-id-link {
   color: var(--bsp-accent, #a5b4fc);
@@ -4017,11 +4017,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: none;
   cursor: pointer;
   font-size: 0.75rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   padding: 0.1rem;
 }
 .bsp-copy-btn:hover {
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
 }
 
 /* POV tag */
@@ -4082,12 +4082,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-trust-card-label {
   font-size: 0.7rem;
-  opacity: 0.45;
+  opacity: var(--bsp-opacity-dim, 0.45);
   white-space: nowrap;
 }
 .bsp-trust-loading {
   padding: 1rem 0;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.85rem;
 }
 .bsp-trust-unavailable {
@@ -4099,7 +4099,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   border-radius: 8px;
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-trust-icon {
   font-size: 1.1rem;
@@ -4112,11 +4112,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-ta-raw summary {
   cursor: pointer;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.75rem;
 }
 .bsp-ta-raw summary:hover {
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-ta-raw pre {
   margin-top: 0.5rem;
@@ -4133,7 +4133,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-not-found {
   text-align: center;
   padding: 3rem 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 
 /* Mobile responsive */
@@ -4197,7 +4197,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   background: var(--bsp-danger-tint-2, rgba(239, 68, 68, 0.1));
   border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.3));
   color: var(--bsp-danger-ink, #fca5a5);
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 
 .bsp-action-error {
@@ -4525,11 +4525,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: min(440px, 90vw);
   max-height: 80vh;
   overflow: auto;
-  background: var(--bsp-surface-2, var(--bg-elev, #1e293b));
-  border: 1px solid var(--bsp-border, var(--border, #334155));
+  background: var(--bg-elev, #1e293b);
+  border: 1px solid var(--border, #334155);
   border-radius: 10px;
   padding: 1rem;
-  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
+  color: var(--text-primary, #e2e8f0);
 }
 .ptd-head {
   display: flex;
@@ -4754,7 +4754,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-confirm-cancel:hover {
-  border-color: var(--bsp-border, var(--text-secondary, #94a3b8));
+  border-color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-confirm-ok {
   background: var(--bsp-accent, #6366f1);
@@ -4762,7 +4762,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   color: var(--bsp-on-accent, white);
 }
 .bsp-confirm-ok:hover {
-  background: var(--bsp-accent, #4f46e5);
+  background: var(--bsp-accent-hover, #4f46e5);
 }
 
 /* ── Report Modal ── */
@@ -4864,7 +4864,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-report-cancel:hover {
-  border-color: var(--bsp-border, var(--text-secondary, #94a3b8));
+  border-color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-report-submit {
   background: var(--bsp-danger, #ef4444);
@@ -4872,7 +4872,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   color: var(--bsp-on-accent, white);
 }
 .bsp-report-submit:hover:not(:disabled) {
-  background: var(--bsp-danger, #dc2626);
+  background: var(--bsp-danger-hover, #dc2626);
 }
 .bsp-report-submit:disabled {
   opacity: 0.5;
@@ -4938,6 +4938,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   --bsp-wash-1: rgba(10, 14, 24, 0.03);
   --bsp-wash-2: rgba(10, 14, 24, 0.05);
   --bsp-wash-3: rgba(10, 14, 24, 0.08);
+  --bsp-wash-4: rgba(10, 14, 24, 0.12);
+  --bsp-danger-hover: #912018;
+  /* Text opacity (review 1): today's dimmed text reads on dark; on the light canvas it must stay at 4.5:1. Soft
+     (0.6 < x < 1, which holds links) is full in Light; dim (x <= 0.6) keeps a step down at 0.72 (about 7:1 in ink). */
+  --bsp-opacity-soft: 1;
+  --bsp-opacity-dim: 0.72;
 }
 /* Before React mounts on a reading path, the light canvas (the pre-render hint; ADR 0002 sub-decision 5). In Dark the
    hint paints nothing new. */
@@ -4962,7 +4968,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.5rem;
   font-size: 0.8rem;
 }
-.bss-user-name { opacity: 0.6; }
+.bss-user-name { opacity: var(--bsp-opacity-dim, 0.6); }
 .bss-content {
   max-width: 700px;
   margin: 0 auto;
@@ -4971,7 +4977,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-dashboard-link {
   display: inline-flex;
   align-items: center;
-  color: var(--bsp-muted, rgba(255,255,255,0.55));
+  color: var(--bsp-ink-2, rgba(255,255,255,0.55));
   text-decoration: none;
   font-size: 0.85rem;
   margin-bottom: 1rem;
@@ -4990,16 +4996,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bss-subtitle {
   font-size: 0.9rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin: 0 0 1.5rem;
 }
 .bss-empty {
   text-align: center;
   padding: 4rem 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 .bss-loading {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.85rem;
   padding: 0.5rem 0;
 }
@@ -5021,7 +5027,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bss-card-desc {
   font-size: 0.8rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin: 0 0 0.75rem;
 }
 
@@ -5050,7 +5056,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-profile-name { font-weight: 600; font-size: 1rem; }
 .bss-profile-pubkey {
   font-size: 0.7rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
@@ -5081,7 +5087,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .bss-substatus {
   font-size: 0.75rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   padding-left: 1.5rem;
 }
 .bss-brainstorm-cta {
@@ -5094,7 +5100,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-brainstorm-cta p {
   font-size: 0.85rem;
   margin: 0 0 0.6rem;
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
   line-height: 1.4;
 }
 .bss-brainstorm-btn {
@@ -5134,7 +5140,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bss-metric-chip input[type="checkbox"] { width: 14px; height: 14px; margin: 0; }
 .bss-metric-name { font-weight: 500; font-size: 0.85rem; }
-.bss-metric-field { font-size: 0.7rem; opacity: 0.4; font-family: monospace; }
+.bss-metric-field { font-size: 0.7rem; opacity: var(--bsp-opacity-dim, 0.4); font-family: monospace; }
 
 /* Filters */
 .bss-filter-section { margin-bottom: 1rem; }
@@ -5155,7 +5161,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bss-filter-row input[type="checkbox"] { width: 14px; height: 14px; margin: 0; }
 .bss-filter-name { font-weight: 500; min-width: 70px; }
-.bss-filter-op { opacity: 0.4; }
+.bss-filter-op { opacity: var(--bsp-opacity-dim, 0.4); }
 .bss-filter-input {
   width: 70px;
   padding: 0.25rem 0.4rem;
@@ -5167,7 +5173,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 4px;
 }
 .bss-filter-input:disabled { opacity: 0.25; }
-.bss-filter-hint { font-size: 0.7rem; opacity: 0.35; }
+.bss-filter-hint { font-size: 0.7rem; opacity: var(--bsp-opacity-dim, 0.35); }
 
 /* Sort */
 .bss-sort-row {
@@ -5198,7 +5204,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.15s;
 }
 .bss-save-btn:hover:not(:disabled) { background: var(--bsp-accent-tint-3, rgba(99,102,241,0.2)); }
-.bss-save-btn.saved { opacity: 0.5; cursor: default; }
+.bss-save-btn.saved { opacity: var(--bsp-opacity-dim, 0.5); cursor: default; }
 
 /* POV Toggle */
 .bss-pov-toggle {
@@ -5243,7 +5249,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
 }
 .bss-pov-profile-link:hover { text-decoration: underline; }
-.bss-pov-btn-desc { font-size: 0.75rem; opacity: 0.5; margin-top: 0.2rem; }
+.bss-pov-btn-desc { font-size: 0.75rem; opacity: var(--bsp-opacity-dim, 0.5); margin-top: 0.2rem; }
 
 @media (max-width: 600px) {
   .bss-content { padding: 1rem; }
@@ -6041,7 +6047,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-loadmore-end {
   text-align: center;
   padding: 1rem 0 1.5rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   font-size: 0.85rem;
 }
 
@@ -6112,7 +6118,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   letter-spacing: 0.05em;
   color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   text-transform: none;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-authored-chevron {
   display: inline-block;
@@ -6245,7 +6251,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-authored-peer .is-agree { color: var(--bsp-success, #86efac); }
 .bsp-authored-peer .is-disagree { color: var(--bsp-danger, #fca5a5); }
-.bsp-authored-peer-sep { opacity: 0.5; }
+.bsp-authored-peer-sep { opacity: var(--bsp-opacity-dim, 0.5); }
 .bsp-authored-pov-hint {
   margin: 0.75rem 0 0;
   font-size: 0.78rem;
@@ -7606,7 +7612,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   cursor: pointer;
 }
 .bs-login-error-btn:hover {
-  background: var(--bsp-accent, #ec4899);
+  background: var(--bsp-accent-hover, #ec4899);
 }
 @media (max-width: 600px) {
   .bs-login-error-backdrop {
@@ -7921,14 +7927,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-wrap: wrap;
   margin-bottom: 1rem;
 }
-.bsp-back-link { font-size: 0.85rem; opacity: 0.75; text-decoration: none; }
+.bsp-back-link { font-size: 0.85rem; opacity: var(--bsp-opacity-soft, 0.75); text-decoration: none; }
 .bsp-back-link:hover { opacity: 1; text-decoration: underline; }
 .bsp-follows-title { margin: 0; font-size: 1.4rem; }
 /* Reporters list: description + point-of-view attribution lines (verified-reporters #3). */
-.bsp-follows-subtitle { margin: 0.35rem 0 0; font-size: 0.9rem; opacity: 0.7; }
-.bsp-follows-pov { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: 0.6; }
+.bsp-follows-subtitle { margin: 0.35rem 0 0; font-size: 0.9rem; opacity: var(--bsp-opacity-soft, 0.7); }
+.bsp-follows-pov { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: var(--bsp-opacity-dim, 0.6); }
 /* Reporter/report tally — "8 reporters, 10 reports" (verified-reporters #4). */
-.bsp-follows-summary { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: 0.75; }
+.bsp-follows-summary { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: var(--bsp-opacity-soft, 0.75); }
 /* Verification explainer popover: owner identity row (profile #36 / ADR 0032). */
 .bsp-verification-owner { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0 0.5rem; }
 /* Verified Reporters alarm icon (shown only above the dynamic threshold). */
@@ -8009,7 +8015,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   background: var(--bsp-wash-3, rgba(127, 127, 127, 0.25));
   font-weight: 600;
 }
-.bsp-follows-npub { font-size: 0.8rem; opacity: 0.85; }
+.bsp-follows-npub { font-size: 0.8rem; opacity: var(--bsp-opacity-soft, 0.85); }
 /* Follows-hops path page (story #39, ADR 0035): a vertical chain of profile cards. */
 .bsp-hops-path { display: flex; flex-direction: column; gap: 0.5rem; max-width: 480px; }
 .bsp-hops-card {
@@ -8019,9 +8025,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-hops-card:hover { background: var(--bsp-wash-2, rgba(127, 127, 127, 0.16)); }
 .bsp-hops-card-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bsp-hops-card-rank { opacity: 0.8; font-variant-numeric: tabular-nums; }
+.bsp-hops-card-rank { opacity: var(--bsp-opacity-soft, 0.8); font-variant-numeric: tabular-nums; }
 .bsp-hops-reroll { margin-top: 1rem; }
-.bsp-empty { padding: 2rem; text-align: center; opacity: 0.7; }
+.bsp-empty { padding: 2rem; text-align: center; opacity: var(--bsp-opacity-soft, 0.7); }
 /* Skeleton loader for list pages (verified-reporters #3 / ADR 0003) — a designed
    placeholder, never a bare spinner. */
 .bsp-skeleton-row {
@@ -8052,13 +8058,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-feed-indicator {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   margin-bottom: 1rem;
 }
 .bsp-feed-loading {
   padding: 2rem;
   text-align: center;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-feed-list {
   display: flex;
@@ -8071,13 +8077,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
    neither surface overflows 1280px. */
 .bsp-notes-subtitle {
   font-size: 0.95rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
   margin-bottom: 1rem;
   overflow-wrap: anywhere;
 }
 .bsp-notes-indicator {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   margin-bottom: 1rem;
 }
 .bsp-notes-list {
@@ -8089,7 +8095,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin-top: 1rem;
 }
 .bsp-content-loading {
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   padding: 0.5rem 0;
 }
 /* "Pinned" badge above the chosen note (feed-usability #3). */
@@ -8144,7 +8150,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-note-card-time {
   font-size: 0.75rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 .bsp-note-card-text {
   font-size: 0.9rem;
@@ -8174,7 +8180,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 50%;
 }
 .bsp-note-card-author-link:hover {
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
 }
 .bsp-note-card-name-link {
   color: inherit;
@@ -8245,10 +8251,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-event-identifier {
   margin-top: 1.25rem;
   font-size: 0.85rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-event-identifier-label {
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
 }
 .bsp-event-identifier-value {
   font-family: 'SF Mono', 'Fira Code', monospace;
@@ -8272,11 +8278,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-event-loading {
   padding: 2rem;
   text-align: center;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-event-invalid {
   margin-bottom: 1rem;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
 }
 .bsp-event-search {
   display: flex;
@@ -8286,7 +8292,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-event-search-label {
   font-size: 0.9rem;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
 }
 .bsp-event-search-row {
   display: flex;
@@ -8850,7 +8856,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   outline-offset: 2px;
 }
 .bs-setup-alert-icon { font-size: 0.9rem; line-height: 1; }
-.bs-setup-alert-count { font-weight: 400; opacity: 0.85; }
+.bs-setup-alert-count { font-weight: 400; opacity: var(--bsp-opacity-soft, 0.85); }
 .bs-setup-alert-button {
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
@@ -9278,7 +9284,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   background: var(--bsp-accent-tint-2, rgba(99,102,241,0.14));
 }
 .bs-topbar-pill.is-assistant:hover { border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.7)); }
-.bs-topbar-pill-count { opacity: 0.85; }
+.bs-topbar-pill-count { opacity: var(--bsp-opacity-soft, 0.85); }
 .bs-topbar-pill-button {
   padding: 0.2rem 0.5rem;
   border-radius: 999px;

@@ -19,7 +19,7 @@ export default function BrainstormPersonalization() {
       <div className="bsp-content" style={{ maxWidth: 680, margin: '0 auto', padding: '2rem 1.5rem' }}>
         <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>How Personalization Works</h1>
 
-        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 0.85, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ lineHeight: 1.7, fontSize: '0.95rem', opacity: 'var(--bsp-opacity-soft, 0.85)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h2 style={{ fontSize: '1.1rem', marginTop: '1.5rem' }}>Two Points of View</h2>
           <p>
             Every search is filtered through a <strong>point of view</strong>. By default, every profile's verification score
@@ -66,12 +66,12 @@ export default function BrainstormPersonalization() {
             <li>Switch to "My Point of View" from the search page</li>
           </ol>
 
-          <p style={{ marginTop: '1.5rem', opacity: 0.6, fontSize: '0.85rem' }}>
+          <p style={{ marginTop: '1.5rem', opacity: 'var(--bsp-opacity-dim, 0.6)', fontSize: '0.85rem' }}>
             Personalization is entirely optional. The house point of view works well for most searches.
             Your personalized perspective simply lets you see the nostr world through your own trust network.
           </p>
 
-          <p style={{ marginTop: '1rem', opacity: 0.7, fontSize: '0.9rem' }}>
+          <p style={{ marginTop: '1rem', opacity: 'var(--bsp-opacity-soft, 0.7)', fontSize: '0.9rem' }}>
             Curious how the underlying mechanics work?
             See <a href="/how-search-works" style={{ color: 'var(--bsp-accent, #a5b4fc)' }}>How Search Works</a>.
           </p>
