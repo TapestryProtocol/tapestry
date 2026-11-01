@@ -4954,6 +4954,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   --bsp-cyan-ink: #0e7490;
   --bsp-cyan-tint-2: rgba(14, 116, 144, 0.10);
 }
+/* Light-only corrections that can't be a wrapper over today's value (ADR appearance-setting/0004 Amendment 1). Dark
+   never matches them.
+   - The unavailable point-of-view option holds a working Settings link: in Light it dims by colour, not opacity, so
+     the link reads whole. Dark keeps its literal 0.5.
+   - A result card is a link: in Light its text stays in the ink on hover instead of taking the link-hover purple.
+   - "Not Personalized" underlines on hover in Light, where the soft opacity token leaves no other cue. */
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-pov-option.disabled { opacity: 1; color: var(--bsp-muted); }
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-result-card:hover { color: var(--bsp-ink); }
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-personalization-status:hover { text-decoration: underline; }
 /* Before React mounts on a reading path, the light canvas (the pre-render hint; ADR 0002 sub-decision 5). In Dark the
    hint paints nothing new. */
 :root[data-appearance="light"][data-preload-family="profile"] body { background: #f2f3f0; }
