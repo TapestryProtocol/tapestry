@@ -23,4 +23,15 @@ Fix shape:
 - When a story's acceptance criteria are about how pieces look, require a review probe with injected classes or real
   data before the PASS.
 
-**Pointer:** `engineering-team/reviews/appearance-setting/3-light-look-working-pages.md` (Blocking 1, harness friction).
+**Progress at the appearance-setting book close (2026-11-01):**
+- **Class inventory: done.** The finder reads every class-list-shaped string, template interiors and code-built starts
+  included, with state starts and shared state classes excluded (`7cedfd19c`, `d08811439`, `dae991052`).
+- **Probe without data: done for the appearance families.** Story 3's W8 and story 4's H11 build every rule's
+  elements inside a light page and measure them.
+- **Populated fixtures: done for the search home only** (story 4's spec mocks results, badges, a stale profile, tag
+  hits, pinned chips and the empty, error and loading states). The profile family's sweeps (story 2's L1, story 3's
+  W1/W2) still run on empty mocks.
+- **Still open:** a shared populated mock set for the profile family, and the rule that a look-focused story's review
+  probes with real or injected data before PASS.
+
+**Pointer:** `engineering-team/reviews/done/appearance-setting/3-light-look-working-pages.md` (Blocking 1, harness friction).

@@ -1,6 +1,6 @@
 # Epic: appearance-setting — choose System, Light or Dark
 
-**Status:** Active
+**Status:** Done
 **Created:** 2026-10-31
 **Book:** `engineering-team/audits/appearance-setting/book.md` (no PRD — acceptance frame)
 **Source:** ngit issue `0dd21d9f`

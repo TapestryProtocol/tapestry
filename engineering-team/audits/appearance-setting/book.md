@@ -1,9 +1,9 @@
 # Book of Work: Appearance setting (System, Light or Dark)
 
 **Slug:** appearance-setting
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-10-31
-**Closed:** —
+**Closed:** 2026-11-01
 
 ## Intent anchor
 
@@ -25,14 +25,14 @@
 
 ### Acceptance frame
 
-- [ ] A person can choose **System**, **Light** or **Dark**, and the choice sticks in that browser. It's a per-browser
+- [x] A person can choose **System**, **Light** or **Dark**, and the choice sticks in that browser. It's a per-browser
       preference: nothing is saved to an account or published.
-- [ ] The choice is offered in the avatar menu and on the Settings page, and a signed-out visitor can reach it too.
-- [ ] Loading a page never flashes the other appearance first.
-- [ ] The Brainstorm-styled pages follow the choice: the design-shell pages (Dictionary, Treasure Map and its
+- [x] The choice is offered in the avatar menu and on the Settings page, and a signed-out visitor can reach it too.
+- [x] Loading a page never flashes the other appearance first.
+- [x] The Brainstorm-styled pages follow the choice: the design-shell pages (Dictionary, Treasure Map and its
       Advanced page, My Assistants), the profile/feed/Tags/About family with the Settings page, and the search home.
       Going from one page to another no longer flips between dark and light.
-- [ ] The `/tapestry/*` admin pages look as they do today.
+- [x] The `/tapestry/*` admin pages look as they do today.
 
 ## Epics in this book
 
@@ -41,7 +41,7 @@
 ## Provenance
 
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high (acceptance-frame; every frame bullet met, see audit §1 and §4)
 
 ## Close artifacts *(filled by `/close-book`)*
 
