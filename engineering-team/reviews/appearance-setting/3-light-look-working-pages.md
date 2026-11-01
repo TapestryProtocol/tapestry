@@ -227,3 +227,132 @@ Amendment 1)
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+# Round 2
+
+**Date:** 2026-11-01
+**Diff:** `git diff ab884b7ca..HEAD` (HEAD `6cec2c703`)
+- `7cedfd19c`: Tester changes, failing first (test plan Amendment 2).
+- `d08811439`: the fixes.
+- `6cec2c703`: the test plan's results.
+
+**Owner decision after review 1** (David, 2026-11-01, given by the coordinator): fix all four blockers test-first,
+plus Non-blocking 1 (the `.settings-message-error` tint).
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`:** not run in full on this host (machine-safety rule). There are no run records in this worktree,
+      so there is **no `gate:status` line of mine to quote.** The coordinator reports a sealed run (container
+      `tapestry-ci-gate-deb`, `--network none`, `CI=true`): "6,316 passed, 0 failed, 622 skipped, across 321 suites".
+      I did not see that record.
+- [x] **Node, one suite at a time through `run()`,** with `BRAINSTORM_BASE_URL=http://127.0.0.1:9`, each screened
+      first:
+  - `appearance-setting-working` **14/14** (T4, T5 and I4 are new);
+  - `appearance-setting-light` 11/11;
+  - `appearance-setting` 16/16;
+  - `assistant-shared-categories` 21/0;
+  - `assistant-management-page` 23/0 (H1 skips without a stack);
+  - the same **46 related suites** as round 1: all clean, `tag-detail-curated-view-and-pin-polish` skipping all 33
+    without a stack.
+  - Not run, as in round 1: `note-tagging-raw-events-inspector-ui`,
+    `show-the-four-on-the-goal-screens-that-already-exist`, `teach-it-what-matters`, `one-writer-assistant-profile`.
+- [x] **Playwright, chromium,** against `:4174`. I rebuilt it from HEAD (same CSS hash, `index-BSKj1W3a.css`).
+      Stories 3, 2 and 1, `assistant-shared-categories`, `setup-alert-polish` and `assistant-alert`: **172/172
+      pass.**
+- [x] **The new W8 class probe bites.** I built `ab884b7ca` (round 1's implementation) into my own scratch directory
+      and served it on a private port. W8 fails there, listing exactly round 1's measurements:
+  - `.ptc-chip` 1.07, 1.04 and 1.00:1;
+  - `.bs-tag-row-net` 1.56, 2.48 and 1.29:1;
+  - the `/tags` search input 1.19:1, plus its dark surface.
+- [x] **Dark is identical, opacity included.** HEAD against my build of the story's base `34bd3957b`, element by
+      element: opacity, colour, background, top border, box-shadow, outline.
+  - **The same 26 pages as round 1** (21 working paths, `/`, `/tapestry/`, `/dictionary`, `/about`,
+    `/user/<pk>`), each signed out, as a customer and as an owner: **0 differences in all 78 page loads.**
+  - **New this round, with populated data:** `/user/<pk>` signed in, with three tags (one the viewer applied, one the
+    viewer disputed, one by someone else), first as the page, then with a chip's popover open, then with the Manage
+    Tags dialog open on two rows of the viewer's own: **0 differences** (67, 82 and 81 elements).
+
+## Round-1 findings, re-checked
+
+1. **Blocking 1, the colours the conversion never reached: resolved.**
+   - The widened finder now reaches classes in nested templates, in variables, in `${…}` and behind `prefix-${`,
+     and all 31 newly reached colours are wrapped.
+   - **Light, measured by injecting the classes into `/tags`:**
+     - `.ptc-chip`: 11.19:1, mine-apply 10.39:1, mine-dispute 10.13:1;
+     - `.bs-tag-row-net`: positive 4.92, negative 5.90, zero 6.37:1;
+     - the `/tags` search box: typed text 15.62:1, and the box is a visible wash.
+   - **Light, with populated data:** the profile with three tag chips, a chip popover and the Manage Tags dialog with
+     two rows has no text under 4.5:1 and no dark surface.
+   - **Input sweep:** typed text in every input on the working pages, `/event` and `/settings` (owner) is no longer
+     below 4.5:1, and placeholders are no longer below 3:1.
+   - **My wider bare-colour scan,** over every quoted token in the 152 walked files that names a CSS class, finds
+     only:
+     - the search home's landing variant (`*-landing`): story 4's, and excluded from T2 and W8 on purpose;
+     - `.constituent-card .uuid`: a false positive, since `uuid` is a column key in `DataTable.jsx`, not a class.
+   - **Correction to my round 1:** `.bs-result-age.stale` renders only on the search home's results row
+     (`BrainstormSearch.jsx:749`). My scan had matched the word `stale` in `PinnedListPanel.jsx`, which uses it as a
+     status value, not a class. It's story 4's, as the Tester says.
+2. **Blocking 2, inline styles: resolved.**
+   - The `Hub.jsx`, `Nip50.jsx` and `OpenRanking.jsx` borders and washes are wrapped. My inline scan of every walked
+     file finds no unwrapped literal colour.
+   - The profile editor's seven opacities read `--bsp-opacity-soft`.
+   - Populated `/assistant/profile/edit` as an owner in Light: nothing under 4.5:1. Round 1 had "View public profile
+     →" at 4.01:1 and "⚠️ Not yet" at 3.53:1.
+   - I1 now reads every walked file except `compositeAvatar.js`, and I4 forbids literal inline opacities.
+3. **Blocking 3, grey mapped to the accent: resolved.** All 11 wrappers now read `--bsp-ink-2`. T5 forbids an accent
+   token over any grey Dark value (chroma under 0.2, resolved against `:root`).
+4. **Blocking 4, disabled states: resolved.**
+   - The ten disabled or inactive selectors are back to their literal opacity, so disabled Apply/Dispute stays at
+     0.85 in Light.
+   - T3 now skips `[disabled]`, `.saved` and `.is-parked`, and T4 forbids an opacity token in their rules.
+   - `.settings-duties-row.is-dragging` now reading `--bsp-opacity-dim` is correct: a dragged row isn't inactive.
+5. **Non-blocking 1: resolved.** `.settings-message-error` paints `--bsp-danger-tint-1`.
+6. **Non-blocking 2 and 3:** unchanged and still non-blocking. The TL export's pink becomes the purple accent; the
+   tag-row verification colour is a deeper amber.
+
+## The full round-2 stylesheet change, read declaration by declaration
+
+Every changed declaration is one of these:
+- a new wrapper over today's value, so Dark is unchanged;
+- an accent wrapper swapped for `--bsp-ink-2`;
+- a disabled opacity restored to its literal value;
+- the error tint.
+
+Role choices are sensible:
+- success, danger and warn tints and inks for the chips, the net scores and the copied-TL state;
+- `--bsp-accent-tint-*` and `--bsp-accent-ink` for the active pin chip, with a white count;
+- `--bsp-ink-2` for the duties relay's instance line;
+- `--bsp-danger` for a negative count.
+
+No `:root`, `.bsd-` or `.dict-` rule changed.
+
+## Findings (round 2)
+
+### Blocking
+None.
+
+### Non-blocking
+1. **The finder change was in the implementation commit.** `d08811439` (impl) widened `walkFrom` in
+   `test/appearance-setting-light.test.js` to read nested templates. It only broadens what the tests check, and test
+   plan Amendment 2 records it. But it's a test edit in the Implementer's commit: next time route it through a
+   Tester amendment commit.
+2. **The `prefix-${` rule is broad.** It expands `is-` to every `is-*` class the stylesheet defines, so `isFamilyRule`
+   (any class in the selector) can take in admin rules that only share an `is-*` modifier. It's harmless here, since
+   no such rule changed this round and anything outside the light scope keeps its Dark value. Worth narrowing to
+   prefixes longer than a bare state prefix when story 4 widens the scope.
+3. **I4's exemption is loose.** It skips any line containing the word `disabled`, not just a disabled control's own
+   style. Fine today; it could hide a dimmed text line that mentions "disabled" in its copy.
+
+### Harness friction
+1. **Populated mocks:** round 1's friction 1 stands in part. W8 now probes every rule's classes without data, which
+   closes the gap for colour, but the specs still never render populated pages. This round's populated checks are my
+   scratch probes only, in `scratchpad/review-s2/scripts/`. (Already noted in round 1; no new row.)
+
+## On PASS (same commit)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection: done in the hand-off message, not in this file.
+
+## Verdict
+**PASS**

@@ -1,6 +1,6 @@
 # Story 3: A light look for the working pages
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-01
 **Type:** Feature
 
