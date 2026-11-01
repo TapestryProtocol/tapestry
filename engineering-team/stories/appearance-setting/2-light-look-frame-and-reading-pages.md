@@ -75,4 +75,4 @@ None. (Palette and cut settled with David on 2026-11-01.)
 
 - ADR: `engineering-team/decisions/appearance-setting/0002-light-only-token-layer-for-the-profile-family.md`
 - Test plan: `engineering-team/stories/appearance-setting/2-light-look-frame-and-reading-pages.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/appearance-setting/2-light-look-frame-and-reading-pages.md`
