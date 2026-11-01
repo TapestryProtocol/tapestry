@@ -101,6 +101,8 @@ the test-plan amendments.
   Mac Studio host (live suites reach Grawk's container); the sealed container is this book's gate of record.
 - **Playwright:** 366/366 at `9c6e59f6d` against a build of that tree: the four appearance specs, `setup-alert-polish`,
   `assistant-shared-categories` and 9 related specs. Dark oracles: 28 + 57 + 36 snapshots, unchanged.
+- **Production:** promoted 2026-11-01, after the close (`71a74490a`, deploy run 41344862354). Smoke-tested: the same
+  stylesheet, `/` light and readable in Light, Dark unchanged, `/tapestry/` dark.
 - **Staging:** smoke-tested after each ship. Served stylesheet = the tested build (`index-BLMWOGj1.css` at close).
 - **Known open issues:** the two `bug` rows below (§6), and a pre-existing search-box glitch filed at close.
 - **Not covered by any run:** Safari/WebKit (not installed on this Mac), Firefox, a real NIP-07 signed-in session.

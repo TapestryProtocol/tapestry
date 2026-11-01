@@ -42,6 +42,7 @@
 
 - **Mode:** Acceptance-frame
 - **Confidence at close:** high (acceptance-frame; every frame bullet met, see audit §1 and §4)
+- **Production:** promoted 2026-11-01 (`71a74490a`, deploy run 41344862354, smoke-tested on tapestry.brainstorm.world)
 
 ## Close artifacts *(filled by `/close-book`)*
 
