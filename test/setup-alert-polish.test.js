@@ -335,7 +335,8 @@ test('S1: styles.css — the "Finish setup" chip reads at 4.5:1 or better: dark 
   const css = safeRead(STYLES);
   const rule = (css.match(/\.bs-setup-alert-button\s*\{([^}]*)\}/) || [])[1];
   assert(rule, 'styles.css must still have a .bs-setup-alert-button rule');
-  const lightBlock = (css.match(/:root\[data-appearance="light"\] body:has\(:is\(\.bsp-page, \.bss-page\)\)\s*\{([^}]*)\}/) || [])[1] || '';
+  // Re-aimed by appearance-setting #4: the scope's :is() list also holds the search home's .bs-page (ADR 0004).
+  const lightBlock = (css.match(/:root\[data-appearance="light"\] body:has\(:is\(\.bsp-page, \.bss-page(?:, \.bs-page)?\)\)\s*\{([^}]*)\}/) || [])[1] || '';
   const lightTokens = Object.fromEntries([...lightBlock.matchAll(/(--bsp-[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2]]));
   const color = looks(((rule.match(/(?:^|;|\s)color:\s*([^;]+);/) || [])[1] || ''), lightTokens);
   const background = looks(((rule.match(/background(?:-color)?:\s*([^;]+);/) || [])[1] || ''), lightTokens);

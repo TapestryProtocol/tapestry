@@ -173,3 +173,5 @@ This doesn't loosen what K1 guards: H4 measures the badge as rendered.
 - **Story 4's H9** reads the accent from "Show N more tags" (`.bs-taghits-toggle`), not "What is this?". In Dark
   "What is this?" is quiet text in the primary text colour, not an accent link, so in Light it rightly reads the ink.
   The toggle is accent-coloured in both looks.
+- **`test/setup-alert-polish.test.js` S1** finds the light scope by its selector. That selector's `:is()` list now also
+  holds `.bs-page`, so S1 accepts it with or without. Its checks are unchanged.
