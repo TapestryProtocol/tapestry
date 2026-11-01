@@ -21,8 +21,11 @@ future change through:
   caught only by the floor of 38 calls; a new one would pass. None is in the tree today. Fix shape: widen the
   pattern to an optional quote after `source `, and the `. ` form followed by a path or variable.
 
-The leak itself does not depend on either: `stdio: ['ignore', 'pipe', 'ignore']` keeps bash's stderr out of the
-error's `message` too, so a catch that logs `message` no longer prints the conf.
+The two gaps are not equally serious. The first does not reopen the leak on its own: with
+`stdio: ['ignore', 'pipe', 'ignore']` the error's `stderr` is null and its `message` is only
+`Command failed: <command>`, so a call the scan checks against the wrong catch still prints no conf line. The second
+can: a new call written in one of the unrecognized forms is never seen, so its `stdio` is never checked either, and
+without it bash's stderr reaches the log while the suite still passes. Fix the second first.
 
 **Pointer:** `engineering-team/reviews/security-auth-exposure/11-unparseable-config-never-logged.md` (non-blocking 1,
 2); `test/config-parse-leak.test.js:214-243`.
