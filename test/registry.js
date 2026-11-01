@@ -363,6 +363,10 @@ const suites = [
   { file: 'task-queue-jobid-valid.test.js' },
   // appearance-setting #1: the appearance library, the pre-render script, the design shell's tokens (ADR appearance-setting/0001).
   { file: 'appearance-setting.test.js' },
+  // appearance-setting #2: the reading paths, the light scope, Dark unchanged (ADR appearance-setting/0002).
+  { file: 'appearance-setting-light.test.js' },
+  // appearance-setting #3: the working paths, the whole profile family converted, the /about chip (ADR appearance-setting/0003).
+  { file: 'appearance-setting-working.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

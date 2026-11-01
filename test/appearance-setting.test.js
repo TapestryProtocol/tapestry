@@ -239,7 +239,9 @@ test('P2 the pre-render script and the library agree in every combination of sto
         const want = L.resolveAppearance(L.normalizeChoice(stored), osDark);
         if (attrs['data-appearance'] !== want) wrong.push(`stored=${show(stored)} osDark=${osDark} ${pathname}: data-appearance=${show(attrs['data-appearance'])}, the library says ${show(want)}`);
         const hint = attrs['data-preload-family'];
-        const wantHint = L.isDesignShellPath(pathname) ? 'design' : undefined;
+        // Re-aimed by appearance-setting #2 (ADR 0002 sub-decision 5): the hint is preloadFamily's, 'design' or 'profile'.
+        const family = typeof L.preloadFamily === 'function' ? L.preloadFamily(pathname) : (L.isDesignShellPath(pathname) ? 'design' : null);
+        const wantHint = family === null ? undefined : family;
         if (hint !== wantHint) wrong.push(`stored=${show(stored)} osDark=${osDark} ${pathname}: data-preload-family=${show(hint)}, expected ${show(wantHint)}`);
       }
     }
@@ -637,4 +639,8 @@ if (require.main === module) {
   run().then((r) => process.exit(r.fail ? 1 : 0));
 }
 
-module.exports = { run };
+// The helpers are shared with test/appearance-setting-light.test.js (appearance-setting #2).
+module.exports = {
+  run,
+  helpers: { memoryStorage, inlineHeadScripts, runPreRender, parseCss, splitSelectors, norm, hexToRgb, luminance, contrast, parseColour },
+};

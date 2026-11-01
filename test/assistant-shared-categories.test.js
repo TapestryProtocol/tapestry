@@ -501,28 +501,44 @@ const prop = (body, name) => { const m = String(body || '').match(new RegExp(`(?
 const PAGE_BG = [15, 15, 26];
 const CARD_BG = over([255, 255, 255, 0.03], PAGE_BG);
 
+// Re-aimed by appearance-setting #3 (ADR appearance-setting/0003): the hub's colours read var(--bsp-<role>, <Dark value>).
+// The checks below run on the Dark value (the fallback) as before, and the same 4.5:1 is checked for the Light value
+// (the token in the light scope) on the light canvas.
+const AP = require('./appearance-setting.test.js').helpers;
+const AP2 = require('./appearance-setting-light.test.js').helpers;
+const LIGHT_CANVAS = [242, 243, 240];
+const darkOf = (v) => (v == null ? v : AP2.stripBsp(v));
 test('D3: the CSS — one rule .bs-assistant-hub-card-shared fades by colour, not opacity, and reads at 4.5:1 or more on the card; the neutral pill it reuses is not green, not the amber of Needs attention, and reads at 4.5:1 or more (AC-2)', () => {
   const css = safeRead(STYLES);
   const wrong = [];
+  const { tokens } = AP2.lightScope(AP.parseCss(css));
+  const lightOf = (v) => (v == null ? v : AP.norm(AP2.lightBsp(v, tokens)));
   const line = ruleBody(css, '.bs-assistant-hub-card-shared');
   if (!line) wrong.push('no .bs-assistant-hub-card-shared rule');
   else {
     if (/opacity\s*:/.test(line)) wrong.push('the line fades by colour, never opacity (a faded element would paint over the card-wide link)');
-    const c = parseColor(prop(line, 'color'));
+    const c = parseColor(darkOf(prop(line, 'color')));
     if (!c) wrong.push(`the line's color is not a parseable colour: ${show(prop(line, 'color'))}`);
     else if (contrast(over(c, CARD_BG), CARD_BG) < 4.5) wrong.push(`the line reads at ${contrast(over(c, CARD_BG), CARD_BG).toFixed(2)}:1 on the card; want at least 4.5:1`);
+    const lc = parseColor(lightOf(prop(line, 'color')));
+    if (!lc) wrong.push(`the line's Light colour is not parseable: ${show(lightOf(prop(line, 'color')))}`);
+    else if (contrast(over(lc, LIGHT_CANVAS), LIGHT_CANVAS) < 4.5) wrong.push(`in Light the line reads at ${contrast(over(lc, LIGHT_CANVAS), LIGHT_CANVAS).toFixed(2)}:1; want at least 4.5:1`);
   }
   const neutral = ruleBody(css, '.bs-setup-step-badge.is-neutral');
-  const pillColor = parseColor(prop(neutral, 'color'));
+  const pillColor = parseColor(darkOf(prop(neutral, 'color')));
   if (!pillColor) wrong.push('no .bs-setup-step-badge.is-neutral colour');
   else {
     const [r, g, b] = pillColor;
     if (g > r + 40 && g > b + 40) wrong.push(`the neutral pill is green (${prop(neutral, 'color')})`);
-    const amber = parseColor(prop(ruleBody(css, '.bs-setup-step-badge'), 'color'));
+    const amber = parseColor(darkOf(prop(ruleBody(css, '.bs-setup-step-badge'), 'color')));
     if (amber && sameJson(amber, pillColor)) wrong.push('the neutral pill has the Needs attention amber');
-    const pillBg = parseColor(prop(neutral, 'background'));
+    const pillBg = parseColor(darkOf(prop(neutral, 'background')));
     const behind = pillBg ? over(pillBg, CARD_BG) : CARD_BG;
     if (contrast(pillColor, behind) < 4.5) wrong.push(`the neutral pill reads at ${contrast(pillColor, behind).toFixed(2)}:1; want at least 4.5:1`);
+    const lp = parseColor(lightOf(prop(neutral, 'color')));
+    const lpBg = parseColor(lightOf(prop(neutral, 'background')));
+    const lBehind = lpBg ? over(lpBg, LIGHT_CANVAS) : LIGHT_CANVAS;
+    if (!lp || contrast(over(lp, lBehind), lBehind) < 4.5) wrong.push(`in Light the neutral pill reads under 4.5:1 (${show(lightOf(prop(neutral, 'color')))})`);
   }
   assert(wrong.length === 0, wrong.join('; '));
 });

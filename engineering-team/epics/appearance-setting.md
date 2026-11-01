@@ -14,14 +14,37 @@ epic brings Tapestry level with it.
 
 ## Stories
 
-All three are features, so all take the five phases (Standard). Each is seen on localhost before the next starts.
+All are features, so all take the five phases (Standard). Each is seen on localhost before the next starts. Re-cut on
+2026-11-01 (David): the old story 2 became stories 2 and 3, which ship to staging together, and the search home moved
+to story 4. The light look throughout matches the design shell's light look.
 
 1. `1-appearance-switch-and-design-shell-dark.md`: the switch itself (the three choices, kept per browser, no flash
    on load, the control in the avatar menu and on the Settings page) and a dark palette for the design-shell pages
-   (Dictionary, Treasure Map and its Advanced page, My Assistants).
-2. A light palette for the profile/feed/Tags/About family (`/assistant/*`, `/setup`, the developer pages and the rest
-   of that family) and for the Settings page, which shares its look. Depends on #1.
-3. A light palette for the search home. Depends on #1.
+   (Dictionary, Treasure Map and its Advanced page, My Assistants). Done; on staging 2026-10-31 (`56d76a2b4`).
+2. `2-light-look-frame-and-reading-pages.md`: a light look for the frame every page shares (top bar, avatar menu,
+   alerts) and the reading pages (profiles and their people lists, notes, the feed, events, the About pages,
+   How-search-works, the skill and personalization pages, Settings). Depends on #1.
+3. `3-light-look-working-pages.md`: a light look for the working pages (`/tags`, `/tag/…`, `/pins`, `/pin/…`,
+   `/assistant` and `/assistant/*`, `/setup`, the developer pages) and the tagging, pinning and trusted-list pieces
+   wherever they appear. It also takes in story 2's carry-over, the `/about` Admins count chip (David, 2026-11-01).
+   Depends on #2; ships with it.
+4. A light look for the search home. Depends on #1.
+
+## Carried forward to stories 3 and 4 (from story 2's review, 2026-11-01)
+
+- **Story 3:**
+  - The tagging pieces on the reading pages (`ProfileTagsSection`, `AuthoredTaggingSection`, `NoteTags`: the
+    `.bsp-tags-*`, `.bsp-authored-*` and `.bsp-note-tags-*` classes) were converted in story 2 and are readable in
+    Light. Story 3 inherits them as done.
+  - The Manage Tags dialog (`.ptd`, `.ptd-*`), the pins, the trusted lists and the rest of its families are still
+    dark in Light.
+  - Story 3 uses ADR 0002's token layer, including Amendment 1's opacity tokens.
+- **Story 3 or a follow-up:**
+  - The Admins count chip on `/about` (`AboutThisInstance.jsx:16-18,131`) reads about 2.7:1 in Light. Its dimmed
+    label lays a 0.72 group opacity over a 0.18 accent tint. Give the chip's text `--bsp-accent-ink`, or take it out
+    of the dimmed label.
+  - Story 2's L1 sweep should also composite translucent backgrounds, the way it already composites the text.
+- **Story 4:** `.bs-usermenu-pov-indicator strong` (search home only) still holds a bare `#a5b4fc`.
 
 ## Key facts / guardrails
 

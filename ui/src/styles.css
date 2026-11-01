@@ -32,8 +32,8 @@ body {
   line-height: 1.5;
 }
 
-a { color: var(--accent); text-decoration: none; }
-a:hover { color: var(--accent-hover); }
+a { color: var(--bsp-accent, var(--accent)); text-decoration: none; }
+a:hover { color: var(--bsp-accent-hover, var(--accent-hover)); }
 code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .text-muted { color: var(--text-muted); }
 /* The rule above was referenced as a className in 43 files and, until it was added, defined
@@ -280,8 +280,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 
 .constituent-card.clickable:hover {
-  border-color: var(--accent);
-  background: var(--bg-tertiary);
+  border-color: var(--bsp-accent, var(--accent));
+  background: var(--bsp-surface, var(--bg-tertiary));
 }
 
 .constituent-card.missing {
@@ -310,8 +310,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 /* ─── Data Table ──────────────────────────────────── */
 .data-table-wrapper {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: var(--bsp-surface, var(--bg-secondary));
+  border: 1px solid var(--bsp-border, var(--border));
   border-radius: 8px;
   overflow: hidden;
 }
@@ -321,13 +321,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--bsp-border, var(--border));
 }
 
 .table-filter {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: var(--bsp-surface, var(--bg-tertiary));
+  border: 1px solid var(--bsp-border, var(--border));
+  color: var(--bsp-ink, var(--text));
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 13px;
@@ -336,12 +336,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 .table-filter:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--bsp-accent, var(--accent));
 }
 
 .table-count {
   font-size: 12px;
-  color: var(--text-muted);
+  color: var(--bsp-ink-2, var(--text-muted));
 }
 
 .data-table {
@@ -354,20 +354,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 10px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--bsp-ink-2, var(--text-muted));
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--bsp-border, var(--border));
   user-select: none;
 }
 
 .data-table th.sortable { cursor: pointer; }
-.data-table th.sortable:hover { color: var(--text); }
+.data-table th.sortable:hover { color: var(--bsp-ink, var(--text)); }
 
 .data-table td {
   padding: 10px 16px;
   font-size: 13px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--bsp-border, var(--border));
 }
 
 .data-table tbody tr:last-child td {
@@ -375,7 +375,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 
 .data-table tbody tr:hover {
-  background: var(--bg-tertiary);
+  background: var(--bsp-wash-2, var(--bg-tertiary));
 }
 
 /* Self-declaration rows. Placed AFTER the :hover rule above by decision, not by accident: at equal
@@ -383,11 +383,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
    erase the mark. The paired :hover rule is what keeps the row's own hover feedback — a tint alone
    would win in both states and the row would stop responding to the pointer.
    ADR author-scoped-inspection/0002; story 4 AC-5. */
-.data-table tbody tr.row-self-declared { background: var(--row-self-declared); }
-.data-table tbody tr.row-self-declared:hover { background: var(--row-self-declared-hover); }
+.data-table tbody tr.row-self-declared { background: var(--bsp-accent-tint-1, var(--row-self-declared)); }
+.data-table tbody tr.row-self-declared:hover { background: var(--bsp-accent-tint-2, var(--row-self-declared-hover)); }
 /* The left rule rides on the first cell as an inset shadow: the table is border-collapse: collapse,
    under which a <tr> border does not render reliably. Untouched by either background rule. */
-.data-table tbody tr.row-self-declared td:first-child { box-shadow: inset 3px 0 0 var(--purple); }
+.data-table tbody tr.row-self-declared td:first-child { box-shadow: inset 3px 0 0 var(--bsp-accent, var(--purple)); }
 
 .data-table tbody tr.clickable {
   cursor: pointer;
@@ -395,7 +395,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 .empty-row {
   text-align: center;
-  color: var(--text-muted);
+  color: var(--bsp-ink-2, var(--text-muted));
   padding: 32px 16px !important;
 }
 
@@ -1176,14 +1176,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin-bottom: 12px;
 }
 .settings-message-success {
-  background: #0d2818;
-  border: 1px solid #3fb950;
-  color: #3fb950;
+  background: var(--bsp-success-tint-2, #0d2818);
+  border: 1px solid var(--bsp-success, #3fb950);
+  color: var(--bsp-success-ink, #3fb950);
 }
 .settings-message-error {
-  background: #2d0a0a;
-  border: 1px solid #f85149;
-  color: #f85149;
+  background: var(--bsp-danger-tint-1, #2d0a0a);
+  border: 1px solid var(--bsp-danger, #f85149);
+  color: var(--bsp-danger, #f85149);
 }
 .settings-content {
   margin-top: 16px;
@@ -1201,8 +1201,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 2px 0 0;
 }
 .settings-group {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: var(--bsp-surface, var(--bg-secondary));
+  border: 1px solid var(--bsp-border, var(--border));
   border-radius: 8px;
   padding: 14px 18px;
   margin-bottom: 12px;
@@ -1276,7 +1276,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 12px 0;
 }
 .settings-duties-row { padding: 10px 14px; margin-bottom: 8px; }
-.settings-duties-row.is-dragging { opacity: 0.5; }
+.settings-duties-row.is-dragging { opacity: var(--bsp-opacity-dim, 0.5); }
 .settings-duties-line {
   display: flex;
   flex-wrap: wrap;
@@ -1287,7 +1287,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .settings-duties-key { font-size: 0.95em; }
 .settings-duties-category { color: var(--text-muted); font-size: 0.85em; }
 .settings-duties-relay { font-family: monospace; font-size: 0.85em; flex: 1 1 12em; overflow-wrap: anywhere; }
-.settings-duties-relay.is-instance { font-family: inherit; color: var(--text-muted); }
+.settings-duties-relay.is-instance { font-family: inherit; color: var(--bsp-ink-2, var(--text-muted)); }
 .settings-duties-edit,
 .settings-duties-add {
   display: flex;
@@ -2581,8 +2581,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-link-btn {
   background: none;
-  border: 1px solid rgba(255,255,255,0.15);
-  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.15));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.4rem 1rem;
   border-radius: 20px;
   cursor: pointer;
@@ -2590,7 +2590,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.15s;
 }
 .bs-link-btn:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
 }
 .bs-user-area {
   display: flex;
@@ -2786,7 +2786,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: outline-color 0.15s;
 }
 .bs-usermenu-avatar-btn:hover {
-  outline-color: rgba(99,102,241,0.4);
+  outline-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.4));
 }
 .bs-usermenu-avatar {
   width: 36px;
@@ -2798,8 +2798,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99,102,241,0.2);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.2));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -2808,10 +2808,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   top: calc(100% + 8px);
   right: 0;
   width: 300px;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.12));
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 32px var(--bsp-shadow-3, rgba(0,0,0,0.5));
   z-index: 300;
   overflow: hidden;
 }
@@ -2820,7 +2820,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
 }
 .bs-usermenu-dropdown-pic {
   width: 40px;
@@ -2835,25 +2835,25 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-dropdown-pubkey {
   font-size: 0.7rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-family: 'SF Mono', 'Fira Code', monospace;
   margin-top: 0.1rem;
 }
 .bs-usermenu-section {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
 }
 .bs-usermenu-section-title {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   margin-bottom: 0.5rem;
 }
 .bs-usermenu-status-loading {
   font-size: 0.8rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 .bs-usermenu-status-list {
   display: flex;
@@ -2871,7 +2871,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-shrink: 0;
 }
 .bs-usermenu-ta-age {
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   font-size: 0.7rem;
 }
 .bs-usermenu-pov-toggle {
@@ -2881,22 +2881,22 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-usermenu-pov-btn {
   flex: 1;
   padding: 0.45rem 0.5rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 8px;
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
   text-align: center;
 }
 .bs-usermenu-pov-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
 }
 .bs-usermenu-pov-btn.active {
-  background: rgba(99,102,241,0.15);
-  border-color: rgba(99,102,241,0.4);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.15));
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.4));
+  color: var(--bsp-accent-ink, #a5b4fc);
 }
 .bs-usermenu-pov-btn.disabled,
 .bs-usermenu-pov-btn:disabled {
@@ -2910,7 +2910,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-appearance {
   display: inline-flex;
   gap: 0.25rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.04));
   border-radius: 8px;
   padding: 2px;
 }
@@ -2926,16 +2926,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
   background: transparent;
   color: inherit;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
   cursor: pointer;
 }
 .bs-appearance-option:hover { opacity: 1; }
 .bs-appearance-option.is-active {
-  background: rgba(165, 180, 252, 0.18);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.18));
+  color: var(--bsp-accent-ink, #a5b4fc);
   opacity: 1;
 }
-.bs-appearance-option:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 1px; }
+.bs-appearance-option:focus-visible { outline: 2px solid var(--bsp-accent, #a5b4fc); outline-offset: 1px; }
 .bs-appearance-compact .bs-appearance-option { padding: 0.25rem 0.45rem; }
 .bs-appearance-icon { line-height: 1; }
 .bs-usermenu-appearance { display: flex; flex-direction: column; gap: 0.35rem; align-items: center; }
@@ -2953,15 +2953,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0;
   font: inherit;
   font-size: 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.15));
   border-radius: 999px;
   background: none;
   color: inherit;
   cursor: pointer;
 }
 .bs-appearance-toggle.is-open,
-.bs-appearance-toggle:hover { background: rgba(255, 255, 255, 0.06); }
-.bs-appearance-toggle:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 1px; }
+.bs-appearance-toggle:hover { background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06)); }
+.bs-appearance-toggle:focus-visible { outline: 2px solid var(--bsp-accent, #a5b4fc); outline-offset: 1px; }
 .bs-appearance-popover {
   position: absolute;
   top: calc(100% + 8px);
@@ -2969,9 +2969,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   z-index: 60;
   padding: 6px;
   border-radius: 10px;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 8px 24px var(--bsp-shadow-2, rgba(0, 0, 0, 0.4));
 }
 /* In the popover the three stack, so it is narrow enough to open under its button on a 320px screen. */
 .bs-appearance-popover .bs-appearance { flex-direction: column; align-items: stretch; }
@@ -3005,13 +3005,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.5rem;
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.82rem;
   text-decoration: none;
   transition: background 0.15s;
 }
 .bs-usermenu-link:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
 }
 .bs-usermenu-link.is-disabled {
   opacity: 0.35;
@@ -3028,10 +3028,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-usermenu-role-badge {
   margin-left: 0.4rem;
   padding: 0.05rem 0.35rem;
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  border: 1px solid var(--bsp-warn-tint-4, rgba(251, 191, 36, 0.35));
   border-radius: 4px;
-  background: rgba(251, 191, 36, 0.08);
-  color: #fcd34d;
+  background: var(--bsp-warn-tint-1, rgba(251, 191, 36, 0.08));
+  color: var(--bsp-warn-ink, #fcd34d);
   font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -3040,7 +3040,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-pov-indicator {
   font-size: 0.8rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   text-align: center;
 }
 .bs-usermenu-pov-indicator strong {
@@ -3072,14 +3072,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-pov-switch-label {
   font-size: 0.72rem;
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-dim, 0.55);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .bs-usermenu-pov-switch-btns {
   display: inline-flex;
   gap: 0.25rem;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.04));
   border-radius: 8px;
   padding: 2px;
 }
@@ -3093,12 +3093,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
   background: transparent;
   color: inherit;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   cursor: pointer;
 }
 .bs-usermenu-pov-btn.is-active {
-  background: rgba(165, 180, 252, 0.18);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.18));
+  color: var(--bsp-accent-ink, #a5b4fc);
   opacity: 1;
 }
 .bs-usermenu-pov-btn:disabled {
@@ -3110,10 +3110,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: block;
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid rgba(99,102,241,0.3);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99,102,241,0.3));
   border-radius: 8px;
-  background: rgba(99,102,241,0.08);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-1, rgba(99,102,241,0.08));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.8rem;
   text-align: center;
   text-decoration: none;
@@ -3122,7 +3122,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-settings-btn:hover,
 .bs-usermenu-pins-btn:hover {
-  background: rgba(99,102,241,0.15);
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.15));
 }
 .bs-usermenu-pins-btn {
   margin-bottom: 0.4rem;
@@ -3130,16 +3130,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-usermenu-signout {
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 8px;
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.8rem;
   cursor: pointer;
   transition: background 0.15s;
 }
 .bs-usermenu-signout:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
 }
 .bs-usermenu-action-btn {
   background: none;
@@ -3148,7 +3148,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
   padding: 0.15rem 0.25rem;
   border-radius: 4px;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin-left: auto;
   flex-shrink: 0;
   transition: opacity 0.15s;
@@ -3162,7 +3162,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-usermenu-substatus {
   font-size: 0.7rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   padding: 0.15rem 0 0.15rem 1.3rem;
   line-height: 1.3;
 }
@@ -3218,7 +3218,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.75rem;
 }
 .bs-usermenu-filter-op {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.75rem;
 }
 .bs-usermenu-filter-input {
@@ -3276,7 +3276,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-search-icon {
   font-size: 1.1rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   margin-right: 0.5rem;
   flex-shrink: 0;
 }
@@ -3480,7 +3480,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   position: relative;
   gap: 0.5rem;
-  background: rgba(255,255,255,0.04);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   border-radius: 20px;
   padding: 0 0.85rem;
 }
@@ -3491,17 +3491,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-search-input-results {
   width: 100%;
-  background: var(--bg-primary, #0f0f23);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bsp-surface, var(--bg-primary, #0f0f23));
+  border: 1px solid var(--bsp-border, rgba(255,255,255,0.1));
   border-radius: 20px;
   padding: 0.5rem 1rem;
-  color: var(--text-primary, #e0e0e0);
+  color: var(--bsp-ink, var(--text-primary, #e0e0e0));
   font-size: 0.95rem;
   outline: none;
   transition: border-color 0.2s;
 }
 .bs-search-input-results:focus {
-  border-color: rgba(99,102,241,0.4);
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.4));
 }
 .bs-results-header-right {
   display: flex;
@@ -3767,8 +3767,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 .bsp-page {
   min-height: 100vh;
-  background: var(--bg-primary, #0f0f1a);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bsp-canvas, var(--bg-primary, #0f0f1a));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 
 /* Top bar */
@@ -3777,7 +3777,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   gap: 1rem;
   /* BrainstormSearch's landing layout uses .bs-landing with `margin-top: -4rem`
      to optically center its hero above midpoint — that negative margin
@@ -3800,7 +3800,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-logo {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   text-decoration: none;
   display: flex;
   align-items: center;
@@ -3824,8 +3824,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin-right: 1rem;
 }
 .bsp-top-link {
-  color: var(--text-primary, #e2e8f0);
-  opacity: 0.6;
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
+  opacity: var(--bsp-opacity-dim, 0.6);
   text-decoration: none;
   font-size: 0.85rem;
   padding: 0.3rem 0.2rem;
@@ -3835,7 +3835,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-top-link.is-active { opacity: 1; }
 
 .bsp-user-name {
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-link-btn {
   background: none;
@@ -3857,7 +3857,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-loading {
   text-align: center;
   padding: 3rem 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 
 /* Banner */
@@ -3888,8 +3888,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99,102,241,0.15);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.15));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 1.8rem;
   font-weight: 600;
 }
@@ -3910,12 +3910,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-nip05 {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   margin-top: 0.2rem;
 }
 .bsp-age {
   font-size: 0.75rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 
 /* Following / Verified Followers row (under header, above actions) */
@@ -3934,22 +3934,22 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-count-value {
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-count-label {
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-counts-loading .bsp-count-value {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 /* Verified Reporters: negative signal (the app encodes "report" as red). */
 .bsp-count-value-negative {
-  color: var(--red);
+  color: var(--bsp-danger, var(--red));
 }
 /* Per-count loading dim — the reporters count rides trustScores (trustLoading),
    not the row-level userCounts loading, so it dims on its own. */
 .bsp-count-loading .bsp-count-value {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
 }
 /* Forces the "bad" indicators (Verified Muters, Verified Reporters) onto the next
    flex line, grouping them visually away from the good ones (verified-muters #2). */
@@ -3968,7 +3968,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-weight: 600;
   margin: 0 0 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -3976,7 +3976,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-about {
   font-size: 0.9rem;
   line-height: 1.6;
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
   white-space: pre-wrap;
   margin: 0;
 }
@@ -3996,16 +3996,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-id-label {
   width: 110px;
   flex-shrink: 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   font-size: 0.8rem;
 }
 .bsp-id-value {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.8rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-id-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
   font-size: 0.85rem;
 }
@@ -4017,11 +4017,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: none;
   cursor: pointer;
   font-size: 0.75rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   padding: 0.1rem;
 }
 .bsp-copy-btn:hover {
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
 }
 
 /* POV tag */
@@ -4059,14 +4059,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.6rem;
   padding: 0.6rem 0.75rem;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   border-radius: 8px;
   cursor: default;
   transition: background 0.15s;
 }
 .bsp-trust-card:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
 }
 .bsp-trust-card-icon {
   font-size: 1.2rem;
@@ -4082,12 +4082,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-trust-card-label {
   font-size: 0.7rem;
-  opacity: 0.45;
+  opacity: var(--bsp-opacity-dim, 0.45);
   white-space: nowrap;
 }
 .bsp-trust-loading {
   padding: 1rem 0;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.85rem;
 }
 .bsp-trust-unavailable {
@@ -4095,11 +4095,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   border-radius: 8px;
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-trust-icon {
   font-size: 1.1rem;
@@ -4112,11 +4112,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-ta-raw summary {
   cursor: pointer;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.75rem;
 }
 .bsp-ta-raw summary:hover {
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-ta-raw pre {
   margin-top: 0.5rem;
@@ -4133,7 +4133,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-not-found {
   text-align: center;
   padding: 3rem 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 
 /* Mobile responsive */
@@ -4160,17 +4160,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-action-btn {
   padding: 0.4rem 1rem;
   border-radius: 999px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .bsp-action-btn:hover:not(:disabled) {
-  border-color: #6366f1;
-  color: #a5b4fc;
+  border-color: var(--bsp-accent, #6366f1);
+  color: var(--bsp-accent, #a5b4fc);
 }
 .bsp-action-btn:disabled {
   opacity: 0.4;
@@ -4178,31 +4178,31 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 
 .bsp-action-btn.bsp-action-active {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: #6366f1;
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.15));
+  border-color: var(--bsp-accent, #6366f1);
+  color: var(--bsp-accent-ink, #a5b4fc);
 }
 
 .bsp-action-btn.bsp-action-mute.bsp-action-active {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: #f59e0b;
-  color: #fbbf24;
+  background: var(--bsp-warn-tint-3, rgba(245, 158, 11, 0.15));
+  border-color: var(--bsp-warn, #f59e0b);
+  color: var(--bsp-warn-ink, #fbbf24);
 }
 
 .bsp-action-btn.bsp-action-report:hover:not(:disabled) {
-  border-color: #ef4444;
-  color: #fca5a5;
+  border-color: var(--bsp-danger, #ef4444);
+  color: var(--bsp-danger, #fca5a5);
 }
 .bsp-action-btn.bsp-action-reported {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-  opacity: 0.7;
+  background: var(--bsp-danger-tint-2, rgba(239, 68, 68, 0.1));
+  border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.3));
+  color: var(--bsp-danger-ink, #fca5a5);
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 
 .bsp-action-error {
   width: 100%;
-  color: #f87171;
+  color: var(--bsp-danger, #f87171);
   font-size: 0.8rem;
   margin-top: 0.25rem;
 }
@@ -4222,7 +4222,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   text-transform: uppercase;
   margin: 0;
 }
@@ -4230,20 +4230,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.8rem;
   background: transparent;
   border: none;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   cursor: pointer;
   padding: 0;
 }
 .bsp-tags-manage:hover {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-tags-loading,
 .bsp-tags-error {
   font-size: 0.85rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
 }
 .bsp-tags-error {
-  color: #f87171;
+  color: var(--bsp-danger, #f87171);
 }
 .bsp-tags-row {
   display: flex;
@@ -4254,21 +4254,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-tags-add {
   padding: 0.3rem 0.7rem;
   border-radius: 999px;
-  border: 1px dashed var(--border, #334155);
+  border: 1px dashed var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 .bsp-tags-add:hover {
-  border-color: #6366f1;
-  color: #a5b4fc;
+  border-color: var(--bsp-accent, #6366f1);
+  color: var(--bsp-accent-hover, #a5b4fc);
 }
 .bsp-tags-add-empty {
   border-style: solid;
   padding: 0.4rem 0.9rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 
 /* Tag chip */
@@ -4302,35 +4302,35 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.98rem;
   font-variant-numeric: tabular-nums;
 }
-.ptc-score-net.is-positive { color: #86efac; }
-.ptc-score-net.is-negative { color: #fca5a5; }
-.ptc-score-net.is-zero { color: var(--text-muted, #94a3b8); }
-.ptc-score-count { color: var(--text-muted, #94a3b8); opacity: 0.7; }
-.ptc-score-apply { color: #86efac; }
-.ptc-score-dispute { color: #fca5a5; }
+.ptc-score-net.is-positive { color: var(--bsp-success, #86efac); }
+.ptc-score-net.is-negative { color: var(--bsp-danger, #fca5a5); }
+.ptc-score-net.is-zero { color: var(--bsp-ink-2, var(--text-muted, #94a3b8)); }
+.ptc-score-count { color: var(--bsp-ink-2, var(--text-muted, #94a3b8)); opacity: var(--bsp-opacity-soft, 0.7); }
+.ptc-score-apply { color: var(--bsp-success, #86efac); }
+.ptc-score-dispute { color: var(--bsp-danger, #fca5a5); }
 .ptc-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   padding: 0.25rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid var(--border, #334155);
-  background: rgba(148, 163, 184, 0.05);
-  color: var(--text-primary, #e2e8f0);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
+  background: var(--bsp-wash-1, rgba(148, 163, 184, 0.05));
+  color: var(--bsp-ink-primary, var(--text-primary, #e2e8f0));
   font-size: 0.8rem;
   cursor: pointer;
 }
 .ptc-chip:hover,
 .ptc-chip:focus-visible {
-  border-color: #6366f1;
+  border-color: var(--bsp-accent, #6366f1);
 }
 .ptc-chip.ptc-chip-mine-apply {
-  border-color: rgba(34, 197, 94, 0.5);
-  background: rgba(34, 197, 94, 0.08);
+  border-color: var(--bsp-success-tint-4, rgba(34, 197, 94, 0.5));
+  background: var(--bsp-success-tint-2, rgba(34, 197, 94, 0.08));
 }
 .ptc-chip.ptc-chip-mine-dispute {
-  border-color: rgba(239, 68, 68, 0.5);
-  background: rgba(239, 68, 68, 0.08);
+  border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.5));
+  background: var(--bsp-danger-tint-2, rgba(239, 68, 68, 0.08));
 }
 .ptc-warn {
   display: inline-flex;
@@ -4339,8 +4339,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: 1.1em;
   height: 1.1em;
   border-radius: 999px;
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  background: var(--bsp-danger-tint-3, rgba(239, 68, 68, 0.2));
+  color: var(--bsp-danger-ink, #fca5a5);
   font-size: 0.7em;
   font-weight: 700;
 }
@@ -4353,9 +4353,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   max-width: 320px;
   padding: 0.75rem;
   border-radius: 8px;
-  border: 1px solid var(--border, #334155);
-  background: var(--bg-elev, #1e293b);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
+  background: var(--bsp-surface-2, var(--bg-elev, #1e293b));
+  box-shadow: 0 8px 24px var(--bsp-shadow-2, rgba(0, 0, 0, 0.4));
   font-size: 0.85rem;
 }
 /* Story-6 AC-1 hover bridge: an invisible region covering the chip→popover
@@ -4380,28 +4380,28 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
  * navigates. */
 .ptc-popover-name-link {
   text-decoration: underline;
-  text-decoration-color: rgba(165, 180, 252, 0.4);
+  text-decoration-color: var(--bsp-accent, rgba(165, 180, 252, 0.4));
   text-underline-offset: 2px;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   display: inline-flex;
   align-items: baseline;
   gap: 0.25rem;
 }
 .ptc-popover-name-link:hover {
-  text-decoration-color: #c7d2fe;
-  color: #c7d2fe;
+  text-decoration-color: var(--bsp-accent-hover, #c7d2fe);
+  color: var(--bsp-accent-hover, #c7d2fe);
 }
 .ptc-popover-name-icon {
   font-size: 0.75rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   line-height: 1;
 }
 .ptc-popover-name-link:hover .ptc-popover-name-icon {
-  color: #c7d2fe;
+  color: var(--bsp-accent, #c7d2fe);
 }
 .ptc-popover-desc {
   margin: 0.25rem 0 0;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.8rem;
 }
 .ptc-section {
@@ -4411,11 +4411,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   margin-bottom: 0.25rem;
 }
 .ptc-section-dispute .ptc-section-label {
-  color: #fca5a5;
+  color: var(--bsp-danger, #fca5a5);
 }
 .ptc-asserters {
   display: flex;
@@ -4441,13 +4441,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.12s;
 }
 .ptc-asserter-link:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
 }
 .ptc-asserter-avatar {
   width: 1.4em;
   height: 1.4em;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.2);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.2));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4473,25 +4473,25 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: 1;
   padding: 0.4rem 0.6rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.8rem;
   cursor: pointer;
 }
 .ptc-btn-apply {
-  border-color: #f59e0b;
-  color: #fbbf24;
+  border-color: var(--bsp-warn, #f59e0b);
+  color: var(--bsp-warn-ink, #fbbf24);
 }
 .ptc-btn-apply:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--bsp-warn-tint-2, rgba(245, 158, 11, 0.1));
 }
 .ptc-btn-dispute {
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
+  border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.5));
+  color: var(--bsp-danger, #fca5a5);
 }
 .ptc-btn-dispute:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--bsp-danger-tint-2, rgba(239, 68, 68, 0.1));
 }
 .ptc-btn:disabled {
   opacity: 0.4;
@@ -4508,14 +4508,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .ptc-hint {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
 }
 
 /* Add / Manage dialogs */
 .ptd-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bsp-scrim, rgba(0, 0, 0, 0.6));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4525,11 +4525,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: min(440px, 90vw);
   max-height: 80vh;
   overflow: auto;
-  background: var(--bg-elev, #1e293b);
-  border: 1px solid var(--border, #334155);
+  background: var(--bsp-surface-2, var(--bg-elev, #1e293b));
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   border-radius: 10px;
   padding: 1rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .ptd-head {
   display: flex;
@@ -4544,7 +4544,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .ptd-close {
   background: transparent;
   border: none;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
@@ -4558,25 +4558,25 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: 1;
   padding: 0.4rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.85rem;
   cursor: pointer;
 }
 .ptd-tab.ptd-tab-active {
-  background: rgba(99, 102, 241, 0.15);
-  border-color: #6366f1;
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.15));
+  border-color: var(--bsp-accent, #6366f1);
+  color: var(--bsp-accent-ink, #a5b4fc);
 }
 .ptd-input,
 .ptd-textarea {
   width: 100%;
   padding: 0.5rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.9rem;
   box-sizing: border-box;
 }
@@ -4597,22 +4597,22 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   text-align: left;
   padding: 0.5rem 0.6rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.85rem;
   cursor: pointer;
 }
 .ptd-result-btn:hover:not(:disabled) {
-  border-color: #6366f1;
-  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--bsp-accent, #6366f1);
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.08));
 }
 .ptd-result-desc {
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
 }
 /* Usage-context hint + "Show other results" (tag-applicability #2). */
 .ptd-result-ctx {
-  color: var(--accent, #a5b4fc);
+  color: var(--bsp-accent, var(--accent, #a5b4fc));
   font-size: 0.78rem;
   font-weight: 500;
 }
@@ -4626,19 +4626,19 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
-.ptd-results-other .ptd-result-btn { opacity: 0.9; }
+.ptd-results-other .ptd-result-btn { opacity: var(--bsp-opacity-soft, 0.9); }
 .ptd-empty,
 .ptd-create-hint {
   padding: 0.5rem 0;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.85rem;
 }
 .ptd-link {
   background: transparent;
   border: none;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   cursor: pointer;
   padding: 0;
   font-size: inherit;
@@ -4656,14 +4656,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .ptd-field-label {
   font-size: 0.75rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
 }
 .ptd-btn {
   padding: 0.5rem 0.8rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.85rem;
   cursor: pointer;
 }
@@ -4672,12 +4672,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   cursor: not-allowed;
 }
 .ptd-btn-create {
-  border-color: #6366f1;
-  color: #a5b4fc;
+  border-color: var(--bsp-accent, #6366f1);
+  color: var(--bsp-accent, #a5b4fc);
 }
 .ptd-btn-revoke {
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
+  border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.5));
+  color: var(--bsp-danger, #fca5a5);
 }
 .ptd-mine {
   list-style: none;
@@ -4693,15 +4693,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   padding: 0.5rem 0.6rem;
   border-radius: 6px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   font-size: 0.85rem;
 }
 .ptd-error {
   margin-bottom: 0.5rem;
   padding: 0.4rem 0.6rem;
   border-radius: 6px;
-  background: rgba(239, 68, 68, 0.08);
-  color: #fca5a5;
+  background: var(--bsp-danger-tint-1, rgba(239, 68, 68, 0.08));
+  color: var(--bsp-danger-ink, #fca5a5);
   font-size: 0.8rem;
 }
 
@@ -4710,15 +4710,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bsp-scrim, rgba(0, 0, 0, 0.6));
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
 .bsp-confirm-box {
-  background: var(--bg-secondary, #1e1e2e);
-  border: 1px solid var(--border, #334155);
+  background: var(--bsp-surface, var(--bg-secondary, #1e1e2e));
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   border-radius: 12px;
   padding: 1.5rem;
   max-width: 420px;
@@ -4728,12 +4728,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0 0 0.75rem;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-confirm-message {
   margin: 0 0 1.25rem;
   font-size: 0.9rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
   line-height: 1.5;
 }
 .bsp-confirm-buttons {
@@ -4745,24 +4745,24 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-confirm-ok {
   padding: 0.4rem 1rem;
   border-radius: 8px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   font-size: 0.85rem;
   cursor: pointer;
 }
 .bsp-confirm-cancel {
   background: transparent;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-confirm-cancel:hover {
-  border-color: var(--text-secondary, #94a3b8);
+  border-color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-confirm-ok {
-  background: #6366f1;
-  border-color: #6366f1;
-  color: white;
+  background: var(--bsp-accent, #6366f1);
+  border-color: var(--bsp-accent, #6366f1);
+  color: var(--bsp-on-accent, white);
 }
 .bsp-confirm-ok:hover {
-  background: #4f46e5;
+  background: var(--bsp-accent-hover, #4f46e5);
 }
 
 /* ── Report Modal ── */
@@ -4770,15 +4770,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-report-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bsp-scrim, rgba(0, 0, 0, 0.6));
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
 .bsp-report-box {
-  background: var(--bg-secondary, #1e1e2e);
-  border: 1px solid var(--border, #334155);
+  background: var(--bsp-surface, var(--bg-secondary, #1e1e2e));
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   border-radius: 12px;
   padding: 1.5rem;
   max-width: 480px;
@@ -4788,12 +4788,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0 0 0.25rem;
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-report-desc {
   margin: 0 0 1rem;
   font-size: 0.8rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-report-options {
   display: flex;
@@ -4811,10 +4811,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.1s ease;
 }
 .bsp-report-option:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.04));
 }
 .bsp-report-option.selected {
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--bsp-danger-tint-1, rgba(239, 68, 68, 0.08));
 }
 .bsp-report-option input[type="radio"] {
   margin-top: 3px;
@@ -4827,19 +4827,19 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-report-option-label {
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-report-option-desc {
   font-size: 0.75rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-report-textarea {
   width: 100%;
   padding: 0.5rem;
   border-radius: 8px;
-  border: 1px solid var(--border, #334155);
-  background: var(--bg-primary, #0f0f1a);
-  color: var(--text-primary, #e2e8f0);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
+  background: var(--bsp-canvas, var(--bg-primary, #0f0f1a));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.85rem;
   font-family: inherit;
   resize: vertical;
@@ -4855,24 +4855,24 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-report-submit {
   padding: 0.4rem 1rem;
   border-radius: 8px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   font-size: 0.85rem;
   cursor: pointer;
 }
 .bsp-report-cancel {
   background: transparent;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-report-cancel:hover {
-  border-color: var(--text-secondary, #94a3b8);
+  border-color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bsp-report-submit {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: white;
+  background: var(--bsp-danger, #ef4444);
+  border-color: var(--bsp-danger, #ef4444);
+  color: var(--bsp-on-accent, white);
 }
 .bsp-report-submit:hover:not(:disabled) {
-  background: #dc2626;
+  background: var(--bsp-danger-hover, #dc2626);
 }
 .bsp-report-submit:disabled {
   opacity: 0.5;
@@ -4885,15 +4885,80 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 .bss-page {
   min-height: 100vh;
-  background: var(--bg-primary, #0f0f1a);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bsp-canvas, var(--bg-primary, #0f0f1a));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
+
+/* ─── The profile family in Light (appearance-setting #2, ADR appearance-setting/0002) ─────────────────────────────
+   The frame and the reading pages paint every colour as var(--bsp-<role>, <today's colour>). The tokens are declared
+   only here, while a profile-family or Settings page is light, with the design shell's light values. Anywhere else
+   (Dark, the search home, the admin pages, the design shell) each rule falls back to exactly what it painted before.
+   A new colour in a converted rule is written the same way, never as a bare literal. */
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page)) {
+  color-scheme: light;
+  background: #f2f3f0;
+  --bsp-accent: #7237ff;
+  --bsp-accent-hover: #612fd9;
+  --bsp-accent-ink: #5b21d6;
+  --bsp-accent-tint-1: rgba(114, 55, 255, 0.06);
+  --bsp-accent-tint-2: rgba(114, 55, 255, 0.10);
+  --bsp-accent-tint-3: rgba(114, 55, 255, 0.18);
+  --bsp-accent-tint-4: rgba(114, 55, 255, 0.35);
+  --bsp-bg: #ffffff;
+  --bsp-border: #d6d9db;
+  --bsp-canvas: #f2f3f0;
+  --bsp-danger: #b42318;
+  --bsp-danger-ink: #991b1b;
+  --bsp-danger-tint-1: rgba(180, 35, 24, 0.06);
+  --bsp-danger-tint-2: rgba(180, 35, 24, 0.10);
+  --bsp-danger-tint-3: rgba(180, 35, 24, 0.18);
+  --bsp-danger-tint-4: rgba(180, 35, 24, 0.35);
+  --bsp-ink: #0a0e18;
+  --bsp-ink-2: #555d69;
+  --bsp-ink-primary: #2a303b;
+  --bsp-line-1: rgba(10, 14, 24, 0.08);
+  --bsp-line-2: rgba(10, 14, 24, 0.14);
+  --bsp-line-3: rgba(10, 14, 24, 0.24);
+  --bsp-muted: #6b7480;
+  --bsp-on-accent: #ffffff;
+  --bsp-scrim: rgba(10, 14, 24, 0.35);
+  --bsp-shadow-2: rgba(10, 14, 24, 0.14);
+  --bsp-shadow-3: rgba(10, 14, 24, 0.22);
+  --bsp-success: #047857;
+  --bsp-success-ink: #065f46;
+  --bsp-success-tint-3: rgba(4, 120, 87, 0.18);
+  --bsp-surface: #ffffff;
+  --bsp-surface-2: #fafaf9;
+  --bsp-warn: #b45309;
+  --bsp-warn-ink: #92400e;
+  --bsp-warn-tint-1: rgba(180, 83, 9, 0.06);
+  --bsp-warn-tint-2: rgba(180, 83, 9, 0.10);
+  --bsp-warn-tint-3: rgba(180, 83, 9, 0.18);
+  --bsp-warn-tint-4: rgba(180, 83, 9, 0.35);
+  --bsp-wash-1: rgba(10, 14, 24, 0.03);
+  --bsp-wash-2: rgba(10, 14, 24, 0.05);
+  --bsp-wash-3: rgba(10, 14, 24, 0.08);
+  --bsp-wash-4: rgba(10, 14, 24, 0.12);
+  --bsp-danger-hover: #912018;
+  /* Text opacity (review 1): today's dimmed text reads on dark; on the light canvas it must stay at 4.5:1. Soft
+     (0.6 < x < 1, which holds links) is full in Light; dim (x <= 0.6) keeps a step down at 0.72 (about 7:1 in ink). */
+  --bsp-opacity-soft: 1;
+  --bsp-opacity-dim: 0.72;
+  --bsp-accent-ink-strong: #4c1d95;
+  --bsp-cyan-tint-1: rgba(14, 116, 144, 0.06);
+  --bsp-cyan-tint-3: rgba(14, 116, 144, 0.18);
+  --bsp-success-tint-2: rgba(4, 120, 87, 0.10);
+  --bsp-success-tint-4: rgba(4, 120, 87, 0.35);
+}
+/* Before React mounts on a reading path, the light canvas (the pre-render hint; ADR 0002 sub-decision 5). In Dark the
+   hint paints nothing new. */
+:root[data-appearance="light"][data-preload-family="profile"] body { background: #f2f3f0; }
 .bss-top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   gap: 1rem;
 }
 .bss-back {
@@ -4908,7 +4973,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.5rem;
   font-size: 0.8rem;
 }
-.bss-user-name { opacity: 0.6; }
+.bss-user-name { opacity: var(--bsp-opacity-dim, 0.6); }
 .bss-content {
   max-width: 700px;
   margin: 0 auto;
@@ -4917,7 +4982,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-dashboard-link {
   display: inline-flex;
   align-items: center;
-  color: rgba(255,255,255,0.55);
+  color: var(--bsp-ink-2, rgba(255,255,255,0.55));
   text-decoration: none;
   font-size: 0.85rem;
   margin-bottom: 1rem;
@@ -4926,8 +4991,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.15s, color 0.15s;
 }
 .bss-dashboard-link:hover {
-  background: rgba(255,255,255,0.06);
-  color: rgba(255,255,255,0.85);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
+  color: var(--bsp-ink-primary, rgba(255,255,255,0.85));
 }
 .bss-title {
   font-size: 1.4rem;
@@ -4936,38 +5001,38 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bss-subtitle {
   font-size: 0.9rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin: 0 0 1.5rem;
 }
 .bss-empty {
   text-align: center;
   padding: 4rem 0;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 .bss-loading {
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-size: 0.85rem;
   padding: 0.5rem 0;
 }
 
 /* Cards */
 .bss-card {
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
   border-radius: 10px;
   padding: 1rem 1.25rem;
   margin-bottom: 1rem;
-  background: rgba(255,255,255,0.02);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.02));
 }
 .bss-card-header {
   font-weight: 600;
   font-size: 0.95rem;
   margin-bottom: 0.6rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
 }
 .bss-card-desc {
   font-size: 0.8rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin: 0 0 0.75rem;
 }
 
@@ -4988,15 +5053,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99,102,241,0.15);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.15));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 1.2rem;
   font-weight: 600;
 }
 .bss-profile-name { font-weight: 600; font-size: 1rem; }
 .bss-profile-pubkey {
   font-size: 0.7rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
@@ -5015,47 +5080,47 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-action-btn {
   margin-left: auto;
   padding: 0.3rem 0.6rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 6px;
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.15s;
 }
-.bss-action-btn:hover:not(:disabled) { background: rgba(255,255,255,0.06); }
+.bss-action-btn:hover:not(:disabled) { background: var(--bsp-wash-2, rgba(255,255,255,0.06)); }
 .bss-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .bss-substatus {
   font-size: 0.75rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   padding-left: 1.5rem;
 }
 .bss-brainstorm-cta {
   margin: 0.6rem 0;
   padding: 0.75rem 1rem;
-  border: 1px solid rgba(99,102,241,0.2);
+  border: 1px solid var(--bsp-accent-tint-3, rgba(99,102,241,0.2));
   border-radius: 8px;
-  background: rgba(99,102,241,0.05);
+  background: var(--bsp-accent-tint-1, rgba(99,102,241,0.05));
 }
 .bss-brainstorm-cta p {
   font-size: 0.85rem;
   margin: 0 0 0.6rem;
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
   line-height: 1.4;
 }
 .bss-brainstorm-btn {
   display: inline-block;
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(99,102,241,0.3);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99,102,241,0.3));
   border-radius: 8px;
-  background: rgba(99,102,241,0.1);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.1));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.85rem;
   text-decoration: none;
   transition: background 0.15s;
 }
 .bss-brainstorm-btn:hover {
-  background: rgba(99,102,241,0.2);
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.2));
 }
 
 /* Metrics */
@@ -5069,18 +5134,18 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.75rem;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
 .bss-metric-chip.active {
-  background: rgba(99,102,241,0.1);
-  border-color: rgba(99,102,241,0.3);
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.1));
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.3));
 }
 .bss-metric-chip input[type="checkbox"] { width: 14px; height: 14px; margin: 0; }
 .bss-metric-name { font-weight: 500; font-size: 0.85rem; }
-.bss-metric-field { font-size: 0.7rem; opacity: 0.4; font-family: monospace; }
+.bss-metric-field { font-size: 0.7rem; opacity: var(--bsp-opacity-dim, 0.4); font-family: monospace; }
 
 /* Filters */
 .bss-filter-section { margin-bottom: 1rem; }
@@ -5092,28 +5157,28 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.3rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   font-size: 0.85rem;
 }
 .bss-filter-row.active {
-  border-color: rgba(99,102,241,0.3);
-  background: rgba(99,102,241,0.05);
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.3));
+  background: var(--bsp-accent-tint-1, rgba(99,102,241,0.05));
 }
 .bss-filter-row input[type="checkbox"] { width: 14px; height: 14px; margin: 0; }
 .bss-filter-name { font-weight: 500; min-width: 70px; }
-.bss-filter-op { opacity: 0.4; }
+.bss-filter-op { opacity: var(--bsp-opacity-dim, 0.4); }
 .bss-filter-input {
   width: 70px;
   padding: 0.25rem 0.4rem;
   font-size: 0.85rem;
   font-family: monospace;
-  background: var(--bg-primary, #0f0f1a);
-  color: var(--text-primary, #e2e8f0);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bsp-canvas, var(--bg-primary, #0f0f1a));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 4px;
 }
 .bss-filter-input:disabled { opacity: 0.25; }
-.bss-filter-hint { font-size: 0.7rem; opacity: 0.35; }
+.bss-filter-hint { font-size: 0.7rem; opacity: var(--bsp-opacity-dim, 0.35); }
 
 /* Sort */
 .bss-sort-row {
@@ -5125,9 +5190,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0.35rem 0.5rem;
   font-size: 0.85rem;
   border-radius: 6px;
-  background: var(--bg-primary, #0f0f1a);
-  color: var(--text-primary, #e2e8f0);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bsp-canvas, var(--bg-primary, #0f0f1a));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
 }
 
 /* Save button */
@@ -5135,15 +5200,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: 100%;
   padding: 0.6rem;
   margin-top: 0.75rem;
-  border: 1px solid rgba(99,102,241,0.3);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99,102,241,0.3));
   border-radius: 8px;
-  background: rgba(99,102,241,0.1);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.1));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.85rem;
   cursor: pointer;
   transition: background 0.15s;
 }
-.bss-save-btn:hover:not(:disabled) { background: rgba(99,102,241,0.2); }
+.bss-save-btn:hover:not(:disabled) { background: var(--bsp-accent-tint-3, rgba(99,102,241,0.2)); }
 .bss-save-btn.saved { opacity: 0.5; cursor: default; }
 
 /* POV Toggle */
@@ -5154,18 +5219,18 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bss-pov-btn {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 10px;
   background: transparent;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   cursor: pointer;
   text-align: left;
   transition: background 0.15s, border-color 0.15s;
 }
-.bss-pov-btn:hover:not(:disabled) { background: rgba(255,255,255,0.04); }
+.bss-pov-btn:hover:not(:disabled) { background: var(--bsp-wash-2, rgba(255,255,255,0.04)); }
 .bss-pov-btn.active {
-  background: rgba(99,102,241,0.1);
-  border-color: rgba(99,102,241,0.4);
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.1));
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.4));
 }
 .bss-pov-btn.disabled, .bss-pov-btn:disabled {
   opacity: 0.3;
@@ -5184,12 +5249,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   object-fit: cover;
 }
 .bss-pov-profile-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
   font-size: 0.7rem;
 }
 .bss-pov-profile-link:hover { text-decoration: underline; }
-.bss-pov-btn-desc { font-size: 0.75rem; opacity: 0.5; margin-top: 0.2rem; }
+.bss-pov-btn-desc { font-size: 0.75rem; opacity: var(--bsp-opacity-dim, 0.5); margin-top: 0.2rem; }
 
 @media (max-width: 600px) {
   .bss-content { padding: 1rem; }
@@ -5202,7 +5267,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tag-header {
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
 }
 .bs-tag-name {
   font-size: 2rem;
@@ -5226,7 +5291,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tag-desc {
   margin: 0 0 0.75rem;
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -5251,13 +5316,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tag-raw {
   margin: 0 0 1.5rem;
   padding: 0.75rem 1rem;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.12));
   border-radius: 10px;
 }
 .bs-tag-raw-title {
   font-size: 0.8rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   margin: 0 0 0.5rem;
 }
 .bs-tag-raw-pre {
@@ -5265,7 +5330,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.78rem;
   line-height: 1.5;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   white-space: pre-wrap;     /* keep JSON.stringify's indentation, but wrap long
                                 lines instead of scrolling horizontally. */
   word-break: break-all;     /* the 64-char id and 128-char sig have no break
@@ -5282,30 +5347,30 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-wrap: wrap;
 }
 .bs-tag-sort .bs-sort-toggle-btn {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.4rem 0.9rem;
   border-radius: 18px;
   cursor: pointer;
   font-size: 0.85rem;
   transition: background 0.15s, border-color 0.15s;
 }
-.bs-tag-sort .bs-sort-toggle-btn:hover { background: rgba(255,255,255,0.08); }
+.bs-tag-sort .bs-sort-toggle-btn:hover { background: var(--bsp-wash-3, rgba(255,255,255,0.08)); }
 .bs-tag-sort .bs-sort-toggle-btn.is-active {
-  background: rgba(165,180,252,0.15);
-  border-color: rgba(165,180,252,0.4);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(165,180,252,0.15));
+  border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.4));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 
 .bs-tag-loading,
 .bs-tag-empty,
 .bs-tag-error {
   margin: 1rem 0;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
   font-size: 0.9rem;
 }
-.bs-tag-error { color: #fca5a5; }
+.bs-tag-error { color: var(--bsp-danger, #fca5a5); }
 
 .bs-tag-row-list {
   list-style: none;
@@ -5317,7 +5382,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.05));
 }
 .bs-tag-row > .bs-tag-row-link { flex: 1 1 auto; min-width: 0; }
 .bs-tag-row-link {
@@ -5330,7 +5395,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
   transition: background 0.12s;
 }
-.bs-tag-row-link:hover { background: rgba(255,255,255,0.04); }
+.bs-tag-row-link:hover { background: var(--bsp-wash-2, rgba(255,255,255,0.04)); }
 .bs-tag-row-avatar {
   width: 2.25rem;
   height: 2.25rem;
@@ -5340,7 +5405,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tag-row-avatar-placeholder {
   display: inline-block;
-  background: rgba(255,255,255,0.08);
+  background: var(--bsp-wash-3, rgba(255,255,255,0.08));
 }
 .bs-tag-row-name {
   flex: 1;
@@ -5357,10 +5422,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-variant-numeric: tabular-nums;
   /* Story 17 / ADR 0014 AC-7 — de-saturate small counts so the Net score
      reads first. Was implicitly 1; explicit 0.55 deprioritizes them. */
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-dim, 0.55);
 }
-.bs-tag-count-apply { color: #86efac; }
-.bs-tag-count-dispute { color: #fca5a5; }
+.bs-tag-count-apply { color: var(--bsp-success, #86efac); }
+.bs-tag-count-dispute { color: var(--bsp-danger, #fca5a5); }
 
 /* Story 17 / ADR 0014 — three-slot row layout + Net score + hover-reveal.
 
@@ -5384,12 +5449,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   min-width: 2.2rem;
   text-align: right;
 }
-.bs-tag-row-net.is-positive { color: #4ade80; }   /* green */
-.bs-tag-row-net.is-negative { color: #f87171; }   /* red */
-.bs-tag-row-net.is-zero     { color: #fcd34d; }   /* yellow — contested */
+.bs-tag-row-net.is-positive { color: var(--bsp-success, #4ade80); }   /* green */
+.bs-tag-row-net.is-negative { color: var(--bsp-danger, #f87171); }   /* red */
+.bs-tag-row-net.is-zero     { color: var(--bsp-warn-ink, #fcd34d); }   /* yellow — contested */
 .bs-tag-row-verif {
   font-size: 0.9rem;
-  color: #d4b675;
+  color: var(--bsp-warn, #d4b675);
   font-variant-numeric: tabular-nums;
 }
 
@@ -5503,8 +5568,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: 2rem;
   height: 2rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
   cursor: pointer;
   display: inline-flex;
@@ -5512,7 +5577,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   justify-content: center;
 }
 .bs-tag-row-overflow-trigger:hover:not([disabled]) {
-  background: rgba(255,255,255,0.08);
+  background: var(--bsp-wash-3, rgba(255,255,255,0.08));
 }
 .bs-tag-row-overflow-menu {
   position: absolute;
@@ -5523,10 +5588,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   min-width: 13rem;
   max-height: 60vh;
   overflow-y: auto;
-  background: #1f2937;
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--bsp-surface-2, #1f2937);
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
   border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  box-shadow: 0 6px 18px var(--bsp-shadow-2, rgba(0,0,0,0.45));
   padding: 0.6rem;
   display: flex;
   flex-direction: column;
@@ -5555,7 +5620,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
     min-width: 0;
     max-height: 70vh;
     border-radius: 12px 12px 0 0;
-    box-shadow: 0 -8px 24px rgba(0,0,0,0.55);
+    box-shadow: 0 -8px 24px var(--bsp-shadow-3, rgba(0,0,0,0.55));
     padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
     z-index: 1100;       /* above TagSomeoneModal's 1000 */
     gap: 0.75rem;
@@ -5568,7 +5633,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.35);
+    background: var(--bsp-wash-4, rgba(0,0,0,0.35));
     z-index: 1099;
   }
 }
@@ -5584,7 +5649,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0;
   font-size: 0.75rem;
   line-height: 1.35;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--bsp-muted, rgba(255, 255, 255, 0.55));
 }
 /* ── tag-event-inspector #2 / ADR 0002 — the tagging raw-event inspector ── */
 
@@ -5603,13 +5668,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.85rem;
   padding: 0.45rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255, 255, 255, 0.18));
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.04));
   color: inherit;
   cursor: pointer;
   white-space: nowrap;
 }
-.bs-tag-row-raw-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.bs-tag-row-raw-btn:hover { background: var(--bsp-wash-3, rgba(255, 255, 255, 0.08)); }
 
 /* AC-3: the panel wraps onto its own line BELOW this row's content.
    .bs-tag-row is display:flex; flex-wrap:wrap — without flex-basis:100% this
@@ -5626,8 +5691,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tag-row-raw-block {
   padding: 0.6rem 0.75rem;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.12));
   border-radius: 8px;
   /* min-width:0 so a long author pubkey can't force the flex row to overflow. */
   min-width: 0;
@@ -5641,12 +5706,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.75rem;
 }
 .bs-tag-row-raw-polarity { font-weight: 600; }
-.bs-tag-row-raw-polarity.is-apply { color: #86efac; }
-.bs-tag-row-raw-polarity.is-dispute { color: #fca5a5; }
+.bs-tag-row-raw-polarity.is-apply { color: var(--bsp-success, #86efac); }
+.bs-tag-row-raw-polarity.is-dispute { color: var(--bsp-danger, #fca5a5); }
 .bs-tag-row-raw-author {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.7rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   /* 64 unbroken hex chars have no break opportunity — without this they push
      the caption past the viewport on a narrow screen. */
   overflow-wrap: anywhere;
@@ -5660,8 +5725,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.68rem;
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  border: 1px solid rgba(251, 191, 36, 0.4);
-  color: #fbbf24;
+  border: 1px solid var(--bsp-warn-tint-4, rgba(251, 191, 36, 0.4));
+  color: var(--bsp-warn, #fbbf24);
   white-space: nowrap;
 }
 
@@ -5673,14 +5738,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.4rem;
   padding: 0.45rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255, 255, 255, 0.18));
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.04));
   color: inherit;
   text-decoration: none;
   font-size: 0.85rem;
 }
 .bs-tag-row-overflow-visit:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bsp-wash-3, rgba(255, 255, 255, 0.08));
 }
 .bs-tag-row-apply,
 .bs-tag-row-dispute {
@@ -5688,29 +5753,29 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.82rem;
   padding: 0.32rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .bs-tag-row-apply:hover:not([disabled]) {
-  background: rgba(134, 239, 172, 0.12);
-  border-color: rgba(134, 239, 172, 0.45);
+  background: var(--bsp-success-tint-2, rgba(134, 239, 172, 0.12));
+  border-color: var(--bsp-success-tint-4, rgba(134, 239, 172, 0.45));
 }
 .bs-tag-row-dispute:hover:not([disabled]) {
-  background: rgba(252, 165, 165, 0.12);
-  border-color: rgba(252, 165, 165, 0.45);
+  background: var(--bsp-danger-tint-2, rgba(252, 165, 165, 0.12));
+  border-color: var(--bsp-danger-tint-4, rgba(252, 165, 165, 0.45));
 }
 .bs-tag-row-apply.is-applied {
-  background: rgba(134, 239, 172, 0.18);
-  border-color: rgba(134, 239, 172, 0.6);
-  color: #86efac;
+  background: var(--bsp-success-tint-3, rgba(134, 239, 172, 0.18));
+  border-color: var(--bsp-success-tint-4, rgba(134, 239, 172, 0.6));
+  color: var(--bsp-success-ink, #86efac);
 }
 .bs-tag-row-dispute.is-disputed {
-  background: rgba(252, 165, 165, 0.18);
-  border-color: rgba(252, 165, 165, 0.6);
-  color: #fca5a5;
+  background: var(--bsp-danger-tint-3, rgba(252, 165, 165, 0.18));
+  border-color: var(--bsp-danger-tint-4, rgba(252, 165, 165, 0.6));
+  color: var(--bsp-danger-ink, #fca5a5);
 }
 .bs-tag-row-apply[disabled],
 .bs-tag-row-dispute[disabled] {
@@ -5724,9 +5789,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.75rem;
   font-weight: 400;
   border-radius: 999px;
-  background: rgba(250, 204, 21, 0.12);
-  color: #fcd34d;
-  border: 1px solid rgba(250, 204, 21, 0.35);
+  background: var(--bsp-warn-tint-2, rgba(250, 204, 21, 0.12));
+  color: var(--bsp-warn-ink, #fcd34d);
+  border: 1px solid var(--bsp-warn-tint-4, rgba(250, 204, 21, 0.35));
   white-space: nowrap;
   vertical-align: middle;
 }
@@ -5734,7 +5799,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-basis: 100%;
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
-  color: #fca5a5;
+  color: var(--bsp-danger, #fca5a5);
 }
 .bs-tag-search {
   margin: 1rem 0 0.5rem;
@@ -5774,16 +5839,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0 0 0.5rem;
 }
 .bs-tag-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bs-tag-link:hover { text-decoration: underline; }
 .bs-tag-breadcrumb {
   display: inline-block;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
   font-size: 0.85rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
   margin-bottom: 1rem;
   transition: opacity 0.12s;
 }
@@ -5795,7 +5860,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tagindex-header {
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
 }
 .bs-tagindex-title {
   font-size: 1.75rem;
@@ -5805,11 +5870,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tagindex-sub {
   margin: 0;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
   font-size: 0.9rem;
 }
 .bs-tagindex-pov code {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
   padding: 0.05rem 0.35rem;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -5827,20 +5892,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-wrap: wrap;
 }
 .bs-tagindex-sort .bs-sort-toggle-btn {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.4rem 0.85rem;
   border-radius: 18px;
   cursor: pointer;
   font-size: 0.85rem;
   transition: background 0.15s, border-color 0.15s;
 }
-.bs-tagindex-sort .bs-sort-toggle-btn:hover { background: rgba(255,255,255,0.08); }
+.bs-tagindex-sort .bs-sort-toggle-btn:hover { background: var(--bsp-wash-3, rgba(255,255,255,0.08)); }
 .bs-tagindex-sort .bs-sort-toggle-btn.is-active {
-  background: rgba(165,180,252,0.15);
-  border-color: rgba(165,180,252,0.4);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(165,180,252,0.15));
+  border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.4));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 .bs-tagindex-mineonly {
   display: inline-flex;
@@ -5848,7 +5913,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.45rem;
   margin: 0 0 1rem;
   font-size: 0.85rem;
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
   cursor: pointer;
   user-select: none;
 }
@@ -5857,34 +5922,34 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tagindex-error,
 .bs-tagindex-empty {
   margin: 1rem 0;
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
   font-size: 0.9rem;
 }
-.bs-tagindex-error { color: #fca5a5; }
+.bs-tagindex-error { color: var(--bsp-danger, #fca5a5); }
 .bs-tagindex-empty p { margin: 0 0 0.5rem; }
 .bs-tagindex-empty-cta { font-size: 0.9rem; }
 .bs-tagindex-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bs-tagindex-link:hover { text-decoration: underline; }
 .bs-tagindex-clear-btn {
   background: none;
-  border: 1px solid rgba(255,255,255,0.15);
-  color: var(--text-primary, #e0e0e0);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.15));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.35rem 0.85rem;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.85rem;
 }
-.bs-tagindex-clear-btn:hover { background: rgba(255,255,255,0.06); }
+.bs-tagindex-clear-btn:hover { background: var(--bsp-wash-2, rgba(255,255,255,0.06)); }
 .bs-tagindex-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .bs-tagindex-row {
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.05));
 }
 .bs-tagindex-row-link {
   display: flex;
@@ -5897,7 +5962,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
   transition: background 0.12s;
 }
-.bs-tagindex-row-link:hover { background: rgba(255,255,255,0.04); }
+.bs-tagindex-row-link:hover { background: var(--bsp-wash-2, rgba(255,255,255,0.04)); }
 .bs-tagindex-row-main {
   display: flex;
   flex-direction: column;
@@ -5911,13 +5976,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tagindex-row-desc {
   font-size: 0.85rem;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .bs-tagindex-row-author {
   font-size: 0.75rem;
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-dim, 0.55);
 }
 .bs-tagindex-row-counts {
   display: flex;
@@ -5926,8 +5991,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
-.bs-tagindex-count-apply { color: #86efac; }
-.bs-tagindex-count-dispute { color: #fca5a5; }
+.bs-tagindex-count-apply { color: var(--bsp-success, #86efac); }
+.bs-tagindex-count-dispute { color: var(--bsp-danger, #fca5a5); }
 .bs-tagindex-footer {
   display: flex;
   align-items: center;
@@ -5935,23 +6000,23 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid var(--bsp-line-1, rgba(255,255,255,0.05));
 }
 .bs-tagindex-count-summary {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bs-tagindex-loadmore {
-  background: rgba(165,180,252,0.12);
-  border: 1px solid rgba(165,180,252,0.3);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-2, rgba(165,180,252,0.12));
+  border: 1px solid var(--bsp-accent-tint-4, rgba(165,180,252,0.3));
+  color: var(--bsp-accent-ink, #c7d2fe);
   padding: 0.5rem 1.1rem;
   border-radius: 6px;
   cursor: pointer;
   font-size: 0.9rem;
   transition: background 0.15s;
 }
-.bs-tagindex-loadmore:hover:not(:disabled) { background: rgba(165,180,252,0.2); }
+.bs-tagindex-loadmore:hover:not(:disabled) { background: var(--bsp-accent-tint-3, rgba(165,180,252,0.2)); }
 .bs-tagindex-loadmore:disabled { opacity: 0.5; cursor: default; }
 
 /* ── Shared SortToggle base (Story 5 / ADR-0005) ── */
@@ -5973,21 +6038,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 1rem 0 1.5rem;
 }
 .bsp-loadmore {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.5rem 1.4rem;
   border-radius: 18px;
   cursor: pointer;
   font-size: 0.9rem;
   transition: background 0.15s, border-color 0.15s;
 }
-.bsp-loadmore:hover:not(:disabled) { background: rgba(255,255,255,0.08); }
+.bsp-loadmore:hover:not(:disabled) { background: var(--bsp-wash-3, rgba(255,255,255,0.08)); }
 .bsp-loadmore:disabled { opacity: 0.5; cursor: default; }
 .bsp-loadmore-end {
   text-align: center;
   padding: 1rem 0 1.5rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   font-size: 0.85rem;
 }
 
@@ -5999,9 +6064,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-feed-filter .bs-sort-toggle-btn,
 .bsp-notes-filter .bs-sort-toggle-btn {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.4rem 0.9rem;
   border-radius: 18px;
   cursor: pointer;
@@ -6009,12 +6074,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.15s, border-color 0.15s;
 }
 .bsp-feed-filter .bs-sort-toggle-btn:hover,
-.bsp-notes-filter .bs-sort-toggle-btn:hover { background: rgba(255,255,255,0.08); }
+.bsp-notes-filter .bs-sort-toggle-btn:hover { background: var(--bsp-wash-3, rgba(255,255,255,0.08)); }
 .bsp-feed-filter .bs-sort-toggle-btn.is-active,
 .bsp-notes-filter .bs-sort-toggle-btn.is-active {
-  background: rgba(165,180,252,0.15);
-  border-color: rgba(165,180,252,0.4);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(165,180,252,0.15));
+  border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.4));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 
 /* ── Authored-tagging section (Story 5 / ADR-0005) ── */
@@ -6039,13 +6104,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   text-align: left;
 }
 .bsp-authored-head-toggle:hover .bsp-authored-title {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-authored-title {
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   text-transform: uppercase;
   margin: 0;
   display: inline-flex;
@@ -6056,14 +6121,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   text-transform: none;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-authored-chevron {
   display: inline-block;
   font-size: 0.85rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   transition: transform 0.15s ease;
   transform: rotate(-90deg); /* points right when collapsed */
 }
@@ -6076,30 +6141,30 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin-bottom: 0.5rem;
 }
 .bsp-authored-sort .bs-sort-toggle-btn {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.3rem 0.7rem;
   border-radius: 16px;
   font-size: 0.78rem;
   transition: background 0.15s, border-color 0.15s;
 }
-.bsp-authored-sort .bs-sort-toggle-btn:hover { background: rgba(255,255,255,0.08); }
+.bsp-authored-sort .bs-sort-toggle-btn:hover { background: var(--bsp-wash-3, rgba(255,255,255,0.08)); }
 .bsp-authored-sort .bs-sort-toggle-btn.is-active {
-  background: rgba(165,180,252,0.15);
-  border-color: rgba(165,180,252,0.4);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(165,180,252,0.15));
+  border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.4));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 .bsp-authored-loading,
 .bsp-authored-error {
   font-size: 0.85rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   margin: 0.5rem 0;
 }
-.bsp-authored-error { color: #f87171; }
+.bsp-authored-error { color: var(--bsp-danger, #f87171); }
 .bsp-authored-aboutme {
-  background: rgba(165,180,252,0.06);
-  border: 1px solid rgba(165,180,252,0.2);
+  background: var(--bsp-accent-tint-1, rgba(165,180,252,0.06));
+  border: 1px solid var(--bsp-accent-tint-3, rgba(165,180,252,0.2));
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   margin-bottom: 0.75rem;
@@ -6108,7 +6173,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
-  color: #c7d2fe;
+  color: var(--bsp-accent, #c7d2fe);
   text-transform: uppercase;
   margin: 0 0 0.4rem;
 }
@@ -6123,7 +6188,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.45rem;
   padding: 0.45rem 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.05));
   font-size: 0.9rem;
 }
 .bsp-authored-row:last-child { border-bottom: none; }
@@ -6143,21 +6208,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding-bottom: 4px;
 }
 .bsp-authored-applied {
-  background: rgba(34,197,94,0.18);
-  color: #86efac;
+  background: var(--bsp-success-tint-3, rgba(34,197,94,0.18));
+  color: var(--bsp-success-ink, #86efac);
 }
 .bsp-authored-disputed {
-  background: rgba(239,68,68,0.18);
-  color: #fca5a5;
+  background: var(--bsp-danger-tint-3, rgba(239,68,68,0.18));
+  color: var(--bsp-danger-ink, #fca5a5);
 }
 .bsp-authored-tag-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
   font-weight: 500;
 }
 .bsp-authored-tag-link:hover { text-decoration: underline; }
 .bsp-authored-arrow {
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.95rem;
   line-height: 1;
   margin: 0 0.1rem;
@@ -6166,10 +6231,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   text-decoration: none;
 }
-.bsp-authored-target-link:hover { color: #c7d2fe; }
+.bsp-authored-target-link:hover { color: var(--bsp-accent-hover, #c7d2fe); }
 .bsp-authored-target-avatar {
   width: 20px;
   height: 20px;
@@ -6180,22 +6245,22 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-weight: 500;
 }
 .bsp-authored-time {
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.78rem;
 }
 .bsp-authored-peer {
   font-size: 0.78rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   margin-left: auto;
   white-space: nowrap;
 }
-.bsp-authored-peer .is-agree { color: #86efac; }
-.bsp-authored-peer .is-disagree { color: #fca5a5; }
-.bsp-authored-peer-sep { opacity: 0.5; }
+.bsp-authored-peer .is-agree { color: var(--bsp-success, #86efac); }
+.bsp-authored-peer .is-disagree { color: var(--bsp-danger, #fca5a5); }
+.bsp-authored-peer-sep { opacity: var(--bsp-opacity-dim, 0.5); }
 .bsp-authored-pov-hint {
   margin: 0.75rem 0 0;
   font-size: 0.78rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-style: italic;
 }
 
@@ -6311,7 +6376,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: flex;
   gap: 0.25rem;
   margin: 1rem 0 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.08));
 }
 .bs-tag-tab {
   font: inherit;
@@ -6320,15 +6385,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
   cursor: pointer;
 }
 .bs-tag-tab:hover {
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bs-tag-tab.is-active {
-  color: var(--text-primary, #e2e8f0);
-  border-bottom-color: #818cf8;
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
+  border-bottom-color: var(--bsp-accent, #818cf8);
 }
 .bs-tag-pin-wrap {
   display: inline-flex;
@@ -6340,21 +6405,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.75rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.35));
   border-radius: 8px;
-  background: rgba(99, 102, 241, 0.08);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.08));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.85rem;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 .bs-tag-pin:hover {
-  background: rgba(99, 102, 241, 0.18);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.18));
 }
 .bs-tag-pin.is-pinned {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.6);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.25));
+  border-color: var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.6));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 /* Story 20 / ADR 0018 — the pinned-state button label is driven by
    React state (📌 Pinned ↔ ← Back to Tag) based on the active tab, not
@@ -6368,7 +6433,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tag-pin-error {
   margin: 0;
   font-size: 0.8rem;
-  color: #fda4af;
+  color: var(--bsp-danger, #fda4af);
 }
 .bs-tag-pins-link {
   font-size: 0.85rem;
@@ -6393,11 +6458,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-pins-loading,
 .bs-pins-error {
   font-size: 0.95rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
-.bs-pins-error { color: #fda4af; }
+.bs-pins-error { color: var(--bsp-danger, #fda4af); }
 .bs-pins-browse-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bs-pins-browse-link:hover {
@@ -6406,15 +6471,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-pins-signin-btn {
   margin-top: 0.75rem;
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.35));
   border-radius: 8px;
-  background: rgba(99, 102, 241, 0.08);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.08));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.9rem;
   cursor: pointer;
 }
 .bs-pins-signin-btn:hover {
-  background: rgba(99, 102, 241, 0.18);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.18));
 }
 .bs-pins-list {
   list-style: none;
@@ -6431,46 +6496,46 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.2rem;
   padding: 0.75rem;
   margin-bottom: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.06));
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
   transition: background 0.15s, border-color 0.15s;
 }
 .bs-pins-row-link:hover {
-  background: rgba(99, 102, 241, 0.06);
-  border-color: rgba(99, 102, 241, 0.25);
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.06));
+  border-color: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.25));
 }
 .bs-pins-row-name {
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bs-pins-row-desc {
   font-size: 0.85rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 
 /* Settings link button */
 .bss-card-body {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bss-link-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   padding: 0.5rem 0.9rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.35));
   border-radius: 8px;
-  background: rgba(99, 102, 241, 0.08);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.08));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.9rem;
   text-decoration: none;
   cursor: pointer;
 }
 .bss-link-btn:hover {
-  background: rgba(99, 102, 241, 0.18);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.18));
 }
 
 /* ── Story 11: Pinned-tag TL refresh (ADR 0010) ─────────────────── */
@@ -6493,18 +6558,18 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: 0 0 auto;
   font-size: 1.4rem;
   line-height: 1;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
 }
 .bs-pins-row-status {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.75rem;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
 }
-.bs-pins-row-status.is-ok { color: #86efac; }
-.bs-pins-row-status.is-never { color: var(--text-tertiary, #64748b); }
-.bs-pins-row-status.is-retracted { color: #fda4af; }
-.bs-pins-row-status.is-unsupported { color: #fcd34d; }
+.bs-pins-row-status.is-ok { color: var(--bsp-success, #86efac); }
+.bs-pins-row-status.is-never { color: var(--bsp-ink-2, var(--text-tertiary, #64748b)); }
+.bs-pins-row-status.is-retracted { color: var(--bsp-danger, #fda4af); }
+.bs-pins-row-status.is-unsupported { color: var(--bsp-warn, #fcd34d); }
 .bs-pins-row-refresh {
   padding: 0.4rem 0.7rem;
   border: 1px solid rgba(99, 102, 241, 0.35);
@@ -6523,7 +6588,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-pins-row-error {
   font-size: 0.8rem;
-  color: #fda4af;
+  color: var(--bsp-danger, #fda4af);
 }
 .bs-pins-refresh-all-row {
   display: flex;
@@ -6533,15 +6598,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-pins-refresh-all {
   padding: 0.5rem 0.9rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.35));
   border-radius: 8px;
-  background: rgba(99, 102, 241, 0.12);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-2, rgba(99, 102, 241, 0.12));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.85rem;
   cursor: pointer;
 }
 .bs-pins-refresh-all:hover:not([disabled]) {
-  background: rgba(99, 102, 241, 0.22);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.22));
 }
 .bs-pins-refresh-all[disabled] {
   opacity: 0.5;
@@ -6551,15 +6616,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-pins-intro {
   margin: 0 0 1.5rem;
   padding: 0.75rem 1rem;
-  border-left: 3px solid rgba(99, 102, 241, 0.5);
-  background: rgba(99, 102, 241, 0.05);
+  border-left: 3px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.5));
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.05));
   border-radius: 4px;
 }
 .bs-pins-intro p {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .bs-pins-intro p + p {
   margin-top: 0.6rem;
@@ -6568,7 +6633,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-pins-member-hint code {
   font-size: 0.85em;
   padding: 0.1em 0.35em;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
   border-radius: 3px;
 }
 .bs-pins-member-hint {
@@ -6576,8 +6641,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0.6rem 0.9rem;
   font-size: 0.8rem;
   line-height: 1.5;
-  color: var(--text-tertiary, #64748b);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
+  border-top: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.06));
 }
 
 /* ── Story 11 follow-up: TL share button ───────────────────── */
@@ -6592,9 +6657,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tl-share:hover { background: rgba(99, 102, 241, 0.18); }
 .bs-tl-share:active { transform: scale(0.97); }
 .bs-tl-share.is-copied {
-  background: rgba(134, 239, 172, 0.15);
-  border-color: rgba(134, 239, 172, 0.5);
-  color: #86efac;
+  background: var(--bsp-success-tint-2, rgba(134, 239, 172, 0.15));
+  border-color: var(--bsp-success-tint-4, rgba(134, 239, 172, 0.5));
+  color: var(--bsp-success-ink, #86efac);
 }
 .bs-tl-share-compact {
   padding: 0.3rem 0.45rem;
@@ -6648,9 +6713,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0.5rem 0 0;
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
-  background: rgba(252, 211, 77, 0.08);
-  border-left: 3px solid rgba(252, 211, 77, 0.5);
-  color: #fcd34d;
+  background: var(--bsp-warn-tint-1, rgba(252, 211, 77, 0.08));
+  border-left: 3px solid var(--bsp-warn-tint-4, rgba(252, 211, 77, 0.5));
+  color: var(--bsp-warn-ink, #fcd34d);
   font-size: 0.85rem;
 }
 .bs-pindetail-meta {
@@ -6659,24 +6724,24 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.4rem 1rem;
   margin: 1rem 0;
   padding: 0.75rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.06));
   border-radius: 6px;
   font-size: 0.85rem;
 }
 .bs-pindetail-meta dt {
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
   margin: 0;
 }
 .bs-pindetail-meta dd {
   margin: 0;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
-.bs-pindetail-meta a { color: #a5b4fc; text-decoration: none; }
+.bs-pindetail-meta a { color: var(--bsp-accent, #a5b4fc); text-decoration: none; }
 .bs-pindetail-meta a:hover { text-decoration: underline; }
 .bs-pindetail-meta code {
   font-size: 0.85em;
   padding: 0.1em 0.35em;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
   border-radius: 3px;
 }
 .bs-pindetail-members-heading {
@@ -6684,35 +6749,35 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 1.5rem 0 0.75rem;
 }
 .bs-pindetail-empty {
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
   font-size: 0.9rem;
 }
 .bs-pindetail-members { list-style: none; padding: 0; margin: 0; }
 .bs-pindetail-member { margin-bottom: 0.5rem; }
 
 /* Story 12 item #3 — the pinned NOTE bookmark set section in the Pinned tab. */
-.bs-pinned-notes { margin-top: 1.75rem; padding-top: 1rem; border-top: 1px solid var(--border, #1e293b); }
+.bs-pinned-notes { margin-top: 1.75rem; padding-top: 1rem; border-top: 1px solid var(--bsp-border, var(--border, #1e293b)); }
 .bs-pinned-notes-head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .bs-pinned-notes-title { font-size: 1.1rem; margin: 0; }
 .bs-pinned-notes-drift { font-size: 0.8rem; }
-.bs-pinned-notes-drift.is-fresh { color: #86efac; }
-.bs-pinned-notes-drift.is-stale { color: #fcd34d; }
-.bs-pinned-notes-drift.is-loading { color: var(--text-muted, #94a3b8); font-style: italic; }
+.bs-pinned-notes-drift.is-fresh { color: var(--bsp-success, #86efac); }
+.bs-pinned-notes-drift.is-stale { color: var(--bsp-warn, #fcd34d); }
+.bs-pinned-notes-drift.is-loading { color: var(--bsp-ink-2, var(--text-muted, #94a3b8)); font-style: italic; }
 .bs-pinned-notes-update {
   font: inherit; font-size: 0.85rem; margin-bottom: 0.75rem;
   padding: 0.35rem 0.9rem; border-radius: 6px;
-  border: 1px solid var(--border, #334155); background: rgba(252, 211, 77, 0.12);
-  color: #fcd34d; cursor: pointer;
+  border: 1px solid var(--bsp-border, var(--border, #334155)); background: var(--bsp-warn-tint-2, rgba(252, 211, 77, 0.12));
+  color: var(--bsp-warn-ink, #fcd34d); cursor: pointer;
 }
 .bs-pinned-notes-update:disabled { opacity: 0.6; cursor: not-allowed; }
 .bs-pinned-notes-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .bs-pinned-notes-item { width: 100%; }
-.bs-pinned-notes-empty { color: var(--text-tertiary, #64748b); font-size: 0.9rem; }
+.bs-pinned-notes-empty { color: var(--bsp-ink-2, var(--text-tertiary, #64748b)); font-size: 0.9rem; }
 .bs-pinned-notes-unresolved {
   text-align: center;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.82rem;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
   margin: 0.75rem 0 0.25rem;
 }
 .bs-pindetail-member-link {
@@ -6720,15 +6785,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.75rem;
   padding: 0.6rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.06));
   border-radius: 8px;
   text-decoration: none;
   color: inherit;
   transition: background 0.15s, border-color 0.15s;
 }
 .bs-pindetail-member-link:hover {
-  background: rgba(99, 102, 241, 0.06);
-  border-color: rgba(99, 102, 241, 0.25);
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.06));
+  border-color: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.25));
 }
 .bs-pindetail-member-avatar {
   width: 36px;
@@ -6741,7 +6806,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(99, 102, 241, 0.12);
+  background: var(--bsp-accent-tint-2, rgba(99, 102, 241, 0.12));
   font-size: 1rem;
 }
 .bs-pindetail-member-info {
@@ -6753,26 +6818,26 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-pindetail-member-name {
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .bs-pindetail-member-nip05 {
   font-size: 0.78rem;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
 }
 .bs-pindetail-member-counts {
   font-size: 0.8rem;
-  color: #86efac;
+  color: var(--bsp-success, #86efac);
   flex: 0 0 auto;
 }
 .bs-pindetail-loading, .bs-pindetail-error {
   margin: 1rem 0;
   font-size: 0.9rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
-.bs-pindetail-error { color: #fda4af; }
+.bs-pindetail-error { color: var(--bsp-danger, #fda4af); }
 
 /* ── Story 11 follow-up: PinnedTagChips ─────────────────────── */
 .bs-pin-chips {
@@ -6803,13 +6868,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .bs-pin-chip:hover:not(.is-disabled) {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.15));
+  color: var(--bsp-accent-ink, #a5b4fc);
 }
 .bs-pin-chip.is-active {
-  background: rgba(99, 102, 241, 0.3);
-  color: #c7d2fe;
-  border-color: rgba(99, 102, 241, 0.7);
+  background: var(--bsp-accent-tint-2, rgba(99, 102, 241, 0.3));
+  color: var(--bsp-accent-ink, #c7d2fe);
+  border-color: var(--bsp-accent, rgba(99, 102, 241, 0.7));
 }
 .bs-pin-chip.is-disabled {
   opacity: 0.35;
@@ -6824,8 +6889,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   color: var(--text-tertiary, #64748b);
 }
 .bs-pin-chip.is-active .bs-pin-chip-count {
-  background: rgba(255, 255, 255, 0.18);
-  color: #c7d2fe;
+  background: var(--bsp-surface, rgba(255, 255, 255, 0.18));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 .bs-pin-chip-clear {
   margin-left: 0.5rem;
@@ -6864,7 +6929,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   word-break: break-all;
   font-size: 0.78em;
   padding: 0.3em 0.5em;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.04));
   border-radius: 4px;
   user-select: all;
 }
@@ -6878,7 +6943,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .pcd-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bsp-scrim, rgba(0, 0, 0, 0.6));
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -6886,14 +6951,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 1rem;
 }
 .pcd {
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.1));
   border-radius: 10px;
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px var(--bsp-shadow-3, rgba(0, 0, 0, 0.5));
 }
 /* Narrow viewport: backdrop drops to almost-zero padding so the dialog
    has the full width, and the action row wraps when buttons no longer
@@ -6919,65 +6984,65 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   justify-content: space-between;
   padding: 0.9rem 1.1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.08));
 }
 .pcd-title {
   margin: 0;
   font-size: 1.05rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .pcd-close {
   background: transparent;
   border: none;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
   padding: 0 0.3rem;
 }
-.pcd-close:hover { color: #fda4af; }
+.pcd-close:hover { color: var(--bsp-danger, #fda4af); }
 .pcd-tag-info {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
   padding: 0.6rem 1.1rem;
   font-size: 0.85rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.05));
 }
-.pcd-tag-label { color: var(--text-tertiary, #64748b); }
-.pcd-tag-name { color: var(--text-primary, #e2e8f0); font-weight: 600; }
+.pcd-tag-label { color: var(--bsp-ink-2, var(--text-tertiary, #64748b)); }
+.pcd-tag-name { color: var(--bsp-ink, var(--text-primary, #e2e8f0)); font-weight: 600; }
 .pcd-body { padding: 1rem 1.1rem; }
 .pcd-field { margin-bottom: 1rem; }
 .pcd-label {
   display: block;
   margin-bottom: 0.3rem;
   font-size: 0.85rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .pcd-input,
 .pcd-select {
   width: 100%;
   padding: 0.5rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.1));
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bsp-wash-2, rgba(0, 0, 0, 0.2));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.9rem;
   font-family: inherit;
 }
 .pcd-input:focus,
 .pcd-select:focus {
   outline: none;
-  border-color: rgba(99, 102, 241, 0.6);
+  border-color: var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.6));
 }
-.pcd-input[aria-invalid="true"] { border-color: rgba(252, 113, 122, 0.6); }
+.pcd-input[aria-invalid="true"] { border-color: var(--bsp-danger-tint-4, rgba(252, 113, 122, 0.6)); }
 .pcd-toggle {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
   cursor: pointer;
   font-size: 0.9rem;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .pcd-toggle input[type="checkbox"] {
   margin-top: 0.2rem;
@@ -6985,36 +7050,36 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .pcd-helper {
   margin: 0.3rem 0 0;
   font-size: 0.75rem;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
   line-height: 1.4;
 }
 .pcd-error {
   margin: 0.3rem 0 0;
   font-size: 0.78rem;
-  color: #fda4af;
+  color: var(--bsp-danger, #fda4af);
 }
 .pcd-form-error {
   margin: 0.5rem 0;
   padding: 0.5rem 0.7rem;
-  border-left: 3px solid rgba(252, 113, 122, 0.6);
-  background: rgba(252, 113, 122, 0.08);
-  color: #fda4af;
+  border-left: 3px solid var(--bsp-danger-tint-4, rgba(252, 113, 122, 0.6));
+  background: var(--bsp-danger-tint-1, rgba(252, 113, 122, 0.08));
+  color: var(--bsp-danger-ink, #fda4af);
   font-size: 0.8rem;
   border-radius: 4px;
 }
 .pcd-advanced {
   margin: 1rem 0;
   padding: 0.5rem 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.06));
   border-radius: 6px;
 }
 .pcd-advanced > summary {
   cursor: pointer;
   font-size: 0.85rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
   list-style: revert;
 }
-.pcd-advanced > summary:hover { color: #a5b4fc; }
+.pcd-advanced > summary:hover { color: var(--bsp-accent-hover, #a5b4fc); }
 .pcd-advanced[open] > summary { margin-bottom: 0.6rem; }
 .pcd-actions {
   display: flex;
@@ -7032,18 +7097,18 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.85rem;
   cursor: pointer;
   font-family: inherit;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.45);
-  color: #fca5a5;
+  background: var(--bsp-danger-tint-2, rgba(239, 68, 68, 0.12));
+  border: 1px solid var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.45));
+  color: var(--bsp-danger-ink, #fca5a5);
 }
 .pcd-unpin:hover:not([disabled]) {
-  background: rgba(239, 68, 68, 0.22);
-  border-color: rgba(239, 68, 68, 0.7);
+  background: var(--bsp-danger-tint-3, rgba(239, 68, 68, 0.22));
+  border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.7));
 }
 .pcd-unpin.is-confirming {
-  background: rgba(239, 68, 68, 0.35);
-  border-color: rgba(239, 68, 68, 0.85);
-  color: #fff;
+  background: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.35));
+  border-color: var(--bsp-danger-tint-4, rgba(239, 68, 68, 0.85));
+  color: var(--bsp-ink, #fff);
 }
 .pcd-unpin[disabled] { opacity: 0.5; cursor: not-allowed; }
 .pcd-cancel,
@@ -7056,26 +7121,26 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .pcd-cancel {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-secondary, #94a3b8);
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.1));
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .pcd-cancel:hover:not([disabled]) {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
 }
 .pcd-submit {
-  background: rgba(99, 102, 241, 0.25);
-  border: 1px solid rgba(99, 102, 241, 0.6);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.25));
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.6));
+  color: var(--bsp-accent-ink-strong, #c7d2fe);
 }
 .pcd-submit:hover:not([disabled]) {
-  background: rgba(99, 102, 241, 0.35);
+  background: var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.35));
 }
 .pcd-submit[disabled],
 .pcd-cancel[disabled] { opacity: 0.5; cursor: not-allowed; }
 .pcd code {
   font-size: 0.85em;
   padding: 0.05em 0.3em;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
   border-radius: 3px;
 }
 
@@ -7096,15 +7161,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 .bs-pindetail-edit {
   padding: 0.4rem 0.8rem;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.35));
   border-radius: 6px;
-  background: rgba(99, 102, 241, 0.08);
-  color: #a5b4fc;
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.08));
+  color: var(--bsp-accent-ink, #a5b4fc);
   font-size: 0.85rem;
   cursor: pointer;
 }
 .bs-pindetail-edit:hover:not([disabled]) {
-  background: rgba(99, 102, 241, 0.18);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.18));
 }
 .bs-pindetail-edit[disabled] { opacity: 0.4; cursor: not-allowed; }
 
@@ -7113,16 +7178,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   /* Same base shape as .bs-tagindex-count-apply / .-dispute, but a
      distinct hue so the pin signal reads as separate from the
      endorsement/dispute counts. */
-  background: rgba(168, 85, 247, 0.12);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  color: #d8b4fe;
+  background: var(--bsp-accent-tint-2, rgba(168, 85, 247, 0.12));
+  border: 1px solid var(--bsp-accent-tint-4, rgba(168, 85, 247, 0.35));
+  color: var(--bsp-accent-ink, #d8b4fe);
 }
 .bs-tagindex-own-pin {
   display: inline-block;
   margin-left: 0.4rem;
   font-size: 0.8em;
   vertical-align: middle;
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
 }
 .bs-tagindex-pinnedonly {
   display: flex;
@@ -7130,7 +7195,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.4rem;
   margin-top: 0.4rem;
   font-size: 0.85rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
   cursor: pointer;
 }
 .bs-tagindex-pinnedonly input[type="checkbox"] {
@@ -7160,8 +7225,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.9rem;
   padding: 0.4rem 0.9rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
@@ -7174,19 +7239,19 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   opacity: 0.5;
   cursor: not-allowed;
   background: transparent;
-  border-color: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.55);
+  border-color: var(--bsp-line-1, rgba(255,255,255,0.08));
+  color: var(--bsp-muted, rgba(255,255,255,0.55));
 }
 .bs-tag-view-tagsomeone:disabled:hover,
 .bs-tag-view-tagsomeone:disabled:active,
 .bs-tag-view-tagsomeone.is-disabled:hover,
 .bs-tag-view-tagsomeone.is-disabled:active {
   background: transparent;
-  border-color: rgba(255,255,255,0.08);
+  border-color: var(--bsp-line-1, rgba(255,255,255,0.08));
 }
 .bs-tag-view-tagsomeone:hover:not(:disabled):not(.is-disabled) {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.3);
+  background: var(--bsp-wash-3, rgba(255,255,255,0.08));
+  border-color: var(--bsp-line-3, rgba(255,255,255,0.3));
 }
 .bs-tag-view-options {
   /* The <details> element itself; we style its <summary> below.
@@ -7202,12 +7267,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.35rem;
   font-size: 0.9rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
   padding: 0.3rem 0.4rem;
   border-radius: 6px;
 }
 .bs-tag-view-options-summary:hover {
-  background: rgba(255,255,255,0.04);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
 }
 .bs-tag-view-options-chevron {
@@ -7224,7 +7289,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.75rem;
   padding: 0.6rem 0;
   margin-top: 0.3rem;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
 }
 .bs-tag-view-filter {
   flex: 1 1 14rem;
@@ -7232,12 +7297,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.9rem;
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
   min-width: 10rem;
 }
-.bs-tag-view-filter::placeholder { color: rgba(255,255,255,0.4); }
+.bs-tag-view-filter::placeholder { color: var(--bsp-ink-2, rgba(255,255,255,0.4)); }
 
 /* TagSomeoneModal — modal chrome + body. Namespaced under .tsm-* so it
    stays independent of the curation dialog's .pcd-* namespace, even though
@@ -7245,7 +7310,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .tsm-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: var(--bsp-scrim, rgba(0,0,0,0.55));
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -7253,10 +7318,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   z-index: 1000;
 }
 .tsm-dialog {
-  background: var(--bg-elev, #1b2333);
+  background: var(--bsp-surface, var(--bg-elev, #1b2333));
   color: inherit;
   border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+  box-shadow: 0 16px 48px var(--bsp-shadow-2, rgba(0,0,0,0.45));
   width: 100%;
   max-width: 38rem;
   display: flex;
@@ -7269,7 +7334,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   justify-content: space-between;
   padding: 0.9rem 1rem;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.08));
 }
 .tsm-title {
   margin: 0;
@@ -7284,7 +7349,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   line-height: 1;
   cursor: pointer;
   padding: 0 0.4rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .tsm-close:hover { opacity: 1; }
 .tsm-body {
@@ -7297,17 +7362,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.95rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
   box-sizing: border-box;
 }
 .tsm-status {
   margin: 0.75rem 0 0;
   font-size: 0.9rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
-.tsm-status.tsm-error { color: #fca5a5; }
+.tsm-status.tsm-error { color: var(--bsp-danger, #fca5a5); }
 .tsm-results {
   margin-top: 0.5rem;
 }
@@ -7323,13 +7388,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.9rem;
   padding: 0.5rem 0.9rem;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
   color: inherit;
   cursor: pointer;
   white-space: nowrap;
 }
-.tan-resolve-btn:hover { background: rgba(255,255,255,0.12); }
+.tan-resolve-btn:hover { background: var(--bsp-wash-4, rgba(255,255,255,0.12)); }
 .tan-apply-row {
   display: flex;
   flex-wrap: wrap;
@@ -7338,8 +7403,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0.85rem 0 0.5rem;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
-  border: 1px solid var(--border, #334155);
-  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
+  background: var(--bsp-wash-1, rgba(148, 163, 184, 0.06));
 }
 .tan-apply-label { font-size: 0.9rem; font-weight: 600; }
 .tan-apply-actions { display: inline-flex; gap: 0.4rem; margin-left: auto; }
@@ -7348,11 +7413,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.85rem;
   padding: 0.3rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid var(--border, #334155);
+  border: 1px solid var(--bsp-border, var(--border, #334155));
   cursor: pointer;
 }
-.tan-apply { background: rgba(134, 239, 172, 0.12); color: #86efac; }
-.tan-dispute { background: rgba(252, 165, 165, 0.12); color: #fca5a5; }
+.tan-apply { background: var(--bsp-success-tint-2, rgba(134, 239, 172, 0.12)); color: var(--bsp-success-ink, #86efac); }
+.tan-dispute { background: var(--bsp-danger-tint-2, rgba(252, 165, 165, 0.12)); color: var(--bsp-danger-ink, #fca5a5); }
 .tan-apply:disabled, .tan-dispute:disabled { opacity: 0.5; cursor: not-allowed; }
 .tan-note { margin-top: 0.5rem; }
 
@@ -7361,14 +7426,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0.5rem 1rem 0.75rem;
   padding: 0.65rem 0.85rem;
   border-radius: 6px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
 }
 .pcd-intro p {
   margin: 0;
   font-size: 0.85rem;
   line-height: 1.45;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
 }
 .pcd-intro strong { color: inherit; }
 
@@ -7444,20 +7509,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-block;
 }
 .bs-tl-export {
-  border: 1px solid rgba(244, 114, 182, 0.35);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(244, 114, 182, 0.35));
   border-radius: 6px;
-  background: rgba(244, 114, 182, 0.08);
-  color: #f9a8d4;
+  background: var(--bsp-accent-tint-1, rgba(244, 114, 182, 0.08));
+  color: var(--bsp-accent-ink, #f9a8d4);
   cursor: pointer;
   transition: background 0.15s, transform 0.05s;
 }
-.bs-tl-export:hover:not(:disabled) { background: rgba(244, 114, 182, 0.18); }
+.bs-tl-export:hover:not(:disabled) { background: var(--bsp-accent-tint-3, rgba(244, 114, 182, 0.18)); }
 .bs-tl-export:active:not(:disabled) { transform: scale(0.97); }
 .bs-tl-export:disabled { opacity: 0.5; cursor: not-allowed; }
 .bs-tl-export.is-copied {
-  background: rgba(134, 239, 172, 0.15);
-  border-color: rgba(134, 239, 172, 0.5);
-  color: #86efac;
+  background: var(--bsp-success-tint-3, rgba(134, 239, 172, 0.15));
+  border-color: var(--bsp-success-tint-4, rgba(134, 239, 172, 0.5));
+  color: var(--bsp-success-ink, #86efac);
 }
 .bs-tl-export-compact {
   padding: 0.3rem 0.45rem;
@@ -7475,7 +7540,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tl-export-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bsp-scrim, rgba(0, 0, 0, 0.6));
   z-index: 1200;
   display: flex;
   align-items: center;
@@ -7489,10 +7554,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   max-height: 90vh;
   overflow-y: auto;
   padding: 0.85rem 1rem;
-  background: #181d2f;
-  border: 1px solid rgba(244, 114, 182, 0.35);
+  background: var(--bsp-surface, #181d2f);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(244, 114, 182, 0.35));
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px var(--bsp-shadow-2, rgba(0, 0, 0, 0.35));
 }
 @media (max-width: 768px) {
   .bs-tl-export-backdrop {
@@ -7510,7 +7575,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-login-error-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--bsp-scrim, rgba(0, 0, 0, 0.6));
   z-index: 1300;
   display: flex;
   align-items: center;
@@ -7522,21 +7587,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: 100%;
   max-width: 26rem;
   padding: 1.25rem 1.35rem;
-  background: #181d2f;
-  border: 1px solid rgba(244, 114, 182, 0.35);
+  background: var(--bsp-surface, #181d2f);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(244, 114, 182, 0.35));
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px var(--bsp-shadow-2, rgba(0, 0, 0, 0.35));
 }
 .bs-login-error-title {
   margin: 0 0 0.5rem;
   font-size: 1.1rem;
-  color: #fff;
+  color: var(--bsp-ink, #fff);
 }
 .bs-login-error-message {
   margin: 0 0 1.1rem;
   font-size: 0.95rem;
   line-height: 1.5;
-  color: #c9d1e0;
+  color: var(--bsp-ink-primary, #c9d1e0);
 }
 .bs-login-error-actions {
   display: flex;
@@ -7545,14 +7610,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-login-error-btn {
   padding: 0.45rem 1.1rem;
   font-size: 0.9rem;
-  color: #fff;
-  background: #f472b6;
+  color: var(--bsp-on-accent, #fff);
+  background: var(--bsp-accent, #f472b6);
   border: none;
   border-radius: 6px;
   cursor: pointer;
 }
 .bs-login-error-btn:hover {
-  background: #ec4899;
+  background: var(--bsp-accent-hover, #ec4899);
 }
 @media (max-width: 600px) {
   .bs-login-error-backdrop {
@@ -7574,14 +7639,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tl-export-label {
   font-size: 0.8rem;
-  color: #cbd5e1;
+  color: var(--bsp-ink-primary, #cbd5e1);
 }
 .bs-tl-export-input {
   padding: 0.4rem 0.6rem;
-  background: #0f1322;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: var(--bsp-canvas, #0f1322);
+  border: 1px solid var(--bsp-line-3, rgba(148, 163, 184, 0.25));
   border-radius: 4px;
-  color: #e5e7eb;
+  color: var(--bsp-ink-primary, #e5e7eb);
   font-size: 0.9rem;
 }
 .bs-tl-export-preview {
@@ -7592,14 +7657,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   line-height: 1.4;
 }
 .bs-tl-export-preview.is-ok {
-  background: rgba(56, 189, 248, 0.06);
-  border: 1px solid rgba(56, 189, 248, 0.18);
-  color: #cbd5e1;
+  background: var(--bsp-cyan-tint-1, rgba(56, 189, 248, 0.06));
+  border: 1px solid var(--bsp-cyan-tint-3, rgba(56, 189, 248, 0.18));
+  color: var(--bsp-ink-primary, #cbd5e1);
 }
 .bs-tl-export-preview.is-warn {
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  color: #fbbf24;
+  background: var(--bsp-warn-tint-1, rgba(251, 191, 36, 0.08));
+  border: 1px solid var(--bsp-warn-tint-4, rgba(251, 191, 36, 0.3));
+  color: var(--bsp-warn-ink, #fbbf24);
 }
 .bs-tl-export-preview-lead { margin: 0 0 0.4rem 0; }
 .bs-tl-export-preview-list {
@@ -7608,17 +7673,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tl-export-preview-list li code {
   font-size: 0.78rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
 }
 .bs-tl-export-preview-foot {
   margin: 0;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
 }
 .bs-tl-export-error {
   margin: 0 0 0.5rem 0;
   font-size: 0.8rem;
-  color: #fda4af;
+  color: var(--bsp-danger, #fda4af);
 }
 .bs-tl-export-actions {
   display: flex;
@@ -7634,13 +7699,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tl-export-cancel {
   background: transparent;
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--bsp-ink-2, #94a3b8);
+  border: 1px solid var(--bsp-line-3, rgba(148, 163, 184, 0.25));
 }
 .bs-tl-export-confirm {
-  background: rgba(244, 114, 182, 0.18);
-  color: #f9a8d4;
-  border: 1px solid rgba(244, 114, 182, 0.35);
+  background: var(--bsp-accent-tint-3, rgba(244, 114, 182, 0.18));
+  color: var(--bsp-accent-ink, #f9a8d4);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(244, 114, 182, 0.35));
 }
 .bs-tl-export-confirm:disabled,
 .bs-tl-export-cancel:disabled {
@@ -7653,11 +7718,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: block;
   margin-top: 0.15rem;
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
 }
-.bs-pins-row-export-status.is-never { color: #94a3b8; }
-.bs-pins-row-export-status.is-fresh { color: #86efac; }
-.bs-pins-row-export-status.is-stale { color: #fbbf24; }
+.bs-pins-row-export-status.is-never { color: var(--bsp-ink-2, #94a3b8); }
+.bs-pins-row-export-status.is-fresh { color: var(--bsp-success, #86efac); }
+.bs-pins-row-export-status.is-stale { color: var(--bsp-warn, #fbbf24); }
 
 /* PinDetail Export-for-other-clients section (Story 19). */
 .bs-pindetail-export {
@@ -7688,27 +7753,27 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.8rem;
   color: #94a3b8;
 }
-.bs-pindetail-export-status.is-fresh { color: #86efac; }
-.bs-pindetail-export-status.is-stale { color: #fbbf24; }
+.bs-pindetail-export-status.is-fresh { color: var(--bsp-success, #86efac); }
+.bs-pindetail-export-status.is-stale { color: var(--bsp-warn, #fbbf24); }
 
 /* Story 19 ADR Amendment III — TLExportButton preview sub-sections. */
 .bs-tl-export-preview-subhead {
   margin: 0.5rem 0 0.2rem 0;
   font-size: 0.78rem;
-  color: #cbd5e1;
+  color: var(--bsp-ink-primary, #cbd5e1);
 }
 .bs-tl-export-preview-source {
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
   font-weight: normal;
 }
 .bs-tl-export-preview-warn-inline {
   margin: 0.4rem 0;
   padding: 0.5rem 0.7rem;
-  background: rgba(251, 191, 36, 0.08);
-  border-left: 3px solid rgba(251, 191, 36, 0.5);
+  background: var(--bsp-warn-tint-1, rgba(251, 191, 36, 0.08));
+  border-left: 3px solid var(--bsp-warn-tint-4, rgba(251, 191, 36, 0.5));
   border-radius: 3px;
   font-size: 0.78rem;
-  color: #fbbf24;
+  color: var(--bsp-warn-ink, #fbbf24);
   line-height: 1.45;
 }
 
@@ -7717,15 +7782,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* "What will be exported?" disclosure inside the Export modal. */
 .bs-export-what {
   margin: 0.5rem 0;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid var(--bsp-line-3, rgba(148, 163, 184, 0.25));
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
-  background: rgba(148, 163, 184, 0.06);
+  background: var(--bsp-wash-1, rgba(148, 163, 184, 0.06));
 }
 .bs-export-what-summary {
   cursor: pointer;
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
   user-select: none;
 }
 .bs-export-what-body {
@@ -7749,27 +7814,27 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #cbd5e1;
+  color: var(--bsp-ink-primary, #cbd5e1);
 }
 .bs-pindetail-sync-status {
   margin: 0.1rem 0 0;
   font-size: 0.78rem;
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
 }
-.bs-pindetail-sync.is-ok .bs-pindetail-sync-status { color: #4ade80; }
-.bs-pindetail-sync.is-pending .bs-pindetail-sync-status { color: #fbbf24; }
-.bs-pindetail-sync.is-stale .bs-pindetail-sync-status { color: #fbbf24; }
+.bs-pindetail-sync.is-ok .bs-pindetail-sync-status { color: var(--bsp-success, #4ade80); }
+.bs-pindetail-sync.is-pending .bs-pindetail-sync-status { color: var(--bsp-warn, #fbbf24); }
+.bs-pindetail-sync.is-stale .bs-pindetail-sync-status { color: var(--bsp-warn, #fbbf24); }
 
 /* "Details and List IDs" collapse around the metadata list. */
 .bs-pindetail-details { margin: 1rem 0; }
 .bs-pindetail-details > summary {
   cursor: pointer;
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
   user-select: none;
   padding: 0.3rem 0;
 }
-.bs-pindetail-details > summary:hover { color: #cbd5e1; }
+.bs-pindetail-details > summary:hover { color: var(--bsp-ink-primary, #cbd5e1); }
 /* the dl inside the disclosure drops its own outer margin */
 .bs-pindetail-details .bs-pindetail-meta { margin: 0.3rem 0 0; }
 
@@ -7800,7 +7865,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-pindetail-naddr-toggle code { word-break: break-all; text-align: left; }
 .bs-pindetail-naddr-showall {
   font-size: 0.68rem;
-  color: #818cf8;
+  color: var(--bsp-accent, #818cf8);
   white-space: nowrap;
   opacity: 0;
   transition: opacity 0.12s ease;
@@ -7817,7 +7882,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: none;
   background: none;
   border: none;
-  color: #818cf8;
+  color: var(--bsp-accent, #818cf8);
   cursor: pointer;
   font-size: 0.68rem;
   padding: 0;
@@ -7825,20 +7890,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-pindetail-naddr-hide:hover { text-decoration: underline; }
 .bs-pindetail-copy {
   flex: none;
-  background: rgba(129, 140, 248, 0.14);
-  border: 1px solid rgba(129, 140, 248, 0.3);
+  background: var(--bsp-accent-tint-2, rgba(129, 140, 248, 0.14));
+  border: 1px solid var(--bsp-accent-tint-4, rgba(129, 140, 248, 0.3));
   border-radius: 4px;
-  color: #c7d2fe;
+  color: var(--bsp-accent-ink, #c7d2fe);
   cursor: pointer;
   padding: 0.15rem 0.5rem;
   font-size: 0.72rem;
   white-space: nowrap;
 }
-.bs-pindetail-copy:hover { background: rgba(129, 140, 248, 0.24); }
+.bs-pindetail-copy:hover { background: var(--bsp-accent-tint-3, rgba(129, 140, 248, 0.24)); }
 .bs-pindetail-naddr-help {
   margin: 0.15rem 0 0;
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--bsp-ink-2, #94a3b8);
   line-height: 1.4;
 }
 
@@ -7867,21 +7932,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-wrap: wrap;
   margin-bottom: 1rem;
 }
-.bsp-back-link { font-size: 0.85rem; opacity: 0.75; text-decoration: none; }
+.bsp-back-link { font-size: 0.85rem; opacity: var(--bsp-opacity-soft, 0.75); text-decoration: none; }
 .bsp-back-link:hover { opacity: 1; text-decoration: underline; }
 .bsp-follows-title { margin: 0; font-size: 1.4rem; }
 /* Reporters list: description + point-of-view attribution lines (verified-reporters #3). */
-.bsp-follows-subtitle { margin: 0.35rem 0 0; font-size: 0.9rem; opacity: 0.7; }
-.bsp-follows-pov { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: 0.6; }
+.bsp-follows-subtitle { margin: 0.35rem 0 0; font-size: 0.9rem; opacity: var(--bsp-opacity-soft, 0.7); }
+.bsp-follows-pov { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: var(--bsp-opacity-dim, 0.6); }
 /* Reporter/report tally — "8 reporters, 10 reports" (verified-reporters #4). */
-.bsp-follows-summary { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: 0.75; }
+.bsp-follows-summary { margin: 0.4rem 0 0; font-size: 0.82rem; opacity: var(--bsp-opacity-soft, 0.75); }
 /* Verification explainer popover: owner identity row (profile #36 / ADR 0032). */
 .bsp-verification-owner { display: flex; align-items: center; gap: 0.5rem; margin: 0.25rem 0 0.5rem; }
 /* Verified Reporters alarm icon (shown only above the dynamic threshold). */
 .bsp-count-alarm-icon { margin-left: 0.15rem; }
 .bsp-info-btn {
   margin-left: auto;
-  border: 1px solid rgba(127, 127, 127, 0.4);
+  border: 1px solid var(--bsp-line-3, rgba(127, 127, 127, 0.4));
   background: transparent;
   color: inherit;
   border-radius: 999px;
@@ -7891,7 +7956,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   cursor: pointer;
   font-size: 1rem;
 }
-.bsp-info-btn:hover { background: rgba(127, 127, 127, 0.15); }
+.bsp-info-btn:hover { background: var(--bsp-wash-2, rgba(127, 127, 127, 0.15)); }
 
 .bsp-follows-controls {
   display: flex;
@@ -7907,7 +7972,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: 1 1 auto;
   min-width: 12rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(127, 127, 127, 0.35);
+  border: 1px solid var(--bsp-line-3, rgba(127, 127, 127, 0.35));
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -7916,7 +7981,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-follows-colbtn,
 .bsp-follows-colreset {
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(127, 127, 127, 0.35);
+  border: 1px solid var(--bsp-line-3, rgba(127, 127, 127, 0.35));
   border-radius: 6px;
   background: transparent;
   color: inherit;
@@ -7929,10 +7994,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   z-index: 20;
   min-width: 12rem;
   padding: 0.5rem;
-  border: 1px solid rgba(127, 127, 127, 0.35);
+  border: 1px solid var(--bsp-line-3, rgba(127, 127, 127, 0.35));
   border-radius: 8px;
   background: var(--bsp-bg, #1b1b1f);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 24px var(--bsp-shadow-2, rgba(0, 0, 0, 0.35));
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -7952,28 +8017,28 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(127, 127, 127, 0.25);
+  background: var(--bsp-wash-3, rgba(127, 127, 127, 0.25));
   font-weight: 600;
 }
-.bsp-follows-npub { font-size: 0.8rem; opacity: 0.85; }
+.bsp-follows-npub { font-size: 0.8rem; opacity: var(--bsp-opacity-soft, 0.85); }
 /* Follows-hops path page (story #39, ADR 0035): a vertical chain of profile cards. */
 .bsp-hops-path { display: flex; flex-direction: column; gap: 0.5rem; max-width: 480px; }
 .bsp-hops-card {
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.6rem 0.85rem; border-radius: 10px;
-  background: rgba(127, 127, 127, 0.08); text-decoration: none; color: inherit;
+  background: var(--bsp-wash-1, rgba(127, 127, 127, 0.08)); text-decoration: none; color: inherit;
 }
-.bsp-hops-card:hover { background: rgba(127, 127, 127, 0.16); }
+.bsp-hops-card:hover { background: var(--bsp-wash-2, rgba(127, 127, 127, 0.16)); }
 .bsp-hops-card-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bsp-hops-card-rank { opacity: 0.8; font-variant-numeric: tabular-nums; }
+.bsp-hops-card-rank { opacity: var(--bsp-opacity-soft, 0.8); font-variant-numeric: tabular-nums; }
 .bsp-hops-reroll { margin-top: 1rem; }
-.bsp-empty { padding: 2rem; text-align: center; opacity: 0.7; }
+.bsp-empty { padding: 2rem; text-align: center; opacity: var(--bsp-opacity-soft, 0.7); }
 /* Skeleton loader for list pages (verified-reporters #3 / ADR 0003) — a designed
    placeholder, never a bare spinner. */
 .bsp-skeleton-row {
   height: 2.25rem;
   border-radius: 6px;
-  background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.09), rgba(255,255,255,.04));
+  background: linear-gradient(90deg, var(--bsp-wash-2, rgba(255,255,255,.04)), var(--bsp-wash-3, rgba(255,255,255,.09)), var(--bsp-wash-2, rgba(255,255,255,.04)));
   background-size: 200% 100%;
   animation: bsp-shimmer 1.2s infinite;
   margin-bottom: 0.5rem;
@@ -7998,13 +8063,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-feed-indicator {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   margin-bottom: 1rem;
 }
 .bsp-feed-loading {
   padding: 2rem;
   text-align: center;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-feed-list {
   display: flex;
@@ -8017,13 +8082,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
    neither surface overflows 1280px. */
 .bsp-notes-subtitle {
   font-size: 0.95rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
   margin-bottom: 1rem;
   overflow-wrap: anywhere;
 }
 .bsp-notes-indicator {
   font-size: 0.85rem;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   margin-bottom: 1rem;
 }
 .bsp-notes-list {
@@ -8035,7 +8100,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin-top: 1rem;
 }
 .bsp-content-loading {
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
   padding: 0.5rem 0;
 }
 /* "Pinned" badge above the chosen note (feed-usability #3). */
@@ -8048,15 +8113,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  background: rgba(165,180,252,0.15);
-  border: 1px solid rgba(165,180,252,0.4);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(165,180,252,0.15));
+  border: 1px solid var(--bsp-accent-tint-4, rgba(165,180,252,0.4));
+  color: var(--bsp-accent-ink, #c7d2fe);
 }
 .bsp-content-viewall {
   display: inline-block;
   margin-top: 0.75rem;
   font-size: 0.9rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bsp-content-viewall:hover {
@@ -8068,7 +8133,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   max-width: 100%;
   box-sizing: border-box;
   padding: 1rem;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   border-radius: 10px;
 }
 .bsp-note-card-head {
@@ -8090,7 +8155,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-note-card-time {
   font-size: 0.75rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 .bsp-note-card-text {
   font-size: 0.9rem;
@@ -8102,7 +8167,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* NIP-21 nostr: entity references rendered inside note text (mentions + event links). */
 .bsp-note-mention,
 .bsp-note-entity {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
   overflow-wrap: anywhere;
   word-break: break-all;
@@ -8110,7 +8175,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-note-mention:hover,
 .bsp-note-entity:hover {
   text-decoration: underline;
-  text-decoration-color: rgba(165, 180, 252, 0.5);
+  text-decoration-color: var(--bsp-accent-hover, rgba(165, 180, 252, 0.5));
   text-underline-offset: 2px;
 }
 /* Author avatar/name link to the author's profile (/user/<pubkey>). */
@@ -8120,7 +8185,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 50%;
 }
 .bsp-note-card-author-link:hover {
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
 }
 .bsp-note-card-name-link {
   color: inherit;
@@ -8128,7 +8193,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-note-card-name-link:hover {
   text-decoration: underline;
-  text-decoration-color: rgba(165, 180, 252, 0.5);
+  text-decoration-color: var(--bsp-accent-hover, rgba(165, 180, 252, 0.5));
   text-underline-offset: 2px;
 }
 /* Per-note actions menu (the "⋯" kebab + dropdown), top-right of each feed entry. */
@@ -8141,7 +8206,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-note-menu-btn {
   background: none;
   border: none;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   cursor: pointer;
   font-size: 1.25rem;
   line-height: 1;
@@ -8149,18 +8214,18 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 6px;
 }
 .bsp-note-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bsp-note-menu-dropdown {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
   min-width: 210px;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255, 255, 255, 0.12));
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px var(--bsp-shadow-3, rgba(0, 0, 0, 0.5));
   z-index: 50;
   padding: 0.25rem;
   display: flex;
@@ -8169,7 +8234,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-note-menu-item {
   background: none;
   border: none;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   text-align: left;
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
@@ -8178,23 +8243,23 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   white-space: nowrap;
 }
 .bsp-note-menu-item:hover {
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--bsp-accent-tint-3, rgba(99, 102, 241, 0.15));
 }
 .bsp-note-menu-flash {
   font-size: 0.75rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   padding: 0.45rem 0.75rem 0.3rem;
   margin-top: 0.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.08));
 }
 /* /event placeholder — the echoed identifier line. */
 .bsp-event-identifier {
   margin-top: 1.25rem;
   font-size: 0.85rem;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bsp-event-identifier-label {
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
 }
 .bsp-event-identifier-value {
   font-family: 'SF Mono', 'Fira Code', monospace;
@@ -8218,11 +8283,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-event-loading {
   padding: 2rem;
   text-align: center;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-dim, 0.6);
 }
 .bsp-event-invalid {
   margin-bottom: 1rem;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
 }
 .bsp-event-search {
   display: flex;
@@ -8232,7 +8297,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bsp-event-search-label {
   font-size: 0.9rem;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
 }
 .bsp-event-search-row {
   display: flex;
@@ -8243,9 +8308,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: 1 1 18rem;
   min-width: 0;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.12));
   border-radius: 8px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
   color: inherit;
   font-size: 0.9rem;
   box-sizing: border-box;
@@ -8253,14 +8318,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-event-search-btn {
   padding: 0.55rem 1.1rem;
   border-radius: 8px;
-  border: 1px solid rgba(165,180,252,0.4);
-  background: rgba(165,180,252,0.12);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(165,180,252,0.4));
+  background: var(--bsp-accent-tint-2, rgba(165,180,252,0.12));
   color: inherit;
   cursor: pointer;
   font-size: 0.9rem;
 }
 .bsp-event-search-btn:hover {
-  background: rgba(165,180,252,0.2);
+  background: var(--bsp-accent-tint-3, rgba(165,180,252,0.2));
 }
 .bsp-event-search-notice {
   margin-top: 0.25rem;
@@ -8274,9 +8339,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0.4rem 0.6rem;
   font-size: 0.8rem;
   line-height: 1.35;
-  color: var(--text-muted, #94a3b8);
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
+  background: var(--bsp-warn-tint-1, rgba(245, 158, 11, 0.08));
+  border: 1px solid var(--bsp-warn-tint-4, rgba(245, 158, 11, 0.35));
   border-radius: 6px;
 }
 .bs-pov-notice--compact {
@@ -8296,14 +8361,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .table-page-btn {
   padding: 0.35rem 0.75rem;
-  border: 1px solid rgba(127, 127, 127, 0.35);
+  border: 1px solid var(--bsp-line-3, rgba(127, 127, 127, 0.35));
   border-radius: 6px;
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 .table-page-btn:disabled { opacity: 0.4; cursor: default; }
-.table-page-info { font-size: 0.85rem; opacity: 0.75; }
+.table-page-info { font-size: 0.85rem; opacity: var(--bsp-opacity-soft, 0.75); }
 
 @media (max-width: 600px) {
   .bsp-follows-controls { flex-direction: column; align-items: stretch; }
@@ -8315,7 +8380,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-note-tags {
   margin-top: 0.6rem;
   padding-top: 0.5rem;
-  border-top: 1px solid var(--border, #1e293b);
+  border-top: 1px solid var(--bsp-border, var(--border, #1e293b));
 }
 .bsp-note-tags-row {
   display: flex;
@@ -8326,19 +8391,19 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-note-tags-add {
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  border: 1px dashed var(--border, #334155);
+  border: 1px dashed var(--bsp-border, var(--border, #334155));
   background: transparent;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
-.bsp-note-tags-add:hover { border-color: #6366f1; color: #a5b4fc; }
+.bsp-note-tags-add:hover { border-color: var(--bsp-accent, #6366f1); color: var(--bsp-accent-hover, #a5b4fc); }
 .bsp-note-tags-add:disabled { opacity: 0.5; cursor: default; }
 .bsp-note-tags-error {
   margin-bottom: 0.4rem;
   font-size: 0.8rem;
-  color: #fca5a5;
+  color: var(--bsp-danger, #fca5a5);
 }
 /* Raw tagging-events panels on a note card (tag-event-inspector Story 3, ADR 0003
    D6). New classes in the note-tags namespace ONLY; the blocks inside are the
@@ -8347,13 +8412,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bsp-note-tags-raw {
   margin: 0.5rem 0;
   padding: 0.4rem 0 0.4rem 0.75rem;
-  border-left: 2px solid var(--border, #334155);
+  border-left: 2px solid var(--bsp-border, var(--border, #334155));
 }
 .bsp-note-tags-raw-caption {
   margin: 0 0 0.4rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
 }
 
 /* ── Tag page: Profiles | Notes view switch (Story 8) ── */
@@ -8361,14 +8426,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-flex;
   gap: 0.25rem;
   margin-bottom: 0.75rem;
-  background: var(--surface-2, #1e293b);
+  background: var(--bsp-surface-2, var(--surface-2, #1e293b));
   border-radius: 999px;
   padding: 0.2rem;
 }
 .bs-tag-view-switch-btn {
   border: none;
   background: transparent;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   padding: 0.3rem 0.9rem;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -8376,12 +8441,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   cursor: pointer;
 }
 .bs-tag-view-switch-btn.is-active {
-  background: var(--surface, #0f172a);
-  color: var(--text-primary, #e2e8f0);
+  background: var(--bsp-surface, var(--surface, #0f172a));
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
 }
 .bs-tag-notes-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }
 .bs-tag-notes-item { width: 100%; }
-.bs-tag-notes-truncation { font-size: 0.8rem; color: var(--text-muted, #94a3b8); margin: 0 0 0.5rem; }
+.bs-tag-notes-truncation { font-size: 0.8rem; color: var(--bsp-ink-2, var(--text-muted, #94a3b8)); margin: 0 0 0.5rem; }
 /* Story 15 — the Notes tab now uses the shared TagViewControls (bs-tag-view-*).
    The bespoke .bs-tag-notes-controls/-viewopts/-sort control was retired. */
 
@@ -8390,9 +8455,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
    Unlike the inline profile row, a note row stacks its tag badges above the NoteCard. */
 .bsp-authored-note-row { flex-direction: column; align-items: stretch; gap: 0.4rem; }
 .bsp-authored-note-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.bsp-authored-note-tag { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--surface-2, #1e293b); color: var(--text-muted, #94a3b8); }
-.bsp-authored-note-tag.is-dispute { color: #fca5a5; }
-.bsp-authored-note-tag.is-apply { color: #86efac; }
+.bsp-authored-note-tag { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--bsp-surface-2, var(--surface-2, #1e293b)); color: var(--bsp-ink-2, var(--text-muted, #94a3b8)); }
+.bsp-authored-note-tag.is-dispute { color: var(--bsp-danger, #fca5a5); }
+.bsp-authored-note-tag.is-apply { color: var(--bsp-success, #86efac); }
 
 /* ── Second Brain: Goals view (second-brain #1, ADR 0001 decision 6) ──
    Tokens only; guide's --surface/--surface-2 map to --bg-secondary/--bg-tertiary.
@@ -8593,7 +8658,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
 }
 .bs-setup-title {
   margin: 0;
@@ -8602,26 +8667,26 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   line-height: 1.15;
   letter-spacing: -0.01em;
 }
-.bs-setup-title-accent { color: #a5b4fc; }
+.bs-setup-title-accent { color: var(--bsp-accent, #a5b4fc); }
 
 .bs-setup-progress { margin-top: 1.75rem; }
 .bs-setup-progress-label {
   font-size: 0.8rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  opacity: 0.8;
+  opacity: var(--bsp-opacity-soft, 0.8);
 }
 .bs-setup-progress-track {
   margin-top: 0.5rem;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.08);
+  background: var(--bsp-wash-3, rgba(255,255,255,0.08));
   overflow: hidden;
 }
 .bs-setup-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6366f1, #a5b4fc);
+  background: linear-gradient(90deg, var(--bsp-accent, #6366f1), var(--bsp-accent, #a5b4fc));
 }
 
 .bs-setup-steps {
@@ -8637,9 +8702,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: flex-start;
   gap: 0.9rem;
   padding: 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 14px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
   color: inherit;
   text-decoration: none;
   transition: border-color 0.15s, background 0.15s;
@@ -8648,11 +8713,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   /* The global a:hover colour outranks .bs-setup-step's `color: inherit`; the card's text
      stays put and only its border and background answer the hover. */
   color: inherit;
-  border-color: rgba(165,180,252,0.45);
-  background: rgba(255,255,255,0.05);
+  border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.45));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.05));
 }
 .bs-setup-step:focus-visible {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid var(--bsp-accent, #a5b4fc);
   outline-offset: 2px;
 }
 .bs-setup-step-marker {
@@ -8660,10 +8725,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: 1.75rem;
   height: 1.75rem;
   margin-top: 0.05rem;
-  border: 2px solid #818cf8;
+  border: 2px solid var(--bsp-accent, #818cf8);
   border-radius: 50%;
-  background: rgba(99,102,241,0.12);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.12));
+  color: var(--bsp-accent-ink, #c7d2fe);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8689,40 +8754,40 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-setup-step-badge {
   padding: 0.1rem 0.55rem;
-  border: 1px solid rgba(210,153,34,0.45);
+  border: 1px solid var(--bsp-warn-tint-4, rgba(210,153,34,0.45));
   border-radius: 999px;
-  background: rgba(210,153,34,0.12);
-  color: #e3b341;
+  background: var(--bsp-warn-tint-2, rgba(210,153,34,0.12));
+  color: var(--bsp-warn-ink, #e3b341);
   font-size: 0.72rem;
   font-weight: 700;
 }
 .bs-setup-step-text {
   font-size: 0.85rem;
   line-height: 1.55;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bs-setup-step-chevron {
   flex-shrink: 0;
   align-self: center;
   font-size: 1.4rem;
   line-height: 1;
-  opacity: 0.45;
+  opacity: var(--bsp-opacity-dim, 0.45);
 }
 
 /* Step states (setup-status-and-alert #1). A done step is not a link, so its card answers no hover. */
 .bs-setup-step.is-done:hover {
-  border-color: rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.03);
+  border-color: var(--bsp-line-2, rgba(255,255,255,0.1));
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
 }
 .bs-setup-step-marker.is-done {
-  border-color: var(--green, #3fb950);
-  background: var(--green, #3fb950);
-  color: #fff;
+  border-color: var(--bsp-success, var(--green, #3fb950));
+  background: var(--bsp-success, var(--green, #3fb950));
+  color: var(--bsp-on-accent, #fff);
 }
 .bs-setup-step-badge.is-done {
-  border-color: rgba(63,185,80,0.45);
-  background: rgba(63,185,80,0.12);
-  color: var(--green, #3fb950);
+  border-color: var(--bsp-success-tint-4, rgba(63,185,80,0.45));
+  background: var(--bsp-success-tint-2, rgba(63,185,80,0.12));
+  color: var(--bsp-success-ink, var(--green, #3fb950));
 }
 .bs-setup-signin {
   margin-top: 1.75rem;
@@ -8732,11 +8797,11 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.5rem 0.75rem;
   font-size: 0.9rem;
 }
-.bs-setup-signin p { margin: 0; opacity: 0.85; }
+.bs-setup-signin p { margin: 0; opacity: var(--bsp-opacity-soft, 0.85); }
 .bs-setup-all-set {
   margin: 1.25rem 0 0;
   font-weight: 700;
-  color: var(--green, #3fb950);
+  color: var(--bsp-success, var(--green, #3fb950));
 }
 
 /* The three step pages */
@@ -8744,21 +8809,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-block;
   margin-bottom: 0.75rem;
   font-size: 0.85rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bs-setup-back:hover { text-decoration: underline; }
 .bs-setup-placeholder {
   margin-top: 1.5rem;
   padding: 1.25rem 1.5rem;
-  border: 1px dashed rgba(255,255,255,0.18);
+  border: 1px dashed var(--bsp-line-3, rgba(255,255,255,0.18));
   border-radius: 12px;
   font-size: 0.95rem;
   line-height: 1.6;
 }
 .bs-setup-placeholder p { margin: 0 0 0.6rem; }
 .bs-setup-placeholder p:last-child { margin-bottom: 0; }
-.bs-setup-placeholder p + p { opacity: 0.8; }
+.bs-setup-placeholder p + p { opacity: var(--bsp-opacity-soft, 0.8); }
 
 @media (max-width: 480px) {
   .bs-setup-main { padding-top: 1.5rem; }
@@ -8775,10 +8840,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-shrink: 0;
   white-space: nowrap;
   padding: 0.2rem 0.25rem 0.2rem 0.6rem;
-  border: 1px solid rgba(210,153,34,0.45);
+  border: 1px solid var(--bsp-warn-tint-4, rgba(210,153,34,0.45));
   border-radius: 999px;
-  background: rgba(210,153,34,0.12);
-  color: #e3b341;
+  background: var(--bsp-warn-tint-2, rgba(210,153,34,0.12));
+  color: var(--bsp-warn-ink, #e3b341);
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
@@ -8787,22 +8852,22 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-setup-alert:hover {
   /* The global a:hover colour would otherwise repaint the text. */
-  color: #e3b341;
-  border-color: rgba(210,153,34,0.7);
-  background: rgba(210,153,34,0.2);
+  color: var(--bsp-warn-ink, #e3b341);
+  border-color: var(--bsp-warn-tint-4, rgba(210,153,34,0.7));
+  background: var(--bsp-warn-tint-3, rgba(210,153,34,0.2));
 }
 .bs-setup-alert:focus-visible {
-  outline: 2px solid #e3b341;
+  outline: 2px solid var(--bsp-warn, #e3b341);
   outline-offset: 2px;
 }
 .bs-setup-alert-icon { font-size: 0.9rem; line-height: 1; }
-.bs-setup-alert-count { font-weight: 400; opacity: 0.85; }
+.bs-setup-alert-count { font-weight: 400; opacity: var(--bsp-opacity-soft, 0.85); }
 .bs-setup-alert-button {
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: #d29922;
+  background: var(--bsp-warn, #d29922);
   /* Dark on the amber: 7.5:1, where white was 2.52:1 (setup-status-and-alert #3 AC-1). */
-  color: #0f0f1a;
+  color: var(--bsp-on-accent, #0f0f1a);
   font-weight: 700;
 }
 @media (max-width: 1023px) {
@@ -8854,7 +8919,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-assistant-note {
   margin: 0 0 0.75rem;
   line-height: 1.6;
-  opacity: 0.85;
+  opacity: var(--bsp-opacity-soft, 0.85);
 }
 .bs-assistant-note:last-child { margin-bottom: 0; }
 
@@ -8877,10 +8942,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.8rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: #e3b341; /* the amber of the "Needs attention" badges */
+  color: var(--bsp-warn, #e3b341); /* the amber of the "Needs attention" badges */
 }
 .bs-assistant-hub-setup-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   font-weight: 600;
   text-decoration: none;
 }
@@ -8889,25 +8954,25 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* The FAQ: a native disclosure, closed until opened. */
 .bs-assistant-hub-faq {
   margin-top: 1.5rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 12px;
-  background: rgba(255,255,255,0.02);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.02));
 }
 .bs-assistant-hub-faq > summary {
   padding: 0.75rem 1rem;
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 700;
-  color: #c7d2fe;
+  color: var(--bsp-accent, #c7d2fe);
 }
 .bs-assistant-hub-faq > summary:focus-visible {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid var(--bsp-accent, #a5b4fc);
   outline-offset: 2px;
   border-radius: 12px;
 }
 .bs-assistant-hub-faq dl { margin: 0; padding: 0 1rem 1rem; }
 .bs-assistant-hub-faq dt { margin-top: 0.9rem; font-size: 0.9rem; font-weight: 700; }
-.bs-assistant-hub-faq dd { margin: 0.35rem 0 0; font-size: 0.85rem; line-height: 1.6; opacity: 0.8; }
+.bs-assistant-hub-faq dd { margin: 0.35rem 0 0; font-size: 0.85rem; line-height: 1.6; opacity: var(--bsp-opacity-soft, 0.8); }
 
 .bs-assistant-hub-section { margin-top: 2rem; }
 .bs-assistant-hub-section-heading {
@@ -8915,7 +8980,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
 }
 .bs-assistant-hub-cards {
   list-style: none;
@@ -8933,24 +8998,24 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: flex-start;
   gap: 0.9rem;
   padding: 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 14px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
   transition: border-color 0.15s, background 0.15s;
 }
 .bs-assistant-hub-card:hover {
-  border-color: rgba(165,180,252,0.45);
-  background: rgba(255,255,255,0.05);
+  border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.45));
+  background: var(--bsp-wash-2, rgba(255,255,255,0.05));
 }
 .bs-assistant-hub-card-marker {
   flex-shrink: 0;
   width: 1.75rem;
   height: 1.75rem;
   margin-top: 0.05rem;
-  border: 2px solid #818cf8;
+  border: 2px solid var(--bsp-accent, #818cf8);
   border-radius: 50%;
-  background: rgba(99,102,241,0.12);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.12));
+  color: var(--bsp-accent-ink, #c7d2fe);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -8958,16 +9023,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-weight: 700;
 }
 .bs-assistant-hub-card.needs-attention .bs-assistant-hub-card-marker {
-  border-color: rgba(210,153,34,0.75);
-  background: rgba(210,153,34,0.12);
-  color: #e3b341;
+  border-color: var(--bsp-warn-tint-4, rgba(210,153,34,0.75));
+  background: var(--bsp-warn-tint-2, rgba(210,153,34,0.12));
+  color: var(--bsp-warn-ink, #e3b341);
 }
 /* A checked action that is done: the Identification Tags page's done marker (ADR assistant-profile-checklist/0001
    sub-decision 7; assistant-outbox-relays #1). */
 .bs-assistant-hub-card.is-done .bs-assistant-hub-card-marker {
-  border-color: var(--green, #3fb950);
-  background: var(--green, #3fb950);
-  color: #fff;
+  border-color: var(--bsp-success, var(--green, #3fb950));
+  background: var(--bsp-success, var(--green, #3fb950));
+  color: var(--bsp-on-accent, #fff);
 }
 .bs-assistant-hub-card-body {
   flex: 1;
@@ -8998,7 +9063,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-assistant-hub-card-link:focus-visible { outline: none; }
 .bs-assistant-hub-card-link:focus-visible::after {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid var(--bsp-accent, #a5b4fc);
   outline-offset: 2px;
 }
 /* Faded by colour, not opacity: opacity below 1 would paint the text above the card-wide link's
@@ -9007,7 +9072,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0;
   font-size: 0.85rem;
   line-height: 1.55;
-  color: rgba(226,232,240,0.7);
+  color: var(--bsp-ink-2, rgba(226,232,240,0.7));
   overflow-wrap: anywhere;
 }
 .bs-assistant-hub-card-chevron {
@@ -9015,13 +9080,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-self: center;
   font-size: 1.4rem;
   line-height: 1;
-  color: rgba(226,232,240,0.45);
+  color: var(--bsp-muted, rgba(226,232,240,0.45));
 }
 /* A description's NIP link sits above the card-wide link, so it opens its NIP, not the card's page. */
 .bs-assistant-hub-inline-link {
   position: relative;
   z-index: 1;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
 }
 /* Done, but shared: the line under a shared card's description (assistant-shared-categories #1). Faded by colour, not
    opacity, as .bs-assistant-hub-card-text is; its "Move it here →" is a .bs-assistant-hub-inline-link, above the card. */
@@ -9029,7 +9094,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin: 0;
   font-size: 0.8rem;
   line-height: 1.5;
-  color: rgba(226,232,240,0.6);
+  color: var(--bsp-ink-2, rgba(226,232,240,0.6));
 }
 .bs-assistant-hub-card-shared-move { white-space: nowrap; }
 
@@ -9039,9 +9104,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  opacity: 0.75;
+  opacity: var(--bsp-opacity-soft, 0.75);
 }
-.bs-assistant-hub-edit-link { color: #a5b4fc; font-weight: 600; }
+.bs-assistant-hub-edit-link { color: var(--bsp-accent, #a5b4fc); font-weight: 600; }
 
 /* ════════════════════════════════════════════════════════
    The top bar's alert pill (assistant-management #2, ADR 0002). One slot
@@ -9061,7 +9126,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.4rem;
   flex-shrink: 0;
   padding: 0.2rem 0.25rem 0.2rem 0.6rem;
-  border: 1px solid rgba(165,180,252,0.45);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(165,180,252,0.45));
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 600;
@@ -9074,17 +9139,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* ── /assistant/identification-tags — the Identification Tags page (assistant-identification-tags #2, ADR 0002) ──
    Two cards, one per signer, in the /setup step's box look as their own class (no link hover), rows with a
    checkbox each where a tagging can be published, one publish button, and the per-tagging results. */
-.bs-idtags-description { margin: 1rem 0 0; font-size: 0.95rem; line-height: 1.6; opacity: 0.85; }
-.bs-idtags-treasure-map { margin: 0.6rem 0 0; font-size: 0.85rem; line-height: 1.6; opacity: 0.7; }
+.bs-idtags-description { margin: 1rem 0 0; font-size: 0.95rem; line-height: 1.6; opacity: var(--bsp-opacity-soft, 0.85); }
+.bs-idtags-treasure-map { margin: 0.6rem 0 0; font-size: 0.85rem; line-height: 1.6; opacity: var(--bsp-opacity-soft, 0.7); }
 .bs-idtags-card {
   display: flex;
   align-items: flex-start;
   gap: 0.9rem;
   margin-top: 1.25rem;
   padding: 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 14px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bsp-wash-1, rgba(255,255,255,0.03));
 }
 .bs-idtags-card-marker {
   flex: 0 0 auto;
@@ -9093,20 +9158,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
   border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 700;
 }
 .bs-idtags-card.is-marked .bs-idtags-card-marker {
-  border-color: rgba(210,153,34,0.6);
-  background: rgba(210,153,34,0.14);
-  color: #e3b341;
+  border-color: var(--bsp-warn-tint-4, rgba(210,153,34,0.6));
+  background: var(--bsp-warn-tint-2, rgba(210,153,34,0.14));
+  color: var(--bsp-warn-ink, #e3b341);
 }
 .bs-idtags-card.is-done .bs-idtags-card-marker {
-  border-color: var(--green, #3fb950);
-  background: var(--green, #3fb950);
-  color: #fff;
+  border-color: var(--bsp-success, var(--green, #3fb950));
+  background: var(--bsp-success, var(--green, #3fb950));
+  color: var(--bsp-on-accent, #fff);
 }
 .bs-idtags-card-body { flex: 1 1 auto; min-width: 0; }
 .bs-idtags-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
@@ -9116,46 +9181,46 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-idtags-row-label { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; }
 .bs-idtags-row-label input:disabled + .bs-idtags-row-name { opacity: 0.6; }
 .bs-idtags-row-name { font-weight: 600; }
-.bs-idtags-row-state { font-size: 0.85rem; line-height: 1.5; opacity: 0.7; }
-.bs-idtags-row.is-present .bs-idtags-row-state { color: var(--green, #3fb950); opacity: 0.9; }
+.bs-idtags-row-state { font-size: 0.85rem; line-height: 1.5; opacity: var(--bsp-opacity-soft, 0.7); }
+.bs-idtags-row.is-present .bs-idtags-row-state { color: var(--bsp-success, var(--green, #3fb950)); opacity: var(--bsp-opacity-soft, 0.9); }
 /* A parked row (identification-tags-authorship #1): listed, greyed out, its box disabled and unchecked. */
 .bs-idtags-row.is-parked { opacity: 0.55; }
 .bs-idtags-row.is-parked .bs-idtags-row-label { cursor: not-allowed; }
 .bs-idtags-actions { margin-top: 0.9rem; }
 .bs-idtags-publish {
   padding: 0.45rem 0.9rem;
-  border: 1px solid rgba(165,180,252,0.5);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(165,180,252,0.5));
   border-radius: 8px;
-  background: rgba(99,102,241,0.18);
+  background: var(--bsp-accent-tint-3, rgba(99,102,241,0.18));
   color: inherit;
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
 }
-.bs-idtags-publish:hover:not(:disabled) { background: rgba(99,102,241,0.3); }
+.bs-idtags-publish:hover:not(:disabled) { background: var(--bsp-accent-tint-4, rgba(99,102,241,0.3)); }
 .bs-idtags-publish:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Your Assistant's Treasure Map: up to two buttons side by side (assistant-self-map #2). */
 .bs-selfmap-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 /* Your Assistant's raw Treasure Map: a text toggle and the event, wrapped so the page never scrolls sideways (assistant-self-map #4). */
 .bs-selfmap-raw { margin-top: 0.75rem; }
 .bs-selfmap-raw-toggle {
-  padding: 0; border: none; background: none; font: inherit; font-size: 0.85rem; color: #a5b4fc; cursor: pointer; text-align: left;
+  padding: 0; border: none; background: none; font: inherit; font-size: 0.85rem; color: var(--bsp-accent, #a5b4fc); cursor: pointer; text-align: left;
 }
 .bs-selfmap-raw-toggle:hover { text-decoration: underline; }
-.bs-selfmap-raw-toggle:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; border-radius: 4px; }
+.bs-selfmap-raw-toggle:focus-visible { outline: 2px solid var(--bsp-accent, #a5b4fc); outline-offset: 2px; border-radius: 4px; }
 .bs-selfmap-raw-pre {
   margin: 0.5rem 0 0; padding: 0.75rem; max-height: 28rem; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere;
   font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.5;
-  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  background: var(--bsp-wash-3, rgba(0,0,0,0.3)); border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1)); border-radius: 8px;
 }
-.bs-selfmap-raw-pre:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.bs-selfmap-raw-pre:focus-visible { outline: 2px solid var(--bsp-accent, #a5b4fc); outline-offset: 2px; }
 .bs-idtags-results { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.75rem; }
 .bs-idtags-results:empty { margin-top: 0; }
-.bs-idtags-result { padding: 0.6rem 0.75rem; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); }
-.bs-idtags-result.is-success { border-color: rgba(63,185,80,0.45); background: rgba(63,185,80,0.1); }
-.bs-idtags-result.is-warning { border-color: rgba(210,153,34,0.5); background: rgba(210,153,34,0.1); }
-.bs-idtags-result.is-error { border-color: rgba(248,81,73,0.5); background: rgba(248,81,73,0.1); }
-.bs-idtags-result-relays { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.4rem; font-size: 0.75rem; opacity: 0.85; }
+.bs-idtags-result { padding: 0.6rem 0.75rem; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.12)); background: var(--bsp-wash-1, rgba(255,255,255,0.03)); }
+.bs-idtags-result.is-success { border-color: var(--bsp-success-tint-4, rgba(63,185,80,0.45)); background: var(--bsp-success-tint-2, rgba(63,185,80,0.1)); }
+.bs-idtags-result.is-warning { border-color: var(--bsp-warn-tint-4, rgba(210,153,34,0.5)); background: var(--bsp-warn-tint-2, rgba(210,153,34,0.1)); }
+.bs-idtags-result.is-error { border-color: var(--bsp-danger-tint-4, rgba(248,81,73,0.5)); background: var(--bsp-danger-tint-2, rgba(248,81,73,0.1)); }
+.bs-idtags-result-relays { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.4rem; font-size: 0.75rem; opacity: var(--bsp-opacity-soft, 0.85); }
 .bs-idtags-result-relays code { word-break: break-all; }
 @media (max-width: 480px) {
   .bs-idtags-card { gap: 0.6rem; padding: 0.8rem; }
@@ -9164,8 +9229,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 /* The Outbox Relays page (assistant-outbox-relays #2, ADR 0002 sub-decision 3): the Identification Tags cards, plus
    relay rows, the add field and note lines, in the same tokens. */
-.bs-outbox-note { margin: 0.6rem 0 0; font-size: 0.85rem; line-height: 1.5; opacity: 0.75; }
-.bs-outbox-note.is-unpublished { color: #e3b341; opacity: 0.95; }
+.bs-outbox-note { margin: 0.6rem 0 0; font-size: 0.85rem; line-height: 1.5; opacity: var(--bsp-opacity-soft, 0.75); }
+.bs-outbox-note.is-unpublished { color: var(--bsp-warn, #e3b341); opacity: var(--bsp-opacity-soft, 0.95); }
 .bs-outbox-relays { list-style: none; margin: 0.75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .bs-outbox-relay { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; font-size: 0.9rem; }
 .bs-outbox-relay code { min-width: 0; word-break: break-all; }
@@ -9175,9 +9240,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-outbox-add-all {
   flex: 0 0 auto;
   padding: 0.3rem 0.7rem;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
   border-radius: 8px;
-  background: rgba(255,255,255,0.04);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.04));
   color: inherit;
   font: inherit;
   font-size: 0.85rem;
@@ -9186,7 +9251,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-outbox-relay-remove:hover:not(:disabled),
 .bs-outbox-relay-add:hover:not(:disabled),
 .bs-outbox-add-button:hover:not(:disabled),
-.bs-outbox-add-all:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+.bs-outbox-add-all:hover:not(:disabled) { background: var(--bsp-wash-3, rgba(255,255,255,0.1)); }
 .bs-outbox-relay-remove:disabled,
 .bs-outbox-relay-add:disabled,
 .bs-outbox-add-button:disabled,
@@ -9198,14 +9263,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex: 1 1 auto;
   min-width: 0;
   padding: 0.4rem 0.6rem;
-  border: 1px solid rgba(255,255,255,0.18);
+  border: 1px solid var(--bsp-line-3, rgba(255,255,255,0.18));
   border-radius: 8px;
-  background: rgba(0,0,0,0.2);
+  background: var(--bsp-wash-2, rgba(0,0,0,0.2));
   color: inherit;
   font: inherit;
   font-size: 0.9rem;
 }
-.bs-outbox-refusal { margin: 0.4rem 0 0; font-size: 0.85rem; color: #f85149; }
+.bs-outbox-refusal { margin: 0.4rem 0 0; font-size: 0.85rem; color: var(--bsp-danger, #f85149); }
 @media (max-width: 480px) {
   .bs-outbox-relay { align-items: flex-start; }
 }
@@ -9213,26 +9278,26 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
    each one line of inline text — category, key, relay — so it wraps but never splits into columns. */
 .bs-dutymenu-row { font-size: 0.9rem; line-height: 1.5; overflow-wrap: anywhere; }
 .bs-dutymenu-row-category { font-weight: 600; }
-.bs-dutymenu-row-exception { font-style: italic; opacity: 0.8; }
+.bs-dutymenu-row-exception { font-style: italic; opacity: var(--bsp-opacity-soft, 0.8); }
 .bs-topbar-pill:focus-visible {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid var(--bsp-accent, #a5b4fc);
   outline-offset: 2px;
 }
 .bs-topbar-pill.is-assistant,
 .bs-topbar-pill.is-assistant:hover {
-  color: #c7d2fe;
-  background: rgba(99,102,241,0.14);
+  color: var(--bsp-accent-ink, #c7d2fe);
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.14));
 }
-.bs-topbar-pill.is-assistant:hover { border-color: rgba(165,180,252,0.7); }
-.bs-topbar-pill-count { opacity: 0.85; }
+.bs-topbar-pill.is-assistant:hover { border-color: var(--bsp-accent-tint-4, rgba(165,180,252,0.7)); }
+.bs-topbar-pill-count { opacity: var(--bsp-opacity-soft, 0.85); }
 .bs-topbar-pill-button {
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   font-weight: 700;
 }
 .bs-topbar-pill.is-assistant .bs-topbar-pill-button {
-  background: #6366f1;
-  color: #fff;
+  background: var(--bsp-accent, #6366f1);
+  color: var(--bsp-on-accent, #fff);
 }
 
 @media (max-width: 1023px) {
@@ -10881,13 +10946,13 @@ body:has(.bsd-page) { background: #f2f3f0; }
 /* ── /assistant/profile: the profile checklist (assistant-profile-checklist #2, #3). Its panels are the Identification
    Tags page's cards (.bs-idtags-card); these are the parts that page has no need of. ── */
 .bs-setup-step-badge.is-neutral {
-  border-color: rgba(148,163,184,0.45);
-  background: rgba(148,163,184,0.12);
-  color: #cbd5e1;
+  border-color: var(--bsp-line-3, rgba(148,163,184,0.45));
+  background: var(--bsp-wash-2, rgba(148,163,184,0.12));
+  color: var(--bsp-ink-primary, #cbd5e1);
 }
-.bs-profile-check-text { margin: 0.5rem 0 0; font-size: 0.85rem; line-height: 1.6; opacity: 0.7; }
+.bs-profile-check-text { margin: 0.5rem 0 0; font-size: 0.85rem; line-height: 1.6; opacity: var(--bsp-opacity-soft, 0.7); }
 .bs-profile-check-line { margin: 0.5rem 0 0; font-size: 0.9rem; line-height: 1.5; overflow-wrap: anywhere; }
-.bs-idtags-card.is-done .bs-profile-check-line { color: var(--green, #3fb950); }
+.bs-idtags-card.is-done .bs-profile-check-line { color: var(--bsp-success, var(--green, #3fb950)); }
 .bs-profile-check-preview { margin-top: 0.9rem; }
 .bs-profile-check-preview img { width: 128px; height: 128px; border-radius: 50%; display: block; }
 .bs-profile-check-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }

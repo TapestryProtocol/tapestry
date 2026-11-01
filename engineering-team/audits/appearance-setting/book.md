@@ -12,7 +12,16 @@
   at kickoff on 2026-10-31:
   1. A first-time visitor gets **System** (the page follows the computer's light or dark setting).
   2. The older `/tapestry/*` admin pages **stay dark** in this book. Bringing them in is later work.
-  3. The work is cut into **three stories**, each seen on localhost before it moves on.
+  3. The work is cut into **three stories**, each seen on localhost before it moves on. *(Re-cut 2026-11-01, see
+     decision 5.)*
+
+  Later decisions:
+
+  4. **The light look matches the design shell's light look** (David, 2026-11-01): warm off-white page, white cards,
+     purple accent, on every family that gains a light look.
+  5. **Four stories** (David, 2026-11-01): the old story 2 is split into story 2 (the frame and the reading pages)
+     and story 3 (the working pages). The two ship to staging together, so no page is ever half-converted. The search
+     home becomes story 4.
 
 ### Acceptance frame
 
