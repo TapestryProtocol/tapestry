@@ -27,8 +27,10 @@ function getConfigFromFile(varName, defaultValue = null) {
             let regex = new RegExp(`${varName}=[\"\'](.*?)[\"\']`, 'gm');
             let match = regex.exec(fileContent);
             
+            // Log the key's name and how it was resolved, never its value: these include
+            // NEO4J_PASSWORD, SESSION_SECRET and relay keys (ngit issue c549202b).
             if (match && match[1]) {
-                console.log(`Found ${varName}=${match[1]} (quoted)`);
+                console.log(`Found ${varName} (quoted)`);
                 return match[1];
             }
             
@@ -37,7 +39,7 @@ function getConfigFromFile(varName, defaultValue = null) {
             match = regex.exec(fileContent);
             
             if (match && match[1]) {
-                console.log(`Found ${varName}=${match[1]} (unquoted)`);
+                console.log(`Found ${varName} (unquoted)`);
                 return match[1];
             }
             
@@ -48,14 +50,18 @@ function getConfigFromFile(varName, defaultValue = null) {
                     // `source` is a bash builtin; execSync defaults to /bin/sh,
                     // which is dash on Debian/Ubuntu and fails with
                     // "source: not found". Match the other call sites and use bash.
-                    shell: '/bin/bash'
+                    shell: '/bin/bash',
+                    // Keep bash's stderr out of the log: on a line it can't parse, bash prints
+                    // that line, value and all (security-auth-exposure #10).
+                    stdio: ['ignore', 'pipe', 'ignore']
                 }).toString().trim();
-                console.log(`Source command result for ${varName}: '${result}'`);
+                console.log(`Source command for ${varName}: ${result ? 'found' : 'not found'}`);
                 if (result) {
                     return result;
                 }
             } catch (sourceError) {
-                console.error(`Error using source command for ${varName}:`, sourceError.message);
+                // Not .message: it carries bash's stderr.
+                console.error(`Source command for ${varName} failed (status ${sourceError.status})`);
             }
         } else {
             console.log(`Config file ${confFile} not found`);
@@ -64,7 +70,7 @@ function getConfigFromFile(varName, defaultValue = null) {
         console.error(`Error reading config for ${varName}:`, error);
     }
     
-    console.log(`Using default value for ${varName}: ${defaultValue}`);
+    console.log(`Using default value for ${varName}`);
     return defaultValue;
 }
 

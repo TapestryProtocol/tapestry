@@ -18,9 +18,12 @@ const { execSync } = require('child_process');
 function getOwnerPubkey() {
   try {
     // Try to read from config file
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #10).
     const configOutput = execSync('source /etc/brainstorm.conf && echo $BRAINSTORM_OWNER_PUBKEY', { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
     if (configOutput && configOutput.length > 0) {
@@ -35,7 +38,7 @@ function getOwnerPubkey() {
     console.error('BRAINSTORM_OWNER_PUBKEY not found in config or environment');
     process.exit(1);
   } catch (error) {
-    console.error(`Error getting BRAINSTORM_OWNER_PUBKEY: ${error.message}`);
+    console.error(`Error getting BRAINSTORM_OWNER_PUBKEY (status ${error.status})`);
     process.exit(1);
   }
 }

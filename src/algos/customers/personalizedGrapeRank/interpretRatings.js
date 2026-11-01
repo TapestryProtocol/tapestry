@@ -36,15 +36,19 @@ const CONTEXT = 'verifiedUsers';
 function getConfig() {
   try {
     // Load GrapeRank config
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #11).
     const graperankConfig = execSync(`source ${CONFIG_FILES.graperank} && echo $FOLLOW_RATING,$FOLLOW_CONFIDENCE,$MUTE_RATING,$MUTE_CONFIDENCE,$REPORT_RATING,$REPORT_CONFIDENCE,$FOLLOW_CONFIDENCE_OF_OBSERVER`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim().split(',');
     
     // Load Brainstorm config
     const ownerPubkey = execSync(`source ${CONFIG_FILES.brainstorm} && echo $BRAINSTORM_OWNER_PUBKEY`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
     return {
@@ -59,7 +63,7 @@ function getConfig() {
       BRAINSTORM_OWNER_PUBKEY: ownerPubkey
     };
   } catch (error) {
-    console.error(`Error loading configuration: ${error.message}`);
+    console.error(`Error loading configuration: lookup of FOLLOW_RATING, FOLLOW_CONFIDENCE, MUTE_RATING, MUTE_CONFIDENCE, REPORT_RATING, REPORT_CONFIDENCE, FOLLOW_CONFIDENCE_OF_OBSERVER or BRAINSTORM_OWNER_PUBKEY failed (status ${error.status})`);
     process.exit(1);
   }
 }

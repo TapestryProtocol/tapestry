@@ -41,23 +41,29 @@ execSync(`chown brainstorm:brainstorm ${LOG_FILE}`);
 function getNeo4jConfig() {
   try {
     // Load Neo4j connection details from brainstorm.conf
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #11).
     const neo4jUri = execSync(`source ${CONFIG_FILES.brainstorm} && echo $NEO4J_URI`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
     const neo4jUsername = execSync(`source ${CONFIG_FILES.brainstorm} && echo $NEO4J_USER`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
     const neo4jPassword = execSync(`source ${CONFIG_FILES.brainstorm} && echo $NEO4J_PASSWORD`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
     if (!neo4jUri || !neo4jUsername || !neo4jPassword) {
-      throw new Error('Missing Neo4j connection details in brainstorm.conf. Please ensure NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD are defined.');
+      console.error('Missing Neo4j connection details in brainstorm.conf. Please ensure NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD are defined.');
+      process.exit(1);
     }
     
     return {
@@ -66,7 +72,7 @@ function getNeo4jConfig() {
       password: neo4jPassword
     };
   } catch (error) {
-    console.error(`Error loading Neo4j configuration: ${error.message}`);
+    console.error(`Error loading Neo4j configuration: lookup of NEO4J_URI, NEO4J_USER or NEO4J_PASSWORD failed (status ${error.status})`);
     process.exit(1);
   }
 }

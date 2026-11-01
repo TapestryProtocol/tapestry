@@ -51,15 +51,19 @@ const pubkey_debug = "53dab47395542b4df9c9d5b32934403b751f0a882e69bb8dd8a660df3a
 function getConfig() {
   try {
     // Load GrapeRank config
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #11).
     const graperankConfig = execSync(`source ${CONFIG_FILES.graperank} && echo $ATTENUATION_FACTOR,$RIGOR`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim().split(',');
     
     // Load Brainstorm config
     const ownerPubkey = execSync(`source ${CONFIG_FILES.brainstorm} && echo $BRAINSTORM_OWNER_PUBKEY`, { 
       shell: '/bin/bash',
-      encoding: 'utf8' 
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
     
     return {
@@ -68,7 +72,7 @@ function getConfig() {
       BRAINSTORM_OWNER_PUBKEY: ownerPubkey
     };
   } catch (error) {
-    console.error(`Error loading configuration: ${error.message}`);
+    console.error(`Error loading configuration: lookup of ATTENUATION_FACTOR, RIGOR or BRAINSTORM_OWNER_PUBKEY failed (status ${error.status})`);
     process.exit(1);
   }
 }

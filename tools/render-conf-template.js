@@ -9,6 +9,11 @@
  *   - Exit 1 + stderr message on missing argv, file-read failure.
  *   - Exit 2 + stderr message on unknown ${VAR} references (one or more env vars
  *     referenced in the template but undefined in process.env).
+ *   - Exit 3 + stderr message when a referenced value holds a character the conf
+ *     can't hold safely between double quotes (" $ ` \ or a line break): bash
+ *     would end the string, expand it, or run a command from it (ADR
+ *     security-auth-exposure/0006). The message names variables, never values,
+ *     and nothing is written to stdout.
  *
  * Substitution rules: ${VAR_NAME} only.
  *   - Bare $VAR (no braces) is LEFT AS LITERAL.
@@ -42,9 +47,12 @@ try {
 }
 
 const VAR_REF = /\$\{([A-Z_][A-Z0-9_]*)\}/g;
+const UNSAFE_IN_DOUBLE_QUOTES = /["$`\\\r\n]/;
 const missing = [];
+const unsafe = [];
 const rendered = content.replace(VAR_REF, function (_match, name) {
   if (Object.prototype.hasOwnProperty.call(process.env, name)) {
+    if (UNSAFE_IN_DOUBLE_QUOTES.test(process.env[name])) unsafe.push(name);
     return process.env[name];
   }
   missing.push(name);
@@ -57,6 +65,15 @@ if (missing.length) {
     'RenderError: missing env vars in ' + path.basename(templatePath) + ': ' + unique.join(', ')
   );
   process.exit(2);
+}
+
+if (unsafe.length) {
+  const names = Array.from(new Set(unsafe)).sort();
+  console.error(
+    'RenderError: ' + names.join(', ') + ' contain' + (names.length === 1 ? 's' : '') +
+    ' a character the config file can\'t hold safely (" $ ` \\ or a line break); refusing to render'
+  );
+  process.exit(3);
 }
 
 process.stdout.write(rendered);

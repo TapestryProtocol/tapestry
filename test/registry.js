@@ -287,6 +287,12 @@ const suites = [
   { file: 'admin-action-sweep.test.js' },
   { file: 'admin-action-sweep-access.test.js' },
   { file: 'admin-action-sweep-named.test.js' },
+  // security-auth-exposure #9 — the config reader logs key names, never values (ngit c549202b).
+  { file: 'config-secret-logging.test.js' },
+  // security-auth-exposure #10 — sourcing the config file never puts its contents in a log.
+  { file: 'config-source-stderr.test.js' },
+  // security-auth-exposure #11 — a config file bash can't parse never reaches a log (ADR 0006).
+  { file: 'config-parse-leak.test.js' },
   { file: 'shell-input-hardening.test.js' },
   { file: 'assistant-profile-check.test.js' },
   { file: 'assistant-trusted-content.test.js' },

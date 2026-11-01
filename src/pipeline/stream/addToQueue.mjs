@@ -18,29 +18,32 @@ function getConfigValue(varName, defaultValue = null) {
     if (fs.existsSync('/etc/brainstorm.conf')) {
       try {
         // Use bash explicitly with the -c option
+        // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+        // value and all. Values are never logged either (security-auth-exposure #10).
         const result = child_process.execSync(`bash -c "source /etc/brainstorm.conf && echo \\$${varName}"`, {
-          encoding: 'utf8'
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore']
         }).trim();
         
         if (result) {
-          console.log(`Found ${varName} in config file: ${result}`);
+          console.log(`Found ${varName} in config file`);
           return result;
         }
       } catch (execError) {
-        console.error(`Error executing config file:`, execError.message);
+        console.error(`Error executing config file for ${varName} (status ${execError.status})`);
         // Continue to next method
       }
     }
     
     // Fall back to environment variable
     if (process.env[varName]) {
-      console.log(`Found ${varName} in environment: ${process.env[varName]}`);
+      console.log(`Found ${varName} in environment`);
       return process.env[varName];
     }
     
     // Return default value if provided
     if (defaultValue !== null) {
-      console.log(`Using default value for ${varName}: ${defaultValue}`);
+      console.log(`Using default value for ${varName}`);
       return defaultValue;
     }
     

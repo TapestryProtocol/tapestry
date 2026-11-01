@@ -19,10 +19,14 @@ const { getOwnerAssistantKeys } = require('../../utils/assistantKeys');
 // Get environment variables from brainstorm.conf using source command
 function getEnvVar(varName) {
   try {
-    const value = execSync(`bash -c 'source /etc/brainstorm.conf && echo $${varName}'`).toString().trim();
+    // stderr ignored and .status logged, not .message: on a line bash can't parse, it prints that line,
+    // value and all (security-auth-exposure #10).
+    const value = execSync(`bash -c 'source /etc/brainstorm.conf && echo $${varName}'`, {
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).toString().trim();
     return value;
   } catch (error) {
-    console.error(`Error getting environment variable ${varName}:`, error.message);
+    console.error(`Error getting environment variable ${varName} (status ${error.status})`);
     return null;
   }
 }
