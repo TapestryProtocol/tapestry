@@ -49,6 +49,14 @@ const INLINE_FILES = ['components/AboutThisInstance.jsx', 'pages/BrainstormAbout
   'pages/BrainstormPersonalization.jsx', 'pages/BrainstormHowSearchWorks.jsx', 'pages/BrainstormSkill.jsx'];
 // The light scope (ADR 0002 sub-decision 3), compared with quotes and spaces normalized.
 const SCOPE = ':root[data-appearance="light"] body:has(:is(.bsp-page,.bss-page))';
+// Re-aimed by appearance-setting #4: the search home's .bs-page joins the :is() list (ADR 0004 sub-decision 1), so the
+// scope is the rule of that shape whose list holds at least story 2's two pages.
+function isScope(sel) {
+  const m = normSel(sel).match(/^:root\[data-appearance="light"\] body:has\(:is\(([^)]*)\)\)$/);
+  if (!m) return false;
+  const pages = m[1].split(',');
+  return pages.includes('.bsp-page') && pages.includes('.bss-page');
+}
 const COLOUR_PROPS = /^(color|background|background-color|background-image|border|border-(top|right|bottom|left)(-color)?|border-color|outline|outline-color|box-shadow|text-shadow|fill|stroke|text-decoration-color|caret-color|column-rule-color)$/;
 const LITERAL = /#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(|\b(white|black)\b/i;
 
@@ -78,7 +86,7 @@ test('C2 preloadFamily: "design" on design-shell paths, "profile" on reading pat
   const L = loadLib();
   assert(typeof L.preloadFamily === 'function', 'preloadFamily should be exported');
   const cases = [['/dictionary', 'design'], ['/treasure-map/advanced', 'design'], ['/assistants', 'design'], ['/about', 'profile'],
-    ['/user/abc/follows', 'profile'], ['/settings', 'profile'], ['/', null], ['/tapestry/', null]];
+    ['/user/abc/follows', 'profile'], ['/settings', 'profile'], ['/', 'profile'] /* re-aimed by #4 (ADR 0004) */, ['/tapestry/', null]];
   // Re-aimed by appearance-setting #3: /tags and /assistant/profile are working paths now ('profile'); story 3's C2 pins them.
   for (const [p, want] of cases) {
     const got = L.preloadFamily(p);
@@ -171,7 +179,7 @@ function lastByKey(rules, keep) {
 function lightScope(rules) {
   const tokens = {}; let seen = false; const decl = {};
   for (const r of rules) {
-    if (r.context || normSel(r.selector) !== SCOPE) continue;
+    if (r.context || !isScope(r.selector)) continue;
     seen = true;
     for (const [p, v] of r.decls) { if (p.startsWith('--bsp-')) tokens[p] = v; else decl[p] = v; }
   }
@@ -276,8 +284,13 @@ function walkFrom(files) {
     const code = text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|\s)\/\/.*$/gm, '$1').replace(NOT_A_CLASS, '');
     scan(code);
     // A class finished in code (`settings-message-${type}`) counts as every class the stylesheet defines with that
-    // start. Only a template literal holds `-${`, so the whole file is read for it (nested templates included).
-    for (const p of code.matchAll(/[`\s'"]([a-z][\w-]*-)\$\{/g)) for (const c of defined) if (c.startsWith(p[1])) classes.add(c);
+    // start. Only a template literal holds `-${`, so the whole file is read for it (nested templates included). The
+    // start must name a family (two segments or more, `bs-tag-`), and a state start (`is-${…}`, `has-${…}`) never
+    // counts: it would pull in every `is-*` class, admin pages' included (review 3-R2, ADR appearance-setting/0004).
+    for (const p of code.matchAll(/[`\s'"]([a-z][\w-]*-)\$\{/g)) {
+      if (!/^[a-z]\w*-[\w-]*\w-$/.test(p[1]) || /^(is|has)-/.test(p[1])) continue;
+      for (const c of defined) if (c.startsWith(p[1])) classes.add(c);
+    }
     for (const m of text.matchAll(/className=(?:"([^"]+)"|\{((?:[^{}]|\{[^{}]*\})*)\})/g)) {
       const strings = m[1] !== undefined ? [m[1]] : [...m[2].matchAll(/(['"`])((?:(?!\1)[^\\])*)\1/g)].map((x) => x[2]);
       for (const str of strings) for (const c of str.replace(/\$\{[^}]*\}/g, ' ').split(/\s+/)) if (/^[a-z][\w-]+$/.test(c)) classes.add(c);
@@ -424,5 +437,5 @@ if (require.main === module) {
 // The stylesheet helpers are shared with test/appearance-setting-working.test.js (appearance-setting #3).
 module.exports = {
   run,
-  helpers: { stripBsp, lightBsp, lastByKey, lightScope, classesFrom, filesFrom, scoped, normSel, READING_FILES, COLOUR_PROPS, LITERAL, SCOPE },
+  helpers: { stripBsp, lightBsp, lastByKey, lightScope, classesFrom, filesFrom, scoped, normSel, READING_FILES, COLOUR_PROPS, LITERAL, SCOPE, isScope, STATE_WORD },
 };

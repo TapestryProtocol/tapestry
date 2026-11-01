@@ -36,7 +36,8 @@ const UI_SRC = path.join(REPO, 'ui/src');
 const BASE = '34bd3957b66ebe43d47365e6283dc7410dfde2f8';
 const NL = String.fromCharCode(10);
 
-const WORKING_PREFIXES = ['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers'];
+// Re-aimed by appearance-setting #4: /information-for-agents (a DevPage) joins beside /developers (ADR 0004 sub-decision 4).
+const WORKING_PREFIXES = ['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers', '/information-for-agents'];
 const WORKING_FILES = ['pages/Tags.jsx', 'pages/Tag.jsx', 'pages/Pins.jsx', 'components/PinRedirect.jsx',
   'pages/assistant/ActionPage.jsx', 'pages/assistant/AssistantTreasureMap.jsx', 'pages/assistant/DutyMenu.jsx',
   'pages/assistant/EditProfile.jsx', 'pages/assistant/IdentificationTags.jsx', 'pages/assistant/Index.jsx',
@@ -62,7 +63,7 @@ test('C1 WORKING_PATH_PREFIXES lists the working pages\' paths, and isWorkingPat
   const L = loadLib();
   assert(show(L.WORKING_PATH_PREFIXES) === show(WORKING_PREFIXES), `WORKING_PATH_PREFIXES should be ${show(WORKING_PREFIXES)}, got ${show(L.WORKING_PATH_PREFIXES)}`);
   assert(typeof L.isWorkingPath === 'function', 'isWorkingPath should be exported');
-  for (const p of ['/tags', '/tag/abc', '/tag/slug/abc', '/pins', '/pin/x', '/assistant', '/assistant/profile/edit', '/setup', '/setup/follow', '/developers', '/developers/nip-50']) {
+  for (const p of ['/tags', '/tag/abc', '/tag/slug/abc', '/pins', '/pin/x', '/assistant', '/assistant/profile/edit', '/setup', '/setup/follow', '/developers', '/developers/nip-50', '/information-for-agents']) {
     assert(L.isWorkingPath(p) === true, `isWorkingPath(${show(p)}) should be true`);
   }
   for (const p of ['/', '/tagsx', '/assistants', '/assistants/x', '/pinsx', '/settings', '/setupx', '/dictionary', '/tapestry/tags']) {
@@ -74,7 +75,8 @@ test('C2 preloadFamily: "profile" on every working path, "design" still on /assi
   const L = loadLib();
   const cases = [['/tags', 'profile'], ['/pin/abc', 'profile'], ['/assistant', 'profile'], ['/assistant/duty-menu', 'profile'],
     ['/setup/activate', 'profile'], ['/developers/relay-tools', 'profile'], ['/assistants', 'design'], ['/assistantsx', null],
-    ['/about', 'profile'], ['/', null], ['/tapestry/', null]];
+    // Re-aimed by appearance-setting #4: the search home has the profile hint (ADR 0004 sub-decision 4).
+    ['/about', 'profile'], ['/', 'profile'], ['/tapestry/', null]];
   for (const [p, want] of cases) { const got = L.preloadFamily(p); assert(got === want, `preloadFamily(${show(p)}) should be ${show(want)}, got ${show(got)}`); }
 });
 
@@ -137,10 +139,10 @@ test('T1 Dark and every untouched page are unchanged against this story\'s base:
 const familyClasses = () => S2.classesFrom([...S2.READING_FILES, ...WORKING_FILES]);
 function isFamilyRule(r, classes) {
   if (S2.scoped(r.selector) || /\.bsd-|bsd-page|\.dict-/.test(r.selector)) return false;
-  // SearchInput is shared; its landing variant renders only on the search home, which is story 4.
-  if (/-landing\b/.test(r.selector)) return false;
   const names = [...r.selector.matchAll(/\.([a-z][\w-]+)/g)].map((m) => m[1]);
-  return names.some((c) => classes.has(c));
+  // A shared state class (`.disabled`, `.active`) never makes a rule a family's: `.event-type-card.disabled` is an admin
+  // rule however many family pages use `disabled` (review 3-R2, ADR appearance-setting/0004).
+  return names.some((c) => classes.has(c) && !S2.STATE_WORD.test(c));
 }
 function withoutBsp(v) {
   let rest = v, at;
@@ -231,8 +233,8 @@ test('T5 a grey stays a grey: no --bsp-accent token wraps a grey Dark value (rev
 const PAIR_ALLOWLIST = new Map([
 ]);
 
-test('K1 in Light, every text-on-background pair a profile-family rule paints reaches 4.5:1 (WCAG AA)', () => {
-  const classes = familyClasses();
+/** Every text-on-background pair the family rules paint that reads under 4.5:1 in Light (shared with story 4). */
+function lowPairs(classes) {
   const now = H.parseCss(nowCss());
   const { seen, tokens } = S2.lightScope(now);
   assert(seen, 'there is no light scope to measure');
@@ -268,6 +270,11 @@ test('K1 in Light, every text-on-background pair a profile-family rule paints re
     const c = H.contrast(t.rgb, b.rgb);
     if (c < 4.5) low.push(`${r.selector}: ${inkV} on ${bgV}, ${c.toFixed(2)}:1`);
   }
+  return low;
+}
+
+test('K1 in Light, every text-on-background pair a profile-family rule paints reaches 4.5:1 (WCAG AA)', () => {
+  const low = lowPairs(familyClasses());
   assert(low.length === 0, `${low.length} pair(s) below 4.5:1 in Light:${NL}        ${low.slice(0, 20).join(`${NL}        `)}`);
 });
 
@@ -277,29 +284,46 @@ test('K1 in Light, every text-on-background pair a profile-family rule paints re
 const walkedFiles = () => S2.filesFrom([...S2.READING_FILES, ...WORKING_FILES])
   .map((f) => path.relative(UI_SRC, f)).filter((rel) => !CONTENT_FILES.includes(rel));
 
-test('I1 the inline colours in every file the reading and working pages reach read --bsp- tokens', () => {
+/** Inline colours in these files that don't read a --bsp- token (shared with story 4). */
+function inlineColours(files) {
   const bare = [];
-  for (const rel of walkedFiles()) {
+  for (const rel of files) {
     const text = fs.readFileSync(path.join(UI_SRC, rel), 'utf8');
     for (const m of text.matchAll(/['"`]([^'"`\n]*(?:#[0-9a-fA-F]{3,8}\b|rgba?\(\s*\d|var\(--(?!bsp-)[\w-]+\s*,\s*#)[^'"`\n]*)['"`]/g)) {
       if (/^var\(--bsp-[\w-]+\s*,/.test(m[1].trim())) continue;
       bare.push(`${rel}: ${show(m[1])}`);
     }
   }
+  return bare;
+}
+
+test('I1 the inline colours in every file the reading and working pages reach read --bsp- tokens', () => {
+  const bare = inlineColours(walkedFiles());
   assert(bare.length === 0, `${bare.length} inline colour(s) don't read a --bsp- token:${NL}        ${bare.join(`${NL}        `)}`);
 });
 
-test('I4 no inline style in those files dims with a literal opacity (it reads var(--bsp-opacity-soft|dim, X)) (review 1, Blocking 2)', () => {
+/** Inline dimming in these files that doesn't read an opacity token, a disabled control's own aside (shared with story 4). */
+function inlineOpacities(files) {
   const bare = [];
-  for (const rel of walkedFiles()) {
+  for (const rel of files) {
     const text = fs.readFileSync(path.join(UI_SRC, rel), 'utf8');
     text.split(NL).forEach((line, i) => {
-      for (const m of line.matchAll(/\bopacity:\s*(0?\.\d+)\b/g)) {
-        if (/disabled/i.test(line)) continue; // a disabled control's own dimming stays as it is
-        bare.push(`${rel}:${i + 1}: opacity ${m[1]}`);
+      // Tightened after review 3-R2 (ADR appearance-setting/0004): a literal (`opacity: 0.6`) or a conditional
+      // (`opacity: busy ? 0.6 : 1`) both count. Only a disabled control's own dimming is exempt: the condition names a
+      // disabled state, or the same style shows the not-allowed cursor on that condition.
+      for (const m of line.matchAll(/\bopacity:\s*(?:([^,}?'"`]+?)\s*\?\s*)?(0?\.\d+)\b/g)) {
+        const cond = (m[1] || '').trim();
+        const inactive = cond && (/disabled/i.test(cond) || line.includes(`${cond} ? 'not-allowed'`));
+        if (inactive) continue;
+        bare.push(`${rel}:${i + 1}: opacity ${cond ? `${cond} ? ${m[2]}` : m[2]}`);
       }
     });
   }
+  return bare;
+}
+
+test('I4 no inline style in those files dims with a literal opacity (it reads var(--bsp-opacity-soft|dim, X)) (review 1, Blocking 2)', () => {
+  const bare = inlineOpacities(walkedFiles());
   assert(bare.length === 0, `${bare.length} literal inline opacit(ies):${NL}        ${bare.slice(0, 20).join(`${NL}        `)}`);
 });
 
@@ -340,4 +364,4 @@ if (require.main === module) {
   run().then((r) => process.exit(r.fail ? 1 : 0));
 }
 
-module.exports = { run, WORKING_FILES };
+module.exports = { run, WORKING_FILES, helpers: { isFamilyRule, withoutBsp, DISABLED, CONTENT_FILES, lowPairs, inlineColours, inlineOpacities } };

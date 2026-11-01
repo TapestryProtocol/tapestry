@@ -332,9 +332,6 @@ const AP2 = require('../../test/appearance-setting-light.test.js').helpers;
 const AP3 = require('../../test/appearance-setting-working.test.js');
 // Pieces the probe can't judge fairly, each with its reason. Key: selector.
 const PROBE_ALLOWLIST = new Map([
-  // SearchInput is shared; its landing variant only renders on the search home, which is story 4.
-  ['.bs-search-box-landing', 'the search home\'s box (story 4)'],
-  ['.bs-search-input-landing', 'the search home\'s input (story 4)'],
 ]);
 function probeSelectors() {
   const classes = AP2.classesFrom([...AP2.READING_FILES, ...AP3.WORKING_FILES]);
