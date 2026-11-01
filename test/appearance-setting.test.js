@@ -637,4 +637,8 @@ if (require.main === module) {
   run().then((r) => process.exit(r.fail ? 1 : 0));
 }
 
-module.exports = { run };
+// The helpers are shared with test/appearance-setting-light.test.js (appearance-setting #2).
+module.exports = {
+  run,
+  helpers: { memoryStorage, inlineHeadScripts, runPreRender, parseCss, splitSelectors, norm, hexToRgb, luminance, contrast, parseColour },
+};

@@ -74,5 +74,5 @@ None. (Palette and cut settled with David on 2026-11-01.)
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/appearance-setting/0002-light-only-token-layer-for-the-profile-family.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/appearance-setting/2-light-look-frame-and-reading-pages.test-plan.md`
 - Review: (filled in after Review phase)
