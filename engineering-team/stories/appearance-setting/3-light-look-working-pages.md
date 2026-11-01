@@ -77,4 +77,4 @@ None. (The carry-over chip was folded in by David on 2026-11-01.)
 
 - ADR: `engineering-team/decisions/appearance-setting/0003-working-pages-join-the-light-token-layer.md`
 - Test plan: `engineering-team/stories/appearance-setting/3-light-look-working-pages.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/appearance-setting/3-light-look-working-pages.md`
