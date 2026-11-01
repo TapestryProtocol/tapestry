@@ -1,9 +1,9 @@
 # Book of Work: A config file bash can't parse never reaches a log
 
 **Slug:** config-parse-leak
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-10-31
-**Closed:** —
+**Closed:** 2026-11-01
 
 ## Intent anchor
 
@@ -30,15 +30,20 @@ shell scripts"), restated:
       instance also follow `main` and need the same check before `main` is promoted (review 11, non-blocking 7).)*
 - [x] What stays open is written down, not claimed fixed: a hand edit to the conf inside a running container still
       reaches shell-script logs until the next restart re-renders the file. *(OPERATIONS.md §11; ADR 0006 Consequences; OPEN.md row `2026-10-31-quote-in-conf-value-misread`.)*
-- [ ] The tests fail on the code before the fix and pass after; the story is reviewed PASS on its branch. Publishing
-      (ngit, then GitHub `staging`) happens step by step on the owner's OK.
+- [x] The tests fail on the code before the fix and pass after; the story is reviewed PASS on its branch. Publishing
+      (ngit, then GitHub `staging`) happens step by step on the owner's OK. *(Before: 2 pass, 9 fail at
+      `a33ff545`; 11/0 after. Review 11 PASS at round 3. Safe-to-merge safe at 04:19 and 04:34 UTC 2026-11-01; merge
+      `04e0d0f1` pushed to ngit `staging`, then GitHub `staging`; deploy run 41273662458 succeeded. On the droplet,
+      read-only, counts only: container restarted 04:36:46 UTC, 7 programs RUNNING, no FATAL/RenderError/checker
+      lines in its log; the checker passes on the live conf; the patched files are present and the dead copies gone;
+      the `NEO4J_PASSWORD` and `SESSION_SECRET` values appear in 0 files under `/var/log`.)*
 
 ## Epics in this book
 - `security-auth-exposure` — story 11, a config file bash can't parse never reaches a log.
 
 ## Provenance
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high
 
 ## Close artifacts *(filled by `/close-book`)*
 - Build audit: `engineering-team/audits/config-parse-leak/audit.md`
