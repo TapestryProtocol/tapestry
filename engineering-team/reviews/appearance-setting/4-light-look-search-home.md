@@ -178,3 +178,108 @@ Each pins something this story changes on purpose, and each still guards the res
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+# Round 2
+
+**Date:** 2026-11-01
+**Diff:** `git diff 5ae5f89b8..HEAD` (HEAD `c94a8f1b5`)
+- `28dac6e47`: Tester changes, failing first (test plan Amendment 2).
+- `c9281ab3b`: ADR 0004 Amendment 1.
+- `c94a8f1b5`: the fixes.
+
+**Owner decision after review 1** (David, "Yes, with hovers", given by the coordinator): fix both blockers test-first,
+plus the hover fixes (round 1's Non-blocking 1–2) and the sturdier S1 (Non-blocking 3).
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`:** not run in full on this host. There are no run records in this worktree, so there is **no
+      `gate:status` line of mine to quote.** The coordinator reports a sealed run (`tapestry-ci-gate-deb`,
+      `--network none`, `CI=true`): "6,345 passed, 0 failed, 622 skipped, across 323 suites". I did not see the record.
+- [x] **Node, one suite at a time,** each screened first:
+  - `appearance-setting-home` **18/18** (C4, M5 and M6 are new);
+  - `appearance-setting-working` 14/14, `appearance-setting-light` 11/11, `appearance-setting` 16/16;
+  - `assistant-shared-categories` 21/0;
+  - `assistant-management-page` 23/0 (H1 skips without a stack);
+  - **the same 57 related suites as round 1:** all clean (`tag-detail-curated-view-and-pin-polish` skips without a
+    stack), `setup-alert-polish` (S1 now uses `isScope`) included.
+- [x] **Playwright, chromium,** against `:4174`, rebuilt from HEAD (same CSS hash, `index-DR7Domws.css`): stories 1–4,
+      `assistant-shared-categories`, `setup-alert-polish`, `assistant-alert`, `about-this-instance` and
+      `login-failure-and-tag-collapse`: **218/218 pass.**
+- [x] **Dark is identical.** `probe-home-dark.js`: HEAD against my build of `7690c8e16`. **0 differences in all 14
+      states**, including the hovered card (sampled after its transition) and `/information-for-agents`. The new rules
+      sit under the light scope selector, so Dark can't match them.
+
+## Round-1 findings, re-checked
+
+1. **Blocking 1, the picker's Settings link: resolved.** Signed in, with the point of view not ready, in Light:
+   - the "being calculated" option has nothing under 4.5:1;
+   - the link is the accent on white, and the option's text is `--bsp-muted`;
+   - the signed-out option is clean too.
+
+   Round 1 had the link at 2.29:1. The sweep's exemption now covers the option's text but not a link inside it.
+2. **Blocking 2, `/information-for-agents`: resolved.**
+   - The field reads `--bsp-surface` on `--bsp-border` (white with a `#d6d9db` edge); my screenshot shows a visible
+     field. Typed text is the ink. The status line reads the soft token.
+   - **Coverage:** `ADOPTED_FILES` puts the page under T2, I1 and I2, and C4 makes every light-hinted route's page
+     file part of a test inventory. That closes the class of miss.
+3. **Non-blocking 2 ("Not Personalized" hover): resolved.** It underlines on hover in Light.
+4. **Non-blocking 3 (S1): resolved.** S1 finds the scope by its shape.
+5. **Non-blocking 1 (the hovered card): half resolved.** The card's text now stays in the ink on hover. But **the
+   Verification Score badge still reads 3.88:1 on a hovered card,** and the new test meant to guard the hover can't
+   see it (Blocking 1 below).
+
+## ADR 0004 Amendment 1, judged
+
+**Sound.** Light-only rules under the light scope selector are a fair second mechanism where a wrapper can't express
+the change: a Dark value that comes from another rule (`a:hover`), or an opacity that must stay literal in Dark.
+- **Dark-safe by construction.** The selector starts with `:root[data-appearance="light"]`, both T1s ignore scoped
+  rules, and my Dark check confirms it.
+- **The exception to T4 is narrow and reasoned:** one selector, a notice holding a working link, with Dark's literal
+  0.5 kept and pinned by M5.
+- **One gap to note:** the token-layer checks (T2 bare colours, T3 opacities, K1 pairs) skip scoped rules, so a later
+  Light-only rule could paint a bare colour unseen. Today's three use only tokens, and M5/M6 pin two of them
+  (Non-blocking R2-2).
+
+## Findings (round 2)
+
+### Blocking
+
+1. **On a hovered result card, the Verification Score badge reads 3.88:1 in Light, and H13 can't see it.**
+   - **Measured** (after the hover transition):
+     - the badge is `--bsp-cyan-ink` `#0e7490` on its 0.10 cyan tint;
+     - in Light the card's hover rule (`ui/src/styles.css`, `.bs-result-card:hover`) swaps the card's white for the
+       0.06 accent tint over the canvas;
+     - the badge sits on that tint, so it composites to **3.88:1**.
+
+     AC-2 asks for each badge readable at 4.5:1. The badge is inside the card link, and David put the hover fixes in
+     this round's scope.
+   - **Why H13 passes:** `.bs-result-card` animates its background (`transition: border-color 0.15s, background
+     0.15s`, `styles.css:3606`), and H13 (`tests/brainstorm/appearance-setting-home.spec.js:502-508`) sweeps straight
+     after `hover()`, while the card still reads white.
+   - **Proof:** a replica of H13, built from the spec's own mocks and sweep, finds nothing when run immediately. Run
+     400 ms later, it finds exactly `span.bs-wot-badge.bs-wot-rank "🏅 Verification Score: 98": 3.88:1 (needs 4.5)`.
+   - **Asked change:**
+     - **Tester amendment:** H13 waits for the hover state to settle before it sweeps, for example by polling until
+       the card's computed background is the hover tint.
+     - **Implementer:** bring the badge to 4.5:1 on a hovered card in Light, without changing Dark. For example, a
+       Light-only `.bs-result-card:hover .bs-wot-rank` rule, or a hover tint that leaves the badges' backdrop white;
+       the approach is the Implementer's call, with a line in ADR 0004's amendment. Verified Followers stays above
+       7:1 on the same hover, so only the cyan badge needs it.
+
+### Non-blocking
+1. **The agents page's field edge** (`#d6d9db` on the canvas) is about 1.3:1, which is under WCAG 1.4.11's 3:1 for a
+   component's boundary. The field's white fill helps it stand out, and the light site's own fields use the same
+   border (the design shell and story 3), so this is a site-wide design choice, not this story's defect. Worth a book
+   follow-up if David wants 1.4.11 across the light look.
+2. **Light-only scoped rules aren't covered by T2, T3 or K1** (see the ADR judgement above). A small test that every
+   rule under the light scope's selector reads only `--bsp-` tokens would cover future ones.
+
+### Harness friction
+1. **Hover and transition timing.** A sweep taken straight after `hover()` measures the pre-transition state. Worth a
+   line in the test-plan template: after a pointer action, wait for the computed style to settle (or for the
+   transition's duration) before measuring.
+
+## Verdict
+**CHANGES_REQUESTED**
