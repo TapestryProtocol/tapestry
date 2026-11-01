@@ -24,5 +24,5 @@ Fix shape:
 
 Until then, run the full gate in the sealed container before Review, as appearance-setting #1 did at ship time.
 
-**Pointer:** `engineering-team/reviews/appearance-setting/2-light-look-frame-and-reading-pages.md` (Blocking 1, harness
+**Pointer:** `engineering-team/reviews/done/appearance-setting/2-light-look-frame-and-reading-pages.md` (Blocking 1, harness
 friction).

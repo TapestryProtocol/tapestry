@@ -19,5 +19,5 @@ Fix shape: wrap both accesses as the neighbouring `TrustContext.jsx:15-37` does 
 to the server preference that the effect already fetches. Then extend
 `tests/brainstorm/appearance-setting.spec.js` E10, or a POV spec, to a signed-in session.
 
-**Pointer:** `engineering-team/reviews/appearance-setting/1-appearance-switch-and-design-shell-dark.md` (non-blocking 6);
+**Pointer:** `engineering-team/reviews/done/appearance-setting/1-appearance-switch-and-design-shell-dark.md` (non-blocking 6);
 the story's test plan, § Test infrastructure, "Known gap".

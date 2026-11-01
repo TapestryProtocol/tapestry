@@ -15,5 +15,5 @@ lands) that chromium can't show. The fix was proven only by imitating WebKit's f
 Fix shape: either install the WebKit browser where B-class specs run, or name where WebKit and Mobile Safari runs
 happen (for example CI). Then run phone-only specs under those projects as part of Review.
 
-**Pointer:** `engineering-team/reviews/appearance-setting/1-appearance-switch-and-design-shell-dark.md` (round 3,
+**Pointer:** `engineering-team/reviews/done/appearance-setting/1-appearance-switch-and-design-shell-dark.md` (round 3,
 harness friction).

@@ -15,5 +15,5 @@ verdict on it.
 Fix shape: make the profile-family bar fit at 320px, with or without the button. For example, drop the wordmark beside
 the logo at the narrowest widths, as `/about` already does. Then add 320px to that story's E11 widths.
 
-**Pointer:** `engineering-team/reviews/appearance-setting/1-appearance-switch-and-design-shell-dark.md` (round 2,
+**Pointer:** `engineering-team/reviews/done/appearance-setting/1-appearance-switch-and-design-shell-dark.md` (round 2,
 non-blocking 2; round 3, non-blocking 1).
