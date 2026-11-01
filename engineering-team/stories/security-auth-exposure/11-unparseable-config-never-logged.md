@@ -1,6 +1,6 @@
 # Story 11: A config file bash can't parse never reaches a log
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-10-31
 **Type:** Bug (security / secret exposure)
 **Epic:** `security-auth-exposure`
@@ -110,4 +110,4 @@ decisions) → Test Design → Implementation → Review. Nothing is pushed with
 ## Linked artifacts
 - ADR: `decisions/security-auth-exposure/0006-refuse-unsafe-conf-at-render.md`
 - Test plan: `stories/security-auth-exposure/11-unparseable-config-never-logged.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `reviews/security-auth-exposure/11-unparseable-config-never-logged.md`
