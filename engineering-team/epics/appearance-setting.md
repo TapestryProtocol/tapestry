@@ -29,6 +29,22 @@ to story 4. The light look throughout matches the design shell's light look.
    #2; ships with it.
 4. A light look for the search home. Depends on #1.
 
+## Carried forward to stories 3 and 4 (from story 2's review, 2026-11-01)
+
+- **Story 3:**
+  - The tagging pieces on the reading pages (`ProfileTagsSection`, `AuthoredTaggingSection`, `NoteTags`: the
+    `.bsp-tags-*`, `.bsp-authored-*` and `.bsp-note-tags-*` classes) were converted in story 2 and are readable in
+    Light. Story 3 inherits them as done.
+  - The Manage Tags dialog (`.ptd`, `.ptd-*`), the pins, the trusted lists and the rest of its families are still
+    dark in Light.
+  - Story 3 uses ADR 0002's token layer, including Amendment 1's opacity tokens.
+- **Story 3 or a follow-up:**
+  - The Admins count chip on `/about` (`AboutThisInstance.jsx:16-18,131`) reads about 2.7:1 in Light. Its dimmed
+    label lays a 0.72 group opacity over a 0.18 accent tint. Give the chip's text `--bsp-accent-ink`, or take it out
+    of the dimmed label.
+  - Story 2's L1 sweep should also composite translucent backgrounds, the way it already composites the text.
+- **Story 4:** `.bs-usermenu-pov-indicator strong` (search home only) still holds a bare `#a5b4fc`.
+
 ## Key facts / guardrails
 
 - **A choice made for oneself, counted for nobody else.** Appearance is a per-browser preference. It's never

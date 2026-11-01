@@ -1,6 +1,6 @@
 # Story 2: A light look for the frame and the reading pages
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-01
 **Type:** Feature
 

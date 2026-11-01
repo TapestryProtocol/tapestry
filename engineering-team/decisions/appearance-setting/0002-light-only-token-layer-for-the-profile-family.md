@@ -207,3 +207,16 @@ Sub-decisions:
 - Folding the profile family's dark look into tokens with a declared dark value (Option B). If wanted later, it's
   a refactor with no visible change.
 - Widths below 375px (ledger row `2026-10-31-profile-bar-overflows-at-320px`).
+
+## Amendment 1 (2026-11-01, after review 1)
+
+The token layer covers text **opacity** as well as colour. Today's dimmed text reads on dark but falls below 4.5:1 on
+the light canvas.
+
+- Every non-disabled `opacity: X < 1` in a converted rule, and in the reading pages' inline styles, becomes
+  `var(--bsp-opacity-soft, X)` when `0.6 < X < 1`, or `var(--bsp-opacity-dim, X)` when `X ≤ 0.6`.
+- The light scope declares `--bsp-opacity-soft: 1` (it covers links) and `--bsp-opacity-dim: 0.72` (secondary text, about
+  7:1 in ink).
+- Dark is unchanged, because the fallback is today's value. Disabled states are left alone; WCAG exempts them.
+
+Story 3 uses the same rule for its families. A new dimmed rule in a converted family is written the same way.

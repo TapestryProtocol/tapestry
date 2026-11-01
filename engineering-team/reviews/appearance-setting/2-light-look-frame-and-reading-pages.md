@@ -253,3 +253,153 @@ fallback.
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+# Round 2
+
+**Date:** 2026-11-01
+**Diff:** `git diff ee6061cba..HEAD` (HEAD `b31915c26`)
+- `aa5118610`: Tester changes, failing first (test plan "Amendment 2").
+- `b31915c26`: the fix.
+
+**Owner decisions (David, 2026-11-01), given by the coordinator:**
+1. The "Finish setup" chip stays dark on amber in Dark, and is white on the deeper amber #b45309 in Light, as on the
+   design shell's light chip.
+2. This round fixes the three blockers plus round 1's Non-blocking 4 (hover states) and 5 (the avatar menu's labels).
+   Everything else stays a note for story 3.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`:** not run in full on this host (machine-safety rule). There are no run records in this worktree,
+      so there is **no `gate:status` line of mine to quote.** The coordinator reports a sealed full run in a
+      throwaway container (`tapestry-ci-gate-deb`, `--network none`, a clone of `b31915c26` after `npm ci`):
+      "Overall: PASS — 6303 passed, 0 failed, 622 skipped across 320 suites". I did not see that record myself.
+- [x] **Node, one suite at a time through `run()`,** with `BRAINSTORM_BASE_URL=http://127.0.0.1:9` and each
+      grep-screened first:
+  - `appearance-setting-light`: **12/12** (T5 included). `appearance-setting`: **16/16**.
+  - The twelve round-1 regression suites again, all clean:
+    - `treasure-map-needs-attention` 6/0;
+    - `profile-verified-reporters-count` 11/0;
+    - `profile-follows-list` 27/0;
+    - `live-feed-feed-page` 27/0;
+    - `author-scoped-inspection-views` 23/0;
+    - `tag-actions-menu-ui` 30/0;
+    - `login-failure-and-tag-collapse` 18/0;
+    - `about-this-instance` 29/0;
+    - `information-for-agents` 53/0 (4 skipped);
+    - `recognizable-published-ta-profile` 8/0 (5 skipped);
+    - `relay-scan-bounds` 21/0 (7 skipped);
+    - `tag-detail-curated-view-and-pin-polish` skips all 33 without a live stack.
+  - **`setup-alert-polish.test.js`: still not run** (safety-grep match). I reproduced its new S1 independently from
+    the stylesheet: Dark `#0f0f1a` on `#d29922` is **7.54:1** (dark on amber); Light `#ffffff` on `#b45309` (the
+    light-scope token values) is **5.02:1**. Both satisfy the owner's decision and the 4.5:1 floor.
+- [x] **Playwright, chromium, against a fresh build of HEAD.** I rebuilt it into the `:4174` directory and checked
+      that `:4174` serves the new CSS hash (`index-DgojI0_N.css`). `appearance-setting-light.spec.js`,
+      `appearance-setting.spec.js`, `setup-alert-polish.spec.js` (P1 now runs in dark and light) and
+      `assistant-alert.spec.js` together: **113/113 pass.**
+- [x] **The new L1 bites.** I built `5e30cf41c` (round 1's implementation) into my own scratch directory and served
+      it on a private port. HEAD's L1 against it fails **15/15**, so the opacity fold and the owner session now catch
+      round 1's Blocking 2.
+- [x] **Dark is identical, opacity included.** I compared HEAD and the base (`56d76a2b4`) in Dark, element by element
+      on all 15 reading pages, signed out, as a customer with the menu open, and as an owner with the menu open (45
+      page loads). Each element's computed `opacity`, `color`, `background-color`, top border, `box-shadow` and
+      `outline-color` matched: **0 differences.** This matters because L3's snapshot doesn't record opacity, and the
+      new `--bsp-opacity-*` reads include inline JSX styles that T1 doesn't parse.
+
+## Round-1 findings, re-checked
+
+1. **Blocking 1, the Setup chip and its tests: resolved.**
+   - S1 and P1 now encode the owner's decision in both looks.
+   - P1 passes 6/6 (dark and light × 1280, 800 and 375 px), and S1's pairs reproduce as above.
+2. **Blocking 2, AC-1 as rendered: resolved for body text and links.**
+   - My independent opacity-aware sweep ran on all 15 pages × signed out / customer + menu / owner + menu, in Light.
+     Every link and every paragraph is now ≥ 4.5:1.
+   - `.bss-dashboard-link` uses `--bsp-ink-2` and passes.
+   - The avatar menu's "Searching as" / "Appearance" labels and its pubkey no longer fall below 4.5:1 (round 1's
+     Non-blocking 5).
+   - The only text left under 4.5:1 that isn't disabled:
+     - **The Admins count chip** on `/about` (`AboutThisInstance.jsx:130-131`): accent on its accent tint, inside
+       `labelStyle`, whose opacity is now dim (0.72). As rendered, about **2.7:1** at 12px/600. It was 2.28:1 in
+       Light in round 1 and 3.61:1 in Dark. See Non-blocking R2-1.
+     - **The owner card's initial letter** ("O", `aria-hidden`, a decorative avatar fallback inside the card link):
+       3.68:1. Decorative, so not under AC-1.
+3. **Blocking 3, the Manage Tags dialog: resolved.**
+   - `.ptd` is byte-identical to the base.
+   - No story-3 family rule reads a `--bsp-` token (T5).
+   - Opened on `/user/<pk>` in Light, the whole dialog is dark again (`#1e293b`, `#e2e8f0`), the interim the story
+     accepts.
+   - I also cross-checked every story-3-looking component file that the reading pages import. The only ones with
+     converted classes are `ProfileTagsSection.jsx` (`bsp-tags-*`), `AuthoredTaggingSection.jsx` (`bsp-authored-*`)
+     and `NoteTags.jsx` (`bsp-note-tags-*`). In each, every class with a colour rule is converted, so none is half
+     done. Those three are round 1's Non-blocking 1, which the owner left as a note for story 3.
+4. **Non-blocking 4, hover states: resolved.**
+   - `.data-table tbody tr:hover` → `--bsp-wash-2`;
+   - `.bsp-confirm-ok:hover` and `.bs-login-error-btn:hover` → `--bsp-accent-hover`;
+   - `.bsp-report-submit:hover` → `--bsp-danger-hover` (#912018; white on it is AA);
+   - both cancel hover borders → `--bsp-ink-2`.
+
+   Each now differs from its resting state in Light.
+5. **Non-blocking 2's role slip:** the `.row-self-declared` mark now reads `--bsp-accent`. Resolved.
+6. **Non-blocking 1 and 3** (story 3's tagging pieces done early; muted text painted as `ink-2`): left as notes,
+   per the owner.
+
+## The opacity rule, where it landed
+
+There are 68 stylesheet declarations plus the inline styles of the six reading-page files. `soft` (0.6 < x < 1)
+becomes 1 in Light; `dim` (x ≤ 0.6) becomes 0.72.
+
+- **Dark-identical:** proven above, by construction and by measurement.
+- **Light:** almost all of these rules dim text in today's ink (`--bsp-ink` / inherited). At 0.72 that is about
+  7.5:1 on the canvas. Examples: loading lines, timestamps (`.bsp-note-card-time`, `.bsp-age`), the profile npub
+  and nip05, card labels, the pubkeys, and the decorative separators and chevrons (`.bsp-authored-peer-sep`, the `›`
+  in `AboutThisInstance`).
+- **The exception is the Admins chip.** `dim` is applied to a container whose child paints accent on a tint, so the
+  CSS comment's "about 7:1 in ink" doesn't hold there.
+- **State pairs keep a visible difference in Light:**
+  - `.bsp-top-link` 0.72 → `.is-active`/`:hover` 1;
+  - `.bsp-copy-btn` 0.72 → hover 1;
+  - `.bs-usermenu-action-btn` 0.72 → hover 1;
+  - `.bss-save-btn.saved` 0.72 against 1.
+- **Where `soft` → 1 removes the dimming:**
+  - `.bs-appearance-option` (the active option keeps its tint and accent ink);
+  - `.bsp-back-link` (hover keeps its underline);
+  - `.bsp-action-btn.bsp-action-reported` (keeps its danger tint and ink).
+
+  These lose a little hierarchy but keep a cue. Acceptable.
+- **Untouched:** disabled opacities (0.25–0.4 on `:disabled` / `.disabled`), as WCAG exempts them.
+- **Inert:** `.bs-usermenu-pov-indicator` (search home only) has a converted opacity and a bare `#a5b4fc` on its
+  `strong`. Neither can apply, because the search home has no light scope. It's story 4's to finish.
+
+## Findings (round 2)
+
+### Blocking
+None.
+
+### Non-blocking
+1. **R2-1: the Admins count chip** (`ui/src/components/AboutThisInstance.jsx:15-16` `labelStyle` opacity dim,
+   holding `chipStyle` at `:18-21`) renders at about **2.7:1** in Light. That is below the test plan's own 3:1 for
+   non-body text.
+   - L1 misses it because its `bgOf` skips backgrounds under alpha 0.5 (the chip's 0.18 tint), and it doesn't fade
+     the background by the group's opacity.
+   - Suggestion for story 3 or a follow-up: give the chip's text `--bsp-accent-ink` (#5b21d6) or take the chip out
+     of the dimmed label. In L1, composite translucent backgrounds the way the text is already composited.
+2. **R2-2: ADR 0002 doesn't record the opacity mechanism.**
+   - `--bsp-opacity-soft` / `--bsp-opacity-dim` extend the token layer from colour to opacity. ADR 0002's
+     implementation note 1 lists only colour properties.
+   - It's the same pattern (Dark is the fallback character for character, and T1 covers it in the stylesheet), but
+     the ADR should say so. So should story 3's inputs, because its families use the same dimming.
+   - Suggestion: an ADR 0002 amendment line.
+
+### Harness friction
+1. **Unrun, unconfirmed:** `setup-alert-polish.test.js` still can't run under this machine's safety screen. Its
+   result here rests on a static reproduction plus the coordinator's sealed-container gate. Round 1's friction 1
+   stands. (Already filed for OPEN.md by round 1; no new row.)
+
+## On PASS (same commit)
+- [ ] Story `**Status:**` flipped to `Done` in place. **Left to the coordinator:** this reviewer was told not to edit
+      the story or commit.
+- [ ] Completion detection: done in the hand-off message, not in this file.
+
+## Verdict
+**PASS**
