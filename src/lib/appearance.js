@@ -23,12 +23,16 @@ const DEFAULT_CHOICE = 'system';
 // story 3 retires this list once every Brainstorm family follows the setting (ADR 0001 sub-decision 4).
 const DESIGN_SHELL_PATH_PREFIXES = ['/dictionary', '/treasure-map', '/assistants'];
 // The reading pages (story appearance-setting/2, ADR 0002 sub-decision 5): their pre-render hint paints the light canvas
-// in Light. Story 3 adds the working pages' paths; story 4 retires both lists.
+// in Light. Story 3 adds the working pages' paths. The lists stay: a default for every other path would make a page in
+// no family (NotFound) flash light (ADR 0004, Option B).
 const READING_PATH_PREFIXES = ['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization',
   '/settings', '/user', '/feed', '/event'];
 // The working pages (story appearance-setting/3, ADR 0003 sub-decision 5): the same 'profile' hint. /assistant is matched
-// only after the design shell, so /assistants is never taken for it.
-const WORKING_PATH_PREFIXES = ['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers'];
+// only after the design shell, so /assistants is never taken for it. /information-for-agents is a developer page
+// (ADR 0004 sub-decision 4).
+const WORKING_PATH_PREFIXES = ['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers', '/information-for-agents'];
+// The search home (story appearance-setting/4): an exact path, since every path starts with it.
+const SEARCH_HOME_PATH = '/';
 
 function normalizeChoice(value) {
   return CHOICES.includes(value) ? value : DEFAULT_CHOICE;
@@ -77,10 +81,14 @@ function isWorkingPath(pathname) {
   return underAny(WORKING_PATH_PREFIXES, pathname);
 }
 
+function isSearchHomePath(pathname) {
+  return pathname === SEARCH_HOME_PATH;
+}
+
 // The pre-render hint a path gets: 'design', 'profile' or null.
 function preloadFamily(pathname) {
   if (isDesignShellPath(pathname)) return 'design';
-  if (isReadingPath(pathname) || isWorkingPath(pathname)) return 'profile';
+  if (isReadingPath(pathname) || isWorkingPath(pathname) || isSearchHomePath(pathname)) return 'profile';
   return null;
 }
 
@@ -91,6 +99,7 @@ module.exports = {
   DESIGN_SHELL_PATH_PREFIXES,
   READING_PATH_PREFIXES,
   WORKING_PATH_PREFIXES,
+  SEARCH_HOME_PATH,
   normalizeChoice,
   resolveAppearance,
   readStoredChoice,
@@ -98,5 +107,6 @@ module.exports = {
   isDesignShellPath,
   isReadingPath,
   isWorkingPath,
+  isSearchHomePath,
   preloadFamily,
 };

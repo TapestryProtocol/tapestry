@@ -25,7 +25,8 @@
           };
           if (under(['/dictionary', '/treasure-map', '/assistants'])) root.setAttribute('data-preload-family', 'design');
           else if (under(['/about', '/about-brainstorm-search', '/how-search-works', '/brainstorm-skill', '/personalization', '/settings', '/user', '/feed', '/event'])
-            || under(['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers'])) {
+            || under(['/tags', '/tag', '/pins', '/pin', '/assistant', '/setup', '/developers', '/information-for-agents'])
+            || path === '/') {
             root.setAttribute('data-preload-family', 'profile');
           }
         } catch (e) { /* no hint */ }

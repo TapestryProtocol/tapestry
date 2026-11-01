@@ -340,7 +340,8 @@ test.describe('L6 at phone widths in Light, the reading pages fit', () => {
 
 test.describe('L7 in Light, the pages outside story 2 are unchanged', () => {
   for (const { url, skip, label } of [
-    { url: '/', skip: '', label: 'the search home' },
+    // The search home's entry was retired by appearance-setting #4, which makes it light on purpose; its own spec
+    // (appearance-setting-home.spec.js) covers it in Light and in Dark.
     { url: '/tapestry/', skip: '', label: 'the admin dashboard' },
     { url: '/dictionary', skip: '', label: 'the design shell' },
     // The /tags entry ("a story-3 page's content is unchanged in Light") was story 2's interim. Story 3 converts that

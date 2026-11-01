@@ -2549,8 +2549,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 
 .bs-page {
   min-height: 100vh;
-  background: var(--bg-primary, #0f0f23);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-canvas, var(--bg-primary, #0f0f23));
+  color: var(--bsp-ink, var(--text-primary, #e0e0e0));
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   display: flex;
   flex-direction: column;
@@ -2636,7 +2636,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tagline {
   font-size: 1rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin: 0 0 2rem;
 }
 
@@ -2647,15 +2647,15 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   position: relative;
   width: 100%;
   max-width: 600px;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.12));
   border-radius: 28px;
   padding: 0 1.25rem;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .bs-search-box-landing:focus-within {
-  border-color: rgba(99,102,241,0.5);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.5));
+  box-shadow: 0 0 0 3px var(--bsp-accent-tint-2, rgba(99,102,241,0.12));
 }
 
 /* ── Autocomplete Suggestion Dropdown ── */
@@ -2664,10 +2664,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: var(--bg-secondary, #1a1a2e);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.12));
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 32px var(--bsp-shadow-3, rgba(0,0,0,0.5));
   overflow: hidden;
   z-index: 200;
 }
@@ -2677,12 +2677,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.75rem;
   padding: 0.6rem 1rem;
   text-decoration: none;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   cursor: pointer;
   transition: background 0.12s;
 }
 .bs-suggest-item:hover {
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
 }
 .bs-suggest-avatar {
   width: 32px;
@@ -2695,7 +2695,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
   font-size: 0.9rem;
 }
 .bs-suggest-info {
@@ -2714,14 +2714,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-suggest-nip05 {
   font-size: 0.75rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .bs-suggest-rank {
   font-size: 0.7rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   flex-shrink: 0;
 }
 
@@ -2738,17 +2738,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.2rem;
   padding: 0.1rem 0.45rem;
   border-radius: 999px;
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.08);
-  color: #fbbf24;
+  border: 1px solid var(--bsp-warn-tint-4, rgba(245, 158, 11, 0.35));
+  background: var(--bsp-warn-tint-1, rgba(245, 158, 11, 0.08));
+  color: var(--bsp-warn-ink, #fbbf24);
   font-size: 0.7rem;
   font-weight: 500;
   white-space: nowrap;
 }
 .bs-matched-tag.bs-matched-tag-hit {
-  border-color: rgba(245, 158, 11, 0.7);
-  background: rgba(245, 158, 11, 0.15);
-  color: #fcd34d;
+  border-color: var(--bsp-warn-tint-4, rgba(245, 158, 11, 0.7));
+  background: var(--bsp-warn-tint-3, rgba(245, 158, 11, 0.15));
+  color: var(--bsp-warn-ink, #fcd34d);
   font-weight: 600;
 }
 .bs-result-matched-tags {
@@ -2757,14 +2757,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-suggest-footer {
   padding: 0.4rem 1rem;
   font-size: 0.72rem;
-  opacity: 0.35;
+  opacity: var(--bsp-opacity-dim, 0.35);
   text-align: center;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
 }
 .bs-suggest-footer kbd {
   display: inline-block;
   padding: 0.1rem 0.3rem;
-  background: rgba(255,255,255,0.08);
+  background: var(--bsp-wash-3, rgba(255,255,255,0.08));
   border-radius: 3px;
   font-family: inherit;
   font-size: 0.7rem;
@@ -3044,14 +3044,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   text-align: center;
 }
 .bs-usermenu-pov-indicator strong {
-  color: #a5b4fc;
+  color: var(--bsp-accent-ink, #a5b4fc);
   opacity: 1;
 }
 .bs-usermenu-pov-link {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bs-usermenu-pov-link:hover {
@@ -3271,7 +3271,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-suggest-loading {
   padding: 0.75rem 1rem;
   font-size: 0.85rem;
-  opacity: 0.4;
+  opacity: var(--bsp-opacity-dim, 0.4);
   text-align: center;
 }
 .bs-search-icon {
@@ -3285,12 +3285,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-primary, #e0e0e0);
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   font-size: 1.1rem;
   padding: 0.9rem 0;
 }
 .bs-search-input-landing::placeholder {
-  color: rgba(255,255,255,0.3);
+  color: var(--bsp-muted, rgba(255,255,255,0.3));
 }
 
 /* ── POV selector (landing) ── */
@@ -3331,21 +3331,21 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.4rem;
   margin-top: 1rem;
   font-size: 0.85rem;
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-soft, 0.55);
   position: relative;
 }
 .bs-personalization-status {
   cursor: pointer;
   user-select: none;
 }
-.bs-personalization-status:hover { opacity: 0.8; }
-.bs-personalized { color: var(--text-primary, #e6edf3); }
-.bs-not-personalized { color: var(--text-primary, #e6edf3); }
-.bs-personalization-sep { opacity: 0.4; }
+.bs-personalization-status:hover { opacity: var(--bsp-opacity-soft, 0.8); }
+.bs-personalized { color: var(--bsp-ink, var(--text-primary, #e6edf3)); }
+.bs-not-personalized { color: var(--bsp-ink, var(--text-primary, #e6edf3)); }
+.bs-personalization-sep { opacity: var(--bsp-opacity-dim, 0.4); }
 .bs-personalization-link {
-  color: var(--text-primary, #e6edf3);
+  color: var(--bsp-ink, var(--text-primary, #e6edf3));
   text-decoration: none;
-  opacity: 0.7;
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bs-personalization-link:hover { opacity: 1; text-decoration: underline; }
 .bs-pov-picker {
@@ -3354,12 +3354,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   left: 50%;
   transform: translateX(-50%);
   margin-top: 0.5rem;
-  background: var(--bg-secondary, #161b22);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bsp-surface, var(--bg-secondary, #161b22));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
   border-radius: 8px;
   padding: 0.4rem;
   min-width: 300px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px var(--bsp-shadow-2, rgba(0,0,0,0.4));
   z-index: 200;
   opacity: 1;
 }
@@ -3372,16 +3372,16 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--text-primary, #e6edf3);
+  color: var(--bsp-ink, var(--text-primary, #e6edf3));
   font-size: 0.82rem;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
 }
-.bs-pov-option:hover:not(.disabled) { background: rgba(255,255,255,0.06); }
+.bs-pov-option:hover:not(.disabled) { background: var(--bsp-wash-2, rgba(255,255,255,0.06)); }
 .bs-pov-option.active {
-  background: rgba(99,102,241,0.12);
-  border-left: 2px solid #6366f1;
+  background: var(--bsp-accent-tint-2, rgba(99,102,241,0.12));
+  border-left: 2px solid var(--bsp-accent, #6366f1);
 }
 .bs-pov-option.disabled {
   opacity: 0.5;
@@ -3398,17 +3398,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   flex-shrink: 0;
 }
 .bs-pov-option-name {
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   font-size: 0.78rem;
   margin-left: auto;
 }
-.bs-pov-option-link { color: #a5b4fc; text-decoration: none; }
+.bs-pov-option-link { color: var(--bsp-accent, #a5b4fc); text-decoration: none; }
 .bs-pov-option-link:hover { text-decoration: underline; }
 
 /* Compact variant for results header */
 .bs-personalization-compact {
   margin-top: 0;
-  opacity: 0.6;
+  opacity: var(--bsp-opacity-soft, 0.6);
   font-size: 0.8rem;
 }
 .bs-pov-picker-right {
@@ -3424,10 +3424,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   padding: 1.5rem 3rem;
   font-size: 0.75rem;
-  opacity: 0.35;
+  opacity: var(--bsp-opacity-soft, 0.35);
 }
 .bs-footer-link {
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
 }
 .bs-footer-link:hover {
@@ -3450,8 +3450,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: var(--bg-secondary, #1a1a2e);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
   position: sticky;
   top: 0;
   z-index: 50;
@@ -3549,7 +3549,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-results-meta {
   font-size: 0.8rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
   margin-bottom: 1rem;
 }
 .bs-results-time {
@@ -3559,14 +3559,14 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   text-align: center;
   padding: 3rem;
   font-size: 1rem;
-  opacity: 0.5;
+  opacity: var(--bsp-opacity-dim, 0.5);
 }
 .bs-error {
   padding: 0.75rem 1rem;
-  border: 1px solid #f85149;
+  border: 1px solid var(--bsp-danger, #f85149);
   border-radius: 8px;
-  background: rgba(248,81,73,0.08);
-  color: #f85149;
+  background: var(--bsp-danger-tint-1, rgba(248,81,73,0.08));
+  color: var(--bsp-danger-ink, #f85149);
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
@@ -3574,19 +3574,19 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* ── Pinned NIP-05 verified card ── */
 .bs-nip05-pinned {
   margin-bottom: 1rem;
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  border: 1px solid var(--bsp-success-tint-4, rgba(34, 197, 94, 0.4));
   border-radius: 10px;
-  background: rgba(34, 197, 94, 0.06);
+  background: var(--bsp-success-tint-1, rgba(34, 197, 94, 0.06));
   padding: 0.25rem;
 }
 .bs-nip05-badge {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #22c55e;
+  color: var(--bsp-success, #22c55e);
   padding: 0.25rem 0.75rem;
 }
 .bs-nip05-pinned .bs-result-card {
-  border-color: rgba(34, 197, 94, 0.3);
+  border-color: var(--bsp-success-tint-4, rgba(34, 197, 94, 0.3));
 }
 
 /* ── Result cards ── */
@@ -3597,17 +3597,17 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-result-card {
   display: block;
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid var(--bsp-line-1, rgba(255,255,255,0.06));
   border-radius: 8px;
-  background: var(--bg-secondary, #1a1a2e);
+  background: var(--bsp-surface, var(--bg-secondary, #1a1a2e));
   overflow: hidden;
   text-decoration: none;
   color: inherit;
   transition: border-color 0.15s, background 0.15s;
 }
 .bs-result-card:hover {
-  border-color: rgba(99,102,241,0.3);
-  background: rgba(99,102,241,0.04);
+  border-color: var(--bsp-accent-tint-4, rgba(99,102,241,0.3));
+  background: var(--bsp-accent-tint-1, rgba(99,102,241,0.04));
 }
 .bs-result-banner {
   height: 40px;
@@ -3634,7 +3634,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.06);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
   font-size: 1.2rem;
 }
 .bs-result-info {
@@ -3653,25 +3653,25 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-result-age {
   font-size: 0.7rem;
-  opacity: 0.35;
+  opacity: var(--bsp-opacity-dim, 0.35);
 }
 .bs-result-age.stale {
-  color: #d29922;
-  opacity: 0.7;
+  color: var(--bsp-warn-ink, #d29922);
+  opacity: var(--bsp-opacity-soft, 0.7);
 }
 .bs-result-nip05 {
   font-size: 0.8rem;
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-dim, 0.55);
 }
 .bs-result-pubkey {
   font-size: 0.7rem;
-  opacity: 0.3;
+  opacity: var(--bsp-opacity-dim, 0.3);
   font-family: monospace;
   margin-top: 0.1rem;
 }
 .bs-result-about {
   font-size: 0.8rem;
-  opacity: 0.55;
+  opacity: var(--bsp-opacity-dim, 0.55);
   margin-top: 0.3rem;
   line-height: 1.4;
 }
@@ -3680,7 +3680,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 1rem;
   margin-top: 0.3rem;
   font-size: 0.75rem;
-  opacity: 0.45;
+  opacity: var(--bsp-opacity-dim, 0.45);
 }
 .bs-result-wot {
   display: flex;
@@ -3693,12 +3693,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border-radius: 4px;
 }
 .bs-wot-rank {
-  background: rgba(88,166,255,0.12);
-  color: #58a6ff;
+  background: var(--bsp-cyan-tint-2, rgba(88,166,255,0.12));
+  color: var(--bsp-cyan-ink, #58a6ff);
 }
 .bs-wot-followers {
-  background: rgba(63,185,80,0.12);
-  color: #3fb950;
+  background: var(--bsp-success-tint-2, rgba(63,185,80,0.12));
+  color: var(--bsp-success-ink, #3fb950);
 }
 
 /* ── Load more ── */
@@ -3707,9 +3707,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   margin-top: 1.5rem;
 }
 .bs-load-more-btn {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e0e0);
+  background: var(--bsp-wash-2, rgba(255,255,255,0.06));
+  border: 1px solid var(--bsp-line-2, rgba(255,255,255,0.1));
+  color: var(--bsp-ink-primary, var(--text-primary, #e0e0e0));
   padding: 0.5rem 2rem;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -3717,7 +3717,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   transition: background 0.15s;
 }
 .bs-load-more-btn:hover {
-  background: rgba(255,255,255,0.1);
+  background: var(--bsp-wash-3, rgba(255,255,255,0.1));
 }
 .bs-load-more-btn:disabled {
   opacity: 0.5;
@@ -4892,9 +4892,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 /* ─── The profile family in Light (appearance-setting #2, ADR appearance-setting/0002) ─────────────────────────────
    The frame and the reading pages paint every colour as var(--bsp-<role>, <today's colour>). The tokens are declared
    only here, while a profile-family or Settings page is light, with the design shell's light values. Anywhere else
-   (Dark, the search home, the admin pages, the design shell) each rule falls back to exactly what it painted before.
+   (Dark, the admin pages, the design shell) each rule falls back to exactly what it painted before. The search home
+   joined in story 4 (ADR 0004).
    A new colour in a converted rule is written the same way, never as a bare literal. */
-:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page)) {
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) {
   color-scheme: light;
   background: #f2f3f0;
   --bsp-accent: #7237ff;
@@ -4949,7 +4950,22 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   --bsp-cyan-tint-3: rgba(14, 116, 144, 0.18);
   --bsp-success-tint-2: rgba(4, 120, 87, 0.10);
   --bsp-success-tint-4: rgba(4, 120, 87, 0.35);
+  --bsp-success-tint-1: rgba(4, 120, 87, 0.06);
+  --bsp-cyan-ink: #0e7490;
+  --bsp-cyan-tint-2: rgba(14, 116, 144, 0.10);
+  --bsp-cyan-ink-strong: #155e75;
 }
+/* Light-only corrections that can't be a wrapper over today's value (ADR appearance-setting/0004 Amendment 1). Dark
+   never matches them.
+   - The unavailable point-of-view option holds a working Settings link: in Light it dims by colour, not opacity, so
+     the link reads whole. Dark keeps its literal 0.5.
+   - A result card is a link: in Light its text stays in the ink on hover instead of taking the link-hover purple, and
+     its Verification Score badge takes the darker cyan, since the hover tint lets the grey page through (3.88:1 → 5.27:1).
+   - "Not Personalized" underlines on hover in Light, where the soft opacity token leaves no other cue. */
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-pov-option.disabled { opacity: 1; color: var(--bsp-muted); }
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-result-card:hover { color: var(--bsp-ink); }
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-result-card:hover .bs-wot-rank { color: var(--bsp-cyan-ink-strong); }
+:root[data-appearance="light"] body:has(:is(.bsp-page, .bss-page, .bs-page)) .bs-personalization-status:hover { text-decoration: underline; }
 /* Before React mounts on a reading path, the light canvas (the pre-render hint; ADR 0002 sub-decision 5). In Dark the
    hint paints nothing new. */
 :root[data-appearance="light"][data-preload-family="profile"] body { background: #f2f3f0; }
@@ -6271,12 +6287,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   gap: 0.6rem;
   padding: 0.5rem 0.75rem;
   text-decoration: none;
-  color: var(--text-primary, #e2e8f0);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.05));
   transition: background 0.1s;
 }
 .bs-tag-result-row:hover {
-  background: rgba(165, 180, 252, 0.08);
+  background: var(--bsp-accent-tint-1, rgba(165, 180, 252, 0.08));
 }
 .bs-tag-result-row:last-child {
   border-bottom: none;
@@ -6288,8 +6304,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   width: 1.4rem;
   height: 1.4rem;
   border-radius: 4px;
-  background: rgba(165, 180, 252, 0.18);
-  color: #c7d2fe;
+  background: var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.18));
+  color: var(--bsp-accent-ink, #c7d2fe);
   font-weight: 700;
   font-size: 0.85rem;
   flex-shrink: 0;
@@ -6302,12 +6318,12 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-tag-result-name {
   font-weight: 500;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--bsp-ink, var(--text-primary, #e2e8f0));
   font-size: 0.9rem;
 }
 .bs-tag-result-desc {
   font-size: 0.75rem;
-  color: var(--text-muted, #94a3b8);
+  color: var(--bsp-ink-2, var(--text-muted, #94a3b8));
   margin-top: 0.15rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6317,8 +6333,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #a5b4fc;
-  background: rgba(165, 180, 252, 0.12);
+  color: var(--bsp-accent-ink, #a5b4fc);
+  background: var(--bsp-accent-tint-2, rgba(165, 180, 252, 0.12));
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   flex-shrink: 0;
@@ -6326,8 +6342,8 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 .bs-tag-result-row-results {
   padding: 0.75rem 1rem;
   border-radius: 8px;
-  border: 1px solid rgba(165, 180, 252, 0.18);
-  background: rgba(165, 180, 252, 0.04);
+  border: 1px solid var(--bsp-accent-tint-3, rgba(165, 180, 252, 0.18));
+  background: var(--bsp-accent-tint-1, rgba(165, 180, 252, 0.04));
   margin-bottom: 0.5rem;
 }
 .bs-results-taghits {
@@ -6338,13 +6354,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0.5rem 0.75rem;
   text-align: center;
   font-size: 0.8rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   text-decoration: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.05));
   cursor: pointer;
 }
 .bs-tag-result-more:hover {
-  background: rgba(165, 180, 252, 0.08);
+  background: var(--bsp-accent-tint-1, rgba(165, 180, 252, 0.08));
 }
 /* ADR 0021: collapse tag hits after the first few so they don't bury profiles. */
 .bs-taghits-toggle {
@@ -6353,13 +6369,13 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   padding: 0.45rem 0.75rem;
   text-align: left;
   font-size: 0.8rem;
-  color: #a5b4fc;
+  color: var(--bsp-accent, #a5b4fc);
   background: none;
   border: none;
   cursor: pointer;
 }
 .bs-taghits-toggle:hover {
-  background: rgba(165, 180, 252, 0.08);
+  background: var(--bsp-accent-tint-1, rgba(165, 180, 252, 0.08));
 }
 
 /* ── Story 10: Pin a tag (ADR 0009) ─────────────────────────────── */
@@ -6851,7 +6867,7 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
 }
 .bs-pin-chips-label {
   font-size: 0.75rem;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-muted, var(--text-tertiary, #64748b));
   margin-right: 0.25rem;
 }
 .bs-pin-chip {
@@ -6859,10 +6875,10 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   align-items: center;
   gap: 0.3rem;
   padding: 0.25rem 0.6rem;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid var(--bsp-accent-tint-4, rgba(99, 102, 241, 0.3));
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.06);
-  color: var(--text-secondary, #94a3b8);
+  background: var(--bsp-accent-tint-1, rgba(99, 102, 241, 0.06));
+  color: var(--bsp-ink-2, var(--text-secondary, #94a3b8));
   font-size: 0.78rem;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -6884,9 +6900,9 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   display: inline-block;
   padding: 0 0.35rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bsp-wash-2, rgba(255, 255, 255, 0.06));
   font-size: 0.7rem;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-ink-2, var(--text-tertiary, #64748b));
 }
 .bs-pin-chip.is-active .bs-pin-chip-count {
   background: var(--bsp-surface, rgba(255, 255, 255, 0.18));
@@ -6898,20 +6914,20 @@ code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.85em; }
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: var(--text-tertiary, #64748b);
+  color: var(--bsp-muted, var(--text-tertiary, #64748b));
   font-size: 0.75rem;
   cursor: pointer;
 }
-.bs-pin-chip-clear:hover { color: #fda4af; }
+.bs-pin-chip-clear:hover { color: var(--bsp-danger, #fda4af); }
 .bs-results-chips-row {
   padding: 0 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.04));
 }
 
 /* ── Story 11 follow-up: in-popup chip row ───────────────── */
 .bs-suggest-chips {
   padding: 0.4rem 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--bsp-line-1, rgba(255, 255, 255, 0.06));
 }
 .bs-suggest-chips .bs-pin-chips {
   margin: 0;

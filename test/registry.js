@@ -367,6 +367,8 @@ const suites = [
   { file: 'appearance-setting-light.test.js' },
   // appearance-setting #3: the working paths, the whole profile family converted, the /about chip (ADR appearance-setting/0003).
   { file: 'appearance-setting-working.test.js' },
+  // appearance-setting #4: the search home's exact path, its rules converted, the badges and stale marker (ADR appearance-setting/0004).
+  { file: 'appearance-setting-home.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

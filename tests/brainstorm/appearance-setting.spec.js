@@ -480,7 +480,9 @@ test('E8 in Light, the design shell looks as it does today, even on a dark compu
 const OTHERS = [
   { url: '/about', sel: '.bsp-page', bg: 'rgb(15, 15, 26)', ink: 'rgb(226, 232, 240)', darkOnly: true },
   { url: '/settings', sel: '.bss-page', bg: 'rgb(15, 15, 26)', ink: 'rgb(226, 232, 240)', darkOnly: true },
-  { url: '/', sel: '.bs-page', bg: 'rgb(15, 15, 35)', ink: 'rgb(224, 224, 224)' },
+  // Re-aimed by appearance-setting #4: the search home follows the setting, so it's pinned only while the look
+  // resolves to Dark (appearance-setting-home.spec.js covers its Light look and snapshots its Dark).
+  { url: '/', sel: '.bs-page', bg: 'rgb(15, 15, 35)', ink: 'rgb(224, 224, 224)', darkOnly: true },
   { url: '/tapestry/', sel: 'body', bg: 'rgb(13, 17, 23)', ink: 'rgb(230, 237, 243)' },
 ];
 
@@ -504,14 +506,14 @@ test.describe('E9 the other pages look as they do today, whatever is chosen (reg
     }
   }
 
-  // Re-aimed by appearance-setting #2: the reading pages now paint the light canvas before render (story 2, L4); the
-  // search home is still outside every family until story 4.
-  test('a light choice paints no light background before the search home renders', async ({ page, context }) => {
+  // Re-aimed by appearance-setting #2 (the reading pages paint the light canvas before render) and #4 (so does the
+  // search home): an unknown path, which renders NotFound outside every family, still gets today's background.
+  test('a light choice paints no light background before a page outside every family renders', async ({ page, context }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await storeChoiceEveryLoad(context, 'light');
     await mockStack(page);
-    const samples = await sampleBeforeBundle(page, '/');
-    for (const s of samples) expect(s.body, 'the pre-render background outside the design shell is today\'s').toBe('rgb(13, 17, 23)');
+    const samples = await sampleBeforeBundle(page, '/no-such-page');
+    for (const s of samples) expect(s.body, 'the pre-render background outside every family is today\'s').toBe('rgb(13, 17, 23)');
   });
 });
 

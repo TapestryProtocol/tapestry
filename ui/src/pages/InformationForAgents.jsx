@@ -9,7 +9,8 @@ import { buildAgentPrompt, BRIEFING_PATH } from '../utils/agentPrompt';
 
 const field = {
   width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.9rem', borderRadius: 8,
-  border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)',
+  border: '1px solid', borderColor: 'var(--bsp-border, rgba(255,255,255,0.15))',
+  background: 'var(--bsp-surface, rgba(255,255,255,0.06))',
   color: 'inherit', font: 'inherit', fontSize: '0.95rem', lineHeight: 1.5, resize: 'vertical',
 };
 
@@ -60,7 +61,7 @@ export default function InformationForAgents() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginTop: '0.8rem' }}>
         <button type="button" className="bsp-action-btn" onClick={copy}>Copy prompt</button>
-        <span role="status" aria-live="polite" style={{ fontSize: '0.85rem', opacity: 0.75 }}>
+        <span role="status" aria-live="polite" style={{ fontSize: '0.85rem', opacity: 'var(--bsp-opacity-soft, 0.75)' }}>
           {copyState === 'copied' && 'Copied'}
           {copyState === 'failed' && "Couldn't copy — select the text above and copy it."}
         </span>
