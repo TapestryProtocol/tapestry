@@ -9,7 +9,7 @@
 Tags & Taggings
 =====
 
-This NIP defines **tags** (community-creatable categories — "Podcaster is a tag") and **taggings** (assertions that a target belongs to a tag — "Avi is a Podcaster"), plus a personal **pinning** layer for curating tags. All three ride on the kinds and conventions of [Decentralized Lists](../nips/decentralized-lists.md) and [Tapestry Concepts](./tapestry-concepts.md), as kind-39999 items distinguished by which concept their `z` tag references.
+This NIP defines **tags** (community-creatable categories — "Podcaster is a tag") and **taggings** (assertions that a target belongs to a tag — "Alice is a Podcaster"), plus a personal **pinning** layer for curating tags. All three ride on the kinds and conventions of [Decentralized Lists](../nips/decentralized-lists.md) and [Tapestry Concepts](./tapestry-concepts.md), as kind-39999 items distinguished by which concept their `z` tag references.
 
 ## The taggings family
 
