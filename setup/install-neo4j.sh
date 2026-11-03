@@ -94,6 +94,12 @@ update_neo4j_conf() {
   echo "dbms.security.procedures.allowlist=apoc.coll.*,apoc.load.*,apoc.periodic.*,apoc.export.json.query,gds.*" >> "$NEO4J_CONF"
   echo "" >> "$NEO4J_CONF"
 
+  # LOAD CSV and apoc.load.* never fetch from loopback, link-local (cloud metadata), private or IPv6-local
+  # addresses: a loopback request counts as the trusted local operator (security-auth-exposure #12).
+  sed -i '/^internal.dbms.cypher_ip_blocklist=/d' "$NEO4J_CONF"
+  echo "internal.dbms.cypher_ip_blocklist=127.0.0.0/8,169.254.0.0/16,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,0.0.0.0/8,::1/128,fc00::/7,fe80::/10" >> "$NEO4J_CONF"
+  echo "" >> "$NEO4J_CONF"
+
   # Step 5: Update memory settings
   # Jun 2025: removing defining heap size and transaction total
   #Aug 2025: reinstating memory setting changes based on:
