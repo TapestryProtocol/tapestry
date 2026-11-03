@@ -65,6 +65,25 @@ const PLANS = {
     op('ProduceResults@neo4j', 'name', [op('ShowSettings@neo4j', 'allSettings, columns(name)')]),
   'SHOW PROCEDURES YIELD name RETURN name':
     op('ProduceResults@neo4j', 'name', [op('ShowProcedures@neo4j', 'proceduresForUser(all), columns(name)')]),
+  // A subquery inside an expression is not planned as steps: its call is text in the parent's Details (review 12, B1).
+  "RETURN [x IN [1] | COLLECT { CALL dbms.listConfig() YIELD name, value RETURN name + '=' + value }] AS y":
+    op('ProduceResults@neo4j', 'y', [op('Projection@neo4j', "[x IN $autolist_1 | COLLECT { ResolvedCall(dbms.listConfig(searchString  =  '' :: STRING) :: name :: STRING, description :: STRING, value :: STRING) RETURN name + '=' + value }] AS y")]),
+  "RETURN [x IN [1] | COLLECT { LOAD CSV FROM 'http://x/' AS r RETURN r }] AS y":
+    op('ProduceResults@neo4j', 'y', [op('Projection@neo4j', '[x IN $autolist_0 | COLLECT { LOAD CSV FROM "http://x/" AS r RETURN r AS r }] AS y')]),
+  "RETURN CASE WHEN true THEN COLLECT { CALL apoc.load.json('http://x/') YIELD value RETURN value } END AS y":
+    op('ProduceResults@neo4j', 'y', [op('Projection@neo4j', "CASE\n  WHEN true THEN COLLECT { ResolvedCall(apoc.load.json(urlOrKeyOrBinary :: ANY, path  =  '' :: STRING, config  =  Map{} :: MAP) :: value :: MAP) RETURN value }\nEND AS y")]),
+  // Administrative commands (review 12, B2).
+  "TERMINATE TRANSACTIONS 'neo4j-transaction-1'":
+    op('ProduceResults@neo4j', 'transactionId, username, message', [op('TerminateTransactions@neo4j', 'defaultColumns, transactions(neo4j-transaction-1)')]),
+  'SHOW USERS': op('AdministrationCommand@system'),
+  'SHOW DATABASES': op('AdministrationCommand@system'),
+  // Nested reads that stay open.
+  'MATCH (n) RETURN COUNT { (n)--() } AS c':
+    op('ProduceResults@neo4j', 'c', [op('Projection@neo4j', 'getDegree((n)--()) AS c', [op('AllNodesScan@neo4j', 'n')])]),
+  'MATCH (n) RETURN [x IN [1] | COLLECT { MATCH (m) RETURN m.name }] AS y':
+    op('ProduceResults@neo4j', 'y', [op('Projection@neo4j', '[x IN $autolist_0 | COLLECT { MATCH (m) RETURN m.name AS `m.name` }] AS y', [op('AllNodesScan@neo4j', 'n')])]),
+  // The driver's "no plan" value.
+  'RETURN 1 AS noplan': null,
 };
 
 let driverCalls = [];
@@ -80,9 +99,8 @@ function loadQueryPost() {
       explainCypher: async (cypher) => {
         driverCalls.push({ fn: 'explainCypher', cypher });
         if (cypher === 'MATCH (n RETURN n') throw new Error('Invalid input: expected ")"');
-        const plan = PLANS[cypher];
-        if (!plan) throw new Error(`test stub has no plan for: ${cypher}`);
-        return plan;
+        if (!(cypher in PLANS)) throw new Error(`test stub has no plan for: ${cypher}`);
+        return PLANS[cypher];
       },
       getDriver() { return null; },
       closeDriver() {},
@@ -128,6 +146,12 @@ const REFUSED = [
   ['CALL db.labelsX() YIELD label RETURN label', 'a procedure whose name only starts like an allowed one'],
   ['SHOW SETTINGS YIELD name RETURN name', 'SHOW SETTINGS'],
   ['SHOW PROCEDURES YIELD name RETURN name', 'SHOW PROCEDURES'],
+  ["RETURN [x IN [1] | COLLECT { CALL dbms.listConfig() YIELD name, value RETURN name + '=' + value }] AS y", 'a procedure call nested in a list comprehension'],
+  ["RETURN [x IN [1] | COLLECT { LOAD CSV FROM 'http://x/' AS r RETURN r }] AS y", 'LOAD CSV nested in a list comprehension'],
+  ["RETURN CASE WHEN true THEN COLLECT { CALL apoc.load.json('http://x/') YIELD value RETURN value } END AS y", 'apoc.load.json nested in a CASE'],
+  ["TERMINATE TRANSACTIONS 'neo4j-transaction-1'", 'TERMINATE TRANSACTIONS'],
+  ['SHOW USERS', 'SHOW USERS (system database)'],
+  ['SHOW DATABASES', 'SHOW DATABASES (system database)'],
 ];
 for (const [cypher, label] of REFUSED) {
   t(`U: a public caller is refused ${label} (403) and nothing runs`, async () => {
@@ -137,6 +161,11 @@ for (const [cypher, label] of REFUSED) {
     assert(!ran, `${label} reached runCypher/writeCypher — it must be refused before anything runs.`);
   });
 }
+
+t('U: a query Neo4j returns no plan for is refused (403) and nothing runs', async () => {
+  const { res, ran } = await call('RETURN 1 AS noplan');
+  assert(res.statusCode === 403 && !ran, `expected 403 with nothing run, got ${res.statusCode}.`);
+});
 
 t('U: a proxied request carrying X-Forwarded-For is still public (no localTrusted) — refused', async () => {
   const { res, ran } = await call("CALL apoc.load.json('http://x/') YIELD value RETURN value", { headers: { 'x-forwarded-for': '127.0.0.1' } });
@@ -151,6 +180,8 @@ const ALLOWED = [
   ['CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType', 'db.relationshipTypes()'],
   ['SHOW CONSTRAINTS YIELD name RETURN name', 'SHOW CONSTRAINTS (Dashboard)'],
   ['SHOW INDEXES YIELD name RETURN name', 'SHOW INDEXES (Dashboard)'],
+  ['MATCH (n) RETURN COUNT { (n)--() } AS c', 'a COUNT { } subquery'],
+  ['MATCH (n) RETURN [x IN [1] | COLLECT { MATCH (m) RETURN m.name }] AS y', 'a nested COLLECT { MATCH … } read'],
 ];
 for (const [cypher, label] of ALLOWED) {
   t(`U: a public caller may still run ${label}`, async () => {
