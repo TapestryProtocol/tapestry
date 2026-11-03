@@ -20,27 +20,41 @@ const WRITE_KEYWORDS = /\b(CREATE|MERGE|DELETE|SET|REMOVE|DETACH|DROP|CALL\s*\{)
 // already stops writes; these stop the reads that reach outside the graph: LOAD CSV and procedures
 // such as apoc.load.* fetch URLs from inside the container, where a loopback request counts as the
 // trusted local operator; dbms.* procedures and most SHOW commands expose the server's setup.
-// Kept to what the UI sends (useNeo4jLabels, the Dashboard's schema panels).
+// Administrative commands (TERMINATE TRANSACTIONS, SHOW USERS, …) are refused too: they act on the
+// server, not the graph. Kept to what the UI sends (useNeo4jLabels, the Dashboard's schema panels).
 const PUBLIC_PROCEDURES = new Set(['db.labels', 'db.relationshipTypes', 'db.propertyKeys']);
 const PUBLIC_SHOW_OPERATORS = new Set(['ShowConstraints', 'ShowIndexes']);
+// Operator families that act on the server rather than read the graph.
+const ADMIN_OPERATORS = /^(Show|Terminate|Administration|Create|Drop|Alter|Grant|Deny|Revoke|Start|Stop|Enable|Rename|Assert|Ensure|Transaction)/;
+// A subquery inside an expression (COLLECT { … } in a list comprehension or CASE) isn't planned as
+// steps of its own: its calls and loads appear only as text in the parent step's arguments.
+const NESTED_REACH = /ResolvedCall\(|\bLOAD\s+CSV\b/i;
 
 /**
  * Walk a query plan and return why a public caller may not run it, or null if it's a plain read.
- * Judged on the plan, not the text, so backticks, comments and nesting can't hide a call.
+ * Judged on the plan rather than the query text, so backticks and comments can't hide a call; every
+ * step's argument text is read too, for the calls a nested subquery expression carries inline.
  */
 function publicPlanRefusal(plan) {
+    if (!plan || typeof plan !== 'object') return 'a query Neo4j returned no plan for';
     const stack = [plan];
     while (stack.length) {
         const node = stack.pop();
         if (!node) continue;
-        const opType = String(node.operatorType || '').split('@')[0];
+        const [opType, database] = String(node.operatorType || '').split('@');
+        if (database === 'system') return `${opType} on the system database`;
         if (opType === 'LoadCSV') return 'LOAD CSV';
         if (/ProcedureCall$/.test(opType)) {
             const details = String((node.arguments && node.arguments.Details) || '');
             const name = details.split('(')[0].trim();
             if (!PUBLIC_PROCEDURES.has(name)) return `procedure ${name || '(unknown)'}`;
+        } else if (ADMIN_OPERATORS.test(opType) && !PUBLIC_SHOW_OPERATORS.has(opType)) {
+            return opType;
         }
-        if (opType.startsWith('Show') && !PUBLIC_SHOW_OPERATORS.has(opType)) return opType;
+        for (const value of Object.values(node.arguments || {})) {
+            const text = String(value);
+            if (NESTED_REACH.test(text)) return 'a procedure call or LOAD CSV nested in an expression';
+        }
         stack.push(...(node.children || []));
     }
     return null;
