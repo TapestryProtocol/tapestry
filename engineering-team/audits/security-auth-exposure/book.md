@@ -44,9 +44,9 @@ docker exec tapestry supervisorctl restart brainstorm     # or: docker compose u
 ```
 **Do NOT rotate via the web Neo4j Browser at `:7474`** — it can reach a different instance/droplet than the app, which caused a cross-instance mix-up during this rotation.
 
-### 2. Firewall the internet-exposed backend ports — ⏳ DEFERRED (operator, 2026-07-20)
+### 2. Firewall the internet-exposed backend ports — ✅ DONE (2026-11-02)
 
-Deferred for a future session; full runbook kept here so it isn't lost. Tracked in **OPEN.md #66**.
+Applied 2026-11-02 via the DO console: firewall `tapestry-web` (inbound TCP 22/80/443 from all IPv4+IPv6; outbound left at DO's default — ICMP, all TCP, all UDP) on `staging-brainstorm-world`, `tapestry-brainstorm-world`, `tags.brainstorm.world` and `magic-carpet-brainstorm-world`. The public IPs in DNS (159.203.150.156 prod, 24.199.72.90 tags) are DO **reserved IPs** assigned to those droplets — the droplet list shows different anchor IPs, so match by the Reserved IPs page, not the droplet list. Verified from outside: 3069/7474/7687/7700/7778/8687 closed on all four, 22/80/443 open, sites and the Neo4j-data smoke healthy. Closes **OPEN.md #66**. The runbook below is kept for reference.
 
 **The exposure (broader than Neo4j).** The deploy workflows' `sed` remaps only `"80:80"` → `127.0.0.1:8080` (`.github/workflows/deploy-*.yml`); every other Docker-published port stays on `0.0.0.0`. Confirmed internet-reachable on prod (`159.203.150.156`), 2026-07-20:
 
