@@ -53,7 +53,10 @@ RUN sed -i 's/#server.default_listen_address=0.0.0.0/server.default_listen_addre
     && echo "dbms.security.procedures.unrestricted=gds.*" >> /etc/neo4j/neo4j.conf \
     && sed -i '/^dbms.security.procedures.allowlist=/d' /etc/neo4j/neo4j.conf \
     && sed -i '/^#dbms.security.procedures.allowlist=/d' /etc/neo4j/neo4j.conf \
-    && echo "dbms.security.procedures.allowlist=apoc.coll.*,apoc.load.*,apoc.periodic.*,apoc.export.json.query,gds.*" >> /etc/neo4j/neo4j.conf
+    && echo "dbms.security.procedures.allowlist=apoc.coll.*,apoc.load.*,apoc.periodic.*,apoc.export.json.query,gds.*" >> /etc/neo4j/neo4j.conf \
+    && echo "# LOAD CSV and apoc.load.* never fetch from loopback, link-local (cloud metadata), private or IPv6-local" >> /etc/neo4j/neo4j.conf \
+    && echo "# addresses: a loopback request counts as the trusted local operator (security-auth-exposure #12)." >> /etc/neo4j/neo4j.conf \
+    && echo "internal.dbms.cypher_ip_blocklist=127.0.0.0/8,169.254.0.0/16,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,100.64.0.0/10,0.0.0.0/8,::1/128,fc00::/7,fe80::/10" >> /etc/neo4j/neo4j.conf
     # Note: Memory, GC, and concurrency settings are configured dynamically at runtime
     # by entrypoint.sh based on the actual machine's RAM and CPU count.
 

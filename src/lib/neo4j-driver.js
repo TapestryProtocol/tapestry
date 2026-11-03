@@ -68,6 +68,22 @@ async function runCypher(cypher, params = {}) {
 }
 
 /**
+ * Plan a query without running it (EXPLAIN, in a READ session) and return the root
+ * of its plan tree: { operatorType, arguments, children }. Throws the planner's error
+ * for a query that doesn't parse or plan.
+ */
+async function explainCypher(cypher, params = {}) {
+  const driver = getDriver();
+  const session = driver.session({ defaultAccessMode: neo4j.session.READ });
+  try {
+    const result = await session.run('EXPLAIN ' + cypher, params);
+    return result.summary.plan;
+  } finally {
+    await session.close();
+  }
+}
+
+/**
  * Run a write query (CREATE, MERGE, DELETE, SET, etc.).
  * Same interface as runCypher but uses WRITE access mode.
  */
@@ -141,4 +157,4 @@ function toJS(value) {
   return value;
 }
 
-module.exports = { getDriver, runCypher, writeCypher, closeDriver, toJS };
+module.exports = { getDriver, runCypher, explainCypher, writeCypher, closeDriver, toJS };

@@ -162,6 +162,7 @@ const suites = [
   { file: 'safe-to-merge-check.test.js' },
   { file: 'next-task-countdown.test.js' },
   { file: 'close-unauth-write-surface.test.js' },
+  { file: 'neo4j-query-public-reads.test.js' },
   { file: 'default-deny-mutations.test.js' },
   { file: 'login-signature-verification.test.js' },
   { file: 'publish-event-signature-verification.test.js' },
