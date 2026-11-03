@@ -10,11 +10,41 @@
  * CSV-like string (header + rows). New callers should use "data" instead.
  */
 
-const { runCypher, writeCypher } = require('../../lib/neo4j-driver');
+const { runCypher, explainCypher, writeCypher } = require('../../lib/neo4j-driver');
 const { isOwner } = require('../../middleware/auth');
 
 // Detect write operations that require WRITE access mode
 const WRITE_KEYWORDS = /\b(CREATE|MERGE|DELETE|SET|REMOVE|DETACH|DROP|CALL\s*\{)\b/i;
+
+// What a public read may contain beyond plain graph reads (security-auth-exposure #12). Read mode
+// already stops writes; these stop the reads that reach outside the graph: LOAD CSV and procedures
+// such as apoc.load.* fetch URLs from inside the container, where a loopback request counts as the
+// trusted local operator; dbms.* procedures and most SHOW commands expose the server's setup.
+// Kept to what the UI sends (useNeo4jLabels, the Dashboard's schema panels).
+const PUBLIC_PROCEDURES = new Set(['db.labels', 'db.relationshipTypes', 'db.propertyKeys']);
+const PUBLIC_SHOW_OPERATORS = new Set(['ShowConstraints', 'ShowIndexes']);
+
+/**
+ * Walk a query plan and return why a public caller may not run it, or null if it's a plain read.
+ * Judged on the plan, not the text, so backticks, comments and nesting can't hide a call.
+ */
+function publicPlanRefusal(plan) {
+    const stack = [plan];
+    while (stack.length) {
+        const node = stack.pop();
+        if (!node) continue;
+        const opType = String(node.operatorType || '').split('@')[0];
+        if (opType === 'LoadCSV') return 'LOAD CSV';
+        if (/ProcedureCall$/.test(opType)) {
+            const details = String((node.arguments && node.arguments.Details) || '');
+            const name = details.split('(')[0].trim();
+            if (!PUBLIC_PROCEDURES.has(name)) return `procedure ${name || '(unknown)'}`;
+        }
+        if (opType.startsWith('Show') && !PUBLIC_SHOW_OPERATORS.has(opType)) return opType;
+        stack.push(...(node.children || []));
+    }
+    return null;
+}
 
 async function queryPost(req, res) {
     const cypherCommand = (req.body && req.body.cypher) || '';
@@ -32,8 +62,18 @@ async function queryPost(req, res) {
         // browsing UI. A genuinely-local request (req.localTrusted, stamped by the
         // auth middleware for the in-process bridge and direct-local operator) is
         // authorized too. (ADR security-auth-exposure/0001.)
-        if (isWrite && !isOwner(req) && !req.localTrusted) {
+        const isPublic = !isOwner(req) && !req.localTrusted;
+        if (isWrite && isPublic) {
             return res.status(403).json({ success: false, error: 'Write queries require owner authentication' });
+        }
+
+        // A public read must be a plain read of the graph: plan it first, and refuse anything that
+        // reaches outside it (security-auth-exposure #12).
+        if (isPublic) {
+            const refusal = publicPlanRefusal(await explainCypher(cypherCommand, params));
+            if (refusal) {
+                return res.status(403).json({ success: false, error: `Public queries may only read the graph (${refusal} requires owner authentication)` });
+            }
         }
 
         const rows = isWrite

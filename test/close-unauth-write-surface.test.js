@@ -80,6 +80,8 @@ function loadQueryPostWithStubbedDriver() {
     exports: {
       runCypher: async (cypher) => { driverCalls.push({ fn: 'runCypher', cypher }); return []; },
       writeCypher: async (cypher) => { driverCalls.push({ fn: 'writeCypher', cypher }); return []; },
+      // A plain read's plan, for the public-read gate (story 12).
+      explainCypher: async () => ({ operatorType: 'ProduceResults@neo4j', arguments: {}, children: [] }),
       getDriver() { return null; },
       closeDriver() {},
       toJS(x) { return x; },
