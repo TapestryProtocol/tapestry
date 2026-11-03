@@ -461,6 +461,21 @@ docker exec tapestry supervisorctl restart brainstorm    # or: docker compose up
 
 **Lesson:** the deploy `sed` only remaps `80:80` → `127.0.0.1:8080`; every other Docker-published port (`7474`/`7687`/`8687` Neo4j, `7778` control-panel API, `7700` Meili, `3069` nostr-search-api) stays on `0.0.0.0` and is internet-reachable. Nothing external needs them. **Firewalled 2026-11-02** — DO Cloud Firewall `tapestry-web` (22/80/443 only) on staging, prod, tags and magic-carpet (OPEN.md #66). A new droplet must be added to it too (full runbook in `engineering-team/audits/security-auth-exposure/book.md` § Companion). Use a **DO Cloud Firewall, not `ufw`** — Docker rewrites iptables ahead of ufw, so `ufw deny 7687` is silently bypassed; a network-layer firewall filters before the packet reaches the droplet.
 
+### 9.11. 2026-11-02: public `/api/neo4j/query` could fetch URLs as the local operator (closed)
+
+Found live on staging and production 2026-11-02. Public reads ran in a READ session (writes blocked by Neo4j), but
+`apoc.load.*` and `LOAD CSV` are reads that fetch URLs from inside the container, where a loopback request with no
+forwarding header counts as the trusted local operator (§9.10's fix). So an anonymous caller could read owner-only
+routes, the cloud metadata address, and the server's config; `TERMINATE TRANSACTIONS` also ran for anyone.
+
+**Fix (shipped to staging, prod, `feat/tags`, `feature-magic-carpet` 2026-11-03):** a public query is planned
+(EXPLAIN) and runs only as a plain read; Neo4j's `internal.dbms.cypher_ip_blocklist` refuses loopback, link-local,
+private and IPv6-local addresses. Story `security-auth-exposure/12`; book `audits/neo4j-query-public-reads/`.
+
+**Check after any Neo4j upgrade** (ledger row `2026-11-03-neo4j-upgrade-plan-tests`): the blocklist setting is
+`internal.*`, so confirm the new version still accepts it under strict validation, and re-run
+`test/neo4j-query-public-reads.test.js` with its live class against the new version.
+
 ---
 
 ## 10. Task queue (BullMQ behind /api/run-task)
