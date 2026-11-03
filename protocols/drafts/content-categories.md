@@ -189,7 +189,7 @@ Any item of any category can be tagged or pinned. The target tag follows the ite
 
 | Target | Tag | Example |
 |---|---|---|
-| a profile | `p` | tag Avi as a Podcaster |
+| a profile | `p` | tag Alice as a Podcaster |
 | an event of kind k | `e`, or `a` if addressable | tag a `30402` listing as Handmade |
 | a DList item | `a` (`39999`) or `e` (`9999`) | tag a restaurant as Mexican |
 | a DList | `a` of its header (`e` if `9998`/`9999`) | pin *Restaurants in Nashville* to *Spawns a Trusted List* |

@@ -7,7 +7,7 @@
 > (§ Treasure-Map advertisement: the `39998`/`39999` families, read as Treasure Maps §§ 4.5 and 4.6
 > say) and ADR 0005 (§ Common wire shape: the retraction marker means that a list is no longer
 > maintained at its `d`). Companion to upstream **[NIP-85: Trusted
-> Assertions](https://nips.nostr.com/85)** (Vitor Pamplona) — this spec does not modify NIP-85; it
+> Assertions](https://nips.nostr.com/85)** — this spec does not modify NIP-85; it
 > defines the *list* analog and binds its kinds to NIP-85's subject-type convention.
 
 ## What a Trusted List is
