@@ -138,9 +138,11 @@ Four handovers, in order. Each person can follow theirs with no other context.
 
 ### Handover 2: DNS (whoever owns `tapestry.ninja`)
 
-1. In GoDaddy's DNS for `tapestry.ninja`, add two A records, both with TTL 600: name `@` and name `*`, value the droplet's
-   IP.
-2. Remove any other A, AAAA or CNAME records on the domain. There may be an old relay pointed at it. Leave MX and TXT alone.
+1. The domain's DNS is on DigitalOcean (Networking, Domains), not at the registrar. Add two A records, both with TTL 600:
+   hostname `@` and hostname `*`, value the droplet's IP. Type the IP, since the droplet may be on another account.
+2. Leave `relay.tapestry.ninja` as it is. It is an older relay on its own droplet. `*` does not override a record for a
+   specific name, and no brain can take that name because `relay` is reserved. Only remove a record on `@` or `*`, if one
+   points somewhere else.
 3. Check that these both print the IP. They must, before the first brain, because Caddy's certificates depend on it.
    ```bash
    dig +short tapestry.ninja
