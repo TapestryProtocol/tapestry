@@ -120,12 +120,16 @@ Four handovers, in order. Each person can follow theirs with no other context.
    JSON
    chmod 600 /opt/launcher/config/*.json
    ```
-7. Make a deploy key and add the GitHub secrets, in `nousclawds4/tapestry`, Settings, Secrets and variables, Actions:
-   `DEPLOY_HOST_NINJA` (the IP), `DEPLOY_USER_NINJA` (`root`), `DEPLOY_SSH_KEY_NINJA` (the private key below).
+7. Add the deploy key and the GitHub secrets. Adding secrets needs admin on `nousclawds4/tapestry`, so someone with admin
+   does this on their own machine, and the private key never leaves it.
    ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/tapestry_ninja -N ""
-   cat ~/.ssh/tapestry_ninja.pub >> ~/.ssh/authorized_keys
-   cat ~/.ssh/tapestry_ninja
+   ssh-keygen -t ed25519 -f ./tapestry_ninja -N ""
+   ```
+   In the repo's Settings, Secrets and variables, Actions, add `DEPLOY_HOST_NINJA` (the IP), `DEPLOY_USER_NINJA` (`root`)
+   and `DEPLOY_SSH_KEY_NINJA` (the whole of `./tapestry_ninja`). Delete `./tapestry_ninja`, and pass on what is in
+   `./tapestry_ninja.pub`, which is safe to send. Then, on the droplet:
+   ```bash
+   echo '<the public key>' >> ~/.ssh/authorized_keys
    ```
 8. Optional: turn on weekly droplet snapshots in the console (the droplet's Backups tab, about $10 a month at 8 GB).
    Nothing else backs brains up.
