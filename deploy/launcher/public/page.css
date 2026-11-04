@@ -1,0 +1,37 @@
+:root {
+  --accent: #7c5cff;
+  --ink: #e8e8ee;
+  --muted: #9a9aa8;
+  --bg: #111116;
+  --panel: #1a1a22;
+  --line: #2c2c38;
+  --bad: #ff8080;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+main { max-width: 42rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+h1 { margin: 0 0 .5rem; font-size: 1.75rem; }
+h2 { margin: 2.25rem 0 .75rem; font-size: 1.1rem; }
+a { color: inherit; }
+.warning { padding: .75rem 1rem; border-left: 3px solid var(--accent); background: var(--panel); }
+.error { min-height: 1.5em; margin: .5rem 0 0; color: var(--bad); }
+.hint, .muted { color: var(--muted); font-size: .9rem; }
+.hint { margin: .25rem 0 .75rem; }
+label { display: block; margin-bottom: .25rem; }
+.name { display: flex; align-items: center; gap: .25rem; }
+input { flex: 0 1 14rem; min-width: 0; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
+button { padding: .45rem .9rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button[type="submit"], #sign-in { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+ul { margin: 0; padding: 0; list-style: none; }
+.brain { padding: 1rem 0; border-top: 1px solid var(--line); }
+.brain-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; }
+.brain-name { font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .6rem; }
+.detail { margin-top: .75rem; padding: .75rem; background: var(--panel); border-radius: 6px; font-size: .9rem; }
+.detail dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem .75rem; margin: 0; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; overflow-wrap: anywhere; }
+pre { margin: .75rem 0 0; max-height: 16rem; overflow: auto; font-size: .8rem; white-space: pre-wrap; overflow-wrap: anywhere; }

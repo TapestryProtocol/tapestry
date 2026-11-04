@@ -1,0 +1,32 @@
+# Static: it never changes per brain. A certificate is issued for a hostname the first time it is asked for, once the
+# launcher says a running brain has that name.
+{
+	on_demand_tls {
+		ask http://launcher:9000/ask
+	}
+	servers {
+		protocols h1 h2
+	}
+	{$CADDY_GLOBAL_EXTRA}
+}
+
+# The launcher. /ask is for Caddy alone, on the private network.
+{$BASE_DOMAIN:tapestry.ninja} {
+	header Strict-Transport-Security "max-age=31536000"
+	@ask path /ask /ask/*
+	respond @ask 404
+	reverse_proxy launcher:9000
+}
+
+www.{$BASE_DOMAIN:tapestry.ninja} {
+	redir https://{$BASE_DOMAIN:tapestry.ninja}{uri} permanent
+}
+
+# A brain. labels.2 is "avi" in avi.tapestry.ninja, so this expects a base domain of two labels.
+*.{$BASE_DOMAIN:tapestry.ninja} {
+	tls {
+		on_demand
+	}
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy brain-{labels.2}-tapestry:80
+}

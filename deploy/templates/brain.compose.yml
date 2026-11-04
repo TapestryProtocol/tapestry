@@ -1,0 +1,83 @@
+# One brain: its own Neo4j, relay, Redis, volumes and network, and no published ports.
+# The launcher copies this file to /opt/brains/<slug>/docker-compose.yml and writes .env beside it.
+# To run one by hand, see "Run one brain yourself" in deploy/RUNBOOK.md.
+name: brain-${SLUG}
+
+services:
+  tapestry:
+    image: ${TAPESTRY_IMAGE}:${IMAGE_TAG}
+    # A fixed name, because Caddy finds this container by it.
+    container_name: brain-${SLUG}-tapestry
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - OWNER_PUBKEY=${OWNER_PUBKEY}
+      - ADMIN_PUBKEYS=${ADMIN_PUBKEYS}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - DOMAIN_NAME=${DOMAIN_NAME}
+      - NEO4J_BROWSER_URL=${NEO4J_BROWSER_URL}
+      - BRAINSTORM_NEO4J_HEAP_MB=${BRAINSTORM_NEO4J_HEAP_MB}
+      - BRAINSTORM_NEO4J_CACHE_MB=${BRAINSTORM_NEO4J_CACHE_MB}
+      - BRAINSTORM_NEO4J_TX_MAX_MB=${BRAINSTORM_NEO4J_TX_MAX_MB}
+      - TAPESTRY_FIRMWARE_ON_BOOT=${TAPESTRY_FIRMWARE_ON_BOOT}
+    volumes:
+      - neo4j:/var/lib/neo4j/data
+      - strfry:/var/lib/strfry
+      - data:/var/lib/brainstorm
+      - logs:/var/log/brainstorm
+    mem_limit: 2g
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis:/data
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # The search services stay off until a brain's owner asks for them.
+  nostr-search-meili:
+    profiles: [social]
+    image: getmeili/meilisearch:v1.12
+    volumes:
+      - meili:/meili_data
+    environment:
+      - MEILI_ENV=development
+      - MEILI_NO_ANALYTICS=true
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  nostr-search-api:
+    profiles: [social]
+    image: ${SEARCH_IMAGE}:${IMAGE_TAG}
+    environment:
+      - MEILI_URL=http://nostr-search-meili:7700
+      - RELAY_URL=ws://tapestry:80/relay
+      - PORT=3069
+    depends_on:
+      nostr-search-meili:
+        condition: service_healthy
+      tapestry:
+        condition: service_started
+    mem_limit: 256m
+    restart: unless-stopped
+
+volumes:
+  neo4j:
+  strfry:
+  data:
+  logs:
+  redis:
+  meili:
