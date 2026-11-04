@@ -21,6 +21,7 @@ These are the answers to the questions the design left open, read from the code 
 | Does anything assume `brainstorm.world`? | Only as a default relay for lists and trust data (`wss://dcosl.brainstorm.world` and friends), and in the estate list in `src/utils/siteTrust.js`. | None. The UI's "is this concept shared?" read still asks `dcosl`. |
 | Does the entrypoint size memory from the host? | Yes, from `/proc/meminfo`, unless `BRAINSTORM_NEO4J_*` is set. | The template sets all three. The entrypoint now also honours a container memory limit. |
 | Do new brains start blank? | Router presets are all off, but first boot ran an old config with live streams until the app replaced it. | First boot now starts the router idle. |
+| Does signing in bring anything in? | It did. The home page is the search page, and it downloaded a person's whole set of scores (kind 30382, 160,359 events on one instance) when the brain had none. The settings page did too. Those scores fill the search index, which brains do not run. | Both pages now check for a search index first. The button on the settings page still fetches them on request. |
 | Do new brains publish outside? | By default the UI publishes to public relays too. | The template sets `BRAINSTORM_PUBLISH_LOCAL_ONLY=true`. |
 | Do added admins survive a roll? | Yes. They are in `settings.json` on the data volume, and `ADMIN_PUBKEYS` is only the fallback. | None. |
 
@@ -165,7 +166,14 @@ launcher in with a read-only token after each time it is rebuilt:
 ### Handover 4: the first brain
 
 Sign in at `tapestry.ninja` with a NIP-07 extension, launch `avi`, wait for `running`, open `avi.tapestry.ninja`, sign in,
-and confirm you are the owner. Then run the checks under Tests.
+and confirm you are the owner. Stay on its home page for a minute, then check that signing in brought nothing in. This
+should print 0:
+
+```bash
+docker exec brain-avi-tapestry strfry scan --count '{"kinds":[30382]}' 2>/dev/null
+```
+
+Then run the checks under Tests.
 
 ## Day to day
 

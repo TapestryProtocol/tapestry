@@ -233,6 +233,7 @@ const suites = [
   { file: 'neo4j-sizing-override.test.js' },
   { file: 'brains-launcher-repo.test.js' },
   { file: 'brains-launcher-service.test.js' },
+  { file: 'score-auto-sync.test.js' },
   { file: 'relay-scan-bounds.test.js' },
   { file: 'profile-lookup-bounds.test.js' },
   { file: 'honest-broadcast-reporting.test.js' },
