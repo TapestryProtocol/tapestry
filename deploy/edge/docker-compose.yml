@@ -31,7 +31,9 @@ services:
       - ${LAUNCHER_DIR:-/opt/launcher}:/opt/launcher
     networks: [edge]
     mem_limit: 256m
-    restart: unless-stopped
+    # Not unless-stopped: `docker kill` with any signal marks a container as manually stopped, and it would then stay down
+    # after a reboot. Brains stop answering without the launcher, since Caddy asks it before loading their certificates.
+    restart: always
 
 networks:
   edge:

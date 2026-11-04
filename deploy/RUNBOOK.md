@@ -186,15 +186,16 @@ Then run the checks under Tests.
 | To | Do |
 |---|---|
 | See what is there | The page, or `docker exec edge-launcher node cli.js list` |
-| Add or remove a person | Edit `/opt/launcher/config/allowlist.json`, then `docker kill -s HUP edge-launcher` |
+| Add or remove a person | Edit `/opt/launcher/config/allowlist.json`, then `docker exec edge-launcher kill -HUP 1` |
+| Add an agent as an admin | The owner signs in on their brain, then opens `<slug>.tapestry.ninja/pages/manage/manage-administrators.html`. An admin cannot publish as the Assistant: only the owner's own session can. |
 | Update every brain | Push to `main`, which runs the publish workflow, or run the workflow by hand. By hand on the box: `docker exec edge-launcher node cli.js roll dogfood`. Each brain is down for a minute or two in its turn. |
 | Change the Caddyfile | Pull, then `docker compose -f deploy/edge/docker-compose.yml restart caddy`. A roll does not reload it. |
 | Find out why a brain failed | The page's "Details and log", or `/opt/brains/<slug>/create.log`, `docker compose -p brain-<slug> ps`, `docker logs brain-<slug>-tapestry`, `docker logs edge-launcher` |
 | Delete a brain's data now | Destroy it, then "Start fresh" on the page, which also launches it again. The reaper deletes the rest daily at 04:00 UTC, 7 days after destroy. |
-| Grow the box | Resize in the DigitalOcean console (a few minutes down for everyone), raise `maxBrainsTotal` in `launcher.json`, then `docker kill -s HUP edge-launcher` |
-| Reach Neo4j | `<slug>.tapestry.ninja/browser/` with the password on the page, or `docker exec -it brain-<slug>-tapestry cypher-shell -u neo4j -p <password>` |
+| Grow the box | Resize in the DigitalOcean console (a few minutes down for everyone), raise `maxBrainsTotal` in `launcher.json`, then `docker exec edge-launcher kill -HUP 1` |
+| Reach Neo4j | `docker exec -it brain-<slug>-tapestry cypher-shell -u neo4j -p <password>`, with the password on the page. `<slug>.tapestry.ninja/browser/` loads but cannot connect yet, because Bolt does not reach Neo4j through HTTPS. |
 
-After a reboot nothing needs doing: brains restart on their own, and the launcher checks them as it starts.
+After a reboot nothing needs doing: brains restart on their own, and the launcher checks them as it starts. Reload the launcher only as above: sending the signal through `docker kill` marks a container as manually stopped, which is why the launcher also uses `restart: always`.
 
 ## What can go wrong
 
@@ -204,6 +205,8 @@ After a reboot nothing needs doing: brains restart on their own, and the launche
   could do the same.
 - **Destroy loses what a brain's owner did not keep.** The volumes stay for 7 days. After that they are gone, and Neo4j
   holds things that are not nostr events, so relays cannot rebuild it. A brain's Goals page can export its own content.
+- **With the launcher down, brains can stop answering.** Caddy asks it before loading a brain's certificate, so after Caddy
+  restarts, a brain gets a TLS error until the launcher is back. The brains themselves keep running.
 - **There are no backups** unless the droplet's snapshots are on. There is no monitoring: the page is the dashboard.
 
 ## Tests
@@ -229,6 +232,9 @@ Each Tapestry container has a 2 GB limit and Redis has 128 MB. Inside that limit
 | Dev machine, arm64, 2026-11-04 | 512 / 256 MB | Firmware, 2,400 events of 2 KB, repeated reads | 1.63 GiB, stable | Nothing killed |
 | Droplet, amd64, 4 vCPU, 2026-11-04 | 512 / 256 MB | Firmware install | 1.65 GiB, stable | Nothing killed. The install took 487 s |
 | Droplet, amd64, 4 vCPU, 2026-11-04 | 1536 / 512 MB, 3 GiB limit | Firmware install | 2.7 GiB | Nothing killed. The install took 486 s, so memory is not what limits it |
+| Droplet, amd64, 4 vCPU, 2026-11-04 | 512 / 256 MB | Two brains, firmware done, idle | 1.44 and 1.58 GiB | Nothing killed. 3.7 GiB used on the box |
+
+Timed on the droplet: a create took 402 to 487 seconds, a restore 69, a roll about a minute.
 
 **A first launch takes 8 to 10 minutes on this droplet**, and the launcher waits up to 15 (`readyTimeoutSeconds`). The firmware install is real work on a cold Neo4j, which uses a full core throughout: 438 events and over 3,000 nodes, with no waits in it. It took under 2 minutes on the dev machine. Only a new brain, or Start fresh, pays this. Each brain signs with its own key, so a shared pre-built starting point would be separate work.
 

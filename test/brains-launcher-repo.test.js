@@ -265,6 +265,18 @@ test('E1: www asks for its own certificate, since Caddy otherwise leaves it to t
   assert(/^\s*tls force_automate\s*$/m.test(www[1]), 'the www site needs "tls force_automate", on one line');
 });
 
+test('E2: the launcher comes back from a reboot, whatever signal it was last sent', () => {
+  // `docker kill -s HUP` marks a container as manually stopped, and `unless-stopped` then leaves it down after a reboot,
+  // which also stops brains answering. It did, on the droplet, on 2026-11-04.
+  const edge = fs.readFileSync(path.join(REPO, 'deploy/edge/docker-compose.yml'), 'utf8');
+  const launcher = edge.slice(edge.indexOf('  launcher:'), edge.indexOf('\nnetworks:'));
+  assert(/restart: always/.test(launcher), 'the launcher needs restart: always');
+  for (const file of ['deploy/RUNBOOK.md', 'deploy/launcher/test/integration.sh']) {
+    const text = fs.readFileSync(path.join(REPO, file), 'utf8');
+    assert(!text.includes('docker kill -s HUP'), `${file} must reload with: docker exec edge-launcher kill -HUP 1`);
+  }
+});
+
 /* ── The owner's npub ── */
 
 test('O1: the entrypoint works out the owner npub from any directory', () => {

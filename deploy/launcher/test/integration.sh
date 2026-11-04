@@ -86,7 +86,7 @@ write_launcher_json() { # GRACE_DAYS READY_SECONDS
   "graceDays": $1
 }
 JSON
-  docker kill -s HUP edge-launcher >/dev/null 2>&1 || true
+  docker exec edge-launcher kill -HUP 1 >/dev/null 2>&1 || true
   sleep 1
 }
 write_launcher_json 7 600
@@ -95,7 +95,7 @@ for _ in $(seq 1 30); do docker exec edge-launcher true 2>/dev/null && break; sl
 
 read -r SECRET PUBKEY <<<"$(docker exec edge-launcher node sign.js keygen)"
 echo "[{\"pubkey\":\"$PUBKEY\",\"label\":\"integration\"}]" > "$WORK/launcher/config/allowlist.json"
-docker kill -s HUP edge-launcher >/dev/null
+docker exec edge-launcher kill -HUP 1 >/dev/null
 sleep 1
 
 curl_edge() {
