@@ -64,7 +64,7 @@ jobs:
 
       - name: Roll the brains
         uses: appleboy/ssh-action@v1
-        timeout-minutes: 40
+        timeout-minutes: 60
         env:
           REF: ${{ github.ref_name }}
         with:
@@ -72,7 +72,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER_NINJA }}
           key: ${{ secrets.DEPLOY_SSH_KEY_NINJA }}
           envs: REF
-          command_timeout: 35m
+          command_timeout: 55m
           script: |
             set -euo pipefail
             cd /opt/tapestry

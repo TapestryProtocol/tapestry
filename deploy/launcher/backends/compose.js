@@ -111,7 +111,7 @@ function createComposeBackend({ brainsDir, caddyContainer, template, getConfig, 
       onPhase('starting containers');
       await compose(slug, 'up', '-d', '--pull', 'missing');
       await attachCaddy(slug);
-      onPhase('waiting for Neo4j and firmware');
+      onPhase('installing firmware. A first launch takes 8 to 10 minutes, and carries on if you close this page');
       await waitReady(slug);
     },
 

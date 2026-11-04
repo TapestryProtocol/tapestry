@@ -140,6 +140,17 @@ test('restore keeps a wrong password as it is, so a broken brain stays broken an
   assert.equal(backend.readPassword('avi'), 'wrong');
 });
 
+test('a first launch says how long the firmware takes, and a restore does not', async () => {
+  const { backend } = setup();
+  const created = [];
+  await backend.create({ slug: 'avi', ownerPubkey: owner, imageTag: 'dogfood', onPhase: (p) => created.push(p) });
+  assert.match(created.at(-1), /8 to 10 minutes/);
+  assert.match(created.at(-1), /close this page/);
+  const restored = [];
+  await backend.restore({ slug: 'avi', imageTag: 'dogfood', onPhase: (p) => restored.push(p) });
+  assert.doesNotMatch(restored.at(-1), /minutes/);
+});
+
 test('ensureUp starts the stack and attaches Caddy without waiting for ready', async () => {
   const { backend, commands } = setup();
   await backend.create({ slug: 'avi', ownerPubkey: owner, imageTag: 'dogfood' });

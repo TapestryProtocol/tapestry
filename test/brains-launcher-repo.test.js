@@ -245,6 +245,17 @@ test('W3: the roll runs last, stops on any failure, and waits for the launcher t
   assert(up > -1 && wait > up && roll > wait, 'the order must be: edge stack up, launcher answers, roll');
 });
 
+test('W4: the roll has time for three brains to each reach the 15-minute limit, as a new firmware version can make them', () => {
+  const wf = publishWorkflow();
+  assert(/command_timeout: 55m/.test(wf), 'command_timeout must allow three brains at 15 minutes each, plus the pull');
+  assert(/name: Roll the brains[\s\S]*?timeout-minutes: 60/.test(wf), 'the step needs a timeout above command_timeout');
+});
+
+test('W5: a launcher-only change does not rebuild the brain image, which would restart every brain', () => {
+  const ignored = fs.readFileSync(path.join(REPO, '.dockerignore'), 'utf8').split('\n');
+  assert(ignored.includes('deploy/'), '.dockerignore must leave out deploy/');
+});
+
 /* ── The edge ── */
 
 test('E1: www asks for its own certificate, since Caddy otherwise leaves it to the on-demand * site, which refuses it', () => {

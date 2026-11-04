@@ -18,7 +18,8 @@ I can add my agent as an admin and start putting my own knowledge in, without se
 ## Acceptance criteria
 
 1. **Launch.** A signed request from an allowlisted key creates a brain owned by the signer. Status goes
-   `creating` to `running`, in under three minutes on a warm box.
+   `creating` to `running`, in 8 to 10 minutes on the 8 GB droplet, and the page says so. The owner accepted this over
+   the original three minutes on 2026-11-04, after timing the firmware install there.
 2. **Blank.** A new brain has firmware installed, no list items, every router preset off, and the search services
    stopped. Its relay router has no streams, including during first boot.
 3. **Isolation.** No brain publishes a port. Each has its own network, volumes, Redis and Neo4j. Only Caddy joins a

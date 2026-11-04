@@ -29,7 +29,7 @@ test('reads the allowlist and fills in defaults', () => {
   assert.equal(c.neo4jHeapMb, 512);
   assert.equal(c.neo4jCacheMb, 256);
   assert.equal(c.neo4jTxMaxMb, 256);
-  assert.equal(c.readyTimeoutSeconds, 300);
+  assert.equal(c.readyTimeoutSeconds, 900);
   assert.equal(c.readyPollSeconds, 5);
 });
 

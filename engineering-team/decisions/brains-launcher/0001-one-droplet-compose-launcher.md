@@ -67,6 +67,9 @@ Decisions inside it that the spec left open or the tree changed:
 - A brain's contents are public to anyone with its URL. Making them private is separate work.
 - One brain filling the shared disk affects all of them. The disk floor is checked only before a create.
 - Dogfood brains ride `main`, so they update when `staging` is promoted.
+- A first launch takes 8 to 10 minutes on the 8 GB droplet, because the firmware install is real work on a cold Neo4j:
+  438 events and over 3,000 nodes, with no waits to remove, and three times the heap made no difference. Each brain signs
+  with its own key, so a shared pre-built starting point is separate work. The owner accepted this on 2026-11-04.
 - **Firmware reinstall required?** No.
 
 ## Implementation notes

@@ -15,7 +15,9 @@ const DEFAULTS = Object.freeze({
   neo4jHeapMb: 512,
   neo4jCacheMb: 256,
   neo4jTxMaxMb: 256,
-  readyTimeoutSeconds: 300,
+  // A first launch's firmware install took 487 seconds on the 8 GB droplet. A roll waits as long, since a new firmware
+  // version reinstalls.
+  readyTimeoutSeconds: 900,
   readyPollSeconds: 5,
 });
 

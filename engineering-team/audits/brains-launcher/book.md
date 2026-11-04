@@ -1,4 +1,4 @@
-# Book of Work: A team member launches their own brain in under three minutes
+# Book of Work: A team member launches their own brain
 
 **Slug:** brains-launcher
 **Status:** Open
@@ -13,7 +13,8 @@ stops the spec names (the human handovers) rather than a stop per phase, at the 
 
 ### Acceptance frame
 
-- [ ] The owner launches `avi` from the page and it is `running` in under three minutes.
+- [ ] The owner launches `avi` from the page and it is `running` in 8 to 10 minutes. The spec said under three; the
+  owner accepted this on 2026-11-04 once the firmware install was timed on the droplet.
 - [ ] The owner signs in with a NIP-07 extension and is the owner; the lists page shows headers and no items; router
       presets are all off.
 - [ ] The owner adds their agent's npub on the admins page, and the agent can sign in as admin.
