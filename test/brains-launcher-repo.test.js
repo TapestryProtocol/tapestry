@@ -251,7 +251,7 @@ test('E1: www asks for its own certificate, since Caddy otherwise leaves it to t
   const caddyfile = fs.readFileSync(path.join(REPO, 'deploy/edge/Caddyfile'), 'utf8');
   const www = caddyfile.match(/^www\.[^\n]*\{\n([\s\S]*?)^\}/m);
   assert(www, 'the www site is missing');
-  assert(/force_automate/.test(www[1]), 'the www site needs tls { force_automate }');
+  assert(/^\s*tls force_automate\s*$/m.test(www[1]), 'the www site needs "tls force_automate", on one line');
 });
 
 /* ── The owner's npub ── */

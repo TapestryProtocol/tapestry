@@ -20,9 +20,7 @@
 
 # force_automate: Caddy otherwise leaves this name to the * site below, whose on-demand check refuses it.
 www.{$BASE_DOMAIN:tapestry.ninja} {
-	tls {
-		force_automate
-	}
+	tls force_automate
 	redir https://{$BASE_DOMAIN:tapestry.ninja}{uri} permanent
 }
 
