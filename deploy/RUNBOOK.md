@@ -188,6 +188,7 @@ Then run the checks under Tests.
 | See what is there | The page, or `docker exec edge-launcher node cli.js list` |
 | Add or remove a person | Edit `/opt/launcher/config/allowlist.json`, then `docker kill -s HUP edge-launcher` |
 | Update every brain | Push to `main`, which runs the publish workflow, or run the workflow by hand. By hand on the box: `docker exec edge-launcher node cli.js roll dogfood`. Each brain is down for a minute or two in its turn. |
+| Change the Caddyfile | Pull, then `docker compose -f deploy/edge/docker-compose.yml restart caddy`. A roll does not reload it. |
 | Find out why a brain failed | The page's "Details and log", or `/opt/brains/<slug>/create.log`, `docker compose -p brain-<slug> ps`, `docker logs brain-<slug>-tapestry`, `docker logs edge-launcher` |
 | Delete a brain's data now | Destroy it, then "Start fresh" on the page, which also launches it again. The reaper deletes the rest daily at 04:00 UTC, 7 days after destroy. |
 | Grow the box | Resize in the DigitalOcean console (a few minutes down for everyone), raise `maxBrainsTotal` in `launcher.json`, then `docker kill -s HUP edge-launcher` |

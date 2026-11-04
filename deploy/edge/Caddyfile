@@ -18,7 +18,11 @@
 	reverse_proxy launcher:9000
 }
 
+# force_automate: Caddy otherwise leaves this name to the * site below, whose on-demand check refuses it.
 www.{$BASE_DOMAIN:tapestry.ninja} {
+	tls {
+		force_automate
+	}
 	redir https://{$BASE_DOMAIN:tapestry.ninja}{uri} permanent
 }
 

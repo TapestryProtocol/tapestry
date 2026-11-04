@@ -245,6 +245,15 @@ test('W3: the roll runs last, stops on any failure, and waits for the launcher t
   assert(up > -1 && wait > up && roll > wait, 'the order must be: edge stack up, launcher answers, roll');
 });
 
+/* ── The edge ── */
+
+test('E1: www asks for its own certificate, since Caddy otherwise leaves it to the on-demand * site, which refuses it', () => {
+  const caddyfile = fs.readFileSync(path.join(REPO, 'deploy/edge/Caddyfile'), 'utf8');
+  const www = caddyfile.match(/^www\.[^\n]*\{\n([\s\S]*?)^\}/m);
+  assert(www, 'the www site is missing');
+  assert(/force_automate/.test(www[1]), 'the www site needs tls { force_automate }');
+});
+
 /* ── The owner's npub ── */
 
 test('O1: the entrypoint works out the owner npub from any directory', () => {
