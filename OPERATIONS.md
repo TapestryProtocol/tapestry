@@ -3,7 +3,7 @@
 > **Audience:** the active team running this fork at `tapestry.brainstorm.world`.
 > **Prerequisite reading:** [BIBLE.md](./BIBLE.md) — what tapestry *is* and how it works. This file documents the specifics of *our* deployment that aren't useful to other operators forking the codebase.
 
-**Last updated:** 2026-10-28
+**Last updated:** 2026-11-04
 
 ---
 
@@ -159,6 +159,8 @@ The dynamic allocation formula in `docker/entrypoint.sh` is universal — see [B
 ---
 
 ## 6. Spinning up a new sandbox droplet
+
+> For a team member's own instance on the shared `tapestry.ninja` box, use the launcher instead: [deploy/RUNBOOK.md](./deploy/RUNBOOK.md).
 
 End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. The reference walk-through is `feat/communities` → `communities.brainstorm.world` on 2026-05-14; sub-sections call out gotchas hit during that run. (That sandbox has since been decommissioned — §2 — but the procedure below is unchanged and still current.)
 

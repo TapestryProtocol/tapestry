@@ -77,6 +77,7 @@ test('.env carries what the entrypoint reads: the three memory variables, firmwa
   assert.equal(env.BRAINSTORM_NEO4J_CACHE_MB, '512');
   assert.equal(env.BRAINSTORM_NEO4J_TX_MAX_MB, '384');
   assert.equal(env.TAPESTRY_FIRMWARE_ON_BOOT, 'true');
+  assert.equal(env.BRAINSTORM_PUBLISH_LOCAL_ONLY, 'true', 'a brain mirrors nothing to public relays by default');
   assert.equal(env.DOMAIN_NAME, 'avi.tapestry.test');
   assert.equal(env.NEO4J_BROWSER_URL, 'https://avi.tapestry.test/browser/');
   assert.equal(env.OWNER_PUBKEY, owner);
@@ -85,7 +86,7 @@ test('.env carries what the entrypoint reads: the three memory variables, firmwa
 
 test('the template passes the entrypoint its variables', () => {
   const { tapestry } = services(render().compose);
-  for (const v of ['OWNER_PUBKEY', 'ADMIN_PUBKEYS', 'NEO4J_PASSWORD', 'DOMAIN_NAME', 'NEO4J_BROWSER_URL', 'BRAINSTORM_NEO4J_HEAP_MB', 'BRAINSTORM_NEO4J_CACHE_MB', 'BRAINSTORM_NEO4J_TX_MAX_MB', 'TAPESTRY_FIRMWARE_ON_BOOT']) {
+  for (const v of ['OWNER_PUBKEY', 'ADMIN_PUBKEYS', 'NEO4J_PASSWORD', 'DOMAIN_NAME', 'NEO4J_BROWSER_URL', 'BRAINSTORM_NEO4J_HEAP_MB', 'BRAINSTORM_NEO4J_CACHE_MB', 'BRAINSTORM_NEO4J_TX_MAX_MB', 'TAPESTRY_FIRMWARE_ON_BOOT', 'BRAINSTORM_PUBLISH_LOCAL_ONLY']) {
     assert.match(tapestry, new RegExp(`- ${v}=\\$\\{${v}\\}`), v);
   }
 });

@@ -21,6 +21,7 @@ function renderBrain({ slug, ownerPubkey, imageTag, config, template, neo4jPassw
     BRAINSTORM_NEO4J_CACHE_MB: String(config.neo4jCacheMb),
     BRAINSTORM_NEO4J_TX_MAX_MB: String(config.neo4jTxMaxMb),
     TAPESTRY_FIRMWARE_ON_BOOT: 'true',
+    BRAINSTORM_PUBLISH_LOCAL_ONLY: 'true',
   };
   const envText = `${Object.entries(env).map(([k, v]) => `${k}=${v}`).join('\n')}\n`;
   return { compose: template, envText, neo4jPassword: env.NEO4J_PASSWORD };
