@@ -11,9 +11,10 @@ const DEFAULTS = Object.freeze({
   maxBrainsTotal: 3,
   minFreeDiskGb: 10,
   graceDays: 7,
-  neo4jHeapMb: 768,
-  neo4jCacheMb: 512,
-  neo4jTxMaxMb: 384,
+  // Measured, not guessed: see "Memory" in deploy/RUNBOOK.md. A 768 MB heap under the 2 GB limit got Neo4j killed.
+  neo4jHeapMb: 512,
+  neo4jCacheMb: 256,
+  neo4jTxMaxMb: 256,
   readyTimeoutSeconds: 300,
   readyPollSeconds: 5,
 });

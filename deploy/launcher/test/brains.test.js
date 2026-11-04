@@ -145,6 +145,16 @@ test('retry on a brain that has run keeps its data', async () => {
   assert.equal(ctx.registry.find('avi').status, 'running');
 });
 
+test('retry records the image version it used', async () => {
+  const ctx = setup();
+  await launched(ctx);
+  await ctx.brains.roll('sha-old');
+  ctx.registry.transition('avi', 'failed', { lastError: 'roll' });
+  await ctx.brains.create(A, 'avi');
+  await ctx.idle();
+  assert.equal(ctx.registry.find('avi').imageTag, 'dogfood');
+});
+
 test('only the owner can retry', async () => {
   const ctx = setup({ failing: { create: true } });
   await launched(ctx);

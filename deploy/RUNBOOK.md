@@ -40,9 +40,9 @@ The launcher does nothing you cannot do by hand. On any box with Docker, in an e
    NEO4J_PASSWORD=<32 random hex characters>
    DOMAIN_NAME=<your domain>
    NEO4J_BROWSER_URL=https://<your domain>/browser/
-   BRAINSTORM_NEO4J_HEAP_MB=768
-   BRAINSTORM_NEO4J_CACHE_MB=512
-   BRAINSTORM_NEO4J_TX_MAX_MB=384
+   BRAINSTORM_NEO4J_HEAP_MB=512
+   BRAINSTORM_NEO4J_CACHE_MB=256
+   BRAINSTORM_NEO4J_TX_MAX_MB=256
    TAPESTRY_FIRMWARE_ON_BOOT=true
    BRAINSTORM_PUBLISH_LOCAL_ONLY=true
    ```
@@ -200,6 +200,12 @@ minutes.
 
 ## Memory
 
-The starting numbers are a guess for a graph that knows one person: a 768 MB heap, a 512 MB page cache, a 2 GB limit on the
-Tapestry container, 128 MB on Redis. Measure one brain with `docker stats` after firmware and a few hundred events, set
-`maxBrainsTotal` from it, and write the result here.
+Each Tapestry container has a 2 GB limit and Redis has 128 MB. Inside that limit, Neo4j's own overhead (threads, metaspace, the GDS and APOC plugins) comes on top of its heap and page cache, and the other processes need about 550 MB.
+
+| Where | Heap / cache | Load | Container | Result |
+|---|---|---|---|---|
+| Dev machine, arm64, 2026-11-04 | 768 / 512 MB | Firmware install | about 1.9 GiB, at the limit | Neo4j killed for memory |
+| Dev machine, arm64, 2026-11-04 | 512 / 256 MB | Firmware, 2,400 events of 2 KB, repeated reads | 1.63 GiB, stable | Nothing killed |
+| Droplet, 4 vCPU | to measure | | | |
+
+Three brains at 1.65 GiB, plus Redis, Caddy and the launcher, come to about 5.5 GB, which leaves room on an 8 GB box, so `maxBrainsTotal` starts at 3. Measure again on the droplet with `docker stats`, with fewer CPUs than the dev machine had, and write the result in the table. A killed process shows up in `oom_kill` in `/sys/fs/cgroup/memory.events` inside the container.

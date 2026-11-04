@@ -146,7 +146,7 @@ function createBrains({ registry, backend, queue, getConfig, freeDiskGb, now = D
       const { imageTag } = getConfig();
       if (retrying) {
         const { everRunning } = existing;
-        registry.transition(slug, 'creating', { lastError: null });
+        registry.transition(slug, 'creating', { lastError: null, imageTag });
         schedule(slug, 'starting', async (setPhase) => {
           if (everRunning) {
             await runRestore(slug, imageTag, setPhase);

@@ -26,9 +26,9 @@ test('reads the allowlist and fills in defaults', () => {
   assert.equal(c.maxBrainsTotal, 3);
   assert.equal(c.minFreeDiskGb, 10);
   assert.equal(c.graceDays, 7);
-  assert.equal(c.neo4jHeapMb, 768);
-  assert.equal(c.neo4jCacheMb, 512);
-  assert.equal(c.neo4jTxMaxMb, 384);
+  assert.equal(c.neo4jHeapMb, 512);
+  assert.equal(c.neo4jCacheMb, 256);
+  assert.equal(c.neo4jTxMaxMb, 256);
   assert.equal(c.readyTimeoutSeconds, 300);
   assert.equal(c.readyPollSeconds, 5);
 });
