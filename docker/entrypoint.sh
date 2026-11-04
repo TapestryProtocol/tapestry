@@ -32,7 +32,7 @@ OWNER_NPUB="unassigned"
 if [ "$OWNER_PUBKEY" != "unassigned" ] && [ ${#OWNER_PUBKEY} -eq 64 ]; then
   OWNER_NPUB=$(node -e "
     try {
-      const {nip19} = require('nostr-tools');
+      const {nip19} = require('${BRAINSTORM_MODULE_BASE_DIR}node_modules/nostr-tools');
       console.log(nip19.npubEncode('${OWNER_PUBKEY}'));
     } catch(e) { console.log('unassigned'); }
   " 2>/dev/null || echo "unassigned")

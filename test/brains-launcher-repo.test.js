@@ -201,6 +201,22 @@ test('A4: the route is registered and open to anyone', () => {
   assert(seen.includes('GET /api/ready'), `registered: ${seen}`);
 });
 
+/* ── The owner's npub ── */
+
+test('O1: the entrypoint works out the owner npub from any directory', () => {
+  // Its own block, run from /, where the entrypoint runs and nostr-tools does not resolve by name. The pair is NIP-19's example.
+  const block = ENTRYPOINT.match(/# Calculate owner npub[\s\S]*?\nfi\n/);
+  assert(block, 'the owner npub block is missing');
+  const script = [
+    `BRAINSTORM_MODULE_BASE_DIR="${REPO}/"`,
+    'OWNER_PUBKEY=3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d',
+    block[0],
+    'echo "$OWNER_NPUB"',
+  ].join('\n');
+  const out = spawnSync('bash', ['-c', script], { cwd: '/', encoding: 'utf8' }).stdout.trim();
+  assert(out === 'npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6', `got "${out}"`);
+});
+
 /* ── The Neo4j browser link ── */
 
 test('B1: the entrypoint defaults NEO4J_BROWSER_URL to what droplets get today, and exports it', () => {

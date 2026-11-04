@@ -155,6 +155,8 @@ docker ps --format '{{.Names}}' | grep -q "brain-$SLUG-nostr-search" && bad "sea
 docker exec "$C" curl -s http://127.0.0.1:7778/api/publish-policy | grep -q '"allowExternalPublish":false' && ok "publishes to its own relay only" || bad "publishes outside"
 ADMINS="$(docker exec "$C" sh -c '. /etc/brainstorm.conf; echo "$BRAINSTORM_OWNER_PUBKEY $BRAINSTORM_ADMIN_PUBKEYS"')"
 [ "$ADMINS" = "$PUBKEY $PUBKEY" ] && ok "owner and admin are the signer" || bad "owner and admin: $ADMINS"
+NPUB="$(docker exec "$C" sh -c '. /etc/brainstorm.conf; echo "$BRAINSTORM_OWNER_NPUB"')"
+case "$NPUB" in npub1*) ok "the owner has an npub" ;; *) bad "owner npub: $NPUB" ;; esac
 
 step "through Caddy, with a certificate only for a brain that exists"
 [ "$(curl_edge "$SLUG.$DOMAIN" /api/ready -o /dev/null -w '%{http_code}')" = 200 ] && ok "$SLUG.$DOMAIN answers" || bad "$SLUG.$DOMAIN"
