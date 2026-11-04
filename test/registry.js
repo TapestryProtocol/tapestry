@@ -69,6 +69,7 @@ const suites = [
   { file: 'collapse-into-export-concept.test.js' },
   { file: 'login-failure-and-tag-collapse.test.js' },
   { file: 'header-conceptgraph-tag.test.js' },
+  { file: 'create-concept-duplicate-check.test.js' },
   { file: 'community-reference-superset-link.test.js' },
   { file: 'graperank-shared-csv-race.test.js' },
   { file: 'community-class-thread-pull.test.js' },

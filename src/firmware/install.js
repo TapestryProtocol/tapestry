@@ -174,13 +174,14 @@ async function pass1_bootstrap(opts = {}) {
         description: ch.description,
         dTag: slug,  // deterministic d-tag for firmware concepts
         conceptHeaderOverrides: ch,  // pass full firmware conceptHeader for extra fields (e.g., x-tapestry)
+        overwrite: true,  // a reinstall rebuilds the header from the built-in definition
       });
 
       if (result.success) {
         results[slug] = result.concept;
         console.log(`     ✅ Created (header: ${result.concept.uuid})`);
       } else {
-        // Concept might already exist — that's ok
+        // Refused: say why, and carry on with the other concepts
         console.log(`     ⚠️  ${result.error}`);
         results[slug] = { existing: true, error: result.error };
       }
