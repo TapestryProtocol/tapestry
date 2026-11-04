@@ -49,8 +49,9 @@ cleanup() {
   step "cleaning up"
   remove_brain "$SLUG"
   remove_brain "$TWO"
-  "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
+  "${COMPOSE[@]}" down -v --rmi local >/dev/null 2>&1 || true
   docker rm -f brains-itest-registry >/dev/null 2>&1 || true
+  docker rmi brains-itest-rolled:latest >/dev/null 2>&1 || true
   docker images --format '{{.Repository}}:{{.Tag}}' | grep "^$REGISTRY/" | xargs -r docker rmi >/dev/null 2>&1 || true
   rm -rf "$WORK"
   if [ "$FAILED" -eq 0 ]; then printf '\nintegration: PASS\n'; else printf '\nintegration: FAIL\n'; exit 1; fi
