@@ -159,6 +159,9 @@ systemctl daemon-reload && systemctl enable --now launcher-reap.timer
 Check that `https://tapestry.ninja` loads with a valid certificate. Then run the publish workflow so the images land on
 GHCR, and check that `docker pull ghcr.io/nousclawds4/tapestry:dogfood` works from the droplet.
 
+The first run's last step fails at the pull if the packages are still private, and running the job again after the
+change below is all it needs.
+
 New packages on GHCR start private, and changing that is for the owner of the `nousclawds4` account: on each of
 `tapestry` and `tapestry-nostr-search`, Package settings, Change visibility, Public. If they must stay private, log the
 launcher in with a read-only token after each time it is rebuilt:

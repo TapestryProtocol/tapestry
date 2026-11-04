@@ -1,0 +1,87 @@
+name: Publish brain images
+
+# Builds the images brains run, then moves every brain on tapestry.ninja onto them, one at a time. See deploy/RUNBOOK.md.
+#
+# The feat/brains-launcher branch is here for now only because running this by hand needs the file on the default
+# branch. Take it out, here and in the job's `if`, when this reaches main.
+
+on:
+  push:
+    branches: [main, feat/brains-launcher]
+  workflow_dispatch:
+
+# Later pushes wait their turn. Stopping a roll partway would leave brains on two images for no reason.
+concurrency:
+  group: publish-image
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/brains-launcher'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Short commit id
+        id: commit
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the Tapestry image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/nousclawds4/tapestry:dogfood
+            ghcr.io/nousclawds4/tapestry:sha-${{ steps.commit.outputs.short }}
+          cache-from: type=gha,scope=tapestry
+          cache-to: type=gha,mode=max,scope=tapestry
+
+      - name: Build and push the search image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./nostr-search
+          push: true
+          tags: |
+            ghcr.io/nousclawds4/tapestry-nostr-search:dogfood
+            ghcr.io/nousclawds4/tapestry-nostr-search:sha-${{ steps.commit.outputs.short }}
+          cache-from: type=gha,scope=tapestry-nostr-search
+          cache-to: type=gha,mode=max,scope=tapestry-nostr-search
+
+      - name: Roll the brains
+        uses: appleboy/ssh-action@v1
+        timeout-minutes: 40
+        env:
+          REF: ${{ github.ref_name }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST_NINJA }}
+          username: ${{ secrets.DEPLOY_USER_NINJA }}
+          key: ${{ secrets.DEPLOY_SSH_KEY_NINJA }}
+          envs: REF
+          command_timeout: 35m
+          script: |
+            set -euo pipefail
+            cd /opt/tapestry
+            git fetch origin "$REF"
+            git checkout "$REF"
+            git pull --ff-only origin "$REF"
+            docker compose -f deploy/edge/docker-compose.yml up -d --build
+            # A rebuilt launcher takes a moment to answer, and the roll fails if it comes too soon.
+            for i in $(seq 1 30); do
+              docker exec edge-launcher node cli.js list >/dev/null 2>&1 && break
+              sleep 2
+            done
+            docker exec edge-launcher node cli.js roll dogfood

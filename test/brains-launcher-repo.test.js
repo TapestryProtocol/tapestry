@@ -201,6 +201,50 @@ test('A4: the route is registered and open to anyone', () => {
   assert(seen.includes('GET /api/ready'), `registered: ${seen}`);
 });
 
+/* ── The publish workflow ── */
+
+function publishWorkflow() {
+  const file = path.join(REPO, '.github/workflows/publish-image.yml');
+  assert(fs.existsSync(file), '.github/workflows/publish-image.yml is missing');
+  return fs.readFileSync(file, 'utf8');
+}
+
+test('W1: it runs on main and by hand, never on pull requests, and never cancels a roll under way', () => {
+  const wf = publishWorkflow();
+  assert(/push:\s*\n\s*branches: \[[^\]]*\bmain\b[^\]]*\]/.test(wf), 'push to main is missing');
+  assert(/workflow_dispatch:/.test(wf), 'workflow_dispatch is missing');
+  assert(!/pull_request/.test(wf), 'it must not run on pull requests, which could reach the droplet');
+  assert(/cancel-in-progress: false/.test(wf), 'a newer push must not cancel a roll under way');
+});
+
+test('W2: both images are pushed as dogfood and by commit, with layer caching', () => {
+  const wf = publishWorkflow();
+  for (const image of ['ghcr.io/nousclawds4/tapestry', 'ghcr.io/nousclawds4/tapestry-nostr-search']) {
+    assert(wf.includes(image), `${image} is missing`);
+  }
+  assert((wf.match(/:dogfood/g) || []).length >= 2, 'both images need the dogfood tag');
+  assert((wf.match(/:sha-\$\{\{/g) || []).length >= 2, 'both images need a sha tag');
+  assert((wf.match(/type=gha/g) || []).length >= 4, 'both builds need cache-from and cache-to');
+  assert(/context: \.\/nostr-search/.test(wf), 'the search image builds from nostr-search/');
+  assert(/packages: write/.test(wf), 'pushing to GHCR needs packages: write');
+});
+
+test('W3: the roll runs last, stops on any failure, and waits for the launcher to answer first', () => {
+  const wf = publishWorkflow();
+  const lastPush = wf.lastIndexOf('docker/build-push-action');
+  const ssh = wf.indexOf('appleboy/ssh-action');
+  assert(lastPush > -1 && ssh > lastPush, 'the roll must come after both pushes');
+  const script = wf.slice(ssh);
+  for (const secret of ['DEPLOY_HOST_NINJA', 'DEPLOY_USER_NINJA', 'DEPLOY_SSH_KEY_NINJA']) {
+    assert(script.includes(`secrets.${secret}`), `${secret} is missing`);
+  }
+  assert(script.includes('set -euo pipefail'), 'a failed step must stop the script');
+  const up = script.indexOf('deploy/edge/docker-compose.yml up -d --build');
+  const wait = script.indexOf('cli.js list');
+  const roll = script.indexOf('cli.js roll dogfood');
+  assert(up > -1 && wait > up && roll > wait, 'the order must be: edge stack up, launcher answers, roll');
+});
+
 /* ── The owner's npub ── */
 
 test('O1: the entrypoint works out the owner npub from any directory', () => {
