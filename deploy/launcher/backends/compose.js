@@ -20,6 +20,8 @@ const { promisify } = require('node:util');
 const { renderBrain, parseEnv } = require('../lib/render');
 
 const LOG_TAIL_LINES = 40;
+const QUICK = { timeout: 60 * 1000 };
+const SLOW = { maxBuffer: 8 * 1024 * 1024, timeout: 20 * 60 * 1000 };
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const defaultRun = promisify(execFile);
 const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -40,7 +42,7 @@ function createComposeBackend({ brainsDir, caddyContainer, template, getConfig, 
   async function logged(slug, command, args) {
     note(slug, [command, ...args].join(' '));
     try {
-      const { stdout, stderr } = await run(command, args, { maxBuffer: 8 * 1024 * 1024, timeout: 20 * 60 * 1000 });
+      const { stdout, stderr } = await run(command, args, SLOW);
       const output = `${stdout || ''}${stderr || ''}`.trim();
       if (output) note(slug, output);
     } catch (err) {
@@ -64,7 +66,7 @@ function createComposeBackend({ brainsDir, caddyContainer, template, getConfig, 
   async function attachCaddy(slug) {
     const args = ['network', 'connect', `${project(slug)}_default`, caddyContainer];
     try {
-      await run('docker', args);
+      await run('docker', args, QUICK);
       note(slug, `docker ${args.join(' ')}`);
     } catch (err) {
       if (!/already exists/.test(err.message)) throw err;
@@ -73,7 +75,7 @@ function createComposeBackend({ brainsDir, caddyContainer, template, getConfig, 
 
   async function detachCaddy(slug) {
     try {
-      await run('docker', ['network', 'disconnect', `${project(slug)}_default`, caddyContainer]);
+      await run('docker', ['network', 'disconnect', `${project(slug)}_default`, caddyContainer], QUICK);
     } catch {
       // Not attached, or the network is already gone.
     }
@@ -84,7 +86,7 @@ function createComposeBackend({ brainsDir, caddyContainer, template, getConfig, 
     const deadline = Date.now() + readyTimeoutSeconds * 1000;
     do {
       try {
-        await run('docker', ['exec', `${project(slug)}-tapestry`, 'curl', '-sf', 'http://localhost/api/ready']);
+        await run('docker', ['exec', `${project(slug)}-tapestry`, 'curl', '-sf', '--max-time', '30', 'http://localhost/api/ready'], QUICK);
         note(slug, 'ready');
         return;
       } catch {
@@ -141,14 +143,15 @@ function createComposeBackend({ brainsDir, caddyContainer, template, getConfig, 
     },
 
     async ensureUp(slug) {
-      await compose(slug, 'up', '-d');
+      // --no-recreate: a brain moves to a new image only in a roll, with its ready check and its stop on failure.
+      await compose(slug, 'up', '-d', '--no-recreate');
       await attachCaddy(slug);
     },
 
     async pullImages(imageTag) {
       const { image, searchImage } = getConfig();
-      await run('docker', ['pull', `${image}:${imageTag}`], { maxBuffer: 8 * 1024 * 1024, timeout: 20 * 60 * 1000 });
-      await run('docker', ['pull', `${searchImage}:${imageTag}`], { maxBuffer: 8 * 1024 * 1024, timeout: 20 * 60 * 1000 });
+      await run('docker', ['pull', `${image}:${imageTag}`], SLOW);
+      await run('docker', ['pull', `${searchImage}:${imageTag}`], SLOW);
     },
 
     readLog(slug) {

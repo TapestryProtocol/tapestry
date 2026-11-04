@@ -73,7 +73,13 @@ function createHandler({ brains, config, publicDir, log = console.log, nowSecond
   ];
 
   return async function handle(req, res) {
-    const url = new URL(req.url, 'http://launcher');
+    let url;
+    try {
+      url = new URL(req.url, 'http://launcher');
+    } catch {
+      sendJson(res, 400, { error: 'bad-request', message: 'That address is not valid.' });
+      return;
+    }
     try {
       if (req.method === 'GET' && STATIC[url.pathname] && !req.url.includes('..')) {
         const [name, type] = STATIC[url.pathname];

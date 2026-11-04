@@ -44,6 +44,13 @@ function createBrains({ registry, backend, queue, getConfig, freeDiskGb, now = D
     return record;
   }
 
+  /** What counts toward the caps. A stopped brain with work under way is on its way back, so it counts too. */
+  function occupying(exceptSlug) {
+    return registry.live()
+      .filter((r) => r.slug !== exceptSlug)
+      .map((r) => (r.status === 'stopped' && work.has(r.slug) ? { ...r, status: 'creating' } : r));
+  }
+
   function refuseOverCaps(owner, others, disk) {
     const over = checkCaps({ brains: others, owner, config: getConfig(), freeDiskGb: disk });
     if (over) throw new Refusal(409, over.code, over.message);
@@ -141,7 +148,7 @@ function createBrains({ registry, backend, queue, getConfig, freeDiskGb, now = D
         throw new Refusal(409, 'slug-taken', `The name ${slug} is taken. A name stays taken until its data is deleted.`);
       }
       if (work.has(slug)) throw new Refusal(409, 'busy', `${slug} is busy. Wait for it to finish.`);
-      refuseOverCaps(owner, registry.live().filter((r) => r !== existing), disk);
+      refuseOverCaps(owner, occupying(slug), disk);
 
       const { imageTag } = getConfig();
       if (retrying) {
@@ -197,7 +204,7 @@ function createBrains({ registry, backend, queue, getConfig, freeDiskGb, now = D
       const r = owned(owner, slug);
       if (r.status !== 'stopped') throw new Refusal(409, 'wrong-state', `${slug} is ${r.status}, so there is nothing to restore.`);
       if (Date.parse(r.reapAfter) <= now()) throw new Refusal(409, 'grace-over', `The grace period for ${slug} is over.`);
-      refuseOverCaps(owner, registry.live(), await freeDiskGb());
+      refuseOverCaps(owner, occupying(slug), await freeDiskGb());
       schedule(slug, 'restoring', async (setPhase) => {
         await runRestore(slug, r.imageTag, setPhase);
         registry.transition(slug, 'running', { destroyedAt: null, reapAfter: null, lastError: null });
@@ -210,7 +217,7 @@ function createBrains({ registry, backend, queue, getConfig, freeDiskGb, now = D
       const r = owned(owner, slug);
       if (r.status !== 'stopped') throw new Refusal(409, 'wrong-state', 'Only a stopped brain can start fresh. Destroy it first.');
       if (work.has(slug)) throw new Refusal(409, 'busy', `${slug} is busy. Wait for it to finish.`);
-      refuseOverCaps(owner, registry.live(), await freeDiskGb());
+      refuseOverCaps(owner, occupying(slug), await freeDiskGb());
       const { imageTag } = getConfig();
       registry.transition(slug, 'creating', {
         imageTag, createdAt: iso(now()), destroyedAt: null, reapAfter: null, lastError: null, everRunning: false,
@@ -265,20 +272,24 @@ function createBrains({ registry, backend, queue, getConfig, freeDiskGb, now = D
       return { ok: true, rolled };
     },
 
-    /** Runs when the launcher starts: puts the world back in line with the registry. */
+    /**
+     * Runs when the launcher starts, and by hand: puts the world back in line with the registry. A brain with work under
+     * way is left to that work.
+     */
     async reconcile() {
       for (const r of registry.live()) {
-        if (r.status === 'creating') {
+        if (r.status === 'creating' && !work.has(r.slug)) {
           registry.transition(r.slug, 'failed', { lastError: 'The launcher restarted while this brain was being created.' });
         }
       }
-      for (const r of registry.live().filter((b) => b.status === 'running')) {
-        await queue.enqueue(r.slug, async () => {
+      for (const { slug } of registry.live().filter((b) => b.status === 'running' && !work.has(b.slug))) {
+        await queue.enqueue(slug, async () => {
+          if (registry.find(slug)?.status !== 'running' || work.has(slug)) return;
           try {
-            await backend.ensureUp(r.slug);
+            await backend.ensureUp(slug);
           } catch (err) {
-            log(`[launcher] reconcile ${r.slug}: ${errorText(err)}`);
-            fail(r.slug, err);
+            log(`[launcher] reconcile ${slug}: ${errorText(err)}`);
+            fail(slug, err);
           }
         });
       }

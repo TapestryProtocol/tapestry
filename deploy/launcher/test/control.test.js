@@ -104,6 +104,23 @@ test('an unknown command prints usage and exits non-zero', async () => {
   });
 });
 
+test('a connection dropped partway exits non-zero, so a crash mid-roll never reads as success', async () => {
+  const socket = path.join(tempDir(), 'dropping.sock');
+  const server = http.createServer((req, res) => {
+    res.writeHead(200);
+    res.write('updating one\n');
+    setTimeout(() => res.destroy(), 20);
+  });
+  await new Promise((r) => server.listen(socket, r));
+  try {
+    const r = await cli(socket, 'roll');
+    assert.notEqual(r.code, 0, r.out);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((r) => server.close(r));
+  }
+});
+
 test('a launcher that is not running is a clear error', async () => {
   const r = await cli(path.join(tempDir(), 'nothing.sock'), 'list');
   assert.notEqual(r.code, 0);

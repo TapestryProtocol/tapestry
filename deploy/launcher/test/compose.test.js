@@ -16,9 +16,10 @@ const config = {
 function setup({ ready = () => true, failOn = () => false } = {}) {
   const brainsDir = tempDir();
   const commands = [];
-  const run = async (file, args) => {
+  const run = async (file, args, options) => {
     const line = [file, ...args].join(' ');
     commands.push(line);
+    if (!options || !options.timeout) throw new Error(`no timeout on: ${line}`);
     if (line.includes('/api/ready') && !ready(line)) throw new Error('not ready');
     const failure = failOn(line);
     if (failure) throw new Error(failure === true ? `failed: ${line}` : failure);
@@ -42,7 +43,7 @@ test('create writes the files, starts the stack, attaches Caddy, and waits for r
   assert.equal(fs.statSync(path.join(dir, '.env')).mode & 0o777, 0o600);
   const up = commands.findIndex((c) => c.includes(' up -d'));
   const attach = commands.findIndex((c) => c === 'docker network connect brain-avi_default edge-caddy');
-  const wait = commands.findIndex((c) => c.includes('docker exec brain-avi-tapestry curl -sf http://localhost/api/ready'));
+  const wait = commands.findIndex((c) => c.includes('docker exec brain-avi-tapestry curl -sf --max-time 30 http://localhost/api/ready'));
   assert.ok(up >= 0 && up < attach && attach < wait, commands.join('\n'));
   assert.match(commands[up], /docker compose -p brain-avi /);
   assert.match(commands[up], /--pull missing/);
@@ -144,7 +145,7 @@ test('ensureUp starts the stack and attaches Caddy without waiting for ready', a
   await backend.create({ slug: 'avi', ownerPubkey: owner, imageTag: 'dogfood' });
   commands.length = 0;
   await backend.ensureUp('avi');
-  assert.ok(has(commands, ' up -d'));
+  assert.ok(has(commands, ' up -d --no-recreate'), 'it must not move a brain to a new image with no ready check');
   assert.ok(has(commands, 'docker network connect'));
   assert.ok(!has(commands, '/api/ready'));
 });

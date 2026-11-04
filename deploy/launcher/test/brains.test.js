@@ -256,6 +256,20 @@ test('restore respects the owner and the caps', async () => {
   await assert.rejects(ctx.brains.restore(A, 'avi'), (e) => e.code === 'total-cap');
 });
 
+test('a restore in progress counts toward the caps, so two cannot pass the last slot', async () => {
+  const ctx = setup({ config: { maxBrainsTotal: 1 } });
+  await launched(ctx, A, 'one');
+  await ctx.brains.destroy(A, 'one');
+  await ctx.idle();
+  await launched(ctx, B, 'two');
+  await ctx.brains.destroy(B, 'two');
+  await ctx.idle();
+  await ctx.brains.restore(A, 'one');
+  await assert.rejects(ctx.brains.restore(B, 'two'), (e) => e.code === 'total-cap');
+  await assert.rejects(ctx.brains.create(B, 'three'), (e) => e.code === 'total-cap');
+  await ctx.idle();
+});
+
 test('a restore that does not come back is failed, and still counts as having run', async () => {
   const ctx = setup();
   await launched(ctx);
@@ -385,6 +399,25 @@ test('reconcile fails what a crash left creating, brings up what should be runni
   assert.equal(ctx.registry.find('crashed').status, 'failed');
   assert.match(ctx.registry.find('crashed').lastError, /launcher restarted/);
   assert.deepEqual(ctx.calls, ['ensureUp alive']);
+});
+
+test('reconcile leaves a brain alone while work on it is under way', async () => {
+  const ctx = setup();
+  await ctx.brains.create(A, 'avi');
+  await ctx.brains.reconcile();
+  await ctx.idle();
+  assert.equal(ctx.registry.find('avi').status, 'running', 'a create in progress must not be marked failed');
+  assert.ok(!ctx.calls.includes('ensureUp avi'));
+});
+
+test('reconcile does not bring back a brain that was destroyed while it waited its turn', async () => {
+  const ctx = setup();
+  await launched(ctx);
+  await ctx.brains.destroy(A, 'avi');
+  await ctx.brains.reconcile();
+  await ctx.idle();
+  assert.equal(ctx.registry.find('avi').status, 'stopped');
+  assert.ok(!ctx.calls.includes('ensureUp avi'));
 });
 
 test('reconcile marks a brain failed if it will not come up', async () => {

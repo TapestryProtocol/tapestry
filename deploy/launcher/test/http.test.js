@@ -54,7 +54,7 @@ async function withServer(fn) {
     return { status: res.status, text, json, headers: res.headers };
   };
   try {
-    await fn({ call, brains });
+    await fn({ call, brains, local });
   } finally {
     server.closeAllConnections();
     await new Promise((r) => server.close(r));
@@ -174,6 +174,18 @@ test('ask answers Caddy: 200 for a running brain, 404 otherwise', async () => wi
 test('ask refuses anything that came through a proxy, even for a running brain', async () => withServer(async ({ call }) => {
   const r = await call('GET', '/ask?domain=avi.launcher.test', { headers: { 'x-forwarded-for': '203.0.113.9' } });
   assert.equal(r.status, 404);
+}));
+
+test('a request target that is not a valid URL gets 400 and does not bring the server down', async () => withServer(async ({ call, local }) => {
+  const http2 = require('node:http');
+  const { port } = new URL(local);
+  const status = await new Promise((resolve, reject) => {
+    const req = http2.request({ host: '127.0.0.1', port, path: '//', method: 'GET' }, (res) => { res.resume(); resolve(res.statusCode); });
+    req.on('error', reject);
+    req.end();
+  });
+  assert.equal(status, 400);
+  assert.equal((await call('GET', '/')).status, 200, 'the server must still answer');
 }));
 
 test('anything else is 404', async () => withServer(async ({ call }) => {

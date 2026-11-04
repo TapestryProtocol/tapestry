@@ -160,6 +160,7 @@ step "through Caddy, with a certificate only for a brain that exists"
 [ "$(curl_edge "$SLUG.$DOMAIN" /api/ready -o /dev/null -w '%{http_code}')" = 200 ] && ok "$SLUG.$DOMAIN answers" || bad "$SLUG.$DOMAIN"
 curl_edge "nothing.$DOMAIN" / -o /dev/null && bad "nothing.$DOMAIN got a certificate" || ok "nothing.$DOMAIN got no certificate"
 docker exec "$C" curl -s http://127.0.0.1:7778/api/firmware/install-status | grep -q '"installed":true' && ok "firmware installed" || bad "firmware"
+docker exec "$C" test -s /var/lib/brainstorm/firmware-on-boot.installed && ok "the install finished, not just its headers" || bad "no firmware marker"
 
 step "details, and a marker to prove data survives"
 DETAIL="$(api GET "/api/brains/$SLUG")"

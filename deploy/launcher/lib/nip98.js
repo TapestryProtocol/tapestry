@@ -25,7 +25,11 @@ function verifyNip98({ header, method, url, body, now }) {
   if (event === null || typeof event !== 'object' || !Array.isArray(event.tags)) return refuse('not a nostr event');
   if (event.kind !== 27235) return refuse('wrong kind');
   // verifyEvent recomputes the id from the event's contents, then checks the signature against it.
-  if (!verifyEvent(event)) return refuse('bad signature');
+  try {
+    if (!verifyEvent(event)) return refuse('bad signature');
+  } catch {
+    return refuse('malformed event');
+  }
   if (!Number.isInteger(event.created_at) || Math.abs(now - event.created_at) > WINDOW_SECONDS) return refuse('too old or too far ahead');
   if (tag(event, 'u') !== url) return refuse('wrong url');
   if (tag(event, 'method') !== method) return refuse('wrong method');

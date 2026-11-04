@@ -4,7 +4,7 @@ How to run the launcher at `tapestry.ninja`, and how to run one brain yourself w
 owned by one nostr key. One droplet holds several, one compose stack each.
 
 **What is in a brain can be read by anyone with its URL.** `POST /api/neo4j/query` takes any plain read with no sign-in,
-and the relay at `/relay` is open to read. Put nothing private in one yet. Brains are isolated from each other, not from
+and the relay at `/relay` is open to read and to write. Put nothing private in one yet. Brains are isolated from each other, not from
 the internet, and not from whoever has root on the droplet.
 
 ## What was checked in the tree
@@ -13,8 +13,8 @@ These are the answers to the questions the design left open, read from the code 
 
 | Question | Answer | What was done |
 |---|---|---|
-| Is there a readiness check under `/api/`? | No. `GET /api/firmware/install-status` is close, but always answers 200. | Added `GET /api/ready`: 200 when Neo4j answers and firmware's list headers are there, 503 otherwise. |
-| Does firmware install on its own? | No. It is a manual step. | Added `tools/firmware-on-boot.sh`, run only when `TAPESTRY_FIRMWARE_ON_BOOT=true`. |
+| Is there a readiness check under `/api/`? | No. `GET /api/firmware/install-status` is close, but always answers 200, and it counts list headers, which are written first, so it says installed partway through an install. | Added `GET /api/ready`: 200 when Neo4j answers and firmware is in place, 503 otherwise. |
+| Does firmware install on its own? | No. It is a manual step. | Added `tools/firmware-on-boot.sh`, run only when `TAPESTRY_FIRMWARE_ON_BOOT=true`. It records the version it finished in `firmware-on-boot.installed` on the data volume, and `/api/ready` reads that. |
 | Are relay URLs built from `DOMAIN_NAME`? | The server never reads the request's scheme. `RELAY_URL` stays at its default, as on every droplet, and the code derives `wss://<domain>/relay` for what it advertises. | None for relays. `BRAINSTORM_NEO4J_BROWSER_URL` pointed at a port brains do not publish, so `NEO4J_BROWSER_URL` can now set it. |
 | Does Express need `trust proxy`? | No, and it must stay off. A request counts as local only when its peer is loopback and it has no forwarding header (ADR `security-auth-exposure/0001`). Cookies are `secure` only under `USE_HTTPS`. | Caddy adds HSTS instead. |
 | Does nginx pass `Host`, `X-Forwarded-For` and `X-Forwarded-Proto`? | The first two. Nothing reads the third. | None. |
@@ -180,7 +180,9 @@ After a reboot nothing needs doing: brains restart on their own, and the launche
 ## What can go wrong
 
 - **One brain can fill the disk for all of them.** The floor is only checked before a create. The sync buttons in a brain's
-  settings can pull a great deal in (the `userProfiles` preset is millions of profiles), so leave them off for now.
+  settings can pull a great deal in (the `userProfiles` preset is millions of profiles), so leave them off for now. A
+  brain's relay also takes events from anyone, with no write policy, as every Tapestry relay does today, so a stranger
+  could do the same.
 - **Destroy loses what a brain's owner did not keep.** The volumes stay for 7 days. After that they are gone, and Neo4j
   holds things that are not nostr events, so relays cannot rebuild it. A brain's Goals page can export its own content.
 - **There are no backups** unless the droplet's snapshots are on. There is no monitoring: the page is the dashboard.

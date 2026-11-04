@@ -32,13 +32,21 @@ test('R1: first boot does not copy the old router config, whose streams would ru
 /* ── Firmware on first boot ── */
 
 /** Runs the script with a stub curl. `statuses` are install-status answers, in order; the last repeats. */
-function runFirmwareScript({ statuses, installResult = '{"success":true}', tries = 6 }) {
+function runFirmwareScript({ statuses, installResults = ['{"success":true}'], tries = 6, marker }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'firmware-on-boot-'));
   const calls = path.join(dir, 'calls');
+  const markerFile = path.join(dir, 'marker');
+  if (marker !== undefined) fs.writeFileSync(markerFile, marker);
   fs.writeFileSync(path.join(dir, 'statuses'), statuses.join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, 'results'), installResults.join('\n') + '\n');
   fs.writeFileSync(path.join(dir, 'curl'), `#!/bin/bash
 case "$*" in
-  *-X\\ POST*) echo POST "\${@: -1}" >> "${calls}"; printf '%s' '${installResult}' ;;
+  *-X\\ POST*)
+    echo POST "\${@: -1}" >> "${calls}"
+    line="$(head -n 1 "${dir}/results")"
+    [ "$(wc -l < "${dir}/results")" -gt 1 ] && sed -i.bak 1d "${dir}/results"
+    printf '%s' "$line"
+    ;;
   *)
     echo GET "\${@: -1}" >> "${calls}"
     line="$(head -n 1 "${dir}/statuses")"
@@ -49,27 +57,48 @@ esac
 `, { mode: 0o755 });
   const out = spawnSync('bash', [FIRMWARE_SCRIPT], {
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, FIRMWARE_ON_BOOT_WAIT_SECONDS: '0', FIRMWARE_ON_BOOT_TRIES: String(tries) },
+    env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, FIRMWARE_ON_BOOT_WAIT_SECONDS: '0', FIRMWARE_ON_BOOT_TRIES: String(tries), FIRMWARE_ON_BOOT_MARKER: markerFile },
   });
   const log = fs.existsSync(calls) ? fs.readFileSync(calls, 'utf8').trim().split('\n') : [];
-  return { status: out.status, stdout: out.stdout, posts: log.filter((l) => l.startsWith('POST')), log };
+  const written = fs.existsSync(markerFile) ? fs.readFileSync(markerFile, 'utf8') : null;
+  return { status: out.status, stdout: out.stdout, posts: log.filter((l) => l.startsWith('POST')), log, marker: written };
 }
 
-const INSTALLED = '{"success":true,"installed":true,"installedCount":3,"totalCount":3}';
-const MISSING = '{"success":true,"installed":false,"installedCount":0,"totalCount":3}';
+const INSTALLED = '{"success":true,"installed":true,"installedCount":3,"totalCount":3,"activeVersion":"v2"}';
+const MISSING = '{"success":true,"installed":false,"installedCount":0,"totalCount":3,"activeVersion":"v2"}';
 const NEO4J_DOWN = '{"success":false,"error":"connection refused"}';
 
-test('F1: firmware already installed means no install, so a restart is a no-op', () => {
-  const r = runFirmwareScript({ statuses: [INSTALLED] });
+test('F1: firmware this script finished installing means no install, so a restart is a no-op', () => {
+  const r = runFirmwareScript({ statuses: [INSTALLED], marker: 'v2' });
   assert(r.status === 0, `exit ${r.status}`);
   assert(r.posts.length === 0, `expected no POST, got ${r.posts}`);
 });
 
-test('F2: a fresh instance installs once, then finishes', () => {
+test('F2: a fresh instance installs once, then finishes and records the version', () => {
   const r = runFirmwareScript({ statuses: [MISSING, INSTALLED] });
   assert(r.status === 0, `exit ${r.status}`);
   assert(r.posts.length === 1, `expected one POST, got ${r.posts}`);
   assert(r.posts[0].endsWith('/api/firmware/install'), `posted to ${r.posts[0]}`);
+  assert(r.marker === 'v2', `marker: ${r.marker}`);
+});
+
+test('F8: headers with no marker mean an install stopped partway, so it installs again', () => {
+  const r = runFirmwareScript({ statuses: [INSTALLED, INSTALLED] });
+  assert(r.posts.length === 1, `expected one POST, got ${r.posts}`);
+  assert(r.marker === 'v2', `marker: ${r.marker}`);
+});
+
+test('F9: a failed install writes no marker', () => {
+  const r = runFirmwareScript({ statuses: [INSTALLED], installResults: ['{"success":false,"error":"killed"}'], tries: 3 });
+  assert(r.status !== 0, `exit ${r.status}`);
+  assert(r.marker === null, `marker: ${r.marker}`);
+  assert(r.posts.length === 3, `expected a try each time, got ${r.posts}`);
+});
+
+test('F10: a new firmware version installs again', () => {
+  const r = runFirmwareScript({ statuses: [INSTALLED, INSTALLED], marker: 'v1' });
+  assert(r.posts.length === 1, `expected one POST, got ${r.posts}`);
+  assert(r.marker === 'v2', `marker: ${r.marker}`);
 });
 
 test('F3: it waits for Neo4j rather than installing against a database that is down', () => {
@@ -80,7 +109,7 @@ test('F3: it waits for Neo4j rather than installing against a database that is d
 });
 
 test('F4: a failed install is tried again', () => {
-  const r = runFirmwareScript({ statuses: [MISSING, MISSING, INSTALLED], installResult: '{"success":false,"error":"schema"}' });
+  const r = runFirmwareScript({ statuses: [MISSING, MISSING, INSTALLED], installResults: ['{"success":false,"error":"schema"}', '{"success":true}'] });
   assert(r.status === 0, `exit ${r.status}`);
   assert(r.posts.length === 2, `expected two POSTs, got ${r.posts}`);
 });
@@ -134,6 +163,32 @@ test('A3: 503 naming neo4j when the database does not answer, without its error 
   await createReadyHandler(async () => { throw new Error('bolt://localhost secret detail'); })({}, res);
   assert(res.statusCode === 503 && res.body.unmet === 'neo4j', JSON.stringify(res));
   assert(!JSON.stringify(res.body).includes('secret detail'), 'error text must not reach the answer');
+});
+
+test('A5: with firmware on boot, headers are not enough: the install has to have finished', async () => {
+  const { createReadyHandler } = require('../src/api/firmware/ready');
+  const state = async () => ({ installedCount: 3, totalCount: 3, activeVersion: 'v2' });
+  const call = async (readMarker) => {
+    const res = fakeRes();
+    await createReadyHandler(state, { onBoot: true, readMarker })({}, res);
+    return res;
+  };
+  const none = await call(() => { throw new Error('no file'); });
+  assert(none.statusCode === 503 && none.body.unmet === 'firmware', JSON.stringify(none));
+  const old = await call(() => 'v1');
+  assert(old.statusCode === 503 && old.body.unmet === 'firmware', JSON.stringify(old));
+  const done = await call(() => 'v2\n');
+  assert(done.statusCode === 200 && done.body.ready === true, JSON.stringify(done));
+});
+
+test('A6: without firmware on boot, nothing looks for the marker, so other instances behave as before', async () => {
+  const { createReadyHandler } = require('../src/api/firmware/ready');
+  const res = fakeRes();
+  await createReadyHandler(async () => ({ installedCount: 3, totalCount: 3, activeVersion: 'v2' }), {
+    onBoot: false,
+    readMarker: () => { throw new Error('must not be read'); },
+  })({}, res);
+  assert(res.statusCode === 200, JSON.stringify(res));
 });
 
 test('A4: the route is registered and open to anyone', () => {

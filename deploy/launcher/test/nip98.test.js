@@ -78,3 +78,12 @@ test('rejects the wrong kind', () => {
 test('rejects an oversized header without parsing it', () => {
   assert.equal(verifyNip98({ ...base, header: `Nostr ${'A'.repeat(20000)}` }).ok, false);
 });
+
+test('a malformed event is refused, not thrown', () => {
+  const event = { kind: 27235, id: 'x', pubkey: 'y', sig: 'z', created_at: now, content: '', tags: [['u', URL_]] };
+  const h = `Nostr ${Buffer.from(JSON.stringify(event)).toString('base64')}`;
+  assert.equal(verifyNip98({ ...base, header: h }).ok, false);
+  const weird = { ...event, tags: [[{}], 7], pubkey: 12, sig: null };
+  const h2 = `Nostr ${Buffer.from(JSON.stringify(weird)).toString('base64')}`;
+  assert.equal(verifyNip98({ ...base, header: h2 }).ok, false);
+});

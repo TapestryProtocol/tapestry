@@ -31,6 +31,8 @@ if (!requests[command]) {
   process.exitCode = 2;
 } else {
   const [method, path] = requests[command];
+  // Only a result that says ok turns this to 0, so a launcher that dies partway never reads as success.
+  process.exitCode = 1;
   const req = http.request({ socketPath: SOCKET, method, path }, (res) => {
     // Every line is progress except the last, which is the result as JSON.
     let partial = '';
@@ -52,6 +54,10 @@ if (!requests[command]) {
         console.log(`error: the launcher gave an answer that cannot be read: ${held}`);
         process.exitCode = 1;
       }
+    });
+    res.on('error', (err) => {
+      if (held !== null) console.log(held);
+      console.log(`error: the launcher dropped the connection: ${err.message}`);
     });
   });
   req.on('error', (err) => {
