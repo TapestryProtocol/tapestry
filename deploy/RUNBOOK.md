@@ -87,8 +87,9 @@ Four handovers, in order. Each person can follow theirs with no other context.
    ufw --force enable
    ```
    Reboot if the upgrade installed a new kernel.
-3. In the DigitalOcean console, add the droplet to the `tapestry-web` Cloud Firewall (inbound TCP 22, 80, 443). UFW does
-   not stop ports Docker publishes (`OPEN.md` row 66), and this is the layer that does.
+3. In the DigitalOcean console, put the droplet behind a Cloud Firewall that allows inbound TCP 22, 80 and 443 and nothing
+   else. Add it to `tapestry-web` if the account has one, or create that under Networking, Firewalls. UFW does not stop
+   ports Docker publishes (`OPEN.md` row 66), and this is the layer that does.
 4. Install Docker from Docker's own repository, never Ubuntu's `docker.io`.
    ```bash
    install -m 0755 -d /etc/apt/keyrings
