@@ -132,6 +132,25 @@ TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
 NUM_CPUS=$(nproc)
 
+# Inside a container, /proc/meminfo reports the whole host. When the container has
+# a memory limit, that limit is what it really has (brains-launcher #1). cgroup v2
+# reads "max" and v1 reads a huge number when there is no limit; both leave the
+# host total in place, so a droplet with no limit sizes exactly as it did before.
+for CGROUP_MEM_FILE in "${CGROUP_V2_MEMORY_MAX:-/sys/fs/cgroup/memory.max}" "${CGROUP_V1_MEMORY_LIMIT:-/sys/fs/cgroup/memory/memory.limit_in_bytes}"; do
+  [ -r "$CGROUP_MEM_FILE" ] || continue
+  CGROUP_MEM_BYTES="$(cat "$CGROUP_MEM_FILE")"
+  case "$CGROUP_MEM_BYTES" in
+    ''|*[!0-9]*) ;;
+    *)
+      # Compare lengths first: v1's "no limit" value can pass what bash arithmetic holds safely.
+      if [ "${#CGROUP_MEM_BYTES}" -le 15 ] && [ "$((CGROUP_MEM_BYTES / 1024 / 1024))" -lt "$TOTAL_MEM_MB" ]; then
+        TOTAL_MEM_MB=$((CGROUP_MEM_BYTES / 1024 / 1024))
+      fi
+      ;;
+  esac
+  break
+done
+
 # Reserve memory for other services (Meilisearch, strfry, Redis, Node.js, OS).
 # Empirical measurements on 32GB/2.6M profiles: Meilisearch uses ~6GB,
 # strfry ~1-2GB, Node.js ~0.5GB, OS ~1-2GB = ~10-12GB total.
