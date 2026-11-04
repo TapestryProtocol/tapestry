@@ -14,6 +14,7 @@ const firmware = require('../normalize/firmware');
 const { runCypher } = require('../../lib/neo4j-driver');
 const { getConceptCoreNodes } = require('../../lib/conceptCoreNodes');
 const { handleFirmwareInstall } = require('../../firmware/install');
+const { createReadyHandler } = require('./ready');
 
 const FIRMWARE_VERSIONS_DIR = path.resolve(__dirname, '../../../firmware/versions');
 const FIRMWARE_ACTIVE_LINK = path.resolve(__dirname, '../../../firmware/active');
@@ -124,30 +125,35 @@ async function handleVersions(req, res) {
  * GET /api/firmware/install-status
  * Checks if firmware is actually installed in Neo4j by looking for ConceptHeader nodes.
  */
+async function readInstallState() {
+  const manifest = firmware.getManifest();
+  const taPubkey = firmware.getTAPubkey();
+
+  let installedCount = 0;
+  const totalCount = manifest.concepts.length;
+  const missing = [];
+  const installed = [];
+
+  for (const entry of manifest.concepts) {
+    const expectedUuid = `39998:${taPubkey}:${entry.slug}`;
+    const rows = await runCypher(
+      `MATCH (h:NostrEvent {uuid: $uuid}) RETURN h.uuid AS uuid LIMIT 1`,
+      { uuid: expectedUuid }
+    );
+    if (rows.length > 0) {
+      installedCount++;
+      installed.push(entry.slug);
+    } else {
+      missing.push(entry.slug);
+    }
+  }
+
+  return { installedCount, totalCount, missing, installed, activeVersion: manifest.version };
+}
+
 async function handleInstallStatus(req, res) {
   try {
-    // Count firmware concept headers in Neo4j
-    const manifest = firmware.getManifest();
-    const taPubkey = firmware.getTAPubkey();
-
-    let installedCount = 0;
-    let totalCount = manifest.concepts.length;
-    const missing = [];
-    const installed = [];
-
-    for (const entry of manifest.concepts) {
-      const expectedUuid = `39998:${taPubkey}:${entry.slug}`;
-      const rows = await runCypher(
-        `MATCH (h:NostrEvent {uuid: $uuid}) RETURN h.uuid AS uuid LIMIT 1`,
-        { uuid: expectedUuid }
-      );
-      if (rows.length > 0) {
-        installedCount++;
-        installed.push(entry.slug);
-      } else {
-        missing.push(entry.slug);
-      }
-    }
+    const { installedCount, totalCount, missing, installed, activeVersion } = await readInstallState();
 
     res.json({
       success: true,
@@ -157,7 +163,7 @@ async function handleInstallStatus(req, res) {
       totalCount,
       missing,
       installedSlugs: installed,
-      activeVersion: manifest.version,
+      activeVersion,
     });
   } catch (err) {
     res.json({ success: false, error: err.message });
@@ -222,6 +228,7 @@ function registerFirmwareApiRoutes(app) {
   app.get('/api/firmware/manifest', handleManifest);
   app.get('/api/firmware/versions', handleVersions);
   app.get('/api/firmware/install-status', handleInstallStatus);
+  app.get('/api/ready', createReadyHandler(readInstallState));
   app.get('/api/firmware/concept/:slug', handleConcept);
   app.post('/api/firmware/install', handleFirmwareInstall);
 }

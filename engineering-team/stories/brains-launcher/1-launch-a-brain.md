@@ -20,7 +20,7 @@ I can add my agent as an admin and start putting my own knowledge in, without se
 1. **Launch.** A signed request from an allowlisted key creates a brain owned by the signer. Status goes
    `creating` to `running`, in under three minutes on a warm box.
 2. **Blank.** A new brain has firmware installed, no list items, every router preset off, and the search services
-   stopped. It never connects to another relay on its own, including during first boot.
+   stopped. Its relay router has no streams, including during first boot.
 3. **Isolation.** No brain publishes a port. Each has its own network, volumes, Redis and Neo4j. Only Caddy joins a
    brain's network, and only the launcher mounts the Docker socket.
 4. **Refusals.** Bad or stale signatures get 401. A key off the allowlist gets 403. Bad slugs, reserved slugs, and

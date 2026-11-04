@@ -287,6 +287,7 @@ const ROUTE_ACCESS = Object.freeze({
     "The read backbone of public browsing (book negentropy-sync-access decision 3); the handler keeps write Cypher " +
     "on the owner's side (ADR 0001)."),
   'GET /api/network-status': PUBLIC_READ,
+  'GET /api/ready': PUBLIC_READ,
   'GET /api/nip05/verify': PUBLIC_READ,
   'POST /api/normalize/add-node-as-element': OWNER_ACTION,
   'POST /api/normalize/add-relationship': OWNER_ACTION,

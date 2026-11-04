@@ -7,6 +7,7 @@ ADMIN_PUBKEYS="${ADMIN_PUBKEYS:-}"
 NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4j}"
 DOMAIN_NAME="${DOMAIN_NAME:-localhost}"
 RELAY_URL="${RELAY_URL:-ws://localhost:7777}"
+NEO4J_BROWSER_URL="${NEO4J_BROWSER_URL:-http://${DOMAIN_NAME}:7474}"
 
 BRAINSTORM_MODULE_BASE_DIR="/usr/local/lib/node_modules/brainstorm/"
 BRAINSTORM_NODE_BIN="$(which node)"
@@ -43,7 +44,7 @@ fi
 # invoking it — they are local shell vars at this point. The renderer rejects
 # unknown ${VAR} references with nonzero exit, so a missing env var fails the
 # boot loudly rather than producing a silently-incomplete conf file.
-export OWNER_PUBKEY ADMIN_PUBKEYS NEO4J_PASSWORD DOMAIN_NAME RELAY_URL
+export OWNER_PUBKEY ADMIN_PUBKEYS NEO4J_PASSWORD DOMAIN_NAME RELAY_URL NEO4J_BROWSER_URL
 export BRAINSTORM_MODULE_BASE_DIR BRAINSTORM_NODE_BIN SESSION_SECRET OWNER_NPUB
 
 if ! node "${BRAINSTORM_MODULE_BASE_DIR}tools/render-conf-template.js" \
@@ -265,12 +266,10 @@ if [ ! -d "${BRAINSTORM_MODULE_BASE_DIR}node_modules/express" ]; then
 fi
 
 # --- strfry router config ---
-# Router config is normally managed by initRouter() in the Node app, which reads
-# from router-state.json (persistent volume) or initializes from router-presets.json.
-# On a true first boot the bundled template seeds /etc/ with the legacy defaults.
-if [ ! -f "/var/lib/brainstorm/router-state.json" ] && [ -f "${BRAINSTORM_MODULE_BASE_DIR}setup/strfry-router-tapestry.config" ]; then
-  cp "${BRAINSTORM_MODULE_BASE_DIR}setup/strfry-router-tapestry.config" /etc/strfry-router-tapestry.config
-fi
+# Router config is managed by initRouter() in the Node app, which reads from
+# router-state.json (persistent volume) or initializes from router-presets.json.
+# Until the app writes it, the router starts idle, on a fresh instance too, so a
+# new instance connects to no other relay on its own (brains-launcher #1).
 
 # Guarantee /etc/strfry-router-tapestry.config exists before supervisord starts.
 # strfry-router (priority 25) boots before brainstorm (priority 30), and /etc/ is
@@ -351,6 +350,12 @@ nginx 2>/dev/null || echo "WARNING: nginx failed to start"
 
 # Symlink concept-graph defaults so setup.sh can find it
 ln -sf /usr/local/lib/node_modules/brainstorm/src/concept-graph/parameters/defaults.conf /etc/concept-graph.conf
+
+# --- Firmware on first boot (opt-in) ---
+# Off unless asked for, so an existing droplet changes nothing (brains-launcher #1).
+if [ "${TAPESTRY_FIRMWARE_ON_BOOT:-}" = "true" ]; then
+  bash "${BRAINSTORM_MODULE_BASE_DIR}tools/firmware-on-boot.sh" >> /var/log/brainstorm/firmware-on-boot.log 2>&1 &
+fi
 
 # Start supervisord
 exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
