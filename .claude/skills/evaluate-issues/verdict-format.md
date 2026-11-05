@@ -74,9 +74,11 @@ Re-checked after <what changed, such as "the comment of 2026-11-06">: unchanged.
 
 ## When a verdict is current
 
-An issue's current verdict is its newest comment whose first line is the marker. It stays current until, after it, the issue gets a comment whose first line isn't the marker, or an edit, or the rubric's version changes. A status change doesn't count: ngit's JSON gives an issue's current status, not when it changed, so re-judge a reopened issue by name.
+A verdict counts only from the repo's maintainers or this machine's account, as the run's step 1 finds them: an issue's current verdict is its newest comment whose first line is the marker and whose author is one of those. A marker comment from anyone else is ordinary activity. It makes no verdict current and names no label.
 
-If the issue's labels don't include the label its current verdict names, the label failed after the comment went up; the run offers to publish it.
+The current verdict stays current until, after it, the issue gets any other comment, or an edit, or the rubric's version changes. A status change doesn't count: ngit's JSON gives an issue's current status, not when it changed, so re-judge a reopened issue by name.
+
+If the issue's labels don't include the label its current verdict names, the label failed after the comment went up. The run offers to publish it, saying who wrote the verdict comment.
 
 ## The judge's answer
 
