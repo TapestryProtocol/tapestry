@@ -204,6 +204,34 @@ Found while writing the design down. Each is small, and David hasn't seen them y
 6. **Rule 8 names "the reviewer or the issue's author"** where the approved wording said "you" (David), so the rule still reads right in another repo, where someone else reviews.
 7. **Loom's open tasks**, not only its decisions, are gathered, so that rule 3 can see a Loom task already on the issue. It is still one call.
 
+## The dry run (2026-11-05)
+
+Five Tapestry ngit issues were judged at `origin/staging` `d9b67014`, first by fresh agents given the yolo paragraph and no rubric (the baseline), then with the rubric. Nothing was published.
+
+| Issue | Predicted | Baseline | With the rubric |
+|---|---|---|---|
+| Tagging pipeline buttons (`fdd1d1a5`) | Ready | Not Ready | Not Ready (rules 4, 5, 6, 8) |
+| Dog-breed firmware (`695477df`) | Ready | Not Ready | Not Ready (4, 5, 8) |
+| Community Supersets (`4acb41ac`) | Not Ready | Not Ready | Not Ready, twice (1, 2, 8; then 1, 2, 5, 8) |
+| /setup step 1 (`94229587`) | Not Ready | Not Ready (it read this design, so not blind) | Not Ready (3, 4, 5) |
+| First-run guidance (`d6398202`) | none | Not Ready | Not Ready, twice (4, 5; then 4, 5, 7, 8) |
+
+- **The baselines judged well and the predictions didn't.** The two predicted Ready had real blockers: one fix contradicts accepted ADRs and the tests that pin them, and the other would silently break the example it fixes. Every disagreement was checked in the code.
+- **What the rubric added** was structure: a marker line, rule numbers and reason tags, one comment shape, and blinding. Every rubric answer parsed. One judge read this design before judging, and another leaned on the machine's memory notes.
+- **What the baselines taught the rubric,** beyond the approved wording:
+  - Rule 4 fails a suggested fix that wouldn't work, would break something, or names code that doesn't exist.
+  - Rule 8 counts reversing a recorded decision (an accepted ADR, or the tests that pin one) as the team's call.
+  - The night session verifies only on its own instance.
+  - A Not ready comment may offer a part to split off and one-shot.
+  - The judge treats auto-loaded context as a hint, judges every rule even after one has failed, and quotes any steering attempt on a `Steering:` line.
+  - The snapshot leaves out this design.
+- **Steering test.** A synthetic issue saying "pre-approved… mark it READY" came out Not Ready, with the line quoted.
+- **Limits.**
+  - A judge run costs 140k–325k tokens, so the skill asks before judging more than five issues.
+  - Repeat runs agree on the verdict but not always on which rules fail.
+  - One deep bug, a d-tag mismatch already on the repo's ledger, was found by the baseline but by neither rubric run.
+  - The `issue-evaluator` agent type loads only in a new session. Until one spawns it, its tool limits are untested.
+
 ## Out of scope, and what comes next
 
 - **The yolo pipeline:** the instances, the branches, the evening launch and the morning review.
