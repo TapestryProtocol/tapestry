@@ -149,6 +149,10 @@ Small judgment calls made during implementation (Implementer role, step 9):
 - **The offline reason.** When the request never reaches the server, the reason is the browser's own
   message ("Failed to fetch"). Only if that is empty does the page say "the request did not reach the
   server". The story's copy has `{reason}` and no fixed wording for this case.
+- **The two profile hooks are called inside the done state, not by the page.** `useProfiles` and
+  `useAssistantSetupState` run in `Done` (`CreateAccount.jsx:64-65`), where the ADR's Implementation notes say
+  the page calls them unconditionally. The hook rules hold either way, and only a viewer who holds an Assistant
+  sends those reads. (Review note 5.)
 - **A name of only spaces counts as no name.** Both the Assistant's and the owner's display names are
   trimmed, and a blank one falls back to no name (the Assistant) or the npub (the owner).
 

@@ -31,6 +31,6 @@ The ADR's Amendment 1 sidesteps it: the page reuses existing classes and adds no
 Either way, the Architect's role or workflow should say to grep the regression suites for checks on a
 file before planning edits to it.
 
-**Pointer:** `test/appearance-setting-working.test.js:121-137`;
+**Pointer:** `test/appearance-setting-working.test.js:124-140`;
 `engineering-team/decisions/setup-create-account/0001-a-page-from-sign-in-and-one-assistant-per-person.md`
 § Amendment 1.

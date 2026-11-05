@@ -41,9 +41,13 @@ of visitor (story § The page's states). Its acceptance criteria, restated:
   `user.assistantPubkey` (`ui/src/context/SetupStatusContext.jsx:35`), so calling `refreshUser()` after
   creating one updates `/setup` and the Setup Alert with no reload. That is how the Edit Assistant
   Profile page already does it (ADR `setup-status-and-alert/0002` Decision 5).
-- **Profiles.** `useAssistantSetupState()` gives `set-up` / `needs-setup` / `unknown` for the viewer's
-  own Assistant, from the read-only `GET /api/assistant/status?…&defaults=0`
-  (`ui/src/hooks/useAssistantSetupState.js:23-66`). `useProfiles(pubkeys)` gives kind 0 content
+- **Profiles.** `useAssistantSetupState()` (`ui/src/hooks/useAssistantSetupState.js:23-66`) gives `set-up` /
+  `needs-setup` / `unknown` for the viewer's own Assistant, from `GET /api/assistant/status?…&defaults=0`. That
+  read signs and publishes nothing. But for the Assistant's own signed-in person, it may copy an already-signed
+  kind 0 found only on the publish relays into this instance's relay (`src/api/assistant/index.js:380-396`,
+  `profileState.js:179`; ADR `assistant-profile/0001`). The editor and the dashboard already make that read
+  through the same hook. This ADR reads that cache fill as within story AC-5's intent, since opening the page
+  creates, signs and publishes nothing new (review note 3). `useProfiles(pubkeys)` gives kind 0 content
   (`ui/src/hooks/useProfiles.js`). `useConfig()` gives `ownerPubkey` and `ownerProfile`
   (`ui/src/context/ConfigContext.jsx:10-38`, from `GET /api/owner/pubkey`, which reads
   `BRAINSTORM_OWNER_PUBKEY`).
@@ -213,7 +217,8 @@ its 200 body. Status codes, bodies and the route table entry don't change.
 - **Story 2** extends `createAccountState` (a guest while sign-up is open, and a deactivated customer)
   and `GuestNoAssistant`. Its sign-up mints an Assistant key too, so it reuses
   `provisionAssistantKeyOnce`, lock and all.
-- `provision-key` can no longer orphan a key, from this page, the editor or a direct call.
+- `provision-key` can no longer orphan an admin's or a customer's key, from this page, the editor or a direct
+  call. An owner whose TA key is missing is the one case left, kept as a known gap below.
 
 **Constrains, or leaves as it is**
 
