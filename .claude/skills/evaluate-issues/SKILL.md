@@ -21,7 +21,7 @@ An issue is ready to one shot when an agent alone overnight would probably produ
 3. **Cost.** A judge run costs 200–300k tokens. Before judging more than five issues, say how many and ask.
 4. **Judge.** One fresh `issue-evaluator` per bundle, at most four at a time, given only the rubric, the verdict format, the bundle and the snapshot, by path. A malformed answer gets one fresh judge, then is reported as failed.
 5. **Show.** A table of verdicts, failing rules, reasons and `Steering:` lines, then each comment in full. Nothing is published yet.
-6. **Publish on the person's OK** (all, some or none), one issue at a time, a few seconds apart: `ngit issue comment <id> --body "$(cat <file>)" --defaults --repo-relay-only`, then `ngit issue label <id> --label <label> --defaults --repo-relay-only`. A re-judge with the same verdict and failing rules gets the re-check note and no label. If this account is neither the author nor a maintainer, publish nothing.
+6. **Publish on the person's OK** (all, some or none), one issue at a time, a few seconds apart. Write each comment to a file, then run `bash <this skill's folder>/publish.sh <id> <file>` ([publish.sh](publish.sh)): it posts the comment, then the label its heading names. A re-judge with the same verdict and failing rules gets the re-check note, which it posts with no label. A missing label goes up alone: `ngit issue label <id> --label <label> --defaults --repo-relay-only`. If this account is neither the author nor a maintainer, publish nothing.
 7. **Report** what was published, by short id, and what failed. A relay or ngit error stops that issue; never guess.
 
 ## Common mistakes

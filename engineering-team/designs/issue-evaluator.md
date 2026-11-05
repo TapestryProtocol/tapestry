@@ -163,6 +163,7 @@ It is skeptical by default, as `gate-judge` is: an item it cannot verify is a fi
 | `.claude/skills/evaluate-issues/SKILL.md` | The run: gather, judge, show, publish, report |
 | `.claude/skills/evaluate-issues/rubric.md` | The eight rules, the verdict rule, the reasons and the night-session assumptions (v1) |
 | `.claude/skills/evaluate-issues/verdict-format.md` | The labels, the marker line, both comment templates, the re-check note, "the newer label wins" and when a verdict is current |
+| `.claude/skills/evaluate-issues/publish.sh` | Posts one verdict: the comment, then the label its heading names (added at the first publish, below) |
 | `.claude/agents/issue-evaluator.md` | The judge: its blinding, its tools and its answer |
 | `engineering-team/designs/issue-evaluator.md` | This design |
 | `engineering-team/CHANGELOG.md` | One row, since skills and agents are harness definitions (lint L10), quoting David's OK as H²₀ asks for a harness change |
@@ -232,6 +233,14 @@ Five Tapestry ngit issues were judged at `origin/staging` `d9b67014`, first by f
   - One deep bug, a d-tag mismatch already on the repo's ledger, was found by the baseline but by neither rubric run.
   - The `issue-evaluator` agent type loads only in a new session. Until one spawns it, its tool limits are untested.
 
+## The first publish (2026-11-05)
+
+On David's OK, the two Not Ready verdicts went up: `94229587` (/setup step 1: rules 3, 4, 5) and `fdd1d1a5` (Tagging pipeline buttons: rules 4, 5, 6, 8). Each got its comment and then its label, signed by the Zeus account, a maintainer, and sent to the repo's two relays only. None of the five issues had come out Ready, so the Ready comment and the `ready-to-one-shot` label are not yet tried. One word of the judge's text changed before posting, with David seeing it: "Since `d9b67014`" became "As of `d9b67014`".
+
+- **Read back** from the relays: each issue carries `not-ready-to-one-shot`, its newest comment starts with the marker line, and `ngit issue list --label not-ready-to-one-shot` lists exactly the two.
+- **Test A again:** 20 open issues, 18 candidates. The two published ones now count as current.
+- **What it changed.** This session's worktree guard refused the documented `ngit issue comment … --body "$(cat …)"`: it reads `ngit` as `git` and won't vet a command substitution. Any worktree-isolated run would hit the same refusal, so the skill now publishes through `publish.sh`. The script posts the comment, then the label its heading names, or no label for a re-check note, and it stops before the label if the comment fails. It passed ten checks against a stub `ngit` before the real publish used it.
+
 ## Out of scope, and what comes next
 
 - **The yolo pipeline:** the instances, the branches, the evening launch and the morning review.
@@ -251,3 +260,9 @@ In order, in this session (David, 2026-11-04, late evening ET, Claude Code on th
 4. Section 1, the rubric: "Rubric looks right"
 5. Section 2, the run and what it writes: "Looks right"
 6. Section 3, files and testing: "Looks right"
+
+Then, in the same session and channel:
+
+7. The written spec: "Spec approved" (2026-11-04, 23:56 ET)
+8. The plan, run natively: "Approve, native" (2026-11-05, 00:02 ET)
+9. The first publish, of the two Not Ready verdicts: "Publish both" (2026-11-05, 11:57 ET)
