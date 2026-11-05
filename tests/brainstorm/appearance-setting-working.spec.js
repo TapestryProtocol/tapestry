@@ -22,6 +22,7 @@ const { test, expect } = require('@playwright/test');
  *   W2 — in Light, the working pieces on a reading page are light too: a profile with the Manage Tags dialog open.
  *                                                                                                            [AC-2]
  *   W3 — Dark is unchanged: every element on every working page paints today's colours (snapshot).          [AC-4]
+ *        Pages replaced since the baseline are left out (REPLACED_SINCE_BASELINE).
  *   W4 — no flash on a working page.                                                                         [AC-5]
  *   W5 — at 375 and 414 px in Light, no working page scrolls sideways.                                       [AC-6]
  *   W6 — the /about Admins count reads at 3:1 or better in Light as rendered, and is today's accent in Dark.  [AC-7]
@@ -212,8 +213,14 @@ test('W2 in Light, a profile\'s working pieces are light too: the Manage Tags di
 
 // ── W3 ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+// A page a later story REPLACES leaves this snapshot: its baseline recorded the old page, so "unchanged" no longer
+// applies. /setup/create-account was the placeholder until setup-create-account #1 built it; that story's own spec
+// (setup-create-account.spec.js B14) checks its Dark and Light, and W1 and W5 here still sweep it in Light. Its three
+// baseline entries stay in the fixture, unread. (Re-aimed in setup-create-account #1's Test Design.)
+const REPLACED_SINCE_BASELINE = new Set(['/setup/create-account']);
+
 test.describe('W3 Dark is unchanged: every element on every working page paints today\'s colours', () => {
-  for (const url of WORKING) {
+  for (const url of WORKING.filter((u) => !REPLACED_SINCE_BASELINE.has(u))) {
     test(`${url}`, async ({ browser }) => {
       const runs = [{ label: 'dark-chosen', scheme: 'light', stored: 'dark', session: null }, { label: 'system-dark', scheme: 'dark', stored: null, session: null }];
       if (OWNER_PARTS(url)) runs.push({ label: 'dark-owner', scheme: 'light', stored: 'dark', session: OWNER_SESSION });

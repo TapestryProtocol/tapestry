@@ -250,10 +250,7 @@ its 200 body. Status codes, bodies and the route table entry don't change.
   R2 still matches.
 - **`ui/src/pages/setup/Placeholders.jsx`:** remove `SetupCreateAccount`, and update the doc comment so
   it lists the two placeholders left.
-- **`ui/src/styles.css`:** a few rules after `.bs-setup-placeholder` (`:8832-8841`): the page's card, the
-  npub (`overflow-wrap: anywhere`, monospace), the link row and the error line. Colours only from
-  `var(--bsp-*)`, as the block around them, so the appearance setting covers them. Nothing that forces
-  a width over 375 px.
+- **`ui/src/styles.css`:** no change. Superseded by Amendment 1: the page reuses existing classes.
 - **`src/api/assistant/index.js`:** `underProvisionLock` and `provisionAssistantKeyOnce`, per § Decision
   4, with `DEFAULT_PROVISION_DEPS` wrapping today's `getAssistantKeys`, `generateRelayKeys` (from
   `../../utils/customerRelayKeys`) and `new SecureKeyStorage().storeRelayKeys`. `handleProvisionAssistantKey`
@@ -269,6 +266,34 @@ its 200 body. Status codes, bodies and the route table entry don't change.
   The machine's :7778 container isn't the dev stack, so any live leg runs on a scratch stack.
 - **Branches.** Ordinary feature work: `staging`, then `main` by the usual promotion. It isn't a security
   fix, so no sandbox port is owed, and the lock discloses no open hole.
+
+## Amendment 1 (Test Design, 2026-11-04): no new stylesheet rules
+
+**Proposed by the Tester at Test Design. The owner approved it with the test plan at that gate
+("Approve, go on", 2026-11-04).**
+
+**What changed.** The Implementation notes planned "a few rules" in `ui/src/styles.css`. That conflicts
+with a shipped regression check: `test/appearance-setting-working.test.js` T1 compares every unscoped
+rule in `styles.css` with the appearance book's base (`34bd3957b`), and fails on any "new unscoped
+declaration". It passes on `staging` today, so nothing has added such a rule since that book closed. A
+new rule for this page would fail it.
+
+**Decision.** The page adds no rule to `ui/src/styles.css`. Instead:
+
+- **It reuses classes the setup and Assistant pages already define.** These are `.bs-setup-*` (the
+  shell, the back link, the done row, the signed-out line, the card), `.bs-link-btn`, and the Assistant
+  pages' note and card classes. All of them already read `--bsp-*` tokens, so Light, Dark and System
+  cover the page with no new CSS.
+- **Inline styles are for layout only**, such as `overflowWrap: 'anywhere'` on the npub and a gap
+  between links. Any inline colour reads a `var(--bsp-…)` token, and any inline dimming reads
+  `var(--bsp-opacity-soft|dim, X)`. Checks I1 and I4 enforce this.
+- **`pages/setup/CreateAccount.jsx` joins `WORKING_FILES`** in that suite, in Phase 3. T2, T3, K1, I1
+  and I4 then guard the page's classes and inline styles like every other working page's.
+
+**What we trade away.** The page can't have a look of its own beyond what those classes give. If a
+later design pass wants one, it has to re-aim T1 (or scope its rules under `[data-appearance]`) in
+its own story. T1 freezing `styles.css` for every later story is a harness issue in its own right,
+filed on OPEN.md.
 
 ## Out of scope
 
