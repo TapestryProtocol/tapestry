@@ -1018,13 +1018,18 @@ paths:
                   type: boolean
                 conceptHeaderOverrides:
                   type: object
+                overwrite:
+                  type: boolean
+                  description: >-
+                    Replace a concept this instance's key has already made under this name, including its
+                    definition and schema. Without it, a repeat answers success false.
       responses:
         '401':
           description: Not signed in
         '403':
           description: Signed in, but not the owner or an admin
         '200':
-          description: Concept created
+          description: Concept created, or success false if the name is taken and overwrite isn't set
           content:
             application/json:
               schema:

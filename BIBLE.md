@@ -462,7 +462,7 @@ Base URL: `http://localhost:8080`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/normalize/create-concept` | Create a full concept (all 8 core nodes) |
+| POST | `/api/normalize/create-concept` | Create a full concept (all 8 core nodes). Refuses a name this instance's key has already used, unless `overwrite: true`, which replaces its definition and schema |
 | POST | `/api/normalize/skeleton` | Create missing core nodes for an existing concept |
 | POST | `/api/normalize/json` | Regenerate JSON for core nodes |
 | POST | `/api/normalize/create-element` | Create a new element of a concept |

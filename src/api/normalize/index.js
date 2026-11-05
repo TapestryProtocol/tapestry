@@ -1136,7 +1136,8 @@ async function handleNormalizeJson(req, res) {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/normalize/create-concept
-//   Body: { name, plural?, description? }
+//   Body: { name, plural?, description?, overwrite? }
+//   Refuses a name this instance's key has already used, unless overwrite is true.
 //   Creates a full concept skeleton matching tapestry-cli concept-header.md spec:
 //   ConceptHeader + Superset + JSON Schema + Primary Property + Properties (set)
 //   + Property Tree Graph + Concept Graph + Core Nodes Graph + 7 relationship events.
@@ -1193,20 +1194,24 @@ async function handleCreateConcept(req, res) {
     const slug = names.oSlugs.singular;
     const slugPlural = names.oSlugs.plural;
 
-    // Check for duplicate
+    // A repeat would re-sign the replaceable header and core nodes, replacing the concept's
+    // definition and schema while its items stay. It's refused unless the caller asks:
+    // firmware install rebuilds headers from the built-in definition on purpose.
     const privBytes = getPrivkey();
-    const pubkey = Buffer.from(nt().getPublicKey(privBytes)).toString('hex');
+    const pubkey = nt().getPublicKey(privBytes);
 
-    const dupes = await runCypher(`
-      MATCH (h:NostrEvent)
-      WHERE (h:ListHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
-        AND h.name = $name AND h.pubkey = $pubkey
-      RETURN h.uuid AS uuid
-      LIMIT 1
-    `, { name: trimName, pubkey });
+    if (req.body.overwrite !== true) {
+      const dupes = await runCypher(`
+        MATCH (h:NostrEvent)
+        WHERE (h:ListHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
+          AND h.name = $name AND h.pubkey = $pubkey
+        RETURN h.uuid AS uuid
+        LIMIT 1
+      `, { name: trimName, pubkey });
 
-    if (dupes.length > 0) {
-      return res.json({ success: false, error: `Concept "${trimName}" already exists (uuid: ${dupes[0].uuid})` });
+      if (dupes.length > 0) {
+        return res.json({ success: false, error: `Concept "${trimName}" already exists (uuid: ${dupes[0].uuid})` });
+      }
     }
 
     const allEvents = [];
@@ -2509,6 +2514,7 @@ async function ensureResourceConcept() {
   const existing = await resolveResourceConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: RESOURCE_CONCEPT_NAME,
     description: 'A resource a goal points at — a file, vault note, nostr event, repository, or web address. The brain organizes knowledge; it never contains it.',
   });
@@ -2789,6 +2795,7 @@ async function ensureWorkRecordConcept() {
   const existing = await resolveWorkRecordConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: WORK_RECORD_CONCEPT_NAME,
     description: 'A dated, append-only record a session leaves on a goal — what it worked on and produced, or an idea it noted. Never edited; corrections are new records.',
   });
@@ -3116,6 +3123,7 @@ async function ensureProposalConcept() {
   const existing = await resolveProposalConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: PROPOSAL_CONCEPT_NAME,
     description: 'A dated, append-only proposal a session leaves for the owner — one viable goal nominated with why-now and the goals it passed over — and its decision (approved or skipped). Never edited; a decision is a new fact.',
   });
@@ -4737,6 +4745,7 @@ async function ensureSignalConcept() {
   const existing = await resolveSignalConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: SIGNAL_CONCEPT_NAME,
     description: 'A dated, append-only record of the owner choosing one goal over another — who judged, when, and under which framing. Never edited; a changed mind is a new signal.',
   });
@@ -4907,6 +4916,7 @@ async function ensureGoalConcept() {
   const existing = await resolveGoalConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: GOAL_CONCEPT_NAME,
     description: 'A goal the owner captured in plain words — its name, statement, origin, capture date, its place in the decomposition, and (for viable leaves) the deliverable and boundary. Standing is derived from dated facts, never stored.',
   });
@@ -5150,6 +5160,7 @@ async function ensureRestoreDrillConcept() {
   const existing = await resolveRestoreDrillConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: DRILL_CONCEPT_NAME,
     description: 'A dated, append-only record that a restore drill ran — which export was drilled, where, when, who performed it, and whether the restored content matched. Never edited; every drill is a new record.',
   });
@@ -5281,6 +5292,7 @@ async function ensureAdoptionDispositionConcept() {
   const existing = await resolveAdoptionDispositionConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: ADOPTION_DISPOSITION_CONCEPT_NAME,
     description: 'A dated record of the owner declining (or re-queueing) a foreign shared concept nominated for adoption. Instance-private stance history — never published outward, never firmware-seeded.',
   });
@@ -5389,6 +5401,7 @@ async function ensureTrustedDictionarySnapshotConcept() {
   const existing = await resolveTrustedDictionarySnapshotConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: TRUSTED_DICTIONARY_SNAPSHOT_CONCEPT_NAME,
     description: 'A dated, attributed publication of the trusted dictionary — the concepts this instance\'s trust network demonstrably uses, with the parameters that derived them. Usage-derived; never a consensus signal.',
   });

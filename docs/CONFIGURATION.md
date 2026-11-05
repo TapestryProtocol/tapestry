@@ -9,6 +9,8 @@ Set in `docker-compose.yml` under `environment`:
 | `OWNER_PUBKEY` | ✅ | — | Hex pubkey of the instance owner. Determines who gets Owner role in the UI. |
 | `NEO4J_PASSWORD` | ✅ | — | Password for Neo4j database. Used by the Express API. |
 | `DOMAIN_NAME` | No | `localhost` | Domain name for the instance. Used in nginx config. |
+| `TAPESTRY_FIRMWARE_ON_BOOT` | No | unset (firmware is a manual step) | When exactly `true`, a fresh instance installs firmware once Neo4j is up. Safe on every start: firmware already installed means nothing happens. |
+| `NEO4J_BROWSER_URL` | No | `http://<DOMAIN_NAME>:7474` | Where the UI's Neo4j link points. Set it when the instance sits behind a proxy and publishes no Neo4j port. |
 | `BRAINSTORM_PUBLISH_LOCAL_ONLY` | No | unset (publish externally) | When exactly `true`, all Nostr publishing stays on the **local relay only** — no external fan-out. See "Publish policy" below. |
 
 ### Publish policy (external-publish guard)

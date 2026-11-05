@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { publishToLocalStrfry } from '../utils/nostrPublish';
+import { searchIndexIsUp } from '../utils/searchIndex';
 import { usePov } from '../context/PovContext';
 import { useConfig } from '../context/ConfigContext';
 import BrainstormUserMenu, { useHouseProfile } from '../components/BrainstormUserMenu';
@@ -325,8 +326,9 @@ export default function BrainstormSettings() {
           setWotStatus({ ...baseStatus, hasTAs: false, taAge: null, localCount: 0 });
         }
 
-        // Auto-sync if local count is 0
-        if (localCount === 0 && !cancelled) {
+        // Auto-sync if local count is 0 and there is a search index to load the scores into
+        const mayAutoSync = localCount === 0 && !cancelled && await searchIndexIsUp();
+        if (mayAutoSync && !cancelled) {
           localCount = await triggerSync(rankAuthor, rankRelay);
           if (cancelled) return;
           if (localCount > 0) {

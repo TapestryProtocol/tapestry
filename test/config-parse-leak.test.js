@@ -165,6 +165,7 @@ test('AC-5 the real template still renders ordinary values, passes the check, an
     NEO4J_PASSWORD: `Xy7!q-w_e.r~t@u#i%o^p&a*s(d)f+g=h:j;k,l?z/ ${hex(4)}`,
     DOMAIN_NAME: 'staging.example.test',
     RELAY_URL: 'wss://relay.example.test',
+    NEO4J_BROWSER_URL: 'http://example.test:7474',
     BRAINSTORM_MODULE_BASE_DIR: '/usr/local/lib/node_modules/brainstorm/',
     BRAINSTORM_NODE_BIN: '/usr/local/bin/node',
     SESSION_SECRET: hex(32),

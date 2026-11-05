@@ -1,0 +1,16 @@
+{
+  "name": "tapestry-launcher",
+  "version": "0.1.0",
+  "description": "Launches one Tapestry instance per person on a shared host.",
+  "private": true,
+  "license": "AGPL-3.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "nostr-tools": "2.10.4"
+  }
+}

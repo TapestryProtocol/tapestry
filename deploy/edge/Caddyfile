@@ -1,0 +1,42 @@
+# Static: it never changes per brain. A certificate is issued for a hostname the first time it is asked for, once the
+# launcher says a running brain has that name.
+{
+	on_demand_tls {
+		ask http://launcher:9000/ask
+	}
+	servers {
+		protocols h1 h2
+	}
+	{$CADDY_GLOBAL_EXTRA}
+}
+
+# The launcher. /ask is for Caddy alone, on the private network.
+{$BASE_DOMAIN:tapestry.ninja} {
+	header Strict-Transport-Security "max-age=31536000"
+	@ask path /ask /ask/*
+	respond @ask 404
+	reverse_proxy launcher:9000
+}
+
+# force_automate: Caddy otherwise leaves this name to the * site below, whose on-demand check refuses it.
+www.{$BASE_DOMAIN:tapestry.ninja} {
+	tls force_automate
+	redir https://{$BASE_DOMAIN:tapestry.ninja}{uri} permanent
+}
+
+# A brain. labels.2 is "avi" in avi.tapestry.ninja, so this expects a base domain of two labels.
+*.{$BASE_DOMAIN:tapestry.ninja} {
+	tls {
+		on_demand
+	}
+	header Strict-Transport-Security "max-age=31536000"
+	# Neo4j Browser connects to bolt+s://<slug>.<domain>:443, a websocket at the root. Only 443 is open, and the login is
+	# the brain's own password.
+	@bolt {
+		path /
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @bolt brain-{labels.2}-tapestry:7687
+	reverse_proxy brain-{labels.2}-tapestry:80
+}

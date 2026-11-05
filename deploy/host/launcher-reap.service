@@ -1,0 +1,8 @@
+[Unit]
+Description=Delete the data of brains past their grace period
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec edge-launcher node cli.js reap

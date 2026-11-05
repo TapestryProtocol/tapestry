@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
 import TopBar from '../../components/TopBar';
-import { CREATE_ACCOUNT_STEP, FOLLOW_STEP, ACTIVATE_STEP } from './steps';
+import { FOLLOW_STEP, ACTIVATE_STEP } from './steps';
 
 /**
- * Placeholder pages for the three /setup steps (setup-page-scaffold #1).
+ * Placeholder pages for /setup's steps 2 and 3 (setup-page-scaffold #1).
  *
- * Each says plainly that it is a placeholder and what the page will do. Building the steps
- * themselves is queued for a later session (engineering-team/stories/_intake.md, entry dated
- * 2026-09-20). Replace an export with a real page file when its step is built.
+ * Each says plainly that it is a placeholder and what the page will do. Building them is queued
+ * (engineering-team/stories/_intake.md, entry dated 2026-09-20; ngit issues 98821708 and 64a5f7bf).
+ * Replace an export with a real page file when its step is built, as setup-create-account #1 did for
+ * step 1 (./CreateAccount.jsx).
  */
 
 function SetupStepPlaceholder({ step }) {
@@ -24,10 +25,6 @@ function SetupStepPlaceholder({ step }) {
       </main>
     </div>
   );
-}
-
-export function SetupCreateAccount() {
-  return <SetupStepPlaceholder step={CREATE_ACCOUNT_STEP} />;
 }
 
 export function SetupFollow() {

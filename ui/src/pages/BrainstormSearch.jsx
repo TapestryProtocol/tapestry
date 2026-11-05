@@ -16,6 +16,7 @@ import TagResultRow from '../components/TagResultRow';
 import PinnedTagChips from '../components/PinnedTagChips';
 import useTagMemberSets from '../hooks/useTagMemberSets';
 import { getWotScore } from '../utils/wotScore';
+import { searchIndexIsUp } from '../utils/searchIndex';
 import { nip19 } from 'nostr-tools';
 
 // How many tag hits to show before collapsing the rest behind a toggle, so a
@@ -425,8 +426,9 @@ function UserMenu({ user, login, logout, pov, setPov, filters, setFilters, sortC
           setWotStatus({ ...baseStatus, hasTAs: false, taAge: null, localCount: 0 });
         }
 
-        // Step 4: Auto-sync if local count is 0
-        if (localCount === 0 && !cancelled) {
+        // Step 4: Auto-sync if local count is 0 and there is a search index to load the scores into
+        const mayAutoSync = localCount === 0 && !cancelled && await searchIndexIsUp();
+        if (mayAutoSync && !cancelled) {
           localCount = await triggerSync(rankAuthor, rankRelay);
           if (cancelled) return;
           if (localCount > 0) {
