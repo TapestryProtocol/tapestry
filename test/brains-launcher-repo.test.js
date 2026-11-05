@@ -245,6 +245,8 @@ test('W3: the roll runs last, stops on any failure, and waits for the launcher t
   const wait = script.indexOf('cli.js list');
   const roll = script.indexOf('cli.js roll dogfood');
   assert(up > -1 && wait > up && roll > wait, 'the order must be: edge stack up, launcher answers, roll');
+  // Each roll leaves the old image behind. A full disk stops Neo4j and strfry in every brain.
+  assert(script.indexOf('docker image prune -f') > roll, 'old images must be pruned after the roll');
 });
 
 test('W4: the roll has time for three brains to each reach the 15-minute limit, as a new firmware version can make them', () => {

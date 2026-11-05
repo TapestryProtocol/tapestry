@@ -83,3 +83,5 @@ jobs:
               sleep 2
             done
             docker exec edge-launcher node cli.js roll dogfood
+            # Each roll leaves the old image behind, and a full disk stops every brain.
+            docker image prune -f
