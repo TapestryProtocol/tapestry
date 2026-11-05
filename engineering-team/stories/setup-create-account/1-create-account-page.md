@@ -133,6 +133,25 @@ pubkey, AGENTS.md §1):
 
 None. The owner answered them at planning (2026-11-04); book § Decisions records the answers.
 
+## Deviations
+
+Small judgment calls made during implementation (Implementer role, step 9):
+
+- **Which existing classes (ADR Amendment 1).**
+  - The cards are `bss-card` with `bs-assistant-note` lines, as on the Edit Assistant Profile page.
+    The placeholder's `bs-setup-placeholder` has a dashed border, which reads as "not built yet".
+  - The buttons are `/setup`'s `bs-link-btn`.
+  - The failure line is `bs-error`, the search page's error box. Its rule reads the `--bsp-danger`
+    tokens. Now that this page uses it, the appearance suite's T2 (tokens) and K1 (Light contrast)
+    cover it. The browser class doesn't sweep the failure line's colours: B14 checks the page at rest,
+    and B9 checks only its words.
+  - Links are plain: the base `a` rule already reads `--bsp-accent`.
+- **The offline reason.** When the request never reaches the server, the reason is the browser's own
+  message ("Failed to fetch"). Only if that is empty does the page say "the request did not reach the
+  server". The story's copy has `{reason}` and no fixed wording for this case.
+- **A name of only spaces counts as no name.** Both the Assistant's and the owner's display names are
+  trimmed, and a blank one falls back to no name (the Assistant) or the npub (the owner).
+
 ## Linked artifacts
 
 - Issue: ngit `94229587` ("/setup step 1, "Create your account": build the page (today a placeholder)")
