@@ -309,6 +309,78 @@ this ADR's files.
 `:473`, `:980`, `:1195`) follow the same read-a-cached-list pattern. They aren't on this story's path:
 ledger row `2026-11-05-customer-manager-stale-cache-writes`.
 
+## Amendment 2 (after the first review, 2026-11-05): the owner can deactivate a customer again
+
+**Proposed by the Architect after story 2's first review. The owner chose to fix it in this story ("Fix it in this
+story", 2026-11-05) and approved this amendment at the Architecture gate ("Approve, go on", 2026-11-05).**
+
+**What was wrong.** AC-4 says the owner can deactivate a self-signed-up customer like any other. Nobody can deactivate
+any customer from the app:
+- **The route works:** `POST /api/change-customer-status` (`src/api/index.js:425`) is `OWNER_ACTION`
+  (`src/middleware/routeAccess.js:158`), so the middleware lets the owner and admins through. Its only caller is the
+  legacy manage-customer page (`public/pages/customers/manage-customer.html:1570`).
+- **The handler doesn't:** it identifies the caller by `req.session?.userPubkey`
+  (`src/api/customers/changeCustomerStatus.js:43`). Since the sign-in rewrite `37a31e247` (security-auth-exposure #3,
+  2026-09-11), a login sets only `authenticated` and `pubkey` (`finalizeAuthenticatedSession`,
+  `src/middleware/auth.js:50-58`). The line that set `userPubkey` went with it.
+- **So** every request, the owner's included, answers 401 "Authentication required". The only way left is the
+  generic CLI update, from a shell inside the container (`src/utils/customerManagerCli.js:121-129`).
+- **Why here:** with open sign-up on, anyone can make themselves a customer, and the deactivated line this story adds
+  sends them to an owner who couldn't reactivate them.
+
+**Decision 1: the handler reads the signed-in caller.**
+- **Who is calling:** `req.session.pubkey`, only when `req.session.authenticated === true`, the shape every login
+  sets. Otherwise 401, with today's body.
+- **Who may:** unchanged. The owner or an admin (`getOwnerPubkey`, `isAdminPubkey`), else 403 with today's body.
+  This matches the route table's `OWNER_ACTION`.
+- **A direct-local caller with no session** stays refused, as the handler always did; nothing local calls this route.
+- **Everything else is unchanged:** the 400 checks before it, `CustomerManager.changeCustomerStatus`, the 200 body
+  the legacy page reads (`success`, `message`, `data`), and the 404 and 500 answers.
+- **A deps seam for tests,** as the sign-up handler has:
+  `createChangeCustomerStatusHandler({ getOwnerPubkey, isAdminPubkey, customerManagerFactory })`, with
+  `handleChangeCustomerStatus` as the default-wired instance. `src/api/customers/index.js` keeps exporting
+  `handleChangeCustomerStatus`.
+- **No cache change is needed here.** The handler makes a fresh `CustomerManager` and reads nothing before
+  `changeCustomerStatus`, so that method's read under its lock comes from the file (Amendment 1's bug doesn't apply).
+
+**Decision 2: the sign-up answer keeps the legacy pages' fields.** § Consequences said the two legacy sign-up pages
+"behave as before". They don't on success: they show `status`, `relayPubkey` and `pubkey`
+(`public/pages/customers/sign-up.html:509-540`, the same in `public/pages/index.html`), which § 3's 200 dropped. So
+"Status" and "Your Public Key" read "Unknown", and the page asks for the NIP-85 status of `undefined`. § 3's 200 adds
+the old names back, beside the new ones:
+- `pubkey`: the caller's own pubkey;
+- `status`: the new record's status, `active`;
+- `relayPubkey`: the Assistant's pubkey, the same value as `assistantPubkey`.
+
+The old answer's `directory` (a server path) and `createdAt` stay out: neither page reads them. No private key is in
+the answer, as before. Decision 3 makes the tests check that.
+
+**Decision 3: tests for two answers no test reached.** Code is unchanged here; Test Design adds:
+- the 200 never carries a private key: the fake key objects hold `privkey` and `nsec`, as the real ones do, and the
+  answer must have neither, nor any value equal to them;
+- 500 `sign-up-failed` is reached: a customer manager whose `initialize` throws.
+
+**Tests needed (Phase 3).**
+- In the change-status handler, through the seam, with a real `CustomerManager` on a temp folder: a customer who
+  signed up through the sign-up handler is deactivated by an owner session and reactivated by it; an admin session
+  may do the same; a guest session is refused with 403 and an unauthenticated one with 401, and the record doesn't
+  change; a session with only the stale `userPubkey` field is 401.
+- After deactivation, the sign-up handler answers that person 403 `customer-inactive` (AC-5's deactivated case, now
+  reachable from the app).
+- A source check: `changeCustomerStatus.js` no longer reads `userPubkey`.
+- The sign-up 200's three legacy fields, and Decision 3's two cases.
+
+**Files.** `src/api/customers/changeCustomerStatus.js`, `src/api/auth/signUpNewCustomer.js` (the 200 body),
+`src/api/openapi.yaml` (the sign-up 200's three fields), and the story's `## Deviations` line on H11.
+
+**Left as it is, and filed.**
+- **`POST /api/delete-customer`** has the same bug (`src/api/customers/deleteCustomer.js:33`), and it also reads the
+  customer list (`:54`) before `CustomerManager.deleteCustomer` takes its lock and reads the cached list again
+  (`src/utils/customerManager.js:476`, `:491`). Deleting removes a customer's directory and keys, and AC-4 doesn't
+  promise it, so it gets its own fix: ledger row `2026-11-05-delete-customer-reads-stale-session-field`.
+- **A key failure after the record is made** leaves the page offering "Sign up" until the next press, which recovers
+  (§ 3). Unchanged.
+
 ## Out of scope
 
 - **Who may sign up** beyond on and off: trust thresholds, caps, a waiting list.
