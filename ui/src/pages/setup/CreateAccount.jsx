@@ -17,8 +17,11 @@ import { createAccountState } from './createAccountState';
  *
  * One state per kind of visitor, from sign-in alone (./createAccountState.js): checking, signed out,
  * done (holds an Assistant, whatever the role), may create (an admin or an active customer), a guest,
- * and an owner whose Assistant key is missing. Opening the page only reads. The one write is the
- * may-create button, POST /api/assistant/provision-key, after which the person lands on the Edit
+ * and an owner whose Assistant key is missing. Story 2 (ADR setup-create-account/0002 § 4) adds a
+ * deactivated customer and a guest who may sign up while the owner's open sign-up is on.
+ *
+ * Opening the page only reads. The writes are the may-create button, POST /api/assistant/provision-key,
+ * and the sign-up button, POST /api/auth/sign-up-new-customer. After either, the person lands on the Edit
  * Assistant Profile page; refreshUser() is what makes /setup and the Setup Alert see the new Assistant
  * (SetupStatusContext keys its request on user.assistantPubkey).
  *
@@ -86,26 +89,32 @@ function Done({ assistantPubkey }) {
   );
 }
 
-function MayCreate() {
+const firstString = (...values) => values.find((v) => typeof v === 'string' && v) || null;
+
+/**
+ * One press of the create or sign-up button (ADR 0001 § Decision 3, ADR 0002 § 4): "working" and disabled
+ * while the request runs; on success, or when another tab already won (`lostRace`), refreshUser() and on to
+ * the Edit Assistant Profile page; otherwise "failed" with the reason, and the button again.
+ */
+function usePressToEditor(url, { lostRace, reasonOf }) {
   const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [phase, setPhase] = useState('idle'); // idle | working | failed
   const [reason, setReason] = useState('');
 
-  async function create() {
+  async function press() {
     setPhase('working');
     setReason('');
     try {
-      const res = await fetch('/api/assistant/provision-key', { method: 'POST' });
+      const res = await fetch(url, { method: 'POST' });
       let data = null;
       try { data = await res.json(); } catch { /* not JSON */ }
-      // A 409 means another tab won the lock: the person now holds exactly one Assistant (ADR § Decision 3).
-      if ((res.ok && data && data.success === true) || res.status === 409) {
+      if ((res.ok && data && data.success === true) || lostRace(res, data)) {
         try { await refreshUser(); } catch { /* the editor reads its own status; the shared status re-asks on load */ }
         navigate(MY_ASSISTANT_PATH);
         return;
       }
-      setReason((data && typeof data.error === 'string' && data.error) || `HTTP ${res.status}`);
+      setReason(reasonOf(data) || `HTTP ${res.status}`);
       setPhase('failed');
     } catch (err) {
       setReason((err && err.message) || 'the request did not reach the server');
@@ -113,10 +122,20 @@ function MayCreate() {
     }
   }
 
+  return { phase, reason, press };
+}
+
+function MayCreate() {
+  const { phase, reason, press } = usePressToEditor('/api/assistant/provision-key', {
+    // A 409 means another tab won the lock: the person now holds exactly one Assistant (ADR 0001 § Decision 3).
+    lostRace: (res) => res.status === 409,
+    reasonOf: (data) => firstString(data && data.error),
+  });
+
   return (
     <Card>
       <p className="bs-assistant-note">{COPY.mayCreateLine}</p>
-      <button type="button" className="bs-link-btn" onClick={create} disabled={phase === 'working'}>
+      <button type="button" className="bs-link-btn" onClick={press} disabled={phase === 'working'}>
         {phase === 'working' ? COPY.creating : COPY.createButton}
       </button>
       {phase === 'failed' && (
@@ -126,19 +145,52 @@ function MayCreate() {
   );
 }
 
-/** A signed-in guest with no Assistant: ask the owner. Story 2 gives it its sign-up branch. */
-export function GuestNoAssistant() {
+/** A guest while the owner's open sign-up is on (ADR 0002 § 4). */
+function MaySignUp() {
+  const { phase, reason, press } = usePressToEditor('/api/auth/sign-up-new-customer', {
+    // Another tab signed this person up first: they are a customer with one Assistant (ADR 0002 § 3).
+    lostRace: (res, data) => res.status === 409 && !!data && data.code === 'already-customer',
+    reasonOf: (data) => firstString(data && data.error, data && data.message),
+  });
+
+  return (
+    <Card>
+      <p className="bs-assistant-note">{COPY.signUpLine1}</p>
+      <p className="bs-assistant-note">{COPY.signUpLine2}</p>
+      <button type="button" className="bs-link-btn" onClick={press} disabled={phase === 'working'}>
+        {phase === 'working' ? COPY.signingUp : COPY.signUpButton}
+      </button>
+      {phase === 'failed' && (
+        <p className="bs-error" role="alert" style={{ margin: '0.75rem 0 0' }}>{COPY.signUpFailedPrefix}{reason}</p>
+      )}
+    </Card>
+  );
+}
+
+/** ": {owner}." with the owner named and linked, or "." when the instance doesn't say who its owner is. */
+function OwnerTail() {
   const { ownerPubkey, ownerProfile } = useConfig();
   const ownerName = nameOf(ownerProfile) || (ownerPubkey ? npubOf(ownerPubkey) : null);
+  return ownerPubkey
+    ? <>: <Link to={`/user/${ownerPubkey}`} style={WRAP}>{ownerName}</Link>.</>
+    : '.';
+}
+
+/** A signed-in guest with no Assistant, while open sign-up is off: ask the owner. */
+export function GuestNoAssistant() {
   return (
     <Card>
       <p className="bs-assistant-note">{COPY.guestLine}</p>
-      <p className="bs-assistant-note">
-        {COPY.askOwner}
-        {ownerPubkey
-          ? <>: <Link to={`/user/${ownerPubkey}`} style={WRAP}>{ownerName}</Link>.</>
-          : '.'}
-      </p>
+      <p className="bs-assistant-note">{COPY.askOwner}<OwnerTail /></p>
+    </Card>
+  );
+}
+
+/** A customer whose record isn't active, and who holds no Assistant: only the owner can reactivate them. */
+function Deactivated() {
+  return (
+    <Card>
+      <p className="bs-assistant-note">{COPY.deactivated}<OwnerTail /></p>
     </Card>
   );
 }
@@ -167,6 +219,10 @@ export function SetupCreateAccount() {
     body = <MayCreate />;
   } else if (state === 'owner-key-missing') {
     body = <Card><p className="bs-assistant-note">{COPY.ownerKeyMissing}</p></Card>;
+  } else if (state === 'deactivated') {
+    body = <Deactivated />;
+  } else if (state === 'may-sign-up') {
+    body = <MaySignUp />;
   } else {
     body = <GuestNoAssistant />;
   }

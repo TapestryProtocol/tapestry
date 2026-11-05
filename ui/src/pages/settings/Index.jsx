@@ -8,6 +8,7 @@ import DatabaseSettings from './DatabaseSettings';
 import FirmwareExplorer from './FirmwareExplorer';
 import Audit from '../manage/Audit';
 import AssistantDuties from './AssistantDuties';
+import AccountSettings from './AccountSettings';
 import { MY_ASSISTANT_PATH } from '../../config/avatarMenuLinks';
 
 // A tab with `to` opens another page instead of a panel here. The assistant profile moved to the My
@@ -21,6 +22,8 @@ const TABS = [
   // The duties every Assistant here offers on its Duty Menu (assistant-duties-settings #1, ADR 0001).
   { key: 'assistant-duties', path: 'assistant-duties', label: '📋 Assistant Duties' },
   { key: 'auditing', path: 'auditing', label: '🔍 Auditing Tools' },
+  // The owner's open sign-up switch (setup-create-account #2, ADR 0002 § 5).
+  { key: 'accounts', path: 'accounts', label: '👥 Accounts' },
 ];
 
 export default function SettingsIndex() {
@@ -215,6 +218,9 @@ export default function SettingsIndex() {
         )}
         {activeTab === 'assistant-duties' && (
           <AssistantDuties />
+        )}
+        {activeTab === 'accounts' && (
+          <AccountSettings settings={settings} onSave={handleSave} />
         )}
         {activeTab === 'auditing' && (
           <Audit />

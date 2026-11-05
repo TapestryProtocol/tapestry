@@ -11,9 +11,15 @@ import { mayCreateAssistant } from '../../config/avatarMenuLinks.js';
  *     is never offered provisioning (ADR assistant-profile/0004 sub-decision 4).
  * Who may create one is mayCreateAssistant's to say, not this file's.
  *
- * @param {?{ classification?: string, assistantPubkey?: ?string }} user  AuthContext's user, or null
+ * Story 2 (ADR setup-create-account/0002 § 4) adds two guest rows before the last:
+ *   - a guest whose customer record isn't active is "deactivated", whatever the switch says, so a
+ *     deactivated customer is never offered sign-up;
+ *   - a guest may sign up only when the sign-in answer says signUpOpen exactly true.
+ *
+ * @param {?{ classification?: string, assistantPubkey?: ?string, customerStatus?: ?string, signUpOpen?: boolean }} user
+ *   AuthContext's user, or null
  * @param {boolean} authLoading  AuthContext's `loading`
- * @returns {'checking'|'signed-out'|'done'|'owner-key-missing'|'may-create'|'guest'}
+ * @returns {'checking'|'signed-out'|'done'|'owner-key-missing'|'may-create'|'deactivated'|'may-sign-up'|'guest'}
  */
 export function createAccountState(user, authLoading) {
   if (authLoading) return 'checking';
@@ -21,5 +27,7 @@ export function createAccountState(user, authLoading) {
   if (user.assistantPubkey) return 'done';
   if (user.classification === 'owner') return 'owner-key-missing';
   if (mayCreateAssistant(user)) return 'may-create';
+  if (typeof user.customerStatus === 'string' && user.customerStatus !== 'active') return 'deactivated';
+  if (user.signUpOpen === true) return 'may-sign-up';
   return 'guest';
 }
