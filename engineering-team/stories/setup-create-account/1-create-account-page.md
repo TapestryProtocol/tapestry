@@ -1,6 +1,6 @@
 # Story 1: The Create your account page
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-04
 **Type:** Feature
 **Epic:** `setup-create-account`
@@ -157,4 +157,4 @@ Small judgment calls made during implementation (Implementer role, step 9):
 - Issue: ngit `94229587` ("/setup step 1, "Create your account": build the page (today a placeholder)")
 - ADR: `engineering-team/decisions/setup-create-account/0001-a-page-from-sign-in-and-one-assistant-per-person.md`
 - Test plan: `engineering-team/stories/setup-create-account/1-create-account-page.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/setup-create-account/1-create-account-page.md`
