@@ -1,6 +1,6 @@
 # Story 1: Launch a brain
 
-**Status:** In progress
+**Status:** Done
 **Epic:** brains-launcher
 
 ## As a

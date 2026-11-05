@@ -4,8 +4,6 @@
 **Inputs:** story `stories/brains-launcher/1-launch-a-brain.md`, ADR `decisions/brains-launcher/0001-one-droplet-compose-launcher.md`, acceptance frame in `audits/brains-launcher/book.md`
 **Reviewed by:** two independent reads, one up to `6180d429` and one of everything after it plus every shared file, and the checks below run by the implementer on the live droplet.
 
-**Not final.** One acceptance item is still open, so the story stays In progress: see Open items.
-
 ## Quality gates
 
 - `npm test` at `6014fd28`: 6,604 passed, 4 failed, 576 skipped. The 4 are `event-tagging-firmware-seed` (needs a live stack at `:8877`) and `router-stream-limit-on-connect` (macOS `sed`). Both fail the same way on plain `staging` on the same machine.
@@ -26,7 +24,7 @@
 | `security.sh` | Green. |
 | A roll with one brain broken on purpose | Stopped there, marked it `failed`, and restarted nothing else. |
 | Reboot | Launcher page back in 32 seconds, a brain ready in 100, with the data intact. |
-| The owner adds an agent as admin | **Open.** |
+| The owner adds an agent as admin | Done on the admins page, with a throwaway key. `POST /api/admin/add` answered 200, the agent signed in as admin with its own key, and the droplet shows two admin keys. |
 
 ## What the checks found, fixed in this branch
 
@@ -48,11 +46,16 @@ The second read went through every shared file with their variables unset and fo
 - Re-running an old workflow run moves every brain back to old code. The runbook warns about it.
 - A brain's contents are public to anyone with its URL, as the ADR says.
 
-## Open items
+## Not tried
 
-- The owner adds an agent's npub on `/pages/manage/manage-administrators.html`, and the agent signs in as admin. The page answers on a live brain. Adding one is not tried.
+- An admin's `signAs: assistant` got 403 on a live brain, as the code says. The owner's 200 comes from reading the code: nothing has signed as the Assistant with the owner's own session over HTTPS.
+- The deploy to `tapestry.brainstorm.world`, which comes with promotion to `main`.
 
 
 ## Added after the first merge
 
 - Neo4j Browser at `/browser/` connects through Caddy, which sends a websocket at a brain's root to its port 7687. This needed no change to the config other instances share. A raw Bolt handshake through HTTPS got an answer from Neo4j on all three brains, `integration.sh` passed 59 of 59 with the new checks, and the owner logged in with Neo4j Browser using `bolt+s://`.
+
+## Verdict
+
+**PASS.** Every item in the acceptance frame holds on the droplet.
