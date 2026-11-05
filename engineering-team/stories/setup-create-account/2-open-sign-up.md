@@ -1,6 +1,6 @@
 # Story 2: Open sign-up, the owner's choice
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-04
 **Type:** Feature
 **Epic:** `setup-create-account`

@@ -368,3 +368,243 @@ as a claim, and re-derived each one from the code or from a command I ran.
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+## Round 2 — 2026-11-05 (HEAD `16f76a4c0`)
+
+**Diff checked:** `git diff 7d6398751..16f76a4c0`, three commits: `376bf6596` (ADR 0002 Amendment 2 and ledger row
+`2026-11-05-delete-customer-reads-stale-session-field`), `2a77e97c7` (ten Node tests and the test plan's Amendment 2
+section) and `16f76a4c0` (the implementation). I read the handler change without its re-indentation through
+`git diff -w 2a77e97c7..16f76a4c0`. I checked every changed statement as a new claim, including the fix round 1
+suggested (Blocking 1, option a).
+
+- **The implementation commit doesn't touch the tests:** `git diff 2a77e97c7..16f76a4c0 -- test tests` is empty.
+- **Nothing a browser runs changed since round 1's HEAD:** `git diff e7c134e5c..16f76a4c0 -- ui tests public` is
+  empty. So round 1's Playwright results stand, and I didn't re-run them. The page reads `assistantPubkey` and the
+  other existing fields of the 200. The three new fields are additions.
+- **Files:** exactly Amendment 2's list (`changeCustomerStatus.js`, `signUpNewCustomer.js`, `openapi.yaml`, the story's
+  Deviation line), plus its tests, the test plan and the ledger row. No dependency changed.
+
+### Gates (re-run by the reviewer at `16f76a4c0`, host)
+
+- [ ] Full `npm test` / `npm run gate:status`: **not run**, by the machine rule (the full suite's live legs publish
+  signed fixtures here, and `tapestry`/`:7778` is a private agent-memory instance). There is no gate:status line to
+  quote. CI on the PR runs the full gate.
+- [x] **Node suites**, one at a time through the scratchpad runner, which forces `BRAINSTORM_BASE_URL`,
+  `TAPESTRY_BASE` and `MEILI_URL_HOST` to the dead port `127.0.0.1:9`. I screened each one first for `docker exec`,
+  `dockerCurl`, `execFileSync('docker'`, `TAPESTRY_PORT`, `TAPESTRY_CONTAINER`, `strfry/publish` and `nak`, and every
+  suite below had no match. I also screened them for `wss://`, `WebSocket`, `SimplePool`, `:7778`,
+  `/var/lib/brainstorm` and `spawn`/`exec`. Every hit was a fixture relay string, a base URL taken from the env (so
+  the dead port), or a sentinel regex. `git status` was clean before and after every batch.
+
+  | Suite | Passed | Failed | Skipped |
+  |---|---|---|---|
+  | `setup-open-sign-up` | **41** | 0 | 0 |
+  | `setup-create-account` (story 1) | **19** | 0 | 0 |
+  | `about-this-instance` | 29 | 0 | — |
+  | `admin-action-sweep` (the route walk) | 9 | 0 | 0 |
+  | `stack-free-npm-test` | 6 | 0 | 1 (needs the stack) |
+  | `setup-status` | 38 | 0 | 2 (live, dead port) |
+  | `assistant-scores-route` | 32 | 0 | — |
+  | `my-assistants-nip05` | 13 | 0 | 0 |
+  | `assistant-shared-categories` | 21 | 0 | — |
+  | `assistant-trusted-content` | 30 | 0 | — |
+  | `assistant-profile-check` | 33 | 0 | — |
+  | `assistant-taggings-publish` | 19 | 0 | 1 |
+  | `assistant-attention` | 38 | 0 | 1 |
+  | `assistant-duty-menu-check` | 65 | 0 | 0 |
+  | `assistant-duty-menu-publish` | 36 | 0 | 0 |
+  | `assistant-outbox-check` | 29 | 0 | 0 |
+  | `assistant-relay-list-publish` | 32 | 0 | 1 |
+  | `assistant-self-map-check` | 94 | 0 | 0 |
+  | `assistant-self-map-publish` | 92 | 0 | 0 |
+  | `information-for-agents` | 52 | 1 | 4 |
+  | `llms-txt` | 23 | 1 | 3 |
+
+  - **Which suites:** the brief's five, every suite that reads `openapi.yaml` (17, by grep), and the one suite that
+    loads `signUpNewCustomer` or `changeCustomerStatus` (`setup-open-sign-up`).
+  - **The two failures are one external link check, not this story's.** In each suite, L1 asks that
+    `https://api.brainstorm.world/openapi.json` answer 2xx, and it answered 502. My own `curl` got 502 too. That's the
+    Brainstorm API's public document, not this repo's `src/api/openapi.yaml`, and the diff touches neither those docs
+    nor that URL.
+  - **Left out for a hazard match**, as in round 1: `admin-action-sweep-access` (1 match) and `default-deny-mutations`
+    (6). `admin-action-sweep` covers the route table, and this diff doesn't touch the table.
+- [x] **The tests fail on the code before the fix.** I ran HEAD's suite with `376bf6596`'s three source files swapped
+  in memory (a `--require` hook serving the old text to `require` and `fs.readFileSync`): **33 passed, 8 failed**.
+  The failures were H13, S1–S4, S5, D5 and D6, each for the reason the test plan's Amendment 2 section gives. That
+  matches the plan exactly.
+- [x] **Mutation check, in memory only.** A `--require` hook in `NODE_OPTIONS` rewrote one file's source when Node
+  compiled it and when `fs.readFileSync` read it (so the source sentinels saw the mutant). It refused to run if an
+  edit's text wasn't found, and an identity edit gave 41/41. No file on disk changed: `git status` was clean before
+  and after. 20 mutations, 18 caught:
+
+  | Mutation | Caught by |
+  |---|---|
+  | status: the old `req.session?.userPubkey` read restored | S1, S2, S3, S4, S5, D6 |
+  | status: `userPubkey` kept as a fallback | S3, S5, D6 |
+  | status: no `authenticated` check | S3 |
+  | status: `authenticated` read as truthy, not `=== true` | survived (equivalent: every writer sets `true`) |
+  | status: owner only, admins dropped | S2 |
+  | status: the owner-or-admin check removed | S3, S5 |
+  | status: the module's `getOwnerPubkey`, not the injected one | S1, S2, S4 |
+  | status: the injected store ignored | S1, S2, S4 |
+  | status: the 200 drops `message` | S1 |
+  | `customers/index.js` stops exporting the handler | survived D6 (R2-1); caught by `admin-action-sweep` W1, T2 |
+  | sign-up: `pubkey` from the body, not the session | H13 |
+  | sign-up: `status` hard-coded `inactive` | H13 |
+  | sign-up: `relayPubkey` dropped | H13 |
+  | sign-up: `relayPubkey` only for a new key | H13 |
+  | sign-up: `directory` added | H13 |
+  | sign-up: the key object spread into the 200 | H13, H14 |
+  | sign-up: `nsec` and `privkey` added (survived in round 1) | H14 |
+  | sign-up: the catch-all drops its code (survived in round 1) | H15 |
+  | sign-up: the catch-all answers 200 | H15 |
+  | openapi: `relayPubkey` left out of the 200 | D5 |
+
+- [x] `bash scripts/harness-lint.sh`: **clean (0 violations)** before this section was added.
+- [x] `git diff --check 7d6398751..16f76a4c0`: clean.
+- [ ] _Lint, typecheck and build: not configured, skipped._
+
+### Blocking 1, re-derived
+
+- **What a login sets.** `finalizeAuthenticatedSession` (`src/middleware/auth.js:50-58`) regenerates the session, then
+  sets `authenticated = true` and `pubkey`. It is the only writer of `session.pubkey` in `src` or `bin` (grep).
+  - The only other writer of `session.authenticated` is `src/api/export/nip85/commands/kind10040.js:129`. It runs
+    only when `session.pubkey` is already set (`:100-108`), so it can't create an identity.
+  - Logout destroys the session (`auth.js:210`).
+  - So `authenticated === true` plus `pubkey` means exactly one thing: a verified login. Seven other handlers already
+    read it this way (for example `src/api/assistant/scores.js:87`).
+- **Accepts it:** `src/api/customers/changeCustomerStatus.js:46-47`. S1 (owner) and S2 (admin) deactivate and
+  reactivate a guest who signed up through the real sign-up handler, on a real store in a temp folder.
+- **Refuses everything else.** S3's eight cases:
+  - no session, a pubkey without `authenticated`, `authenticated: false`, only `userPubkey`, and `authenticated` with
+    only `userPubkey`: each 401;
+  - a guest, a guest whose stale `userPubkey` names the owner, and the customer themselves: each 403;
+  - the record never changes.
+  - S5 shows the default-wired handler reads the same session.
+- **The owner-or-admin rule is unchanged** (`:55-61`).
+  - The default wiring (`:112-116`) binds the same `getOwnerPubkey` and `isAdminPubkey` as before.
+  - Those helpers read the same sources the middleware's `isOwnerOrAdmin` reads (`BRAINSTORM_OWNER_PUBKEY`,
+    `getAdminPubkeys`).
+  - The route table entry (`src/middleware/routeAccess.js:158`, `OWNER_ACTION`), the registration
+    (`src/api/index.js:425`) and `src/api/customers/index.js` aren't in the diff.
+- **The legacy page's contract holds.**
+  - `public/pages/customers/manage-customer.html` reads `result.success`, `result.message` and `result.error`
+    (`:1583`, `:1585`, `:1595`).
+  - `git diff -w` changes only the identity read, the `deps.` calls and the factory. Every answer's body is as it was.
+- **AC-4's clause is now true, end to end (by reading):**
+  - The owner opens the avatar menu's Legacy Dashboard (`ui/src/config/avatarMenuLinks.js:161`), then Manage Customers,
+    then a customer's page. That page is gated on classification `owner` (`manage-customer.html:757`).
+  - Deactivate posts to the route, the middleware admits the owner (`OWNER_ACTION`), and the handler now accepts the
+    session.
+  - Reactivation: the list shows only active customers (`src/api/customers/getCustomers.js:16`). But the page loads a
+    record of any status by its URL (`get-customer` doesn't filter), and its Activate button uses the same route. That
+    is the same for every customer, so "like any other customer" holds.
+- **Tested at the right level, for the layer the bug was in.**
+  - S1–S4 drive the real handler through its seam, from the session shape a login makes, on a real `CustomerManager`.
+  - S4 also closes the loop with AC-5: deactivated, the person's sign-up gets 403 `customer-inactive`; reactivated,
+    409 `already-customer`.
+  - The middleware's decision for this route is the route table's, which `admin-action-sweep` walks.
+  - Not tested, and fine to leave: the legacy page in a browser (the test plan says so), and the default-wired
+    handler's success path, which would write to the real store.
+- **"No cache change is needed here" (ADR :343-344): true.**
+  - The default factory builds a fresh instance (`:115`).
+  - The handler calls nothing on it before `changeCustomerStatus`. That method takes the lock
+    (`src/utils/customerManager.js:387`), then reads through `getAllCustomers` (`:394`) on an empty cache, so it reads
+    the file.
+
+### Round-1 findings, re-checked
+
+| Round 1 | Disposition | Check |
+|---|---|---|
+| Blocking 1: deactivate answered 401 | Fixed, `16f76a4c0`; tests S1–S5, D6 | Re-derived above. |
+| NB1: no guard against a private key in the 200 | Fixed, `2a77e97c7`: H14 | The fakes now hold `privkey` and `nsec`. H14 checks values and field names, for a new key and a kept one. The round-1 mutant that survived is now caught, and so is spreading the key object. |
+| NB2: "(test H11)" overclaimed | Fixed: H15 (`2a77e97c7`), story `:119-120` (`16f76a4c0`) | H15 reaches the catch-all through a manager whose `initialize` throws, and nothing is created. The new parenthesis ("H11 checks only the answers H1–H10 produce") is accurate: H11 reads `allAnswers`, which the earlier H tests fill, and exempts 401. One clause is still a touch broad (R2-4). |
+| NB3: the legacy pages "behave as before" | Fixed, Amendment 2 Decision 2: H13, D5 | `showNewCustomerDetails` (`public/pages/customers/sign-up.html:509-540`, the same in `public/pages/index.html`) reads `customerName`, `customerId`, `status`, `relayPubkey` and `pubkey`, and calls `checkKind10040Status(data.pubkey)`. All five are now in the 200. Neither page reads `directory` or `createdAt`, so leaving them out is right. |
+| NB4: a key failure leaves "Sign up" offered | Left (Amendment 2, "Left as it is") | Acceptable. It's recoverable on the next press, the order is § 3's approved one, and the owner approved the amendment that keeps it. |
+| NB5: B3/B4 assert the editor's URL, not its form | Left | Acceptable, as story 1's review accepted the same gap. The editor is unchanged. |
+| NB6: the stale-cache row's pointers | Left | Still off by three at HEAD (`:245` → `:248`, …, `:473` → `:476`). The two 2026-11-05 rows now disagree about the delete writer's line: the new row's `:476` is right. Non-blocking, as before. |
+| Harness friction 1–3 | 2 and 3 filed by round 1's commit `7d6398751` | B6 was added to `ledger/2026-10-13-duties-tab-b8-reads-row-early.md`, and the verdict-heading edge to `ledger/2026-10-07-on-pass-heading-reads-as-verdict.md`. Friction 1 concerns a scratchpad config outside the repo. This round needed no browser run. |
+
+### Amendment 2's own claims
+
+- **Line references**, each checked at its commit: `src/api/index.js:425`, `routeAccess.js:158`,
+  `manage-customer.html:1570`, `changeCustomerStatus.js:43` (at `376bf6596`), `auth.js:50-58` (the function's last
+  statement; its closing brace is `:59`), `customerManagerCli.js:121-129`, `sign-up.html:509-540`,
+  `deleteCustomer.js:33` and `:54`, and `customerManager.js:476` and `:491`. All correct.
+- **`37a31e247`** (2026-09-11, security-auth-exposure #3) removed `req.session.userPubkey = sessionPubkey`. Correct.
+- **"Nothing local calls this route":** correct. A repo-wide grep finds only the legacy page and the test.
+- **The delete ledger row** is accurate. Its pointers are right (`src/api/index.js:422`, `routeAccess.js:181`,
+  `deleteCustomer.js:33`), and so is its second bug:
+  - `deleteCustomer.js:54`'s `getCustomer` fills the instance's 30-second cache;
+  - `deleteCustomer` takes the lock (`customerManager.js:476`), and its read at `:491` reuses that cache;
+  - it then writes that list back (`:565-566`).
+- **The openapi change:** the file still parses (js-yaml). The three fields are in the 200 schema of
+  `/api/auth/sign-up-new-customer` (`src/api/openapi.yaml:997-1005`), with accurate descriptions.
+
+### The delete route left broken: not blocking
+
+AC-4 (story `:58-60`) promises three things: the list, the regular runs, and that "the owner can deactivate them like
+any other customer". It doesn't promise deletion. Round 1's option (a) allowed leaving delete for a row, and the
+reversible remedy, deactivation, now works. Delete is irreversible and carries a second bug (the cache window above).
+So a separate fix with its own temp-folder tests is the safer course. The row records both bugs accurately.
+
+### Security, round 2
+
+- **No private key in any answer.** The sign-up 200 adds only the caller's own pubkey, the record's status and the
+  Assistant's public key (H14). The status handler's answers are unchanged.
+- **No route opened.** The route table, the registrations and the middleware aren't in the diff. The status handler
+  is as strict as the route's `OWNER_ACTION` entry, and stricter for a direct-local caller with no session.
+- **No secrets, no debug code.** The diff adds no 64-hex literal. Its one `console.log` is an existing line,
+  re-indented.
+
+### Findings (round 2)
+
+**Blocking:** none.
+
+**Non-blocking:**
+
+1. **R2-1, test/setup-open-sign-up.test.js:837-839.** D6 says the handler "is still exported". But its first regex
+   also matches the destructuring `require` at `src/api/customers/index.js:16`. So removing
+   `handleChangeCustomerStatus` from the index's `module.exports` (`:37`) survives D6. It doesn't survive the suite
+   run: `admin-action-sweep` W1 and T2 fail ("Route.post() requires a callback function"). Optional: have D6 require
+   the index and check `typeof handleChangeCustomerStatus === 'function'`, or drop "still exported" from D6's name and
+   the test plan's Contract row.
+2. **R2-2, src/api/openapi.yaml:4148-4149.** `/api/change-customer-status` says "Owner, admin or a direct-local caller
+   only". But the handler answers 401 to a direct-local caller with no session, which Amendment 2 Decision 1 keeps
+   (ADR `:336`). The sentence is older than this story, and the other owner routes share it. Optional: say this one
+   needs a signed-in owner or admin.
+3. **R2-3, src/api/customers/changeCustomerStatus.js.** Now that the route works again, it falls under OPEN.md row
+   326's open question about the instance's cross-origin posture. That covers the CORS middleware in
+   `bin/control-panel.js` (named in the row's 2026-09-27 note), the session cookie with no explicit `sameSite`, and no
+   `Origin` check on this route. The change this route makes is reversible. Kept to a pointer, per that row's house
+   rule. Optional: add the route, and delete when its row is fixed, to row 326's list or to
+   `ledger/2026-10-11-assistant-signing-routes-csrf-scope.md`, so the posture fix covers them.
+4. **R2-4, engineering-team/stories/setup-create-account/2-open-sign-up.md:119.** "So every refusal the page can meet
+   carries a code" is one case too broad. A 401 carries none: the handler's own, as the bullet above it says, and the
+   middleware's "Sign in to do this." for a session that has ended. The rest of the line is accurate. Optional:
+   "every refusal but a 401".
+
+**Harness friction:** none new.
+
+### Not verified (round 2)
+
+- **The full `npm test` gate:** not run here, for the reason in Gates. CI on the PR is the gate of record.
+- **The legacy manage-customer page in a browser,** with a real owner session. The page's contract is unchanged, and
+  S1 checks the answer's `success` and `message`.
+- **The default-wired handler's success path,** which would write to `/var/lib/brainstorm`. The default wiring is
+  three lines, read above.
+- **The owner's approvals** of Amendment 2 at the Architecture and Test Design gates: recorded in the ADR and in the
+  `376bf6596` and `2a77e97c7` messages. I can't see the owner's own messages from the repo.
+
+### Verdict (round 2)
+
+Round 1's blocking finding is fixed. The owner, and an admin, can deactivate and reactivate a self-signed-up customer
+from a real signed-in session. Nothing else is admitted, the route's rule and the legacy page's contract are as they
+were, and AC-4's deactivate clause now holds. Round-1 non-blocking items 1–3 are fixed, with tests that fail before
+the fix and catch the round-1 survivors. Items 4–6 are left, acceptably. Amendment 2's claims and the delete ledger
+row are accurate, and leaving delete to that row is consistent with AC-4's text. The four new findings are
+non-blocking.
+
+**PASS**
