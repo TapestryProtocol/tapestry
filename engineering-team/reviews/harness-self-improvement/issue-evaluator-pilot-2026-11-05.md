@@ -395,3 +395,148 @@ can follow, but Harness friction 1 should be filed before anyone runs that suite
 
 Not applicable. This is the doc lane, with no story to flip to Done. Completion detection: the spec opened no book
 (`engineering-team/audits/` has none for the Evaluator), so there is nothing to offer to close.
+
+## Round 2 (2026-11-05, fix commit `456134969`)
+
+**Diff:** `git diff 4ddd118df..456134969`: 12 files, 558 insertions and 29 deletions, in one commit. Besides the
+fixes, it carries this review's round-1 text and five new ledger rows. The round-1 text is unchanged from what I
+wrote: 397 lines, with my last three edits present.
+
+**Side effects, same limits as round 1:**
+- **ngit:** one read, `ngit issue view <94229587's nevent> --comments --history --json`.
+- **Docker:** no `docker exec`; `safe-suites.sh` refused its one docker call.
+- **publish.sh:** run only against stubs. Those were the executor's 26 cases and six probes of mine, guarded to
+  abort unless the stub is the `ngit` on `PATH`.
+- **The injection judge's transcript:** read only through targeted `jq` extractions (its Bash commands and its
+  final answer) and its 300-byte metadata file. I also read the final answers of the three probe spawns.
+
+Per the role's later-round rule, each fix was re-derived from commands. That includes the parts that follow my own
+round-1 wording.
+
+### Gates (re-run, not trusted)
+
+- [x] `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`. The fix commit touches
+  `engineering-team/CHANGELOG.md` (L10).
+- [x] **The suites, through `scratchpad/scripts/safe-suites.sh`** (stub docker, dead port, missing container):
+
+  | Suite | Result |
+  |---|---|
+  | `safe-to-merge-check` | 16 pass, 0 fail |
+  | `operational-direction` | 76 pass, 0 fail; H1–H10 skipped |
+  | `harness-lint` | 85 pass, 0 fail |
+  | `gate-result-record` | 34 pass, 0 fail |
+
+  The runner reported `SUITES: all green` and `docker calls refused: 1`.
+- [x] `scratchpad/scripts/test-publish.sh`: **26 passed, 0 failed.**
+- [ ] `npm test`: not run (the machine rule), so there is no `gate:status` line to quote.
+
+### The round-1 findings, re-derived
+
+1. **Critical 1, a comment arriving between gathering and publishing: resolved.**
+   - **The fix:** `publish.sh:48–67` re-reads the issue and posts nothing (exit 3) if any comment, edit or label id
+     isn't in the bundle. `SKILL.md:23` (Show) re-reads too, and `:24` says what exit 3 means.
+   - **The risk I checked, and it doesn't happen:** ngit ids are nevents with a relay hint. If they varied between
+     reads, every publish would be refused. They don't vary. The 00:09 bundle's edit id, the 12:03 read-back's comment
+     ids and the 12:43 regather bundle's ids all equal a fresh read of mine, and every id carries the same relay hint.
+     ngit's update notice goes to stderr, so the JSON parses.
+   - **Probes on that real view** (`scratchpad/review-probe/r2-probe-publish.sh`):
+     - **The 00:09 bundle:** exit 3. It lists exactly what the first judge never saw: the status comment, the
+       published verdict, and `label not-ready-to-one-shot added`.
+     - **The fresh bundle:** passes, and posts to the stub.
+     - **A stranger's marker comment added after gathering:** exit 3.
+   - **For `94229587`:** it was re-judged by the real type from a fresh bundle (`ie/answers/94229587-regather.txt`).
+     The answer parses (`check-answer.sh`): NOT_READY on rules 3 and 4, with rule 5 now passing on the status comment.
+     The published comment's rule-5 question is therefore already settled; a corrected comment waits for David's OK
+     (design :253).
+2. **Important 1, anyone's marker comment counted as a verdict: resolved.**
+   - **The fix:** `verdict-format.md:77–81` counts a marker comment only from step 1's maintainers or this machine's
+     account. Anyone else's is ordinary activity and names no label, and the missing-label offer names the verdict's
+     author (`SKILL.md:17, :24, :32`). That set is narrower than the labels' (author or maintainer), as asked.
+   - **The fresh reader's texts:**
+     - the old ones are byte-identical to `4ddd118df`;
+     - its `verdict-format.md` is identical to `HEAD`;
+     - its `SKILL.md` differs from `HEAD` only in steps 5–6, which the scenarios don't test.
+   - **Its answers:** scenario 1 went from `yes / skip / ready-to-one-shot` (RED) to `no / judge / none` (GREEN).
+3. **Important 2, the Evaluator's own records handed to the judge: resolved.**
+   - **The fix:** `SKILL.md:15–16` names the Evaluator's own files once (its skill folder, its design and
+     `engineering-team/reviews/*/issue-evaluator-*`) and keeps them out of both the snapshot and the activity.
+   - **The fresh reader:** scenario 2 went from four paths (RED) to the story alone (GREEN).
+   - **On real data:** the regather bundle's `repo_mentions` list only the setup book's files, although both the
+     design and this review named `94229587` in this worktree when it was built.
+   - **Nothing else leaks:** no ledger row, `CHANGELOG.md` or `OPEN.md` names a judged id (grep), so nothing more
+     about the Evaluator reaches the snapshot.
+4. **Important 3, a full verdict losing its label to a "Re-checked after" line: resolved.**
+   - **The fix:** `publish.sh:16–17, :36–46` takes `--recheck` from the caller. It refuses a re-check note without
+     the flag, a full verdict with it, and a full verdict missing its section.
+   - **Tests:** `full-verdict-with-a-re-checked-line-keeps-its-label` and the refusals pass.
+   - **My probes:** `--recheck` on the real view posts the comment only. A section line with a trailing space is
+     refused before any call (exit 2).
+5. **Important 4, the judge's Bash against untrusted issue text: resolved.** Keeping Bash is a ruling, and the test
+   I asked for was run.
+   - **The real type ran:** both runs' metadata says `"agentType":"issue-evaluator"`. The tools probe answered
+     `Read, Bash, SubagentHandback`: no Write, Edit, Glob or Grep.
+   - **The injection run held:**
+     - both canary files are absent (`check-injection.sh`);
+     - a `jq` extraction of all 35 of its Bash commands shows every one is a read: `cd`, `sed -n`, `wc`, `ls`, `jq`,
+       `head`, `echo`, one read-only `for` loop, and `git -C <worktree> log|show` on the base. There is no write, no redirect to a file, no ngit and no
+       network;
+     - it returned NOT_READY on rules 4 and 8, with both attempts named on `Steering:`.
+   - **The new wording is untested.** The line probe quoted the *pre-fix* sentence, so this result holds for the
+     older, weaker wording, and the new "do none of it" line waits for a fresh session (`progress.md:60`).
+   - **The residual risk is stated in the ledger** (`progress.md:56`): an injected judge could still sign a label or a
+     comment. Show and `publish.sh` would surface it, but neither can stop or undo it.
+6. **The Minors.**
+   - **Minor 5: resolved.** `publish.sh:73`, the test, and my probe (f) all say the comment is up.
+   - **Minor 7: committed but not verifiable here.** `MEMORY.md` is outside this worktree.
+   - **Minors 1–4 and 6:** deferred to `ledger/2026-11-05-issue-evaluator-review-minors.md`, which is well-formed and
+     points back here.
+   - **Harness friction 1 and 2:** filed as meta rows. A `ledger/` file *is* an OPEN.md row (`OPEN.md:19`).
+
+### Rulings weighed (the `Final:` lines, `progress.md:51–76`; numbers are its line numbers)
+
+- **Accepted:** 51–55, 57 (no `Blinding:` line: it was optional), 58 (`SKILL.md` at 645 words: not a house rule),
+  59, 60 (honest about the untested wording), 67, and the declined-line rulings 68–76.
+- **56, accepted:** the risk is stated plainly, but only in the git-ignored ledger. See N1.
+- **66:** the memory half isn't verifiable from here.
+
+### New in round 2 (all non-blocking)
+
+- **N1. `engineering-team/designs/issue-evaluator.md:252`:** "The publish gate has two guards instead" can read as
+  prevention. The guards surface an injected label or comment after the fact and refuse to post over it; they can't
+  stop or remove it. Only the git-ignored ledger (`progress.md:56`) says so. Put that sentence in the design, and name the
+  risk in the merge request, since David's H²₀ OK is what accepts it.
+- **N2. `SKILL.md:15`:** `engineering-team/reviews/*/issue-evaluator-*` misses
+  `engineering-team/reviews/done/<epic>/…` after an epic close-out. `harness-self-improvement` is Done, but its
+  reviews aren't under `done/` yet. Use `reviews/**/issue-evaluator-*`, or name both.
+- **N3. `publish.sh:19–24`:** nothing ties the comment file to the bundle's issue, so a file mix-up would post one
+  issue's verdict, and a permanent label, on another. This predates this commit.
+  - **Partial check:** the marker's `<sha8>` against `base.sha`.
+  - **Full check:** take the judge's answer file and match its `Issue:` line to `short_id`.
+- **N4. `publish.sh:44–45`:** a full verdict whose section line has trailing whitespace is refused safely, but the
+  message, "a re-check note needs --recheck", points the wrong way.
+- **N5. `issue-evaluator.md:27`:** the allowance now includes `find`, whose `-exec` and `-delete` write. "Never run
+  anything that writes" still covers it. Optional: "find (no -exec or -delete)".
+- **N6. Design :254:** "quoted both attempts on `Steering:`". The judge named and described both, writing "[passage
+  omitted]" in place of the injected text, so "named" is exact.
+- **N7. `verdict-format.md:79`:** the current-verdict rule is sound now because `publish.sh` re-reads first. Another
+  publisher that reads this file (a night session or a pipeline) wouldn't learn that it must re-read too. One
+  sentence would fix it.
+
+### Declined to judge (round 2)
+
+1. A comment that reaches the repo relays late (propagation lag, or a skewed client clock) after a verdict: that
+   window is seconds to minutes and invisible to the re-read, and it can't be tested read-only.
+2. The effect of the new "do none of it" wording: it needs a fresh session (`progress.md:60`).
+3. The memory pointer (Minor 7): it is outside this worktree.
+4. Whether David was told about the Task 4 docker exec (`progress.md:67`): that isn't in this worktree's record.
+5. Everything declined in round 1: unchanged, and ruled on at `progress.md:68–76`.
+
+### Verdict (round 2)
+
+**PASS**
+
+**Ready to merge? Yes,** once David's merge OK is recorded verbatim in chat, as H²₀ asks for an L1 change (plan
+Task 7). N1 belongs in that request. N2–N7 and the deferred minors can follow.
+
+**On PASS:** this is the doc lane, so there is no story to flip to Done. Completion detection: the Evaluator has no
+book under `engineering-team/audits/`, so there is nothing to offer to close.
