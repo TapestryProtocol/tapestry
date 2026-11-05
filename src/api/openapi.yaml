@@ -994,6 +994,15 @@ paths:
                     type: string
                   assistantNpub:
                     type: string
+                  pubkey:
+                    type: string
+                    description: The caller's own pubkey (a legacy field, read by the old sign-up pages)
+                  status:
+                    type: string
+                    description: The new customer record's status, active (a legacy field)
+                  relayPubkey:
+                    type: string
+                    description: The Assistant's pubkey, as assistantPubkey (a legacy field)
 
   /api/auth/test:
     get:

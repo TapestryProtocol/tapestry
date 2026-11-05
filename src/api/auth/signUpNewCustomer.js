@@ -15,7 +15,8 @@ const CustomerManager = require('../../utils/customerManager');
  *   403 customer-inactive        a deactivated customer, who must not reactivate themselves
  *   500 assistant-key-failed     the record was created but the key wasn't: story 1's create button recovers it
  *   500 sign-up-failed           anything else
- *   200                          customerId, customerName, assistantPubkey, assistantNpub
+ *   200                          customerId, customerName, assistantPubkey, assistantNpub, and the legacy pages'
+ *                                pubkey, status and relayPubkey (the Assistant's pubkey again)
  */
 
 const MESSAGES = {
@@ -111,6 +112,8 @@ function createSignUpHandler(deps) {
             }
             const keys = outcome.created ? outcome.keys : outcome.existing;
 
+            // Only public fields: `keys` also holds the private key. pubkey, status and relayPubkey are the legacy
+            // sign-up pages' names, which they show on success (ADR 0002 Amendment 2, Decision 2).
             return res.status(200).json({
                 success: true,
                 message: MESSAGES.created,
@@ -118,6 +121,9 @@ function createSignUpHandler(deps) {
                 customerName: record.name,
                 assistantPubkey: keys.pubkey,
                 assistantNpub: keys.npub,
+                pubkey,
+                status: record.status,
+                relayPubkey: keys.pubkey,
             });
         } catch (error) {
             console.error('Error in signUpNewCustomer:', error);
