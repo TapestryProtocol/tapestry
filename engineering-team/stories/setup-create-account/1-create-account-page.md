@@ -136,6 +136,6 @@ None. The owner answered them at planning (2026-11-04); book § Decisions record
 ## Linked artifacts
 
 - Issue: ngit `94229587` ("/setup step 1, "Create your account": build the page (today a placeholder)")
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/setup-create-account/0001-a-page-from-sign-in-and-one-assistant-per-person.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
