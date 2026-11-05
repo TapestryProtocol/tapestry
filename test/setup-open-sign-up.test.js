@@ -18,8 +18,14 @@
  *       isAdminPubkey, customerManagerFactory, provisionAssistantKeyOnce }). A REAL CustomerManager on a temp
  *       directory where a test needs real records (AC-4, the race); fakes elsewhere. No key is generated or stored.
  *   K — the guest's sign-in answer (signUpOpen, customerStatus), with the handler's modules stubbed in require.cache.
+ *   S — deactivating a customer (ADR 0002 Amendment 2): POST /api/change-customer-status's handler through its deps
+ *       seam, createChangeCustomerStatusHandler({ getOwnerPubkey, isAdminPubkey, customerManagerFactory }), on the
+ *       same REAL temp-folder store as a guest who signed up through the sign-up handler.
  *   D — source sentinels for the wiring this runner can't execute: AuthContext, the Settings tab and route, the API
- *       docs, and no createSingleCustomerRelay on the sign-up path.
+ *       docs, no createSingleCustomerRelay on the sign-up path, and no session.userPubkey read in the status handler.
+ *
+ * Amendment 2's tests (S1–S5, H13–H15, D5, D6) came after the first review. H14 and H15 guard code that was already
+ * right, so they pass on it; the rest fail until Amendment 2 is built.
  *
  * Everything here FAILS against the current code except the regressions marked (regression): there is no signUp
  * key, no owner-only guard for it, no createSignUpHandler, no new classification fields, no states or copy for it,
@@ -49,6 +55,8 @@ const APP = path.join(REPO, 'ui/src/App.jsx');
 const OPENAPI = path.join(REPO, 'src/api/openapi.yaml');
 const HARNESS = path.join(REPO, 'test/helpers/accessHarness.js');
 const CUSTOMER_MANAGER = path.join(REPO, 'src/utils/customerManager.js');
+const CHANGE_STATUS = path.join(REPO, 'src/api/customers/changeCustomerStatus.js');
+const CUSTOMERS_INDEX = path.join(REPO, 'src/api/customers/index.js');
 
 // Fixture keys, never live ones.
 const GUEST = 'c1'.repeat(32);
@@ -416,7 +424,7 @@ function tmpCustomers() {
   };
   const factory = () => {
     const cm = new CustomerManager({ customersDir: dir });
-    for (const m of ['initialize', 'createCustomer', 'getCustomer', 'getAllCustomers']) cm[m] = quiet(cm[m].bind(cm));
+    for (const m of ['initialize', 'createCustomer', 'getCustomer', 'getAllCustomers', 'changeCustomerStatus']) cm[m] = quiet(cm[m].bind(cm));
     return cm;
   };
   const read = () => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'customers.json'), 'utf8')).customers; } catch { return {}; } };
@@ -537,6 +545,188 @@ test('H12: createCustomer checks and writes against the file under its lock, not
   assert(show(kept) === show([GUEST, GUEST2].sort()), `two different people: both records must be kept (a stale cached list loses one); kept ${show(kept)}`);
 });
 
+test('H13: the 200 also carries the legacy sign-up pages\' fields: pubkey, status and relayPubkey (ADR 0002 Amendment 2, Decision 2)', async () => {
+  const KEPT = 'a9'.repeat(32);
+  for (const [label, provision, wantRelay] of [
+    ['a new key', fakeProvision(), ASSISTANT],
+    ['a kept key', fakeProvision({ existing: { pubkey: KEPT, npub: 'npub1kept' } }), KEPT],
+  ]) {
+    const t = tmpCustomers();
+    const res = await call(makeHandler({ manager: { factory: t.factory }, provision }), sessionFor(GUEST));
+    assert(res.statusCode === 200, `${label}: expected 200; got ${res.statusCode} ${show(res.body)}`);
+    const b = res.body;
+    const wrong = [];
+    if (b.pubkey !== GUEST) wrong.push(`pubkey must be the caller's own; got ${show(b.pubkey)}`);
+    if (b.status !== 'active') wrong.push(`status must be the new record's, "active"; got ${show(b.status)}`);
+    if (b.relayPubkey !== wantRelay || b.relayPubkey !== b.assistantPubkey) {
+      wrong.push(`relayPubkey must be the Assistant's pubkey, as assistantPubkey; got ${show(b.relayPubkey)} (assistantPubkey ${show(b.assistantPubkey)})`);
+    }
+    if ('directory' in b) wrong.push('the server path (directory) must stay out of the answer');
+    assert(wrong.length === 0, `${label}: the legacy pages show "Unknown" without these fields:${NL}  ${wrong.join(`${NL}  `)}`);
+  }
+});
+
+test('H14: the 200 never carries a private key, whether the key is new or kept (ADR 0002 Amendment 2, Decision 3)', async () => {
+  // The real key objects (generateRelayKeys, getCustomerRelayKeys) hold privkey and nsec; these fakes do too.
+  const PRIV = 'ee'.repeat(32);
+  const NSEC = 'nsec1fixtureprivatekeyneverreal';
+  for (const [label, outcome] of [
+    ['a new key', { created: true, keys: { pubkey: ASSISTANT, npub: 'npub1fixtureassistant', privkey: PRIV, nsec: NSEC } }],
+    ['a kept key', { created: false, existing: { pubkey: 'a9'.repeat(32), npub: 'npub1kept', privkey: PRIV, nsec: NSEC } }],
+  ]) {
+    const t = tmpCustomers();
+    const provision = { calls: [], fn: async (pk) => { provision.calls.push(pk); return outcome; } };
+    const res = await call(makeHandler({ manager: { factory: t.factory }, provision }), sessionFor(GUEST));
+    assert(res.statusCode === 200, `${label}: expected 200; got ${res.statusCode} ${show(res.body)}`);
+    const text = JSON.stringify(res.body);
+    const leaks = [
+      text.includes(PRIV) && 'the private key\'s hex',
+      text.includes(NSEC) && 'the nsec',
+      /"(privkey|privateKey|nsec|secretKey|secret)"\s*:/.test(text) && 'a private-key field name',
+    ].filter(Boolean);
+    assert(leaks.length === 0, `${label}: the answer carries ${leaks.join(', ')}: ${text}`);
+  }
+});
+
+test('H15: anything unexpected is 500 sign-up-failed, with success and message, and creates nothing (ADR 0002 Amendment 2, Decision 3)', async () => {
+  const provision = fakeProvision();
+  const created = [];
+  const manager = { factory: () => ({
+    initialize: async () => { throw new Error('fixture: the customers file cannot be read'); },
+    getCustomer: async () => null,
+    createCustomer: async (d) => { created.push(d); return d; },
+  }) };
+  const err = console.error; console.error = () => {};
+  let res;
+  try { res = await call(makeHandler({ manager, provision }), sessionFor(GUEST)); } finally { console.error = err; }
+  const b = res.body || {};
+  assert(res.statusCode === 500 && b.code === 'sign-up-failed' && b.success === false,
+    `expected 500 code "sign-up-failed"; got ${res.statusCode} ${show(b)}`);
+  assert(typeof b.message === 'string' && b.message, `the legacy pages read message; got ${show(b.message)}`);
+  assert(created.length === 0 && provision.calls.length === 0, `nothing may be created (customers ${created.length}, keys ${provision.calls.length})`);
+});
+
+/* ───────────────────────── S — deactivating a customer (ADR 0002 Amendment 2) ───────────────────────── */
+
+function changeStatusModule() {
+  delete require.cache[require.resolve(CHANGE_STATUS)];
+  let mod;
+  try { mod = require(CHANGE_STATUS); } catch (e) { throw new Error(`src/api/customers/changeCustomerStatus.js must load: ${e.message}`); }
+  assert(typeof mod.createChangeCustomerStatusHandler === 'function',
+    `changeCustomerStatus.js must export createChangeCustomerStatusHandler(deps) (ADR 0002 Amendment 2); exports: ${show(Object.keys(mod))}`);
+  assert(typeof mod.handleChangeCustomerStatus === 'function', 'changeCustomerStatus.js must still export handleChangeCustomerStatus');
+  return mod;
+}
+
+function makeStatusHandler(t) {
+  const { createChangeCustomerStatusHandler } = changeStatusModule();
+  return createChangeCustomerStatusHandler({
+    getOwnerPubkey: () => OWNER,
+    isAdminPubkey: (pk) => pk === ADMIN,
+    customerManagerFactory: t.factory,
+  });
+}
+
+/** One POST /api/change-customer-status, with the handler's own logging muted. */
+async function setStatus(handler, session, pubkey, status) {
+  const res = fakeRes();
+  const req = { method: 'POST', path: '/api/change-customer-status', headers: {}, body: { pubkey, status } };
+  if (session !== undefined) req.session = session;
+  if (MUTE.depth++ === 0) { MUTE.real = console.log; console.log = () => {}; }
+  const err = console.error; console.error = () => {};
+  try { await handler(req, res); } finally {
+    console.error = err;
+    if (--MUTE.depth === 0) console.log = MUTE.real;
+  }
+  return res;
+}
+
+/** A guest who signed up through the sign-up handler, on a real store in a temp folder. */
+async function signedUpGuest() {
+  const t = tmpCustomers();
+  const signUp = makeHandler({ manager: { factory: t.factory }, provision: fakeProvision() });
+  const res = await call(signUp, sessionFor(GUEST));
+  assert(res.statusCode === 200, `setup: the guest must sign up first; got ${res.statusCode} ${show(res.body)}`);
+  return { t, signUp };
+}
+const statusOf = (t, pk) => { const r = Object.values(t.read()).find((c) => c.pubkey === pk); return r ? r.status : undefined; };
+const OWNER_SESSION = { authenticated: true, pubkey: OWNER };
+
+test('S1: the owner deactivates a customer who signed up, then reactivates them, from a real signed-in session (AC-4)', async () => {
+  const { t } = await signedUpGuest();
+  const h = makeStatusHandler(t);
+  const off = await setStatus(h, OWNER_SESSION, GUEST, 'inactive');
+  assert(off.statusCode === 200 && off.body && off.body.success === true,
+    `the owner's deactivate must succeed; got ${off.statusCode} ${show(off.body)} (401 "Authentication required" is the stale session.userPubkey read)`);
+  assert(typeof off.body.message === 'string' && off.body.message, 'the answer keeps the message the manage-customer page shows');
+  assert(statusOf(t, GUEST) === 'inactive', `the record must now be inactive; it is ${show(statusOf(t, GUEST))}`);
+  const on = await setStatus(h, OWNER_SESSION, GUEST, 'active');
+  assert(on.statusCode === 200 && on.body && on.body.success === true, `the owner's reactivate must succeed; got ${on.statusCode} ${show(on.body)}`);
+  assert(statusOf(t, GUEST) === 'active', `the record must be active again; it is ${show(statusOf(t, GUEST))}`);
+});
+
+test('S2: an admin may deactivate and reactivate too — the handler\'s owner-or-admin rule is unchanged (Amendment 2, Decision 1)', async () => {
+  const { t } = await signedUpGuest();
+  const h = makeStatusHandler(t);
+  const off = await setStatus(h, { authenticated: true, pubkey: ADMIN }, GUEST, 'inactive');
+  assert(off.statusCode === 200 && statusOf(t, GUEST) === 'inactive', `an admin's deactivate must succeed; got ${off.statusCode} ${show(off.body)}`);
+  const on = await setStatus(h, { authenticated: true, pubkey: ADMIN }, GUEST, 'active');
+  assert(on.statusCode === 200 && statusOf(t, GUEST) === 'active', `an admin's reactivate must succeed; got ${on.statusCode} ${show(on.body)}`);
+});
+
+test('S3: anyone else is refused — 401 without a signed-in session, 403 for a guest or the customer — and the record does not change', async () => {
+  const { t } = await signedUpGuest();
+  const h = makeStatusHandler(t);
+  const wrong = [];
+  for (const [label, session, want, error] of [
+    ['no session', undefined, 401, 'Authentication required'],
+    ['a pubkey but not authenticated', { pubkey: OWNER }, 401, 'Authentication required'],
+    ['authenticated: false', { authenticated: false, pubkey: OWNER }, 401, 'Authentication required'],
+    ['only the old userPubkey field', { userPubkey: OWNER }, 401, 'Authentication required'],
+    ['authenticated, with the old field and no pubkey', { authenticated: true, userPubkey: OWNER }, 401, 'Authentication required'],
+    ['a guest', { authenticated: true, pubkey: GUEST2 }, 403, 'Only the owner or admin can change customer status'],
+    ['a guest whose stale userPubkey names the owner', { authenticated: true, pubkey: GUEST2, userPubkey: OWNER }, 403, 'Only the owner or admin can change customer status'],
+    ['the customer themselves', { authenticated: true, pubkey: GUEST }, 403, 'Only the owner or admin can change customer status'],
+  ]) {
+    const res = await setStatus(h, session, GUEST, 'inactive');
+    const b = res.body || {};
+    if (res.statusCode !== want || b.success !== false || b.error !== error) {
+      wrong.push(`${label}: expected ${want} ${show(error)}; got ${res.statusCode} ${show(b)}`);
+    }
+    if (statusOf(t, GUEST) !== 'active') { wrong.push(`${label}: the record changed to ${show(statusOf(t, GUEST))}`); break; }
+  }
+  assert(wrong.length === 0, wrong.join(NL));
+});
+
+test('S4: once the owner deactivates them, sign-up refuses them 403 customer-inactive; once reactivated, 409 already-customer (AC-4, AC-5)', async () => {
+  const { t, signUp } = await signedUpGuest();
+  const h = makeStatusHandler(t);
+  const off = await setStatus(h, OWNER_SESSION, GUEST, 'inactive');
+  assert(off.statusCode === 200, `the owner's deactivate must succeed; got ${off.statusCode} ${show(off.body)}`);
+  const again = await call(signUp, sessionFor(GUEST));
+  assert(again.statusCode === 403 && again.body.code === 'customer-inactive',
+    `a deactivated customer signing up again: expected 403 customer-inactive; got ${again.statusCode} ${show(again.body)}`);
+  assert(statusOf(t, GUEST) === 'inactive', 'they must stay inactive: only the owner reactivates');
+  const on = await setStatus(h, OWNER_SESSION, GUEST, 'active');
+  assert(on.statusCode === 200, `the owner's reactivate must succeed; got ${on.statusCode} ${show(on.body)}`);
+  const third = await call(signUp, sessionFor(GUEST));
+  assert(third.statusCode === 409 && third.body.code === 'already-customer',
+    `a reactivated customer: expected 409 already-customer; got ${third.statusCode} ${show(third.body)}`);
+  assert(Object.values(t.read()).filter((c) => c.pubkey === GUEST).length === 1, 'still exactly one record for them');
+});
+
+test('S5: the default-wired handler reads the signed-in session: a non-owner gets 403, not 401; the old field alone gets 401', async () => {
+  // A fixture key that is never the owner or an admin, so the handler refuses before it reaches any customer store.
+  delete require.cache[require.resolve(CHANGE_STATUS)];
+  const { handleChangeCustomerStatus } = require(CHANGE_STATUS);
+  const STRANGER = 'f0'.repeat(32);
+  const signedIn = await setStatus(handleChangeCustomerStatus, { authenticated: true, pubkey: STRANGER }, CUSTOMER, 'inactive');
+  assert(signedIn.statusCode === 403,
+    `a signed-in non-owner must reach the owner check (403); got ${signedIn.statusCode} ${show(signedIn.body)}`);
+  const stale = await setStatus(handleChangeCustomerStatus, { userPubkey: STRANGER }, CUSTOMER, 'inactive');
+  assert(stale.statusCode === 401, `a session with only the old userPubkey field must be 401; got ${stale.statusCode} ${show(stale.body)}`);
+});
+
 /* ───────────────────────── K — the guest's sign-in answer ───────────────────────── */
 
 async function classify({ pubkey, records = {}, settings = {}, admins = [] }) {
@@ -627,6 +817,26 @@ test('D4: the API docs name the new answer codes and the two classification fiel
   const missing = ['sign-up-closed', 'not-a-guest', 'already-customer', 'customer-inactive', 'assistant-key-failed', 'signUpOpen', 'customerStatus']
     .filter((w) => !doc.includes(w));
   assert(missing.length === 0, `src/api/openapi.yaml does not mention: ${missing.join(', ')}`);
+});
+
+test('D5: the API docs\' sign-up 200 names the legacy fields pubkey, status and relayPubkey (ADR 0002 Amendment 2)', async () => {
+  const doc = safeRead(OPENAPI);
+  const start = doc.indexOf('  /api/auth/sign-up-new-customer:');
+  assert(start >= 0, 'src/api/openapi.yaml must document /api/auth/sign-up-new-customer');
+  const next = doc.indexOf(`${NL}  /api/`, start + 10);
+  const section = doc.slice(start, next > start ? next : undefined);
+  const missing = ['pubkey', 'status', 'relayPubkey'].filter((f) => !new RegExp(`^\\s+${f}:\\s*$`, 'm').test(section));
+  assert(missing.length === 0, `the sign-up section's 200 schema must list: ${missing.join(', ')}`);
+});
+
+test('D6: the status handler reads no session.userPubkey (no login sets it since 37a31e247), and is still exported (Amendment 2)', async () => {
+  const src = safeRead(CHANGE_STATUS);
+  assert(src, 'src/api/customers/changeCustomerStatus.js must exist');
+  assert(!/session\s*\??\.\s*userPubkey|\[\s*['"]userPubkey['"]\s*\]/.test(src),
+    'changeCustomerStatus.js must identify the caller by session.pubkey, not session.userPubkey');
+  const idx = safeRead(CUSTOMERS_INDEX);
+  assert(/handleChangeCustomerStatus/.test(idx) && /require\(\s*['"]\.\/changeCustomerStatus(\.js)?['"]\s*\)/.test(idx),
+    'src/api/customers/index.js must still export handleChangeCustomerStatus from changeCustomerStatus.js (the route\'s wiring)');
 });
 
 /* ───────────────────────── runner ───────────────────────── */
