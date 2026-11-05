@@ -193,7 +193,7 @@ Then run the checks under Tests.
 | Find out why a brain failed | The page's "Details and log", or `/opt/brains/<slug>/create.log`, `docker compose -p brain-<slug> ps`, `docker logs brain-<slug>-tapestry`, `docker logs edge-launcher` |
 | Delete a brain's data now | Destroy it, then "Start fresh" on the page, which also launches it again. The reaper deletes the rest daily at 04:00 UTC, 7 days after destroy. |
 | Grow the box | Resize in the DigitalOcean console (a few minutes down for everyone), raise `maxBrainsTotal` in `launcher.json`, then `docker exec edge-launcher kill -HUP 1` |
-| Reach Neo4j | `docker exec -it brain-<slug>-tapestry cypher-shell -u neo4j -p <password>`, with the password on the page. `<slug>.tapestry.ninja/browser/` loads but cannot connect yet, because Bolt does not reach Neo4j through HTTPS. |
+| Reach Neo4j | `<slug>.tapestry.ninja/browser/`, connecting to `bolt+s://<slug>.tapestry.ninja:443` as `neo4j` with the password on the page. Use `bolt+s`, not `neo4j+s`, since the routing that scheme asks for would point at a port that is closed. Caddy sends a websocket at a brain's root to Bolt. On the box: `docker exec -it brain-<slug>-tapestry cypher-shell -u neo4j -p <password>`. |
 
 After a reboot nothing needs doing: brains restart on their own, and the launcher checks them as it starts. Reload the launcher only as above: sending the signal through `docker kill` marks a container as manually stopped, which is why the launcher also uses `restart: always`.
 

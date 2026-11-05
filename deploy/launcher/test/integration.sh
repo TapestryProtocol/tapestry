@@ -130,6 +130,10 @@ step "the page answers through Caddy, and /ask does not"
 curl_edge "$DOMAIN" / | grep -q 'can be read by anyone with its URL' && ok "page" || bad "page"
 [ "$(curl_edge "$DOMAIN" "/ask?domain=$SLUG.$DOMAIN" -o /dev/null -w '%{http_code}')" = 404 ] && ok "/ask is 404 from outside" || bad "/ask answered from outside"
 # www is checked on the droplet only: under local_certs, Caddy leaves it to the on-demand * site, which refuses it.
+ws_status() { # HOST PATH: the status of a websocket upgrade through Caddy
+  curl_edge "$1" "$2" --http1.1 -o /dev/null -w '%{http_code}' --max-time 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+    -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ=='
+}
 
 step "create"
 OUT="$(api POST /api/brains "{\"slug\":\"$SLUG\"}")"
@@ -162,6 +166,9 @@ case "$NPUB" in npub1*) ok "the owner has an npub" ;; *) bad "owner npub: $NPUB"
 step "through Caddy, with a certificate only for a brain that exists"
 [ "$(curl_edge "$SLUG.$DOMAIN" /api/ready -o /dev/null -w '%{http_code}')" = 200 ] && ok "$SLUG.$DOMAIN answers" || bad "$SLUG.$DOMAIN"
 curl_edge "nothing.$DOMAIN" / -o /dev/null && bad "nothing.$DOMAIN got a certificate" || ok "nothing.$DOMAIN got no certificate"
+[ "$(ws_status "$SLUG.$DOMAIN" /)" = 101 ] && ok "a websocket at the root reaches Bolt" || bad "no Bolt through Caddy"
+[ "$(curl_edge "$SLUG.$DOMAIN" / -o /dev/null -w '%{http_code}')" = 200 ] && ok "the home page still answers" || bad "the home page went away"
+[ "$(ws_status "$SLUG.$DOMAIN" /relay)" = 101 ] && ok "the relay still answers" || bad "the relay went away"
 docker exec "$C" curl -s http://127.0.0.1:7778/api/firmware/install-status | grep -q '"installed":true' && ok "firmware installed" || bad "firmware"
 docker exec "$C" test -s /var/lib/brainstorm/firmware-on-boot.installed && ok "the install finished, not just its headers" || bad "no firmware marker"
 

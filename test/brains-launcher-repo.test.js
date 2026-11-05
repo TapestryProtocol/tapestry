@@ -281,6 +281,23 @@ test('E2: the launcher comes back from a reboot, whatever signal it was last sen
   }
 });
 
+test('E3: Neo4j Browser reaches Bolt through Caddy, a websocket at the root of a brain and nothing else', () => {
+  const caddyfile = fs.readFileSync(path.join(REPO, 'deploy/edge/Caddyfile'), 'utf8');
+  const brain = caddyfile.slice(caddyfile.indexOf('*.{$BASE_DOMAIN'));
+  const matcher = brain.match(/@bolt \{([\s\S]*?)\}/);
+  assert(matcher, 'the brain site needs a @bolt matcher');
+  assert(/path \/\s*\n/.test(matcher[1]), '@bolt must match the root only, so /relay stays with the brain');
+  assert(/header Upgrade websocket/i.test(matcher[1]), '@bolt must match websocket upgrades only');
+  const bolt = brain.indexOf('reverse_proxy @bolt brain-{labels.2}-tapestry:7687');
+  assert(bolt > -1, 'Bolt must go to the brain\'s own port 7687');
+  assert(brain.indexOf('reverse_proxy brain-{labels.2}-tapestry:80') > bolt, 'everything else still goes to port 80');
+});
+
+test('E4: the page gives the address Neo4j Browser connects with', () => {
+  const page = fs.readFileSync(path.join(REPO, 'deploy/launcher/public/page.js'), 'utf8');
+  assert(/bolt\+s:\/\/\$\{new URL\(d\.url\)\.host\}:443/.test(page), 'the details need the bolt+s:// address');
+});
+
 /* ── The owner's npub ── */
 
 test('O1: the entrypoint works out the owner npub from any directory', () => {

@@ -30,5 +30,13 @@ www.{$BASE_DOMAIN:tapestry.ninja} {
 		on_demand
 	}
 	header Strict-Transport-Security "max-age=31536000"
+	# Neo4j Browser connects to bolt+s://<slug>.<domain>:443, a websocket at the root. Only 443 is open, and the login is
+	# the brain's own password.
+	@bolt {
+		path /
+		header Connection *Upgrade*
+		header Upgrade websocket
+	}
+	reverse_proxy @bolt brain-{labels.2}-tapestry:7687
 	reverse_proxy brain-{labels.2}-tapestry:80
 }

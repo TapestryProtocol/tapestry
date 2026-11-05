@@ -65,6 +65,8 @@ Decisions inside it that the spec left open or the tree changed:
 - A self-hoster can run one brain with the template alone. The launcher does nothing they could not do by hand.
 - Root on the droplet and the launcher can read every brain.
 - A brain's contents are public to anyone with its URL. Making them private is separate work.
+- A brain's Neo4j login can be reached through port 443, so that Neo4j Browser can connect, and is protected by the
+  brain's own random password. Caddy does this, so other instances are not affected.
 - One brain filling the shared disk affects all of them. The disk floor is checked only before a create.
 - Dogfood brains ride `main`, so they update when `staging` is promoted.
 - A first launch takes 8 to 10 minutes on the 8 GB droplet, because the firmware install is real work on a cold Neo4j:

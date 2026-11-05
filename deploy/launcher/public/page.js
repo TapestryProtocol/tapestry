@@ -74,6 +74,7 @@
     const rows = [
       ['Image', d.imageTag],
       ['Neo4j', d.url ? `${d.url}/browser/` : ''],
+      ['Neo4j connect URL', d.url ? `bolt+s://${new URL(d.url).host}:443` : ''],
       ['Neo4j user', 'neo4j'],
       ['Neo4j password', d.neo4jPassword],
     ];
