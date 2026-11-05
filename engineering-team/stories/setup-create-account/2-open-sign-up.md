@@ -116,8 +116,8 @@ Small judgment calls made during implementation (Implementer role, step 9):
 - **Two answers the ADR's table doesn't name.**
   - The handler's own 401 (behind the middleware's) carries `success`, `message` and `error`, but no `code`, as row 1
     is the middleware's answer.
-  - Anything unexpected is 500 `sign-up-failed`, so every refusal the page can meet carries a code. The API docs name
-    it. Test H15 reaches it (added after the first review; H11 checks only the answers H1–H10 produce).
+  - Anything unexpected is 500 `sign-up-failed`, so every refusal but a 401 carries a code. The API docs name it.
+    Test H15 reaches it (added after the first review; H11 checks only the answers H1–H10 produce).
 - **The shared press logic** is a small hook, `usePressToEditor`, in `CreateAccount.jsx`, as the ADR allows. Story 1's
   button keeps its own rules through it: any 409 counts as another tab winning, and its reason comes from `error`
   only. The sign-up button takes 409 only with `code: 'already-customer'`, and its reason from `error`, then `message`.

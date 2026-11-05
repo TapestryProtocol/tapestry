@@ -19,8 +19,9 @@ an instance that had read the list first, both succeed.
 **Fixed for `createCustomer` only** by setup-create-account ADR 0002 Amendment 1, which clears the cache
 under the lock.
 
-**Still open:** the other locked writers follow the same pattern: `:245`, `:309`, `:384`, `:473`, `:980`,
-`:1195`. That covers updates, status changes, deletes and restores. Any caller that reads first on the same
+**Still open:** the other locked writers follow the same pattern: `updateCustomer` (`:248`),
+`changeCustomerDisplayName` (`:312`), `changeCustomerStatus` (`:387`), `deleteCustomer` (`:476`),
+`restoreCustomerData` (`:983`) and `mergeCustomersFile` (`:1198`), each line its `lockfile.lock` call (at `16f76a4c0`). That covers updates, status changes, deletes and restores. Any caller that reads first on the same
 instance, as the owner's customer pages do, can lose a concurrent change.
 
 **Fix shape:** clear (or bypass) the cache right after each `lockfile.lock(...)`, or give

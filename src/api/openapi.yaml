@@ -4145,8 +4145,8 @@ paths:
       tags: [Customers]
       summary: Activate or deactivate a customer (owner-only)
       description: >-
-        Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
-        other signed-in person.
+        A signed-in owner or admin only. The route table (src/middleware/routeAccess.js) also lets a direct-local caller
+        through, but the handler needs a signed-in session. 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         content:
           application/json:
