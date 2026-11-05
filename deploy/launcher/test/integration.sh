@@ -129,7 +129,7 @@ field() { printf '%s' "$1" | head -n 1 | sed -n "s/.*\"$2\":\"\([^\"]*\)\".*/\1/
 step "the page answers through Caddy, and /ask does not"
 curl_edge "$DOMAIN" / | grep -q 'can be read by anyone with its URL' && ok "page" || bad "page"
 [ "$(curl_edge "$DOMAIN" "/ask?domain=$SLUG.$DOMAIN" -o /dev/null -w '%{http_code}')" = 404 ] && ok "/ask is 404 from outside" || bad "/ask answered from outside"
-[ "$(curl_edge "www.$DOMAIN" / -o /dev/null -w '%{http_code}')" = 308 ] && ok "www redirects" || bad "www has no certificate"
+# www is checked on the droplet only: under local_certs, Caddy leaves it to the on-demand * site, which refuses it.
 
 step "create"
 OUT="$(api POST /api/brains "{\"slug\":\"$SLUG\"}")"

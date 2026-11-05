@@ -219,8 +219,9 @@ After a reboot nothing needs doing: brains restart on their own, and the launche
 | What the launcher refuses, on the droplet | `deploy/launcher/test/security.sh tapestry.ninja` | as root |
 
 Also on the droplet: roll with three brains; roll with one broken on purpose (a wrong `NEO4J_PASSWORD` in its `.env`), which
-should stop there, mark it `failed` and leave the rest alone; and reboot, after which every brain should answer within five
-minutes.
+should stop there, mark it `failed` and leave the rest alone; reboot, after which every brain should answer within five
+minutes; and `curl -I https://www.tapestry.ninja/`, which should answer 301 with a valid certificate. All passed on
+2026-11-04: the reboot took 100 seconds, and a roll across three brains about a minute each.
 
 ## Memory
 
