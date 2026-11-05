@@ -278,3 +278,4 @@ Then, in the same session and channel:
 7. The written spec: "Spec approved" (2026-11-04, 23:56 ET)
 8. The plan, run natively: "Approve, native" (2026-11-05, 00:02 ET)
 9. The first publish, of the two Not Ready verdicts: "Publish both" (2026-11-05, 11:57 ET)
+10. The merge, after round 2 of the review passed: "Merge to ngit staging" (2026-11-05, 13:15 ET). No hold level was stated.
