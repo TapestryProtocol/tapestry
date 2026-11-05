@@ -51,4 +51,4 @@ The second read went through every shared file with their variables unset and fo
 ## Open items
 
 - The owner adds an agent's npub on `/pages/manage/manage-administrators.html`, and the agent signs in as admin. The page answers on a live brain. Adding one is not tried.
-- Neo4j Browser at `/browser/` loads but cannot connect, because Bolt does not reach Neo4j through HTTPS. It takes a change to the nginx config every instance shares, so it gets its own PR. The runbook gives the command-line way in.
+- Neo4j Browser at `/browser/` connects through Caddy, which sends a websocket at a brain's root to its port 7687. This needed no change to the config other instances share. A raw Bolt handshake through HTTPS got an answer from Neo4j on all three brains. A real login in Neo4j Browser is not tried yet.
