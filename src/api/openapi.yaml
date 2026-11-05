@@ -223,6 +223,17 @@ paths:
                     type: string
                   customerId:
                     type: string
+                  customerStatus:
+                    type: string
+                    nullable: true
+                    description: >-
+                      Guest answers only. The status of this pubkey's customer record when it has one that isn't
+                      active (a deactivated customer), else null.
+                  signUpOpen:
+                    type: boolean
+                    description: >-
+                      Guest answers only. True when the owner has turned open sign-up on (settings
+                      signUp.open is exactly true), so this guest may make themselves a customer.
 
   /api/setup/status:
     get:
@@ -943,21 +954,55 @@ paths:
   /api/auth/sign-up-new-customer:
     post:
       tags: [Auth]
-      summary: Sign up as a new customer
+      summary: Sign up as a new customer (open sign-up)
       description: >-
-        Creates a customer account with relay keys. Owner, admin or a direct-local caller only
-        (src/middleware/routeAccess.js); 401 when not signed in, 403 for any other signed-in person.
+        Makes the signed-in caller an active customer of this instance, then gives them a Tapestry
+        Assistant key (an Assistant key they already hold is kept). Any signed-in person may call it
+        (src/middleware/routeAccess.js); the handler admits a guest only while the owner's open sign-up
+        setting (signUp.open) is on. Every answer carries success and message; a refusal also carries
+        error and code.
       responses:
         '401':
           description: Not signed in
         '403':
-          description: Signed in, but not the owner or an admin
+          description: >-
+            Open sign-up is off (code sign-up-closed); the caller is the owner or an admin (code
+            not-a-guest); or the caller's customer record is inactive (code customer-inactive)
+        '409':
+          description: The caller is already an active customer (code already-customer)
+        '500':
+          description: >-
+            The customer was created but its Assistant key could not be (code assistant-key-failed;
+            the Create your account page's create button recovers it), or the sign-up failed (code
+            sign-up-failed)
         '200':
           description: Customer created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  customerId:
+                    type: integer
+                  customerName:
+                    type: string
+                  assistantPubkey:
+                    type: string
+                  assistantNpub:
+                    type: string
+                  pubkey:
+                    type: string
+                    description: The caller's own pubkey (a legacy field, read by the old sign-up pages)
+                  status:
+                    type: string
+                    description: The new customer record's status, active (a legacy field)
+                  relayPubkey:
+                    type: string
+                    description: The Assistant's pubkey, as assistantPubkey (a legacy field)
 
   /api/auth/test:
     get:
@@ -4100,8 +4145,8 @@ paths:
       tags: [Customers]
       summary: Activate or deactivate a customer (owner-only)
       description: >-
-        Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
-        other signed-in person.
+        A signed-in owner or admin only. The route table (src/middleware/routeAccess.js) also lets a direct-local caller
+        through, but the handler needs a signed-in session. 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         content:
           application/json:

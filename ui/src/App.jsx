@@ -587,6 +587,7 @@ const router = createBrowserRouter([
           { path: 'firmware', handle: { crumb: 'Firmware' } },
           { path: 'auditing', handle: { crumb: 'Auditing Tools' } },
           { path: 'assistant-duties', handle: { crumb: 'Assistant Duties' } },
+          { path: 'accounts', handle: { crumb: 'Accounts' } },
           { path: '*', element: <Navigate to="/tapestry/settings/relays" replace /> },
         ],
       },

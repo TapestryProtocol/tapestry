@@ -38,3 +38,8 @@ Received: "⋮⋮ 30382 Scores This instance's relay Move up Move down Change re
   changed nothing under `ui/src/pages/settings`. It did add N6 to the self-Map spec, a long test (eleven page loads),
   and the runner uses two workers in parallel (`fullyParallel: true`), so it plausibly adds load beside B8. The fix is
   still B8's own wait (Fix shape above).
+
+**B6 has the same race, 2026-11-05** (`setup-create-account` #2's review, a build of `e7c134e5c`). In a combined chromium
+run of the Assistant Duties and My Assistant specs, B6 (`tests/brainstorm/assistant-duties-settings.spec.js:278-280`)
+and B8 both failed (30 passed, 2 failed). Over repeats they went 3 passed, 5 failed. B6 reads the row once in the same way,
+so the fix shape above applies to B6 too. Story 2 changed nothing in the Assistant Duties panel.

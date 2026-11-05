@@ -1,6 +1,6 @@
 # Story 2: Open sign-up, the owner's choice
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-04
 **Type:** Feature
 **Epic:** `setup-create-account`
@@ -104,9 +104,37 @@ None changed. Named for orientation; the Architect resolves the handles:
 
 None. The owner answered them at planning (2026-11-04); book § Decisions records the answers.
 
+## Deviations
+
+Small judgment calls made during implementation (Implementer role, step 9):
+
+- **No `mayChangeAdminList` alias.** ADR § Implementation notes keeps it "if anything imports it". Nothing does:
+  it was never exported from `settingsApi.js`. So it's renamed to `mayChangeOwnerOnlySetting`, and the per-key
+  refusals live in one map, `OWNER_ONLY_REFUSALS`, whose keys are the owner-only list.
+- **The validation message.** A malformed `signUp` patch answers 400 with
+  `signUp must be { "open": true } or { "open": false }`. The ADR names the status and not the words.
+- **Two answers the ADR's table doesn't name.**
+  - The handler's own 401 (behind the middleware's) carries `success`, `message` and `error`, but no `code`, as row 1
+    is the middleware's answer.
+  - Anything unexpected is 500 `sign-up-failed`, so every refusal but a 401 carries a code. The API docs name it.
+    Test H15 reaches it (added after the first review; H11 checks only the answers H1–H10 produce).
+- **The shared press logic** is a small hook, `usePressToEditor`, in `CreateAccount.jsx`, as the ADR allows. Story 1's
+  button keeps its own rules through it: any 409 counts as another tab winning, and its reason comes from `error`
+  only. The sign-up button takes 409 only with `code: 'already-customer'`, and its reason from `error`, then `message`.
+- **The owner's name and link** are one small component, `OwnerTail`, shared by story 1's ask-the-owner line and the
+  deactivated line. `GuestNoAssistant` renders the same output as before (story 1's B10 passes unchanged).
+- **The Accounts panel's copy** sits in `AccountSettings.jsx` as `ACCOUNT_SETTINGS_COPY`, beside its only user, and not
+  in a copy file of its own. The checkbox is disabled while a save is out, so a double click sends one request.
+- **The Accounts tab is the Settings tab bar's eighth.** That bar doesn't wrap. At 900 px and at 375 px, Accounts sits
+  past the right edge and is reached by scrolling the content sideways. The overflow is older than this story
+  ("Auditing Tools" already overflowed at 900 px), so it's filed and not changed here: ledger row
+  `2026-11-05-settings-tab-bar-overflows`.
+- **The classification reads the switch defensively.** If the settings can't be read, a guest's `signUpOpen` is `false`
+  (closed), and the sign-in answer still comes back.
+
 ## Linked artifacts
 
 - Issue: ngit `94229587` (its open question "How a guest becomes a customer on an instance, if at all")
-- ADR: (filled in after Architecture phase)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- ADR: `engineering-team/decisions/setup-create-account/0002-open-sign-up-an-owner-only-setting.md`
+- Test plan: `engineering-team/stories/setup-create-account/2-open-sign-up.test-plan.md`
+- Review: `engineering-team/reviews/setup-create-account/2-open-sign-up.md`

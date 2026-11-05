@@ -50,6 +50,7 @@ async function handleGetUserClassification(req, res) {
         }
 
         // Check if user is a customer using CustomerManager
+        let customerStatus = null;
         try {
             const customerManager = new CustomerManager();
             await customerManager.initialize();
@@ -67,16 +68,21 @@ async function handleGetUserClassification(req, res) {
                     assistantPubkey,
                 });
             }
+            // A record that isn't active: a deactivated customer, told to ask the owner (ADR setup-create-account/0002 § 2).
+            if (customer && typeof customer.status === 'string') customerStatus = customer.status;
         } catch (error) {
             console.error('Error checking customer status:', error);
         }
 
-        // User is authenticated but not owner or customer
+        // User is authenticated but not owner or customer. A guest also learns whether open sign-up is on,
+        // so the Create your account page knows its state at sign-in (ADR setup-create-account/0002 § 2).
         return res.json({
             success: true,
             classification: 'guest',
             pubkey: userPubkey,
             assistantPubkey,
+            customerStatus,
+            signUpOpen: isSignUpOpen(),
         });
 
     } catch (error) {
@@ -85,6 +91,18 @@ async function handleGetUserClassification(req, res) {
             success: false,
             error: 'Failed to determine user classification'
         });
+    }
+}
+
+/** Open only when the owner saved exactly true; a missing or malformed value is closed (ADR setup-create-account/0002 § 1). */
+function isSignUpOpen() {
+    try {
+        const { getSettings } = require('../../config/settings');
+        const settings = getSettings() || {};
+        return !!(settings.signUp && settings.signUp.open === true);
+    } catch (error) {
+        console.error('Error reading the open sign-up setting:', error);
+        return false;
     }
 }
 
