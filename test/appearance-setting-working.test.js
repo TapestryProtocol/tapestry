@@ -43,7 +43,10 @@ const WORKING_FILES = ['pages/Tags.jsx', 'pages/Tag.jsx', 'pages/Pins.jsx', 'com
   'pages/assistant/EditProfile.jsx', 'pages/assistant/IdentificationTags.jsx', 'pages/assistant/Index.jsx',
   'pages/assistant/OutboxRelays.jsx', 'pages/assistant/ProfileChecklist.jsx', 'pages/assistant/Scores.jsx',
   'pages/developers/DevPage.jsx', 'pages/developers/Hub.jsx', 'pages/developers/Nip50.jsx', 'pages/developers/OpenRanking.jsx',
-  'pages/developers/TrustedAssertions.jsx', 'pages/developers/RelayTools.jsx', 'pages/setup/Index.jsx', 'pages/setup/Placeholders.jsx'];
+  'pages/developers/TrustedAssertions.jsx', 'pages/developers/RelayTools.jsx', 'pages/setup/Index.jsx', 'pages/setup/Placeholders.jsx',
+  // Re-aimed by setup-create-account #1: the Create your account page replaces its placeholder, so its classes and inline
+  // styles join the guards (T2, T3, K1, I1, I4). They failed on the missing file until the page was built.
+  'pages/setup/CreateAccount.jsx'];
 // The disabled and inactive states (review 1, Blocking 4): WCAG exempts them, and their opacity is what shows they're
 // off, so they keep today's value in both looks (ADR 0002 Amendment 1).
 const DISABLED = /:disabled|\[disabled\]|\.disabled\b|is-disabled|aria-disabled|\.saved\b|is-parked/;

@@ -465,6 +465,53 @@ function handleGetTAPubkey(req, res) {
 }
 
 /**
+ * One check-and-store at a time for each pubkey (ADR setup-create-account/0001 § Decision 4).
+ *
+ * Without it, two provision-key calls for the same person (two tabs) could both find no key across
+ * the awaits between the check and the store, and the second write would replace the first key, so
+ * the first caller was told about a key that no longer exists.
+ *
+ * The lock is in memory, which holds because the control panel is ONE Node process
+ * (docker/entrypoint.sh, `exec node …/bin/control-panel.js`). If it ever runs as several, this must
+ * become a storage-level exclusive create instead (option ii in the ADR).
+ */
+const provisionTails = new Map();
+
+async function underProvisionLock(pubkey, fn) {
+  // Run after whatever is queued for this pubkey, whether it succeeded or failed.
+  const run = (provisionTails.get(pubkey) || Promise.resolve()).catch(() => {}).then(fn);
+  const tail = run.catch(() => {});
+  provisionTails.set(pubkey, tail);
+  try {
+    return await run;
+  } finally {
+    if (provisionTails.get(pubkey) === tail) provisionTails.delete(pubkey);
+  }
+}
+
+const DEFAULT_PROVISION_DEPS = {
+  getAssistantKeys: (pubkey) => getAssistantKeys(pubkey),
+  generateRelayKeys: () => require('../../utils/customerRelayKeys').generateRelayKeys(),
+  // Under the caller's pubkey: the customer relay key slot scheme, so getAssistantKeys(pubkey) finds it.
+  storeRelayKeys: (pubkey, keys) => new SecureKeyStorage().storeRelayKeys(pubkey, keys),
+};
+
+/**
+ * Create the Assistant key for `pubkey` unless one exists. Returns { created: true, keys } or
+ * { created: false, existing }. A failed store rejects, stores nothing, and releases the lock.
+ * `deps` is the seam tests drive (test/setup-create-account.test.js U1–U7).
+ */
+async function provisionAssistantKeyOnce(pubkey, deps = DEFAULT_PROVISION_DEPS) {
+  return underProvisionLock(pubkey, async () => {
+    const existing = await deps.getAssistantKeys(pubkey);
+    if (existing && existing.pubkey) return { created: false, existing };
+    const keys = deps.generateRelayKeys();
+    await deps.storeRelayKeys(pubkey, keys);
+    return { created: true, keys };
+  });
+}
+
+/**
  * POST /api/assistant/provision-key
  * Generates and stores a new server-side Assistant keypair for the caller's
  * session pubkey, if one doesn't already exist. Used by admins (who don't
@@ -506,25 +553,18 @@ async function handleProvisionAssistantKey(req, res) {
     }
 
     // If a key already exists, refuse — re-provisioning would lose the
-    // signing identity of every event already signed by the old key.
-    const existing = await getAssistantKeys(sessionPubkey);
-    if (existing && existing.pubkey) {
+    // signing identity of every event already signed by the old key. The check
+    // and the store run as one step per pubkey, so two tabs can't both pass it.
+    const outcome = await provisionAssistantKeyOnce(sessionPubkey);
+    if (!outcome.created) {
       return res.status(409).json({
         success: false,
         error: 'Assistant key already exists for this user',
-        pubkey: existing.pubkey,
-        npub: existing.npub,
+        pubkey: outcome.existing.pubkey,
+        npub: outcome.existing.npub,
       });
     }
-
-    const { generateRelayKeys } = require('../../utils/customerRelayKeys');
-    const keys = generateRelayKeys();
-
-    // Store under the caller's pubkey — same slot scheme as customer keys.
-    // Owner is handled above (existing check would have returned the TA key
-    // stored under 'tapestry-assistant'), so we never write the owner here.
-    const storage = new SecureKeyStorage();
-    await storage.storeRelayKeys(sessionPubkey, keys);
+    const { keys } = outcome;
 
     console.log(`[assistant] Provisioned new Assistant key for ${sessionPubkey.slice(0, 8)} (role: ${isAdmin ? 'admin' : isCustomer ? 'customer' : 'owner'})`);
 
@@ -546,10 +586,12 @@ async function handleProvisionAssistantKey(req, res) {
 // composite's publishable URL on the SAME rule as the branded default — one notion
 // of "could a stranger fetch this", not two (ADR ta-avatar/0003 D4).
 // createPublishProfileHandler and createAssistantStatusHandler are the seams tests
-// drive (ADRs assistant-profile/0002 and 0003).
+// drive (ADRs assistant-profile/0002 and 0003). provisionAssistantKeyOnce is the seam
+// for provision-key's per-pubkey lock (ADR setup-create-account/0001 § Decision 4).
 module.exports = {
   handlePublishProfile, createPublishProfileHandler,
   handleAssistantStatus, createAssistantStatusHandler, handleGetTAPubkey, handleProvisionAssistantKey,
+  provisionAssistantKeyOnce,
   handleGetAssistantRoster,
   buildDefaultProfileContent, getInstanceWebsite, isPubliclyReachable, getAssistantPublishRelays,
 };

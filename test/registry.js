@@ -275,6 +275,7 @@ const suites = [
   { file: 'setup-status.test.js' },
   { file: 'setup-alert.test.js' },
   { file: 'setup-alert-polish.test.js' },
+  { file: 'setup-create-account.test.js' },
   { file: 'assistant-management-page.test.js' },
   { file: 'assistant-alert.test.js' },
   { file: 'assistant-attention.test.js' },
