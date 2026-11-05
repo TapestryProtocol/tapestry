@@ -108,5 +108,5 @@ None. The owner answered them at planning (2026-11-04); book § Decisions record
 
 - Issue: ngit `94229587` (its open question "How a guest becomes a customer on an instance, if at all")
 - ADR: `engineering-team/decisions/setup-create-account/0002-open-sign-up-an-owner-only-setting.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/setup-create-account/2-open-sign-up.test-plan.md`
 - Review: (filled in after Review phase)

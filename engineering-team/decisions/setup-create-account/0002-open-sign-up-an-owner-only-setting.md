@@ -163,8 +163,9 @@ and gains `error` and `code`:
 - **The name** is the owner path's `customer_<first 8 hex>_<base-36 ms>`. Every other field comes from
   `createCustomer`'s defaults, the owner's values (AC-4).
 - **`createCustomer` throwing "already exists"** means a concurrent sign-up won. The handler re-reads the
-  record and answers row 4 or 5. With `createCustomer`'s file lock, two tabs leave one customer. With
-  `provisionAssistantKeyOnce`'s lock, they leave one key (AC-5).
+  record and answers row 4 or 5. With `createCustomer`'s file lock, and its duplicate check reading the file
+  under that lock (Amendment 1), two tabs leave one customer. With `provisionAssistantKeyOnce`'s lock, they
+  leave one key (AC-5).
 - **The customer is created first.** If the key then fails, the answer is 500 `assistant-key-failed`.
   The person is now a customer with no Assistant, so story 1's create button recovers it. The reverse
   order would leave a guest holding a key and no record.
@@ -277,6 +278,36 @@ The panel uses existing classes only (Amendment 1 of ADR 0001 applies here too).
       tab as owner and as admin.
 - **Branches.** As story 1: the book's branch, off `main`, so it carries no staging-only commits. It
   reaches `staging` by merge and `main` on its own.
+
+## Amendment 1 (Test Design, 2026-11-05): `createCustomer` reads the file under its lock
+
+**Proposed by the Tester at Test Design; approved by the owner at that gate (2026-11-05).**
+
+**What was wrong.** § 3 said `createCustomer`'s file lock makes two concurrent sign-ups leave one
+customer. It doesn't, as designed:
+- **The read is cached.** Inside the lock, `createCustomer` reads the list through `getAllCustomers()`,
+  which keeps a 30-second per-instance cache (`src/utils/customerManager.js:51-58`). The cache is cleared
+  only after the write (`:227`).
+- **The handler fills that cache first.** It calls `getCustomer` before `createCustomer`, so the
+  duplicate check inside the lock reads a list from before the lock.
+- **What happens.** Two tabs both "succeed", and the second write replaces the first record. The test
+  plan's H7 caught it on the oracle (both answers 200), and H12 shows it in `createCustomer` alone: on
+  today's code, two concurrent creates for one pubkey both succeed.
+- **It's an old bug.** The owner's `POST /api/add-new-customer` reads the list before `createCustomer`
+  too (`add-new-customer.js:43`), so an owner adding a customer at the same moment as a sign-up can
+  silently drop one of the two records.
+
+**Decision.** In `createCustomer`, clear the instance's cache right after acquiring the lock, and before
+`getAllCustomers()` (`customerManager.js:181-182`). The duplicate check and the write then work from the
+file as it is under the lock. One line, in a shared utility, so `src/utils/customerManager.js` joins
+this ADR's files.
+- With it, H7 and H12 pass on the oracle.
+- The 35 neighbouring suites that touch settings, the route table, the classification or the customer
+  store give the same results with and without it.
+
+**Left as it is, and filed.** The other locked writers in `customerManager.js` (`:245`, `:309`, `:384`,
+`:473`, `:980`, `:1195`) follow the same read-a-cached-list pattern. They aren't on this story's path:
+ledger row `2026-11-05-customer-manager-stale-cache-writes`.
 
 ## Out of scope
 
