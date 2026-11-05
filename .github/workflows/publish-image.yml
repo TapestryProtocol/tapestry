@@ -2,13 +2,10 @@ name: Publish brain images
 
 # Builds the images brains run, then moves every brain on tapestry.ninja onto them, one at a time. See deploy/RUNBOOK.md.
 # A roll does not reload Caddy, so a Caddyfile change needs the restart the runbook gives.
-#
-# The feat/brains-launcher branch is here for now only because running this by hand needs the file on the default
-# branch. Take it out, here and in the job's `if`, when this reaches main.
 
 on:
   push:
-    branches: [main, feat/brains-launcher]
+    branches: [main]
   workflow_dispatch:
 
 # Later pushes wait their turn. Stopping a roll partway would leave brains on two images for no reason.
@@ -22,7 +19,7 @@ permissions:
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/brains-launcher'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:

@@ -214,6 +214,8 @@ test('W1: it runs on main and by hand, never on pull requests, and never cancels
   assert(/push:\s*\n\s*branches: \[[^\]]*\bmain\b[^\]]*\]/.test(wf), 'push to main is missing');
   assert(/workflow_dispatch:/.test(wf), 'workflow_dispatch is missing');
   assert(!/pull_request/.test(wf), 'it must not run on pull requests, which could reach the droplet');
+  assert(/branches: \[main\]/.test(wf), 'main is the only branch that rolls the brains');
+  assert(/if: github\.ref == 'refs\/heads\/main'/.test(wf), 'running it by hand from another branch must not roll them');
   assert(/cancel-in-progress: false/.test(wf), 'a newer push must not cancel a roll under way');
 });
 
