@@ -22,7 +22,7 @@ function makeLoginError(code, message) {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // { pubkey, classification, profile }
+  const [user, setUser] = useState(null); // { pubkey, classification, assistantPubkey, customerStatus, signUpOpen, profile }
   const [loading, setLoading] = useState(true);
   // { code, message } | null — surfaced in the shared LoginErrorModal below so
   // every login entry point reports the reason instead of failing silently.
@@ -67,6 +67,9 @@ export function AuthProvider({ children }) {
           pubkey: data.pubkey,
           classification: classData.classification || 'guest',
           assistantPubkey: classData.assistantPubkey || null,
+          // A guest's sign-up facts, for the Create your account page (ADR setup-create-account/0002 § 2).
+          customerStatus: classData.customerStatus || null,
+          signUpOpen: classData.signUpOpen === true,
           profile,
         });
       } else {
@@ -164,7 +167,13 @@ export function AuthProvider({ children }) {
     try {
       const data = await (await fetch('/api/auth/user-classification')).json();
       setUser((prev) => (prev && data && data.pubkey === prev.pubkey
-        ? { ...prev, classification: data.classification || prev.classification, assistantPubkey: data.assistantPubkey || null }
+        ? {
+          ...prev,
+          classification: data.classification || prev.classification,
+          assistantPubkey: data.assistantPubkey || null,
+          customerStatus: data.customerStatus || null,
+          signUpOpen: data.signUpOpen === true,
+        }
         : prev));
     } catch {
       // The next full sign-in check catches up.

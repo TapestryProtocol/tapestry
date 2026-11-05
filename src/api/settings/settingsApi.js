@@ -58,21 +58,32 @@ function requireOwner(req, res, next) {
   next();
 }
 
-// Changing the admin list is the owner's alone (ADR security-auth-exposure/0005, owner's decision 3): an admin may change
-// every other setting, but an update or reset touching adminPubkeys would sidestep the owner-only /api/admin/add and
-// /api/admin/remove (ADR task-queue-scheduler/0016). Checked against the owner pubkey, not owner-or-admin; a
-// direct-local caller keeps it.
-const ADMIN_LIST_KEY = 'adminPubkeys';
+// Owner-only settings: an admin may change every other setting, but not these. Checked against the owner pubkey, not
+// owner-or-admin; a direct-local caller keeps them.
+// - adminPubkeys (ADR security-auth-exposure/0005, owner's decision 3): an update or reset touching it would sidestep the
+//   owner-only /api/admin/add and /api/admin/remove (ADR task-queue-scheduler/0016).
+// - signUp (ADR setup-create-account/0002 § 1): whether guests may make themselves customers is the owner's choice.
+const OWNER_ONLY_REFUSALS = {
+  adminPubkeys: 'Only the owner can change the admin list.',
+  signUp: 'Only the owner can change open sign-up.',
+};
+const OWNER_ONLY_KEYS = Object.keys(OWNER_ONLY_REFUSALS);
 
-function mayChangeAdminList(req) {
+function mayChangeOwnerOnlySetting(req) {
   if (req.localTrusted) return true;
   const { getOwnerPubkey } = require('../../utils/config');
   const ownerPubkey = getOwnerPubkey();
   return !!(ownerPubkey && req.session?.pubkey === ownerPubkey);
 }
 
-function refuseAdminListChange(res) {
-  return res.status(403).json({ success: false, error: 'Only the owner can change the admin list.' });
+function refuseOwnerOnlyChange(res, key) {
+  return res.status(403).json({ success: false, error: OWNER_ONLY_REFUSALS[key] });
+}
+
+// signUp is exactly { open: boolean } (ADR setup-create-account/0002 § 1).
+function isValidSignUp(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).length === 1 && typeof value.open === 'boolean';
 }
 
 function handleGetSettings(req, res) {
@@ -111,8 +122,12 @@ function handleUpdateSettings(req, res) {
     if (!patch || typeof patch !== 'object') {
       return res.status(400).json({ success: false, error: 'Request body must be a JSON object' });
     }
-    if (Object.prototype.hasOwnProperty.call(patch, ADMIN_LIST_KEY) && !mayChangeAdminList(req)) {
-      return refuseAdminListChange(res);
+    const ownerOnly = OWNER_ONLY_KEYS.find((key) => Object.prototype.hasOwnProperty.call(patch, key));
+    if (ownerOnly && !mayChangeOwnerOnlySetting(req)) {
+      return refuseOwnerOnlyChange(res, ownerOnly);
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'signUp') && !isValidSignUp(patch.signUp)) {
+      return res.status(400).json({ success: false, error: 'signUp must be { "open": true } or { "open": false }' });
     }
 
     // Validate relay URLs if aRelays section is being updated
@@ -159,8 +174,9 @@ function handleResetSetting(req, res) {
     if (!keyPath) {
       return res.status(400).json({ success: false, error: 'keyPath required' });
     }
-    if (String(keyPath).split('.')[0] === ADMIN_LIST_KEY && !mayChangeAdminList(req)) {
-      return refuseAdminListChange(res);
+    const top = String(keyPath).split('.')[0];
+    if (OWNER_ONLY_KEYS.includes(top) && !mayChangeOwnerOnlySetting(req)) {
+      return refuseOwnerOnlyChange(res, top);
     }
     const updated = resetOverride(keyPath);
     res.json({

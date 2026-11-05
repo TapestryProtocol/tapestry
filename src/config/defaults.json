@@ -68,5 +68,8 @@
   "nip05": {
     "names": {},
     "relays": {}
+  },
+  "signUp": {
+    "open": false
   }
 }

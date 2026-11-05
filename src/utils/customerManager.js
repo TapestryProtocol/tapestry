@@ -179,6 +179,9 @@ class CustomerManager {
         });
 
         try {
+            // Read the file under the lock, not a list this instance cached before taking it, so a concurrent
+            // create can't be overwritten (ADR setup-create-account/0002 Amendment 1).
+            this.cache.clear();
             const allCustomers = await this.getAllCustomers();
             
             // Check if customer already exists

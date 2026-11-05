@@ -29,3 +29,8 @@ section with an `### On PASS` heading after a CHANGES_REQUESTED verdict; harness
 agent wrote its round-1 CHANGES_REQUESTED review to the template, and the file read as PASS until it folded the closing
 `## On PASS (same commit)` section into the verdict. Tagging-edges #5's review hit the same on 2026-10-01, before this
 row was filed: its "On PASS (same commit)" heading tripped harness-lint L1, and the heading was removed.
+
+**Another occurrence, 2026-11-05 (book `setup-create-account`, story 2's review round 1).** A reviewer agent wrote its
+CHANGES_REQUESTED review to the template, and harness-lint L1 flagged the story as a missing Done flip. The reviewer kept
+the On PASS items, unchecked, and moved `## Verdict` below them, which made the lint clean. That makes six known
+occurrences; the template is still unchanged.
