@@ -1,9 +1,9 @@
 # Book of Work: Create your account — /setup step 1's page, and open sign-up
 
 **Slug:** setup-create-account
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-11-04
-**Closed:** —
+**Closed:** 2026-11-05
 
 ## Intent anchor
 
@@ -22,15 +22,15 @@ placeholder)". Offered a product pass first or planning at once, the owner chose
 
 ### Acceptance frame
 
-- [ ] `/setup/create-account` is a real page. It tells each visitor where they stand on step 1 and
+- [x] `/setup/create-account` is a real page. It tells each visitor where they stand on step 1 and
       what they can do about it: signed out, done, able to create an Assistant, a guest, or an owner
       whose Assistant key is missing.
-- [ ] An admin or an active customer with no Assistant creates one from that page with one button,
+- [x] An admin or an active customer with no Assistant creates one from that page with one button,
       and lands on the Edit Assistant Profile page.
-- [ ] A guest is told how to get an account here: to ask the owner (named, and linked to their
+- [x] A guest is told how to get an account here: to ask the owner (named, and linked to their
       profile) while open sign-up is off, or to sign up in one step while it is on.
-- [ ] The owner turns open sign-up on or off in Settings. It starts off on every instance.
-- [ ] A customer who signed up themselves is the same as one the owner added.
+- [x] The owner turns open sign-up on or off in Settings. It starts off on every instance.
+- [x] A customer who signed up themselves is the same as one the owner added.
 
 ### Decisions taken at planning (2026-11-04)
 
@@ -61,7 +61,7 @@ the story gate ("Approve both", 2026-11-04):
 ## Provenance
 
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high (acceptance-frame; every frame bullet met and live in production, see audit §1 and §4; the switch and a real sign-up never exercised live with the owner, audit §5)
 
 ## Close artifacts *(filled by `/close-book`)*
 

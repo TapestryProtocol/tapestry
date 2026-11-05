@@ -196,10 +196,15 @@ Reconciled against the diff.
 
 - [ ] **1. The three step pages:** their UX and function. They stay placeholders. (intake 2026-09-20, item 3, which
       stays open; stories 1–3 § Out of scope)
+      *2026-11-05: step 1's page shipped with book `setup-create-account` (closed; audit there). Steps 2 and 3's
+      pages (ngit `98821708`, `64a5f7bf`) stay placeholders.*
 - [ ] **2. Catching up on a step completed in another app or tab** before the next full page load. There is no
       polling and no focus re-check. (story 3 § Out of scope; ADR 0001 § Consequences; §4 #8)
-- [ ] **3. How someone gets an assistant:** becoming a customer, or an Admin being given a key. Until the
+- [x] **3. How someone gets an assistant:** becoming a customer, or an Admin being given a key. Until the
       create-account page does it, a guest's step 1 stays not done. (story 1 § Out of scope)
+      *2026-11-05, book `setup-create-account`: an admin or an active customer creates theirs with one button on
+      `/setup/create-account`; a guest signs up there while the owner's open sign-up is on, and is told to ask the
+      owner while it is off.*
 - [ ] **4. Brainstorm's "Go to your dashboard" button and its `?next=` hand-off.** (story 1 § Out of scope)
 - [ ] **5. The two pills now follow different naming rules.** The Setup Alert is announced as it reads (§4 #7).
       The Assistant Alert still names itself with a fixed `aria-label`, deliberately copied from story 2, so its
