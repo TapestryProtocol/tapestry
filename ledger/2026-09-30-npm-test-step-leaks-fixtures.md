@@ -57,3 +57,15 @@ time in that book at Review round 2. It caught a gate failure the earlier phases
 Implementation had run only the suites they touched, as the publish-leak rule requires, so the guard suites that
 inspect *other* test files never ran. Add to the fix shape: run the isolated recipe at Test Design and at
 Implementation too, whenever a story adds or edits a suite, not only at Review.
+
+**Update 2026-11-05 (book `setup-create-account`, both stories and the close).** It came up three more times:
+- Story 1's review and story 2's both recorded "The full `npm test` gate: not run here … CI on the PR is the gate of
+  record".
+- The book close's step 10 ("Run the gate over the final state: `npm test`", `engineering-team/workflows/6-book-close.md`)
+  couldn't be followed either.
+- The close recorded CI's stack-free run on the code (`db9325518`, 6653 passed, 0 failed) and the suites that read the
+  harness docs over the final tree (audit §5).
+
+So the step-10 wording belongs in this row's fix shape alongside the Implementer and Reviewer steps. The appearance
+book's close used a sealed container (`tapestry-ci-gate-deb`, `--network none`); that recipe is written down only in
+its audit and reviews.
