@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Table: a group in rows, columns or time</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div onMouseMove="{{peekMove}}" onMouseDown="{{peekHide}}" onMouseLeave="{{peekHide}}" style="position: relative; min-height: calc(100vh - 57px); box-sizing: border-box; background: #F6F5F1; color: #1C1C1A; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+  <dc-import name="Peek" node="{{peekId}}" x="{{peekX}}" y="{{peekY}}" top="{{peekTop}}" bw="{{peekBW}}" bh="{{peekBH}}" hint-size="0px,0px"></dc-import>
+  <div style="display: flex; flex-wrap: wrap; flex: 1; min-height: 0">
+    <nav aria-label="Groups in this scope" style="flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 16px 12px; border-right: 1px solid #DCDAD3; background: #FBFAF7; display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 57px); overflow-y: auto">
+      <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; padding: 0 6px 6px 6px">Groups here</span>
+      <sc-if value="{{groupsNote}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; line-height: 1.45; color: #5B5A55; padding: 0 6px 8px 6px">{{groupsNote}}</span></sc-if>
+      <sc-for list="{{groups}}" as="gr" hint-placeholder-count="8">
+        <button onClick="{{gr.pick}}" data-peek="{{gr.peek}}" style="{{gr.style}}"><span style="flex: 1; min-width: 0">{{gr.label}}</span><span style="font-size: 11px; color: #5B5A55">{{gr.count}}</span></button>
+      </sc-for>
+    </nav>
+
+    <main style="{{mainStyle}}">
+      <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px">
+        <h1 data-peek="{{groupId}}" style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 600">{{groupName}}</h1>
+        <span style="font-size: 13px; color: #5B5A55">{{groupNote}}</span>
+      </div>
+      <sc-if value="{{hasSame}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #5B5A55">{{same}}</span></sc-if>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+        <span style="display: inline-flex; gap: 2px; background: #ECEAE3; border-radius: 999px; padding: 3px">
+          <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
+            <button onClick="{{v.pick}}" style="{{v.style}}">{{v.label}}</button>
+          </sc-for>
+        </span>
+        <input value="{{filter}}" onChange="{{typeFilter}}" placeholder="Filter rows…" aria-label="Filter rows" style="box-sizing: border-box; font-size: 13px; padding: 8px 12px; min-height: 36px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; min-width: 180px">
+        <span style="font-size: 12px; color: #5B5A55">{{countNote}}</span>
+        <sc-if value="{{hasMore}}" hint-placeholder-val="{{false}}"><button onClick="{{loadMore}}" style="font-size: 12px; padding: 6px 12px; min-height: 32px; border-radius: 999px; cursor: pointer; color: #163A8C; background: #EEF2FB; border: 1px solid #C9D6F2">{{moreLabel}}</button></sc-if>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px">
+        <span style="font-size: 12px; color: #5B5A55; margin-right: 4px">{{optLabel}}</span>
+        <sc-for list="{{opts}}" as="o" hint-placeholder-count="5">
+          <button onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
+        </sc-for>
+      </div>
+      <sc-if value="{{waiting}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 14px; color: #5B5A55">{{waiting}}</p></sc-if>
+
+      <sc-if value="{{isTable}}" hint-placeholder-val="{{true}}">
+        <div style="overflow: auto; max-height: calc(100vh - 290px); border: 1px solid #DCDAD3; border-radius: 10px; background: #FFFFFF">
+          <table style="border-collapse: collapse; width: 100%; font-size: 13px">
+            <thead>
+              <tr>
+                <sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+                  <th style="position: sticky; top: 0; background: #FBFAF7; border-bottom: 1px solid #DCDAD3; text-align: left; padding: 0; white-space: nowrap"><button onClick="{{c.sort}}" style="width: 100%; text-align: left; font-size: 12px; font-weight: 600; color: #3A3935; background: transparent; border: none; padding: 10px 12px; min-height: 40px; cursor: pointer">{{c.label}} <span style="color: #8A867C">{{c.arrow}}</span></button></th>
+                </sc-for>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+                <tr onClick="{{r.pick}}" style="{{r.style}}">
+                  <sc-for list="{{r.cells}}" as="cell" hint-placeholder-count="4">
+                    <td data-peek="{{cell.peek}}" style="{{cell.style}}">{{cell.t}}<sc-if value="{{cell.sub}}" hint-placeholder-val="{{false}}"><span style="display: block; margin-top: 2px; font-weight: 400; font-size: 12px; line-height: 1.4; color: #5B5A55">{{cell.sub}}</span></sc-if></td>
+                  </sc-for>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isBoard}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; max-height: calc(100vh - 290px)">
+          <sc-for list="{{lanes}}" as="ln" hint-placeholder-count="3">
+            <section style="flex: 0 0 240px; background: #ECEAE3; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 300px); overflow-y: auto">
+              <span style="font-size: 12px; font-weight: 600; color: #2B2A27; padding: 0 2px 4px 2px">{{ln.title}} <span style="font-weight: 400; color: #5B5A55">{{ln.count}}</span></span>
+              <sc-for list="{{ln.cards}}" as="cd" hint-placeholder-count="3">
+                <button onClick="{{cd.pick}}" data-peek="{{cd.peek}}" style="{{cd.style}}"><span style="font-size: 13px; font-weight: 500; line-height: 1.35">{{cd.name}}</span><span style="font-size: 11px; color: #5B5A55; line-height: 1.4">{{cd.sub}}</span></button>
+              </sc-for>
+            </section>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isTime}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; max-height: calc(100vh - 290px); overflow-y: auto; padding-left: 8px">
+          <sc-for list="{{days}}" as="dy" hint-placeholder-count="3">
+            <section style="display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 6px 0">
+              <span style="font-size: 12px; font-weight: 600; color: #3A3935; padding-top: 6px; text-align: right">{{dy.when}}<br><span style="font-weight: 400; color: #5B5A55">{{dy.count}}</span></span>
+              <div style="border-left: 2px solid #CFCDC6; padding-left: 14px; display: flex; flex-direction: column; gap: 4px">
+                <sc-for list="{{dy.items}}" as="it" hint-placeholder-count="2">
+                  <button onClick="{{it.pick}}" data-peek="{{it.peek}}" style="{{it.style}}"><span style="{{it.dotStyle}}"></span><span style="flex: 1; min-width: 0">{{it.name}}</span><span style="font-size: 11px; color: #5B5A55">{{it.sub}}</span></button>
+                </sc-for>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+      </sc-if>
+    </main>
+
+    <aside aria-label="The selected row" style="{{asideStyle}}">
+      <sc-if value="{{hasSel}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 10px">
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{selKind}}</span>
+            <span data-peek="{{selId}}" style="{{selNameStyle}}">{{selName}}</span>
+          </div>
+          <button onClick="{{widen}}" title="{{widenTip}}" style="flex: none; font-size: 12px; padding: 0 10px; min-height: 32px; border-radius: 6px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF">{{widenLabel}}</button>
+        </div>
+      </sc-if>
+      <div style="{{asideBodyStyle}}">
+        <div style="flex: none"><dc-import name="LocalGraph" center="{{graphCenter}}" trail="{{graphTrail}}" on-pick="{{graphPick}}" empty="Pick a row and what is around it shows here." w="{{graphW}}" h="{{graphH}}" hint-size="256px,300px"></dc-import></div>
+        <sc-if value="{{hasSel}}" hint-placeholder-val="{{false}}">
+          <div style="{{fieldsStyle}}">
+            <sc-for list="{{selFields}}" as="sf" hint-placeholder-count="4">
+              <div style="display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-top: 1px solid #EDEBE4">
+                <span style="font-size: 11px; color: #5B5A55">{{sf.k}}</span>
+                <span style="font-size: 13px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere">{{sf.v}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  // Live only: it runs under brain-view's reading views (reading/), where window.Brain is the data.
+  // The scope comes from the menu bar (Brain.state.scope); jump-to-anything arrives as Brain 'go'.
+  constructor(props) {
+    super(props);
+    this.state = { g: null, scope: null, scopeInfo: null, group: null, view: 'table', sort: null, desc: false, filter: '', hidden: {}, shown: {}, by: null, sel: null, peek: null, pages: {}, loading: null, focus: false };
+    this.PAGE = 150;
+  }
+
+  componentDidMount() {
+    this._offs = [
+      Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })),
+      Brain.on('scope', (k) => this.useScope(k)),
+      Brain.on('go', (id) => this.goTo(id)),
+    ];
+    if (Brain.state.scope) this.useScope(Brain.state.scope);
+  }
+  componentWillUnmount() { (this._offs || []).forEach((f) => f()); }
+
+  prep(d) {
+    const N = {}, mem = {}, deg = {};
+    d.nodes.forEach((n) => { N[n.id] = n; });
+    d.links.forEach((l) => { deg[l.from] = (deg[l.from] || 0) + 1; deg[l.to] = (deg[l.to] || 0) + 1; });
+    d.nodes.forEach((n) => { n.kinds.concat(n.sets).forEach((x) => { (mem[x] = mem[x] || []).push(n.id); }); });
+    return { d, N, mem, deg };
+  }
+
+  // a scope: its newest things (capped by brain-view), which give the groups on the left
+  useScope(k) {
+    const p = this._pending; this._pending = null;
+    this.setState({ scope: k, scopeInfo: null, group: p ? p.group : null, sel: p ? p.sel : null, sort: null, desc: false, filter: '', hidden: {}, shown: {}, by: null });
+    Brain.api('scope', { key: k, limit: 400 }).then((d) => { if (this.state.scope === k) this.setState({ scopeInfo: d.scope }); }).catch(() => {});
+    if (p) this.loadGroup(p.group, 0);
+  }
+
+  // a group's members come a page at a time; "Load more" asks for the next
+  loadGroup(id, offset) {
+    if (!id || this._loading === id + '@' + offset) return;
+    this._loading = id + '@' + offset;
+    this.setState({ loading: id });
+    Brain.api('group', { id, offset, limit: this.PAGE }).then((d) => {
+      const pages = Object.assign({}, this.state.pages), was = pages[id] || { ids: [] };
+      const ids = offset === 0 ? d.group.ids : Array.from(new Set(was.ids.concat(d.group.ids)));
+      pages[id] = { ids, total: d.group.total };
+      this._loading = null;
+      this.setState({ pages, loading: null });
+    }).catch(() => { this._loading = null; this.setState({ loading: null }); });
+  }
+
+  // hover preview: any element carrying data-peek names a node; after a short pause a card shows it
+  peekMove(e) {
+    const t = e.target && e.target.closest ? e.target.closest('[data-peek]') : null;
+    const id = t ? t.getAttribute('data-peek') : '';
+    if (id === this._peekAt) return;
+    this._peekAt = id; clearTimeout(this._peekT);
+    if (!id) { if (this.state.peek) this.setState({ peek: null }); return; }
+    const root = e.currentTarget, rr = root.getBoundingClientRect(), k = (rr.width / (root.offsetWidth || rr.width || 1)) || 1, r = t.getBoundingClientRect();
+    const p = { id, x: (r.left - rr.left) / k, y: (r.bottom - rr.top) / k, top: (r.top - rr.top) / k, bw: root.offsetWidth, bh: Math.min(root.offsetHeight, (window.innerHeight - rr.top) / k) };
+    this._peekT = setTimeout(() => this.setState({ peek: p }), 350);
+  }
+  peekHide() { clearTimeout(this._peekT); this._peekAt = ''; if (this.state.peek) this.setState({ peek: null }); }
+
+  // a group opens as itself; a thing opens inside its tightest group, selected; another scope switches the bar's scope first
+  goTo(id) {
+    const g = this.state.g, n = g && g.N[id];
+    if (!n) { Brain.api('node', { id }).then(() => { if (this.state.g && this.state.g.N[id]) this.goTo(id); }).catch(() => {}); return; }
+    let group = id, sel = null;
+    if (n.role === 'element') {
+      const size = (x) => ((g.N[x] && g.N[x].answers && g.N[x].answers.holds) || (g.mem[x] || []).length || 1e9);
+      group = n.sets.concat(n.kinds).filter((x) => g.N[x] && !g.N[x].system).sort((a, b) => size(a) - size(b))[0];
+      sel = id;
+      if (!group) { this.setState({ sel: id }); return; }
+    }
+    const scope = n.part && n.part !== 'structure' ? n.part : this.state.scope;
+    if (scope !== this.state.scope && Brain.state.scopes.some((x) => x.key === scope)) { this._pending = { group, sel }; Brain.set('scope', scope); return; }
+    this.pickGroup(group, sel);
+  }
+  pickGroup(id, sel) {
+    this.setState({ group: id, sel: sel || null, focus: !!sel, sort: null, desc: false, filter: '', hidden: {}, shown: {}, by: null });
+    if (!this.state.pages[id]) this.loadGroup(id, 0);
+  }
+
+  short(s, k) { s = String(s == null ? '' : s); return s.length > k ? s.slice(0, k - 1) + '…' : s; }
+  kindOf(g, n) {
+    if (n.role === 'concept') return 'concept';
+    if (n.role === 'set') return 'Set';
+    const ks = n.kinds.filter((k) => g.N[k]).sort((a, b) => (g.mem[a] || []).length - (g.mem[b] || []).length);
+    return ks.length ? g.N[ks[0]].name : 'element';
+  }
+  show(v) { return Array.isArray(v) ? v.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ') : (v && typeof v === 'object' ? JSON.stringify(v) : String(v == null ? '' : v)); }
+  day(n) {
+    const f = n.fields || {}, v = f.date || f.decided;
+    if (v && /^\d{4}-\d{2}-\d{2}/.test(String(v))) return String(v).slice(0, 10);
+    return n.created_at ? new Date(n.created_at * 1000).toISOString().slice(0, 10) : '';
+  }
+
+  // the groups that hold at least three of this scope's loaded things, Sets first
+  groupsHere(g, scope) {
+    const inPart = (m) => g.N[m] && g.N[m].part === scope;
+    return Object.keys(g.mem).filter((x) => g.N[x] && g.N[x].role !== 'element' && !g.N[x].system).map((x) => ({ id: x, k: g.mem[x].filter(inPart).length, kind: g.N[x].role === 'concept' }))
+      .filter((x) => x.k >= 3).sort((a, b) => a.kind - b.kind || b.k - a.k);
+  }
+
+  // what the members' fields look like: how often each is set, how many values it takes, how long they run
+  fieldStats(g, ids) {
+    const st = {};
+    ids.forEach((id) => Object.entries(g.N[id].fields || {}).forEach(([k, v]) => {
+      const s = (st[k] = st[k] || { k, n: 0, vals: {}, len: 0 }); const t = this.show(v);
+      s.n++; s.vals[t] = (s.vals[t] || 0) + 1; s.len += t.length;
+    }));
+    return Object.values(st).map((s) => Object.assign(s, { distinct: Object.keys(s.vals).length, avg: s.len / s.n }));
+  }
+
+  renderVals() {
+    const s = this.state, g = s.g;
+    const chip = (on, small) => 'font-size: ' + (small ? '12px; padding: 4px 10px; min-height: 30px' : '13px; padding: 8px 12px; min-height: 44px') + '; border-radius: 999px; cursor: pointer; border: 1px solid ' + (on ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A');
+    const p = s.peek;
+    const base = {
+      peekMove: (e) => this.peekMove(e), peekHide: () => this.peekHide(), peekId: p ? p.id : '', peekX: p ? p.x : 0, peekY: p ? p.y : 0, peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0,
+      groups: [], groupsNote: '', groupId: '', groupName: '', groupNote: '', hasSame: false, same: '', views: [], filter: s.filter, typeFilter: (e) => this.setState({ filter: e.target.value }), countNote: '',
+      hasMore: false, moreLabel: '', loadMore: () => {}, waiting: '',
+      optLabel: '', opts: [], isTable: false, isBoard: false, isTime: false, cols: [], rows: [], lanes: [], days: [],
+      graphCenter: '', graphTrail: [], graphW: 256, graphH: 210, graphPick: (id) => this.goTo(id), hasSel: false, selKind: '', selName: '', selId: '', selFields: [],
+      widen: () => this.setState({ focus: !this.state.focus }), widenLabel: '', widenTip: '', selNameStyle: '' };
+    // the row picked takes the room (the table turns to a list of names); picking a group, or the button, gives it back
+    const focus = !!(s.focus && s.sel);
+    base.mainStyle = 'flex: ' + (focus ? '1 1 0' : '3 1 0') + '; min-width: 0; box-sizing: border-box; padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; transition: flex-grow 0.3s ease';
+    base.asideStyle = 'flex: ' + (focus ? '2.4 1 0' : '1 1 0') + '; min-width: 260px; ' + (focus ? '' : 'max-width: 340px; ') + 'box-sizing: border-box; padding: 16px 18px; border-left: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 57px); overflow-y: auto; transition: flex-grow 0.3s ease';
+    base.asideBodyStyle = focus ? 'display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px' : 'display: flex; flex-direction: column; gap: 12px';
+    base.fieldsStyle = focus ? 'flex: 1 1 360px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: 18px' : 'display: flex; flex-direction: column';
+    base.graphW = focus ? 380 : 256; base.graphH = focus ? 300 : 210;
+    base.widenLabel = focus ? '\u21e4 back to the table' : '\u21e5 widen'; base.widenTip = focus ? 'Give the table the room again' : 'Give this row the room';
+    base.selNameStyle = 'font-family: \'Space Grotesk\', Inter, sans-serif; font-size: ' + (focus ? '22px' : '16px') + '; font-weight: 600; line-height: 1.25';
+    if (!g || !s.scope) { base.groupName = 'Loading…'; return base; }
+
+    const groups = this.groupsHere(g, s.scope), info = s.scopeInfo;
+    base.groupsNote = !info ? 'Reading this scope…' : info.capped ? 'From its newest ' + info.shown + ' of ' + info.total + ' things.' : '';
+    const gid = s.group && g.N[s.group] ? s.group : (groups.find((x) => !x.kind) || groups[0] || {}).id;
+    if (gid && !s.pages[gid] && !s.loading) Promise.resolve().then(() => this.loadGroup(gid, 0));
+    base.groups = groups.slice(0, 60).map((x) => ({ label: this.short(g.N[x.id].name, 44), count: ((g.N[x.id].answers || {}).holds || x.k) + (x.kind ? ' · kind' : ''), peek: x.id, pick: () => this.pickGroup(x.id),
+      style: 'display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; line-height: 1.3; padding: 7px 8px; min-height: 40px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (x.id === gid ? '#DCDAD3; background: #FFFFFF; font-weight: 600' : 'transparent; background: transparent') }));
+    if (!gid) { base.groupName = info ? 'No groups here' : 'Loading…'; return base; }
+
+    const gn = g.N[gid], page = s.pages[gid], all = page ? page.ids.filter((id) => g.N[id]) : [];
+    const total = page ? page.total : ((gn.answers || {}).holds || 0);
+    base.groupId = gid; base.groupName = gn.name;
+    base.groupNote = (gn.role === 'concept' ? 'kind' : 'Set') + ' · ' + total + ' things' + (gn.description ? ' · ' + this.short(gn.description, 90) : '');
+    if (!page) { base.waiting = 'Reading its members…'; return base; }
+    if (page.ids.length < total) {
+      base.hasMore = true; base.moreLabel = s.loading === gid ? 'Loading…' : 'Load ' + Math.min(this.PAGE, total - page.ids.length) + ' more';
+      base.loadMore = () => this.loadGroup(gid, page.ids.length);
+    }
+
+    // columns come from the data: fields the same for every member fold into one line; long text leads; the rest by how often they are set
+    const stats = this.fieldStats(g, all);
+    const same = stats.filter((f) => f.n === all.length && f.distinct === 1 && all.length > 1);
+    base.hasSame = !!same.length; base.same = 'Same for all: ' + same.map((f) => f.k + ' = ' + this.short(Object.keys(f.vals)[0], 30)).join(' · ');
+    const varying = stats.filter((f) => same.indexOf(f) < 0).sort((a, b) => (b.avg > 60) - (a.avg > 60) || b.n - a.n);
+    const defaultOn = (f, i) => i < 4 && f.n >= all.length * 0.2;
+    const isOn = (f, i) => (s.shown[f.k] ? true : s.hidden[f.k] ? false : defaultOn(f, i));
+    const fieldCols = varying.filter(isOn);
+    const hasEv = all.some((id) => { const a = g.N[id].answers || {}; return a.evidence_for || a.evidence_against; });
+
+    const q = s.filter.trim().toLowerCase();
+    let ids = q ? all.filter((id) => { const n = g.N[id]; return (n.name + ' ' + Object.values(n.fields || {}).map((v) => this.show(v)).join(' ')).toLowerCase().indexOf(q) >= 0; }) : all.slice();
+    const loaded = all.length < total ? ' (of the ' + all.length + ' loaded)' : '';
+    base.countNote = q ? ids.length + ' match' + loaded : all.length + ' of ' + total + ' rows' + (all.length < total ? '; sorting and filtering cover the loaded rows' : '');
+
+    base.views = [['table', 'Table'], ['board', 'Board'], ['time', 'Timeline']].map(([v, label]) => ({ label, pick: () => this.setState({ view: v }),
+      style: 'font-size: 13px; padding: 6px 14px; min-height: 32px; border-radius: 999px; cursor: pointer; border: none; ' + (s.view === v ? 'background: #FFFFFF; color: #1C1C1A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1)' : 'background: transparent; color: #3A3935') }));
+    const select = (id) => () => this.setState({ sel: id, focus: true });
+    const name = (id) => this.short(g.N[id].name, 90);
+
+    if (s.view === 'table') {
+      base.isTable = true;
+      base.optLabel = 'Columns';
+      base.opts = varying.map((f, i) => { const on = isOn(f, i); return { label: f.k + ' (' + f.n + ')', style: chip(on, true),
+        pick: () => { const sh = Object.assign({}, s.shown), hd = Object.assign({}, s.hidden); if (on) { delete sh[f.k]; hd[f.k] = true; } else { delete hd[f.k]; sh[f.k] = true; } this.setState({ shown: sh, hidden: hd }); } }; });
+      const lead = fieldCols.find((f) => f.avg > 60) || fieldCols[0];
+      if (focus) { base.opts = []; base.optLabel = ''; }
+      const allDefs = [{ key: '#name', label: 'Name', val: (id) => g.N[id].name, wide: true }]
+        .concat(fieldCols.map((f) => ({ key: f.k, label: f.k, val: (id) => this.show((g.N[id].fields || {})[f.k]), wide: f.avg > 60 })))
+        .concat([{ key: '#links', label: 'links', val: (id) => g.deg[id] || 0, num: true }])
+        .concat(hasEv ? [{ key: '#ev', label: 'for / against', val: (id) => { const a = g.N[id].answers || {}; return (a.evidence_for || 0) - (a.evidence_against || 0); }, show: (id) => { const a = g.N[id].answers || {}; return a.evidence_for || a.evidence_against ? (a.evidence_for || 0) + ' / ' + (a.evidence_against || 0) : ''; }, num: true }] : [])
+        .concat([{ key: '#day', label: 'date', val: (id) => this.day(g.N[id]) }]);
+      // focused, the table is one column of names with a line each; it keeps the order the full table had
+      const colDefs = focus ? [{ key: '#name', label: 'Name', val: (id) => g.N[id].name, wide: true, sub: (id) => lead ? this.short(this.show((g.N[id].fields || {})[lead.k]), 110) : '' }] : allDefs;
+      const sk = s.sort || '#day', sc = allDefs.find((c) => c.key === sk) || allDefs[allDefs.length - 1], desc = s.sort ? s.desc : true;
+      ids.sort((a, b) => { const x = sc.val(a), y = sc.val(b); const r = sc.num ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true }); return desc ? -r : r; });
+      base.cols = colDefs.map((c) => ({ label: c.label, arrow: c.key === sc.key ? (desc ? '↓' : '↑') : '', sort: () => this.setState({ sort: c.key, desc: c.key === sc.key ? !desc : c.num === true }) }));
+      base.rows = ids.map((id) => ({ pick: select(id),
+        style: 'cursor: pointer; border-bottom: 1px solid #EDEBE4; background: ' + (id === s.sel ? '#EEF2FB' : 'transparent'),
+        cells: colDefs.map((c, i) => ({ t: c.show ? c.show(id) : this.short(c.val(id), c.wide ? 110 : 40), peek: i === 0 ? id : undefined, sub: c.sub ? c.sub(id) : '',
+          style: 'padding: 8px 12px; vertical-align: top; line-height: 1.4; ' + (i === 0 ? 'font-weight: 500; min-width: 200px; max-width: 320px' : c.wide ? 'min-width: 220px; max-width: 380px; color: #2B2A27' : 'white-space: nowrap; color: #3A3935') + (c.num ? '; text-align: right' : '') })) }));
+    }
+
+    // a board groups by any field taking a few values, or by kind, scope, origin or the balance of evidence
+    const byOpts = [['#kind', 'its kind', (id) => this.kindOf(g, g.N[id])], ['#part', 'scope', (id) => g.N[id].part.replace(/^\w+:[^:]+:[^:]+:/, '')], ['#prov', 'origin', (id) => g.N[id].provenance]]
+      .concat(hasEv ? [['#ev', 'evidence', (id) => { const a = g.N[id].answers || {}; const net = (a.evidence_for || 0) - (a.evidence_against || 0); return !(a.evidence_for || a.evidence_against) ? 'no evidence yet' : net > 0 ? 'more for' : net < 0 ? 'more against' : 'evenly split'; }]] : [])
+      .concat(varying.filter((f) => f.distinct >= 2 && f.distinct <= 10 && f.avg <= 60).map((f) => [f.k, f.k, (id) => { const v = (g.N[id].fields || {})[f.k]; return v == null || v === '' ? '(not set)' : this.short(this.show(v), 40); }]))
+      .filter(([k, , fn]) => { const vals = {}; ids.forEach((id) => { vals[fn(id)] = 1; }); return Object.keys(vals).length >= 2 || k === '#kind'; });
+    if (s.view === 'board') {
+      base.isBoard = true;
+      base.optLabel = 'Columns by';
+      const by = byOpts.find((o) => o[0] === s.by) || byOpts.find((o) => o[0][0] !== '#') || byOpts[0];
+      base.opts = byOpts.map(([k, label]) => ({ label, style: chip(k === by[0], true), pick: () => this.setState({ by: k }) }));
+      const lanes = {};
+      ids.forEach((id) => { const v = by[2](id); (lanes[v] = lanes[v] || []).push(id); });
+      base.lanes = Object.keys(lanes).sort((a, b) => lanes[b].length - lanes[a].length).map((v) => ({ title: v, count: lanes[v].length,
+        cards: lanes[v].slice(0, 60).map((id) => { const n = g.N[id], f = n.fields || {}; return { name: name(id), peek: id, pick: select(id), sub: this.short(f.claim && f.claim !== n.name ? f.claim : (f.stance || n.description || ''), 90),
+          style: 'flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 8px 10px; min-height: 44px; border-radius: 8px; cursor: pointer; color: #1C1C1A; background: #FFFFFF; border: 1px solid ' + (id === s.sel ? '#1C1C1A' : '#DCDAD3') }; }) }));
+    }
+
+    if (s.view === 'time') {
+      base.isTime = true;
+      const dated = all.some((id) => { const f = g.N[id].fields || {}; return f.date || f.decided; });
+      base.optLabel = dated ? 'By each one’s own date field, else when it was added' : 'By when each was added to the graph';
+      const days = {};
+      ids.forEach((id) => { const d = this.day(g.N[id]) || 'undated'; (days[d] = days[d] || []).push(id); });
+      base.days = Object.keys(days).sort().reverse().map((d) => ({ when: d, count: days[d].length + (days[d].length > 1 ? ' things' : ' thing'),
+        items: days[d].slice(0, 60).map((id) => { const n = g.N[id], a = n.answers || {}; return { name: name(id), peek: id, pick: select(id), sub: this.kindOf(g, n),
+          dotStyle: 'flex: none; width: 9px; height: 9px; border-radius: 50%; margin-left: -20px; margin-right: 6px; background: ' + (a.replaced ? '#CFCDC6' : a.evidence_against > (a.evidence_for || 0) ? '#B4442E' : a.evidence_for ? '#2F7D4F' : '#8A867C'),
+          style: 'flex-shrink: 0; display: flex; align-items: center; gap: 6px; text-align: left; font-size: 13px; line-height: 1.35; padding: 6px 8px; min-height: 36px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (id === s.sel ? '#DCDAD3; background: #FFFFFF' : 'transparent; background: transparent') }; }) }));
+    }
+
+    // the selected row: its neighbourhood and every field in full
+    const sel = s.sel && g.N[s.sel] ? s.sel : '';
+    base.graphCenter = sel; base.graphTrail = ids;
+    if (sel) {
+      const n = g.N[sel];
+      base.hasSel = true; base.selId = sel; base.selKind = this.kindOf(g, n); base.selName = n.name;
+      base.selFields = Object.entries(n.fields || {}).map(([k, v]) => ({ k, v: this.short(this.show(v), 600) }))
+        .concat([{ k: 'origin', v: n.provenance }, { k: 'added', v: this.day(n) }]);
+    }
+    return base;
+  }
+}
+</script>
+</body>
+</html>

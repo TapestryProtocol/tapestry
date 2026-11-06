@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Local graph</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+  <div style="display: flex; align-items: center; gap: 6px; padding: 8px 10px 0 10px">
+    <span style="flex: 1; min-width: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{heading}}</span>
+    <sc-for list="{{layouts}}" as="d" hint-placeholder-count="2">
+      <button onClick="{{d.pick}}" title="{{d.tip}}" style="{{d.style}}">{{d.label}}</button>
+    </sc-for>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 0 10px">
+    <sc-for list="{{controls}}" as="c" hint-placeholder-count="3">
+      <span style="display: inline-flex; gap: 2px">
+        <sc-for list="{{c.opts}}" as="d" hint-placeholder-count="2">
+          <button onClick="{{d.pick}}" title="{{d.tip}}" style="{{d.style}}">{{d.label}}</button>
+        </sc-for>
+      </span>
+    </sc-for>
+  </div>
+  <div style="{{plotStyle}}">
+    <sc-if value="{{hasHint}}" hint-placeholder-val="{{false}}"><p style="position: absolute; left: 16px; right: 16px; top: 40%; margin: 0; text-align: center; font-size: 12px; line-height: 1.5; color: #5B5A55">{{hint}}</p></sc-if>
+    <sc-for list="{{edges}}" as="e" hint-placeholder-count="0">
+      <div style="{{e.style}}"></div>
+    </sc-for>
+    <sc-for list="{{captions}}" as="k" hint-placeholder-count="0">
+      <span style="{{k.style}}">{{k.t}}</span>
+    </sc-for>
+    <sc-for list="{{nodes}}" as="n" hint-placeholder-count="0">
+      <button onClick="{{n.pick}}" onMouseEnter="{{n.enter}}" onMouseLeave="{{n.leave}}" data-peek="{{n.id}}" aria-label="{{n.tip}}" style="{{n.hitStyle}}"><span style="{{n.dotStyle}}">{{n.t}}</span></button>
+    </sc-for>
+    <sc-for list="{{labels}}" as="l" hint-placeholder-count="0">
+      <span style="{{l.style}}">{{l.t}}</span>
+    </sc-for>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 0 10px 8px 10px; font-size: 10px; line-height: 14px; color: #5B5A55">
+    <sc-for list="{{legend}}" as="k" hint-placeholder-count="6">
+      <span style="display: inline-flex; align-items: center; gap: 4px"><span style="{{k.style}}"></span>{{k.t}}</span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":340,"height":360},"center":{"editor":null},"trail":{"editor":null},"marks":{"editor":null},"onPick":{"editor":null},"empty":{"editor":null},"w":{"editor":null},"h":{"editor":null}}'>
+class Component extends DCLogic {
+  // props: center (a node id; '' shows the hint `empty`, absent picks a sample), trail and marks (ids to ring dark / blue),
+  // onPick(id) (else a click recentres here), w and h (the plot's size in px)
+  constructor(props) { super(props); this.state = { g: null, err: null, depth: 1, show: 'hide', dir: 'both', layout: 'ring', hov: null, own: null }; }
+
+  // live (brain-view's reading views): the shared cache, and each centre's neighbourhood asked for;
+  // on the design canvas: the whole design slice
+  componentDidMount() {
+    if (window.Brain) { this._off = Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })); this.ask(); return; }
+    fetch('/_blob/dcde019c6a74631fb618ff1c99ab7340').then((r) => r.json())
+      .then((d) => this.setState({ g: this.prep(d) }))
+      .catch((e) => this.setState({ err: String(e) }));
+  }
+  componentDidUpdate() { this.ask(); }
+  componentWillUnmount() { if (this._off) this._off(); }
+  ask() {
+    const c = this.state.own || this.props.center, key = c + '|' + this.state.depth;
+    if (!window.Brain || !c || key === this._asked) return;
+    this._asked = key;
+    Brain.api('node', { id: c, depth: this.state.depth }).catch(() => {});
+  }
+
+  prep(d) {
+    const N = {}, out = {}, inn = {}, mem = {};
+    d.nodes.forEach((n) => { N[n.id] = n; });
+    d.links.forEach((l) => { if (!N[l.from] || !N[l.to]) return; (out[l.from] = out[l.from] || []).push(l); (inn[l.to] = inn[l.to] || []).push(l); });
+    d.nodes.forEach((n) => { n.kinds.concat(n.sets).forEach((x) => { (mem[x] = mem[x] || []).push(n.id); }); });
+    return { d, N, out, inn, mem };
+  }
+
+  short(s, k) { s = String(s || ''); return s.length > k ? s.slice(0, k - 1) + '…' : s; }
+
+  // the colour of a relation, and its order around the ring
+  fam(l) {
+    const p = l.props || {};
+    if (l.type === 'BEARS_ON') return (p.polarity || 0) >= 0 ? { key: 'for', c: '#2F7D4F', line: 'solid', o: 0 } : { key: 'against', c: '#B4442E', line: 'solid', o: 1 };
+    if (l.type === 'ANSWERS') return { key: 'answers', c: '#1E4FBF', line: 'solid', o: 2 };
+    if (l.type === 'SUPERCEDES') return { key: 'history', c: '#5B5A55', line: 'solid', o: 3 };
+    if (l.type === 'REFERENCES') return { key: 'refers', c: '#9C988D', line: 'dashed', o: 4 };
+    return { key: 'other', c: '#8A6D3B', line: 'solid', o: 5 };
+  }
+  get SET() { return { key: 'in', c: '#9C988D', line: 'dotted', o: 6 }; }
+  get KIND() { return { key: 'kind', c: '#C9C6BD', line: 'dotted', o: 7 }; }
+  get HOLDS() { return { key: 'holds', c: '#9C988D', line: 'dotted', o: 6 }; }
+
+  // one step from x, sorted by relation, each tagged with which way it runs:
+  // out = x points at it (a link from x, or a group x is in); in = it points at x (a link to x, or a member of x)
+  around(g, x, dir) {
+    const r = [], seen = {}; seen[x] = true;
+    const add = (id, f, way) => { if (seen[id] || !g.N[id] || g.N[id].system || (dir !== 'both' && dir !== way)) return; seen[id] = true; r.push({ id, f, way }); };
+    (g.out[x] || []).forEach((l) => add(l.to, this.fam(l), 'out'));
+    (g.inn[x] || []).forEach((l) => add(l.from, this.fam(l), 'in'));
+    const n = g.N[x];
+    n.sets.forEach((s) => add(s, this.SET, 'out'));
+    n.kinds.forEach((k) => add(k, this.KIND, 'out'));
+    if (n.role !== 'element') (g.mem[x] || []).slice(0, 40).forEach((m) => add(m, this.HOLDS, 'in'));
+    return r.sort((a, b) => a.f.o - b.f.o);
+  }
+
+  seg(opts, cur, set) {
+    return { opts: opts.map(([v, label, tip]) => ({ label, tip: tip || '', pick: () => set(v),
+      style: 'font-size: 10px; padding: 2px 7px; min-height: 24px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (cur === v ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#DCDAD3; background: #FFFFFF; color: #3A3935') })) };
+  }
+
+  renderVals() {
+    const s = this.state, g = s.g, P = this.props;
+    const W = Number(P.w) || 320, H = Number(P.h) || 240, PW = W - 2;
+    const layouts = this.seg([['ring', 'ring', 'everything around it in a circle'], ['tree', 'above / below', 'groups above, what points to it below, what it points to on the left, its neighbours in a Set on the right']], s.layout, (v) => this.setState({ layout: v })).opts;
+    const controls = [];
+    if (s.layout === 'ring') {
+      controls.push(this.seg([[1, '1 step'], [2, '2 steps']], s.depth, (v) => this.setState({ depth: v })));
+      controls.push(this.seg([['hide', 'hide rest', 'show only what is this close'], ['fade', 'fade rest', 'also show one step further, faded']], s.show, (v) => this.setState({ show: v })));
+    }
+    controls.push(this.seg([['both', 'both ways'], ['out', 'out', 'what it points at, and the groups it is in'], ['in', 'in', 'what points at it, and its members']], s.dir, (v) => this.setState({ dir: v })));
+    const legend = [['for', '#2F7D4F', 'solid'], ['against', '#B4442E', 'solid'], ['answers', '#1E4FBF', 'solid'], ['history', '#5B5A55', 'solid'], ['refers', '#9C988D', 'dashed'], ['in a group', '#9C988D', 'dotted']]
+      .map(([t, c, line]) => ({ t, style: 'display: inline-block; width: 14px; height: 0; border-top: 2px ' + line + ' ' + c }));
+    legend.push({ t: 'Set', style: 'display: inline-block; width: 8px; height: 8px; border: 2px solid #8A867C; border-radius: 2px; box-sizing: border-box' });
+    legend.push({ t: 'kind', style: 'display: inline-block; width: 9px; height: 9px; border: 1.5px dashed #8A867C; border-radius: 50%; box-sizing: border-box' });
+    const base = { rootStyle: 'width: ' + W + 'px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 10px; font-family: Inter, system-ui, sans-serif; color: #1C1C1A; display: flex; flex-direction: column; gap: 4px',
+      plotStyle: 'position: relative; width: ' + PW + 'px; height: ' + H + 'px; overflow: hidden',
+      heading: 'Local graph', layouts, controls, legend, edges: [], nodes: [], labels: [], captions: [], hasHint: false, hint: '' };
+    if (!g) return Object.assign(base, { hasHint: true, hint: s.err ? 'Could not load the data.' : 'Loading…' });
+
+    let center = s.own || P.center;
+    if (P.center === undefined && !s.own) center = g.d.nodes.filter((n) => n.part === 'nomos-protocol' && n.answers && n.answers.evidence_for).sort((a, b) => b.answers.evidence_for - a.answers.evidence_for)[0].id;
+    if (!center || !g.N[center]) return Object.assign(base, { hasHint: true, hint: P.empty || 'Ask about something and what is around it shows here.' });
+    const pick = (id) => { if (P.onPick) P.onPick(id); else this.setState({ own: id, hov: null }); };
+    const c = g.N[center], trail = {}, marks = {};
+    (P.trail || []).forEach((id) => { trail[id] = true; }); (P.marks || []).forEach((id) => { marks[id] = true; });
+    base.heading = 'Around ' + this.short(c.name, 34);
+
+    const look = (id, extra) => {
+      const n = g.N[id], far = n.part !== c.part, comm = n.provenance !== 'ours';
+      const ring = marks[id] ? '0 0 0 3px #B9C9EE' : (trail[id] && id !== center ? '0 0 0 2px #FFFFFF, 0 0 0 3.5px #1C1C1A' : 'none');
+      return { far, comm, ring, set: n.role === 'set', kind: n.role === 'concept' };
+    };
+    const enter = (id) => () => { if (this.state.hov !== id) this.setState({ hov: id }); };
+    const leave = () => { if (this.state.hov) this.setState({ hov: null }); };
+    const placed = [];  // {id, x, y, f, from, dim}
+
+    if (s.layout === 'ring') {
+      const cx = PW / 2, cy = H / 2, R = Math.min(PW, H) / 2;
+      const rings = s.depth + (s.show === 'fade' && s.depth === 1 ? 1 : 0);
+      const r1 = rings === 2 ? R * 0.5 : R * 0.68, r2 = R * 0.9;
+      const ring1 = this.around(g, center, s.dir).slice(0, 16), shown = {}; shown[center] = true; ring1.forEach((x) => { shown[x.id] = true; });
+      const step = (2 * Math.PI) / Math.max(ring1.length, 1);
+      ring1.forEach((x, i) => { const a = -Math.PI / 2 + i * step; placed.push(Object.assign({}, x, { a, x: cx + r1 * Math.cos(a), y: cy + r1 * Math.sin(a), d: 1, from: center, dim: false })); });
+      if (rings === 2) {
+        let total = 0;
+        placed.slice().forEach((p) => {
+          if (g.N[p.id].role === 'concept') return;  // a kind's members are everything; skip
+          const kids = this.around(g, p.id, 'both').filter((k) => !shown[k.id] && g.N[k.id].role !== 'concept').slice(0, 3);
+          const spread = Math.min(step * 0.8, 0.7);
+          kids.forEach((k, j) => {
+            if (total >= 30) return; total++; shown[k.id] = true;
+            const a = p.a + (kids.length === 1 ? 0 : (j / (kids.length - 1) - 0.5) * spread);
+            placed.push(Object.assign({}, k, { a, x: cx + r2 * Math.cos(a), y: cy + r2 * Math.sin(a), d: 2, from: p.id, dim: s.depth === 1 }));
+          });
+        });
+      }
+      const at = {}; at[center] = { x: cx, y: cy }; placed.forEach((p) => { at[p.id] = p; });
+      // hovering a dot keeps it and its own lines bright and fades the rest
+      const lit = {}; if (s.hov) { lit[s.hov] = true; placed.forEach((p) => { if (p.id === s.hov) lit[p.from] = true; if (p.from === s.hov) lit[p.id] = true; }); }
+      const op = (id, base1) => (s.hov ? (lit[id] ? 1 : 0.2) : base1);
+      base.edges = placed.map((p) => {
+        const a = at[p.from], len = Math.hypot(p.x - a.x, p.y - a.y), ang = Math.atan2(p.y - a.y, p.x - a.x) * 180 / Math.PI;
+        const o = s.hov ? (lit[p.id] && lit[p.from] ? 0.95 : 0.1) : (p.dim ? 0.18 : (p.d === 1 ? 0.9 : 0.55));
+        return { style: 'position: absolute; left: ' + a.x + 'px; top: ' + a.y + 'px; width: ' + len + 'px; height: 0; border-top: ' + (p.d === 1 ? 2 : 1) + 'px ' + p.f.line + ' ' + p.f.c + '; opacity: ' + o + '; transform-origin: 0 0; transform: rotate(' + ang + 'deg)' };
+      });
+      const dot = (id, x, y, size, fill, opacity) => {
+        const L = look(id), hit = Math.max(size + 10, 22);
+        let shape = 'border-radius: 50%; background: ' + fill + '; border: 1.5px solid ' + (L.far ? '#C2701E' : L.comm ? '#7A55D6' : 'rgba(0,0,0,0.25)');
+        if (L.set) shape = 'border-radius: 3px; background: #FFFFFF; border: 2px solid ' + (L.far ? '#C2701E' : '#8A867C');
+        if (L.kind) shape = 'border-radius: 50%; background: #FFFFFF; border: 1.5px dashed ' + (L.comm ? '#7A55D6' : '#8A867C');
+        return { id, t: '', tip: g.N[id].name, pick: () => pick(id), enter: enter(id), leave,
+          dotStyle: 'display: block; width: ' + size + 'px; height: ' + size + 'px; box-sizing: border-box; ' + shape + '; box-shadow: ' + L.ring,
+          hitStyle: 'position: absolute; left: ' + (x - hit / 2) + 'px; top: ' + (y - hit / 2) + 'px; width: ' + hit + 'px; height: ' + hit + 'px; padding: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 50%; cursor: pointer; opacity: ' + opacity };
+      };
+      base.nodes = placed.slice().reverse().map((p) => dot(p.id, p.x, p.y, p.d === 1 ? 11 : 7, p.d === 1 ? p.f.c : '#CFCDC6', op(p.id, p.dim ? 0.3 : 1)))
+        .concat([dot(center, cx, cy, 16, '#1C1C1A', op(center, 1))]);
+      // names beside the nearest ring only; the outer ring names itself on hover
+      const label = (t, x, y, side, strong, o) => ({ t, style: 'position: absolute; top: ' + (y - 7) + 'px; ' + (side > 0 ? 'left: ' + (x + 9) + 'px' : 'right: ' + (PW - x + 9) + 'px') + '; max-width: ' + Math.round(W * 0.34) + 'px; font-size: ' + (strong ? '11px; font-weight: 600' : '10px') + '; line-height: 14px; color: ' + (strong ? '#1C1C1A' : '#3A3935') + '; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; background: rgba(255,255,255,0.8); border-radius: 3px; padding: 0 2px; opacity: ' + o });
+      base.labels = placed.filter((p) => (p.d === 1 && (ring1.length <= 12 || rings === 1)) || p.id === s.hov).map((p) => label(this.short(g.N[p.id].name, 24), p.x, p.y, Math.cos(p.a) >= -0.05 ? 1 : -1, p.id === s.hov, op(p.id, 1)))
+        .concat([label(this.short(c.name, 26), cx, cy + 16, 1, true, op(center, 1))]);
+      const more = this.around(g, center, s.dir).length - ring1.length;
+      if (more > 0) base.labels.push({ t: '+' + more + ' more not shown', style: 'position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: #5B5A55' });
+      return base;
+    }
+
+    // above / below: groups above, what points to it below, what it points at on the left, its neighbours in a Set on the right
+    const all = this.around(g, center, s.dir);
+    const up = all.filter((x) => x.way === 'out' && (x.f.key === 'in' || x.f.key === 'kind')).sort((a, b) => a.f.o - b.f.o).slice(0, 6);
+    const down = all.filter((x) => x.way === 'in').slice(0, 6);
+    const left = all.filter((x) => x.way === 'out' && x.f.key !== 'in' && x.f.key !== 'kind').slice(0, 5);
+    const used = {}; used[center] = true; all.forEach((x) => { used[x.id] = true; });
+    const tight = c.sets.filter((x) => g.N[x]).sort((a, b) => (g.mem[a] || []).length - (g.mem[b] || []).length)[0];
+    const right = tight ? (g.mem[tight] || []).filter((m) => !used[m] && g.N[m]).slice(0, 5).map((id) => ({ id, f: this.HOLDS, way: 'side' })) : [];
+    const pad = 8, gap = 6, ch = 22, colW = Math.round(PW * 0.28), cap = 12;
+    let y = 6; const rows = (list, label, cols) => {
+      if (!list.length) return;
+      base.captions.push({ t: label, style: 'position: absolute; left: ' + pad + 'px; top: ' + y + 'px; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: #8A867C' });
+      y += cap;
+      const cw = (PW - 2 * pad - (cols - 1) * gap) / cols;
+      list.forEach((x, i) => { placed.push(Object.assign({}, x, { x: pad + (i % cols) * (cw + gap), y: y + Math.floor(i / cols) * (ch + 4), w: cw })); });
+      y += Math.ceil(list.length / cols) * (ch + 4) + 4;
+    };
+    rows(up, 'groups it is in', 3);
+    const midTop = y + (left.length || right.length ? cap : 0), midRows = Math.max(left.length, right.length, 2);
+    if (left.length) base.captions.push({ t: 'it points at', style: 'position: absolute; left: ' + pad + 'px; top: ' + y + 'px; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: #8A867C' });
+    if (right.length) base.captions.push({ t: 'beside it', style: 'position: absolute; right: ' + pad + 'px; top: ' + y + 'px; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; color: #8A867C' });
+    left.forEach((x, i) => placed.push(Object.assign({}, x, { x: pad, y: midTop + i * (ch + 4), w: colW })));
+    right.forEach((x, i) => placed.push(Object.assign({}, x, { x: PW - pad - colW, y: midTop + i * (ch + 4), w: colW })));
+    const fw = PW - 2 * pad - 2 * colW - 2 * gap, fh = 40, fx = pad + colW + gap, fy = midTop + (midRows * (ch + 4) - 4) / 2 - fh / 2;
+    y = midTop + midRows * (ch + 4) + 6;
+    rows(down, 'points at it', 3);
+    const fcx = fx + fw / 2, fcy = fy + fh / 2;
+    base.plotStyle = 'position: relative; width: ' + PW + 'px; height: ' + Math.max(y + 4, 120) + 'px; overflow: hidden';
+    const op = (id) => (s.hov ? (id === s.hov || id === center ? 1 : 0.3) : 1);
+    base.edges = placed.map((p) => {
+      const x1 = p.x + p.w / 2, y1 = p.y + ch / 2, len = Math.hypot(fcx - x1, fcy - y1), ang = Math.atan2(fcy - y1, fcx - x1) * 180 / Math.PI;
+      return { style: 'position: absolute; left: ' + x1 + 'px; top: ' + y1 + 'px; width: ' + len + 'px; height: 0; border-top: 1.5px ' + p.f.line + ' ' + p.f.c + '; opacity: ' + (s.hov ? (p.id === s.hov ? 0.95 : 0.12) : 0.6) + '; transform-origin: 0 0; transform: rotate(' + ang + 'deg)' };
+    });
+    const chip = (id, x, yy, w, h, f, strong) => {
+      const L = look(id);
+      const border = strong ? 'none' : ((L.kind ? '1.5px dashed ' : '1.5px solid ') + (L.far ? '#C2701E' : L.comm ? '#7A55D6' : f.c));
+      return { id, t: this.short(g.N[id].name, strong ? 60 : Math.max(8, Math.floor(w / 6))), tip: g.N[id].name, pick: () => pick(id), enter: enter(id), leave,
+        dotStyle: 'display: block; width: 100%; ' + (strong ? 'white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden' : 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis'),
+        hitStyle: 'position: absolute; left: ' + x + 'px; top: ' + yy + 'px; width: ' + w + 'px; height: ' + h + 'px; box-sizing: border-box; padding: 2px 6px; display: flex; align-items: center; text-align: ' + (strong ? 'center' : 'left') + '; font-size: ' + (strong ? '11px; font-weight: 600; line-height: 1.25' : '10px; line-height: 1.2') + '; cursor: pointer; border-radius: ' + (L.set ? '4px' : '999px') + '; border: ' + border + '; background: ' + (strong ? '#1C1C1A; color: #FFFFFF' : '#FFFFFF; color: #1C1C1A') + '; box-shadow: ' + L.ring + '; opacity: ' + op(id) };
+    };
+    base.nodes = placed.map((p) => chip(p.id, p.x, p.y, p.w, ch, p.f, false)).concat([chip(center, fx, fy, fw, fh, null, true)]);
+    if (!placed.length) base.labels.push({ t: 'Nothing connects to it this way.', style: 'position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 11px; color: #5B5A55' });
+    return base;
+  }
+}
+</script>
+</body>
+</html>

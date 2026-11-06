@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Outline: calm text, context as sentences</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Source+Serif+4:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E4FBF}a:hover{color:#163A8C}
+button{font-family:inherit}
+</style>
+</helmet>
+<div onMouseMove="{{peekMove}}" onMouseDown="{{peekHide}}" onMouseLeave="{{peekHide}}" style="position: relative; min-height: calc(100vh - 57px); box-sizing: border-box; background: #FBFAF7; color: #1C1C1A; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+  <dc-import name="Peek" node="{{peekId}}" x="{{peekX}}" y="{{peekY}}" top="{{peekTop}}" bw="{{peekBW}}" bh="{{peekBH}}" hint-size="0px,0px"></dc-import>
+  <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #E4E2DB">
+    <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><span style="font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: 20px">Outline</span>
+    <span style="font-size: 13px; color: #5B5A55">Scope</span></sc-if>
+    <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><sc-for list="{{scopes}}" as="s" hint-placeholder-count="5">
+      <button onClick="{{s.pick}}" data-peek="{{s.peek}}" style="{{s.style}}">{{s.label}}</button>
+    </sc-for></sc-if>
+    <span style="flex: 1"></span>
+    <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><dc-import name="Switcher" on-go="{{goTo}}" hint-size="190px,40px"></dc-import></sc-if>
+    <span style="font-size: 12px; color: #5B5A55">{{status}}</span>
+  </header></sc-if>
+
+  <div style="display: flex; flex-wrap: wrap; flex: 1; min-height: 0">
+    <nav aria-label="Scope outline" style="flex: 1 1 300px; max-width: 380px; box-sizing: border-box; padding: 16px 12px 16px 20px; border-right: 1px solid #E4E2DB; max-height: 86vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px">
+      <sc-if value="{{loading}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 14px; color: #5B5A55">Loading the graph slice…</p></sc-if>
+      <sc-for list="{{outline}}" as="o" hint-placeholder-count="5">
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <button onClick="{{o.toggle}}" data-peek="{{o.peek}}" aria-expanded="{{o.expanded}}" style="display: flex; justify-content: space-between; gap: 8px; text-align: left; font-size: 13px; font-weight: 600; padding: 8px 6px; min-height: 44px; border: none; background: transparent; color: #1C1C1A; cursor: pointer"><span>{{o.mark}} {{o.label}}</span><span style="font-weight: 400; color: #5B5A55">{{o.count}}</span></button>
+          <sc-if value="{{o.open}}" hint-placeholder-val="{{false}}">
+            <sc-for list="{{o.items}}" as="it" hint-placeholder-count="4">
+              <button onClick="{{it.pick}}" data-peek="{{it.peek}}" style="{{it.style}}"><span>{{it.label}}</span><span style="font-size: 11px; color: #5B5A55">{{it.badges}}</span></button>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px; max-height: 86vh; overflow-y: auto">
+      <div style="max-width: 720px; display: flex; flex-direction: column; gap: 14px">
+        <sc-if value="{{noFocus}}" hint-placeholder-val="{{true}}">
+          <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600">{{scopeTitle}}</h1>
+          <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.6; color: #2B2A27">{{scopeText}}</p>
+        </sc-if>
+        <sc-if value="{{hasFocus}}" hint-placeholder-val="{{false}}">
+          <p style="margin: 0; font-size: 13px; color: #5B5A55">{{f.kind}} · {{f.whose}}</p>
+          <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.25">{{f.name}}</h1>
+          <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.65; color: #2B2A27; white-space: pre-line">{{f.text}}</p>
+          <sc-if value="{{f.hasNote}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 14px; line-height: 1.5; color: #9A4A07; font-weight: 600">{{f.note}}</p></sc-if>
+          <sc-for list="{{f.sections}}" as="sec" hint-placeholder-count="3">
+            <section style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid #E4E2DB">
+              <h2 style="margin: 0; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #5B5A55">{{sec.title}}</h2>
+              <sc-for list="{{sec.lines}}" as="ln" hint-placeholder-count="2">
+                <p style="margin: 0; font-size: 15px; line-height: 1.6">{{ln.before}} <button onClick="{{ln.pick}}" data-peek="{{ln.peek}}" style="{{ln.style}}">{{ln.label}}</button> <span style="color: #5B5A55; font-size: 13px">{{ln.after}}</span></p>
+              </sc-for>
+            </section>
+          </sc-for>
+        </sc-if>
+      </div>
+    </main>
+
+    <aside style="flex: 1 1 300px; max-width: 340px; box-sizing: border-box; padding: 20px; border-left: 1px solid #E4E2DB; display: flex; flex-direction: column; gap: 16px; max-height: 86vh; overflow-y: auto">
+      <dc-import name="LocalGraph" center="{{graphCenter}}" trail="{{graphTrail}}" on-pick="{{graphPick}}" w="{{graphW}}" h="{{graphH}}" hint-size="260px,300px"></dc-import>
+      <section style="display: flex; flex-direction: column; gap: 6px">
+        <h2 style="margin: 0; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #9A4A07">Beyond this scope</h2>
+        <sc-for list="{{beyond}}" as="b" hint-placeholder-count="3">
+          <button onClick="{{b.pick}}" data-peek="{{b.peek}}" style="text-align: left; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.35; padding: 8px; min-height: 44px; border: 1px solid #E8C9A6; background: #FFF8EF; border-radius: 6px; color: #1C1C1A; cursor: pointer"><span>{{b.label}}</span><span style="font-size: 11px; color: #7A3B05">{{b.why}}</span></button>
+        </sc-for>
+        <sc-if value="{{noBeyond}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 13px; color: #5B5A55">Nothing here reaches another scope.</p></sc-if>
+      </section>
+      <section style="display: flex; flex-direction: column; gap: 6px">
+        <h2 style="margin: 0; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #5B35B8">Community concepts</h2>
+        <sc-for list="{{community}}" as="c" hint-placeholder-count="2">
+          <button onClick="{{c.pick}}" data-peek="{{c.peek}}" style="text-align: left; display: flex; flex-direction: column; gap: 2px; font-size: 13px; padding: 8px; min-height: 44px; border: 1px dashed #5B35B8; background: #FFFFFF; border-radius: 6px; color: #1C1C1A; cursor: pointer"><span>{{c.label}}</span><span style="font-size: 11px; color: #5B35B8">{{c.why}}</span></button>
+        </sc-for>
+        <sc-if value="{{noCommunity}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 13px; color: #5B5A55">All of it is ours.</p></sc-if>
+      </section>
+      <section style="display: flex; flex-direction: column; gap: 6px">
+        <h2 style="margin: 0; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #5B5A55">Newest here</h2>
+        <sc-for list="{{newest}}" as="w" hint-placeholder-count="4">
+          <button onClick="{{w.pick}}" data-peek="{{w.peek}}" style="text-align: left; font-size: 13px; line-height: 1.35; padding: 8px; min-height: 44px; border: 1px solid #E4E2DB; background: #FFFFFF; border-radius: 6px; color: #1C1C1A; cursor: pointer"><span style="color: #5B5A55">{{w.when}}</span> {{w.label}}</button>
+        </sc-for>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  // hover preview: any element carrying data-peek names a node; after a short pause a card shows it
+  peekMove(e) {
+    const t = e.target && e.target.closest ? e.target.closest('[data-peek]') : null;
+    const id = t ? t.getAttribute('data-peek') : '';
+    if (id === this._peekAt) return;
+    this._peekAt = id; clearTimeout(this._peekT);
+    if (!id) { if (this.state.peek) this.setState({ peek: null }); return; }
+    const root = e.currentTarget, rr = root.getBoundingClientRect(), k = (rr.width / (root.offsetWidth || rr.width || 1)) || 1, r = t.getBoundingClientRect();
+    const p = { id, x: (r.left - rr.left) / k, y: (r.bottom - rr.top) / k, top: (r.top - rr.top) / k, bw: root.offsetWidth, bh: Math.min(root.offsetHeight, (window.innerHeight - rr.top) / k) };
+    this._peekT = setTimeout(() => this.setState({ peek: p }), 350);
+  }
+  peekHide() { clearTimeout(this._peekT); this._peekAt = ''; if (this.state.peek) this.setState({ peek: null }); }
+  // the jump-to box hands over an id; each board goes there its own way
+  goTo(id) { this.focusOn(id); }
+
+  renderVals() {
+    const b = this.renderVals0(), p = this.state.peek;
+    b.standalone = !window.Brain;
+    return Object.assign(b, { peekMove: (e) => this.peekMove(e), peekHide: () => this.peekHide(), peekId: p ? p.id : '', peekX: p ? p.x : 0, peekY: p ? p.y : 0,
+      peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0, goTo: (id) => { this.peekHide(); this.goTo(id); } });
+  }
+
+  constructor(props) { super(props); this.state = { g: null, err: null, scope: window.Brain ? Brain.state.scope : 'civ-anarchy', focus: null, open: {}, reading: false }; this.RESET = { focus: null, open: {} }; }
+
+  componentDidMount() {
+    if (window.Brain) {
+      this._offs = [
+        Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })),
+        Brain.on('scope', (k) => this.liveScope(k)),
+        Brain.on('go', (id) => this.goTo(id)),
+      ];
+      if (Brain.state.scope) this.liveScope(Brain.state.scope);
+      return;
+    }
+    fetch('/_blob/dcde019c6a74631fb618ff1c99ab7340').then((r) => r.json())
+      .then((d) => this.setState({ g: this.prep(d) }))
+      .catch((e) => this.setState({ err: String(e) }));
+  }
+
+  componentWillUnmount() { (this._offs || []).forEach((f) => f()); }
+  // live: the bar changed the scope; read its things (brain-view caps a scope at its newest 400)
+  liveScope(k) {
+    const keep = this._keepFocus; this._keepFocus = false;
+    this.setState(Object.assign({ scope: k, reading: true }, keep ? {} : this.RESET));
+    Brain.api('scope', { key: k, limit: 400 }).then((d) => { if (this.state.scope === k) this.setState({ reading: false, scopeInfo: d.scope }); }).catch(() => this.setState({ reading: false }));
+  }
+  // live: a thing opened; read what it links to, and the members of its small Sets
+  liveOpen(id) {
+    if (!window.Brain || !id) return;
+    Brain.api('node', { id, depth: 1 }).then((d) => {
+      const n = (d.nodes || []).find((x) => x.id === id);
+      ((n && n.sets) || []).forEach((s) => { const sn = (d.nodes || []).find((x) => x.id === s); if (!sn || ((sn.answers || {}).holds || 0) <= 150) Brain.api('group', { id: s, offset: 0, limit: 150 }).catch(() => {}); });
+    }).catch(() => {});
+  }
+  // live: open a thing in another scope by moving the bar's scope there first
+  liveScopeFor(id) {
+    const n = this.state.g && this.state.g.N[id];
+    if (!window.Brain || !n || !n.part || n.part === 'structure' || n.part === this.state.scope) return;
+    if (Brain.state.scopes.some((x) => x.key === n.part)) { this._keepFocus = true; Brain.set('scope', n.part); }
+  }
+  // live: a project scope's name is what a thing's "scopes" list says; a concept scope has none
+  liveScopeName(part) {
+    const sc = (Brain.state.scopes || []).find((x) => x.key === part);
+    return sc && sc.kind === 'project' ? sc.label : null;
+  }
+
+  prep(d) {
+    const N = {}, out = {}, inn = {}, mem = {}, LT = {};
+    d.nodes.forEach((n) => { N[n.id] = n; });
+    d.links.forEach((l) => { (out[l.from] = out[l.from] || []).push(l); (inn[l.to] = inn[l.to] || []).push(l); });
+    d.nodes.forEach((n) => { n.kinds.concat(n.sets).forEach((x) => { (mem[x] = mem[x] || []).push(n.id); }); });
+    d.link_types.forEach((t) => { LT[t.type] = t; });
+    return { d, N, out, inn, mem, LT };
+  }
+
+  kindOf(g, n) {
+    if (n.role === 'concept') return 'concept';
+    if (n.role === 'set') return 'Set';
+    const ks = n.kinds.filter((k) => g.N[k]).sort((a, b) => (g.mem[a] || []).length - (g.mem[b] || []).length);
+    return ks.length ? g.N[ks[0]].name : 'element';
+  }
+
+  groupsOf(g, n) {
+    const sets = n.sets.filter((x) => g.N[x]);
+    if (sets.length) return sets;
+    const ks = n.kinds.filter((k) => g.N[k]).sort((a, b) => (g.mem[a] || []).length - (g.mem[b] || []).length);
+    return ks.slice(0, 1);
+  }
+
+  scopeName(part) {
+    if (window.Brain) return this.liveScopeName(part);
+    return { 'civ-anarchy': 'civ-anarchy', 'nomos-protocol': 'nomos-protocol', 'walkies (sample project)': 'walkies' }[part] || null;
+  }
+
+  beyond(n) {
+    const sc = this.scopeName(this.state.scope), used = (n.answers && n.answers.used_by_scopes) || [];
+    if (used.length >= 2) return 'used by ' + used.join(', ');
+    if (sc && n.scopes.length && n.scopes.indexOf(sc) < 0) return 'beyond: ' + n.scopes.join(', ');
+    return '';
+  }
+
+  badges(n) {
+    const a = n.answers || {}, b = [];
+    if (a.settled === false) b.push('open');
+    if (a.history) b.push('history ' + a.history);
+    if (a.evidence_for || a.evidence_against) b.push((a.evidence_for || 0) + ' for, ' + (a.evidence_against || 0) + ' against');
+    if ((a.in_several_groups || 0) >= 2) b.push('in ' + a.in_several_groups + ' Sets');
+    if (a.waits_on) b.push('waits on ' + a.waits_on);
+    if (this.beyond(n)) b.push('beyond');
+    return b.join(' · ');
+  }
+
+  focusOn(id) {
+    const g = this.state.g, n = g.N[id];
+    if (window.Brain) { this.liveScopeFor(id); this.setState({ focus: id }); this.liveOpen(id); return; }
+    const p = n && n.part !== 'structure' ? n.part : this.state.scope;
+    this.setState({ focus: id, scope: p });
+  }
+
+  sentenceLine(g, otherId, before, after) {
+    const o = g.N[otherId];
+    if (!o) return null;
+    const wide = this.beyond(o);
+    const style = 'display: inline; padding: 0; min-height: 0; border: none; background: transparent; cursor: pointer; font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 3px; color: ' + (wide ? '#9A4A07' : (o.provenance !== 'ours' ? '#5B35B8' : '#1E4FBF'));
+    return { before, label: o.name, after: [after, wide].filter(Boolean).join(' · '), style, peek: otherId, pick: () => this.focusOn(otherId) };
+  }
+
+  sections(g, n) {
+    const fam = {}, order = ['Part of', 'Holds', 'History', 'Evidence', 'Questions and answers', 'Plans', 'References', 'Values'];
+    const famOf = { SUPERCEDES: 'History', BEARS_ON: 'Evidence', ANSWERS: 'Questions and answers', BLOCKED_BY: 'Plans', SETS_ASIDE: 'Plans', ASSIGNED_TO: 'Plans', REFERENCES: 'References', ENUMERATES: 'Values' };
+    const push = (k, l) => { if (l) (fam[k] = fam[k] || []).push(l); };
+    n.kinds.concat(n.sets).forEach((x) => push('Part of', this.sentenceLine(g, x, 'It is part of', (g.mem[x] || []).length + ' in it')));
+    if (n.role !== 'element') (g.mem[n.id] || []).slice(0, 25).forEach((x) => push('Holds', this.sentenceLine(g, x, 'It holds', this.badges(g.N[x]))));
+    (g.out[n.id] || []).forEach((l) => { const t = g.LT[l.type] || {}; const p = l.props || {};
+      push(famOf[l.type] || 'References', this.sentenceLine(g, l.to, 'It ' + (t.reads || l.type).replace(/^X /, '').replace(/ Y$/, ''), [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || '', p.field ? 'field ' + p.field : ''].filter(Boolean).join(', '))); });
+    (g.inn[n.id] || []).forEach((l) => { const t = g.LT[l.type] || {}; const p = l.props || {};
+      let before = 'It ' + (t.reverse || l.type).replace(/^Y /, '').replace(/ X$/, '');
+      if (l.type === 'BEARS_ON') before = p.polarity >= 0 ? 'Supported by' : 'Undercut by';
+      push(famOf[l.type] || 'References', this.sentenceLine(g, l.from, before, [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || ''].filter(Boolean).join(', '))); });
+    if (fam['Evidence']) fam['Evidence'].sort((a, b) => (b.after.indexOf('strength -') >= 0) - (a.after.indexOf('strength -') >= 0));
+    return order.filter((k) => fam[k]).map((k) => ({ title: k + ' · ' + fam[k].length, lines: fam[k].slice(0, 40) }));
+  }
+
+  renderVals0() {
+    const s = this.state, g = s.g;
+    const parts = (window.Brain ? Brain.state.scopes.map((x) => [x.key, x.label]) : [['civ-anarchy', 'civ-anarchy'], ['nomos-protocol', 'nomos-protocol'], ['sandwich question', 'sandwich interview'],
+      ['nostr concepts', 'Nostr concepts'], ['shared topic', 'shared topic'], ['walkies (sample project)', 'walkies']]);
+    const scopes = parts.map(([p, label]) => ({ label,
+      style: 'font-size: 13px; padding: 8px 12px; min-height: 44px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (p === s.scope ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A'),
+      pick: () => (window.Brain ? Brain.set('scope', p) : this.setState({ scope: p, focus: null, open: {} })) }));
+    const base = { graphCenter: s.focus || '', graphTrail: [], graphW: 260, graphH: 220, graphPick: (id) => this.focusOn(id), scopes, loading: (!g || s.reading) && !s.err, status: s.err ? 'Could not load the data: ' + s.err : '', outline: [], noFocus: true, hasFocus: false,
+      scopeTitle: '', scopeText: '', f: { kind: '', whose: '', name: '', text: '', hasNote: false, note: '', sections: [] },
+      beyond: [], noBeyond: true, community: [], noCommunity: true, newest: [] };
+    if (!g) return base;
+
+    const els = g.d.nodes.filter((n) => n.part === s.scope && n.role === 'element');
+    const byGroup = {};
+    els.forEach((n) => this.groupsOf(g, n).forEach((x) => { (byGroup[x] = byGroup[x] || []).push(n); }));
+    const keys = Object.keys(byGroup).sort((a, b) => byGroup[b].length - byGroup[a].length);
+    base.outline = keys.map((x, i) => {
+      const isOpen = s.open[x] !== undefined ? s.open[x] : i < 2;
+      return { label: g.N[x] ? g.N[x].name : x, count: byGroup[x].length, open: isOpen, expanded: isOpen ? 'true' : 'false', mark: isOpen ? '−' : '+',
+        toggle: () => this.setState({ open: Object.assign({}, s.open, { [x]: !isOpen }) }),
+        items: byGroup[x].slice(0, 80).map((n) => ({ label: n.name.length > 80 ? n.name.slice(0, 78) + '…' : n.name, badges: this.badges(n), peek: n.id, pick: () => this.focusOn(n.id),
+          style: 'display: flex; flex-direction: column; gap: 1px; text-align: left; font-size: 13px; line-height: 1.35; padding: 6px 8px 6px 18px; min-height: 44px; border: none; border-radius: 6px; cursor: pointer; color: #1C1C1A; background: ' + (s.focus === n.id ? '#EDEBE4' : 'transparent') })) };
+    });
+    base.scopeTitle = (parts.find((p) => p[0] === s.scope) || [s.scope, s.scope])[1];
+    const open = els.filter((n) => n.answers && n.answers.settled === false).length;
+    base.scopeText = els.length + ' things in ' + keys.length + ' groups' + (open ? ', ' + open + ' of them open questions' : '') + '. Pick anything from the outline; its whole context is written out here as sentences, in the graph’s own words.';
+
+    const scoped = g.d.nodes.filter((n) => n.part === s.scope);
+    const bey = scoped.filter((n) => this.beyond(n)).concat(g.d.nodes.filter((n) => n.part === 'structure' && ((n.answers || {}).used_by_scopes || []).length >= 2 && ((n.answers || {}).used_by_scopes || []).indexOf(this.scopeName(s.scope)) >= 0));
+    base.beyond = bey.slice(0, 10).map((n) => ({ label: n.name, why: this.beyond(n), peek: n.id, pick: () => this.focusOn(n.id) }));
+    base.noBeyond = base.beyond.length === 0;
+    base.community = scoped.filter((n) => n.provenance !== 'ours').slice(0, 8).map((n) => ({ label: n.name, why: n.provenance + ' · by ' + String(n.author).slice(0, 8) + '…', peek: n.id, pick: () => this.focusOn(n.id) }));
+    base.noCommunity = base.community.length === 0;
+    base.newest = scoped.filter((n) => n.created_at).sort((a, b) => b.created_at - a.created_at).slice(0, 6)
+      .map((n) => ({ when: new Date(n.created_at * 1000).toISOString().slice(0, 10), label: n.name.length > 70 ? n.name.slice(0, 68) + '…' : n.name, peek: n.id, pick: () => this.focusOn(n.id) }));
+
+    if (s.focus && g.N[s.focus]) {
+      const n = g.N[s.focus], wide = this.beyond(n);
+      base.noFocus = false; base.hasFocus = true;
+      base.f = { kind: this.kindOf(g, n), whose: n.provenance === 'ours' ? 'ours' : n.provenance + ' · by ' + String(n.author).slice(0, 12) + '…', name: n.name,
+        text: String((n.fields && (n.fields.claim || n.fields.stance)) || n.description || '').slice(0, 1200) + (n.fields && n.fields.quote ? '\n\n“' + n.fields.quote + '”' : ''),
+        hasNote: !!wide, note: wide ? 'This reaches beyond ' + base.scopeTitle + ': ' + wide : '', sections: this.sections(g, n) };
+    }
+    return base;
+  }
+}
+</script>
+</body>
+</html>

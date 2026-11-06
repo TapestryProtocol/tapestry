@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dictionary: concepts and people</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: calc(100vh - 57px); box-sizing: border-box; background: #F6F5F1; color: #1C1C1A; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 24px; border-bottom: 1px solid #DCDAD3; background: #FFFFFF">
+    <sc-if value="{{showTitle}}" hint-placeholder-val="{{false}}"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 18px">Dictionary</span></sc-if>
+    <span style="display: inline-flex; gap: 2px; background: #ECEAE3; border-radius: 999px; padding: 3px">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2"><button onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button></sc-for>
+    </span>
+    <span style="flex: 1"></span>
+    <sc-if value="{{hasInstances}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: #5B5A55">Instance</span></sc-if>
+    <sc-for list="{{instances}}" as="i" hint-placeholder-count="2">
+      <button onClick="{{i.pick}}" style="{{i.style}}">{{i.label}}</button>
+    </sc-for>
+    <sc-if value="{{readNote}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #5B5A55">{{readNote}}</span></sc-if>
+    <sc-if value="{{canRefresh}}" hint-placeholder-val="{{false}}"><button onClick="{{refresh}}" style="font-size: 12px; padding: 0 12px; min-height: 32px; border-radius: 999px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF">Refresh</button></sc-if>
+  </header>
+
+  <sc-if value="{{onConcepts}}" hint-placeholder-val="{{true}}">
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px 0 24px">
+      <sc-for list="{{cats}}" as="k" hint-placeholder-count="6">
+        <button onClick="{{k.pick}}" title="{{k.tip}}" style="{{k.style}}"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 600; line-height: 1">{{k.n}}</span><span style="font-size: 12px; line-height: 1.3; text-align: left">{{k.label}}</span></button>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex: 1; min-height: 0; gap: 14px; padding: 12px 24px 20px 12px">
+      <nav aria-label="Whose" style="flex: 0 0 210px; box-sizing: border-box; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 2px; max-height: 76vh; overflow-y: auto">
+        <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; padding: 4px 6px 6px 6px">Whose</span>
+        <sc-for list="{{people}}" as="p" hint-placeholder-count="6">
+          <button onClick="{{p.pick}}" style="{{p.style}}"><span style="{{p.dotStyle}}"></span><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span>{{p.name}}</span><span style="font-size: 11px; color: #5B5A55">{{p.sub}}</span></span></button>
+        </sc-for>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #5B5A55; padding: 12px 6px 0 6px; cursor: pointer"><input type="checkbox" checked="{{showSystem}}" onChange="{{toggleSystem}}"> Show Tapestry's own</label>
+      </nav>
+
+      <main style="{{listStyle}}">
+        <div style="flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+          <input value="{{q}}" onChange="{{typeQ}}" placeholder="Find a concept…" aria-label="Find a concept" style="box-sizing: border-box; font-size: 13px; padding: 8px 12px; min-height: 36px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; min-width: 0; flex: 1 1 160px; max-width: 320px">
+          <span style="font-size: 12px; color: #5B5A55">{{listNote}}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; min-height: 0; padding-right: 4px">
+          <sc-for list="{{sections}}" as="sec" hint-placeholder-count="3">
+            <section style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px">
+              <sc-if value="{{sec.title}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px"><h2 style="{{sec.titleStyle}}">{{sec.title}}</h2><span style="font-size: 12px; color: #5B5A55">{{sec.note}}</span></div></sc-if>
+              <sc-for list="{{sec.rows}}" as="r" hint-placeholder-count="4">
+                <button onClick="{{r.pick}}" style="{{r.style}}">
+                  <span style="display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1">
+                    <span style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px"><span style="font-size: 14px; font-weight: 600">{{r.name}}</span><span style="{{r.dStyle}}">{{r.d}}</span></span>
+                    <sc-if value="{{r.tie}}" hint-placeholder-val="{{true}}"><span style="font-size: 12px; line-height: 1.4; color: #3A3935">{{r.tie}}</span></sc-if>
+                  </span>
+                  <sc-if value="{{r.wide}}" hint-placeholder-val="{{true}}">
+                    <span style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 46%">
+                      <sc-for list="{{r.badges}}" as="bd" hint-placeholder-count="2"><span style="{{bd.style}}">{{bd.t}}</span></sc-for>
+                    </span>
+                  </sc-if>
+                </button>
+              </sc-for>
+              <sc-if value="{{sec.hasMore}}" hint-placeholder-val="{{false}}"><button onClick="{{sec.more}}" style="align-self: flex-start; font-size: 12px; padding: 6px 12px; min-height: 32px; border-radius: 999px; cursor: pointer; color: #163A8C; background: #EEF2FB; border: 1px solid #C9D6F2">{{sec.moreLabel}}</button></sc-if>
+            </section>
+          </sc-for>
+        </div>
+      </main>
+
+      <aside aria-label="The selected concept" style="{{detailStyle}}">
+        <sc-if value="{{noSel}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 18px; font-weight: 600">{{overviewTitle}}</span>
+            <sc-for list="{{overview}}" as="o" hint-placeholder-count="3"><span style="font-size: 13px; line-height: 1.5; color: #2B2A27">{{o.t}}</span></sc-for>
+            <span style="font-size: 13px; line-height: 1.5; color: #5B5A55">Pick a concept to open it here: its ties, what ours adds, where it is shared, and its lineage.</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{hasSel}}" hint-placeholder-val="{{true}}">
+          <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 10px">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.02em"><span style="{{sel.kindStyle}}">{{sel.kind}}</span> <sc-if value="{{sel.byOther}}" hint-placeholder-val="{{true}}"><button onClick="{{sel.goAuthor}}" title="See this person among the people" style="font-size: 12px; font-weight: 600; padding: 0; border: none; background: none; cursor: pointer; color: #5B35B8; text-decoration: underline; text-underline-offset: 3px">{{sel.author}}</button></sc-if></span>
+              <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 22px; font-weight: 600; line-height: 1.2">{{sel.name}}</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8A867C; overflow-wrap: anywhere">{{sel.id}}</span>
+            </div>
+            <button onClick="{{widen}}" title="{{widenTip}}" style="flex: none; font-size: 12px; padding: 0 10px; min-height: 32px; border-radius: 6px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF">{{widenLabel}}</button>
+          </div>
+          <span style="flex-shrink: 0; display: inline-flex; align-self: flex-start; gap: 2px; background: #ECEAE3; border-radius: 999px; padding: 3px">
+            <sc-for list="{{detailTabs}}" as="t" hint-placeholder-count="2"><button onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button></sc-for>
+          </span>
+
+          <sc-if value="{{isOverview}}" hint-placeholder-val="{{true}}">
+            <sc-if value="{{sel.hasDesc}}" hint-placeholder-val="{{true}}"><span style="flex-shrink: 0; font-size: 13px; line-height: 1.5; color: #2B2A27; max-width: 760px">{{sel.desc}}</span></sc-if>
+            <div style="flex-shrink: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px">
+              <sc-for list="{{sel.blocks}}" as="bl" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid #EDEBE4; border-radius: 10px; background: #FDFCFA">
+                  <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{bl.title}}</span>
+                  <sc-for list="{{bl.lines}}" as="ln" hint-placeholder-count="2"><span style="{{ln.style}}">{{ln.t}}</span></sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{isLineage}}" hint-placeholder-val="{{false}}">
+            <span style="flex-shrink: 0; font-size: 13px; line-height: 1.5; color: #3A3935; max-width: 820px">{{lin.summary}}</span>
+            <div style="flex-shrink: 0; display: flex; align-items: stretch; overflow-x: auto; padding-bottom: 4px">
+              <sc-for list="{{lin.chain}}" as="c" hint-placeholder-count="3">
+                <sc-if value="{{c.isArrow}}" hint-placeholder-val="{{false}}">
+                  <div style="flex: none; width: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 6px">
+                    <span style="font-size: 12px; font-weight: 600; color: {{c.color}}; text-align: center; line-height: 1.3">{{c.label}}</span>
+                    <span style="display: block; width: 100%; height: 0; border-top: 2px {{c.line}} {{c.color}}"></span>
+                    <span style="font-size: 16px; line-height: 1; color: {{c.color}}; margin-top: -12px; align-self: flex-start; margin-left: -2px">◀</span>
+                    <span style="font-size: 11px; color: #5B5A55; text-align: center; line-height: 1.3">{{c.sub}}</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{c.isCard}}" hint-placeholder-val="{{true}}">
+                  <div style="{{c.style}}">
+                    <sc-if value="{{c.canGo}}" hint-placeholder-val="{{false}}"><button onClick="{{c.goAuthor}}" style="{{c.whoStyle}}">{{c.who}}</button></sc-if>
+                    <sc-if value="{{c.noGo}}" hint-placeholder-val="{{true}}"><span style="{{c.whoStyle}}">{{c.who}}</span></sc-if>
+                    <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 16px; font-weight: 600; line-height: 1.25">{{c.name}}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8A867C; overflow-wrap: anywhere">{{c.d}}</span>
+                    <sc-for list="{{c.facts}}" as="f" hint-placeholder-count="3"><span style="font-size: 12px; line-height: 1.45; color: #2B2A27">{{f.t}}</span></sc-for>
+                  </div>
+                </sc-if>
+              </sc-for>
+            </div>
+            <sc-if value="{{lin.hasDiffs}}" hint-placeholder-val="{{false}}">
+              <span style="flex-shrink: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">What differs in the definition</span>
+              <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px">
+                <sc-for list="{{lin.diffs}}" as="df" hint-placeholder-count="1">
+                  <div style="display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr); gap: 10px; padding: 10px 12px; border: 1px solid #EDEBE4; border-radius: 10px; background: #FDFCFA; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #3A3935">{{df.tag}}</span>
+                    <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 600; color: #5B35B8">{{df.theirsLabel}}</span><span style="color: #2B2A27">{{df.theirs}}</span></span>
+                    <span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; font-weight: 600; color: #3A3935">ours</span><span style="color: #2B2A27">{{df.oursSame}}<span style="background: #E4F2E8; color: #1F5C38; border-radius: 3px; padding: 0 2px">{{df.oursAdded}}</span></span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{lin.schemaNote}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; font-size: 13px; line-height: 1.5; color: #3A3935">{{lin.schemaNote}}</span></sc-if>
+            <span style="flex-shrink: 0; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{lin.fieldsTitle}}</span>
+            <sc-if value="{{lin.noFields}}" hint-placeholder-val="{{false}}"><span style="flex-shrink: 0; font-size: 13px; color: #5B5A55">{{lin.noFieldsText}}</span></sc-if>
+            <sc-if value="{{lin.hasFields}}" hint-placeholder-val="{{true}}">
+              <div style="flex-shrink: 0; border: 1px solid #DCDAD3; border-radius: 10px; background: #FFFFFF; overflow: hidden">
+                <div style="display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 1fr) minmax(0, 1fr) 130px; font-size: 12px; font-weight: 600; color: #3A3935; background: #FBFAF7; border-bottom: 1px solid #DCDAD3">
+                  <span style="padding: 8px 10px">field</span><span style="padding: 8px 10px; color: #5B35B8">{{lin.leftLabel}}</span><span style="padding: 8px 10px">{{lin.rightLabel}}</span><span style="padding: 8px 10px"></span>
+                </div>
+                <sc-for list="{{lin.fields}}" as="f" hint-placeholder-count="5">
+                  <div style="display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 1fr) minmax(0, 1fr) 130px; font-size: 12px; border-bottom: 1px solid #EDEBE4">
+                    <span style="padding: 7px 10px; font-family: 'JetBrains Mono', monospace">{{f.field}} <span style="font-family: Inter, sans-serif; font-size: 10px; color: #8A867C">{{f.where}}</span></span>
+                    <span style="padding: 7px 10px; color: #3A3935">{{f.left}}</span>
+                    <span style="padding: 7px 10px; color: #3A3935">{{f.right}}</span>
+                    <span style="padding: 7px 10px"><span style="{{f.markStyle}}">{{f.mark}}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid #EDEBE4">
+            <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">Actions <span style="text-transform: none; letter-spacing: 0">· coming; each shows the line it will run</span></span>
+            <sc-if value="{{sel.noActs}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: #5B5A55">Nothing to do: it is shared and current.</span></sc-if>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px">
+              <sc-for list="{{sel.acts}}" as="a" hint-placeholder-count="2">
+                <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px dashed #CFCDC6; border-radius: 10px">
+                  <button disabled="{{true}}" style="align-self: flex-start; font-size: 13px; font-weight: 600; padding: 0 14px; min-height: 34px; border-radius: 8px; border: 1px solid #CFCDC6; background: #F1EFE9; color: #8A867C; cursor: not-allowed">{{a.label}}</button>
+                  <span style="font-size: 12px; line-height: 1.4; color: #3A3935">{{a.why}}</span>
+                  <code style="font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.5; color: #5B5A55; overflow-wrap: anywhere">{{a.line}}</code>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{onPeople}}" hint-placeholder-val="{{false}}">
+    <div style="display: flex; flex-wrap: wrap; flex: 1; min-height: 0">
+      <main style="flex: 999 1 720px; min-width: 0; box-sizing: border-box; padding: 16px; overflow: auto">
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #3A3935; padding: 0 0 8px 4px">
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 22px; border-top: 3px solid #7A55D6"></span>we hold theirs</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 22px; border-top: 3px dashed #C2701E"></span>theirs points at ours</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 22px; border-top: 2px dotted #A9A59B"></span>between others</span>
+        </div>
+        <div style="position: relative; width: 1000px; height: 760px">
+          <sc-for list="{{map.lines}}" as="l" hint-placeholder-count="0"><div style="{{l.style}}"></div></sc-for>
+          <sc-for list="{{map.labels}}" as="l" hint-placeholder-count="0"><span style="{{l.style}}">{{l.t}}</span></sc-for>
+          <sc-for list="{{map.regions}}" as="r" hint-placeholder-count="0">
+            <button onClick="{{r.pick}}" style="{{r.style}}">
+              <span style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%"><span style="{{r.nameStyle}}">{{r.name}}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8A867C">{{r.key}}</span></span>
+              <span style="font-size: 11px; line-height: 1.4; color: #3A3935">{{r.counts}}</span>
+              <span style="display: flex; flex-wrap: wrap; gap: 4px"><sc-for list="{{r.chips}}" as="c" hint-placeholder-count="3"><span style="{{c.style}}">{{c.t}}</span></sc-for></span>
+            </button>
+          </sc-for>
+          <sc-if value="{{map.rest}}" hint-placeholder-val="{{false}}"><span style="position: absolute; right: 8px; bottom: 6px; font-size: 12px; color: #5B5A55">{{map.rest}}</span></sc-if>
+        </div>
+      </main>
+      <aside aria-label="The selected person" style="flex: 1 1 340px; max-width: 400px; box-sizing: border-box; padding: 18px; border-left: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; max-height: 88vh; overflow-y: auto">
+        <span style="{{pp.whoStyle}}">{{pp.who}}</span>
+        <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 600; line-height: 1.25">{{pp.name}}</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8A867C; overflow-wrap: anywhere">{{pp.key}}</span>
+        <button onClick="{{pp.filter}}" style="align-self: flex-start; font-size: 12px; padding: 6px 12px; min-height: 32px; border-radius: 999px; cursor: pointer; color: #163A8C; background: #EEF2FB; border: 1px solid #C9D6F2">See only theirs in Concepts</button>
+        <sc-for list="{{pp.secs}}" as="sec" hint-placeholder-count="3">
+          <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid #EDEBE4">
+            <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{sec.title}}</span>
+            <sc-if value="{{sec.empty}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: #5B5A55">{{sec.empty}}</span></sc-if>
+            <sc-for list="{{sec.items}}" as="it" hint-placeholder-count="2">
+              <button onClick="{{it.open}}" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; padding: 6px 8px; min-height: 40px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; background: transparent; color: #1C1C1A"><span style="font-size: 13px; font-weight: 600">{{it.name}}</span><span style="font-size: 12px; color: #5B5A55">{{it.note}}</span></button>
+            </sc-for>
+          </div>
+        </sc-for>
+      </aside>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { all: null, err: null, inst: 'hosted', tab: 'concepts', cat: 'all', person: null, q: '', sel: null, focus: false, dtab: 'overview', showSystem: false, more: {}, mapSel: null };
+  }
+
+  // live (brain-view's reading views): this instance's community document, read when the view opens
+  // (brain-view caches it five minutes; Refresh reads the relays again); on the canvas, the design data
+  componentDidMount() {
+    if (window.Brain) {
+      this._offs = [Brain.on('go', (id) => this.jump(id))];
+      this.load(false);
+      this._tick = setInterval(() => this.forceUpdate(), 30000);
+      return;
+    }
+    fetch('/_blob/eb0e908b3e82e3b42f455dd139548783').then((r) => r.json())
+      .then((d) => { const names = {}; Object.values(d.instances).forEach((I) => Object.entries(I.people).forEach(([k, v]) => { if (v.name && !v.is_this_instance) names[k] = v.name; })); Object.values(d.instances).forEach((I) => Object.entries(I.people).forEach(([k, v]) => { if (!v.name && names[k]) v.name = names[k]; })); this.setState({ all: d }); })
+      .catch((e) => this.setState({ err: String(e) }));
+  }
+
+  componentWillUnmount() { (this._offs || []).forEach((f) => f()); clearInterval(this._tick); }
+  load(fresh) {
+    this.setState({ loading: true, err: null });
+    Brain.api('community', fresh ? { fresh: Date.now() } : {}).then((doc) => {
+      const nm = doc.instance.name;
+      this.setState({ all: { instances: { [nm]: doc } }, inst: nm, readAt: doc.read_at, loading: false, sel: this.state.sel });
+    }).catch((e) => this.setState({ err: String(e.message || e), loading: false }));
+  }
+  // jump-to-anything: a concept here or on the relay opens; anything else is not this view's
+  jump(id) {
+    const I = this.state.all && this.state.all.instances[this.state.inst];
+    if (!I) return;
+    if (I.concepts.some((c) => c.id === id)) this.open(id, false);
+    else if (I.on_relay.some((c) => c.id === id)) this.open(id, true);
+  }
+
+  short(s, k) { s = String(s == null ? '' : s); return s.length > k ? s.slice(0, k - 1) + '…' : s; }
+
+  // ── one instance's data, indexed ────────────────────────────────────────
+  prep(I, showSystem) {
+    const C = {}, R = {}, pointedBy = {}, relayPointers = {}, plumbing = {};
+    I.concepts.forEach((c) => { C[c.id] = c; if (c.system) plumbing[c.d] = true; });
+    const relay = I.on_relay.filter((c) => showSystem || !plumbing[c.id.split(':').slice(2).join(':')]);
+    relay.forEach((c) => { R[c.id] = c; (c.points_at || []).forEach((t) => (relayPointers[t] = relayPointers[t] || []).push(c.id)); });
+    I.on_relay.forEach((c) => { if (!R[c.id]) R[c.id] = c; });
+    I.concepts.forEach((c) => (c.b || []).forEach((b) => { if (!b.self) (pointedBy[b.target] = pointedBy[b.target] || []).push({ from: c.id, type: b.type }); }));
+    const concepts = I.concepts.filter((c) => showSystem || !c.system);
+    return { I, C, R, relay, concepts, pointedBy, relayPointers, ta: I.instance.assistant };
+  }
+  who(x, pk) {
+    if (pk === x.ta) return 'this instance';
+    const p = x.I.people[pk];
+    const twin = p && p.name && Object.entries(x.I.people).some(([k, v]) => k !== pk && v.name === p.name);
+    if (twin) return p.name + ' (' + pk.slice(0, 6) + '…)';
+    return p && p.name ? p.name : (pk || '').slice(0, 8) + '…';
+  }
+  whose(x, pk) { const w = this.who(x, pk); return w === 'this instance' ? 'ours' : w + '’s'; }
+  nameOf(x, id) { const c = x.C[id] || x.R[id]; return c ? c.name : id.split(':').slice(2).join(':'); }
+  ownerOf(c) { return c.copy_of ? c.copy_of.split(':')[1] : c.author; }
+  kindOf(c) { return c.copy_of ? 'copy' : c.state === 'ours' ? 'ours' : 'taken'; }
+
+  // the top row: what kind of story a concept has (they overlap; each is a filter)
+  catsOf(x, c, onRelay) {
+    if (onRelay) return ['relay'];
+    const k = this.kindOf(c), out = [k];
+    if (k === 'ours' || k === 'copy') {
+      if (c.declared) out.push('declared');
+      if ((x.pointedBy[c.id] || []).some((p) => x.C[p.from] && x.C[p.from].author !== c.author) || (x.relayPointers[c.id] || []).length) out.push('pointed');
+    }
+    return out;
+  }
+
+  // ── actions, for now as the line each would run ─────────────────────────
+  acts(x, c, onRelay) {
+    const pre = x.I.instance.name === 'local' ? 'brain ' : 'brain --on ' + x.I.instance.name + ' ', out = [];
+    if (onRelay) {
+      out.push({ label: 'Add to my Dictionary', why: 'Hold a copy that corresponds to ' + this.whose(x, c.author) + '.', line: pre + 'dictionary add ' + c.id });
+      out.push({ label: 'Add, inheriting', why: 'Hold a copy that defers to theirs unless you say otherwise.', line: pre + 'dictionary add ' + c.id + ' --inherit' });
+      out.push({ label: 'Take it whole', why: 'Take the whole concept in, without its things.', line: pre + 'import ' + c.id + ' --no-elements' });
+      return out;
+    }
+    const rel = c.relays.community;
+    if (c.copy_of) {
+      if (rel === 'missing' || rel === 'older') out.push({ label: 'Share my copy', why: rel === 'missing' ? 'Your copy is only here; others cannot see that you hold it.' : 'The community relay has an older version of your copy.', line: pre + 'publish ' + c.id + ' --header-only' });
+      out.push(c.copy_type === 'inherit' ? { label: 'Point instead', why: 'Make it a plain pointer instead of inheriting.', line: pre + 'dictionary add ' + c.copy_of } : { label: 'Inherit instead', why: 'Make it defer to theirs instead of only pointing.', line: pre + 'dictionary add ' + c.copy_of + ' --inherit' });
+      out.push({ label: 'Remove from my Dictionary', why: 'Your concept stays; the tie to theirs ends.', line: pre + 'dictionary remove ' + c.copy_of });
+    } else if (c.state === 'ours') {
+      if (rel === 'missing' || rel === 'older') out.push({ label: 'Share', why: rel === 'missing' ? 'Only here so far; share it, offered for others to point at.' : 'The community relay has an older version.', line: pre + 'publish ' + c.d });
+    } else if (c.state !== 'dict') {
+      out.push({ label: 'Add to my Dictionary', why: 'Hold your own copy of it, pointing back at theirs, to add to or change.', line: pre + 'dictionary add ' + c.id });
+    }
+    return out;
+  }
+
+  // ── what differs between a copy and its original ────────────────────────
+  tagWord(t) { return { description: 'description', name: 'name', names: 'names', slug: 'slug', required: 'header fields', recommended: 'header fields', optional: 'header fields', allowed: 'allowed values', 'field-type': 'field types', display: 'display', image: 'image', link: 'link' }[t] || t; }
+  // every field a concept defines: its header's tags, then its schema (the property tree)
+  allFields(header, schema) {
+    const out = (header || []).map((f) => ({ field: f.field, where: 'header', level: f.level, type: f.type, what: f.what }));
+    (schema || []).forEach((f) => { if (!out.some((o) => o.field === f.field)) out.push({ field: f.field, where: 'schema', level: f.required ? 'required' : 'optional', type: f.type, what: f.what }); });
+    return out;
+  }
+  // a copy against its original: the definition tags that differ, and the fields each side's schema adds
+  differs(c) {
+    const tags = Array.from(new Set((c.copy_diff || []).map((d) => this.tagWord(d.tag))));
+    const ours = this.allFields(c.fields, c.schema_fields).map((f) => f.field);
+    const theirs = this.allFields(c.community_fields, c.community_schema_fields || []).map((f) => f.field);
+    return { tags, adds: ours.filter((f) => theirs.indexOf(f) < 0), lacks: theirs.filter((f) => ours.indexOf(f) < 0), theirsSchemaHere: Array.isArray(c.community_schema_fields) };
+  }
+
+  // ── the detail: overview ─────────────────────────────────────────────────
+  blocks(x, c, onRelay) {
+    const B = [], L = (t, strong) => ({ t, style: 'font-size: 13px; line-height: 1.45; ' + (strong ? 'font-weight: 600' : 'color: #2B2A27') });
+    const ties = [];
+    if (c.copy_of) ties.push(L((c.copy_type === 'inherit' ? 'Inherits from ' : 'Points at ') + this.whose(x, c.copy_of.split(':')[1]) + ' “' + this.nameOf(x, c.copy_of) + '”, held as our copy in My Dictionary.', true));
+    (c.b || []).filter((b) => !b.self && b.target !== c.copy_of).forEach((b) => ties.push(L((b.type === 'inherit' ? 'Inherits from ' : 'Points at ') + this.whose(x, b.target.split(':')[1]) + ' “' + this.nameOf(x, b.target) + '”.')));
+    (onRelay ? c.points_at || [] : []).forEach((t) => ties.push(L('Points at ' + this.whose(x, t.split(':')[1]) + ' “' + this.nameOf(x, t) + '”.')));
+    (x.pointedBy[c.id] || []).forEach((p) => ties.push(L('“' + this.nameOf(x, p.from) + '” ' + (p.type === 'inherit' ? 'inherits from' : 'points at') + ' it.')));
+    (x.relayPointers[c.id] || []).forEach((t) => ties.push(L(this.whose(x, x.R[t].author) + ' “' + this.nameOf(x, t) + '” points at it, on the relay.')));
+    if (c.declared) ties.push(L('Declared: offered for others to point at.'));
+    (x.I.enumerates || []).forEach((e) => { if (e.from === c.id) ties.push(L('Gives the allowed values of “' + e.field + '” in “' + this.nameOf(x, e.to) + '”.')); if (e.to === c.id) ties.push(L('Its field “' + e.field + '” takes its values from “' + this.nameOf(x, e.from) + '”.')); });
+    if (!ties.length) ties.push(L('Tied to no one else’s concept.'));
+    B.push({ title: 'Ties', lines: ties });
+    if (c.copy_of) {
+      const D = this.differs(c), lines = [];
+      if (D.tags.length) lines.push(L('Our copy changes their ' + D.tags.join(' and ') + '.', true));
+      if (D.adds.length) lines.push(L('Ours adds ' + D.adds.length + ' field' + (D.adds.length > 1 ? 's' : '') + ': ' + D.adds.join(', ') + '.', !D.tags.length));
+      if (D.lacks.length) lines.push(L('Theirs has ' + D.lacks.length + ' field' + (D.lacks.length > 1 ? 's' : '') + ' ours does not: ' + D.lacks.join(', ') + '.'));
+      if (c.core_nodes) lines.push(L(D.theirsSchemaHere && (c.community_schema_fields || []).length ? 'Both are held whole here.' : 'Ours is held whole here (its schema defines its fields); theirs is a header' + (D.theirsSchemaHere ? '.' : ', so its schema, if it has one, is not here to compare.')));
+      if (c.copy_matches === true && !D.adds.length) lines.push(L('Our copy repeats their definition as it is now.'));
+      if (D.tags.length || D.adds.length) lines.push(L('The Lineage tab shows them side by side.'));
+      if (!c.community_on_relay) lines.push(L('Their original is not on the community relay, so it could not be compared.'));
+      if (lines.length) B.push({ title: 'What ours adds', lines });
+    } else if (!onRelay) {
+      const f = this.allFields(c.fields, c.schema_fields);
+      B.push({ title: 'Inside', lines: [L(c.elements + ' things' + (Object.keys(c.elements_by_author || {}).length > 1 ? ', by ' + Object.entries(c.elements_by_author).map(([pk, n]) => this.who(x, pk) + ' ' + n).join(', ') : '') + '; ' + (c.core_nodes ? 'held whole' : 'only its header') + (f.length ? '; fields ' + f.map((y) => y.field).join(', ') : '') + '.')] });
+    } else {
+      B.push({ title: 'On the relay', lines: [L((c.fields || []).length ? 'Fields: ' + c.fields.map((y) => y.field).join(', ') + '.' : 'Its header names no fields.'), L('Not held here in any form.')] });
+    }
+    if (!onRelay) {
+      const word = { same: 'current', older: 'an older version', newer: 'a newer version than here', missing: 'not there' };
+      B.push({ title: 'Where it is shared', lines: [L('This instance’s relay: ' + word[c.relays.own] + '.'), L('Community relay: ' + word[c.relays.community] + '.', c.relays.community !== 'same')] });
+    }
+    return B;
+  }
+
+  // ── the detail: lineage ──────────────────────────────────────────────────
+  card(x, c, role, onRelay) {
+    const theirs = c.author !== x.ta, facts = [];
+    if (onRelay) facts.push('On the community relay; not held here.');
+    else {
+      facts.push(c.elements ? c.elements + ' things here' : 'no things here');
+      facts.push(c.core_nodes ? 'held whole' : 'header only');
+      facts.push('community relay: ' + ({ same: 'current', older: 'older there', newer: 'newer there', missing: 'not there' })[c.relays.community]);
+      if (c.declared) facts.push('declared for others');
+    }
+    const tone = onRelay ? '#C2701E' : theirs ? '#7A55D6' : '#1C1C1A', pk = c.author;
+    return { isCard: true, isArrow: false, who: role + ' · ' + this.whose(x, pk), name: c.name, d: onRelay ? c.id.split(':').slice(2).join(':') : c.d, facts: facts.map((t) => ({ t })),
+      canGo: pk !== x.ta, noGo: pk === x.ta, goAuthor: () => this.goPerson(pk),
+      whoStyle: 'align-self: flex-start; padding: 0; border: none; background: none; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; color: ' + tone + (pk !== x.ta ? '; cursor: pointer; text-decoration: underline; text-underline-offset: 3px' : ''),
+      style: 'flex: 0 0 210px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 12px; background: #FFFFFF; border-radius: 12px; border: 1px solid #DCDAD3; border-top: 4px solid ' + tone };
+  }
+  ghost(who, name, d, facts, tone) {
+    return { isCard: true, isArrow: false, who, name, d, facts: facts.map((t) => ({ t })), canGo: false, noGo: true, goAuthor: () => {}, whoStyle: 'font-size: 11px; font-weight: 600; color: ' + tone,
+      style: 'flex: 0 0 210px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 12px; background: #FBFAF7; border-radius: 12px; border: 1px dashed #CFCDC6; border-top: 4px dashed ' + tone };
+  }
+  arrow(type, sub, color) { return { isArrow: true, isCard: false, label: type === 'inherit' ? 'inherits from' : 'points at', sub, color: color || '#7A55D6', line: type === 'inherit' ? 'solid' : 'dashed' }; }
+
+  lineage(x, c, onRelay) {
+    const chain = [], out = { summary: '', chain: [], fields: [], hasFields: false, noFields: true, noFieldsText: 'It defines no fields, in its header or a schema.', fieldsTitle: 'Fields', leftLabel: '', rightLabel: '', diffs: [], hasDiffs: false, schemaNote: '' };
+    let leftF = [], rightF = [], two = false;
+    if (onRelay) {
+      const ts = c.points_at || [];
+      ts.slice(0, 2).forEach((t) => { const tc = x.C[t] || x.R[t]; chain.push(tc ? this.card(x, tc, x.C[t] ? 'held here' : 'on the relay', !x.C[t]) : this.ghost('known only by the pointer', t.split(':').slice(2).join(':'), '', [], '#8A867C')); chain.push(this.arrow('pointer', '', '#C2701E')); });
+      chain.push(this.card(x, c, 'on the relay', true));
+      out.summary = ts.length ? this.whose(x, c.author) + ' “' + c.name + '” points at ' + ts.map((t) => '“' + this.nameOf(x, t) + '”').join(', ') + '. This instance does not hold it.' : this.whose(x, c.author) + ' “' + c.name + '” points at nothing else. This instance does not hold it.';
+      const left = ts.map((t) => x.C[t] || x.R[t]).find(Boolean);
+      leftF = left ? left.fields || [] : []; rightF = c.fields || []; two = !!left;
+      out.leftLabel = left ? this.whose(x, left.author) + ' “' + this.short(left.name, 20) + '”' : this.whose(x, c.author); out.rightLabel = two ? 'it' : '';
+      if (!two) leftF = c.fields || [];
+      out.fieldsTitle = two ? 'Fields, what it points at beside it' : 'Fields';
+    } else if (c.copy_of) {
+      const pk = c.copy_of.split(':')[1], orig = x.R[c.copy_of];
+      chain.push(orig ? this.card(x, orig, 'the original', true) : Object.assign(this.ghost('the original · ' + this.whose(x, pk), this.nameOf(x, c.copy_of), c.copy_of.split(':').slice(2).join(':'), [c.community_on_relay ? 'On the community relay.' : 'Not on the community relay.'], '#7A55D6'), { canGo: true, noGo: false, goAuthor: () => this.goPerson(pk), whoStyle: 'align-self: flex-start; padding: 0; border: none; background: none; text-align: left; font-size: 11px; font-weight: 600; color: #7A55D6; cursor: pointer; text-decoration: underline; text-underline-offset: 3px' }));
+      chain.push(this.arrow(c.copy_type, c.copy_matches === false ? 'ours differs now' : c.copy_matches === true ? 'word for word' : '', '#7A55D6'));
+      chain.push(this.card(x, c, 'our copy', false));
+      const by = (x.pointedBy[c.id] || []).filter((p) => p.from !== c.id);
+      if (by.length) { chain.push(this.arrow(by[0].type, by.length + ' here', '#3A3935')); chain.push(this.ghost('point at our copy', by.map((p) => this.nameOf(x, p.from)).slice(0, 3).join(', '), '', [], '#3A3935')); }
+      out.summary = 'Our copy of ' + this.whose(x, pk) + ' “' + this.nameOf(x, c.copy_of) + '”. It ' + (c.copy_type === 'inherit' ? 'inherits from theirs: theirs holds unless ours says otherwise.' : 'points at theirs: the same idea, kept as our own.') + (c.core_nodes ? ' Ours is held whole here; theirs is a header.' : '');
+      leftF = this.allFields(c.community_fields, c.community_schema_fields || []); rightF = this.allFields(c.fields, c.schema_fields); two = true;
+      out.leftLabel = this.whose(x, pk) + ' (theirs)'; out.rightLabel = 'ours'; out.fieldsTitle = 'Fields, theirs beside ours';
+      if (!c.community_on_relay) out.noFieldsText = 'Their original is not on the community relay, so its fields could not be read.';
+      // the definition tags that differ, ours beside theirs; where ours extends theirs, the added words stand out
+      out.diffs = (c.copy_diff || []).map((d) => {
+        const th = d.theirs.join(' / '), ou = d.ours.join(' / ');
+        const ext = th && ou.indexOf(th) === 0;
+        return { tag: this.tagWord(d.tag), theirsLabel: this.whose(x, pk), theirs: th || '(none)', oursSame: ext ? th : (ou ? '' : '(none)'), oursAdded: ext ? ou.slice(th.length) : ou };
+      });
+      out.hasDiffs = !!out.diffs.length;
+      const theirsSchema = c.community_schema_fields;
+      if ((c.schema_fields || []).length && !(theirsSchema || []).length)
+        out.schemaNote = 'Ours defines ' + c.schema_fields.length + ' field' + (c.schema_fields.length > 1 ? 's' : '') + ' in its schema. ' + (Array.isArray(theirsSchema) ? 'Theirs, held here as a header, has no schema.' : 'Theirs is not held here whole, so only its header can be compared: any schema of theirs is not here.');
+    } else if (c.state !== 'ours') {
+      const mine = x.I.concepts.find((k) => k.copy_of === c.id);
+      chain.push(this.card(x, c, 'taken in', false));
+      if (mine) { chain.push(this.arrow(mine.copy_type, 'our copy', '#7A55D6')); chain.push(this.card(x, mine, 'our copy', false)); }
+      else { chain.push(this.arrow('pointer', 'not yet', '#CFCDC6')); chain.push(this.ghost('your own copy', 'none yet', '', ['Add it to My Dictionary to add to it or change it; theirs stays theirs.'], '#8A867C')); }
+      out.summary = this.whose(x, c.author) + ' concept, held here as it is. ' + (mine ? 'We also hold our own copy, “' + mine.name + '”.' : 'We hold no copy of our own.');
+      leftF = this.allFields(c.fields, c.schema_fields); out.leftLabel = this.whose(x, c.author);
+    } else {
+      const here = x.pointedBy[c.id] || [], there = x.relayPointers[c.id] || [];
+      chain.push(this.card(x, c, 'ours', false));
+      if (here.length) { chain.push(this.arrow(here[0].type, here.length + ' here', '#3A3935')); chain.push(this.ghost('point at ours, here', here.map((p) => this.nameOf(x, p.from)).slice(0, 3).join(', '), '', [], '#3A3935')); }
+      if (there.length) { chain.push(this.arrow('pointer', there.length + ' on the relay', '#C2701E')); chain.push(this.ghost('point at ours, on the relay', there.map((t) => this.nameOf(x, t)).slice(0, 3).join(', '), '', there.slice(0, 3).map((t) => this.whose(x, x.R[t].author)), '#C2701E')); }
+      out.summary = 'Ours' + (c.declared ? ', declared for others to point at' : '') + '. ' + (here.length + there.length ? (here.length + there.length) + ' other concept' + (here.length + there.length > 1 ? 's point' : ' points') + ' at it.' : 'Nothing points at it yet.');
+      leftF = this.allFields(c.fields, c.schema_fields); out.leftLabel = 'ours';
+    }
+    out.chain = chain;
+    const names = Array.from(new Set(leftF.map((f) => f.field).concat(rightF.map((f) => f.field)))), Lf = {}, Rf = {};
+    leftF.forEach((f) => { Lf[f.field] = f; }); rightF.forEach((f) => { Rf[f.field] = f; });
+    const desc = (f) => f ? (f.level || '') + (f.type ? ' · ' + f.type : '') + (f.what ? ' · ' + this.short(f.what, 60) : '') : '—';
+    out.fields = names.map((n) => {
+      const l = Lf[n], r = Rf[n]; let mark = '', tone = '';
+      if (two) {
+        if (l && !r) { mark = onRelay ? 'only in what it points at' : 'ours lacks it'; tone = 'amber'; }
+        else if (!l && r) { mark = onRelay ? 'it adds' : 'ours adds'; tone = 'green'; }
+        else if (l.level !== r.level) { mark = 'level differs'; tone = 'amber'; }
+        else if ((l.type || '') !== (r.type || '')) { mark = r.type && !l.type ? 'ours adds a type' : 'type differs'; tone = r.type && !l.type ? 'green' : 'amber'; }
+        else { mark = 'same'; tone = 'grey'; }
+      }
+      return { field: n, where: (r || l).where === 'schema' ? 'schema' : 'header', left: desc(l), right: two ? desc(r) : '', mark, markStyle: mark ? 'font-size: 11px; padding: 2px 8px; border-radius: 999px; ' + ({ amber: 'background: #FBF0E2; color: #9A4A07', green: 'background: #EAF4EE; color: #2F7D4F', grey: 'background: #F1EFE9; color: #5B5A55' }[tone]) : '' };
+    });
+    out.hasFields = !!out.fields.length; out.noFields = !out.fields.length;
+    return out;
+  }
+
+  // ── the people map ───────────────────────────────────────────────────────
+  peopleOf(x) {
+    const ta = x.ta, P = {}, ties = {};
+    const p = (pk) => (P[pk] = P[pk] || { pk, copied: [], taken: [], relay: [], ours: [], pointsAtOurs: [], ties: 0 });
+    const tie = (a, b, kind) => { if (!a || !b || a === b) return; const k = a + '>' + b + '>' + kind; (ties[k] = ties[k] || { a, b, kind, n: 0 }).n++; };
+    x.concepts.forEach((c) => {
+      if (c.copy_of) { const o = c.copy_of.split(':')[1]; p(o).copied.push(c); tie(ta, o, 'holds'); }
+      else if (c.author !== ta) { p(c.author).taken.push(c); tie(ta, c.author, 'holds'); }
+      else p(ta).ours.push(c);
+    });
+    x.relay.forEach((c) => {
+      p(c.author).relay.push(c);
+      (c.points_at || []).forEach((t) => {
+        const tpk = t.split(':')[1]; if (!tpk) return;
+        if (tpk === ta || (x.C[t] && x.C[t].author === ta)) { p(c.author).pointsAtOurs.push(c); tie(c.author, ta, 'points'); }
+        else tie(c.author, tpk, 'others');
+      });
+    });
+    Object.values(ties).forEach((t) => { p(t.a).ties += t.n; p(t.b).ties += t.n; });
+    return { P, ties: Object.values(ties) };
+  }
+
+  // ── navigation between the parts ─────────────────────────────────────────
+  open(id, onRelay) { this.setState({ tab: 'concepts', sel: { id, onRelay: !!onRelay }, focus: true }); }
+  goPerson(pk) { this.setState({ tab: 'people', mapSel: pk }); }
+
+  renderVals() {
+    const s = this.state;
+    const pill = (on) => 'font-size: 13px; padding: 6px 14px; min-height: 32px; border-radius: 999px; cursor: pointer; border: none; ' + (on ? 'background: #FFFFFF; color: #1C1C1A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1)' : 'background: transparent; color: #3A3935');
+    const chip = (on) => 'font-size: 13px; padding: 8px 14px; min-height: 40px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (on ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A');
+    const live = !!window.Brain;
+    const ago = s.readAt ? Math.max(0, Math.round((Date.now() / 1000 - s.readAt) / 60)) : null;
+    const base = { showTitle: !live, hasInstances: !live, readNote: live ? (s.loading ? 'Reading this instance and the community relay… (the first time takes a few seconds)' : ago === null ? '' : 'relays read ' + (ago ? ago + ' min ago' : 'just now')) : '',
+      canRefresh: live && !s.loading, refresh: () => this.load(true), tabs: [], instances: [], onConcepts: s.tab === 'concepts', onPeople: s.tab === 'people', cats: [], people: [], showSystem: s.showSystem, toggleSystem: () => this.setState({ showSystem: !s.showSystem }),
+      q: s.q, typeQ: (e) => this.setState({ q: e.target.value }), listNote: s.err ? 'Could not load the data: ' + s.err : 'Loading…', sections: [],
+      listStyle: '', detailStyle: '', noSel: true, hasSel: false, overviewTitle: '', overview: [], sel: { kind: '', kindStyle: '', author: '', byOther: false, goAuthor: () => {}, name: '', id: '', hasDesc: false, desc: '', blocks: [], acts: [], noActs: false },
+      widen: () => {}, widenLabel: '', widenTip: '', detailTabs: [], isOverview: true, isLineage: false, lin: { summary: '', chain: [], fields: [], hasFields: false, noFields: false, noFieldsText: '', fieldsTitle: '', leftLabel: '', rightLabel: '' },
+      map: { lines: [], labels: [], regions: [], rest: '' }, pp: { who: '', whoStyle: '', name: '', key: '', secs: [], filter: () => {} } };
+    base.tabs = [['concepts', 'Concepts'], ['people', 'People']].map(([k, label]) => ({ label, style: pill(s.tab === k), pick: () => this.setState({ tab: k }) }));
+    const focus = s.focus && !!s.sel;
+    base.listStyle = 'flex: ' + (focus ? '1' : '3') + ' 1 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; max-height: 78vh; transition: flex-grow 0.3s ease';
+    base.detailStyle = 'flex: ' + (focus ? '3' : '2') + ' 1 0; min-width: 0; box-sizing: border-box; padding: 16px 18px; background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; max-height: 78vh; overflow-y: auto; transition: flex-grow 0.3s ease';
+    if (!s.all) return base;
+    const x = this.prep(s.all.instances[s.inst], s.showSystem), I = x.I;
+    if (live) { base.instances = []; } else base.instances = Object.keys(s.all.instances).map((k) => ({ label: k === 'hosted' ? 'hosted · ' + s.all.instances[k].instance.url.replace(/^https?:\/\//, '') : 'local (yours only)', style: chip(k === s.inst),
+      pick: () => this.setState({ inst: k, sel: null, person: null, cat: 'all', more: {}, focus: false, mapSel: null }) }));
+
+    // ── the top row: the kinds of story, as filters ──
+    const all = x.concepts.map((c) => ({ c, onRelay: false })).concat(x.relay.map((c) => ({ c, onRelay: true })));
+    all.forEach((e) => { e.cats = this.catsOf(x, e.c, e.onRelay); e.owner = this.ownerOf(e.c); });
+    const CATS = [['all', 'All', 'everything here and on the relay', '#1C1C1A'], ['ours', 'Ours', 'what this instance wrote', '#1C1C1A'], ['declared', 'Offered for others', 'ours, declared for others to point at', '#1C1C1A'],
+      ['pointed', 'Others point at ours', 'ours, with someone else’s concept pointing at it', '#1C1C1A'], ['copy', 'Copies of others’', 'other people’s concepts held as our copy in My Dictionary', '#5B35B8'],
+      ['taken', 'Taken in', 'other people’s concepts held here as they are', '#5B35B8'], ['relay', 'On the relay, not here', 'what could be taken', '#9A4A07']];
+    base.cats = CATS.map(([k, label, tip, color]) => {
+      const n = k === 'all' ? all.length : all.filter((e) => e.cats.indexOf(k) >= 0).length, on = s.cat === k;
+      return { n, label, tip, pick: () => this.setState({ cat: k, more: {} }),
+        style: 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; min-height: 48px; border-radius: 10px; cursor: pointer; background: #FFFFFF; color: ' + color + '; border: ' + (on ? '2px solid #1C1C1A' : '1px solid #DCDAD3') + (n ? '' : '; opacity: 0.5') };
+    });
+
+    // ── whose ──
+    const count = {}; all.forEach((e) => { count[e.owner] = (count[e.owner] || 0) + 1; });
+    const pks = Object.keys(count).sort((a, b) => (b === x.ta) - (a === x.ta) || count[b] - count[a]);
+    base.people = [null].concat(pks).slice(0, 40).map((pk) => {
+      const on = s.person === pk;
+      const here = pk ? x.concepts.filter((c) => this.ownerOf(c) === pk).length : x.concepts.length, there = pk ? x.relay.filter((c) => c.author === pk).length : x.relay.length;
+      return { name: pk ? this.who(x, pk) : 'Everyone', sub: (here ? here + ' here' : '') + (here && there ? ' · ' : '') + (there ? there + ' on the relay' : ''),
+        pick: () => this.setState({ person: pk, focus: false }),
+        dotStyle: 'flex: none; width: 10px; height: 10px; border-radius: 50%; background: ' + (!pk ? '#CFCDC6' : pk === x.ta ? '#1C1C1A' : '#7A55D6'),
+        style: 'flex-shrink: 0; display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; line-height: 1.3; padding: 6px 8px; min-height: 42px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (on ? '#DCDAD3; background: #FFFFFF; font-weight: 600' : 'transparent; background: transparent') };
+    });
+
+    // ── the list ──
+    const q = s.q.trim().toLowerCase();
+    const keep = (e) => (s.cat === 'all' || e.cats.indexOf(s.cat) >= 0) && (!s.person || e.owner === s.person) && (!q || (e.c.name + ' ' + (e.c.d || e.c.id) + ' ' + (e.c.description || '')).toLowerCase().indexOf(q) >= 0);
+    const badge = (t, tone) => ({ t, style: 'font-size: 11px; line-height: 16px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; ' + ({ violet: 'background: #F1ECFB; color: #5B35B8', amber: 'background: #FBF0E2; color: #9A4A07', green: 'background: #EAF4EE; color: #2F7D4F', grey: 'background: #F1EFE9; color: #3A3935' }[tone]) });
+    const relBadge = (c) => c.relays.community === 'same' ? badge('shared, current', 'green') : c.relays.community === 'older' ? badge('shared, out of date', 'amber') : c.relays.community === 'newer' ? badge('relay is newer', 'amber') : badge('not shared', 'grey');
+    const row = (e) => {
+      const c = e.c, b = [];
+      let tie = '';
+      if (e.onRelay) { tie = this.whose(x, c.author) + (c.points_at && c.points_at.length ? '; points at ' + c.points_at.map((t) => '“' + this.nameOf(x, t) + '”').slice(0, 2).join(', ') : '') + (c.description ? ' · ' + this.short(c.description, 80) : ''); b.push(badge('not here', 'amber')); }
+      else if (c.copy_of) { tie = (c.copy_type === 'inherit' ? 'inherits from ' : 'points at ') + this.whose(x, e.owner) + ' “' + this.nameOf(x, c.copy_of) + '”'; b.push(badge(c.copy_type === 'inherit' ? 'inherits' : 'points', 'violet')); if (c.core_nodes) b.push(badge('held whole', 'grey')); b.push(relBadge(c)); }
+      else if (c.state === 'ours') { const by = (x.pointedBy[c.id] || []).length + (x.relayPointers[c.id] || []).length; tie = (c.elements ? c.elements + ' things' : 'no things yet') + (by ? ' · ' + by + ' point at it' : '') + (c.description ? ' · ' + this.short(c.description, 70) : ''); if (c.declared) b.push(badge('offered for others', 'green')); b.push(relBadge(c)); }
+      else { const mine = x.I.concepts.find((k) => k.copy_of === c.id); tie = this.whose(x, c.author) + (mine ? ' · we hold a copy' : '') + (c.elements ? ' · ' + c.elements + ' things here' : '') + (c.description ? ' · ' + this.short(c.description, 70) : ''); b.push(badge(c.state === 'known' ? 'header only' : 'taken in', 'violet')); }
+      const on = s.sel && s.sel.id === c.id && !!s.sel.onRelay === e.onRelay;
+      return { name: c.name, d: e.onRelay ? c.id.split(':').slice(2).join(':') : c.d, tie: focus ? '' : tie, wide: !focus, badges: b, pick: () => this.open(c.id, e.onRelay),
+        dStyle: 'font-family: \'JetBrains Mono\', monospace; font-size: 11px; color: #8A867C' + (focus ? '; display: none' : ''),
+        style: 'flex-shrink: 0; display: flex; align-items: flex-start; gap: 12px; text-align: left; padding: ' + (focus ? '7px 10px' : '10px 12px') + '; min-height: ' + (focus ? '36px' : '52px') + '; border-radius: 8px; cursor: pointer; color: #1C1C1A; background: ' + (on ? '#EEF2FB' : '#FFFFFF') + '; border: 1px solid ' + (on ? '#9DB2E6' : '#E4E2DB') + (e.onRelay || this.kindOf(c) !== 'ours' ? '; border-left: 3px solid ' + (e.onRelay ? '#C2701E' : '#7A55D6') : '') };
+    };
+    const rows = all.filter(keep);
+    const SECS = s.cat !== 'all' ? [[s.cat, '', '', '#1C1C1A', rows]] : [
+      ['ours', 'Ours', 'what this instance wrote', '#1C1C1A', rows.filter((e) => !e.onRelay && this.kindOf(e.c) === 'ours').sort((a, b) => b.c.declared - a.c.declared || a.c.name.localeCompare(b.c.name))],
+      ['copy', 'In My Dictionary', 'other people’s concepts we hold a copy of', '#5B35B8', rows.filter((e) => !e.onRelay && e.c.copy_of)],
+      ['taken', 'Taken in', 'other people’s, held here as they are', '#5B35B8', rows.filter((e) => !e.onRelay && this.kindOf(e.c) === 'taken')],
+      ['relay', 'On the community relay, not here', 'newest first', '#9A4A07', rows.filter((e) => e.onRelay).sort((a, b) => (b.c.created_at || 0) - (a.c.created_at || 0))]];
+    base.sections = SECS.map(([k, title, note, color, list]) => {
+      const cap = s.more[k] ? 2000 : 30;
+      return { title: title ? title + ' (' + list.length + ')' : '', note, titleStyle: 'margin: 0; font-family: \'Space Grotesk\', Inter, sans-serif; font-size: 16px; font-weight: 600; color: ' + color,
+        rows: list.slice(0, cap).map(row), hasMore: list.length > cap, moreLabel: 'Show all ' + list.length, more: () => this.setState({ more: Object.assign({}, s.more, { [k]: true }) }) };
+    }).filter((sec) => sec.rows.length);
+    base.listNote = rows.length ? rows.length + ' concept' + (rows.length === 1 ? '' : 's') + (s.person ? ' · ' + this.whose(x, s.person) : '') : 'Nothing matches.';
+
+    // ── the detail ──
+    const sel = s.sel, c = sel ? (sel.onRelay ? x.R[sel.id] : x.C[sel.id]) : null;
+    if (!c) {
+      base.overviewTitle = I.instance.name === 'local' ? 'Your local instance' : I.instance.url.replace(/^https?:\/\//, '');
+      const own = x.concepts.filter((k) => k.state === 'ours' && !k.copy_of);
+      base.overview = [{ t: own.length + ' concepts of our own; ' + own.filter((k) => k.relays.community === 'same').length + ' shared and current on the community relay.' },
+        { t: x.concepts.filter((k) => k.copy_of).length + ' copies of other people’s concepts, ' + x.concepts.filter((k) => this.kindOf(k) === 'taken').length + ' taken in as they are.' },
+        { t: x.relay.length + ' concepts on the community relay that this instance does not hold.' }];
+    } else {
+      const onRelay = !!sel.onRelay, owner = this.ownerOf(c), k = onRelay ? 'relay' : this.kindOf(c);
+      base.noSel = false; base.hasSel = true;
+      base.sel = { kind: { relay: 'on the community relay ·', copy: 'our copy of', ours: 'ours', taken: 'taken in ·' }[k], kindStyle: 'color: ' + (onRelay ? '#9A4A07' : k === 'ours' ? '#3A3935' : '#5B35B8'),
+        author: owner === x.ta ? '' : this.whose(x, owner), byOther: owner !== x.ta, goAuthor: () => this.goPerson(owner),
+        name: c.name, id: c.id, hasDesc: !!c.description, desc: c.description || '', blocks: this.blocks(x, c, onRelay), acts: this.acts(x, c, onRelay) };
+      base.sel.noActs = !base.sel.acts.length;
+      base.widen = () => this.setState({ focus: !focus }); base.widenLabel = focus ? '⇤ back to the list' : '⇥ widen'; base.widenTip = focus ? 'Give the list the room again' : 'Give this concept the room';
+      base.detailTabs = [['overview', 'Overview'], ['lineage', 'Lineage']].map(([t, label]) => ({ label, style: pill(s.dtab === t), pick: () => this.setState({ dtab: t, focus: true }) }));
+      base.isOverview = s.dtab === 'overview'; base.isLineage = s.dtab === 'lineage';
+      if (base.isLineage) base.lin = this.lineage(x, c, onRelay);
+    }
+
+    // ── the people map ──
+    if (s.tab === 'people') {
+      const { P, ties } = this.peopleOf(x), ta = x.ta, W = 1000, H = 760, cx = W / 2, cy = H / 2;
+      const others = Object.values(P).filter((p) => p.pk !== ta).sort((a, b) => b.ties - a.ties || b.relay.length - a.relay.length);
+      let ring = others.slice(0, 12);
+      if (s.mapSel && s.mapSel !== ta && !ring.some((p) => p.pk === s.mapSel) && P[s.mapSel]) ring = ring.slice(0, 11).concat([P[s.mapSel]]);
+      const SLOTS = [[370, 70], [630, 70], [130, 70], [870, 70], [110, 300], [890, 300], [110, 470], [890, 470], [370, 690], [630, 690], [130, 690], [870, 690]];
+      const pos = {}; pos[ta] = { x: cx, y: cy }; ring.forEach((p, i) => { pos[p.pk] = { x: SLOTS[i][0], y: SLOTS[i][1] }; });
+      const line = (a, b, kind, n) => { const x1 = pos[a].x, y1 = pos[a].y, x2 = pos[b].x, y2 = pos[b].y, len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, w = kind === 'others' ? 1.5 : Math.min(2 + n, 7);
+        return 'position: absolute; left: ' + x1 + 'px; top: ' + y1 + 'px; width: ' + len + 'px; height: 0; border-top: ' + (kind === 'holds' ? w + 'px solid #7A55D6' : kind === 'points' ? w + 'px dashed #C2701E' : w + 'px dotted #A9A59B') + '; transform-origin: 0 0; transform: rotate(' + ang + 'deg); opacity: ' + (kind === 'others' ? 0.6 : 0.9); };
+      base.map.lines = ties.filter((t) => pos[t.a] && pos[t.b]).map((t) => ({ style: line(t.a, t.b, t.kind, t.n) }));
+      base.map.labels = ties.filter((t) => pos[t.a] && pos[t.b] && t.kind !== 'others').map((t) => { const mx = (pos[t.a].x + pos[t.b].x) / 2, my = (pos[t.a].y + pos[t.b].y) / 2;
+        return { t: t.n + (t.kind === 'holds' ? ' held' : ' point at ours'), style: 'position: absolute; left: ' + (mx - 50) + 'px; top: ' + (my - 9) + 'px; width: 100px; text-align: center; font-size: 11px; font-weight: 600; line-height: 18px; border-radius: 999px; background: #FFFFFF; border: 1px solid #E4E2DB; color: ' + (t.kind === 'holds' ? '#5B35B8' : '#9A4A07') }; });
+      const region = (pk, w, h) => {
+        const p = P[pk] || { copied: [], taken: [], relay: [], ours: [], pointsAtOurs: [] }, me = pk === ta, on = (s.mapSel || ta) === pk;
+        const counts = me ? p.ours.length + ' of our own · ' + p.ours.filter((k) => k.relays.community === 'same').length + ' shared and current · ' + p.ours.filter((k) => k.declared).length + ' offered'
+          : [p.copied.length ? p.copied.length + ' we copy' : '', p.taken.length ? p.taken.length + ' taken in' : '', p.relay.length ? p.relay.length + ' on the relay' : '', p.pointsAtOurs.length ? p.pointsAtOurs.length + ' point at ours' : ''].filter(Boolean).join(' · ');
+        const top = me ? p.ours.filter((k) => k.declared || k.relays.community === 'same').concat(p.ours).slice(0, 6) : p.copied.concat(p.taken, p.pointsAtOurs, p.relay).slice(0, 5), seen = {};
+        return { name: me ? 'This instance' : this.who(x, pk), key: pk.slice(0, 8), counts, pick: () => this.setState({ mapSel: pk }),
+          chips: top.filter((k) => !seen[k.name] && (seen[k.name] = 1)).map((k) => ({ t: this.short(k.name, 22), style: 'font-size: 10px; line-height: 15px; padding: 1px 6px; border-radius: 999px; background: ' + (me ? '#F1EFE9' : (p.copied.indexOf(k) >= 0 || p.taken.indexOf(k) >= 0) ? '#F1ECFB' : '#FBF0E2') + '; color: #2B2A27' })),
+          nameStyle: 'font-family: \'Space Grotesk\', Inter, sans-serif; font-size: ' + (me ? '17px' : '14px') + '; font-weight: 600; color: ' + (me ? '#1C1C1A' : '#7A55D6') + '; text-align: left; line-height: 1.2',
+          style: 'position: absolute; left: ' + (pos[pk].x - w / 2) + 'px; top: ' + (pos[pk].y - h / 2) + 'px; width: ' + w + 'px; height: ' + h + 'px; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 10px 12px; text-align: left; cursor: pointer; border-radius: 14px; background: ' + (me ? '#FFFFFF' : '#FDFCFF') + '; border: ' + (on ? '2px solid #1C1C1A' : '1px solid ' + (me ? '#BDBAB1' : '#D9CDF3')) + '; box-shadow: 0 1px 3px rgba(0,0,0,0.06)' };
+      };
+      base.map.regions = [region(ta, 280, 160)].concat(ring.map((p) => region(p.pk, 200, 112)));
+      if (others.length > ring.length) base.map.rest = '+ ' + (others.length - ring.length) + ' more people, each with a few concepts on the relay';
+
+      const pk = s.mapSel || ta, p = P[pk] || { copied: [], taken: [], relay: [], ours: [], pointsAtOurs: [] }, me = pk === ta;
+      const it = (k, note, onRelay) => ({ name: this.short(k.name, 60), note, open: () => this.open(k.id, onRelay) });
+      base.pp = { who: me ? 'this instance' : 'a person', whoStyle: 'font-size: 12px; font-weight: 600; color: ' + (me ? '#3A3935' : '#5B35B8'), name: me ? 'This instance' : this.who(x, pk), key: pk,
+        filter: () => this.setState({ tab: 'concepts', person: pk, cat: 'all', focus: false }),
+        secs: me ? [
+          { title: 'Offered for others', empty: p.ours.some((k) => k.declared) ? '' : 'None of ours is declared yet.', items: p.ours.filter((k) => k.declared).slice(0, 12).map((k) => it(k, k.relays.community === 'same' ? 'shared' : 'not on the relay', false)) },
+          { title: 'Theirs pointing at ours', empty: others.some((o) => o.pointsAtOurs.length) ? '' : 'No one on the relay points at ours yet.', items: others.filter((o) => o.pointsAtOurs.length).flatMap((o) => o.pointsAtOurs.map((k) => it(k, this.whose(x, o.pk), true))).slice(0, 12) },
+          { title: 'Ours, not shared yet', empty: '', items: p.ours.filter((k) => k.relays.community === 'missing').slice(0, 10).map((k) => it(k, k.elements ? k.elements + ' things' : '', false)) },
+        ] : [
+          { title: 'We hold a copy', empty: '', items: p.copied.map((k) => it(k, k.copy_type === 'inherit' ? 'inherits' : 'points', false)) },
+          { title: 'Taken in', empty: '', items: p.taken.map((k) => it(k, k.state === 'dict' ? 'their header; we hold our own copy' : (k.core_nodes ? 'held whole' : 'header only'), false)) },
+          { title: 'Theirs, pointing at ours', empty: '', items: p.pointsAtOurs.map((k) => it(k, 'on the relay', true)) },
+          { title: 'On the relay, not here', empty: p.relay.length ? '' : 'Nothing of theirs on the relay that we lack.', items: p.relay.slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, 15).map((k) => it(k, k.description ? this.short(k.description, 70) : '', true)) },
+        ].filter((sec) => sec.items.length || sec.empty) };
+    }
+    return base;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hover preview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div style="{{cardStyle}}">
+  <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{kind}}</span>
+  <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 16px; font-weight: 600; line-height: 1.3">{{title}}</span>
+  <sc-if value="{{hasTag}}" hint-placeholder-val="{{false}}"><span style="{{tagStyle}}">{{tag}}</span></sc-if>
+  <sc-if value="{{hasText}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: #2B2A27; white-space: pre-line">{{text}}</span></sc-if>
+  <div style="display: flex; flex-wrap: wrap; gap: 4px 6px; padding-top: 2px">
+    <sc-for list="{{facts}}" as="f" hint-placeholder-count="3">
+      <span style="{{f.style}}">{{f.t}}</span>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":340,"height":220},"node":{"editor":null},"x":{"editor":null},"y":{"editor":null},"top":{"editor":null},"bw":{"editor":null},"bh":{"editor":null}}'>
+class Component extends DCLogic {
+  // props: node (an id; '' hides the card), x and y (where the hovered title's bottom-left is, in the board's px),
+  // top (that title's top, to flip above it near the bottom), bw and bh (the board's size). Standalone it shows a sample.
+  constructor(props) { super(props); this.state = { g: null }; }
+
+  componentDidMount() {
+    if (window.Brain) { this._off = Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })); return; }
+    fetch('/_blob/dcde019c6a74631fb618ff1c99ab7340').then((r) => r.json()).then((d) => this.setState({ g: this.prep(d) })).catch(() => {});
+  }
+  componentWillUnmount() { if (this._off) this._off(); }
+  prep(d) {
+    const N = {}, deg = {}, mem = {};
+    d.nodes.forEach((n) => { N[n.id] = n; });
+    d.links.forEach((l) => { deg[l.from] = (deg[l.from] || 0) + 1; deg[l.to] = (deg[l.to] || 0) + 1; });
+    d.nodes.forEach((n) => n.kinds.concat(n.sets).forEach((x) => { mem[x] = (mem[x] || 0) + 1; }));
+    return { d, N, deg, mem };
+  }
+
+  short(s, k) { s = String(s || ''); return s.length > k ? s.slice(0, k - 1) + '…' : s; }
+
+  renderVals() {
+    const g = this.state.g, P = this.props, hidden = { cardStyle: 'display: none', kind: '', title: '', hasTag: false, tag: '', tagStyle: '', hasText: false, text: '', facts: [] };
+    if (!g) return hidden;
+    let id = P.node;
+    const standalone = P.node === undefined;
+    if (standalone) id = g.d.nodes.filter((n) => n.answers && n.answers.evidence_for).sort((a, b) => b.answers.evidence_for - a.answers.evidence_for)[0].id;
+    const n = g.N[id]; if (!n) return hidden;
+    const a = n.answers || {}, W = 320;
+    const ks = n.kinds.filter((k) => g.N[k]).sort((x, y) => (g.mem[x] || 0) - (g.mem[y] || 0));
+    const kind = n.role === 'concept' ? 'concept' : n.role === 'set' ? 'Set' : (ks.length ? g.N[ks[0]].name : 'element');
+    const f = n.fields || {};
+    let text = this.short(f.claim || f.stance || n.description || '', 260);
+    if (f.quote) text += (text ? '\n' : '') + '“' + this.short(f.quote, 160) + '”';
+    const chip = (t, c) => ({ t, style: 'font-size: 11px; line-height: 16px; padding: 1px 7px; border-radius: 999px; background: ' + (c || '#F1EFE9') + '; color: #2B2A27' });
+    const facts = [];
+    if (n.role !== 'element') facts.push(chip((a.holds || g.mem[id] || 0) + ' inside'));
+    if (g.deg[id]) facts.push(chip(g.deg[id] + ' link' + (g.deg[id] > 1 ? 's' : '')));
+    const groups = n.sets.length + n.kinds.length; if (groups) facts.push(chip('in ' + groups + ' group' + (groups > 1 ? 's' : '')));
+    if (a.evidence_for || a.evidence_against) facts.push(chip((a.evidence_for || 0) + ' for · ' + (a.evidence_against || 0) + ' against', '#EAF4EE'));
+    if (a.replaced) facts.push(chip('replaced by a newer one', '#F4EFE4'));
+    if (a.history) facts.push(chip(a.history + ' earlier version' + (a.history > 1 ? 's' : '')));
+    if (a.settled === false) facts.push(chip('open question', '#FBF0E2'));
+    if ((a.used_by_scopes || []).length >= 2) facts.push(chip('used by ' + a.used_by_scopes.join(', '), '#FBF0E2'));
+    const far = n.provenance !== 'ours';
+    // place it under the title, or above when it would run off the bottom; keep it inside the board
+    const bw = Number(P.bw) || 1440, bh = Number(P.bh) || 900, x = Number(P.x) || 0, y = Number(P.y) || 0, top = Number(P.top) || y;
+    const left = Math.max(8, Math.min(x, bw - W - 8));
+    const place = standalone ? 'position: relative' : (y + 230 > bh && top > 240 ? 'position: absolute; left: ' + left + 'px; bottom: ' + (bh - top + 6) + 'px' : 'position: absolute; left: ' + left + 'px; top: ' + (y + 6) + 'px');
+    return { cardStyle: place + '; z-index: 60; width: ' + W + 'px; box-sizing: border-box; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,0.14); font-family: Inter, system-ui, sans-serif; color: #1C1C1A; pointer-events: none',
+      kind, title: this.short(n.name, 120), hasTag: far || n.part === 'structure', tag: far ? n.provenance + ' · by ' + String(n.author).slice(0, 8) + '…' : 'structure', tagStyle: 'font-size: 12px; font-weight: 600; color: ' + (far ? '#5B35B8' : '#5B5A55'),
+      hasText: !!text, text, facts };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Drift: suggestions from what you have looked at</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1E4FBF}a:hover{color:#163A8C}
+button{font-family:inherit}
+</style>
+</helmet>
+<div onMouseMove="{{peekMove}}" onMouseDown="{{peekHide}}" onMouseLeave="{{peekHide}}" style="position: relative; min-height: calc(100vh - 57px); box-sizing: border-box; background: #F3F4F1; color: #1C1C1A; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+  <dc-import name="Peek" node="{{peekId}}" x="{{peekX}}" y="{{peekY}}" top="{{peekTop}}" bw="{{peekBW}}" bh="{{peekBH}}" hint-size="0px,0px"></dc-import>
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #DCDAD3; background: #FFFFFF">
+    <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 18px">Drift</span>
+    <span style="font-size: 13px; color: #5B5A55">Start in</span></sc-if>
+    <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><sc-for list="{{scopes}}" as="s" hint-placeholder-count="5">
+      <button onClick="{{s.pick}}" data-peek="{{s.peek}}" style="{{s.style}}">{{s.label}}</button>
+    </sc-for></sc-if>
+    <span style="flex: 1"></span>
+    <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><dc-import name="Switcher" on-go="{{goTo}}" hint-size="190px,40px"></dc-import></sc-if>
+    <button onClick="{{reset}}" style="font-size: 13px; padding: 8px 12px; min-height: 44px; border-radius: 999px; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A; cursor: pointer">Forget what I looked at</button>
+  </header>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 24px; align-items: flex-start">
+    <main style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+      <sc-if value="{{loading}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 15px; color: #5B5A55">Loading the graph slice…</p></sc-if>
+      <sc-if value="{{noFocus}}" hint-placeholder-val="{{false}}">
+        <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 600">Where would you like to start?</h1>
+        <p style="margin: 0; font-size: 14px; color: #3A3935">Open anything. As you look around, the right-hand side works out what you seem to be looking at, and suggests what connects to several things you've seen.</p>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+          <sc-for list="{{starts}}" as="h" hint-placeholder-count="6">
+            <button onClick="{{h.pick}}" data-peek="{{h.peek}}" style="text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 12px; min-height: 44px; border: 1px solid #DCDAD3; border-radius: 10px; background: #FFFFFF; color: #1C1C1A; cursor: pointer"><span style="font-size: 11px; color: #5B5A55">{{h.kind}}</span><span style="font-size: 14px; font-weight: 500; line-height: 1.35">{{h.label}}</span></button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{hasFocus}}" hint-placeholder-val="{{false}}">
+        <article style="background: #FFFFFF; border: 2px solid #1C1C1A; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px">
+          <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{f.kind}}</span>
+          <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 600; line-height: 1.25">{{f.name}}</h1>
+          <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #2B2A27; white-space: pre-line">{{f.text}}</p>
+          <sc-if value="{{f.hasTag}}" hint-placeholder-val="{{false}}"><span style="{{f.tagStyle}}">{{f.tag}}</span></sc-if>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px">
+            <sc-if value="{{f.hasBack}}" hint-placeholder-val="{{true}}"><button onClick="{{f.back}}" data-peek="{{f.backId}}" style="font-size: 13px; padding: 6px 12px; min-height: 36px; border-radius: 999px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A">← back to {{f.backName}}</button></sc-if>
+            <button onClick="{{f.home}}" style="font-size: 13px; padding: 6px 12px; min-height: 36px; border-radius: 999px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A">Starting points</button>
+          </div>
+        </article>
+        <section style="display: flex; flex-direction: column; gap: 6px">
+          <h2 style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">Right next to it</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{f.near}}" as="c" hint-placeholder-count="6">
+              <button onClick="{{c.pick}}" data-peek="{{c.peek}}" style="{{c.style}}"><span style="font-size: 11px; color: #5B5A55">{{c.how}}</span><span>{{c.label}}</span></button>
+            </sc-for>
+          </div>
+        </section>
+        <section style="display: flex; flex-direction: column; gap: 6px">
+          <h2 style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">How you got here</h2>
+          <ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{thread}}" as="t" hint-placeholder-count="3">
+              <li style="font-size: 13px; line-height: 1.45"><button onClick="{{t.pick}}" data-peek="{{t.peek}}" style="font: inherit; padding: 0; border: none; background: transparent; color: #1E4FBF; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left">{{t.label}}</button> <span style="color: #5B5A55">{{t.via}}</span></li>
+            </sc-for>
+          </ol>
+        </section>
+      </sc-if>
+    </main>
+
+    <aside style="flex: 1 1 340px; max-width: 440px; display: flex; flex-direction: column; gap: 14px">
+      <dc-import name="LocalGraph" center="{{graphCenter}}" trail="{{graphTrail}}" marks="{{graphMarks}}" on-pick="{{graphPick}}" w="{{graphW}}" h="{{graphH}}" hint-size="340px,330px"></dc-import>
+      <section style="background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">You seem to be looking at</h2>
+        <sc-if value="{{thin}}" hint-placeholder-val="{{true}}"><p style="margin: 0; font-size: 13px; color: #5B5A55">Open two or three things and this fills in.</p></sc-if>
+        <sc-for list="{{interests}}" as="i" hint-placeholder-count="3">
+          <button onClick="{{i.pick}}" data-peek="{{i.peek}}" title="{{i.tip}}" style="display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 6px 8px; margin: 0 -8px; min-height: 44px; border: none; border-radius: 6px; background: transparent; cursor: pointer; font-family: inherit">
+            <span style="font-size: 13px; font-weight: 500; color: #1E4FBF; text-decoration: underline; text-decoration-color: #B9C9EE; text-underline-offset: 3px">{{i.label}}</span>
+            <span style="display: block; width: 100%; height: 6px; background: #ECEAE3; border-radius: 3px"><span style="{{i.bar}}"></span></span>
+          </button>
+        </sc-for>
+      </section>
+      <section style="background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+        <h2 style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">Worth a look next</h2>
+        <sc-for list="{{suggestions}}" as="g" hint-placeholder-count="4">
+          <button onClick="{{g.pick}}" data-peek="{{g.peek}}" style="{{g.style}}"><span style="font-size: 14px; font-weight: 500; line-height: 1.35">{{g.label}}</span><span style="font-size: 12px; color: #3A3935; line-height: 1.4">{{g.why}}</span></button>
+        </sc-for>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  // hover preview: any element carrying data-peek names a node; after a short pause a card shows it
+  peekMove(e) {
+    const t = e.target && e.target.closest ? e.target.closest('[data-peek]') : null;
+    const id = t ? t.getAttribute('data-peek') : '';
+    if (id === this._peekAt) return;
+    this._peekAt = id; clearTimeout(this._peekT);
+    if (!id) { if (this.state.peek) this.setState({ peek: null }); return; }
+    const root = e.currentTarget, rr = root.getBoundingClientRect(), k = (rr.width / (root.offsetWidth || rr.width || 1)) || 1, r = t.getBoundingClientRect();
+    const p = { id, x: (r.left - rr.left) / k, y: (r.bottom - rr.top) / k, top: (r.top - rr.top) / k, bw: root.offsetWidth, bh: Math.min(root.offsetHeight, (window.innerHeight - rr.top) / k) };
+    this._peekT = setTimeout(() => this.setState({ peek: p }), 350);
+  }
+  peekHide() { clearTimeout(this._peekT); this._peekAt = ''; if (this.state.peek) this.setState({ peek: null }); }
+  // the jump-to box hands over an id; each board goes there its own way
+  goTo(id) { this.visit(id, 'jumped to'); }
+
+  renderVals() {
+    const b = this.renderVals0(), p = this.state.peek;
+    b.standalone = !window.Brain;
+    return Object.assign(b, { peekMove: (e) => this.peekMove(e), peekHide: () => this.peekHide(), peekId: p ? p.id : '', peekX: p ? p.x : 0, peekY: p ? p.y : 0,
+      peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0, goTo: (id) => { this.peekHide(); this.goTo(id); } });
+  }
+
+  constructor(props) { super(props); this.state = { g: null, err: null, scope: window.Brain ? Brain.state.scope : 'nomos-protocol', visits: [], focus: null, reading: false }; this.RESET = { focus: null }; }
+
+  componentDidMount() {
+    if (window.Brain) {
+      this._offs = [
+        Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })),
+        Brain.on('scope', (k) => this.liveScope(k)),
+        Brain.on('go', (id) => this.goTo(id)),
+      ];
+      if (Brain.state.scope) this.liveScope(Brain.state.scope);
+      return;
+    }
+    fetch('/_blob/dcde019c6a74631fb618ff1c99ab7340').then((r) => r.json())
+      .then((d) => this.setState({ g: this.prep(d) }))
+      .catch((e) => this.setState({ err: String(e) }));
+  }
+
+  componentWillUnmount() { (this._offs || []).forEach((f) => f()); }
+  // live: the bar changed the scope; read its things (brain-view caps a scope at its newest 400)
+  liveScope(k) {
+    const keep = this._keepFocus; this._keepFocus = false;
+    this.setState(Object.assign({ scope: k, reading: true }, keep ? {} : this.RESET));
+    Brain.api('scope', { key: k, limit: 400 }).then((d) => { if (this.state.scope === k) this.setState({ reading: false, scopeInfo: d.scope }); }).catch(() => this.setState({ reading: false }));
+  }
+  // live: a thing opened; read what it links to, and the members of its small Sets
+  liveOpen(id) {
+    if (!window.Brain || !id) return;
+    Brain.api('node', { id, depth: 1 }).then((d) => {
+      const n = (d.nodes || []).find((x) => x.id === id);
+      ((n && n.sets) || []).forEach((s) => { const sn = (d.nodes || []).find((x) => x.id === s); if (!sn || ((sn.answers || {}).holds || 0) <= 150) Brain.api('group', { id: s, offset: 0, limit: 150 }).catch(() => {}); });
+    }).catch(() => {});
+  }
+  // live: open a thing in another scope by moving the bar's scope there first
+  liveScopeFor(id) {
+    const n = this.state.g && this.state.g.N[id];
+    if (!window.Brain || !n || !n.part || n.part === 'structure' || n.part === this.state.scope) return;
+    if (Brain.state.scopes.some((x) => x.key === n.part)) { this._keepFocus = true; Brain.set('scope', n.part); }
+  }
+  // live: a project scope's name is what a thing's "scopes" list says; a concept scope has none
+  liveScopeName(part) {
+    const sc = (Brain.state.scopes || []).find((x) => x.key === part);
+    return sc && sc.kind === 'project' ? sc.label : null;
+  }
+
+  prep(d) {
+    const N = {}, out = {}, inn = {}, mem = {}, LT = {};
+    d.nodes.forEach((n) => { N[n.id] = n; });
+    d.links.forEach((l) => { (out[l.from] = out[l.from] || []).push(l); (inn[l.to] = inn[l.to] || []).push(l); });
+    d.nodes.forEach((n) => { n.kinds.concat(n.sets).forEach((x) => { (mem[x] = mem[x] || []).push(n.id); }); });
+    d.link_types.forEach((t) => { LT[t.type] = t; });
+    return { d, N, out, inn, mem, LT };
+  }
+
+  kindOf(g, n) {
+    if (n.role === 'concept') return 'concept';
+    if (n.role === 'set') return 'Set';
+    const ks = n.kinds.filter((k) => g.N[k]).sort((a, b) => (g.mem[a] || []).length - (g.mem[b] || []).length);
+    return ks.length ? g.N[ks[0]].name : 'element';
+  }
+
+  // every neighbour of a node, with the reason it is a neighbour
+  neighbours(g, id) {
+    const n = g.N[id], r = [];
+    (g.out[id] || []).forEach((l) => { const t = g.LT[l.type] || {}; r.push({ id: l.to, how: (t.reads || l.type).replace(/^X /, '').replace(/ Y$/, ''), w: 1 }); });
+    (g.inn[id] || []).forEach((l) => { const t = g.LT[l.type] || {}; r.push({ id: l.from, how: (t.reverse || l.type).replace(/^Y /, '').replace(/ X$/, ''), w: 1 }); });
+    n.sets.forEach((x) => (g.mem[x] || []).forEach((m) => { if (m !== id) r.push({ id: m, how: 'shares the Set', set: g.N[x] ? g.N[x].name : '', w: 0.35 }); }));
+    // its place among the groups, so there is always somewhere up or down to go:
+    // a thing is in its Sets and its tightest kinds; a kind sits in a kind and holds kinds, Sets and things; a Set is in a kind and holds things
+    const size = (x) => (g.N[x] && g.N[x].answers && g.N[x].answers.holds) || (g.mem[x] || []).length;
+    const up = (x, how) => r.push({ id: x, how, w: 0.6, up: true });
+    const down = (x, how) => r.push({ id: x, how, w: 0.5, down: true });
+    if (n.role === 'element') {
+      n.sets.forEach((x) => up(x, 'is in'));
+      n.kinds.filter((k) => g.N[k] && !g.N[k].system).sort((a, b) => size(a) - size(b)).slice(0, 2).forEach((k) => up(k, 'is a'));
+    } else if (n.role === 'concept') {
+      (n.parent_kinds || []).forEach((x) => up(x, 'is a kind of'));
+      g.d.nodes.forEach((m) => {
+        if (m.role === 'concept' && (m.parent_kinds || []).indexOf(id) >= 0) down(m.id, 'includes the kind');
+        else if (m.role === 'set' && (m.inside || []).indexOf(id) >= 0) down(m.id, 'has the Set');
+      });
+      (g.mem[id] || []).filter((m) => g.N[m] && g.N[m].role === 'element').slice(0, 12).forEach((m) => down(m, 'holds'));
+    } else if (n.role === 'set') {
+      (n.inside || []).forEach((x) => up(x, 'is a Set in'));
+      (g.mem[id] || []).filter((m) => g.N[m]).slice(0, 12).forEach((m) => down(m, 'holds'));
+    }
+    const seen = {};
+    return r.filter((x) => g.N[x.id] && !g.N[x.id].system && x.id !== id && (seen[x.id + x.how] ? false : (seen[x.id + x.how] = true)));
+  }
+
+  visit(id, via) {
+    const s = this.state;
+    this.liveOpen(id);
+    this.setState({ focus: id, visits: s.visits.concat([{ id, via }]), cursor: s.visits.length });
+  }
+
+  renderVals0() {
+    const s = this.state, g = s.g;
+    const parts = (window.Brain ? Brain.state.scopes.map((x) => [x.key, x.label]) : [['civ-anarchy', 'civ-anarchy'], ['nomos-protocol', 'nomos-protocol'], ['sandwich question', 'sandwich interview'],
+      ['nostr concepts', 'Nostr concepts'], ['shared topic', 'shared topic'], ['walkies (sample project)', 'walkies']]);
+    const scopes = parts.map(([p, label]) => ({ label,
+      style: 'font-size: 13px; padding: 8px 12px; min-height: 44px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (p === s.scope ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A'),
+      pick: () => (window.Brain ? Brain.set('scope', p) : this.setState({ scope: p, focus: null })) }));
+    const base0 = { hasBack: false, backId: '', backName: '', back: () => {}, home: () => {} };
+    const base = { graphCenter: s.focus || '', graphTrail: s.visits.map((v) => v.id), graphMarks: [], graphW: 340, graphH: 250, graphPick: (id) => this.visit(id, 'picked on the local graph'), scopes, reset: () => this.setState({ visits: [], focus: null, cursor: null }), loading: !g && !s.err, noFocus: false, hasFocus: false, starts: [],
+      f: Object.assign({ kind: '', name: '', text: '', hasTag: false, tag: '', tagStyle: '', near: [] }, base0), thread: [], interests: [], thin: true, suggestions: [] };
+    if (!g) return base;
+
+    if (!s.focus) {
+      base.noFocus = true;
+      const score = (n) => { const a = n.answers || {}; return (a.settled === false ? 4 : 0) + (a.history || 0) + (a.evidence_for || 0) + (a.evidence_against || 0) + (a.seen_from_several_kinds || 0) * 2 + ((a.used_by_scopes || []).length >= 2 ? 6 : 0) + (a.in_several_groups || 0); };
+      base.starts = g.d.nodes.filter((n) => n.part === s.scope).sort((a, b) => score(b) - score(a)).slice(0, 12)
+        .map((n) => ({ kind: this.kindOf(g, n), label: n.name.length > 90 ? n.name.slice(0, 88) + '…' : n.name, peek: n.id, pick: () => this.visit(n.id, 'picked to start') }));
+    } else {
+      const n = g.N[s.focus];
+      base.hasFocus = true;
+      const used = (n.answers && n.answers.used_by_scopes) || [];
+      const tag = used.length >= 2 ? 'used by ' + used.join(', ') : (n.provenance !== 'ours' ? n.provenance : '');
+      // right next to it: its links first, then up to its groups, then down to what it holds
+      const all = this.neighbours(g, n.id), shown = {};
+      const near = all.filter((x) => x.w === 1).slice(0, 12).concat(all.filter((x) => x.up), all.filter((x) => x.down).slice(0, 12))
+        .filter((x) => (shown[x.id] ? false : (shown[x.id] = true)));
+      // back walks the path in order (a cursor into the visits), so it never bounces between the last two
+      const cur = s.cursor === undefined || s.cursor === null ? s.visits.length - 1 : s.cursor;
+      let back = null, backAt = -1;
+      for (let i = cur - 1; i >= 0; i--) { if (s.visits[i].id !== n.id) { back = s.visits[i].id; backAt = i; break; } }
+      base.f = { hasBack: !!(back && g.N[back]), backId: back || '', backName: back && g.N[back] ? (g.N[back].name.length > 40 ? g.N[back].name.slice(0, 38) + '…' : g.N[back].name) : '',
+        back: () => { if (back) { if (this.liveOpen) this.liveOpen(back); this.setState({ focus: back, cursor: backAt }); } }, home: () => this.setState({ focus: null }),
+        kind: this.kindOf(g, n), name: n.name, text: String((n.fields && (n.fields.claim || n.fields.stance)) || n.description || '').slice(0, 600) + (n.fields && n.fields.quote ? '\n“' + n.fields.quote + '”' : ''),
+        hasTag: !!tag, tag, tagStyle: 'font-size: 12px; font-weight: 600; color: ' + (used.length >= 2 ? '#9A4A07' : '#5B35B8'),
+        near: near.map((x) => ({ how: x.how, label: g.N[x.id].name.length > 60 ? g.N[x.id].name.slice(0, 58) + '…' : g.N[x.id].name, peek: x.id, pick: () => this.visit(x.id, 'from \u201c' + n.name + '\u201d, which ' + x.how + ' it'),
+          style: 'display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; font-size: 13px; padding: 6px 10px; min-height: 44px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; color: #1C1C1A; cursor: pointer' })) };
+    }
+
+    base.thread = s.visits.map((v, i) => ({ label: (g.N[v.id] || { name: v.id }).name, via: v.via, peek: v.id, pick: () => { this.liveOpen(v.id); this.setState({ focus: v.id, cursor: i }); } }));
+
+    // attention: recent visits weigh more; it builds up over groups and over neighbours
+    const recent = s.visits.slice(-12), W = {}, seen = {}, gw = {};
+    recent.forEach((v, i) => { seen[v.id] = true; const w = Math.pow(0.8, recent.length - 1 - i);
+      const vn = g.N[v.id]; if (!vn) return;
+      vn.kinds.concat(vn.sets).forEach((x) => { if ((g.mem[x] || []).length < 400) gw[x] = (gw[x] || 0) + w; });
+      this.neighbours(g, v.id).forEach((nb) => { (W[nb.id] = W[nb.id] || { s: 0, why: [] }); W[nb.id].s += w * nb.w;
+        W[nb.id].why.push(nb.set ? 'shares the Set \u201c' + nb.set + '\u201d with \u201c' + vn.name + '\u201d' : '\u201c' + vn.name + '\u201d ' + nb.how + ' it'); }); });
+    const gk = Object.keys(gw).sort((a, b) => gw[b] - gw[a]).slice(0, 4);
+    const top = gk.length ? gw[gk[0]] : 1;
+    base.thin = recent.length < 2;
+    base.interests = base.thin ? [] : gk.filter((x) => g.N[x]).map((x) => ({ label: g.N[x].name, tip: 'Open ' + g.N[x].name, peek: x, pick: () => this.visit(x, 'a group your attention is on'),
+      bar: 'display: block; height: 6px; border-radius: 3px; background: #1E4FBF; width: ' + Math.round(100 * gw[x] / top) + '%' }));
+    // suggestions: unvisited things connected to the most of what you have seen, recently
+    const cand = Object.keys(W).filter((x) => !seen[x] && g.N[x].role === 'element').map((x) => ({ x, s: W[x].s, why: W[x].why }))
+      .sort((a, b) => b.s - a.s || b.why.length - a.why.length).slice(0, 8);
+    base.suggestions = cand.map((c) => { const m = g.N[c.x], multi = c.why.length >= 2;
+      return { label: m.name.length > 90 ? m.name.slice(0, 88) + '…' : m.name,
+        why: (multi ? 'Connects to ' + c.why.length + ' things you looked at: ' : '') + c.why.slice(0, 2).map((w) => w.length > 80 ? w.slice(0, 78) + '…' : w).join('; '),
+        style: 'text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 10px; min-height: 44px; border-radius: 8px; cursor: pointer; color: #1C1C1A; background: ' + (multi ? '#EEF2FB; border: 1px solid #C9D6F2' : '#FFFFFF; border: 1px solid #E4E2DB'),
+        peek: c.x, pick: () => this.visit(c.x, 'suggested: ' + (c.why[0] || '')) }; });
+    if (!base.suggestions.length && s.visits.length) base.suggestions = [];
+    base.graphMarks = cand.map((c) => c.x);
+    return base;
+  }
+}
+</script>
+</body>
+</html>
