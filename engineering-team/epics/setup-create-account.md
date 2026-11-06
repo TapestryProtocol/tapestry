@@ -1,7 +1,7 @@
 # Epic: setup-create-account — the Create your account page, and open sign-up
 
 **Created:** 2026-11-04
-**Status:** Active
+**Status:** Done
 **Book:** `engineering-team/audits/setup-create-account/book.md` (no PRD — acceptance frame)
 **Provenance:** ngit issue `94229587` and the owner's ask of 2026-11-04, quoted in the book and settled
 through four questions at planning (book § Decisions). It builds step 1's page from item 3 of the

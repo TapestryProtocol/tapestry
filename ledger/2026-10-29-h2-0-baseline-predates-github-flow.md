@@ -48,3 +48,18 @@ each promotion, as for nousclawds4/tapestry#11. Each promotion needs the owner's
 **Pointer:** `docs/harness/H2_0-baseline.md` (on `main`); the message of commit `73bfa5ca`; PR nousclawds4/tapestry#11
 and its merge commit `8534b050`; `engineering-team/stories/tagging-edges/6-pass-run-and-stop.md` § Evidence,
 "Production".
+
+**Update 2026-11-05 (book `setup-create-account`, both ships).** The skills themselves now lag the practice:
+- **The skills still say** "merge with `gh pr merge`" (`.claude/skills/cycle-staging/SKILL.md`,
+  `.claude/skills/cycle-prod/SKILL.md`).
+- **This checkout ships by the mirror route instead.** Open a PR for CI only, merge locally, push to ngit first, run
+  the safe-to-merge check, then fast-forward GitHub's branch. Both of this book's stories shipped that way, to staging
+  and to main, following the session's memory rather than either skill.
+- **What the skills don't cover:**
+  - comparing ngit's branch with GitHub's before the merge. During story 2's ship, ngit's `staging` held eight
+    commits from another session (the Issue Evaluator pilot) that GitHub didn't. The merge, built on ngit, carried
+    them to GitHub's `staging`;
+  - merging the feature branch, not `staging`, into `main` when `staging` holds work that mustn't ship. Avi's
+    brains-launcher commits stayed off main twice that way.
+- **Add to the fix shape:** whichever merge rule the owner confirms, write the mirror route into both skills, and the
+  Director's copy of the staging chain.

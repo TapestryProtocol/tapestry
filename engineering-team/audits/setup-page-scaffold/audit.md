@@ -150,6 +150,8 @@ book's diff, not production: `/setup` now has a way in, though the Setup Alert d
       (§4 #4, #5)
       *2026-09-22: the first two shipped with book `setup-status-and-alert` (closed; audit there). The third,
       the step pages, stays open in that intake entry.*
+      *2026-11-05: step 1's page shipped with book `setup-create-account` (closed; audit there). Steps 2 and 3's
+      pages stay open.*
 - [x] **2. What "Create your account" means for each kind of visitor** — a signed-out visitor, a
       signed-in guest with no assistant, a customer, an admin, the owner. The `assistant-profile`
       book's truthful setup check (#1) and planned My Assistant page (#4) are the likely foundations.
