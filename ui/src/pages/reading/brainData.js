@@ -8,15 +8,20 @@
  * Brain.on('change') fires after every merge.
  *
  * Shared state, for everything above a single view (the page's bar): Brain.state.scope
- * (Brain.set('scope', key) fires 'scope'), and Brain.emit('go', id) from jump-to-anything, which the
- * open view answers.
+ * (Brain.set('scope', key) fires 'scope'), Brain.state.item, the thing a view has open
+ * (Brain.set('item', id) fires 'item'; the page keeps both in its history, so Back and Forward walk
+ * them), and Brain.emit('go', id) from jump-to-anything, which the open view answers.
+ *
+ * Writes: Brain.can(id) says what may be done to a node and why not, in words; Brain.write(what, body)
+ * does it (writeVerbs.js), as the signed-in owner.
  */
 import { VERBS } from './readVerbs';
+import { can as canDo, write as writeDo } from './writeVerbs';
 
 export function createBrain() {
   const N = {}, L = {}, LT = {}, subs = {}, inflight = {}, done = {};
-  const state = { scope: null, scopes: [], instance: null };
-  let snap = null, version = 0, config = { taPubkey: null, ownerPubkey: null };
+  const state = { scope: null, scopes: [], instance: null, item: null };
+  let snap = null, version = 0, config = { taPubkey: null, ownerPubkey: null, signedIn: false, isOwner: false };
   let ready, setReady;
   ready = new Promise((r) => { setReady = r; });
 
@@ -83,5 +88,8 @@ export function createBrain() {
     return off;
   }
 
-  return { api, merge, doc, on, emit, set, watch, state, configure, node: (id) => N[id], has: (id) => !!N[id], live: true };
+  const can = (id) => ready.then(() => canDo(id, config));
+  const write = (what, body) => ready.then(() => writeDo(what, body, config)).catch((e) => ({ ok: false, why: String(e.message || e) }));
+
+  return { api, merge, doc, on, emit, set, watch, state, configure, can, write, node: (id) => N[id], has: (id) => !!N[id], live: true };
 }

@@ -52,8 +52,55 @@ button{font-family:inherit}
         </sc-if>
         <sc-if value="{{hasFocus}}" hint-placeholder-val="{{false}}">
           <p style="margin: 0; font-size: 13px; color: #5B5A55">{{f.kind}} · {{f.whose}}</p>
-          <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.25">{{f.name}}</h1>
-          <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.65; color: #2B2A27; white-space: pre-line">{{f.text}}</p>
+          <sc-if value="{{ed.reading}}" hint-placeholder-val="{{true}}">
+            <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.25">{{f.name}}</h1>
+            <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.65; color: #2B2A27; white-space: pre-line">{{f.text}}</p>
+          </sc-if>
+          <sc-if value="{{ed.editing}}" hint-placeholder-val="{{false}}">
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5B5A55">Title
+              <input value="{{ed.name}}" onChange="{{ed.setName}}" aria-label="Title" style="font: inherit; font-size: 15px; line-height: 1.5; color: #1C1C1A; padding: 8px 10px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; width: 100%; font-family: 'Source Serif 4', Georgia, serif; font-size: 24px; font-weight: 600">
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5B5A55"><span>Text <span style="color: #7A7974">· saved in {{ed.where}}</span></span>
+              <textarea value="{{ed.text}}" onChange="{{ed.setText}}" rows="9" aria-label="Text" style="font: inherit; font-size: 15px; line-height: 1.5; color: #1C1C1A; padding: 8px 10px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; width: 100%; font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; resize: vertical"></textarea>
+            </label>
+          </sc-if>
+          <sc-if value="{{ed.show}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+              <sc-if value="{{ed.reading}}" hint-placeholder-val="{{true}}"><button onClick="{{ed.start}}" disabled="{{ed.off}}" style="{{ed.startStyle}}">Edit title and text</button></sc-if>
+              <sc-if value="{{ed.editing}}" hint-placeholder-val="{{false}}">
+                <button onClick="{{ed.save}}" disabled="{{ed.saveOff}}" style="{{ed.saveStyle}}">{{ed.saveLabel}}</button>
+                <button onClick="{{ed.cancel}}" style="font-size: 13px; padding: 8px 14px; min-height: 40px; border-radius: 8px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A">Cancel</button>
+              </sc-if>
+              <span role="status" style="{{ed.msgStyle}}">{{ed.msg}}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{mk.show}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+              <sc-if value="{{mk.closed}}" hint-placeholder-val="{{true}}"><button onClick="{{mk.start}}" disabled="{{mk.off}}" style="{{mk.startStyle}}">+ New item in {{mk.where}}</button></sc-if>
+              <span role="status" style="{{mk.msgStyle}}">{{mk.msg}}</span>
+            </div>
+            <sc-if value="{{mk.open}}" hint-placeholder-val="{{false}}">
+              <section aria-label="New item" style="display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid #E4E2DB; border-radius: 10px; background: #FFFFFF">
+                <h2 style="margin: 0; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #5B5A55">New {{mk.kind}} in {{mk.where}}</h2>
+                <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5B5A55">Title
+                  <input value="{{mk.name}}" onChange="{{mk.setName}}" aria-label="Title of the new item" style="font: inherit; font-size: 15px; line-height: 1.5; color: #1C1C1A; padding: 8px 10px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; width: 100%">
+                </label>
+                <sc-for list="{{mk.fields}}" as="fl" hint-placeholder-count="3">
+                  <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5B5A55"><span><span style="color: #1C1C1A">{{fl.label}}</span> <span style="font-size: 12px; color: #7A7974">{{fl.hint}}</span></span>
+                    <sc-if value="{{fl.long}}" hint-placeholder-val="{{false}}"><textarea value="{{fl.value}}" onChange="{{fl.set}}" rows="4" aria-label="{{fl.label}}" style="font: inherit; font-size: 15px; line-height: 1.5; color: #1C1C1A; padding: 8px 10px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; width: 100%; resize: vertical"></textarea></sc-if>
+                    <sc-if value="{{fl.short}}" hint-placeholder-val="{{true}}"><input value="{{fl.value}}" onChange="{{fl.set}}" aria-label="{{fl.label}}" style="font: inherit; font-size: 15px; line-height: 1.5; color: #1C1C1A; padding: 8px 10px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; box-sizing: border-box; width: 100%"></sc-if>
+                  </label>
+                </sc-for>
+                <p style="margin: 0; font-size: 13px; color: #5B5A55">{{mk.scopeNote}}</p>
+                <sc-if value="{{mk.hasSkipped}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 12px; color: #7A7974">Not offered here yet: {{mk.skipped}} (lists and links to other things come later).</p></sc-if>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                  <button onClick="{{mk.save}}" disabled="{{mk.saveOff}}" style="{{mk.saveStyle}}">{{mk.saveLabel}}</button>
+                  <button onClick="{{mk.cancel}}" style="font-size: 13px; padding: 8px 14px; min-height: 40px; border-radius: 8px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A">Cancel</button>
+                  <span role="status" style="{{mk.errStyle}}">{{mk.err}}</span>
+                </div>
+              </section>
+            </sc-if>
+          </sc-if>
           <sc-if value="{{f.hasNote}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 14px; line-height: 1.5; color: #9A4A07; font-weight: 600">{{f.note}}</p></sc-if>
           <sc-for list="{{f.sections}}" as="sec" hint-placeholder-count="3">
             <section style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid #E4E2DB">
@@ -117,7 +164,7 @@ class Component extends DCLogic {
       peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0, goTo: (id) => { this.peekHide(); this.goTo(id); } });
   }
 
-  constructor(props) { super(props); this.state = { g: null, err: null, scope: window.Brain ? Brain.state.scope : 'civ-anarchy', focus: null, open: {}, reading: false }; this.RESET = { focus: null, open: {} }; }
+  constructor(props) { super(props); this.state = { g: null, err: null, scope: window.Brain ? Brain.state.scope : 'civ-anarchy', focus: null, open: {}, reading: false, can: null, canFor: null, ed: null, mk: null, note: null }; this.RESET = { focus: null, open: {} }; }
 
   componentDidMount() {
     if (window.Brain) {
@@ -125,8 +172,10 @@ class Component extends DCLogic {
         Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })),
         Brain.on('scope', (k) => this.liveScope(k)),
         Brain.on('go', (id) => this.goTo(id)),
+        Brain.on('item', (id) => { this.setState({ focus: id || null }); if (id) this.liveOpen(id); }),
       ];
       if (Brain.state.scope) this.liveScope(Brain.state.scope);
+      if (Brain.state.item) { this.setState({ focus: Brain.state.item }); this.liveOpen(Brain.state.item); }
       return;
     }
     fetch('/_blob/dcde019c6a74631fb618ff1c99ab7340').then((r) => r.json())
@@ -138,7 +187,8 @@ class Component extends DCLogic {
   // live: the bar changed the scope; read its things (brain-view caps a scope at its newest 400)
   liveScope(k) {
     const keep = this._keepFocus; this._keepFocus = false;
-    this.setState(Object.assign({ scope: k, reading: true }, keep ? {} : this.RESET));
+    // a board whose open thing is in the page's history (Outline) opens it again after the reset
+    this.setState(Object.assign({ scope: k, reading: true }, keep ? {} : this.RESET, keep || !this.liveKeep ? {} : this.liveKeep()));
     Brain.api('scope', { key: k, limit: 400 }).then((d) => { if (this.state.scope === k) this.setState({ reading: false, scopeInfo: d.scope }); }).catch(() => this.setState({ reading: false }));
   }
   // live: a thing opened; read what it links to, and the members of its small Sets
@@ -161,6 +211,17 @@ class Component extends DCLogic {
     return sc && sc.kind === 'project' ? sc.label : null;
   }
 
+  liveKeep() { return { focus: Brain.state.item || null }; }
+  liveCan(id) { return Brain.can(id); }
+  livePost(what, body) { return Brain.write(what, body); }
+  // after a write, read again past both caches (a fresh= the page has not asked before)
+  liveSaveEdit(id, name, text) {
+    return this.livePost('edit', { id, name, text }).then((r) => !r.ok ? r : Brain.api('node', { id, depth: 1, fresh: Date.now() }).then(() => r, () => r));
+  }
+  liveSaveNew(holder, name, vals) {
+    return this.livePost('create', { holder, name, fields: vals, scope: Brain.state.scope }).then((r) => !r.ok ? r : Promise.all([
+      Brain.api('node', { id: r.id, depth: 1, fresh: Date.now() }), Brain.api('group', { id: holder, offset: 0, limit: 150, fresh: Date.now() })]).then(() => r, () => r));
+  }
   prep(d) {
     const N = {}, out = {}, inn = {}, mem = {}, LT = {};
     d.nodes.forEach((n) => { N[n.id] = n; });
@@ -207,9 +268,100 @@ class Component extends DCLogic {
     return b.join(' · ');
   }
 
+  // what may be changed here, and why not: the design copy reads it from the slice; brain-view asks the graph
+  canFor(id) {
+    if (window.Brain) return this.liveCan(id);
+    const g = this.state.g, n = g && g.N[id];
+    const out = { id, edit: null, create: null };
+    if (!n) return Promise.resolve(out);
+    const ours = n.provenance === 'ours', who = n.provenance + ', by ' + String(n.author).slice(0, 8) + '…';
+    if (n.role === 'element') {
+      const f = n.fields || {}, k = ['claim', 'stance', 'description'].find((x) => typeof f[x] === 'string');
+      out.edit = { ok: ours, why: ours ? '' : 'Not ours: it is ' + who + '. Only its author can change it.', name: n.name,
+        text: k ? f[k] : (n.description || ''), says: k ? 'its ' + k + ' field' : 'its description' };
+    } else if (n.role === 'set' || n.role === 'concept') {
+      const used = {};
+      (g.mem[id] || []).forEach((m) => Object.keys((g.N[m] || {}).fields || {}).forEach((k) => { used[k] = (used[k] || 0) + 1; }));
+      out.create = { ok: ours, why: ours ? '' : 'This ' + (n.role === 'set' ? 'Set' : 'kind') + ' is ' + who + '. Only its author adds items here.',
+        kind_name: n.role === 'concept' ? n.name : this.kindOf(g, n), holder_name: n.name, not_offered: [],
+        fields: Object.keys(used).sort((a, b) => used[b] - used[a]).map((k) => ({ field: k, label: k, hint: used[k] + ' here have it', long: k === 'claim' || k === 'stance' })) };
+    }
+    return Promise.resolve(out);
+  }
+  loadCan(id) {
+    this.setState({ can: null, canFor: id });
+    if (!id) return;
+    this.canFor(id).then((c) => { if (this.state.focus === id) this.setState({ can: c }); })
+      .catch((e) => { if (this.state.focus === id) this.setState({ can: { id, err: String(e.message || e) } }); });
+  }
+  componentDidUpdate(pp, ps) {
+    if (ps && ps.focus !== this.state.focus) { this.setState({ ed: null, mk: null }); this.loadCan(this.state.focus); }
+  }
+  // saving: the design copy keeps nothing; brain-view saves through bin/brain
+  saveEdit(id, name, text) {
+    if (window.Brain) return this.liveSaveEdit(id, name, text);
+    return Promise.resolve({ ok: false, why: 'This is the design copy: it saves nothing. brain-view saves to the graph.' }); }
+  saveNew(holder, name, vals) {
+    if (window.Brain) return this.liveSaveNew(holder, name, vals);
+    return Promise.resolve({ ok: false, why: 'This is the design copy: it saves nothing. brain-view saves to the graph.' }); }
+  startEdit() { const c = this.state.can, e = c && c.edit; if (e && e.ok) this.setState({ ed: { name: e.name, text: e.text || '', busy: false, err: '' }, note: null }); }
+  doSave() {
+    const s = this.state, id = s.focus, ed = s.ed;
+    if (!ed || ed.busy) return;
+    this.setState({ ed: Object.assign({}, ed, { busy: true, err: '' }) });
+    this.saveEdit(id, ed.name, ed.text).then((r) => {
+      if (this.state.focus !== id) return;
+      if (r.ok) { this.setState({ ed: null, note: { id, msg: 'Saved: ' + (r.saved && r.saved.length ? r.saved.join(' and ') : 'nothing had changed') + '.' } }); this.loadCan(id); }
+      else this.setState({ ed: Object.assign({}, this.state.ed, { busy: false, err: r.why || 'Not saved.' }) });
+    }).catch((e) => this.setState({ ed: Object.assign({}, this.state.ed, { busy: false, err: 'Not saved: ' + (e.message || e) }) }));
+  }
+  startNew() { const c = this.state.can; if (c && c.create && c.create.ok) this.setState({ mk: { name: '', vals: {}, busy: false, err: '' }, note: null }); }
+  doNew() {
+    const s = this.state, holder = s.focus, mk = s.mk;
+    if (!mk || mk.busy) return;
+    this.setState({ mk: Object.assign({}, mk, { busy: true, err: '' }) });
+    this.saveNew(holder, mk.name, mk.vals).then((r) => {
+      if (this.state.focus !== holder) return;
+      if (r.ok) { this.setState({ mk: null, note: { id: holder, msg: 'Made “' + mk.name + '”.' } }); if (r.id) this.focusOn(r.id); }
+      else this.setState({ mk: Object.assign({}, this.state.mk, { busy: false, err: r.why || 'Not made.' }) });
+    }).catch((e) => this.setState({ mk: Object.assign({}, this.state.mk, { busy: false, err: 'Not made: ' + (e.message || e) }) }));
+  }
+  editVals(n) {
+    const s = this.state, c = s.can && s.can.id === s.focus ? s.can : null, e = c && c.edit, ed = s.ed;
+    const BTN = 'font-size: 13px; padding: 8px 14px; min-height: 40px; border-radius: 8px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A', OFF = BTN + '; opacity: 0.5; cursor: not-allowed';
+    const PRIMARY = 'font-size: 13px; padding: 8px 14px; min-height: 40px; border-radius: 8px; cursor: pointer; border: 1px solid #1E4FBF; background: #1E4FBF; color: #FFFFFF';
+    const msgStyle = (bad) => 'font-size: 13px; line-height: 1.4; color: ' + (bad ? '#B4442E' : '#5B5A55');
+    const note = s.note && s.note.id === s.focus ? s.note.msg : '';
+    const ok = !!(e && e.ok);
+    const out = { show: n.role === 'element', reading: !ed, editing: !!ed, off: !ok, startStyle: ok ? BTN : OFF, name: ed ? ed.name : '', text: ed ? ed.text : '',
+      where: e ? e.says : '', setName: (ev) => this.setState({ ed: Object.assign({}, this.state.ed, { name: ev.target.value }) }),
+      setText: (ev) => this.setState({ ed: Object.assign({}, this.state.ed, { text: ev.target.value }) }),
+      start: () => this.startEdit(), cancel: () => this.setState({ ed: null }), save: () => this.doSave(),
+      saveOff: !ed || ed.busy || !ed.name.trim(), saveLabel: ed && ed.busy ? 'Saving…' : 'Save', saveStyle: !ed || ed.busy || !ed.name.trim() ? PRIMARY + '; opacity: 0.5; cursor: not-allowed' : PRIMARY,
+      msg: ed ? ed.err : (!c ? (s.canFor === s.focus ? 'Asking what can be changed…' : '') : c.err ? 'Cannot tell what may change: ' + c.err : !e ? '' : e.ok ? note : e.why),
+      msgStyle: msgStyle(ed ? !!ed.err : !!(c && (c.err || (e && !e.ok)))) };
+    const k = c && c.create, mk = s.mk, kok = !!(k && k.ok);
+    const vals = (mk && mk.vals) || {};
+    const mkOut = { show: n.role === 'set' || n.role === 'concept', closed: !mk, open: !!mk, off: !kok, startStyle: kok ? BTN : OFF,
+      where: n.name, kind: k ? k.kind_name : '', name: mk ? mk.name : '',
+      setName: (ev) => this.setState({ mk: Object.assign({}, this.state.mk, { name: ev.target.value }) }),
+      fields: ((k && k.fields) || []).map((x) => ({ label: x.label, hint: x.hint, long: !!x.long, short: !x.long, value: vals[x.field] || '',
+        set: (ev) => this.setState({ mk: Object.assign({}, this.state.mk, { vals: Object.assign({}, this.state.mk.vals, { [x.field]: ev.target.value }) }) }) })),
+      hasSkipped: !!(k && k.not_offered && k.not_offered.length), skipped: k && k.not_offered ? k.not_offered.join(', ') : '',
+      start: () => this.startNew(), cancel: () => this.setState({ mk: null }), save: () => this.doNew(),
+      saveOff: !mk || mk.busy || !mk.name.trim(), saveLabel: mk && mk.busy ? 'Making…' : 'Make it',
+      saveStyle: !mk || mk.busy || !mk.name.trim() ? PRIMARY + '; opacity: 0.5; cursor: not-allowed' : PRIMARY,
+      err: mk ? mk.err : '', errStyle: msgStyle(true),
+      scopeNote: this.scopeName(s.scope) ? 'It will be filed under the project ' + this.scopeName(s.scope) + ', the scope you are reading.'
+        : 'It will not be filed under a project: the scope you are reading is a concept, not a project.',
+      msg: mk ? '' : (!c ? (s.canFor === s.focus ? 'Asking what can be made here…' : '') : c.err ? 'Cannot tell: ' + c.err : !k ? '' : k.ok ? note : k.why),
+      msgStyle: msgStyle(!!(c && (c.err || (k && !k.ok)))) };
+    return { ed: out, mk: mkOut };
+  }
+
   focusOn(id) {
     const g = this.state.g, n = g.N[id];
-    if (window.Brain) { this.liveScopeFor(id); this.setState({ focus: id }); this.liveOpen(id); return; }
+    if (window.Brain) { this.liveScopeFor(id); if (Brain.state.item === id) this.setState({ focus: id }); Brain.set('item', id); this.liveOpen(id); return; }
     const p = n && n.part !== 'structure' ? n.part : this.state.scope;
     this.setState({ focus: id, scope: p });
   }
@@ -247,6 +399,7 @@ class Component extends DCLogic {
       pick: () => (window.Brain ? Brain.set('scope', p) : this.setState({ scope: p, focus: null, open: {} })) }));
     const base = { graphCenter: s.focus || '', graphTrail: [], graphW: 260, graphH: 220, graphPick: (id) => this.focusOn(id), scopes, loading: (!g || s.reading) && !s.err, status: s.err ? 'Could not load the data: ' + s.err : '', outline: [], noFocus: true, hasFocus: false,
       scopeTitle: '', scopeText: '', f: { kind: '', whose: '', name: '', text: '', hasNote: false, note: '', sections: [] },
+      ed: { show: false, reading: true, editing: false, off: true, msg: '' }, mk: { show: false, closed: true, open: false, off: true, fields: [], msg: '' },
       beyond: [], noBeyond: true, community: [], noCommunity: true, newest: [] };
     if (!g) return base;
 
@@ -278,8 +431,9 @@ class Component extends DCLogic {
       const n = g.N[s.focus], wide = this.beyond(n);
       base.noFocus = false; base.hasFocus = true;
       base.f = { kind: this.kindOf(g, n), whose: n.provenance === 'ours' ? 'ours' : n.provenance + ' · by ' + String(n.author).slice(0, 12) + '…', name: n.name,
-        text: String((n.fields && (n.fields.claim || n.fields.stance)) || n.description || '').slice(0, 1200) + (n.fields && n.fields.quote ? '\n\n“' + n.fields.quote + '”' : ''),
+        text: String((n.fields && (n.fields.claim || n.fields.stance || n.fields.description)) || n.description || '').slice(0, 1200) + (n.fields && n.fields.quote ? '\n\n“' + n.fields.quote + '”' : ''),
         hasNote: !!wide, note: wide ? 'This reaches beyond ' + base.scopeTitle + ': ' + wide : '', sections: this.sections(g, n) };
+      Object.assign(base, this.editVals(n));
     }
     return base;
   }

@@ -138,7 +138,8 @@ class Component extends DCLogic {
   // live: the bar changed the scope; read its things (brain-view caps a scope at its newest 400)
   liveScope(k) {
     const keep = this._keepFocus; this._keepFocus = false;
-    this.setState(Object.assign({ scope: k, reading: true }, keep ? {} : this.RESET));
+    // a board whose open thing is in the page's history (Outline) opens it again after the reset
+    this.setState(Object.assign({ scope: k, reading: true }, keep ? {} : this.RESET, keep || !this.liveKeep ? {} : this.liveKeep()));
     Brain.api('scope', { key: k, limit: 400 }).then((d) => { if (this.state.scope === k) this.setState({ reading: false, scopeInfo: d.scope }); }).catch(() => this.setState({ reading: false }));
   }
   // live: a thing opened; read what it links to, and the members of its small Sets

@@ -26,3 +26,10 @@
   .reading-bar { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
   .reading-tag { display: none; }
 }
+.reading-who { font-size: 11px; color: var(--r-muted); white-space: nowrap; }
+.reading-auth { display: flex; align-items: center; }
+/* the app's user menu is styled for its dark shell; on this light bar its sign-in link takes the accent */
+.reading-auth .bs-link-btn { color: var(--r-accent); background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; padding: 6px 4px; }
+.reading-jump { flex-shrink: 0; white-space: nowrap; }
+.reading-scope select { max-width: 220px; }
