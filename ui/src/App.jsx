@@ -125,6 +125,7 @@ import DictionaryEntryPage from './pages/dictionary/Entry';
 import DictionaryItemPage from './pages/dictionary/Item';
 import DictionaryNewConceptPage from './pages/dictionary/NewConcept';
 import DictionaryEditConceptPage from './pages/dictionary/EditConcept';
+import ReadingViews from './pages/reading/ReadingViews';
 import MyAssistantsPage from './pages/assistants/Index';
 import ManageTreasureMapPage from './pages/treasure-map/Index';
 import TreasureMapAdvancedPage from './pages/treasure-map/Advanced';
@@ -140,6 +141,7 @@ import ScoresPage from './pages/assistant/Scores';
 import { ASSISTANT_ACTIONS } from './pages/assistant/actions';
 import {
   ASSISTANT_MANAGEMENT_PATH, MY_ASSISTANT_PATH, MY_ASSISTANTS_PATH, MANAGE_TREASURE_MAP_PATH, TREASURE_MAP_ADVANCED_PATH,
+  READING_VIEWS_PATH,
 } from './config/avatarMenuLinks';
 import Tag from './pages/Tag';
 import Tags from './pages/Tags';
@@ -287,6 +289,11 @@ const router = createBrowserRouter([
   {
     path: '/setup/activate',
     element: <SetupActivate />,
+  },
+  {
+    // The reading views (experimental): the concept graph as Table, Outline, Drift and Dictionary boards.
+    path: READING_VIEWS_PATH,
+    element: <ReadingViews />,
   },
   {
     // The Concepts dictionary in the Brainstorm design's styling; same list as /tapestry/dictionaries/concepts.
