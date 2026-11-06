@@ -2,6 +2,8 @@ name: Publish brain images
 
 # Builds the images brains run, then moves every brain on tapestry.ninja onto them, one at a time. See deploy/RUNBOOK.md.
 # A roll does not reload Caddy, so a Caddyfile change needs the restart the runbook gives.
+# A push to main runs it. It can also be run by hand on main, or on staging to try staging on the brains before it reaches
+# main; the next push to main moves them back onto main's build.
 
 on:
   push:
@@ -19,7 +21,7 @@ permissions:
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/staging')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
