@@ -479,7 +479,7 @@ None, once the owner ratifies the Product Owner's proposals below by approving t
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/tagging-edges/7-confirm-held-removals.test-plan.md`
 - Review: (filled in after Review phase)
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
