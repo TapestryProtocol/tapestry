@@ -477,6 +477,67 @@ None, once the owner ratifies the Product Owner's proposals below by approving t
     - the overdue warning absent while the daily pass is on time;
   - production gets read-only checks only, after a promotion.
 
+## Deviations
+
+Logged at Implementation (2026-11-07). Each is a reading of ADR 0007 where its letter left a detail open, or a small
+choice beside it.
+
+**Owner-decided (2026-11-07):**
+- **The overdue module is `src/pipeline/tagging-edges/overdue.js`, not `src/lib/tagging-edges/`.** Story 1's purity pin
+  (`test/tagging-edge-contract.test.js`) refuses dates and any outside require there, and the cron judge needs both. The
+  owner chose to move it. ADR 0007 D8 has a dated note, and the overdue suite's module path followed (a one-line test
+  change, recorded in its header).
+
+**Server:**
+- `publicConfirmation` serves an `unreadable` code only when it is an E-code or `error` (else `error`), so a
+  hand-edited file cannot pass text through. `{unreadable}` keeps today's `expired: false` beside it.
+- D2 step 7: a re-read of the report that throws counts as "a pass may have started" and withdraws (409 `pass-started`,
+  or `taken-up` with `claimedBy: null` if a pass already took it). The old route answered 500.
+- D2 step 1 runs `validateConfirmation` twice, as the route did, so liveness (a /proc read) is read only once the other
+  checks hold (RT14 pins it).
+- D2 step 2: a `readConfirmation` that throws counts as not pending, so a new confirmation replaces it.
+- Every refusal from `confirm` carries an `error` sentence, its 500 `error` included; the route passes it through.
+- `overdueVerdict` checks `cannot-tell`/`rule` before `no-pass`, D8's listed order. Whether a cron parses is judged
+  with cron-parser even when `periodOf` is injected. A `startedAt` that is not a string, or a start plus period past
+  a Date's range, reads `cannot-tell`/`report`. When the cron cache is full, the oldest pattern is dropped.
+- An interval sums days, hours and minutes exactly as `toRepeatOpts` does (so 1 day minus 5 hours counts as 19 h).
+- `lineUp` still accepts a `mode` argument and ignores it; `pass.js` still passes `mode: 'run'`.
+- The fixture script:
+  - reads the Neo4j settings and the domain by sourcing brainstorm.conf in bash, as the pass's wrapper does, values
+    through a pipe and bash's stderr dropped; `BRAINSTORM_CONF_PATH` overrides the path;
+  - reads "the instance's configured domain" as `STRFRY_DOMAIN`, compared ignoring case, before any driver is built;
+  - runs `create`'s "a fixture already exists" refusal inside the create's own transaction;
+  - `plan` notes when fixture nodes already exist, since the base would count them;
+  - `check` pins later pages to the first page's run id (a newer pass in between fails it) and reads `127.0.0.1` on
+    `CONTROL_PANEL_PORT` or 7778;
+  - `cleanup` reports what it removed from the driver's counters;
+  - exits 2 for usage, 1 for refusals and failures; `--count` is 1 to 7 digits.
+
+**UI:**
+- D15's helper is `useReturnFocus(open, headingRef)`: it sees the prompt close from its open flag and calls `closed()`
+  itself; owners call `cancelled()` from Cancel. `wasInside` is read just after the prompt has gone, as "focus is on
+  the page", which is where focus from a removed prompt falls.
+- D15's "focus parked on the heading moves to the outcome line when it appears" applies to all three prompts, not only
+  Turn off. The pass and path sections' heading refs are made in PassSection and PathSection and passed down.
+- D10: a Confirm prompt that remounts while under way focuses its `h4`, not the disabled Cancel. While its snapshot is
+  set the prompt renders in every held-section branch, and the answer line shows in every branch, so a re-read during
+  the send never removes them.
+- D13: "The owner can confirm this held list again" shows only where the section shows the latest pass's held list;
+  elsewhere only "No pass will carry it out." For an unknown expiry, today's "is waiting" sentence stays and D13's two
+  sentences are appended.
+- D9: `offer` also requires `!usedUp` (D13 "offer no Confirm").
+- D12: a confirm line joins `mintedAt` by instant (equal `Date.parse`), and only an owner's line with a key gives the
+  key; the line reads "It took up the owner's confirmation (key…), made at T."
+- D11: a 200 with no or an unknown `outcome` has its own sentence, claiming nothing. Each out-of-date code has its own
+  first sentence, then "The panel now shows the latest state", and shows its code, as do `pass-started` and
+  `withdraw-failed`; a 4xx with a body code (such as 400 `bad-run-id`) takes the generic failed sentence. Sending a
+  Confirm clears only Confirm's last outcome.
+- D14: an `overdue` state outside D8's reads "cannot tell"; the warn tone also applies in the schedule list's loading
+  branch, while the failed-list branch keeps its bad border.
+- Run's outcome line also carries `tabIndex -1` (the shared outcome component); only Stop's carries a ref.
+  ScheduleSection and HeldSection import `TimedLine` from `PassControls.jsx`.
+- Wording that is the Implementer's: the used-up line, the cannot-tell reasons, and the opening line's added sentence.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md`
 - Test plan: `engineering-team/stories/tagging-edges/7-confirm-held-removals.test-plan.md`

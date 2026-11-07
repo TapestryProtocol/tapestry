@@ -7,11 +7,13 @@
  * The change itself is the panel's (TaggingPipelinePanel.jsx switchPath, through sendSwitch's 15 s race); this file
  * only renders and asks. The prompt is an inline confirmation that replaces the control while open, so only one
  * "Turn off" exists at a time; Cancel sends nothing, and the prompt closes by itself when a read shows the path off.
+ * When it closes, focus returns as story 7 sets out (ADR tagging-edges/0007 D15, parts.jsx useReturnFocus): to "Turn
+ * off" after Cancel, else to the path section's heading, then to the line that says what happened once it shows.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { offPromptVariant, turnOnWarning } from '../../../utils/taggingPipelineView.js';
-import { ReadFailed, TONE_COLOUR, when } from './parts.jsx';
+import { ReadFailed, TONE_COLOUR, useReturnFocus, when } from './parts.jsx';
 import { BackstopVerdict } from './ScheduleSection.jsx';
 
 /**
@@ -94,10 +96,13 @@ function TurnOnWarning({ warning }) {
   return null;
 }
 
-/** The last change's outcome: switchOutcome's sentence, and the refusal's HTTP status or the failure's code. */
-function Outcome({ outcome }) {
+/**
+ * The last change's outcome: switchOutcome's sentence, and the refusal's HTTP status or the failure's code. Focus can
+ * land on it when the prompt has closed (ADR 0007 D15), so it takes `lineRef` and tabIndex -1.
+ */
+function Outcome({ outcome, lineRef }) {
   return (
-    <p style={{ color: TONE_COLOUR[outcome.tone] }}>
+    <p ref={lineRef} tabIndex={-1} style={{ color: TONE_COLOUR[outcome.tone] }}>
       {outcome.text}
       {outcome.outcome === 'refused' && outcome.httpStatus !== null && ` HTTP status: ${outcome.httpStatus}.`}
       {outcome.code && <> Code: <code>{outcome.code}</code></>}
@@ -109,10 +114,11 @@ function Outcome({ outcome }) {
  * `view` is pathView of the path status body; `statusRead` is the pass status read (for the warning beside "Turn
  * on"); `sched` is scheduleView of the schedule list, or null, and `schedPending` is true while that list is being
  * read (its first read, or a Retry); `change` is the panel's { target, pending, outcome }; `onSwitch(on)` sends a
- * change.
+ * change. `headingRef` is the path section's heading, where focus goes when the prompt closes with no line to show.
  */
-export default function PathSwitch({ view, body, statusRead, sched, schedPending, change, onSwitch }) {
+export default function PathSwitch({ view, body, statusRead, sched, schedPending, change, onSwitch, headingRef }) {
   const [asking, setAsking] = useState(false);
+  const focus = useReturnFocus(asking, headingRef);
   // A read that shows the path off closes the prompt: there is nothing left to turn off.
   useEffect(() => {
     if (!view.on) setAsking(false);
@@ -132,11 +138,11 @@ export default function PathSwitch({ view, body, statusRead, sched, schedPending
         sched={sched}
         schedPending={schedPending}
         onConfirm={() => { setAsking(false); onSwitch(false); }}
-        onCancel={() => setAsking(false)}
+        onCancel={() => { focus.cancelled(); setAsking(false); }}
       />
     );
   } else if (view.on) {
-    control = <button className="btn-small" onClick={() => setAsking(true)}>Turn off</button>;
+    control = <button className="btn-small" ref={focus.opener} onClick={() => setAsking(true)}>Turn off</button>;
   } else {
     control = <button className="btn-small" onClick={() => onSwitch(true)}>Turn on</button>;
   }
@@ -144,7 +150,7 @@ export default function PathSwitch({ view, body, statusRead, sched, schedPending
     <div>
       {control}
       {!view.on && !change.pending && <TurnOnWarning warning={turnOnWarning(statusRead)} />}
-      {change.outcome && !change.pending && <Outcome outcome={change.outcome} />}
+      {change.outcome && !change.pending && <Outcome outcome={change.outcome} lineRef={focus.line} />}
     </div>
   );
 }

@@ -2,55 +2,57 @@
  * The gap-filling pass's routes (tagging-edges story 2, ADR tagging-edges/0002).
  *
  *   GET  /api/tagging-edges/status                  public read: the latest report, the previous ones, any
- *                                                   pending owner confirmation (without its nonce), and which
- *                                                   passes are waiting or running (control, with no who; story 6)
+ *                                                   owner confirmation (an allowlist with no nonce and no who; story
+ *                                                   7), which passes are waiting or running (control, with no who;
+ *                                                   story 6), and whether the pass is overdue (overdue; story 7)
  *   GET  /api/tagging-edges/held?runId=&offset=&limit   public read, paged: the LATEST report's held list only
- *   POST /api/tagging-edges/confirm-held-removals   owner only: { runId } → a single-use confirmation record
- *                                                   the next pass claims, then a start through the pass's
- *                                                   controller (ADR tagging-edges/0006 D8)
+ *   POST /api/tagging-edges/confirm-held-removals   owner only: { runId } → the pass controller's one confirmation
+ *                                                   step (ADR tagging-edges/0007 D1): a single-use confirmation the
+ *                                                   next pass claims, recorded with who confirmed
  *
  * What is served: counts, run ids, timestamps, relay- and graph-derived values (tagging addresses, event ids,
  * property-key names), the held list's digest, the pass's pid and process start time, reason text and redacted
- * error text. The stamp identities and the confirming owner appear only as 8-character prefixes, while a tagging
- * address carries its author's full pubkey; no config value or credential appears, and no absolute path that starts a
- * word (a `/` at the start or after whitespace, a quote, `[`, `(` or `=`): the runner redacts error text before it
- * enters the report, replacing any URI, any such path and any `host:port` (an IPv4 address; a letter-led name,
- * single-label or dotted, with a 2–5-digit port; or a bracketed IPv6 address). The held route never builds a path from
- * request input.
+ * error text. The stamp identities appear only as 8-character prefixes, while a tagging address carries its author's
+ * full pubkey; who confirmed is not served at all (it is in the gated record of actions only); no config value or
+ * credential appears, and no absolute path that starts a word (a `/` at the start or after whitespace, a quote, `[`,
+ * `(` or `=`): the runner redacts error text before it enters the report, replacing any URI, any such path and any
+ * `host:port` (an IPv4 address; a letter-led name, single-label or dotted, with a 2–5-digit port; or a bracketed IPv6
+ * address). The held route never builds a path from request input.
  *
- * The display logic is the pure computeStatus(); validateConfirmation() is the pure half of the confirm
- * route. Handlers take their dependencies (readFile included) as a third argument, for tests. sameHost(), isJson() and
- * ownerOrAdmin() are also the real-time switch's and the drift count's (ADR tagging-edges/0005 D5).
+ * The display logic is the pure computeStatus(); validateConfirmation(), the pure check of a confirmation, lives in
+ * src/lib/tagging-edges/confirmation.js and is re-exported here. Handlers take their dependencies (readFile included)
+ * as a third argument, for tests. sameHost(), isJson() and ownerOrAdmin() are also the real-time switch's and the drift
+ * count's (ADR tagging-edges/0005 D5).
  */
 
 const path = require('path');
-const crypto = require('crypto');
 const { RUN_ID_RE } = require('../../lib/tagging-edges/sweep');
+const { validateConfirmation, publicConfirmation } = require('../../lib/tagging-edges/confirmation');
+const { overdueVerdict } = require('../../pipeline/tagging-edges/overdue');
 
 const TASK_NAME = 'reconcileTaggingEdges';
 const HELD_PAGE_MAX = 1000;
-const CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000;
 const OWNER_RE = /^[0-9a-f]{64}$/;
+
+const allowErrorCode = (code) => require('../../lib/tagging-edges/realtime').allowErrorCode(code);
 
 /** The real dependencies, required lazily so this module loads stack-free. */
 function defaultDeps() {
   const state = () => require('../../pipeline/tagging-edges/state');
+  const control = () => require('../../pipeline/tagging-edges/control');
   return {
     readFile: (p, enc) => require('fs').promises.readFile(p, enc),
     stateDir: () => state().stateDir(),
     isAlive: (record) => state().isAlive(record),
-    heldDigest: (list) => state().heldDigest(list),
     readHeld: (runId, opts) => state().readHeld(runId, opts),
-    writeConfirmation: (record) => state().writeConfirmation(record),
-    withdrawConfirmation: () => state().withdrawConfirmation(),
     now: () => Date.now(),
-    nonce: () => crypto.randomBytes(16).toString('hex'),
     ownerPubkey: () => require('../../utils/config').getConfigFromFile('BRAINSTORM_OWNER_PUBKEY'),
-    // 'off' when the queue is disabled (never initialised), 'ready' while Redis is, else 'not-ready'; issues no command
-    queueHealth: () => require('../../manage/taskQueue/queue').queueHealth(),
-    // the default controller's start and busy snapshot (ADR tagging-edges/0006 D1, D8), shared with Run and the worker
-    lineUp: (args) => require('../../pipeline/tagging-edges/control').controller.lineUp(args),
-    snapshot: (...args) => require('../../pipeline/tagging-edges/control').controller.snapshot(...args),
+    // the schedule's entries for the overdue verdict; a read or parse error throws (ADR tagging-edges/0007 D8)
+    readScheduleEntries: () => require('../scheduled-tasks').readConfigStrict().entries,
+    // the default controller's confirmation and busy snapshot (ADR tagging-edges/0007 D1, 0006 D12), shared with Run
+    // and the worker
+    confirm: (args) => control().controller.confirm(args),
+    snapshot: (...args) => control().controller.snapshot(...args),
   };
 }
 
@@ -90,53 +92,20 @@ async function readHeld(d, runId) {
   }
 }
 
-function withoutNonce(record) {
-  if (!record || typeof record !== 'object') return null;
-  const rest = { ...record };
-  delete rest.nonce;
-  return rest;
-}
-
 /**
  * Pure. What the status route shows. `running` comes from liveness only — the stored value (the pessimistic
- * record stores `running: true`) is never passed through; a run that is not alive shows its stored text.
+ * record stores `running: true`) is never passed through; a run that is not alive shows its stored text. The
+ * confirmation is served through publicConfirmation's allowlist (ADR tagging-edges/0007 D6).
  */
 function computeStatus({ report, alive, confirmation, now } = {}) {
   const running = !!alive && !!(report && report.latest);
-  let pending = withoutNonce(confirmation);
-  if (pending) {
-    const expires = Date.parse(pending.expiresAt);
-    pending = { ...pending, expired: Number.isFinite(expires) && Number.isFinite(now) ? now >= expires : false };
-  }
   return {
     reportVersion: (report && report.reportVersion) || 1,
     running,
     latest: report && report.latest ? { ...report.latest, running } : null,
     previous: report && Array.isArray(report.previous) ? report.previous : [],
-    confirmationPending: pending,
+    confirmationPending: publicConfirmation(confirmation, now),
   };
-}
-
-/**
- * Pure. May the owner confirm this held report? Checks the posted run id's grammar, then its equality with the
- * latest report's, before any held file is touched. → { ok: true, runId, latest } | { ok: false, status, code, error }
- */
-function validateConfirmation({ body, report, alive } = {}) {
-  const runId = body && typeof body === 'object' ? body.runId : undefined;
-  if (typeof runId !== 'string' || !RUN_ID_RE.test(runId)) {
-    return { ok: false, status: 400, code: 'bad-run-id', error: 'runId must be a run id' };
-  }
-  const latest = report && report.latest;
-  if (!latest || latest.runId !== runId) {
-    return { ok: false, status: 409, code: 'not-the-latest-report', error: 'that run is not the latest report' };
-  }
-  if (latest.outcome !== 'done-removals-held' || !latest.held || !(latest.held.total > 0)) {
-    return { ok: false, status: 409, code: 'nothing-held', error: 'the latest report holds no removals' };
-  }
-  if (alive) {
-    return { ok: false, status: 409, code: 'running', error: 'that pass is still running' };
-  }
-  return { ok: true, runId, latest };
 }
 
 /**
@@ -207,6 +176,17 @@ async function controlOf(d) {
   }
 }
 
+/**
+ * The status's `overdue` member (ADR tagging-edges/0007 D8): the verdict over the schedule's entries, the latest pass
+ * and the server's own now, per request. A schedule that cannot be read is "cannot tell", never "no entry", and never
+ * fails the status.
+ */
+async function overdueOf(d, report) {
+  let entries;
+  try { entries = await d.readScheduleEntries(); } catch (_) { return { state: 'cannot-tell', reason: 'schedule' }; }
+  return overdueVerdict({ entries, latest: report && report.latest, nowMs: d.now() });
+}
+
 /** GET /api/tagging-edges/status */
 async function handleStatus(req, res, deps) {
   const d = withDeps(deps);
@@ -219,6 +199,7 @@ async function handleStatus(req, res, deps) {
     try { alive = !!(report && report.latest && (await d.isAlive(report.latest.process || report.latest))); } catch (_) { alive = false; }
     const answer = computeStatus({ report, alive, confirmation, now: d.now() });
     answer.control = await controlOf(d);
+    answer.overdue = await overdueOf(d, report);
     return res.json(answer);
   } catch (err) {
     return fsError(res, err);
@@ -293,78 +274,21 @@ async function handleConfirmHeldRemovals(req, res, deps) {
     return res.status(400).json({ success: false, error: 'runId must be a run id' });
   }
 
+  // Everything after who and the body is the controller's one step (ADR tagging-edges/0007 D1, D2), answered as it is.
+  let out;
   try {
-    const report = await readJson(d, 'report.json');
-    const pre = validateConfirmation({ body, report, alive: false });
-    if (!pre.ok) return res.status(pre.status).json({ success: false, code: pre.code, error: pre.error });
-    let alive = false;
-    try { alive = !!(report && report.latest && (await d.isAlive(report.latest.process || report.latest))); } catch (_) { alive = false; }
-    const v = validateConfirmation({ body, report, alive });
-    if (!v.ok) return res.status(v.status).json({ success: false, code: v.code, error: v.error });
-
-    const list = await readHeld(d, v.latest.runId);
-    if (list === null || d.heldDigest(list) !== v.latest.held.digest) {
-      return res.status(409).json({ success: false, code: 'held-list-changed', error: 'the held list does not match its report' });
-    }
-
-    const mintedAtMs = d.now();
-    const record = {
-      version: 1,
-      runId: v.runId,
-      heldDigest: v.latest.held.digest,
-      heldCount: list.length,
-      nonce: d.nonce(),
-      mintedAt: new Date(mintedAtMs).toISOString(),
-      expiresAt: new Date(mintedAtMs + CONFIRMATION_TTL_MS).toISOString(),
-      mintedBy: owner.slice(0, 8),
-    };
-    try {
-      await d.writeConfirmation(record);
-    } catch (err) {
-      return res.status(500).json({ success: false, error: `could not write the confirmation: ${(err && err.code) || 'error'} confirmation.json` });
-    }
-
-    // A pass that started meanwhile: withdraw the record, unless that pass already claimed it.
-    const after = await readJson(d, 'report.json');
-    const afterLatest = after && after.latest;
-    if (!afterLatest || afterLatest.runId !== v.runId) {
-      let withdrawn;
-      try {
-        withdrawn = await d.withdrawConfirmation();
-      } catch (err) {
-        // The record may still be pending, and the pass that started may honour it (owner decision 6).
-        return res.status(500).json({ success: false, code: 'withdraw-failed', error: `a pass started and the confirmation could not be withdrawn (${(err && err.code) || 'error'}); that pass may honour it — read its report` });
-      }
-      if (!withdrawn) {
-        return res.json({ success: true, confirmed: true, enqueued: false, claimedBy: afterLatest ? afterLatest.runId : null, expiresAt: record.expiresAt });
-      }
-      return res.status(409).json({ success: false, code: 'pass-started', error: 'a pass started; confirm its report when it ends' });
-    }
-
-    // Through the controller (ADR tagging-edges/0006 D8): a pass busy with no stop asked for takes the confirmation up,
-    // so nothing is added (joined); otherwise a new job is lined up under its own id, never joining one that is ending.
-    let enqueued = false;
-    let jobId;
-    let joined = false;
-    try {
-      if (d.queueHealth() === 'ready') {
-        const out = await d.lineUp({ who: { kind: 'confirmation' }, mode: 'confirm' });
-        const b = (out && out.body) || {};
-        enqueued = b.enqueued === true;
-        jobId = typeof b.jobId === 'string' ? b.jobId : undefined;
-        joined = b.joined === true;
-      }
-    } catch (err) {
-      console.warn(`[tagging-edges] confirmation recorded but not enqueued: ${(err && err.code) || 'error'}`);
-      enqueued = false;
-    }
-    const answer = { success: true, confirmed: true, enqueued, expiresAt: record.expiresAt };
-    if (jobId !== undefined) answer.jobId = jobId;
-    if (joined) answer.joined = true;
-    return res.json(answer);
+    out = await d.confirm({ who: { kind: 'owner', key: owner }, runId });
+    if (!out || !Number.isInteger(out.status) || !out.body || typeof out.body !== 'object') out = confirmFailed(null);
   } catch (err) {
-    return fsError(res, err);
+    out = confirmFailed(err);
   }
+  return res.status(out.status).json(out.body);
+}
+
+/** A confirmation the controller could not answer: 500 { code: 'error', cause } with an allow-listed code. */
+function confirmFailed(err) {
+  const body = { success: false, code: 'error', cause: allowErrorCode(err && err.code), error: 'the confirmation could not be carried out' };
+  return { status: 500, body };
 }
 
 module.exports = {

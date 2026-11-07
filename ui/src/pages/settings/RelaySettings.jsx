@@ -2273,6 +2273,11 @@ function ScheduledTasksPanel() {
   );
 }
 
+// A story that changes what one of these sub-tabs requests (a new read on mount, a poll, a removed read) runs B39 in
+// tests/brainstorm/tagging-pipeline-panel.spec.js and, when the change is intended, updates its baseline
+// (tests/brainstorm/fixtures/relay-subtab-requests.json) by hand in the same story. B39 is the only check of the
+// sub-tabs' requests, and that spec is not part of `npm test`'s gate: a sub-tab read added without it left B39 red
+// from 2026-10-09 until tagging-edges #7 (ledger 2026-10-28-relay-subtab-baseline-stale).
 const RELAY_TABS = [
   { key: 'router', label: '🔄 Router Management' },
   { key: 'sync', label: '🔃 Negentropy Sync' },

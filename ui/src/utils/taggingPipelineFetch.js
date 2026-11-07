@@ -1,23 +1,25 @@
 /**
  * The Tagging pipeline panel's request primitives (tagging-edges Story 4 /
  * ADR 0004 § UI, § Clarifications T7; Story 5 / ADR 0005 D12; Story 6 /
- * ADR 0006 D15). Every section of the panel reads its route through
- * readSection, so each section loads, fails and retries on its own, and a
- * failure always arrives as a short code, never as raw text or a stack trace
- * (a non-2xx answer's parsed JSON rides along only for /held's latestRunId and
- * the failure codes of the switch, Run and Stop). Plain ESM in Node 16 syntax
- * so the Node harness can dynamic-import it; it can't parse JSX (the
- * nextTaskCountdown precedent).
+ * ADR 0006 D15; Story 7 / ADR 0007 D11). Every section of the panel reads its
+ * route through readSection, so each section loads, fails and retries on its
+ * own, and a failure always arrives as a short code, never as raw text or a
+ * stack trace (a non-2xx answer's parsed JSON rides along only for /held's
+ * latestRunId and the failure codes of the switch, Run, Stop and Confirm).
+ * Plain ESM in Node 16 syntax so the Node harness can dynamic-import it; it
+ * can't parse JSX (the nextTaskCountdown precedent).
  *
- * Every request is a GET but three: sendSwitch's POST, the real-time path's
- * switch (story 5), and sendRun's and sendStop's POSTs, the pass's Run and
- * Stop (story 6 / ADR 0006 D15). All share one race, so their 15 s limit is
- * the reads' own.
+ * Every request is a GET but four: sendSwitch's POST, the real-time path's
+ * switch (story 5), sendRun's and sendStop's POSTs, the pass's Run and Stop
+ * (story 6 / ADR 0006 D15), and sendConfirm's POST, the owner's confirmation
+ * of held removals (story 7 / ADR 0007 D11). All share one race, so their
+ * 15 s limit is the reads' own.
  */
 
 const SWITCH_PATH = '/api/tagging-edges/realtime/switch';
 const RUN_PATH = '/api/tagging-edges/pass/run';
 const STOP_PATH = '/api/tagging-edges/pass/stop';
+const CONFIRM_PATH = '/api/tagging-edges/confirm-held-removals';
 
 /**
  * Read one section's route.
@@ -96,6 +98,23 @@ export async function sendStop(targets, opts) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ targets }),
+    signal,
+  }));
+}
+
+/**
+ * Confirm the held removals of the pass the prompt named (ADR 0007 D11): one POST of `{"runId": …}` as JSON to the
+ * confirm route, the run id exactly as given. Same race, shapes and 15 s default as sendRun; it never rejects.
+ *
+ * @param {string} runId
+ * @param {{ fetchImpl?: Function, timeoutMs?: number }} [opts]
+ */
+export async function sendConfirm(runId, opts) {
+  const { fetchImpl = globalThis.fetch, timeoutMs = 15000 } = opts || {};
+  return raced(timeoutMs, (signal) => attempt(CONFIRM_PATH, fetchImpl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ runId }),
     signal,
   }));
 }
