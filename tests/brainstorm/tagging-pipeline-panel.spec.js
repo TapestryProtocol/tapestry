@@ -24,8 +24,9 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B8  — an outcome the panel does not know reads "not recognised" beside its code.                   [AC-2; explanations]
  *   B9  — no pass yet: says so, and its line names Run beside the two other ways one starts (story 6). [AC-2; 0006 D19]
  *   B10 — the held list pages to every item, matches the report, gives reasons; pending until when; no
- *         Confirm (story 7's).                                                                         [AC-2]
- *   B11 — an expired confirmation is shown as expired, not pending.                                    [AC-2]
+ *         Confirm while that confirmation is pending, and no other button named for confirming (story 7). [AC-2]
+ *   B11 — an expired confirmation is shown as expired, not pending; no pass carries it out, the owner can
+ *         confirm again (story 7's wording, ADR 0007 D13).                                             [AC-2]
  *   B12 — an unreadable confirmation is shown as unreadable.                                           [AC-2]
  *   B13 — schedule: none enabled, a disabled one mentioned, the button opens Scheduled Tasks.          [AC-2]
  *   B14 — schedule: none at all, no disabled one to mention.                                           [AC-2]
@@ -166,11 +167,71 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B117 — focus inside the pass controls (Cancel, "Stop the pass", "Run a pass now") survives the switch from an
  *         empty report to a ready one.                                                                       [D17]
  *
+ *   Story 7, confirming held removals (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
+ *   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md D4–D16, § Seams "Revised pins"). The class
+ *   is titled "tagging-edges #7", so -g "tagging-edges #7" selects it. Revised, not deleted: B9, B10 and B94 (the
+ *   no-Confirm pins now allow exactly "Confirm held removals" and the prompt's "Confirm the removals", in the held
+ *   section; every other button still refuses /confirm/i), B11 (the expired line's wording, D13), B38 (the request pin:
+ *   the allowed POSTs gain the confirm route, the reads gain nothing) and B43 (E1: the drift line's guard). B39's
+ *   baseline is brought up to date and its checks are soft (ledger 2026-10-28-relay-subtab-baseline-stale). Fixtures:
+ *   F.SCENE7, F.CONFIRM_ANSWER, F.OVERDUE, F.CLASSIFICATION; the mock's confirm acts as the server would
+ *   (F.applyConfirm).
+ *   B118 — Confirm for each confirmation state: none, pending for the latest list (no Confirm), pending for an
+ *          earlier pass, expired, unreadable, expiry unreadable; none when nothing is held.                 [AC-1; D9]
+ *   B119 — no Confirm while a pass runs (by liveness, and a starting pass in control.busy); the ended pass's own
+ *          held list and Confirm.                                                                           [AC-1; D9]
+ *   B120 — no Confirm until the held list is read (loading, failed), then Confirm.                           [AC-1; D9]
+ *   B121 — the prompt: inline, focus on Cancel, how many and which pass, lines up a pass now, once, 24 hours,
+ *          no undo and how a removal comes back; Cancel sends nothing.                                     [AC-2; D10]
+ *   B122 — the prompt's "when" for a waiting pass, every busy pass asked to stop, and "cannot tell".         [AC-2; D9, D10]
+ *   B123 — the replacing line (pending for an earlier pass, expired, unreadable, expiry unreadable), and D13's
+ *          held-section wording.                                                                            [AC-2, AC-7; D10, D13]
+ *   B124 — confirming with nothing busy: one POST {runId}, "Confirming…", lined up, the pass waiting, pending. [AC-1; D4, D10, D11]
+ *   B125 — no answer in 15 s: Confirm enabled again, "outcome unknown", then the next read.                  [AC-1; D11]
+ *   B126 — a stale panel's Confirm: already pending, until when; then shown pending.                        [AC-1; D4]
+ *   B127 — no pass lined up (queue unavailable; an add that failed): said so, its reason, Run or the schedule. [AC-1; D4, D11]
+ *   B128 — a waiting pass takes it up (nothing new); every busy pass asked to stop: lined up behind it.     [AC-1; D2, D4]
+ *   B129 — the answer says what happened: busy changed since the prompt; a starting pass; taken up; withdrawn;
+ *          cannot tell.                                                                                     [AC-1, AC-2; D4, D11]
+ *   B130 — an out-of-date prompt: nothing confirmed, the new state, Confirm again for the new pass.         [AC-2; D4, D11]
+ *   B131 — the prompt closes by itself on a read that makes Confirm unavailable or changes the pass; not on a
+ *          change in what is busy; never while under way.                                                  [AC-2; D10]
+ *   B132 — a confirmation used up by a pass that failed or was stopped: no Confirm, and confirm again once a
+ *          later pass holds them again.                                                                    [AC-1; D13]
+ *   B133 — an admin's disabled Confirm and its reason, exactly where the owner's would be.                  [AC-3; D9]
+ *   B134 — a refused (403, 401) or failed (500) confirmation: the reason, then the state as it stands.     [AC-3, AC-4; D4, D11]
+ *   B135 — the confirmation in the history, below the start it lined up; another viewer sees it.            [AC-4, AC-1; D5, D12]
+ *   B136 — the pass that took it up: the owner's confirmation and when it was made; "(when not recorded)".  [AC-4; D7, D12]
+ *   B137 — a pass that found it and did not honour it, with why.                                             [AC-4; D12]
+ *   B138 — the overdue warning; none when on time, with no entry, no schedule, or no pass.                 [AC-5; D14]
+ *   B139 — overdue while a pass waits says so; it clears within POLL_MS of a pass beginning.               [AC-5; D14]
+ *   B140 — "cannot tell" (the schedule, the rule, the report, no member, a failed status read); still being
+ *          checked before the status answers.                                                               [AC-5; D14]
+ *   B141 — the warning shows while the schedule list loads and beside its failure.                         [AC-5; D14, R12]
+ *   B142 — a device clock 3 days out shows the same verdict.                                                 [AC-5; D8, D14]
+ *   B143 — focus: the Turn off prompt.                                                                       [AC-6; D15]
+ *   B144 — focus: the Stop prompt.                                                                           [AC-6; D15]
+ *   B145 — focus: the Confirm prompt.                                                                        [AC-6; D15]
+ *   B146 — the opening line names confirming held removals, for the owner.                                   [AC-7; D16]
+ *   B147 — the request pin: only GETs on a held list until Confirm is pressed, then exactly its POST.       [Test tasks; § Seams]
+ *
+ * ── A story that changes a Relays sub-tab runs B39 ───────────────────────────────────────────────────────────────
+ * B39 is the only check that the other Relays sub-tabs (Router Management, Negentropy Sync, Relay Configuration,
+ * Streaming ETL, Scheduled Tasks) send the requests they did, and this spec is not part of `npm test`'s gate. So any
+ * story that changes what one of those sub-tabs requests (a new read on mount, a poll, a removed read) runs B39:
+ *   ... npx playwright test tests/brainstorm/tagging-pipeline-panel.spec.js --project=chromium -g "B39"
+ * If the change is intended, update tests/brainstorm/fixtures/relay-subtab-requests.json by hand in the same story,
+ * with a `handEdits` entry naming the commit and why (re-recording with TP_RECORD_BASELINE=1 is refused on every
+ * build since story 4, which contains the panel). relay-stream-gaps #3 (ffda8152) skipped this, and B39 was red from
+ * 2026-10-09 until story 7 (ledger 2026-10-28-relay-subtab-baseline-stale).
+ *
  * ── Hermetic by construction ──────────────────────────────────────────────────────────────────────────────────────
  * Every /api route is mocked, story 5's switch included (GET its record, POST a change, on one route; the default
  * POST acts as the server would, so the status and the record follow it), and story 6's pass record (GET), Run and
  * Stop (POSTs), whose defaults are as quiet: no action recorded, and Run and Stop as the server would answer them
- * (F.applyRun, F.applyStop). Story 4's and 5's status bodies carry no `control` (a server before story 6). The catch-all is registered FIRST (so every later route wins) and answers 599
+ * (F.applyRun, F.applyStop). Story 4's and 5's status bodies carry no `control` (a server before story 6). Story 7's
+ * confirm (POST) acts as the server would by default (F.applyConfirm, owner only); story 4–6 bodies carry no `overdue`
+ * (a server before story 7), story 7's scenes (F.SCENE7) do. The catch-all is registered FIRST (so every later route wins) and answers 599
  * { success: false }: readSection treats any 2xx JSON object as good, so an unmocked route must never look like a good
  * answer (ADR 0004 § Seams). App routes (/tapestry/**) are answered with the served app shell, so client routing works
  * on a static server. The panel's tests run in UTC with the en-GB locale and a page clock that starts at the fixtures'
@@ -262,6 +323,8 @@ const SEVERAL = /\b(?:2|two)\b[^.]*\b(?:entries|enabled|schedules|backstops)\b|\
 const PENDING = /\bpending\b|\bawaiting\b|waits? for the next pass|will be (?:used|honou?red|applied)|\bconfirm\w*\b[^.]*\b(?:until|expires?|valid)\b/i;
 const PENDING_STRICT = /\bpending until\b|\bis pending\b/i; // absent when expired (the reviewer's check)
 const EXPIRED = /\bexpired\b|no longer valid|\blapsed\b/i;
+// Story 4's expired line ("it stays until the next pass, which does not honour it"); story 7 replaced that wording
+// (ADR 0007 D13), so B11 no longer asks for it. Kept for the record of what story 4 pinned.
 const EXPIRED_STAYS = /until the next pass|next pass\b[^.]*\b(?:not|never|won't|doesn't|ignores?)\b|\b(?:not|never|won't|doesn't)\b[^.]*\b(?:honou?r|use|apply|act on)\w*\b[^.]*\bnext pass\b/i;
 const UNREADABLE = /unreadable|(?:cannot|could not|can't|couldn't) be read|not readable/i;
 const RUNNING_WAITS = /\b(?:ends|finishes|ended|finished|done|completes?|completed)\b/i;
@@ -288,6 +351,8 @@ const NEO4J_DOWN = /\bNeo4j\b[^.]*\b(?:down|unreachable|not running|not answerin
 const COUNTS_PREDATE = /\bbefore\b[^.]*\bpass\b[^.]*\b(?:ended|finished|completed|ran)\b|\bpredat\w*\b|\b(?:older|earlier) than\b[^.]*\bpass\b|\bpass\b[^.]*\b(?:ended|finished)\b[^.]*\bafter\b[^.]*\b(?:counts?|counted|taken|counting)\b/i;
 const ASK_RECOUNT = /\b(?:press|click|use|run|ask for|do|choose|select|try|needs?|request)\b[^.]{0,30}\bRecount\b|\bRecount\b[^.]{0,60}\b(?:to|for|so)\b[^.]{0,40}\b(?:count|figures?|explain\w*|current|fresh|new|up to date)\b/i;
 const APPLIED_REMOVALS = /\bapplied\b[^.]*\bremovals?\b|\bremovals?\b[^.]*\b(?:were|was|been|are) applied\b/i;
+/** The path line's guard (story 4 review round 2 R2-4; story 5 review NB2, E1): the explained part leaves the path's figures out. */
+const EXPLAINED_EXCLUDES = /\bexplained part\b[^.]*\b(?:does not|doesn't|do not|don't|not) include\b|\bexplained part\b[^.]*\b(?:excludes?|leaves? (?:them |these )?out)\b|\bnot (?:included|counted) in the explained part\b/i;
 const NEGATED = /\b(?:no|none|not|never|nothing|without|0)\b/i;
 /** The sentences that claim confirmed removals were applied (a negated sentence, "applied none of …", is no claim). */
 const appliedClaims = (text) => text.split(/(?<=\.)\s+/).filter((x) => APPLIED_REMOVALS.test(x) && !NEGATED.test(x));
@@ -436,6 +501,7 @@ async function mock(page, o = {}) {
     passRecord: undefined,
     run: undefined,
     stop: undefined,
+    confirm: undefined,
     ...o,
   };
   const log = { api: [], nonGet: [], sent: [], navigations: 0 };
@@ -464,9 +530,8 @@ async function mock(page, o = {}) {
   await page.route('**/api/auth/status', (r) => fulfil(r, () => (who()
     ? { authenticated: true, pubkey: who().pubkey }
     : { authenticated: false, pubkey: null })));
-  await page.route('**/api/auth/user-classification', (r) => fulfil(r, () => (who()
-    ? { success: true, classification: who().classification, pubkey: who().pubkey }
-    : { success: true, classification: 'unauthenticated', pubkey: null })));
+  // The signed-in user's classification, from which the panel takes its role (story 7; ADR 0007 D9).
+  await page.route('**/api/auth/user-classification', (r) => fulfil(r, () => F.CLASSIFICATION[cur.who] || F.CLASSIFICATION.visitor));
   await page.route('**/api/profiles**', (r) => fulfil(r, { success: true, profiles: {} }));
   await page.route('**/api/settings', (r) => fulfil(r, { success: true, settings: {}, defaults: {}, overrides: {} }));
   // The Scheduled Tasks sub-tab (the schedule warning's button opens it; AC-6 opens it).
@@ -549,6 +614,17 @@ async function mock(page, o = {}) {
   };
   await page.route('**/api/tagging-edges/pass/run', (r) => fulfil(r, action('run', serverRun)));
   await page.route('**/api/tagging-edges/pass/stop', (r) => fulfil(r, action('stop', serverStop)));
+
+  // Story 7's route (ADR 0007 D1, D4): POST the owner's confirmation. `confirm` left undefined acts as the server would
+  // (F.applyConfirm, at F.NOW, as the viewer): the status and the record follow it. It may be a body, fail(…), an
+  // F.CONFIRM_ANSWER { status, body }, or a function of (request, theServersAnswer).
+  let confirmLineUps = 0;
+  const serverConfirm = (req) => {
+    confirmLineUps += 1;
+    const key = F.lineUpKey((0xc0f000000000 + confirmLineUps).toString(16));
+    return follow(F.applyConfirm({ status: statusBodyNow(), passRecord: recordBodyNow(), viewer: viewer(), body: postBody(req), key }));
+  };
+  await page.route('**/api/tagging-edges/confirm-held-removals', (r) => fulfil(r, action('confirm', serverConfirm)));
 
   const set = (patch) => Object.assign(cur, patch);
   return { log, set };
@@ -835,6 +911,172 @@ const TOO_LATE = /\btoo late\b|\bended (?:first|before)\b/i;
 const ENDED_FIRST = /\bended first\b|\bended before\b|\btoo late\b/i;
 const RECORD_FAILED = /\brecord\b[^.]*(?:(?:could not|couldn't|cannot|can't) be read|\bunreadable\b|\bnot readable\b)/i;
 
+/* ── Story 7: Confirm, its prompt, who confirmed, the overdue line and focus (ADR 0007 D9–D16) ─────────────────── */
+
+const CONFIRM_POST = `POST ${F.ROUTES.confirm}`;
+/** Every POST the panel may send, each only when its control is pressed (stories 5–7; ADR 0007 § Seams "Request pins"). */
+const ALLOWED_POSTS = [SWITCH_POST, RUN_POST, STOP_POST, CONFIRM_POST];
+/** D9 and D10 fix the labels: "Confirm held removals", the prompt's "Confirm the removals" and "Cancel", "Confirming…". */
+const CONFIRM_LABEL = 'Confirm held removals';
+const CONFIRM_PROMPT_LABEL = 'Confirm the removals';
+const CONFIRMING = /^\s*Confirming(?:…|\.\.\.)\s*$/;
+/**
+ * The names a button may carry and still be named for confirming (story 7 § Test tasks "The no-Confirm pins"): the
+ * held section's Confirm (the owner's, enabled; an admin's, disabled), its prompt's confirm, and that button while
+ * under way (D10 "Confirming…").
+ */
+const CONFIRM_NAMES_ALLOWED = [/^Confirm held removals$/, /^Confirm the removals$/, /^Confirming(?:…|\.\.\.)$/];
+/** The buttons whose name matches /confirm/i: each { name, inHeld }, read in the page. */
+async function confirmNamedButtons(page) {
+  return page.getByRole('button', { name: /confirm/i }).evaluateAll((bs) => bs.map((b) => ({
+    name: (b.getAttribute('aria-label') || b.innerText || b.textContent || '').replace(/\s+/g, ' ').trim(),
+    inHeld: !!b.closest('[data-testid="tp-held"]'),
+  })));
+}
+/** The buttons named for confirming that the pins refuse: any name but the allowed ones, and any allowed one outside tp-held. */
+async function refusedConfirmButtons(page) {
+  return (await confirmNamedButtons(page))
+    .filter((b) => !b.inHeld || !CONFIRM_NAMES_ALLOWED.some((re) => re.test(b.name)))
+    .map((b) => `${b.name}${b.inHeld ? '' : ' (outside the held section)'}`);
+}
+const confirmButton = (page) => section(page, 'tp-held').getByRole('button', { name: CONFIRM_LABEL, exact: true });
+const heldCancel = (page) => section(page, 'tp-held').getByRole('button', { name: 'Cancel', exact: true });
+/** A button in tp-held that itself carries aria-busy="true" (D10: the prompt's confirm while under way). */
+const heldBusyButtons = (page) => section(page, 'tp-held').locator('button[aria-busy="true"]');
+const heldHeading = (page, name) => section(page, 'tp-held').getByRole('heading', { name, exact: true });
+/**
+ * The Confirm prompt (ADR 0007 D10, the ADR 0005 D13 pattern): the nearest element around its "Cancel" that also holds
+ * a "Confirm the removals" button and a heading — an inline confirmation inside tp-held.
+ */
+const CONFIRM_PROMPT_XPATH = 'xpath=.//button[normalize-space(.)="Cancel"]/ancestor::*[.//button[normalize-space(.)="Confirm the removals"]]'
+  + '[.//h1 or .//h2 or .//h3 or .//h4 or .//h5 or .//h6 or .//*[@role="heading"]][1]';
+/** An element's text as the viewer reads it, its buttons left out, in one synchronous pass. */
+async function textLeavingOutButtons(locator) {
+  return squash(await locator.evaluate((el) => {
+    const bs = [...el.querySelectorAll('button')];
+    const before = bs.map((b) => b.style.display);
+    bs.forEach((b) => { b.style.display = 'none'; });
+    try {
+      return el.innerText;
+    } finally {
+      bs.forEach((b, i) => { b.style.display = before[i]; });
+    }
+  }));
+}
+
+/** Press "Confirm held removals" and return the prompt it opens: { prompt, cancel, confirm, heading, text() }. */
+async function openConfirmPrompt(page) {
+  const b = confirmButton(page);
+  await expect(b, `the held section shows "${CONFIRM_LABEL}" to the owner (story 7 AC-1; ADR 0007 D9) — not implemented yet if missing`).toBeVisible({ timeout: 5000 });
+  await expect(b, `"${CONFIRM_LABEL}" is enabled for the owner`).toBeEnabled();
+  await b.click();
+  const cancel = heldCancel(page);
+  await expect(cancel, `pressing "${CONFIRM_LABEL}" opens a prompt inside the held section, with a "Cancel" button (AC-2 "A prompt comes first"; D10)`).toBeVisible({ timeout: 5000 });
+  const prompt = section(page, 'tp-held').locator(CONFIRM_PROMPT_XPATH).first();
+  await expect(prompt, `the prompt is one element holding its heading, its text, and its "${CONFIRM_PROMPT_LABEL}" and "Cancel" buttons (D10: settings-group, h4)`).toHaveCount(1);
+  expect(await prompt.getAttribute('data-testid'), 'the prompt is its own element inside tp-held, not the whole section (D10: an inline prompt)').not.toBe('tp-held');
+  const heading = squash(await prompt.locator('h1, h2, h3, h4, h5, h6, [role="heading"]').first().innerText());
+  return {
+    prompt,
+    cancel,
+    heading,
+    confirm: prompt.getByRole('button', { name: CONFIRM_PROMPT_LABEL, exact: true }),
+    /** The prompt's text with its buttons left out, so "Confirm the removals" is never read as a line. */
+    text: async () => textLeavingOutButtons(prompt),
+  };
+}
+
+/**
+ * Where keyboard focus is (AC-6): the page itself (`body`), or an element — its tag and text, the panel section around
+ * it, whether it is a button (and disabled), a heading, and that section's own heading (its first one).
+ */
+async function focusAt(page) {
+  return page.evaluate((ids) => {
+    const el = document.activeElement;
+    if (!el || el === document.body || el === document.documentElement) return { body: true, text: '' };
+    const sec = el.closest(ids.map((id) => `[data-testid="${id}"]`).join(','));
+    const heading = /^H[1-6]$/.test(el.tagName) || el.getAttribute('role') === 'heading';
+    const first = sec ? sec.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]') : null;
+    return {
+      body: false,
+      tag: el.tagName.toLowerCase(),
+      text: (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim(),
+      section: sec ? sec.getAttribute('data-testid') : null,
+      button: el.tagName === 'BUTTON',
+      disabled: !!el.disabled,
+      heading,
+      sectionHeading: !!first && first === el,
+    };
+  }, SECTIONS);
+}
+const focusSummary = (f) => (f.body
+  ? 'document.body (the page itself)'
+  : `<${f.tag}>${f.button ? ' button' : ''}${f.disabled ? ' (disabled)' : ''}${f.heading ? ' heading' : ''} in ${f.section || 'no panel section'}: "${f.text.slice(0, 90)}"`);
+/** The controls that send at a keypress: focus never lands on them (AC-6 "Never lost"; D15). */
+const SENDS_AT_A_KEYPRESS = [/^Turn on$/, /^Run a pass now$/];
+function expectNotLost(f, what) {
+  expect(f.body, `${what}: focus never falls to the page itself (AC-6 "Never lost"; ADR 0007 D15) — it is on ${focusSummary(f)}`).toBe(false);
+  expect(f.button && SENDS_AT_A_KEYPRESS.some((re) => re.test(f.text)), `${what}: focus never lands on "Turn on" or "Run a pass now", which send at a keypress (AC-6; D15) — it is on ${focusSummary(f)}`).toBe(false);
+}
+/** Wait until focus satisfies `ok`, then check it is not lost. The poll reports where focus is when it fails. */
+async function untilFocus(page, ok, what, timeout = 10000) {
+  await expect.poll(async () => { const f = await focusAt(page); return ok(f) ? 'there' : focusSummary(f); }, { message: what, timeout }).toBe('there');
+  expectNotLost(await focusAt(page), what);
+}
+/** Focus on the line that says what happened, in section `id`: no button, no heading, its text matching `re` (D15). */
+const onOutcomeLine = (id, re) => (f) => !f.body && f.section === id && !f.button && !f.heading && re.test(f.text);
+/** Focus on section `id`'s own heading (D15: "else the section's heading"). */
+const onSectionHeading = (id) => (f) => !f.body && f.section === id && f.sectionHeading;
+/** Focus on a heading in section `id` whose text is `text` (D15: a prompt whose send starts focuses its own h4). */
+const onHeadingNamed = (id, text) => (f) => !f.body && f.section === id && f.heading && f.text === text;
+
+/* Story 7's ideas (AC-1..AC-7; ADR 0007 D9–D16), matched by idea as above; each is checked absent where it must not show. */
+const ONLY_OWNER = /\bonly the owner\b[^.]*\bconfirm\w*\b/i;
+const TAKES_UP_ANY = /\b(?:takes?|took|taken|taking|will take)\b[^.]*\bup\b/i;
+/** The sentences that say a pass is lined up now (a negated one, or one that cannot tell, claims nothing). */
+const linesUpNow = (text) => sentencesWith(text, /\blin(?:es|ing) up\b|\blined up\b/i, /\bnow\b/i)
+  .filter((s) => !NEGATED.test(s) && !/\b(?:cannot|can't|could not|couldn't|whether)\b/i.test(s));
+/** The sentences that claim a pass was lined up (a negated one, "no pass was lined up", claims nothing). */
+const linedUpClaimsOf = (text) => sentencesWith(text, /\blined up\b/i).filter((s) => !NEGATED.test(s));
+const ALREADY_WAITING = /\balready\b[^.]*\bwaiting\b|\bwaiting\b[^.]*\balready\b/i;
+const takesThisUp = (text) => sentencesWith(text, /\b(?:takes?|will take)\b/i, /\bconfirmation\b/i, /\bup\b/i);
+const CANNOT_TELL_LINED_UP = /\b(?:cannot|can't|could not|couldn't|unable to)\b[^.]*\btell\b[^.]*\blined up\b/i;
+const ANSWER_WILL_SAY = /\banswer\b[^.]*\b(?:says?|tells?|will say|will tell)\b[^.]*\bhappen\w*\b/i;
+const onceLines = (text) => sentencesWith(text, /\bonce\b/i, /\b(?:held list|list|removals?)\b/i);
+const lapseLines = (text) => sentencesWith(text, /\b24 hours\b|\b24 h\b|\b24-hour\b|\btwenty-four hours\b/i, /\blaps\w*\b|\bexpir\w*\b/i);
+const NO_UNDO = /\b(?:cannot|can't|can not|could not)\b[^.]*\bundone\b|\bnot be undone\b|\bno undo\b|\birreversible\b/i;
+const comesBackLines = (text) => sentencesWith(text, /\b(?:comes?|came) back\b|\badds? (?:it |them )?back\b|\brestor\w*\b/i, /\brelay\b/i);
+const WHILE_PATH_ON = /\breal-time path\b[^.]*\b(?:while|when|if|as long as) (?:it|the path) is on\b|\b(?:while|when|if) the real-time path is on\b/i;
+const LATER_PASS = /\b(?:later|next) pass\b/i;
+const replacesLines = (text) => sentencesWith(text, /\breplac\w*\b/i, /\b(?:earlier|previous|existing|other|older)\b/i);
+const BEHIND_STOPPING = /\bbehind\b[^.]*\bstopping\b/i;
+const JUST_BEGUN = /\b(?:just )?(?:begun|began|beginning|started|starting)\b/i;
+const NOTHING_CONFIRMED = /\bnothing (?:was |has been )?confirmed\b|\b(?:was|were|is|has) not (?:been )?confirmed\b|\bnot confirmed\b|\bno confirmation was made\b/i;
+const ALREADY_PENDING = /\balready pending\b|\bis already\b[^.]*\bpending\b/i;
+const WITHDRAWN = /\bwithdrawn\b|\bnothing (?:was |has )?(?:changed|confirmed)\b|\bchanged nothing\b/i;
+const PASS_STARTED_MEANWHILE = /\bpass\b[^.]*\b(?:start\w*|began|begun)\b/i;
+const CANNOT_TELL_STANDS = /\b(?:cannot|can't|could not|couldn't)\b[^.]*\btell\b[^.]*\b(?:confirmation|stands?|stood)\b|\bwhether\b[^.]*\bconfirmation\b[^.]*\bstands?\b/i;
+const NEXT_READ = /\bnext read\b/i;
+const RUN_NAMED = /\bRun a pass now\b/i;
+const NEXT_SCHEDULED = /\bnext scheduled pass\b|\bscheduled pass\b|\bthe schedule\b/i;
+const WITHIN_24H = /\b24 hours\b|\b24 h\b|\b24-hour\b/i;
+const NO_PASS_CARRIES = /\bno pass\b[^.]*\bcarr(?:y|ies)\b[^.]*\bout\b|\b(?:will not|won't|does not|doesn't|never)\b[^.]*\bcarr(?:y|ied)\b[^.]*\bout\b/i;
+const CONFIRMING_AGAIN_REPLACES = /\bconfirm\w*\b[^.]*\bagain\b[^.]*\breplac\w*\b|\breplac\w*\b[^.]*\bconfirm\w*\b[^.]*\bagain\b/i;
+const EXPIRY_UNREADABLE = /\bexpir\w*\b[^.]*(?:(?:cannot|can't|could not|couldn't) be read|\bunreadable\b|\bnot readable\b)/i;
+const USED_IT_UP = /\bused (?:it |the confirmation |the owner's confirmation |its confirmation |that confirmation )?up\b|\bused up\b|\bspent\b/i;
+const TOOK_UP_CONFIRMATION = /\b(?:took|takes|taken) up\b[^.]*\bconfirmation\b|\b(?:took|takes|taken)\b[^.]*\bconfirmation\b[^.]*\bup\b/i;
+const WHEN_NOT_RECORDED = /\bwhen not recorded\b|\b(?:time|when)\b[^.]*\bnot recorded\b/i;
+const DID_NOT_HONOUR = /\b(?:did not|didn't|does not|not) honou?r\b/i;
+const CONFIRMED_WORD = /\bconfirmed\b/i;
+const refusedAsOwner = (text) => sentencesWith(text, SIGN_IN_AGAIN, /\bowner\b/i);
+const OVERDUE_WORD = /\boverdue\b/i;
+const OVERDUE_CANNOT_TELL = /\b(?:cannot|can't|could not|couldn't|unable to)\b[^.]*\btell\b[^.]*\boverdue\b/i;
+const OVERDUE_CHECKING = /\boverdue\b[^.]*\b(?:still )?being checked\b|\b(?:still )?(?:checking|being checked)\b[^.]*\boverdue\b/i;
+/** The overdue claims of a text: sentences saying "overdue" that are not "cannot tell" or "still being checked". */
+const overdueClaims = (text) => sentencesWith(text, OVERDUE_WORD).filter((s) => !/\b(?:cannot|can't|could not|couldn't|unable to|whether)\b/i.test(s));
+const overdueWaitingLines = (text) => sentencesWith(text, /\bwaiting\b/i).filter((s) => /\b(?:clears?|cleared|goes away|lifts?)\b|\bbegins? running\b/i.test(s));
+const OPENING_CONFIRMS = /\bconfirm\w*\b[^.]*\bheld removals\b/i;
+
 /* ── B0 ─────────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 async function bundleContains(request, needles) {
@@ -1019,9 +1261,17 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     expect(lines, 'an enabled Scheduled Tasks entry').toMatch(/Scheduled Tasks/i);
     expect(lines, 'or the Task Explorer').toMatch(/Task Explorer/i);
     expect(lines, `the line on how a pass starts names "${RUN_LABEL}" (ADR 0006 D19: the empty state keeps "No pass has run yet" and names "Run a pass now" beside the Scheduled Tasks entry and the Task Explorer; the button's own label is not counted) — not implemented yet`).toMatch(/\bRun a pass now\b/i);
+    // Revised for story 7 (story § Test tasks "The no-Confirm pins"; ADR 0007 D9): with no pass on record nothing is
+    // held, so no Confirm, and no other button is named for confirming.
+    await expect(section(page, 'tp-held'), 'nothing is held').toHaveAttribute('data-state', 'empty');
+    await expect(confirmButton(page), `no pass on record: nothing is held, so no "${CONFIRM_LABEL}" (story 7 AC-1 "It is not shown when the latest pass held nothing")`).toHaveCount(0);
+    expect(await refusedConfirmButtons(page), 'no other button is named for confirming: Confirm is on the panel, in the held section only (story 7; ADR 0007 § Seams "the no-Confirm pins")').toEqual([]);
   });
 
-  test('B10: the held list pages to every held removal, the count matches the report, each shows why, a pending confirmation is said with its end, and nothing offers to confirm [AC-2 "Held removals"]', async ({ page }) => {
+  // Revised for story 7 (story § Test tasks "The no-Confirm pins"; ADR 0007 § Seams "Revised pins"): Confirm is on the
+  // panel now. With a confirmation of the latest held list pending the owner is offered none, and no other button is
+  // named for confirming.
+  test('B10: the held list pages to every held removal, the count matches the report, each shows why, a pending confirmation is said with its end, and while it is pending nothing offers to confirm [AC-2 "Held removals"; story 7 AC-1 "While a confirmation of the latest held list is pending … offers no Confirm"; ADR 0007 D9]', async ({ page }) => {
     const m = await mock(page, { status: F.STATUS.HELD_PENDING });
     await openAndSettle(page);
     const held = section(page, 'tp-held');
@@ -1050,15 +1300,21 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     expect(seen.size, `every one of the ${F.HELD_TOTAL} held removals is reachable by paging`).toBe(F.HELD_TOTAL);
     expect([...reasons].sort(), 'each held removal shows why it was held').toEqual(['non-tagging', 'not-on-relay']);
     expect(requestsTo(m.log, F.ROUTES.held).every((l) => l.includes(`runId=${F.HELD_RECORD.runId}`)), 'the held list is read for the latest run id').toBe(true);
-    await expect(page.getByRole('button', { name: /confirm/i }), 'the panel offers no way to confirm: Confirm is story 7\'s (story 6\'s Planning moved it there, 2026-10-02; ADR 0006 D17 "No button name may match /confirm/i (B10)")').toHaveCount(0);
+    await expect(confirmButton(page), `the owner's confirmation of the latest held list is pending: no "${CONFIRM_LABEL}" (Confirm is on the panel, story 7 AC-1; ADR 0007 D9 offer)`).toHaveCount(0);
+    expect(await refusedConfirmButtons(page), 'and no other button is named for confirming: only the held section\'s Confirm and its prompt\'s may be (Confirm is on the panel, story 7; ADR 0006 D17\'s "No button name may match /confirm/i (B10)" as revised by ADR 0007 § Seams)').toEqual([]);
   });
 
-  test('B11: an expired confirmation is shown as expired, not as pending [AC-2 "Confirmation"; ADR 0004 § UI passView]', async ({ page }) => {
+  // Revised for story 7 (AC-7 "the held section's wording about the owner's confirmation, only where Confirm makes
+  // today's wording untrue. For example, an expired confirmation no longer just waits for the next pass"; ADR 0007 D13:
+  // "It stays until the next pass, which does not honour it" becomes "No pass will carry it out. The owner can confirm
+  // this held list again."). EXPIRED_STAYS, story 4's idea, is no longer asked for.
+  test('B11: an expired confirmation is shown as expired, not as pending: no pass will carry it out, and the owner can confirm this held list again [AC-2 "Confirmation"; ADR 0004 § UI passView; story 7 AC-1 "When the confirmation expires unused", AC-7; ADR 0007 D13]', async ({ page }) => {
     await mock(page, { status: F.STATUS.HELD_EXPIRED });
     await openAndSettle(page);
     const text = await textOf(page, 'tp-held');
     expect(text).toMatch(EXPIRED);
-    expect(text, 'it stays until the next pass, which does not honour it').toMatch(EXPIRED_STAYS);
+    expect(text, 'no pass will carry it out (ADR 0007 D13) — not implemented yet: today it says it stays until the next pass').toMatch(NO_PASS_CARRIES);
+    expect(text, 'and the owner can confirm this held list again (D13; story 7 AC-1)').toMatch(CONFIRM_AGAIN);
     expect(text, 'not shown as pending').not.toMatch(PENDING_STRICT);
   });
 
@@ -1490,7 +1746,10 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     expect(text, 'while a pass runs, drift does not say the latest pass did not finish — review NB1: DriftSection shows "did not finish" whenever usedInsteadOfLatest, a running pass included').not.toMatch(DID_NOT_FINISH);
   });
 
-  test('B43: counts taken before the explaining pass ended show no "unexplained" figure: the panel says they predate that pass and asks for a Recount; a Recount with newer counts brings the explained and unexplained lines back [AC-4; ADR 0004 T5 countsPredatePass; review round 1 NB3]', async ({ page }) => {
+  // Extended for story 7's carry-forward E1 (story 5's review, round 1, non-blocking 2: "nothing pins the drift line's
+  // guard, The explained part does not include them"; story 4 review round 2 R2-4, DriftSection.jsx Named): with the
+  // path on, its line says the explained part does not include its figures only where an explained part is shown.
+  test('B43: counts taken before the explaining pass ended show no "unexplained" figure: the panel says they predate that pass and asks for a Recount, and the path\'s line does not say the explained part leaves its figures out; a Recount with newer counts brings the explained and unexplained lines back, and that guard with them [AC-4; ADR 0004 T5 countsPredatePass; review round 1 NB3; story 4 review round 2 R2-4; story 5 review round 1 NB2 (E1, carried by story 7)]', async ({ page }) => {
     const m = await mock(page, { status: F.STATUS.DRIFT_EXAMPLE, drift: F.DRIFT.PREDATING });
     await openAndSettle(page);
     const drift = section(page, 'tp-drift');
@@ -1502,6 +1761,10 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     expect(text, `no "unexplained" figure (arithmetic alone reads ${F.EXPECTED_DRIFT.PREDATING.unexplained})`).not.toMatch(/unexplained\W{0,5}-?\d/i);
     expect(text, 'nor the arithmetic\'s remainder beside "unexplained"').not.toMatch(near('unexplained', F.EXPECTED_DRIFT.PREDATING.unexplained));
     expect(await drift.getAttribute('style') || '', 'not in the warn tone (T5: tone neutral)').not.toMatch(/--orange|--red/);
+    // E1: the path is on (the mock's default, ON_LIVE), so its line names its refused taggings and parked addresses;
+    // with no explained part shown, it does not say the explained part leaves them out.
+    expect(text, `the path is on: its line names its parked addresses (${F.PATH_FIGURES.parked})`).toMatch(numRe(F.PATH_FIGURES.parked));
+    expect(sentencesWith(text, EXPLAINED_EXCLUDES), 'counts that predate the pass show no explained part, so the path\'s line does not say "The explained part does not include them" (DriftSection.jsx Named: known && !countsPredatePass; R2-4, E1)').toEqual([]);
 
     m.set({ drift: F.DRIFT.EXAMPLE });
     await drift.getByRole('button', { name: 'Recount', exact: true }).click();
@@ -1509,6 +1772,7 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     text = await textOf(page, 'tp-drift');
     expect(text, 'the explained part is shown again').toMatch(near('(?<![Uu]n)explained', 3));
     expect(text, 'no "counts predate the pass" note any more').not.toMatch(COUNTS_PREDATE);
+    expect(sentencesWith(text, EXPLAINED_EXCLUDES).length, 'with an explained part shown, the path\'s line says the explained part does not include its figures — "The explained part does not include them" (R2-4; E1)').toBeGreaterThan(0);
   });
 
   /* ── AC-5: refresh and failures ──────────────────────────────────────────────────────────────────────────────── */
@@ -1752,7 +2016,11 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
   // Revised for story 6 (ADR 0006 § Seams "Request pins": "B38's allowed set gains the record read"; D15 "The record
   // read is one more useRead in the panel's 5 s Promise.allSettled tick"): the allowed reads gain the pass record, re-read
   // with the status, and a viewer who never presses Run, Stop or the switch still sends nothing but GETs.
-  test('B38: open for a minute with two Recounts and then closed, by a viewer who never presses the switch, Run or Stop, the panel sends only GETs, exactly three counts, and no read after it closes; it reads its five routes, story 5\'s switch record and story 6\'s pass record, which it re-reads with the status [AC-1 "It changes nothing", AC-4 "Reads only"; story 5 AC-6, story 6 AC-6 "The panel\'s reads still change nothing", story 6 Test tasks "the browser spec\'s non-GET log allow[s] exactly this story\'s requests, and any read route the Architecture adds"; ADR 0005 D12; ADR 0006 D13, D15, § Seams "Request pins"; ADR 0004 § Seams page.clock]', async ({ page }) => {
+  // Revised for story 7 (story § Test tasks "The request pins … allow exactly this story's confirmation, any read route
+  // the Architecture adds, and nothing else"; ADR 0007 § Seams "the request pins allow sendConfirm's POST and no new read
+  // route (this ADR adds none)"): the POSTs the panel may send gain the confirm route's, sent only when Confirm's prompt
+  // is confirmed (B147 presses it); the allowed reads gain nothing.
+  test('B38: open for a minute with two Recounts and then closed, by a viewer who never presses the switch, Run, Stop or Confirm, the panel sends only GETs, exactly three counts, and no read after it closes; it reads its five routes, story 5\'s switch record and story 6\'s pass record, which it re-reads with the status, and no read route story 7 adds (it adds none) [AC-1 "It changes nothing", AC-4 "Reads only"; story 5 AC-6, story 6 AC-6 "The panel\'s reads still change nothing", story 6 Test tasks "the browser spec\'s non-GET log allow[s] exactly this story\'s requests, and any read route the Architecture adds"; story 7 AC-7, Test tasks "The request pins"; ADR 0005 D12; ADR 0006 D13, D15, § Seams "Request pins"; ADR 0007 § Seams "Revised pins"; ADR 0004 § Seams page.clock]', async ({ page }) => {
     const m = await mock(page, { status: F.STATUS.CLEAN, realtime: F.REALTIME.OFF_WITH_FIGURES, schedule: F.SCHEDULE.ONE, drift: F.DRIFT.CLEAN });
     await openRelays(page);
     await wait(1500);
@@ -1778,9 +2046,10 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     expect(requestsTo({ api: open }, F.ROUTES.drift).length, 'exactly three counts: on opening and on each Recount, none on a timer').toBe(3);
     const reads = open.map((l) => l.split(' ')[1].split('?')[0]).filter((p) => /^\/api\/(tagging-edges|scheduled-tasks)\//.test(p));
     // Story 5 (ADR 0005 § Consequences): the allowed reads gain the switch's record, GET on the switch path. Story 6
-    // (ADR 0006 § Seams "Request pins", D13): and the pass record's GET.
+    // (ADR 0006 § Seams "Request pins", D13): and the pass record's GET. Story 7 (ADR 0007 § Seams): no read route.
     const allowed = new Set([F.ROUTES.status, F.ROUTES.realtime, F.ROUTES.schedule, F.ROUTES.drift, F.ROUTES.held, F.ROUTES.switch, F.ROUTES.passRecord]);
-    expect([...new Set(reads)].filter((p) => !allowed.has(p)), 'the panel reads only its five routes, the switch\'s record and the pass record').toEqual([]);
+    expect([...new Set(reads)].filter((p) => !allowed.has(p)), 'the panel reads only its five routes, the switch\'s record and the pass record; story 7 adds no read route (ADR 0007 § Seams; the overdue verdict rides on the status, D6, D8)').toEqual([]);
+    expect(m.log.nonGet.filter((l) => !ALLOWED_POSTS.includes(l)), `no request but a GET and the four POSTs the panel may send (${ALLOWED_POSTS.join(', ')}), each only when pressed`).toEqual([]);
     expect(requestsTo({ api: open }, F.ROUTES.status).length, 'the pass status is re-read at least every 10 s while open (≥ 6 in a minute)').toBeGreaterThanOrEqual(6);
     expect(requestsTo({ api: open }, F.ROUTES.realtime).length, 'the path status is re-read at least every 10 s while open (≥ 6 in a minute)').toBeGreaterThanOrEqual(6);
     expect(requestsTo({ api: open }, F.ROUTES.switch).filter((l) => l.startsWith('GET ')).length,
@@ -1794,7 +2063,7 @@ test.describe('The tagging pipeline panel (tagging-edges #4, ADR 0004)', () => {
     await wait(500);
     const after = m.log.api.slice(closedAt).filter((l) => /\/api\/tagging-edges\//.test(l));
     expect(after, 'no read after the panel closes (its timer is cleared)').toEqual([]);
-    expect(m.log.nonGet, 'nothing but GETs in the whole visit: a viewer who never presses the switch, Run or Stop sends none of their POSTs (ADR 0005 § Seams; ADR 0006 D15)').toEqual([]);
+    expect(m.log.nonGet, 'nothing but GETs in the whole visit: a viewer who never presses the switch, Run, Stop or Confirm sends none of their POSTs (ADR 0005 § Seams; ADR 0006 D15; ADR 0007 D11)').toEqual([]);
   });
 });
 
@@ -2709,7 +2978,10 @@ test.describe('Running and stopping the pass on the panel (tagging-edges #6, ADR
 
   /* ── AC-3: Stop ────────────────────────────────────────────────────────────────────────────────────────────── */
 
-  test('B94: "Stop" shows only while some busy pass has no stop asked for; for a waiting pass its prompt — inside the pass section, with a heading, focus on Cancel and one "Stop the pass" — says the pass is taken out of line before it begins running, so it writes nothing, and that no schedule entry changes; no button is named "confirm"; opening and cancelling it sends nothing [AC-3 "What it shows", "A prompt comes first … for a waiting pass"; ADR 0006 D16 canStop, stopPromptView, D17 "Stop … opens an inline prompt", "No button name may match /confirm/i"]', async ({ page }) => {
+  // Revised for story 7 (story § Test tasks "The no-Confirm pins … still refuse the name on every other button, Run,
+  // Stop and Stop's prompt included"; ADR 0007 § Seams "Revised pins"): the held section's Confirm may now show beside
+  // a waiting pass (D9), and is the only button named for confirming; the pass section and the Stop prompt have none.
+  test('B94: "Stop" shows only while some busy pass has no stop asked for; for a waiting pass its prompt — inside the pass section, with a heading, focus on Cancel and one "Stop the pass" — says the pass is taken out of line before it begins running, so it writes nothing, and that no schedule entry changes; no button but the held section\'s Confirm is named "confirm" — not Run, Stop, nor the Stop prompt\'s; opening and cancelling it sends nothing [AC-3 "What it shows", "A prompt comes first … for a waiting pass"; ADR 0006 D16 canStop, stopPromptView, D17 "Stop … opens an inline prompt", "No button name may match /confirm/i", as revised by ADR 0007 § Seams]', async ({ page }) => {
     const m = await mock(page, F.SCENE.IDLE);
     await openAndSettle(page);
     await expect(runButton(page), 'the controls show — not implemented yet if missing (D17)').toBeVisible({ timeout: 5000 });
@@ -2718,7 +2990,9 @@ test.describe('Running and stopping the pass on the panel (tagging-edges #6, ADR
     const p = await openStopPrompt(page);
     await expect(p.cancel, 'focus moves to Cancel when the prompt opens (D17)').toBeFocused();
     await expect(p.confirm, 'one pass: its button reads "Stop the pass" (D17)').toHaveText(/^\s*Stop the pass\s*$/);
-    await expect(page.getByRole('button', { name: /confirm/i }), 'no button is named "confirm" (B10; D17)').toHaveCount(0);
+    await expect(p.prompt.getByRole('button', { name: /confirm/i }), 'the Stop prompt has no button named "confirm" (B10; D17)').toHaveCount(0);
+    await expect(section(page, 'tp-pass').getByRole('button', { name: /confirm/i }), 'nor has the pass section: not Run, not Stop (B10; D17)').toHaveCount(0);
+    expect(await refusedConfirmButtons(page), 'no button on the page is named for confirming but the held section\'s Confirm and its prompt\'s (story 7 § Test tasks "The no-Confirm pins"; ADR 0007 § Seams)').toEqual([]);
     const text = await p.text();
     expect(text, 'the pass is taken out of line').toMatch(TAKEN_OUT);
     expect(text, 'before it begins running').toMatch(BEFORE_RUNNING);
@@ -3281,6 +3555,967 @@ test.describe('Running and stopping the pass on the panel (tagging-edges #6, ADR
   });
 });
 
+/* ══ Story 7: confirming held removals on the panel (ADR 0007) ═══════════════════════════════════════════════════ */
+
+test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007)', () => {
+  test.use({ timezoneId: 'UTC', locale: 'en-GB' });
+
+  test.beforeAll(async () => { await loadView(); });
+
+  test.beforeEach(async ({ page }) => {
+    if (process.env.BRAINSTORM_SERVER_ACCESSIBLE !== 'true') test.skip(true, 'Brainstorm server not accessible (set BRAINSTORM_SERVER_ACCESSIBLE=true)');
+    if (RECORDING) test.skip(true, 'TP_RECORD_BASELINE=1: only the AC-6 baseline is recorded');
+    await page.clock.install({ time: new Date(F.NOW) });
+  });
+
+  const S = F.SCENE7;
+  const RUN = F.HELD_RECORD.runId;
+  const NEWER = F.HELD_NEWER_RECORD.runId;
+  const heldItems = async (page) => ((await textOf(page, 'tp-held')).match(/held-address-\d{3}/g) || []).length;
+  const heldLines = (page) => textOutsideButtons(page, 'tp-held');
+  const passHeading = (page, name) => section(page, 'tp-pass').getByRole('heading', { name, exact: true });
+  /** Confirm the open prompt and wait for the answer to close it (D11), so no line of the prompt is read as the answer's. */
+  const confirmedVia = async (page, p) => {
+    await p.confirm.click();
+    await expect(heldHeading(page, p.heading), 'the answer closes the prompt (D11)').toHaveCount(0, { timeout: 10000 });
+  };
+  /** Reload with `scene` (and any other answers), the clock flowing again, and wait for every section to settle. */
+  const reload = async (page, m, patch, except = []) => {
+    await page.clock.resume();
+    m.set({ confirm: undefined, held: undefined, ...patch });
+    await openAndSettle(page, except);
+  };
+
+  /* ── AC-1: when Confirm shows ──────────────────────────────────────────────────────────────────────────────── */
+
+  test('B118: the owner sees "Confirm held removals" in the held section when the latest pass held removals and no confirmation of that held list is pending — with no confirmation, one pending for an earlier pass, an expired one, an unreadable one, or one whose expiry cannot be read, each said as today — and none while a confirmation of the latest held list is pending, when the latest pass held nothing, or with no pass on record; showing it sends nothing [AC-1 "When it shows", "A confirmation that cannot be relied on … still offers Confirm"; ADR 0007 D9 offer, role]', async ({ page }) => {
+    test.setTimeout(150000);
+    const CASES = [
+      { what: 'no confirmation', scene: S.HELD_NONE, offered: true, says: [/\bno confirmation\b/i] },
+      { what: 'a confirmation of the latest held list, pending', scene: S.HELD_PENDING, offered: false, says: [PENDING_STRICT, clockRe(S.HELD_PENDING.status.confirmationPending.expiresAt)] },
+      { what: 'a confirmation pending for an earlier pass, while the latest holds another list', scene: S.PENDING_EARLIER, offered: true, says: [PENDING, new RegExp(esc(RUN))] },
+      { what: 'an expired confirmation', scene: S.EXPIRED, offered: true, says: [EXPIRED] },
+      { what: 'an unreadable confirmation', scene: S.UNREADABLE, offered: true, says: [UNREADABLE, codeRe('EACCES')] },
+      { what: 'a confirmation whose expiry cannot be read', scene: S.UNKNOWN_EXPIRY, offered: true, says: [EXPIRY_UNREADABLE] },
+    ];
+    const m = await mock(page, CASES[0].scene);
+    for (const [i, c] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, c.scene);
+      await expect(section(page, 'tp-held'), `${c.what}: the held list is read`).toHaveAttribute('data-state', 'ready');
+      await expect.poll(() => heldItems(page), { message: `${c.what}: the held list shows its items` }).toBeGreaterThan(0);
+      const lines = await heldLines(page);
+      for (const re of c.says) expect(lines, `${c.what}: the held section says so, as today (${re})`).toMatch(re);
+      if (c.offered) {
+        await expect(confirmButton(page), `${c.what}: the owner is offered "${CONFIRM_LABEL}" (AC-1; D9: the held list read, nothing running, no confirmation pending for the latest run) — not implemented yet`).toBeVisible({ timeout: 5000 });
+        await expect(confirmButton(page), `${c.what}: and it is enabled`).toBeEnabled();
+        await expect(confirmButton(page), `${c.what}: one Confirm`).toHaveCount(1);
+        expect(lines, `${c.what}: the owner sees no "only the owner" reason (that is an admin's, D9)`).not.toMatch(ONLY_OWNER);
+      } else {
+        await expect(confirmButton(page), `${c.what}: no Confirm (AC-1 "While a confirmation of the latest held list is pending … offers no Confirm")`).toHaveCount(0);
+      }
+      expect(await refusedConfirmButtons(page), `${c.what}: no other button is named for confirming`).toEqual([]);
+    }
+    for (const [what, scene] of [['the latest pass held nothing', S.NOTHING_HELD], ['no pass on record', S.NO_PASS]]) {
+      await reload(page, m, scene);
+      await expect(section(page, 'tp-held'), `${what}: the held section says nothing is held`).toHaveAttribute('data-state', 'empty');
+      await expect(confirmButton(page), `${what}: no Confirm (AC-1 "It is not shown when the latest pass held nothing")`).toHaveCount(0);
+    }
+    expect(m.log.nonGet, 'showing Confirm sends nothing').toEqual([]);
+  });
+
+  test('B119: while a pass runs there is no held list and no Confirm — by liveness, and for a pass that has just been launched and not yet recorded itself (control.busy lists it running), whose held list of the latest pass still shows with no Confirm; when the running pass ends having held removals, its own held list shows, with Confirm [AC-1 "While a pass is running … no held list and no Confirm, as today. When the pass ends, its own held list shows"; ADR 0007 D9 "no control.busy item is running with no stop asked for (story 6\'s running, a starting pass included)"]', async ({ page }) => {
+    test.setTimeout(90000);
+    const m = await mock(page, S.RUNNING);
+    await openAndSettle(page);
+    await expect(section(page, 'tp-held'), 'a pass is alive: no held list').toHaveAttribute('data-state', 'empty');
+    expect(await textOf(page, 'tp-held'), 'the held list returns when it ends, as today').toMatch(RUNNING_WAITS);
+    await expect(confirmButton(page), 'no Confirm while a pass runs').toHaveCount(0);
+
+    await reload(page, m, S.STARTING);
+    await expect(section(page, 'tp-held'), 'a starting pass has written no report: the latest pass\'s held list still shows').toHaveAttribute('data-state', 'ready');
+    await expect.poll(() => heldItems(page), { message: 'its items show' }).toBeGreaterThan(0);
+    await untilShows(page, 'tp-pass', [RUNNING_NOW], [], 'the pass section shows the starting pass running');
+    await wait(500);
+    await expect(confirmButton(page), 'but no Confirm while a pass runs, a starting one included (D9; only a stale panel or the console meets a starting pass, ratified reading 1)').toHaveCount(0);
+
+    await reload(page, m, S.RUNNING);
+    await pauseClock(page);
+    m.set(S.RUNNING_ENDED_HELD);
+    await page.clock.runFor(POLL_MS);
+    await expect(section(page, 'tp-held'), `the pass ended holding removals: its own held list shows (${F.ENDED_HELD7_RECORD.runId})`).toContainText(F.ENDED_HELD7_RECORD.runId, { timeout: 10000 });
+    await expect(confirmButton(page), 'with Confirm for that held list — not implemented yet if missing (D9)').toBeVisible({ timeout: 10000 });
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  test('B120: until the held list is read Confirm is not offered — while the list is loading the section says so, and when its read failed it shows the failure and Retry, with no Confirm; once read, Confirm shows [AC-1 "Until the held list is read, Confirm is not offered … so the owner never confirms removals the panel is not showing"; ADR 0007 D9 "the held list\'s read is ready for that runId"]', async ({ page }) => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const m = await mock(page, { ...S.HELD_NONE, held: (req, dflt) => gate.then(() => dflt()) });
+    try {
+      await openAndSettle(page, ['tp-held']);
+      await expect(section(page, 'tp-held'), 'the held list is still loading').toHaveAttribute('data-state', 'loading');
+      expect(await textOf(page, 'tp-held'), 'and the section says so').toMatch(LOADING);
+      await wait(500);
+      await expect(confirmButton(page), 'no Confirm while the held list is loading').toHaveCount(0);
+    } finally {
+      release();
+    }
+    await expect(section(page, 'tp-held'), 'the list answers').toHaveAttribute('data-state', 'ready', { timeout: 10000 });
+    await expect(confirmButton(page), 'once the held list is read, Confirm shows — not implemented yet if missing (D9)').toBeVisible({ timeout: 5000 });
+
+    await reload(page, m, { ...S.HELD_NONE, held: fail(502) });
+    await expect(section(page, 'tp-held'), 'the held list\'s read failed').toHaveAttribute('data-state', 'error');
+    expect(await textOf(page, 'tp-held'), 'the section shows its failure, with its code').toMatch(codeRe('http-502'));
+    await expect(confirmButton(page), 'no Confirm while the held list cannot be read').toHaveCount(0);
+    m.set({ held: undefined });
+    await section(page, 'tp-held').getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(section(page, 'tp-held'), 'Retry reads it').toHaveAttribute('data-state', 'ready', { timeout: 10000 });
+    await expect(confirmButton(page), 'and Confirm shows').toBeVisible({ timeout: 5000 });
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  /* ── AC-2: the prompt ──────────────────────────────────────────────────────────────────────────────────────── */
+
+  test('B121: pressing Confirm opens a prompt inside the held section — a heading, focus on Cancel, one "Confirm the removals", the button replaced while open — that says how many removals it confirms and from which pass, that confirming lines up a pass now, that it covers this held list once and lapses after 24 hours if no pass takes it up, and that a removal cannot be undone from the panel: it comes back only if its tagging is on the relay again, through the real-time path while it is on, or a later pass; with no earlier confirmation, no replacing line; Cancel sends nothing and changes nothing [AC-2 "What it says", "Cancelling sends nothing and changes nothing"; ADR 0007 D10]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    await expect(p.cancel, 'focus moves to Cancel when the prompt opens (D10)').toBeFocused();
+    await expect(confirmButton(page), 'the prompt replaces "Confirm held removals" while open (D10)').toHaveCount(0);
+    await expect(page.getByRole('button', { name: CONFIRM_PROMPT_LABEL, exact: true }), `one "${CONFIRM_PROMPT_LABEL}" on the page`).toHaveCount(1);
+    const text = await p.text();
+    expect(text, `how many removals it confirms (${F.HELD_TOTAL})`).toMatch(near('removals?', F.HELD_TOTAL));
+    expect(text, `and from which pass (${RUN}), the one the held section shows`).toContain(RUN);
+    expect(linesUpNow(text).length, 'nothing busy: confirming lines up a pass now (D10 lines-up)').toBeGreaterThan(0);
+    expect(text, 'not the waiting case').not.toMatch(ALREADY_WAITING);
+    expect(text, 'not the cannot-tell case').not.toMatch(CANNOT_TELL_LINED_UP);
+    expect(onceLines(text).length, 'the confirmation covers this held list once').toBeGreaterThan(0);
+    expect(lapseLines(text).length, 'and lapses after 24 hours if no pass takes it up').toBeGreaterThan(0);
+    expect(text, 'a removal cannot be undone from the panel').toMatch(NO_UNDO);
+    expect(comesBackLines(text).length, 'a removed relationship comes back only if its tagging is on the relay again').toBeGreaterThan(0);
+    expect(text, 'then the real-time path, while it is on').toMatch(WHILE_PATH_ON);
+    expect(text, 'or a later pass adds it back').toMatch(LATER_PASS);
+    expect(replacesLines(text), 'no earlier confirmation is shown: no replacing line').toEqual([]);
+    await p.cancel.click();
+    await expect(heldCancel(page), 'Cancel closes the prompt').toHaveCount(0, { timeout: 5000 });
+    await expect(confirmButton(page), 'and "Confirm held removals" is back').toBeEnabled();
+    await wait(1000);
+    expect(m.log.nonGet, 'Cancel sends nothing').toEqual([]);
+    expect(await heldLines(page), 'and changes nothing: no confirmation is pending').not.toMatch(PENDING_STRICT);
+  });
+
+  test('B122: the prompt says when the removals happen for the state the panel last showed, and only that case — a pass waiting with no stop asked for takes the confirmation up and nothing new is lined up; with every busy pass asked to stop, confirming lines up a pass now; and when the panel cannot tell whether a pass is waiting (the task queue off, its read failed, not ready, or a status with no control member) it cannot tell whether one will be lined up now, and the answer will say what happened [AC-2 "when they happen … only the case that applies"; ADR 0007 D9 when, D10 item 2]', async ({ page }) => {
+    test.setTimeout(150000);
+    const CASES = [
+      { what: 'a pass waiting with no stop asked for', scene: S.WAITING, when: 'waiting' },
+      { what: 'every busy pass with a stop asked for', scene: S.ALL_STOPPING, when: 'lines-up' },
+      { what: 'the task queue off', scene: S.QUEUE_OFF, when: 'cannot-tell' },
+      { what: 'the queue read failed', scene: S.QUEUE_READ_FAILED, when: 'cannot-tell' },
+      { what: 'the queue not ready', scene: S.QUEUE_NOT_READY, when: 'cannot-tell' },
+      { what: 'a status with no control member', scene: S.NO_CONTROL, when: 'cannot-tell' },
+    ];
+    const m = await mock(page, CASES[0].scene);
+    for (const [i, c] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, c.scene);
+      const p = await openConfirmPrompt(page);
+      const text = await p.text();
+      if (c.when === 'waiting') {
+        expect(text, `${c.what}: a pass is already waiting`).toMatch(ALREADY_WAITING);
+        expect(takesThisUp(text).length, `${c.what}: it takes this confirmation up`).toBeGreaterThan(0);
+        expect(text, `${c.what}: and nothing new is lined up`).toMatch(NOTHING_LINED_UP);
+        expect(linesUpNow(text), `${c.what}: never "lines up a pass now"`).toEqual([]);
+      } else if (c.when === 'lines-up') {
+        expect(linesUpNow(text).length, `${c.what}: none of them takes it up, so confirming lines up a pass now (AC-1 "Every busy pass has a stop asked for"; D9 when lines-up)`).toBeGreaterThan(0);
+        expect(text, `${c.what}: not the waiting case`).not.toMatch(ALREADY_WAITING);
+        expect(text, `${c.what}: not the cannot-tell case`).not.toMatch(CANNOT_TELL_LINED_UP);
+      } else {
+        expect(text, `${c.what}: the panel cannot tell whether a pass is waiting`).toMatch(CANNOT_TELL);
+        expect(text, `${c.what}: so it cannot tell whether one will be lined up now`).toMatch(CANNOT_TELL_LINED_UP);
+        expect(text, `${c.what}: and the answer will say what happened`).toMatch(ANSWER_WILL_SAY);
+        expect(linesUpNow(text), `${c.what}: never "lines up a pass now"`).toEqual([]);
+        expect(text, `${c.what}: never "a pass is already waiting"`).not.toMatch(ALREADY_WAITING);
+      }
+      await p.cancel.click();
+      await expect(heldCancel(page)).toHaveCount(0, { timeout: 5000 });
+    }
+    expect(m.log.nonGet, 'opening and cancelling the prompt sends nothing').toEqual([]);
+  });
+
+  test('B123: when the panel shows an earlier confirmation that no pass will carry out — pending for an earlier pass, expired, unreadable, or with an expiry that cannot be read — the prompt says this one replaces it; and the held section words each so: an expired one, that no pass will carry it out and the owner can confirm this held list again; an unreadable one and one whose expiry cannot be read, that no pass carries it out and confirming again replaces it [AC-2 "when the panel shows an earlier confirmation that no pass will carry out … this one replaces it"; AC-7 "the held section\'s wording"; ADR 0007 D10 item 5, D13; ratified reading 4]', async ({ page }) => {
+    test.setTimeout(120000);
+    const CASES = [
+      { what: 'a confirmation pending for an earlier pass', scene: S.PENDING_EARLIER, says: [PENDING, new RegExp(esc(RUN))] },
+      { what: 'an expired confirmation', scene: S.EXPIRED, says: [EXPIRED, NO_PASS_CARRIES, CONFIRM_AGAIN] },
+      { what: 'an unreadable confirmation', scene: S.UNREADABLE, says: [UNREADABLE, NO_PASS_CARRIES, CONFIRMING_AGAIN_REPLACES] },
+      { what: 'a confirmation whose expiry cannot be read', scene: S.UNKNOWN_EXPIRY, says: [EXPIRY_UNREADABLE, NO_PASS_CARRIES, CONFIRMING_AGAIN_REPLACES] },
+    ];
+    const m = await mock(page, CASES[0].scene);
+    for (const [i, c] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, c.scene);
+      const lines = await heldLines(page);
+      for (const re of c.says) expect(lines, `${c.what}: the held section says (${re}) (D13)`).toMatch(re);
+      const p = await openConfirmPrompt(page);
+      expect(replacesLines(await p.text()).length, `${c.what}: the prompt says this confirmation replaces the earlier one, which no pass will carry out (D10 item 5)`).toBeGreaterThan(0);
+      await p.cancel.click();
+      await expect(heldCancel(page)).toHaveCount(0, { timeout: 5000 });
+    }
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  /* ── AC-1: confirming, and what the answer says ────────────────────────────────────────────────────────────── */
+
+  test('B124: confirming with nothing busy sends one POST {"runId": the prompt\'s pass} as JSON to the confirm route; while under way both prompt buttons are disabled and the first says "Confirming…" with aria-busy, the prompt open; on the answer the prompt closes, the held section says a pass was lined up, and the reads that follow — with no poll — show the new pass waiting, started by the owner\'s confirmation, the confirmation pending until 24 hours on, and no Confirm [AC-1 "When nothing is busy, confirming lines up a pass. Within 10 seconds every viewer sees it waiting", "While a confirmation is under way, the control is disabled and says so", "From then on no panel offers Confirm for that held list"; ADR 0007 D4 lined-up, D10 "While under way", D11 sendConfirm, the flow]', async ({ page }) => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const m = await mock(page, S.HELD_NONE);
+    m.set({ confirm: async (req, server) => { await gate; return server(); } });
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    const mark = m.log.api.length;
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'confirming sends the confirmation' }).toEqual([CONFIRM_POST]);
+      const busy = heldBusyButtons(page).first();
+      await expect(busy, 'while under way the prompt\'s confirm carries aria-busy="true" (D10)').toBeVisible({ timeout: 5000 });
+      await expect(busy, 'and is disabled').toBeDisabled();
+      expect(squash(await busy.innerText()), 'and says "Confirming…" (D10)').toMatch(CONFIRMING);
+      await expect(heldCancel(page), 'Cancel is disabled too (D10 "both disabled")').toBeDisabled();
+      await expect(heldHeading(page, p.heading), 'the prompt stays open while under way (D10)').toBeVisible();
+    } finally {
+      release();
+    }
+    await expect(heldHeading(page, p.heading), 'on the answer the prompt closes').toHaveCount(0, { timeout: 10000 });
+    const sent = m.log.sent[0];
+    expect(JSON.parse(sent.body || 'null'), 'its body is {"runId": the pass the prompt named} (D11)').toEqual({ runId: RUN });
+    expect(sent.contentType || '', 'sent as JSON').toMatch(/^application\/json\b/i);
+    await expect.poll(async () => linedUpClaimsOf(await heldLines(page)).length, { message: 'the held section says a pass was lined up (D11 confirmOutcome lined-up)', timeout: 10000 }).toBeGreaterThan(0);
+    const reread = m.log.api.slice(mark).filter((l) => l.startsWith('GET ')).map((l) => l.split(' ')[1].split('?')[0]);
+    expect(reread, 'the status is read again after the answer (D11)').toContain(F.ROUTES.status);
+    expect(reread, 'and the pass record (D11)').toContain(F.ROUTES.passRecord);
+    await untilShows(page, 'tp-pass', [WAITING, clockRe(F.NOW), CONFIRMATION_WHO], [], 'within 10 s, with no poll, the new pass waits since 12:00, started by the owner\'s confirmation', 10000);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the confirmation shows pending', 5000);
+    expect(await heldLines(page), `until 24 hours on (${F.plusTtl(F.NOW)})`).toMatch(clockRe(F.plusTtl(F.NOW)));
+    await expect(confirmButton(page), 'no Confirm for that held list while it is pending').toHaveCount(0);
+    expect(m.log.nonGet, 'one confirmation, sent once').toEqual([CONFIRM_POST]);
+  });
+
+  test('B125: when the server does not answer a confirmation within 15 s — the confirmation, the status and the pass record all hang — the prompt closes, "Confirm held removals" is enabled again and the panel says the outcome is unknown; it then shows the state from its next read: the confirmation pending, and no Confirm [AC-1 "If the server has not answered within 15 seconds, the control is enabled again and the panel says the outcome is unknown. It then shows the state from its next read"; ADR 0007 D11 "unknown (timeout, network, bad JSON)", "On unknown, clear at once and fire the re-reads"]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    expect(await heldLines(page), 'before the confirmation, no "outcome unknown"').not.toMatch(OUTCOME_UNKNOWN);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({
+      confirm: async () => { await gate; return F.CONFIRM_ANSWER.linedUp(F.OTHER_TAB_JOB_KEY); },
+      status: async () => { await gate; return S.HISTORY.status; },
+      passRecord: async () => { await gate; return S.HISTORY.passRecord; },
+    });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the confirmation is sent' }).toEqual([CONFIRM_POST]);
+      await expect(heldBusyButtons(page).first(), 'under way (D10)').toBeDisabled({ timeout: 5000 });
+      await page.clock.runFor(15000);
+      await expect(confirmButton(page), 'after 15 s with no answer, "Confirm held removals" is enabled again').toBeEnabled({ timeout: 5000 });
+      await expect(heldBusyButtons(page), 'and nothing is busy').toHaveCount(0);
+      await untilText(page, 'tp-held', OUTCOME_UNKNOWN, 'and the panel says the outcome is unknown (D11)', 5000);
+    } finally {
+      release();
+    }
+    await untilText(page, 'tp-held', PENDING_STRICT, 'it then shows the state from its next read: the confirmation pending', 10000);
+    await expect(confirmButton(page), 'and no Confirm').toHaveCount(0, { timeout: 5000 });
+    expect(m.log.nonGet, 'sent once and never retried').toEqual([CONFIRM_POST]);
+  });
+
+  test('B126: a Confirm sent from a panel that has not yet re-read a confirmation pending for this held list (another tab confirmed at 11:59) is refused plainly — a confirmation of this held list is already pending, until when — and the panel then shows it pending, with no Confirm [AC-1 "A second confirmation while one is pending is refused plainly … The answer says that a confirmation of this held list is already pending, and until when. It changes nothing"; ADR 0007 D2 step 2, D4 409 already-pending, D11]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    await pauseClock(page);
+    m.set(S.HISTORY); // another tab confirmed; no poll has shown it here
+    const p = await openConfirmPrompt(page);
+    await confirmedVia(page, p);
+    const until = S.HISTORY.status.confirmationPending.expiresAt;
+    await untilShows(page, 'tp-held', [ALREADY_PENDING, clockRe(until)], [], `refused plainly: a confirmation of this held list is already pending, until ${until} (D4 already-pending)`, 10000);
+    expect(linedUpClaimsOf(await heldLines(page)), 'never said to be lined up').toEqual([]);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the panel then shows it pending', 10000);
+    await expect(confirmButton(page), 'with no Confirm').toHaveCount(0, { timeout: 5000 });
+    expect(m.log.nonGet, 'one confirmation sent, refused; nothing retried').toEqual([CONFIRM_POST]);
+  });
+
+  test('B127: when the confirmation is made but no pass is lined up — the task queue unavailable, or the server failing to line one up — the panel says plainly that no pass was lined up, gives the reason, and says that Run a pass now, or the next scheduled pass, takes it up within its 24 hours; the confirmation shows pending; never "lined up" [AC-1 "When the confirmation is made but no pass is lined up"; ADR 0007 D2 step 8, D4 not-lined-up, D11 "not-lined-up: The confirmation was made, but no pass was lined up (<reason>)…"]', async ({ page }) => {
+    test.setTimeout(90000);
+    const m = await mock(page, S.QUEUE_OFF);
+    await openAndSettle(page);
+    let p = await openConfirmPrompt(page);
+    await confirmedVia(page, p); // the server-like default: the queue off → not-lined-up QUEUE_UNAVAILABLE
+    await untilText(page, 'tp-held', NOTHING_LINED_UP, 'the task queue unavailable: no pass was lined up', 10000);
+    let lines = await heldLines(page);
+    expect(lines, 'with the reason, QUEUE_UNAVAILABLE').toMatch(codeRe('QUEUE_UNAVAILABLE'));
+    expect(lines, 'Run a pass now takes it up').toMatch(RUN_NAMED);
+    expect(lines, 'or the next scheduled pass').toMatch(NEXT_SCHEDULED);
+    expect(lines, 'within its 24 hours').toMatch(WITHIN_24H);
+    expect(linedUpClaimsOf(lines), 'never said to be lined up').toEqual([]);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the confirmation is kept pending', 10000);
+
+    await reload(page, m, {
+      ...S.HELD_NONE,
+      confirm: () => {
+        m.set({ status: F.withConfirmationPending(S.HELD_NONE.status, F.NOW) });
+        return F.CONFIRM_ANSWER.notLinedUp('error', 'EIO');
+      },
+    });
+    p = await openConfirmPrompt(page);
+    await confirmedVia(page, p);
+    await untilText(page, 'tp-held', NOTHING_LINED_UP, 'the line-up failed: no pass was lined up', 10000);
+    lines = await heldLines(page);
+    expect(codeRe('error').test(lines) || codeRe('EIO').test(lines), 'with the server\'s reason (error, cause EIO)').toBe(true);
+    expect(lines, 'Run a pass now, or the next scheduled pass, takes it up').toMatch(RUN_NAMED);
+    expect(linedUpClaimsOf(lines), 'never said to be lined up').toEqual([]);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the confirmation is kept pending', 10000);
+    expect(m.log.nonGet).toEqual([CONFIRM_POST, CONFIRM_POST]);
+  });
+
+  test('B128: with a pass waiting and no stop asked for, confirming starts nothing new — the answer says plainly that the waiting pass takes the confirmation up, and one pass still waits; with every busy pass asked to stop, confirming lines up a new pass, the answer says it is behind the pass that is stopping, and every viewer sees it waiting behind [AC-1 "When a pass is busy: A pass waiting with no stop asked for", "Every busy pass has a stop asked for"; ADR 0007 D2 step 4, D4 waiting-pass, lined-up behindStopping, D11]', async ({ page }) => {
+    test.setTimeout(90000);
+    const m = await mock(page, S.WAITING);
+    await openAndSettle(page);
+    const waitingBefore = ((await textOf(page, 'tp-pass')).match(/\bwaiting\b/gi) || []).length;
+    let p = await openConfirmPrompt(page);
+    await confirmedVia(page, p);
+    await expect.poll(async () => sentencesWith(await heldLines(page), /\bwaiting\b/i, TAKES_UP_ANY).length, { message: 'the answer says plainly that the waiting pass takes the confirmation up (D4 waiting-pass)', timeout: 10000 }).toBeGreaterThan(0);
+    expect(linedUpClaimsOf(await heldLines(page)), 'it starts nothing new: never "lined up"').toEqual([]);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the confirmation pending', 10000);
+    await untilShows(page, 'tp-pass', [WAITING, clockRe(F.PASS_TIMES.waitAsked)], [], 'the waiting pass still waits, since 11:58');
+    expect(((await textOf(page, 'tp-pass')).match(/\bwaiting\b/gi) || []).length, 'and no new pass waits beside it').toBe(waitingBefore);
+
+    await reload(page, m, S.ALL_STOPPING);
+    p = await openConfirmPrompt(page);
+    await confirmedVia(page, p);
+    await expect.poll(async () => linedUpClaimsOf(await heldLines(page)).length, { message: 'every busy pass asked to stop: a pass was lined up (D4 lined-up)', timeout: 10000 }).toBeGreaterThan(0);
+    expect(await heldLines(page), 'behind the pass that is stopping (D11 "with behind the pass that is stopping when behindStopping")').toMatch(BEHIND_STOPPING);
+    await untilShows(page, 'tp-pass', [WAITING, clockRe(F.NOW), BEHIND_PASS], [], 'every viewer sees the new pass waiting behind the one that is stopping', 10000);
+    expect(m.log.nonGet).toEqual([CONFIRM_POST, CONFIRM_POST]);
+  });
+
+  test('B129: the answer says what happened, never what the prompt expected — a prompt that said a pass lines up, confirmed after a pass began waiting, says the waiting pass takes it up; a pass that had just begun takes it up; a pass that started meanwhile took it up, named by its run; a pass started meanwhile and the confirmation was withdrawn, nothing changed; and when the server cannot tell whether the confirmation stands, the panel says so, never as unchanged, and shows from its next read whether that pass took it up [AC-1 "When a pass starts while the confirmation is being made", AC-2 "The answer says what happened"; ADR 0007 D4 waiting-pass, starting-pass, taken-up, pass-started, withdraw-failed; D11; ratified reading 1]', async ({ page }) => {
+    test.setTimeout(150000);
+    const CLAIMED = F.runIdAt(F.at(0.1), 'c1a1c1a1');
+    const m = await mock(page, S.HELD_NONE);
+    // 1. What is busy changed after the prompt opened.
+    await openAndSettle(page);
+    let p = await openConfirmPrompt(page);
+    expect(linesUpNow(await p.text()).length, 'the prompt said a pass lines up now').toBeGreaterThan(0);
+    await pauseClock(page);
+    m.set(S.WAITING); // a Run lined up meanwhile; no poll has shown it
+    await confirmedVia(page, p);
+    await expect.poll(async () => sentencesWith(await heldLines(page), /\bwaiting\b/i, TAKES_UP_ANY).length, { message: 'the answer reports what happened: the waiting pass takes it up (AC-2)', timeout: 10000 }).toBeGreaterThan(0);
+    expect(linedUpClaimsOf(await heldLines(page)), 'never what the prompt expected ("lined up")').toEqual([]);
+
+    const CASES = [
+      {
+        what: 'a pass that had just begun takes it up (starting-pass)',
+        answer: () => { m.set({ status: F.withConfirmationPending(S.STARTING.status, F.NOW) }); return F.CONFIRM_ANSWER.startingPass(); },
+        says: (t) => sentencesWith(t, JUST_BEGUN, TAKES_UP_ANY).length > 0 && linedUpClaimsOf(t).length === 0,
+      },
+      {
+        what: `a pass that started meanwhile took it up (taken-up, claimedBy ${CLAIMED})`,
+        answer: F.CONFIRM_ANSWER.takenUp(CLAIMED),
+        says: (t) => TAKES_UP_ANY.test(t) && t.includes(CLAIMED) && linedUpClaimsOf(t).length === 0,
+      },
+      {
+        what: 'a pass started meanwhile and the confirmation was withdrawn (409 pass-started)',
+        answer: F.CONFIRM_ANSWER.PASS_STARTED,
+        says: (t) => PASS_STARTED_MEANWHILE.test(t) && WITHDRAWN.test(t) && linedUpClaimsOf(t).length === 0,
+      },
+      {
+        what: 'the server cannot tell whether the confirmation stands (500 withdraw-failed)',
+        answer: F.CONFIRM_ANSWER.WITHDRAW_FAILED,
+        says: (t) => CANNOT_TELL_STANDS.test(t) && NEXT_READ.test(t) && !STATE_UNCHANGED.test(t) && !NOTHING_CONFIRMED.test(t),
+      },
+    ];
+    for (const c of CASES) {
+      await reload(page, m, { ...S.HELD_NONE, confirm: c.answer });
+      p = await openConfirmPrompt(page);
+      await confirmedVia(page, p);
+      await expect.poll(async () => c.says(await heldLines(page)), { message: `${c.what}: the answer says so (D11)`, timeout: 10000 }).toBe(true);
+    }
+    expect(m.log.nonGet, 'one confirmation each, never retried').toEqual(Array(5).fill(CONFIRM_POST));
+  });
+
+  test('B130: a prompt that is out of date — a newer pass held another list after it opened — is refused plainly and changes nothing: nothing was confirmed, the panel then shows the new pass\'s held list, and Confirm can be pressed again, its prompt naming the new pass; the other out-of-date refusals (nothing held, the held run running, the held list changed) say the same [AC-2 "Only what the prompt showed. If the latest pass is no longer the one the prompt named, the confirmation is refused plainly and changes nothing. The panel then shows the new state, so the owner can press Confirm again"; ADR 0007 D4 409 not-the-latest-report, nothing-held, running, held-list-changed; D11 "out of date … nothing was confirmed; the panel now shows the latest state"]', async ({ page }) => {
+    test.setTimeout(120000);
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    expect(await p.text(), 'the prompt names the latest pass').toContain(RUN);
+    await pauseClock(page);
+    m.set(S.NEWER_HELD); // a newer pass held another list; no poll has shown it
+    await confirmedVia(page, p);
+    await untilText(page, 'tp-held', NOTHING_CONFIRMED, 'refused plainly: nothing was confirmed (D11 out of date)', 10000);
+    expect(linedUpClaimsOf(await heldLines(page)), 'never said to be lined up').toEqual([]);
+    await expect(section(page, 'tp-held'), `the panel then shows the new state: the held list of ${NEWER}`).toContainText(NEWER, { timeout: 10000 });
+    await expect(section(page, 'tp-held')).toHaveAttribute('data-state', 'ready', { timeout: 10000 });
+    expect(await heldLines(page), 'and nothing is pending').not.toMatch(PENDING_STRICT);
+    const again = await openConfirmPrompt(page);
+    expect(await again.text(), 'Confirm can be pressed again, its prompt naming the new pass').toContain(NEWER);
+    await again.cancel.click();
+    expect(m.log.nonGet, 'one confirmation sent and refused; nothing retried').toEqual([CONFIRM_POST]);
+
+    for (const [code, answer] of [['nothing-held', F.CONFIRM_ANSWER.NOTHING_HELD], ['running', F.CONFIRM_ANSWER.RUNNING], ['held-list-changed', F.CONFIRM_ANSWER.HELD_LIST_CHANGED]]) {
+      await reload(page, m, { ...S.HELD_NONE, confirm: answer });
+      const q = await openConfirmPrompt(page);
+      await confirmedVia(page, q);
+      await untilText(page, 'tp-held', NOTHING_CONFIRMED, `409 ${code}: nothing was confirmed`, 10000);
+      expect(linedUpClaimsOf(await heldLines(page)), `409 ${code}: never said to be lined up`).toEqual([]);
+    }
+  });
+
+  test('B131: the prompt closes by itself, sending nothing, when a read makes Confirm unavailable (another tab\'s confirmation of this list now pending) or changes the pass it named (a newer held list); a read that changes only what is busy leaves it open, its text the one it opened with; and while its own confirmation is under way no read closes it [AC-2 "Only what the prompt showed", "The answer says what happened"; ADR 0007 D10 "The snapshot … never what later polls show", "It closes by itself when a read makes offer false or changes runId, but never while under way. A change in what is busy does not close it"]', async ({ page }) => {
+    test.setTimeout(150000);
+    const m = await mock(page, S.HELD_NONE);
+    // A read that makes offer false.
+    await openAndSettle(page);
+    let p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    m.set(S.HISTORY);
+    await page.clock.runFor(POLL_MS);
+    await expect(heldHeading(page, p.heading), 'a read showing this list\'s confirmation pending closes the prompt by itself').toHaveCount(0, { timeout: 10000 });
+    await expect(heldCancel(page), 'its Cancel goes with it').toHaveCount(0);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'and the panel shows the confirmation pending', 5000);
+    // A read that changes the pass the prompt named.
+    await reload(page, m, S.HELD_NONE);
+    p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    m.set(S.NEWER_HELD);
+    await page.clock.runFor(POLL_MS);
+    await expect(heldHeading(page, p.heading), 'a read naming a newer held list closes the prompt by itself').toHaveCount(0, { timeout: 10000 });
+    await expect(section(page, 'tp-held')).toContainText(NEWER, { timeout: 10000 });
+    // A read that changes only what is busy.
+    await reload(page, m, S.HELD_NONE);
+    p = await openConfirmPrompt(page);
+    const opened = await p.text();
+    await pauseClock(page);
+    m.set(S.WAITING);
+    await page.clock.runFor(POLL_MS);
+    await untilShows(page, 'tp-pass', [WAITING, clockRe(F.PASS_TIMES.waitAsked)], [], 'the read has landed: a pass now waits');
+    await wait(500);
+    await expect(heldHeading(page, p.heading), 'a change in what is busy leaves the prompt open (D10)').toBeVisible();
+    expect(await p.text(), 'and its text is the one it opened with, never rewritten to the waiting case (D10 snapshot)').toBe(opened);
+    await p.cancel.click();
+    await wait(500);
+    expect(m.log.nonGet, 'a prompt that closes by itself sends nothing').toEqual([]);
+    // While under way.
+    await reload(page, m, S.HELD_NONE);
+    p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({ confirm: async () => { await gate; return F.CONFIRM_ANSWER.linedUp(F.OTHER_TAB_JOB_KEY); } });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the confirmation is sent' }).toEqual([CONFIRM_POST]);
+      m.set(S.HISTORY);
+      const landed = page.waitForResponse((r) => new URL(r.url()).pathname === F.ROUTES.status, { timeout: 10000 });
+      await page.clock.runFor(POLL_MS);
+      await landed;
+      await wait(1000);
+      await expect(heldHeading(page, p.heading), 'a read that makes Confirm unavailable, landing while the confirmation is under way, leaves the prompt open (D10 "never while under way")').toBeVisible();
+      const busy = heldBusyButtons(page).first();
+      await expect(busy, 'its confirm still carries aria-busy="true"').toBeVisible();
+      expect(squash(await busy.innerText()), 'and says "Confirming…"').toMatch(CONFIRMING);
+    } finally {
+      release();
+    }
+    await expect(heldHeading(page, p.heading), 'the answer closes it').toHaveCount(0, { timeout: 10000 });
+    expect(m.log.nonGet).toEqual([CONFIRM_POST]);
+  });
+
+  test('B132: when the owner\'s confirmation was used up by a pass that then failed, or was stopped, the held section says so — that pass used the confirmation up, and the removals it did not apply can be confirmed again only once a later pass holds them again: Run a pass now, or the next scheduled pass — and offers no Confirm [AC-1 "When a confirmation is used up by a pass that then failed or was stopped, the panel says so … Until then it offers no Confirm"; ADR 0007 D13 "New, in the !runId branch"]', async ({ page }) => {
+    const m = await mock(page, S.USED_UP_FAILED);
+    for (const [i, [what, scene]] of [['a pass that failed', S.USED_UP_FAILED], ['a pass that was stopped', S.USED_UP_STOPPED]].entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, scene);
+      await expect(section(page, 'tp-held'), `${what}: the latest pass held nothing`).toHaveAttribute('data-state', 'empty');
+      const lines = await heldLines(page);
+      expect(lines, `${what}: it used the owner's confirmation up (D13) — not implemented yet`).toMatch(USED_IT_UP);
+      expect(lines, `${what}: the removals it did not apply can be confirmed again`).toMatch(CONFIRM_AGAIN);
+      expect(lines, `${what}: only once a later pass holds them again`).toMatch(LATER_HOLDS);
+      expect(lines, `${what}: Run a pass now`).toMatch(RUN_NAMED);
+      expect(lines, `${what}: or the next scheduled pass`).toMatch(NEXT_SCHEDULED);
+      await expect(confirmButton(page), `${what}: no Confirm until then`).toHaveCount(0);
+      expect(await refusedConfirmButtons(page)).toEqual([]);
+    }
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  /* ── AC-3: who may ─────────────────────────────────────────────────────────────────────────────────────────── */
+
+  test('B133: an admin sees "Confirm held removals" disabled, with the reason beside it — only the owner can confirm held removals — exactly where and when the owner would see Confirm, and nowhere else: with no confirmation, one pending for an earlier pass, expired, unreadable, an unreadable expiry, a pass waiting, or a queue it cannot read; never with this list\'s confirmation pending, nothing held, a pass running or starting, a used-up confirmation, or the held list loading or failed; pressing it sends nothing [AC-3 "Admins see a disabled Confirm exactly where and when the owner would see Confirm (AC-1), and nowhere else, with the reason beside it … It sends nothing"; ADR 0007 D9 role "admin", "Both render exactly when offer is true"]', async ({ page }) => {
+    test.setTimeout(180000);
+    const CASES = [
+      ['no confirmation', S.HELD_NONE, true],
+      ['a confirmation pending for an earlier pass', S.PENDING_EARLIER, true],
+      ['an expired confirmation', S.EXPIRED, true],
+      ['an unreadable confirmation', S.UNREADABLE, true],
+      ['an unreadable expiry', S.UNKNOWN_EXPIRY, true],
+      ['a pass waiting', S.WAITING, true],
+      ['the task queue off', S.QUEUE_OFF, true],
+      ['this list\'s confirmation pending', S.HELD_PENDING, false],
+      ['nothing held', S.NOTHING_HELD, false],
+      ['a pass running', S.RUNNING, false],
+      ['a pass starting', S.STARTING, false],
+      ['a used-up confirmation', S.USED_UP_FAILED, false],
+    ];
+    const m = await mock(page, { who: 'admin', ...CASES[0][1] });
+    for (const [i, [what, scene, offered]] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, scene);
+      const lines = await heldLines(page);
+      if (offered) {
+        const b = confirmButton(page);
+        await expect(b, `${what}: the admin sees "${CONFIRM_LABEL}" where the owner would (D9) — not implemented yet`).toBeVisible({ timeout: 5000 });
+        await expect(b, `${what}: disabled`).toBeDisabled();
+        const beside = await b.evaluate((el, src) => {
+          const re = new RegExp(src, 'i');
+          let at = el.parentElement;
+          for (let k = 0; k < 2 && at && !at.matches('[data-testid="tp-held"]'); k += 1, at = at.parentElement) {
+            if (re.test((at.innerText || '').replace(/\s+/g, ' '))) return true;
+          }
+          return false;
+        }, ONLY_OWNER.source);
+        expect(beside, `${what}: with the reason beside it — "Only the owner can confirm held removals." (D9)`).toBe(true);
+        await b.click({ force: true });
+        await wait(300);
+        await expect(heldCancel(page), `${what}: pressing it opens no prompt`).toHaveCount(0);
+      } else {
+        await wait(500);
+        await expect(confirmButton(page), `${what}: no Confirm of either kind, as the owner would see none`).toHaveCount(0);
+        expect(lines, `${what}: and no "only the owner" reason`).not.toMatch(ONLY_OWNER);
+      }
+      expect(await refusedConfirmButtons(page), `${what}: no other button named for confirming`).toEqual([]);
+    }
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    try {
+      await reload(page, m, { ...S.HELD_NONE, held: (req, dflt) => gate.then(() => dflt()) }, ['tp-held']);
+      await expect(section(page, 'tp-held')).toHaveAttribute('data-state', 'loading');
+      await wait(500);
+      await expect(confirmButton(page), 'the held list loading: no Confirm of either kind').toHaveCount(0);
+    } finally {
+      release();
+    }
+    await reload(page, m, { ...S.HELD_NONE, held: fail(502) });
+    await expect(section(page, 'tp-held')).toHaveAttribute('data-state', 'error');
+    await expect(confirmButton(page), 'the held list failed: no Confirm of either kind').toHaveCount(0);
+    expect(m.log.nonGet, 'an admin\'s Confirm sends nothing').toEqual([]);
+  });
+
+  test('B134: when the server refuses the confirmation (403, no longer the owner; a lapsed session\'s 401) or cannot carry it out (500 record-unavailable, confirmation-unwritten, error), the panel shows the reason — sign in again as the owner, or the failure\'s code and cause — then the held list and the confirmation as they now stand, from a re-read: nothing confirmed, nothing pending, Confirm offered again; never "lined up" [AC-3 "Refused or failed. When the server refuses the panel\'s request, or cannot carry it out, the panel shows the reason. It then shows the held list and the confirmation as they now stand"; AC-4 "When the server cannot record it, Confirm is refused, as Run is, and changes nothing"; ADR 0007 D4 500 rows, D11 "401 or 403: refused, sign in again as the owner", "record-unavailable, confirmation-unwritten, other 5xx: failed, with code and cause"]', async ({ page }) => {
+    test.setTimeout(150000);
+    const CASES = [
+      { what: 'refused: no longer the owner (403)', answer: F.CONFIRM_ANSWER.REFUSED_403, says: (t) => refusedAsOwner(t).length > 0 },
+      { what: 'refused: a lapsed session (401)', answer: F.CONFIRM_ANSWER.REFUSED_401, says: (t) => refusedAsOwner(t).length > 0 },
+      { what: 'the record could not be written (500 record-unavailable)', answer: F.CONFIRM_ANSWER.RECORD_UNAVAILABLE, says: (t) => codeRe('record-unavailable').test(t) && codeRe('ENOSPC').test(t) },
+      { what: 'the confirmation could not be written (500 confirmation-unwritten)', answer: F.CONFIRM_ANSWER.CONFIRMATION_UNWRITTEN, says: (t) => codeRe('confirmation-unwritten').test(t) && codeRe('EIO').test(t) },
+      { what: 'a failure (500 error, cause EIO)', answer: F.CONFIRM_ANSWER.FAILED, says: (t) => FAILED_IDEA.test(t) && (codeRe('error').test(t) || codeRe('EIO').test(t)) },
+    ];
+    const m = await mock(page, { ...S.HELD_NONE, confirm: CASES[0].answer });
+    for (const [i, c] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, { ...S.HELD_NONE, confirm: c.answer });
+      const p = await openConfirmPrompt(page);
+      const mark = m.log.api.length;
+      await confirmedVia(page, p);
+      await expect.poll(async () => c.says(await heldLines(page)), { message: `${c.what}: the panel shows the reason (D11)`, timeout: 10000 }).toBe(true);
+      expect(linedUpClaimsOf(await heldLines(page)), `${c.what}: never said to be lined up`).toEqual([]);
+      await expect.poll(() => requestsTo({ api: m.log.api.slice(mark) }, F.ROUTES.status).length, { message: `${c.what}: the status is read again after the answer (AC-3 "as they now stand")` }).toBeGreaterThan(0);
+      await expect(section(page, 'tp-held'), `${c.what}: the held list as it stands`).toHaveAttribute('data-state', 'ready', { timeout: 10000 });
+      expect(await heldLines(page), `${c.what}: nothing pending`).not.toMatch(PENDING_STRICT);
+      await expect(confirmButton(page), `${c.what}: Confirm offered again`).toBeEnabled({ timeout: 5000 });
+    }
+    expect(m.log.nonGet, 'one confirmation each, nothing retried').toEqual(Array(5).fill(CONFIRM_POST));
+  });
+
+  /* ── AC-4: who confirmed ───────────────────────────────────────────────────────────────────────────────────── */
+
+  test('B135: within POLL_MS of a confirmation made in another tab, a viewer who did not press sees it in the history of the last 10 actions — held removals of the pass, confirmed by the owner and its shortened key, at its time, below the start of the pass it lined up (newest first, the same instant) — the confirmation pending and no Confirm [AC-4 "The history of the last 10 actions shows the confirmation"; AC-1 "Every viewer sees it. Within 10 seconds of a confirmation, every viewer\'s panel shows it in the history, and shows it pending … no panel offers Confirm"; ADR 0007 D5 "the start shows above it", D12 passWho confirm lines]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    // Soft: the case is about the history line below, which it must still reach while Confirm is not built.
+    await expect.soft(confirmButton(page), 'before: Confirm — not implemented yet if missing (D9)').toBeVisible({ timeout: 5000 });
+    await pauseClock(page);
+    m.set(S.HISTORY);
+    await page.clock.runFor(POLL_MS);
+    const T = F.CONFIRM_TIMES.otherTab;
+    await untilShows(page, 'tp-pass', [CONFIRMED_WORD, new RegExp(esc(RUN)), clockRe(T), ...OWNER_WHO], [], `within POLL_MS the history shows the confirmation: held removals of pass ${RUN} confirmed by the owner (${F.OWNER_KEY}…) at 11:59 (D12) — not implemented yet`, 5000);
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the confirmation shows pending', 5000);
+    await expect(confirmButton(page), 'and no panel offers Confirm for that held list while it is pending').toHaveCount(0);
+    const rows = (await section(page, 'tp-pass').locator('ol > li').allInnerTexts()).map(squash);
+    const confirmRow = rows.findIndex((t) => CONFIRMED_WORD.test(t) && t.includes(F.OWNER_KEY));
+    const startRow = rows.findIndex((t) => START_WORD.test(t) && CONFIRMATION_WHO.test(t) && !t.includes(F.OWNER_KEY));
+    expect(confirmRow, `the history lists the confirm line (rows: ${JSON.stringify(rows)})`).toBeGreaterThanOrEqual(0);
+    expect(startRow, 'and the start of the pass it lined up, by the owner\'s confirmation').toBeGreaterThanOrEqual(0);
+    expect(startRow, 'newest first, the start written in the same commit shows above the confirm line (D5)').toBeLessThan(confirmRow);
+    expect(m.log.nonGet, 'a viewer who did not press sends nothing').toEqual([]);
+  });
+
+  test('B136: the pass that took a confirmation up names it — it took up the owner\'s confirmation (with the shortened key from the record\'s confirm line made at that time) made at 11:51 — above what it did with it, which stays as today: it honoured it and applied all 120 confirmed removals; with no confirm line at that time it names no key; and a report from before story 7 reads "when not recorded" [AC-4 "The pass that took a confirmation up names it: the owner\'s confirmation, and when it was made. What it says it did with it stays as today"; ADR 0007 D7 latest.confirmation.mintedAt, D12 runWho confirmation "with the key when a confirm line in the record has at === mintedAt", "(when not recorded) when mintedAt is absent", "above today\'s honoured and why lines"]', async ({ page }) => {
+    const M = F.CONFIRM_TIMES.tookUp;
+    const m = await mock(page, S.TOOK_UP);
+    await openAndSettle(page);
+    await untilShows(page, 'tp-pass', [TOOK_UP_CONFIRMATION, clockRe(M), ...OWNER_WHO], [], `the latest pass took up the owner's confirmation (${F.OWNER_KEY}…), made at 11:51 (D12) — not implemented yet`, 5000);
+    const text = await textOf(page, 'tp-pass');
+    const claims = removalClaims(text).filter((s) => numRe(F.HELD_TOTAL).test(s));
+    expect(claims.length, `what it did stays as today: it applied ${F.HELD_TOTAL} of the confirmed removals`).toBeGreaterThan(0);
+    for (const s of claims) expect(s, 'stated exactly, never more than it applied').not.toMatch(LOWER_BOUND);
+    expect(text.search(TOOK_UP_CONFIRMATION), 'the took-up line shows above the honoured line (D12)').toBeLessThan(text.search(/\bhonou?red\b/i));
+
+    await reload(page, m, S.TOOK_UP_NO_LINE);
+    await untilShows(page, 'tp-pass', [TOOK_UP_CONFIRMATION, clockRe(M)], [new RegExp(esc(F.OWNER_KEY))], 'no confirm line made at that time in the record: the line names when, and no key (D12)', 5000);
+    await reload(page, m, S.TOOK_UP_UNDATED);
+    await untilShows(page, 'tp-pass', [TOOK_UP_CONFIRMATION, WHEN_NOT_RECORDED], [], 'a report from before story 7 (no mintedAt): it took up the owner\'s confirmation, when not recorded (D7, D12)', 5000);
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  test('B137: a pass that found the owner\'s confirmation and did not honour it names it — it took up the owner\'s confirmation made at 11:13 — and says, as today, that it did not honour it and why (a newer pass had held another list), never that it applied any [AC-4 "What it says it did with it stays as today: whether it honoured it, and why not if it did not"; ADR 0007 D7 "set on found: true only, honoured or not", D12]', async ({ page }) => {
+    const m = await mock(page, S.NOT_HONOURED);
+    await openAndSettle(page);
+    const M = F.CONFIRM_TIMES.notHonoured;
+    await untilShows(page, 'tp-pass', [TOOK_UP_CONFIRMATION, clockRe(M), ...OWNER_WHO], [], 'the latest pass took up the owner\'s confirmation made at 11:13 (D7, D12) — not implemented yet', 5000);
+    const text = await textOf(page, 'tp-pass');
+    expect(text, 'it did not honour it').toMatch(DID_NOT_HONOUR);
+    expect(text, 'and why, explained').toContain(explanation('confirmationWhy', 'report-changed'));
+    expect(text.search(TOOK_UP_CONFIRMATION), 'the took-up line shows above the why line (D12)').toBeLessThan(text.search(DID_NOT_HONOUR));
+    expect(appliedClaims(text), 'never that it applied any confirmed removal').toEqual([]);
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  /* ── AC-5: an overdue pass is flagged ──────────────────────────────────────────────────────────────────────── */
+
+  test('B138: when the status says the pass is overdue, every viewer sees a warning in the backstop section — the pass is overdue, when the latest pass began (04:50) and when one was expected (10:50) — in the warn tone; with the pass on time, no enabled entry (the no-backstop warning stands), no entry that runs it, or no pass on record (the pass section says none has run), there is no overdue line [AC-5 "What every viewer sees", "No warning"; ADR 0007 D8 states, D14 "overdue: The pass is overdue: the latest pass began at …, and the schedule expected the next by …", "on-time, no-entry, no-schedule and no-pass: no line", "tone becomes warn"]', async ({ page }) => {
+    test.setTimeout(120000);
+    const O = F.OVERDUE.OVERDUE;
+    const m = await mock(page, { who: 'admin', ...S.OVERDUE });
+    await openAndSettle(page);
+    await untilShows(page, 'tp-schedule', [OVERDUE_WORD, clockRe(O.latestBeganAt), clockRe(O.expectedAt)], [OVERDUE_CANNOT_TELL], 'the backstop section says the pass is overdue, when the latest pass began (04:50) and when one was expected (10:50) (D14) — not implemented yet', 5000);
+    expect(overdueWaitingLines(await textOf(page, 'tp-schedule')), 'nothing waits: no "a pass is waiting" line').toEqual([]);
+    expect(await section(page, 'tp-schedule').getAttribute('style') || '', 'the section is in the warn tone (D14)').toMatch(/--orange/);
+    const QUIET = [
+      ['the pass on time', { ...S.HELD_NONE, schedule: F.SCHEDULE.ONE }, [/\b6\s?(?:hours?|hrs?|h)\b/i]],
+      ['no enabled entry', { ...S.NO_ENTRY_VERDICT, schedule: F.SCHEDULE.NONE }, [NO_BACKSTOP]],
+      ['no entry that runs the pass', { ...S.NO_SCHEDULE_VERDICT, schedule: F.SCHEDULE.ONE }, [/\b6\s?(?:hours?|hrs?|h)\b/i]],
+      ['no pass on record', { ...S.NO_PASS, schedule: F.SCHEDULE.ONE }, [/\b6\s?(?:hours?|hrs?|h)\b/i]],
+    ];
+    for (const [what, patch, stands] of QUIET) {
+      await reload(page, m, patch);
+      const text = await textOf(page, 'tp-schedule');
+      for (const re of stands) expect(text, `${what}: the backstop section's existing lines stand (${re})`).toMatch(re);
+      expect(text, `${what}: no overdue line (D14)`).not.toMatch(OVERDUE_WORD);
+    }
+    expect(await textOf(page, 'tp-pass'), 'no pass on record: the pass section says no pass has run').toMatch(NO_PASS_YET);
+    await reload(page, m, { ...S.HELD_NONE, schedule: F.SCHEDULE.ONE });
+    expect(await section(page, 'tp-schedule').getAttribute('style') || '', 'on time, with one 6-hourly entry: not in the warn tone').not.toMatch(/--orange|--red/);
+    expect(m.log.nonGet, 'it is only a warning: it sends nothing').toEqual([]);
+  });
+
+  test('B139: while a pass waits the pass is still overdue, and the warning says a pass is waiting and that it clears when that pass begins running; within POLL_MS of the pass beginning, the warning is gone; it starts nothing [AC-5 "A pass that is waiting … has not begun. So the warning stays while a pass waits, and says that one is waiting", "It clears within 10 seconds of a new pass beginning", "It is only a warning"; ADR 0007 D8, D14 "When busy shows a waiting item: A pass is waiting; the warning clears when it begins running."]', async ({ page }) => {
+    const O = F.OVERDUE.OVERDUE;
+    const m = await mock(page, S.OVERDUE_WAITING);
+    await openAndSettle(page);
+    await untilShows(page, 'tp-schedule', [OVERDUE_WORD, clockRe(O.latestBeganAt), clockRe(O.expectedAt)], [OVERDUE_CANNOT_TELL], 'a pass waits and the pass is still overdue (D14) — not implemented yet', 5000);
+    expect(overdueWaitingLines(await textOf(page, 'tp-schedule')).length, 'the warning says a pass is waiting, and clears when it begins running (D14)').toBeGreaterThan(0);
+    await pauseClock(page);
+    m.set(S.OVERDUE_CLEARED);
+    await page.clock.runFor(POLL_MS);
+    await expect.poll(async () => OVERDUE_WORD.test(await textOf(page, 'tp-schedule')), { message: 'within POLL_MS of the pass beginning, the warning is gone (AC-5 "It clears within 10 seconds")', timeout: 5000 }).toBe(false);
+    expect(m.log.nonGet, 'it starts nothing').toEqual([]);
+  });
+
+  test('B140: when the panel cannot tell whether the pass is overdue — the server could not read the schedule, a rule it cannot judge, an unreadable report time, a status with no overdue member, or a status read that failed — the backstop section says it cannot tell, with the reason it has, and never that the pass is overdue; before the status has answered it says the overdue check is still being made [AC-5 "When it cannot tell … the backstop section says it cannot tell whether the pass is overdue. A missing warning never stands for on time"; ADR 0007 D8 cannot-tell reasons, R13; D14 "cannot-tell, an absent overdue member, or a status read that failed with no body", "While the status has not answered"]', async ({ page }) => {
+    test.setTimeout(150000);
+    const CASES = [
+      ['the schedule could not be read on the server', S.CANNOT_TELL_SCHEDULE, /\bschedul\w*\b/i],
+      ['a rule the server cannot judge', S.CANNOT_TELL_RULE, /\brule\b/i],
+      ['the latest pass\'s start cannot be read', S.CANNOT_TELL_REPORT, /\breport\b/i],
+      ['a status with no overdue member (a server before story 7)', F.SCENE.IDLE, null],
+    ];
+    const m = await mock(page, CASES[0][1]);
+    for (const [i, [what, scene, reason]] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, scene);
+      const text = await textOf(page, 'tp-schedule');
+      expect(text, `${what}: the backstop section says it cannot tell whether the pass is overdue (D14) — not implemented yet`).toMatch(OVERDUE_CANNOT_TELL);
+      if (reason) {
+        const at = text.search(OVERDUE_CANNOT_TELL);
+        expect(text.slice(at, at + 300), `${what}: with the reason (${reason})`).toMatch(reason);
+      }
+      expect(overdueClaims(text), `${what}: never that the pass is overdue`).toEqual([]);
+    }
+    await reload(page, m, { ...S.HELD_NONE, status: fail(500) }, ['tp-held']);
+    await expect(section(page, 'tp-pass'), 'the status read failed').toHaveAttribute('data-state', 'error');
+    expect(await textOf(page, 'tp-schedule'), 'a status read that failed with no body: cannot tell (D14)').toMatch(OVERDUE_CANNOT_TELL);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    try {
+      await reload(page, m, { ...S.OVERDUE, status: () => gate.then(() => S.OVERDUE.status) }, ['tp-pass', 'tp-held', 'tp-drift']);
+      await expect(section(page, 'tp-pass'), 'the status has not answered').toHaveAttribute('data-state', 'loading');
+      await settled(page, 'tp-schedule');
+      const text = await textOf(page, 'tp-schedule');
+      expect(text, 'whether the pass is overdue is still being checked (D14)').toMatch(OVERDUE_CHECKING);
+      expect(text, 'not "cannot tell" before the status has answered').not.toMatch(OVERDUE_CANNOT_TELL);
+      expect(overdueClaims(text), 'and no verdict yet').toEqual([]);
+    } finally {
+      release();
+    }
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  test('B141: the overdue warning shows in the backstop section whatever the schedule list\'s own read is doing — while it is still loading, and beside its failure, which the section still names — since it comes from the status [AC-5; ADR 0007 D14 "It renders in every ScheduleSection branch, loading and failed ones included"; R12 "The backstop section then shows the list\'s failure and the verdict side by side"]', async ({ page }) => {
+    const O = F.OVERDUE.OVERDUE;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const m = await mock(page, { ...S.OVERDUE, schedule: () => gate.then(() => F.SCHEDULE.ONE) });
+    try {
+      await openAndSettle(page, ['tp-schedule']);
+      await expect(section(page, 'tp-schedule'), 'the schedule list is still loading').toHaveAttribute('data-state', 'loading');
+      await untilShows(page, 'tp-schedule', [OVERDUE_WORD, clockRe(O.latestBeganAt), clockRe(O.expectedAt)], [OVERDUE_CANNOT_TELL], 'while the list loads, the overdue warning shows (D14) — not implemented yet', 5000);
+    } finally {
+      release();
+    }
+    await reload(page, m, { ...S.OVERDUE, schedule: fail(500) });
+    await expect(section(page, 'tp-schedule'), 'the schedule list\'s read failed').toHaveAttribute('data-state', 'error');
+    const text = await textOf(page, 'tp-schedule');
+    expect(text, 'the section names the failed read, with its code').toMatch(codeRe('http-500'));
+    await untilShows(page, 'tp-schedule', [OVERDUE_WORD, clockRe(O.latestBeganAt), clockRe(O.expectedAt)], [OVERDUE_CANNOT_TELL], 'and beside it, the overdue warning (R12)', 5000);
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  test('B142: a viewer whose device clock is wrong — three days ahead, or three days behind — sees the same as everyone else: no overdue line while the server says on time, and the server\'s times when it says overdue [AC-5 "The same for every viewer. A viewer whose device clock is wrong sees the same as everyone else"; ADR 0007 D8 "computed per request from server time", D14 overdueView "pure, clock-free"]', async ({ page }) => {
+    test.setTimeout(90000);
+    const O = F.OVERDUE.OVERDUE;
+    const DAY = 24 * 60 * 60 * 1000;
+    const m = await mock(page, S.HELD_NONE);
+    for (const [i, skew] of [3 * DAY, -3 * DAY].entries()) {
+      const when = skew > 0 ? 'three days ahead' : 'three days behind';
+      await page.clock.setSystemTime(new Date(Date.parse(F.NOW) + skew));
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, S.HELD_NONE);
+      const onTime = await textOf(page, 'tp-schedule');
+      expect(onTime, `${when}: the server says on time, so the backstop section's own line stands`).toMatch(/\b6\s?(?:hours?|hrs?|h)\b/i);
+      expect(onTime, `${when}: and there is no overdue line, whatever the device clock says`).not.toMatch(OVERDUE_WORD);
+      await reload(page, m, S.OVERDUE);
+      await untilShows(page, 'tp-schedule', [OVERDUE_WORD, clockRe(O.latestBeganAt), clockRe(O.expectedAt)], [OVERDUE_CANNOT_TELL], `${when}: the server says overdue, and the panel shows its times, 04:50 and 10:50 — not implemented yet`, 5000);
+    }
+    expect(m.log.nonGet).toEqual([]);
+  });
+
+  /* ── AC-6: prompts return focus ────────────────────────────────────────────────────────────────────────────── */
+
+  test('B143: the Turn off prompt returns focus — after Cancel, to "Turn off"; after confirming, to the path section\'s heading while the change is under way, then to the line that says what happened; when it closes by itself with focus inside it, to the path section\'s heading, never to "Turn on"; and when focus was elsewhere it stays there; never on the page itself [AC-6 "After Cancel, keyboard focus goes back to the control that opened the prompt", "Otherwise … focus goes to the line that says what happened, or if there is none, to that section\'s heading", "Never lost"; ADR 0007 D15 "Turn off closes at once on confirm: focus goes to the path section\'s heading. When its outcome line then appears … focus moves to the line", "It does nothing when wasInside is false"; ledger 2026-10-28-panel-prompts-return-no-focus]', async ({ page }) => {
+    test.setTimeout(150000);
+    const m = await mock(page);
+    await openAndSettle(page);
+    let p = await openPrompt(page);
+    await expect(p.cancel).toBeFocused();
+    await p.cancel.click();
+    await untilFocus(page, (f) => f.button && f.section === 'tp-path' && f.text === 'Turn off', 'after Cancel, focus goes back to "Turn off", the control that opened the prompt (D15) — not implemented yet: today it falls to the page');
+
+    p = await openPrompt(page);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({ switch: async (req, server) => { await gate; return server(); } });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the off is sent' }).toEqual([SWITCH_POST]);
+      await untilFocus(page, onSectionHeading('tp-path'), 'confirming closes the prompt at once: focus goes to the path section\'s heading while the change is under way, never to the disabled control (D15)');
+    } finally {
+      release();
+    }
+    await untilFocus(page, onOutcomeLine('tp-path', TURNED_OFF), 'once the answer comes, focus moves to the line that says what happened: the path was turned off (D15)');
+
+    await reload(page, m, { realtime: F.REALTIME.ON_LIVE, record: undefined, switch: undefined });
+    p = await openPrompt(page);
+    await expect(p.cancel, 'focus is inside the prompt, on Cancel').toBeFocused();
+    await pauseClock(page);
+    m.set({ realtime: F.REALTIME.OFF_WITH_FIGURES, record: F.RECORD.OFF_BY_ADMIN });
+    await page.clock.runFor(POLL_MS);
+    await expect(cancelButton(page), 'a read shows the path off: the prompt closes by itself').toHaveCount(0, { timeout: 5000 });
+    await untilFocus(page, onSectionHeading('tp-path'), 'with focus inside it, focus goes to the path section\'s heading (no line says what happened), never to "Turn on" (D15)');
+
+    await reload(page, m, { realtime: F.REALTIME.ON_LIVE, record: undefined });
+    p = await openPrompt(page);
+    const recount = section(page, 'tp-drift').getByRole('button', { name: 'Recount', exact: true });
+    await recount.focus();
+    await expect(recount, 'setup: focus is outside the prompt, on Recount').toBeFocused();
+    await pauseClock(page);
+    m.set({ realtime: F.REALTIME.OFF_WITH_FIGURES, record: F.RECORD.OFF_BY_ADMIN });
+    await page.clock.runFor(POLL_MS);
+    await expect(cancelButton(page), 'the prompt closes by itself').toHaveCount(0, { timeout: 5000 });
+    await wait(500);
+    await expect(recount, 'focus was not inside it: it stays on Recount (D15 "It does nothing when wasInside is false")').toBeFocused();
+    expect(m.log.nonGet).toEqual([SWITCH_POST]);
+  });
+
+  test('B144: the Stop prompt returns focus — after Cancel, to "Stop"; after Cancel with "Stop" gone (every busy pass now asked to stop), to the pass section\'s heading; while its stop is under way, to its own heading; after the answer, to the line that says what happened; after no answer in 15 s, to the line that says the outcome is unknown; when it closes by itself with focus inside it, to the pass section\'s heading — never to "Run a pass now", never to the page itself [AC-6; ADR 0007 D15 "cancel: focuses the opener\'s ref when it is mounted and not disabled; otherwise, or when the opener is gone: the outcome line when shown, else the section\'s heading", "While under way … moves focus to its own h4", "Never on Turn on or Run a pass now"]', async ({ page }) => {
+    test.setTimeout(180000);
+    const K = F.PASS_KEYS;
+    const m = await mock(page, F.SCENE.WAITING_ASKED);
+    await openAndSettle(page);
+    let p = await openStopPrompt(page);
+    await p.cancel.click();
+    await untilFocus(page, (f) => f.button && f.section === 'tp-pass' && f.text === 'Stop', 'after Cancel, focus goes back to "Stop" (D15) — not implemented yet: today it falls to the page');
+
+    p = await openStopPrompt(page);
+    await pauseClock(page);
+    m.set(F.SCENE.STOP_ASKED);
+    await page.clock.runFor(POLL_MS);
+    await untilShows(page, 'tp-pass', [STOP_ASKED], [], 'the read has landed: every busy pass has a stop asked for, so "Stop" is gone', 5000);
+    await expect(passHeading(page, p.heading), 'the prompt stays open: a pass is still busy (ADR 0006 D17)').toBeVisible();
+    await p.cancel.click();
+    await untilFocus(page, onSectionHeading('tp-pass'), 'after Cancel with its opener gone, focus goes to the pass section\'s heading (no line says what happened), never to "Run a pass now" (D15)');
+
+    await reload(page, m, F.SCENE.WAITING_ASKED);
+    p = await openStopPrompt(page);
+    await pauseClock(page);
+    let release;
+    let gate = new Promise((resolve) => { release = resolve; });
+    m.set({ stop: async (req, server) => { await gate; return server(); } });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet.filter((l) => l === STOP_POST).length, { message: 'the stop is sent' }).toBe(1);
+      await untilFocus(page, onHeadingNamed('tp-pass', p.heading), 'while its stop is under way, focus is on the prompt\'s own heading, never on its disabled button (D15)');
+    } finally {
+      release();
+    }
+    await untilFocus(page, onOutcomeLine('tp-pass', TAKEN_OUT), 'after the answer, focus goes to the line that says what happened: the waiting pass was taken out of line (D15)');
+
+    await reload(page, m, { ...F.SCENE.WAITING_ASKED, stop: undefined });
+    p = await openStopPrompt(page);
+    await pauseClock(page);
+    gate = new Promise((resolve) => { release = resolve; });
+    m.set({
+      stop: async () => { await gate; return F.STOP_ANSWER.stopped([{ key: K.WAITING, how: 'taken-out-of-line' }]); },
+      status: async () => { await gate; return F.SCENE.IDLE.status; },
+      passRecord: async () => { await gate; return F.SCENE.WAITING_ASKED.passRecord; },
+    });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet.filter((l) => l === STOP_POST).length, { message: 'the stop is sent' }).toBe(2);
+      await page.clock.runFor(15000);
+      await untilFocus(page, onOutcomeLine('tp-pass', OUTCOME_UNKNOWN), 'no answer in 15 s: the prompt closes and focus goes to the line that says the outcome is unknown (D15)');
+    } finally {
+      release();
+    }
+
+    await reload(page, m, { ...F.SCENE.WAITING_ASKED, stop: undefined });
+    p = await openStopPrompt(page);
+    await expect(p.cancel, 'focus is inside the prompt, on Cancel').toBeFocused();
+    await pauseClock(page);
+    m.set(F.SCENE.IDLE);
+    await page.clock.runFor(POLL_MS);
+    await expect(passHeading(page, p.heading), 'a read shows nothing busy: the prompt closes by itself').toHaveCount(0, { timeout: 10000 });
+    await untilFocus(page, onSectionHeading('tp-pass'), 'with focus inside it, focus goes to the pass section\'s heading, never to "Run a pass now" (D15)');
+    expect(m.log.nonGet, 'two stops sent, each once').toEqual([STOP_POST, STOP_POST]);
+  });
+
+  test('B145: the Confirm prompt returns focus — after Cancel, to "Confirm held removals"; while its confirmation is under way, to its own heading; after the answer, to the line that says what happened; after a refusal, to the refusal\'s line; when it closes by itself with focus inside it, to the held section\'s heading; and when focus was elsewhere it stays there; never on the page itself [AC-6 "This covers each of the panel\'s prompts (Turn off, Stop and Confirm), however it closes"; ADR 0007 D15 targets (Confirm\'s outcome line in HeldSection), "While under way", "It does nothing when wasInside is false"]', async ({ page }) => {
+    test.setTimeout(150000);
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    let p = await openConfirmPrompt(page);
+    await p.cancel.click();
+    await untilFocus(page, (f) => f.button && f.section === 'tp-held' && f.text === CONFIRM_LABEL, `after Cancel, focus goes back to "${CONFIRM_LABEL}" (D15)`);
+
+    p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({ confirm: async (req, server) => { await gate; return server(); } });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the confirmation is sent' }).toEqual([CONFIRM_POST]);
+      await untilFocus(page, onHeadingNamed('tp-held', p.heading), 'while the confirmation is under way, focus is on the prompt\'s own heading (D15)');
+    } finally {
+      release();
+    }
+    await untilFocus(page, onOutcomeLine('tp-held', /\blined up\b/i), 'after the answer, focus goes to the line that says what happened: a pass was lined up (D15)');
+
+    await reload(page, m, { ...S.HELD_NONE, confirm: F.CONFIRM_ANSWER.NOT_LATEST });
+    p = await openConfirmPrompt(page);
+    await p.confirm.click();
+    await untilFocus(page, onOutcomeLine('tp-held', NOTHING_CONFIRMED), 'after a refusal, focus goes to the line that says what happened: nothing was confirmed (D15)');
+
+    await reload(page, m, S.HELD_NONE);
+    p = await openConfirmPrompt(page);
+    await expect(p.cancel, 'focus is inside the prompt, on Cancel').toBeFocused();
+    await pauseClock(page);
+    m.set(S.HISTORY);
+    await page.clock.runFor(POLL_MS);
+    await expect(heldHeading(page, p.heading), 'another tab\'s confirmation is now pending: the prompt closes by itself').toHaveCount(0, { timeout: 10000 });
+    await untilFocus(page, onSectionHeading('tp-held'), 'with focus inside it, focus goes to the held section\'s heading (no line says what happened) (D15)');
+
+    await reload(page, m, S.HELD_NONE);
+    p = await openConfirmPrompt(page);
+    const recount = section(page, 'tp-drift').getByRole('button', { name: 'Recount', exact: true });
+    await recount.focus();
+    await pauseClock(page);
+    m.set(S.HISTORY);
+    await page.clock.runFor(POLL_MS);
+    await expect(heldHeading(page, p.heading), 'the prompt closes by itself').toHaveCount(0, { timeout: 10000 });
+    await wait(500);
+    await expect(recount, 'focus was not inside it: it stays on Recount (D15)').toBeFocused();
+    expect(m.log.nonGet).toEqual([CONFIRM_POST, CONFIRM_POST]);
+  });
+
+  /* ── AC-7: the copy that changes, and the request pin ──────────────────────────────────────────────────────── */
+
+  test('B146: the panel\'s opening line names confirming held removals, for the owner, beside switching the path and running or stopping a pass [AC-7 "the panel\'s opening line, which names what it changes"; ADR 0007 D16 "The opening line adds that the owner can confirm held removals"]', async ({ page }) => {
+    await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const line = squash(await page.locator('h2', { hasText: TAB }).locator('xpath=following-sibling::p[1]').innerText());
+    expect(line, 'it names confirming held removals (D16) — not implemented yet').toMatch(OPENING_CONFIRMS);
+    expect(sentencesWith(line, OPENING_CONFIRMS).some((x) => /\bowner\b/i.test(x)), 'for the owner (D16 "the owner can confirm held removals")').toBe(true);
+    expect(line, 'and still running a pass (story 6, D19)').toMatch(/\brun\b/i);
+    expect(line, 'and stopping one').toMatch(/\bstop\b/i);
+    expect(line, 'and the path\'s switch').toMatch(/\bswitch\b/i);
+  });
+
+  test('B147: on a held list with Confirm offered, a viewer who does not press it sends only GETs, from the routes stories 4–6 read (story 7 adds no read route), for 30 s of polls; pressing Confirm and cancelling sends nothing; confirming sends exactly one POST, to the confirm route, as JSON {"runId"} [story 7 Test tasks "The request pins … allow exactly this story\'s confirmation, any read route the Architecture adds, and nothing else"; AC-7 "The panel\'s reads still change nothing"; ADR 0007 § Seams "the request pins allow sendConfirm\'s POST and no new read route", D11]', async ({ page }) => {
+    const m = await mock(page, { ...S.HELD_NONE, realtime: F.REALTIME.OFF_WITH_FIGURES, drift: F.DRIFT.CLEAN });
+    await openAndSettle(page);
+    await expect(confirmButton(page), 'Confirm is offered — not implemented yet if missing (D9)').toBeVisible({ timeout: 5000 });
+    await pauseClock(page);
+    const start = m.log.api.length;
+    for (let step = 1; step <= 30000 / POLL_MS; step += 1) {
+      await page.clock.runFor(POLL_MS);
+      await wait(150);
+    }
+    const open = m.log.api.slice(start);
+    const reads = open.map((l) => l.split(' ')[1].split('?')[0]).filter((p) => /^\/api\/(tagging-edges|scheduled-tasks)\//.test(p));
+    const allowed = new Set([F.ROUTES.status, F.ROUTES.realtime, F.ROUTES.schedule, F.ROUTES.drift, F.ROUTES.held, F.ROUTES.switch, F.ROUTES.passRecord]);
+    expect([...new Set(reads)].filter((p) => !allowed.has(p)), 'it reads only the routes stories 4–6 read: story 7 adds no read route (ADR 0007 § Seams)').toEqual([]);
+    expect(m.log.nonGet, 'a viewer who does not press Confirm sends only GETs').toEqual([]);
+    const p = await openConfirmPrompt(page);
+    await p.cancel.click();
+    await wait(500);
+    expect(m.log.nonGet, 'pressing Confirm and cancelling sends nothing').toEqual([]);
+    const q = await openConfirmPrompt(page);
+    await q.confirm.click();
+    await expect.poll(() => m.log.nonGet, { message: 'confirming sends exactly one POST, to the confirm route' }).toEqual([CONFIRM_POST]);
+    await wait(1000);
+    expect(m.log.nonGet, 'and nothing else that is not a GET').toEqual([CONFIRM_POST]);
+    expect(m.log.nonGet.filter((l) => !ALLOWED_POSTS.includes(l)), 'every non-GET is one of the four POSTs the panel may send').toEqual([]);
+    expect(JSON.parse(m.log.sent[0].body || 'null'), 'its body is {"runId"}').toEqual({ runId: RUN });
+    expect(m.log.sent[0].contentType || '', 'as JSON').toMatch(/^application\/json\b/i);
+  });
+});
+
 /* ══ AC-6: the existing sub-tabs send the same requests as before (T10) ═══════════════════════════════════════════ */
 
 const TAB_KEYS = { '🔄 Router Management': 'router', '🔃 Negentropy Sync': 'sync', '📡 Relay Configuration': 'config', '⚡ Streaming ETL': 'etl', '📅 Scheduled Tasks': 'schedule' };
@@ -3316,7 +4551,17 @@ test.describe('AC-6: nothing else moves (tagging-edges #4, T10)', () => {
     if (process.env.BRAINSTORM_SERVER_ACCESSIBLE !== 'true') test.skip(true, 'Brainstorm server not accessible (set BRAINSTORM_SERVER_ACCESSIBLE=true)');
   });
 
-  test('B39: each existing Relays sub-tab — Router Management, Negentropy Sync, Relay Configuration, Streaming ETL, Scheduled Tasks — sends the same API requests as the recorded baseline, and keeps its label and order [AC-6 "The tab bar"; T10]', async ({ page, request }) => {
+  /*
+   * A story that changes a Relays sub-tab runs B39 (see the header, "A story that changes a Relays sub-tab runs B39").
+   * Revised for story 7 (ledger 2026-10-28-relay-subtab-baseline-stale, all three parts; story 7 § Test tasks "The
+   * browser baseline"):
+   *   (a) the baseline is brought up to date by hand (its `handEdits` entry says what and why: ffda8152's Negentropy
+   *       Sync presets read; re-recording is refused on every build that contains the panel);
+   *   (b) each check is expect.soft, so one stale sub-tab no longer ends the test before the others are checked (from
+   *       2026-10-09, Relay Configuration, Streaming ETL and Scheduled Tasks went unchecked behind Negentropy Sync);
+   *   (c) the rule that such a story runs B39 is written in this spec's header and here.
+   */
+  test('B39: each existing Relays sub-tab — Router Management, Negentropy Sync, Relay Configuration, Streaming ETL, Scheduled Tasks — sends the same API requests as the recorded baseline, and keeps its label and order; each sub-tab is checked and reported even when another differs [AC-6 "The tab bar"; T10; ledger 2026-10-28-relay-subtab-baseline-stale]', async ({ page, request }) => {
     test.setTimeout(150000);
     if (RECORDING) {
       const { missing } = await bundleContains(request, [TAB]);
@@ -3348,9 +4593,10 @@ test.describe('AC-6: nothing else moves (tagging-edges #4, T10)', () => {
 
     expect(fs.existsSync(BASELINE_FILE), `the AC-6 baseline ${path.relative(process.cwd(), BASELINE_FILE)} exists — record it with TP_RECORD_BASELINE=1 against the UI before story 4 (T10)`).toBe(true);
     const baseline = JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8'));
-    expect(observed.tabs, 'the five existing sub-tabs keep their labels and order').toEqual(baseline.tabs);
+    // Soft (ledger 2026-10-28-relay-subtab-baseline-stale): every sub-tab is checked and reported, whichever differs.
+    expect.soft(observed.tabs, 'the five existing sub-tabs keep their labels and order').toEqual(baseline.tabs);
     for (const key of Object.values(TAB_KEYS)) {
-      expect(observed.subTabs[key], `the ${key} sub-tab sends the same API requests as before`).toEqual(baseline.subTabs[key]);
+      expect.soft(observed.subTabs[key], `the ${key} sub-tab sends the same API requests as the baseline — if this sub-tab's change was intended, update ${path.relative(process.cwd(), BASELINE_FILE)} by hand with a handEdits entry (see the spec's header)`).toEqual(baseline.subTabs[key]);
     }
   });
 });

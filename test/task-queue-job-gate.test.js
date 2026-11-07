@@ -38,6 +38,13 @@
  *              the chain, ended and gaveUp.
  *   JG26       the ADR's own worker callback (the helper's adrWorkerCallback) over the controller's gate: a Stop
  *              before pickup and while the pass waits for the lock, a pass that runs, and a give-up.
+ *   Story 7 (2026-11-07; ADR tagging-edges/0007 D1, D5, § Carry-forwards NB1):
+ *   JG19       revised, not deleted: its confirm-route case called lineUp({ mode: 'confirm' }), which is gone (0007 D1).
+ *              A confirmation whose record cannot be written is now refused and adds nothing (D5), so the case is a
+ *              confirmation's key whose add timed out (its start taken back, its key in skips) and landed late.
+ *   JG27       a shouldAbandon that throws reads as false: the real semaphore's acquire goes on and keeps its lease until
+ *              release; through D3's worker callback the lease is released in the worker's finally (NB1). Red until
+ *              NB1 lands: acquire calls the hook outside any try.
  *
  * Hermetic. TAGGING_EDGES_STATE_DIR points at a temporary directory for the whole run (restored after), and every
  * controller's record is the helper's in-memory store, so /var/lib/brainstorm is never read or written.
@@ -925,7 +932,7 @@ test('JG18: a schedule\'s start cannot be refused — when the record write fail
   }));
 });
 
-test('JG19: "started another way" — beforeAcquire records { kind: "other" } at job.timestamp, best effort, for a key that does not match LINEUP_ID and that this controller did not line up: a legacy fixed-id job (keyed reconcileTaggingEdges@<timestamp>, jobId "reconcileTaggingEdges") and a dashboard add with BullMQ\'s own numeric id; a failed write still answers "go" — but never for a LINEUP_ID-shaped key it did not line up, for a key lineUp made whose start could not be recorded (the confirm route\'s, with the record failing), or for a key whose start is already recorded [ADR tagging-edges/0006 D3 "Another job the record does not know: record the start {kind: \'other\'} at job.timestamp, best effort. This applies to a key that does not match LINEUP_ID and is not in linedUp. A lineUp-made key with no start (its record write failed) stays unrecorded, as AC-5 requires"; D2; D8; R3; R7; AC-5 "started another way"]', async () => {
+test('JG19: "started another way" — beforeAcquire records { kind: "other" } at job.timestamp, best effort, for a key that does not match LINEUP_ID and that this controller did not line up: a legacy fixed-id job (keyed reconcileTaggingEdges@<timestamp>, jobId "reconcileTaggingEdges") and a dashboard add with BullMQ\'s own numeric id; a failed write still answers "go" — but never for a LINEUP_ID-shaped key it did not line up, for a key the controller made whose start was taken back (revised for story 7 — ADR tagging-edges/0007 D1, D5: a confirmation whose record cannot be written is now refused, adding nothing; the case is now a confirmation\'s key whose add timed out and landed late), or for a key whose start is already recorded [ADR tagging-edges/0006 D3 "Another job the record does not know: record the start {kind: \'other\'} at job.timestamp, best effort. This applies to a key that does not match LINEUP_ID and is not in linedUp. A lineUp-made key with no start (its record write failed) stays unrecorded, as AC-5 requires"; D2; D8; R3; R7; AC-5 "started another way"]', async () => {
   const TS = T0 - 10 * MIN;
   const p = [];
   // the legacy fixed id, and BullMQ's own counter id
@@ -967,19 +974,34 @@ test('JG19: "started another way" — beforeAcquire records { kind: "other" } at
     const rec = parsed(world);
     if ((rec.passes || {})[K] || startLines(rec, K).length) p.push(`a LINEUP_ID-shaped key is never "started another way" (${adr('D3')}: "a key that does not match LINEUP_ID"); the record holds ${show(rec)}`);
   });
+  // Revised for story 7 (ADR tagging-edges/0007 D1, D2 steps 5 and 8, D5): the confirm route's start is now
+  // controller.confirm's, and a confirmation whose record cannot be written is refused and adds nothing (D5 replaces
+  // 0006 D8's "goes ahead unrecorded"). The controller-made key with no start is now one whose start the confirmation
+  // took back after its add timed out, and that lands late: at its pickup it is skipped, and no start is recorded.
   await withWorld({}, async (world) => {
     const ctl = newController(world);
+    assert(typeof ctl.confirm === 'function', `createController(deps) returns no confirm({ who, runId }) yet (ADR tagging-edges/0007 D1: "confirm replaces lineUp({mode: 'confirm'})"); it returns ${show(Object.keys(ctl))}`);
+    const held = world.holdRemovals();
+    const who = { kind: 'owner', key: H.OWNER };
     world.record.failWrites('ENOSPC');
-    await gateCall(ctl.lineUp({ who: { kind: 'confirmation' }, mode: 'confirm' }), 'lineUp (confirm)');
-    const K = world.keys[world.keys.length - 1];
-    assert(K && world.queue.has(K), `setup: the confirm route's lineUp should add a job even when the record cannot be written (${adr('D8')}: "an unreadable record or a failed write goes ahead unrecorded"); keys ${show(world.keys)}, queue ${show(world.queue.dump())}`);
+    const refused = await gateCall(ctl.confirm({ who, runId: held.runId }), 'confirm (the record failing)');
+    if (!(refused && refused.status === 500 && refused.body && refused.body.code === 'record-unavailable') || world.queue.jobs().length) {
+      p.push(`a confirmation whose record cannot be written should be refused 500 record-unavailable, adding nothing (ADR tagging-edges/0007 D2 step 5, D5); it answered ${show(refused)} with the queue holding ${show(world.queue.jobs().map((j) => j.id))}`);
+    }
     world.record.heal();
-    const job = pickUp(world, K, 'the confirm route\'s job');
-    const got = await gateCall(ctl.gate.beforeAcquire(job), 'beforeAcquire (a lineUp key with no start)');
-    if (got !== 'go') p.push(`a lineUp key with no start: beforeAcquire should answer "go"; it answered ${show(got)}`);
+    world.queue.inject('add', { hang: true });
+    const a = await gateCall(ctl.confirm({ who, runId: held.runId }), 'confirm (its add timing out)');
+    const adds = world.callsOf('queue.add');
+    const K = adds.length ? adds[adds.length - 1].args[2].jobId : null;
+    assert(K && a && a.body && a.body.outcome === 'not-lined-up', `setup: a confirmation whose add times out should answer not-lined-up (ADR tagging-edges/0007 D2 step 8); it answered ${show(a)} with adds ${show(adds.map((x) => x.args[2]))}`);
+    world.queue.releaseHangs();
+    await H.waitFor(() => world.queue.has(K), { what: 'the late add to land' });
+    const job = pickUp(world, K, 'the confirmation\'s late landing');
+    const got = await gateCall(ctl.gate.beforeAcquire(job), 'beforeAcquire (a confirm key whose start was taken back)');
+    if (got !== 'skip') p.push(`a key whose add timed out is in skips, so its late landing is skipped at pickup (ADR tagging-edges/0007 D2 step 8 "put the key in skips (R1)"); beforeAcquire answered ${show(got)}`);
     const rec = parsed(world);
     const entry = (rec.passes || {})[K];
-    if ((entry && entry.start) || startLines(rec, K).length) p.push(`a key lineUp made whose start could not be recorded stays unrecorded (${adr('D3')}; AC-5); the record holds ${show(entry)} and ${show(startLines(rec, K))}`);
+    if ((entry && entry.start) || startLines(rec, K).length) p.push(`a key the controller made whose start was taken back stays unrecorded, never "started another way" (${adr('D3')}; AC-5); the record holds ${show(entry)} and ${show(startLines(rec, K))}`);
   });
   await withWorld({}, async (world) => {
     const ctl = newController(world);
@@ -1268,6 +1290,62 @@ test('JG26: through D3\'s worker callback over the controller\'s gate — a Stop
     if (world.queue.has(K)) p.push('a give-up: the failed on-demand job should be removed');
   });
   report(p);
+});
+
+test('JG27 (story 7, from story 6\'s review, round 1, non-blocking 1): a shouldAbandon that throws reads as false — the real semaphore\'s acquire, with a hook that throws at every call and with one that throws only just after a winning attempt (on a free lock, and after a wait behind another task), resolves a release function rather than rejecting, keeps the lease it won until that release, which HDELs it, and emits no "abandoned" event; and through D3\'s worker callback over a controller\'s gate whose shouldAbandon throws once the lock is won, the pass runs (processJob once) and the lease is released in the worker\'s finally, never left held for its 4-hour lifetime [ADR tagging-edges/0007 § Carry-forwards NB1 "resourceSemaphore.acquire calls shouldAbandon inside a try; a throw reads as false, so the lease is released in the worker\'s finally as usual"; ADR tagging-edges/0006 D4]', async () => {
+  const boom = () => Object.assign(new Error('the abandon hook threw'), { code: 'EHOOK' });
+  await cases([
+    { name: 'a hook that throws at every call, on a free lock', wait: false, when: 'always' },
+    { name: 'a hook that throws just after the win, on a free lock', wait: false, when: 'after-win' },
+    { name: 'a hook that throws just after the win, after a wait behind another task', wait: true, when: 'after-win' },
+  ], (c) => H.withStructuredLoggingOff(() => withRealSemaphore({ acquireTimeoutMs: 3000 }, async ({ sem, redis, attempts, ends }) => {
+    if (c.wait) redis.holdLease();
+    const ours = () => Object.keys(redis.leases()).filter((id) => id !== 'another-task');
+    let hookCalls = 0;
+    const shouldAbandon = () => { hookCalls += 1; if (c.when === 'always' || ours().length > 0) throw boom(); return false; };
+    const t = track(sem.acquire(HEAVY, semCtx({ shouldAbandon })));
+    try {
+      if (c.wait) {
+        await H.waitFor(() => attempts().length >= 2, { what: 'two lock attempts behind the other task' });
+        redis.releaseLease();
+      }
+      await within(t.promise, 1000, 'acquire');
+      const p = [];
+      if (!hookCalls) p.push('setup: the hook was never called, so the path under test did not run');
+      if (t.error) p.push(`acquire should read the hook's throw as false and go on (NB1); it rejected ${show(t.error)}${ours().length ? `, leaving the lease ${show(ours())} held for its lifetime` : ''}`);
+      else if (typeof t.value !== 'function') p.push(`acquire should resolve a release function; it resolved ${show(t.value)}`);
+      else {
+        if (ours().length !== 1) p.push(`the lease it won should be held until release; held: ${show(ours())}`);
+        await t.value();
+        if (ours().length) p.push(`release() should HDEL the lease; ${show(ours())} is still held`);
+      }
+      if (ends('abandoned').length) p.push('an "abandoned" event was emitted for a hook that threw: a throw reads as false');
+      report(p);
+    } finally {
+      await drain(t, redis);
+    }
+  })));
+  // Through the worker callback: the lease is released in its finally.
+  await H.withStructuredLoggingOff(() => withRealSemaphore({ acquireTimeoutMs: 3000 }, async ({ sem, redis }) => withWorld({}, async (world) => {
+    const ctl = newController(world);
+    const proc = H.makeFakeProcessor(world);
+    const ours = () => Object.keys(redis.leases()).filter((id) => id !== 'another-task');
+    let hookCalls = 0;
+    const gate = { ...ctl.gate, shouldAbandon: (job) => { hookCalls += 1; if (ours().length > 0) throw boom(); return ctl.gate.shouldAbandon(job); } };
+    const K = H.lineUpKey(127);
+    await addJob(world, K);
+    const w = world.queue.work(H.adrWorkerCallback({ gate, semaphore: sem, processor: proc, taskDef: { resourceClass: HEAVY } }));
+    const p = [];
+    try {
+      await H.waitFor(() => proc.running(K) || w.job == null, { what: 'the pass to start under its job id', timeoutMs: 1500 });
+    } catch (e) { p.push(`the pass never started: ${firstLine(e)}`); }
+    if (proc.running(K)) proc.end(K);
+    const done = await within(w.done, 2000, 'the job');
+    if (!hookCalls) p.push('setup: the gate\'s shouldAbandon was never asked');
+    if (done.outcome !== 'completed' || proc.calls.length !== 1) p.push(`the job should complete after processJob ran once; ${show({ outcome: done.outcome, error: done.error && (done.error.code || firstLine(done.error)), processJob: proc.calls.length })}`);
+    if (ours().length) p.push(`the lease ${show(ours())} is still held after the job ended — it would stay for its 4-hour lifetime (NB1)`);
+    report(p);
+  })));
 });
 
 // ─── runner ────────────────────────────────────────────────────────────────────────────────────────────────────

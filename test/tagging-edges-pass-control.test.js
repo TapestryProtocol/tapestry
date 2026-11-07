@@ -50,6 +50,19 @@
  *              outside a Date's range, in a scheduled id's millis, a job's timestamp or a record's give-up time, makes
  *              nothing throw (CT70). CT45's title now cites D2's amended rule; its body is unchanged.
  *
+ *   Story 7 (2026-11-07; engineering-team/stories/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1,
+ *              D2, D5 and § Carry-forwards CF3, R1-opt). D1: "confirmStep goes. lineUp({mode: 'confirm'}) is no longer
+ *              called by anything" — controller.confirm({ who, runId }) replaces it. Every test that called the confirm
+ *              mode is revised, not deleted, through one helper (confirmA, which gives the world a held report first):
+ *              CT8, CT24, CT29 (the ending pass now held removals), CT31 (D2 step 4: waiting-pass, starting-pass, and a
+ *              running pass now refused not-the-latest-report), CT32 (every busy pass stopping, from a stop on record),
+ *              CT33 (not-lined-up, the confirm line kept), CT34 (D5 reverses it: refused record-unavailable, while a
+ *              schedule's start still goes ahead unrecorded), CT51 (the confirm line's shape), CT55 (refused, and the
+ *              unrecorded Stop is of a job added another way), CT58b, CT65 (takeBackStart keeps the confirm line) and
+ *              CT70 (waiting-pass; its give-up narrowed to gaveUp null for CF3; R1-opt: the start at pickup is at the
+ *              pickup time). CT71 is new (CF3). Red until story 7 lands: the controller has no confirm, and a give-up
+ *              time a Date cannot hold still reads { key, at: null }.
+ *
  * Hermetic: the controller is always an instance built by createController(deps) over the shared fakes (makeWorld:
  * a BullMQ-faithful fake queue, an in-memory record, a fake process table, a fake clock). TAGGING_EDGES_STATE_DIR
  * points at a temp directory for the whole run, so /var/lib/brainstorm is never read or written, and so does
@@ -329,6 +342,22 @@ async function stop(ctx, who, targets, { ctl = ctx.ctl, limit = 3000 } = {}) {
   const what = `stop({who: ${who.kind}, targets: ${show(targets)}})`;
   return answerOf(await within(ctl.stop({ who, targets }), limit, what), what);
 }
+/**
+ * Story 7 (ADR tagging-edges/0007 D1): the owner's confirmation through controller.confirm({ who, runId }), which
+ * replaces lineUp({ who: { kind: 'confirmation' }, mode: 'confirm' }) — confirmStep is gone. Unless o.runId is given,
+ * the latest report is made a held one first (world.holdRemovals) when it is not already. → { status, body, what }.
+ */
+async function confirmA(ctx, { ctl = ctx.ctl, runId, limit = 3000 } = {}) {
+  let id = runId;
+  if (id === undefined) {
+    const latest = ctx.world.report && ctx.world.report.latest;
+    id = latest && latest.outcome === 'done-removals-held' && ctx.world.held[latest.runId] ? latest.runId : ctx.world.holdRemovals().runId;
+  }
+  assert(ctl && typeof ctl.confirm === 'function', `createController(deps) returns no confirm({ who, runId }) yet (ADR tagging-edges/0007 D1: "confirmStep goes. lineUp({mode: 'confirm'}) is no longer called by anything"; confirm replaces it); it returns ${show(ctl && Object.keys(ctl))}`);
+  const what = `confirm({ who: owner, runId: ${id} })`;
+  return answerOf(await within(ctl.confirm({ who: { kind: 'owner', key: OWNER }, runId: id }), limit, what), what);
+}
+const outcomeOf = (a) => a.body.outcome;
 function codeProblems(a, code, status) {
   const p = [];
   if (a.body.code !== code) p.push(`${a.what} should answer code '${code}'; it answered ${show(a.body)}`);
@@ -728,7 +757,7 @@ test('CT7: a Run adds one job named by the task, under a fresh id of the form re
   });
 });
 
-test('CT8: every start gets its own id and nothing ever joins — three Runs (owner, admin, local) with each pass ended in between, and a start from the confirm route, use four distinct ids of the LINEUP_ID form, and the queue records no join [ADR 0006 D2; § Context "silent joins"; AC-1 "It is never answered as lined up when no pass will run"]', async () => {
+test('CT8: every start gets its own id and nothing ever joins — three Runs (owner, admin, local) with each pass ended in between, and a start from the confirm route (revised for story 7 — ADR tagging-edges/0007 D1: through controller.confirm, which lines up as Run does when nothing is busy), use four distinct ids of the LINEUP_ID form, and the queue records no join [ADR 0006 D2; § Context "silent joins"; AC-1 "It is never answered as lined up when no pass will run"]', async () => {
   await withCtl('D2', async (ctx) => {
     const keys = [];
     for (const who of [WHO.owner, WHO.admin, WHO.local]) {
@@ -737,8 +766,8 @@ test('CT8: every start gets its own id and nothing ever joins — three Runs (ow
       ctx.q.complete(pick1(ctx, key).id);
       ctx.world.clock.advance(SEC);
     }
-    const c = await lineUp(ctx, WHO.confirmation, 'confirm');
-    assert(enqueuedOf(c) && c.body.joined !== true, `the confirm route's start with nothing busy should line up a new job (${adr('D8')}); it answered ${show(c.body)}`);
+    const c = await confirmA(ctx);
+    assert(enqueuedOf(c) && c.body.joined !== true && outcomeOf(c) === 'lined-up', `the owner's confirmation with nothing busy should line up a new job (ADR tagging-edges/0007 D2 step 4); it answered ${show(c.body)}`);
     keys.push(jobIdOfAnswer(c));
     const p = [];
     if (new Set(keys).size !== 4 || !keys.every((k) => LINEUP_ID.test(String(k)))) p.push(`four distinct ids of the form ${LINEUP_ID} expected; they are ${show(keys)}`);
@@ -1087,7 +1116,7 @@ test('CT23: every move between reads is seen once, deduped by id with the later 
   }));
 });
 
-test('CT24: the 1 s snapshot cache is the status\'s only — after a Run a cached read shows the new pass; Run, Stop and the confirm route always read fresh (a job added behind the controller\'s back makes a Run refuse pass-busy, a Stop refuse prompt-out-of-date, and the confirm route join it, which also bumps the generation); an in-flight read from an older generation is neither served to a later reader nor stored [ADR 0006 D5 "Caching, for the status route only"; R3]', async () => {
+test('CT24: the 1 s snapshot cache is the status\'s only — after a Run a cached read shows the new pass; Run, Stop and the confirm route always read fresh (a job added behind the controller\'s back makes a Run refuse pass-busy, a Stop refuse prompt-out-of-date, and the confirm route join it — revised for story 7, ADR tagging-edges/0007 D1: controller.confirm answers waiting-pass —, which also bumps the generation); an in-flight read from an older generation is neither served to a later reader nor stored [ADR 0006 D5 "Caching, for the status route only"; R3]', async () => {
   const p = [];
   await withCtl('D5', async (ctx) => {
     expectItems((await snap(ctx, { fresh: false })).items, [], 'the first cached read', 'D5');
@@ -1108,8 +1137,8 @@ test('CT24: the 1 s snapshot cache is the status\'s only — after a Run a cache
   await withCtl('D5', async (ctx) => {
     expectItems((await snap(ctx, { fresh: false })).items, [], 'the first cached read', 'D5');
     const b = await addJob(ctx, H.lineUpKey(43));
-    const c = await lineUp(ctx, WHO.confirmation, 'confirm');
-    if (!(enqueuedOf(c) && c.body.joined === true)) p.push(`the confirm route after a BullBoard add should join it ({ enqueued: true, joined: true }); it answered ${show(c.body)}`);
+    const c = await confirmA(ctx);
+    if (!(enqueuedOf(c) && c.body.joined === true && outcomeOf(c) === 'waiting-pass')) p.push(`the owner's confirmation after a BullBoard add should leave it to that waiting pass ({ outcome: 'waiting-pass', enqueued: true, joined: true }, ADR tagging-edges/0007 D2 step 4); it answered ${show(c.body)}`);
     p.push(...itemsProblems((await snap(ctx, { fresh: false })).items, [{ key: b }]).map((x) => `a cached read after the joined answer: ${x}`));
   });
   // The in-flight case: a 5 s step, so the held first read cannot time out on its own before the later reads are made.
@@ -1267,7 +1296,7 @@ test('CT28: a Run whose add fails or times out puts its key in skips (a late lan
   }));
 });
 
-test('CT29: a Run in the finishing window (the pass has exited, its job is still active) is not refused: it lines up a NEW job, which waits behind the ending one and is picked up once it completes, nothing joining — and so does the confirm route\'s start [ADR 0006 D6 "The finishing window", D8; story AC-1 "Just after a pass ends … never answered as lined up when no pass will run"; ledger 2026-09-28-confirm-route-joins-finishing-job]', async () => {
+test('CT29: a Run in the finishing window (the pass has exited, its job is still active) is not refused: it lines up a NEW job, which waits behind the ending one and is picked up once it completes, nothing joining — and so does the confirm route\'s start (revised for story 7 — ADR tagging-edges/0007 D1, D2 step 4: controller.confirm\'s line-up, the ending pass having held removals) [ADR 0006 D6 "The finishing window", D8; story AC-1 "Just after a pass ends … never answered as lined up when no pass will run"; ledger 2026-09-28-confirm-route-joins-finishing-job]', async () => {
   await cases([
     { name: 'Run', mode: 'run', who: WHO.owner },
     { name: 'the confirm route', mode: 'confirm', who: WHO.confirmation },
@@ -1275,12 +1304,17 @@ test('CT29: a Run in the finishing window (the pass has exited, its job is still
     const k1 = await runA(ctx);
     const { job } = await runPass(ctx, k1);
     ctx.world.clock.advance(3 * SEC);
-    ctx.world.endPass({ state: 'done' });
+    if (c.mode === 'confirm') {
+      // Story 7: the pass that just ended held removals, so the owner can confirm its held list in its finishing window.
+      const list = H.heldList(60, 'ct29');
+      ctx.world.endPass({ state: 'done-removals-held', over: { held: { total: list.length, byReason: H.byReasonOf(list), digest: H.heldDigestOf(list) } } });
+      ctx.world.held[ctx.world.report.latest.runId] = list;
+    } else ctx.world.endPass({ state: 'done' });
     expectItems((await snap(ctx)).items, [], 'the ending job', 'D5');
-    const a = await lineUp(ctx, c.who, c.mode);
+    const a = c.mode === 'run' ? await lineUp(ctx, c.who, c.mode) : await confirmA(ctx);
     const k2 = c.mode === 'run' ? expectLinedUp(a, 'D6') : jobIdOfAnswer(a);
     const p = [];
-    if (c.mode === 'confirm' && !(enqueuedOf(a) && a.body.joined !== true)) p.push(`the confirm route should line up a new job ({ enqueued: true, jobId }); it answered ${show(a.body)}`);
+    if (c.mode === 'confirm' && !(enqueuedOf(a) && a.body.joined !== true && outcomeOf(a) === 'lined-up')) p.push(`the owner's confirmation should line up a new job ({ outcome: 'lined-up', enqueued: true, jobId }, ADR tagging-edges/0007 D2 step 4); it answered ${show(a.body)}`);
     if (!(typeof k2 === 'string' && LINEUP_ID.test(k2) && k2 !== k1)) p.push(`a new id expected; it is ${show(k2)}`);
     if (ctx.q.joins.length) p.push(`the start joined the ending job: ${show(ctx.q.joins)}`);
     if (ctx.q.state(k2) !== 'waiting') p.push(`the new job should wait behind the ending one; it is ${ctx.q.state(k2)}`);
@@ -1307,38 +1341,64 @@ test('CT30: a Run with the task queue unavailable is refused 503 { code: \'QUEUE
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// CT31–CT34 — the confirm route's start: lineUp({ who: { kind: 'confirmation' }, mode: 'confirm' }) (D8)
+// CT31–CT34 — the confirm route's start (D8). Revised for story 7 (ADR tagging-edges/0007 D1, D2, D5): the confirm
+// route's sequence is one controller step, controller.confirm({ who, runId }), and lineUp's confirm mode is gone.
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('CT31: the confirm route\'s start joins a busy pass that has no stop asked for, adding and recording nothing — { enqueued: true, joined: true } — for a pass waiting, one waiting behind scoring, one starting, and a running pass whose first record was written after the route\'s re-read (it takes the confirmation up at its claim) [ADR 0006 D8 "Busy with any item that has no stop asked for"; § Seams "The confirm route meets a pass whose record appeared after its re-read"]', async () => {
+/** The confirm line (ADR 0007 D5) is the one line a join adds; no start is recorded. */
+function joinRecordProblems(ctx, startKeys, label) {
+  const lines = historyOf(ctx);
+  const p = [];
+  const confirms = lines.filter((l) => l && l.action === 'confirm');
+  if (confirms.length !== 1) p.push(`${label}: the record should hold one confirm line (ADR tagging-edges/0007 D5); its history is ${show(lines)}`);
+  const extra = lines.filter((l) => l && l.action === 'start' && !startKeys.includes(l.key));
+  if (extra.length) p.push(`${label}: no start may be recorded for a join; the history holds ${show(extra)}`);
+  return p;
+}
+
+test('CT31 (revised for story 7 — ADR tagging-edges/0007 D1, D2 step 4): the owner\'s confirmation leaves it to a busy pass that has no stop asked for, adding nothing and recording only its confirm line — waiting-pass for a pass waiting and one waiting behind scoring, starting-pass for one starting ({ enqueued: true, joined: true }); and a pass that has recorded itself since the held report (running) makes the held list out of date, refused 409 not-the-latest-report with nothing added or recorded [ADR 0007 D2 step 1, step 4 "a running item with no stop asked for (starting …) → starting-pass; a waiting item with no stop asked for → waiting-pass"; D5; story 7 AC-1 "A pass that has begun running: its report is already the latest … The confirmation is refused as out of date"; ADR 0006 § Seams "The confirm route meets a pass whose record appeared after its re-read", now caught at step 1 or step 7]', async () => {
   await cases([
-    { name: 'waiting', setup: async (ctx) => { await runA(ctx); } },
-    { name: 'waiting behind scoring', setup: async (ctx) => { await heavyWait(ctx, await runA(ctx)); } },
-    { name: 'starting', setup: async (ctx) => { await launch(ctx, await runA(ctx)); } },
-    { name: 'running, its record written after the re-read', setup: async (ctx) => { await runPass(ctx, await runA(ctx), { through: 'identities' }); } },
+    { name: 'waiting', outcome: 'waiting-pass', setup: async (ctx) => runA(ctx) },
+    { name: 'waiting behind scoring', outcome: 'waiting-pass', setup: async (ctx) => { const k = await runA(ctx); await heavyWait(ctx, k); return k; } },
+    { name: 'starting', outcome: 'starting-pass', setup: async (ctx) => { const k = await runA(ctx); await launch(ctx, k); return k; } },
+    { name: 'running, its record written since the held report', refused: 'not-the-latest-report', setup: async (ctx) => { const k = await runA(ctx); await runPass(ctx, k, { through: 'identities' }); return k; } },
   ], (c) => withCtl('D8', async (ctx) => {
-    await c.setup(ctx);
+    const held = ctx.world.holdRemovals();
+    const k = await c.setup(ctx);
     const adds = count(ctx, 'queue.add');
-    const writes = count(ctx, 'writeRecord');
-    const a = await lineUp(ctx, WHO.confirmation, 'confirm');
-    report([!(enqueuedOf(a) && a.body.joined === true) && `the answer should be { enqueued: true, joined: true }; it is ${show(a.body)}`,
-      count(ctx, 'queue.add') !== adds && 'nothing may be added',
-      count(ctx, 'writeRecord') !== writes && 'nothing may be recorded',
-      ctx.q.joins.length && `BullMQ joined: ${show(ctx.q.joins)}`], 'D8');
+    const bytes = ctx.world.record.bytes();
+    const a = await confirmA(ctx, { runId: held.runId });
+    const p = [];
+    if (c.refused) {
+      p.push(...codeProblems(a, c.refused, 409));
+      if (ctx.world.record.bytes() !== bytes) p.push('nothing may be recorded');
+    } else {
+      if (!(enqueuedOf(a) && a.body.joined === true && outcomeOf(a) === c.outcome)) p.push(`the answer should be { outcome: '${c.outcome}', enqueued: true, joined: true }; it is ${show(a.body)}`);
+      p.push(...joinRecordProblems(ctx, [k], c.name));
+    }
+    if (count(ctx, 'queue.add') !== adds) p.push('nothing may be added');
+    if (ctx.q.joins.length) p.push(`BullMQ joined: ${show(ctx.q.joins)}`);
+    report(p, 'D8');
   }));
 });
 
-test('CT32: the confirm route\'s start lines up a new job, recording its start as the owner\'s confirmation, when nothing is busy or only passes with a stop asked are busy — { enqueued: true, jobId: <new id> }, not joined [ADR 0006 D8 "Busy only with passes that have a stop asked for, or not busy"; story AC-5 "the owner\'s confirmation, for a pass the confirm route started"]', async () => {
+test('CT32 (revised for story 7 — ADR tagging-edges/0007 D2 steps 4–5): the owner\'s confirmation lines up a new job, recording its start as the owner\'s confirmation beside the confirm line, when nothing is busy, or when every busy pass has a stop asked for (a job waiting for the lock whose stop is on record) — { outcome: \'lined-up\', enqueued: true, jobId: <new id>, behindStopping }, not joined [ADR 0007 D2 step 4 "otherwise (nothing busy … or every busy item has a stop asked for) → line-up, with behindStopping: true when anything is busy"; D5 "The start … who: {kind: \'confirmation\'}"; story 6 AC-5 "the owner\'s confirmation, for a pass the confirm route started"]', async () => {
+  const STOPPED = H.lineUpKey(300);
+  const stopped = () => {
+    const at = iso(T0 - 5 * MIN);
+    return H.recordFile({ passes: { [STOPPED]: H.recordEntry({ jobId: STOPPED, stop: { at, runId: null, who: { ...WHO.admin } } }) }, history: [H.historyLine('stop', STOPPED, at, { ...WHO.admin })] });
+  };
   await cases([
-    { name: 'nothing busy', setup: async () => {} },
-    { name: 'a running pass with a stop asked for', setup: async (ctx) => { const k = await runA(ctx); await runPass(ctx, k); await stop(ctx, WHO.admin, [{ key: k, state: 'running' }]); ctx.world.clock.advance(SEC); } },
-  ], (c) => withCtl('D8', async (ctx) => {
+    { name: 'nothing busy', behind: false, o: {}, setup: async () => {} },
+    { name: 'every busy pass with a stop asked for', behind: true, o: { world: { record: { record: stopped() } } }, setup: async (ctx) => { await addJob(ctx, STOPPED); await heavyWait(ctx, STOPPED); } },
+  ], (c) => withCtl('D8', c.o, async (ctx) => {
     await c.setup(ctx);
     const at = iso(ctx.world.clock.now());
-    const a = await lineUp(ctx, WHO.confirmation, 'confirm');
+    const a = await confirmA(ctx);
     const key = jobIdOfAnswer(a);
     const p = [];
-    if (!(enqueuedOf(a) && a.body.joined !== true)) p.push(`the answer should be { enqueued: true, jobId } and not joined; it is ${show(a.body)}`);
+    if (!(enqueuedOf(a) && a.body.joined !== true && outcomeOf(a) === 'lined-up')) p.push(`the answer should be { outcome: 'lined-up', enqueued: true, jobId } and not joined; it is ${show(a.body)}`);
+    if ((a.body.behindStopping === true) !== c.behind) p.push(`behindStopping should be ${c.behind}; it is ${show(a.body.behindStopping)}`);
     if (!(typeof key === 'string' && LINEUP_ID.test(key) && ctx.q.has(key))) p.push(`a new job of the form ${LINEUP_ID} should be in the queue; the answer's id is ${show(key)}`);
     else {
       p.push(...entryProblems(ctx, key, { jobId: key, start: { at, who: { ...WHO.confirmation } } }, 'the confirmation\'s start'));
@@ -1348,53 +1408,50 @@ test('CT32: the confirm route\'s start lines up a new job, recording its start a
   }));
 });
 
-test('CT33: the confirm route\'s start adds and records nothing and answers enqueued: false when the queue is not ready, never initialised, or its fresh read fails; and when its add fails it puts the key in skips and removes any start it wrote, answering enqueued: false — the confirmation stays pending [ADR 0006 D8 "Queue not ready …", "An add that fails or times out"]', async () => {
+test('CT33 (revised for story 7 — ADR tagging-edges/0007 D2 steps 4 and 8): with the queue not ready, never initialised, or its fresh read failing, the owner\'s confirmation adds nothing, records only its confirm line and no start, and answers 200 { outcome: \'not-lined-up\', enqueued: false, reason: \'QUEUE_UNAVAILABLE\' }; when its add fails it puts the key in skips and takes its start back, keeping the confirm line, and answers not-lined-up — the confirmation stays pending either way [ADR 0007 D2 step 4 "queue !== \'ok\' → none"; step 8 "A failure or time-out: put the key in skips (R1), take back only the start"; story 7 AC-1 "When the confirmation is made but no pass is lined up … the confirmation is kept pending"]', async () => {
   await cases([
     { name: 'Redis not ready', set: (ctx) => { ctx.world.health = 'not-ready'; } },
     { name: 'the queue never initialised', set: (ctx) => { ctx.world.health = 'off'; } },
     { name: 'the fresh read fails', set: (ctx) => ctx.q.inject('getDelayed', { error: 'ECONNRESET' }) },
     { name: 'the add fails', set: (ctx) => ctx.q.inject('add', { error: 'ECONNRESET' }), addFails: true },
   ], (c) => withCtl('D8', async (ctx) => {
+    const held = ctx.world.holdRemovals();
     c.set(ctx);
-    const a = await lineUp(ctx, WHO.confirmation, 'confirm');
+    const a = await confirmA(ctx, { runId: held.runId });
     const p = [];
-    if (enqueuedOf(a)) p.push(`the answer should say enqueued: false; it is ${show(a.body)}`);
+    if (enqueuedOf(a) || outcomeOf(a) !== 'not-lined-up') p.push(`the answer should be { outcome: 'not-lined-up', enqueued: false }; it is ${show(a.body)}`);
+    if (!c.addFails && a.body.reason !== 'QUEUE_UNAVAILABLE') p.push(`the reason should be QUEUE_UNAVAILABLE; it is ${show(a.body.reason)}`);
     if (c.addFails) {
       const key = ctx.world.callsOf('queue.add')[0].args[2].jobId;
-      if (entryOf(ctx, key) && entryOf(ctx, key).start) p.push(`the start for ${key} should be removed; the record is ${show(recordOf(ctx))}`);
-      if (historyOf(ctx).some((l) => l.key === key)) p.push(`the history line for ${key} should be removed; the history is ${show(historyOf(ctx))}`);
+      if (entryOf(ctx, key) && entryOf(ctx, key).start) p.push(`the start for ${key} should be taken back; the record is ${show(recordOf(ctx))}`);
+      if (historyOf(ctx).some((l) => l.key === key)) p.push(`the history line for ${key} should be taken back; the history is ${show(historyOf(ctx))}`);
       if (ctx.ctl.gate.shouldAbandon({ id: key, timestamp: T0, data: H.lineUpData() }) !== true) p.push(`the key ${key} should be in skips`);
-    } else {
-      if (count(ctx, 'queue.add') !== 0) p.push('nothing may be added');
-      if (count(ctx, 'writeRecord') !== 0) p.push('nothing may be recorded');
-    }
+    } else if (count(ctx, 'queue.add') !== 0) p.push('nothing may be added');
+    p.push(...joinRecordProblems(ctx, [], c.name));
+    if (!ctx.world.confirmation || ctx.world.confirmation.runId !== held.runId) p.push(`the confirmation should stay pending; confirmation.json is ${show(ctx.world.confirmation)}`);
     report(p, 'D8');
   }));
 });
 
-test('CT34: the confirm route\'s start cannot be refused — with a record that gives a read error it is still added (enqueued: true) and the record is never written, its bytes unchanged; with a failed write it is still added; either way the busy item reads startRecorded: false, and at its pickup the gate records no "started another way" for it [ADR 0006 D8 "an unreadable record or a failed write goes ahead unrecorded"; D11; D3 "A lineUp-made key with no start … stays unrecorded"; D12 startRecorded; story AC-5 "a start that cannot be refused … goes ahead, and shows as not recorded"]', async () => {
+test('CT34 (revised for story 7 — ADR tagging-edges/0007 D5 replaces ADR 0006 D8\'s "cannot be refused"): the owner\'s confirmation is now refused when it cannot be recorded — with a record that gives a read error and with a failed write it answers 500 { code: \'record-unavailable\' }, adds nothing, writes no confirmation.json, and the record\'s bytes are unchanged — while a schedule\'s start still goes ahead unrecorded: the due run picked up is let through (\'go\') with no start written [ADR 0007 D2 step 5; D5 "Refused when it cannot be written … A schedule\'s start still goes ahead unrecorded (0006 D3)"; story 7 AC-4 "When the server cannot record it, Confirm is refused, as Run is, and changes nothing. This replaces story 6\'s rule"; Test tasks "a record that cannot be written refuses Confirm and the snippet\'s request alike, while a schedule\'s start still goes ahead unrecorded"]', async () => {
   await cases([
     { name: 'a read error', set: (ctx) => ctx.world.record.failReads('EIO'), noWrites: true },
     { name: 'a failed write', set: (ctx) => ctx.world.record.failWrites('ENOSPC') },
   ], (c) => withCtl('D8', { world: { record: { record: seededRecord() } } }, async (ctx) => {
+    const held = ctx.world.holdRemovals();
     const bytes = ctx.world.record.bytes();
     c.set(ctx);
-    const a = await lineUp(ctx, WHO.confirmation, 'confirm');
-    const key = jobIdOfAnswer(a);
-    const p = [];
-    if (!enqueuedOf(a)) p.push(`the start should go ahead (enqueued: true); the answer is ${show(a.body)}`);
-    if (!(typeof key === 'string' && ctx.q.has(key))) p.push(`the job should be in the queue; the answer's id is ${show(key)}`);
+    const a = await confirmA(ctx, { runId: held.runId });
+    const p = [...codeProblems(a, 'record-unavailable', 500)];
+    if (count(ctx, 'queue.add') !== 0) p.push(`nothing may be added; adds ${count(ctx, 'queue.add')}`);
+    if (count(ctx, 'writeConfirmation') !== 0 || ctx.world.confirmation !== null) p.push(`no confirmation may be written; confirmation.json is ${show(ctx.world.confirmation)}`);
     if (c.noWrites && count(ctx, 'writeRecord') !== 0) p.push(`a record that gives a read error must not be written; writeRecord was called ${count(ctx, 'writeRecord')} time(s)`);
     if (ctx.world.record.bytes() !== bytes) p.push('the record\'s bytes changed');
-    if (p.length === 0) {
-      const { control } = await statusOf(ctx, 'signed-out', 'D12');
-      const it = busyItem(control, key);
-      if (!it || it.startRecorded !== false) p.push(`the busy item should read startRecorded: false; it is ${show(it)}`);
-      ctx.world.record.heal();
-      await gateCall('beforeAcquire', pick1(ctx, key), ctx.ctl);
-      const e = entryOf(ctx, key);
-      if (e && e.start && e.start.who && e.start.who.kind === 'other') p.push(`the gate recorded the confirmation's start as "started another way": ${show(e)}`);
-    }
+    // A schedule's start still goes ahead unrecorded.
+    const sid = ctx.q.plantScheduled({ millis: ctx.world.clock.now() - MIN, every: EVERY });
+    const v = await gateCall('beforeAcquire', pick1(ctx, sid), ctx.ctl);
+    if (v !== 'go') p.push(`a schedule's start should still go ahead; beforeAcquire answered ${show(v)}`);
+    if (ctx.world.record.bytes() !== bytes) p.push('the schedule\'s start should go ahead unrecorded; the record\'s bytes changed');
     report(p, 'D8');
   }));
 });
@@ -1782,7 +1839,7 @@ test('CT50: either may act on the other\'s pass — an admin stops the owner\'s 
 // CT51–CT57 — the record (D11)
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('CT51: the record\'s shape — { version: 1, passes: { <key>: { jobId, start: { at, who } | null, stop: { at, runId, who } | null, skip, noRerun, gaveUpAt } }, history: [{ action: \'start\' | \'stop\', key, at, who }] } — after starts by the owner, an admin, a local call, the confirmation and the schedule, and stops; who is { kind } with an 8-hex key for the owner or an admin only; field names who, kind and key, never changedBy; no full pubkey [ADR 0006 D11 "Shape"; D14; story AC-5 "What is recorded"]', async () => {
+test('CT51: the record\'s shape — { version: 1, passes: { <key>: { jobId, start: { at, who } | null, stop: { at, runId, who } | null, skip, noRerun, gaveUpAt } }, history: [{ action: \'start\' | \'stop\', key, at, who }] } (revised for story 7 — ADR tagging-edges/0007 D5: history also holds the owner\'s confirm line, { action: \'confirm\', key: null, at, who: { kind: \'owner\', key: <8 hex> }, runId }, and the confirmation\'s start comes through controller.confirm) — after starts by the owner, an admin, a local call, the confirmation and the schedule, and stops; who is { kind } with an 8-hex key for the owner or an admin only; field names who, kind and key, never changedBy; no full pubkey [ADR 0006 D11 "Shape"; D14; story AC-5 "What is recorded"]', async () => {
   await withCtl('D11', async (ctx) => {
     const k1 = await runA(ctx, WHO.owner);
     ctx.world.clock.advance(SEC);
@@ -1797,7 +1854,7 @@ test('CT51: the record\'s shape — { version: 1, passes: { <key>: { jobId, star
     const k3 = await runA(ctx, WHO.admin);
     ctx.q.complete(pick1(ctx, k3).id);
     ctx.world.clock.advance(SEC);
-    const c = await lineUp(ctx, WHO.confirmation, 'confirm');
+    const c = await confirmA(ctx);
     const k4 = jobIdOfAnswer(c);
     ctx.q.complete(pick1(ctx, k4).id);
     ctx.world.clock.advance(SEC);
@@ -1815,8 +1872,12 @@ test('CT51: the record\'s shape — { version: 1, passes: { <key>: { jobId, star
       if (typeof e.skip !== 'boolean' || typeof e.noRerun !== 'boolean') p.push(`${key}: skip and noRerun should be booleans`);
     }
     for (const l of (r && r.history) || []) {
-      if (!(['start', 'stop'].includes(l.action) && typeof l.key === 'string' && ISO_RE.test(l.at) && whoOk(l.who) && Object.keys(l).length === 4)) p.push(`a history line should be { action, key, at, who }; one is ${show(l)}`);
+      if (l && l.action === 'confirm') {
+        // ADR tagging-edges/0007 D5: the confirm line names the owner and the held run, and keeps no entry.
+        if (!(l.key === null && ISO_RE.test(l.at) && l.who && l.who.kind === 'owner' && /^[0-9a-f]{8}$/.test(l.who.key) && Object.keys(l.who).length === 2 && typeof l.runId === 'string' && Object.keys(l).length === 5)) p.push(`a confirm line should be { action: 'confirm', key: null, at, who: { kind: 'owner', key: <8 hex> }, runId } (ADR tagging-edges/0007 D5); one is ${show(l)}`);
+      } else if (!(['start', 'stop'].includes(l.action) && typeof l.key === 'string' && ISO_RE.test(l.at) && whoOk(l.who) && Object.keys(l).length === 4)) p.push(`a history line should be { action, key, at, who }; one is ${show(l)}`);
     }
+    if (!((r && r.history) || []).some((l) => l && l.action === 'confirm')) p.push(`the owner's confirmation should leave a confirm line in the history (ADR tagging-edges/0007 D5); the history is ${show(r && r.history)}`);
     const kinds = new Set(Object.values((r && r.passes) || {}).map((e) => e.start && e.start.who && e.start.who.kind));
     for (const kind of ['owner', 'admin', 'local', 'confirmation', 'schedule']) if (!kinds.has(kind)) p.push(`a start by ${kind} should be recorded; the starts' kinds are ${show([...kinds])}`);
     const bytes = String(ctx.world.record.bytes());
@@ -1914,7 +1975,7 @@ test('CT54: pruning keeps every skip or noRerun entry when no queue read has hap
   }));
 });
 
-test('CT55: a record that gives a read error is never written while it does — a Run is refused record-unavailable, a Stop takes effect with recorded: false, a scheduled run\'s start goes ahead unrecorded, the confirmation\'s start goes ahead, a give-up is not recorded — its bytes unchanged, byte for byte; a later successful re-read clears it, and the next Stop is recorded [ADR 0006 D11 "Writing around a bad file"; § Seams "A record that gives a read error is unchanged, byte for byte, after a Stop and after a scheduled start"]', async () => {
+test('CT55: a record that gives a read error is never written while it does — a Run is refused record-unavailable, a Stop takes effect with recorded: false, a scheduled run\'s start goes ahead unrecorded, the owner\'s confirmation is refused record-unavailable (revised for story 7 — ADR tagging-edges/0007 D5; it no longer goes ahead), a give-up is not recorded — its bytes unchanged, byte for byte; a later successful re-read clears it, and the next Stop is recorded [ADR 0006 D11 "Writing around a bad file"; § Seams "A record that gives a read error is unchanged, byte for byte, after a Stop and after a scheduled start"]', async () => {
   await withCtl('D11', { world: { record: { record: seededRecord() } } }, async (ctx) => {
     const bytes = ctx.world.record.bytes();
     ctx.world.record.failReads('EIO');
@@ -1927,9 +1988,12 @@ test('CT55: a record that gives a read error is never written while it does — 
     await within(ctx.ctl.gate.gaveUp(sjob, Object.assign(new Error('gave up'), { code: WAIT_TIMEOUT })), 3000, 'gate.gaveUp');
     ctx.ctl.gate.ended(sjob);
     ctx.q.fail(sid, new Error('gave up'));
-    const c = await lineUp(ctx, WHO.confirmation, 'confirm');
-    if (!enqueuedOf(c)) p.push(`the confirmation's start should go ahead; it answered ${show(c.body)}`);
-    const ck = jobIdOfAnswer(c);
+    // Revised for story 7 (ADR tagging-edges/0007 D5): the owner's confirmation is refused record-unavailable now, adding
+    // nothing; the Stop that takes effect unrecorded is of a job added another way.
+    const c = await confirmA(ctx);
+    p.push(...codeProblems(c, 'record-unavailable', 500).map((x) => `the owner's confirmation: ${x}`));
+    if (count(ctx, 'writeConfirmation') !== 0 || count(ctx, 'queue.add') !== 0) p.push('the refused confirmation wrote confirmation.json or added a job');
+    const ck = await addJob(ctx, H.lineUpKey(601));
     const st = await stop(ctx, WHO.admin, [{ key: ck, state: 'waiting' }]);
     try { expectStopped(st, [{ key: ck, how: 'taken-out-of-line' }], false, 'D9'); } catch (e) { p.push(firstLine(e)); }
     if (count(ctx, 'writeRecord') !== 0) p.push(`nothing may write the record while it gives a read error; writeRecord was called ${count(ctx, 'writeRecord')} time(s)`);
@@ -2067,7 +2131,7 @@ function normalisedControl(control) {
   return JSON.parse(JSON.stringify(control), (k, v) => (['key', 'jobId', 'since', 'runId'].includes(k) && v != null ? `<${k}>` : v));
 }
 
-test('CT58b: who stays indistinguishable to a signed-out reader — a pass lined up by the owner\'s Run, an admin\'s Run, a direct local call and the owner\'s confirmation (each in its own world) gives byte-identical control members once key, jobId, since and runId are set aside, each with no who and no member outside D12\'s sets; and so does a running pass whose stop the owner asked for beside one whose stop an admin asked for [ADR 0006 § Constraints "Those four stay indistinguishable to a signed-out reader"; D12 "a control member, with no who"; story AC-2 "The public status … never says who"; AC-5 "Who may read it"]', async () => {
+test('CT58b: who stays indistinguishable to a signed-out reader — a pass lined up by the owner\'s Run, an admin\'s Run, a direct local call and the owner\'s confirmation (revised for story 7 — ADR tagging-edges/0007 D1: through controller.confirm) (each in its own world) gives byte-identical control members once key, jobId, since and runId are set aside, each with no who and no member outside D12\'s sets; and so does a running pass whose stop the owner asked for beside one whose stop an admin asked for [ADR 0006 § Constraints "Those four stay indistinguishable to a signed-out reader"; D12 "a control member, with no who"; story AC-2 "The public status … never says who"; AC-5 "Who may read it"]', async () => {
   const p = [];
   const compare = async (label, runs) => {
     const seen = [];
@@ -2095,8 +2159,8 @@ test('CT58b: who stays indistinguishable to a signed-out reader — a pass lined
     {
       name: 'the owner\'s confirmation',
       go: async (ctx) => {
-        const a = await lineUp(ctx, WHO.confirmation, 'confirm');
-        assert(enqueuedOf(a) && a.body.joined !== true, `setup: the confirm route's start with nothing busy should line up a new job (${adr('D8')}); it answered ${show(a.body)}`);
+        const a = await confirmA(ctx);
+        assert(enqueuedOf(a) && a.body.joined !== true && outcomeOf(a) === 'lined-up', `setup: the owner's confirmation with nothing busy should line up a new job (ADR tagging-edges/0007 D2 step 4); it answered ${show(a.body)}`);
         return jobIdOfAnswer(a);
       },
     },
@@ -2293,7 +2357,7 @@ function fullRecord() {
   return H.recordFile({ passes, history });
 }
 
-test('CT65: the take-back of a start whose add failed puts the record back exactly as it was before the start — a Run and the confirm route\'s start, each with an add that is refused and one that times out, over a record already holding 10 history lines and 10 entries: the start\'s own write pushed the oldest line and its entry out (the cap of 10 and pruning), yet afterwards all 10 lines and all 10 entries are back, the record byte for byte as before; a Run answers 503 or 500, the confirm route enqueued: false [ADR 0006 Amendment 1 § C "D6 step 3 and D8: the take-back of a failed add" ("the record as if the start had never been asked for … would lose an older line or entry that the start\'s caps … had pushed out"); D6 step 3; D8; D11 "history … at most 10"]', async () => {
+test('CT65: the take-back of a start whose add failed puts the record back exactly as it was before the start (revised for story 7 — ADR tagging-edges/0007 D2 takeBackStart: the confirmation\'s take-back keeps its confirm line, so its record then reads as if only the confirmation had been asked for — the confirm line over the nine newest earlier lines, the start gone) — a Run and the confirm route\'s start, each with an add that is refused and one that times out, over a record already holding 10 history lines and 10 entries: the start\'s own write pushed the oldest line and its entry out (the cap of 10 and pruning), yet afterwards all 10 lines and all 10 entries are back, the record byte for byte as before; a Run answers 503 or 500, the confirm route enqueued: false [ADR 0006 Amendment 1 § C "D6 step 3 and D8: the take-back of a failed add" ("the record as if the start had never been asked for … would lose an older line or entry that the start\'s caps … had pushed out"); D6 step 3; D8; D11 "history … at most 10"]', async () => {
   await cases([
     { name: 'a Run whose add is refused', mode: 'run', who: WHO.owner, fault: { error: 'ECONNRESET' } },
     { name: 'a Run whose add times out', mode: 'run', who: WHO.admin, fault: { hang: true } },
@@ -2303,10 +2367,11 @@ test('CT65: the take-back of a start whose add failed puts the record back exact
     const bytes = ctx.world.record.bytes();
     const oldest = FULL_KEYS[0];
     ctx.q.inject('add', c.fault);
-    const a = await lineUp(ctx, c.who, c.mode);
+    const prior = recordOf(ctx);
+    const a = c.mode === 'run' ? await lineUp(ctx, c.who, c.mode) : await confirmA(ctx);
     const p = [];
     if (c.mode === 'run') p.push(...addFailedProblems(a));
-    else if (enqueuedOf(a)) p.push(`the confirm route's start whose add failed should answer enqueued: false; it answered ${show(a.body)}`);
+    else if (enqueuedOf(a) || outcomeOf(a) !== 'not-lined-up') p.push(`the owner's confirmation whose add failed should answer { outcome: 'not-lined-up', enqueued: false } (ADR tagging-edges/0007 D2 step 8); it answered ${show(a.body)}`);
     // The path ran: one add, and before it the start's own write, which had pushed the oldest line and entry out.
     const adds = ctx.world.callsOf('queue.add');
     const startWrite = ctx.world.record.writes[0];
@@ -2320,7 +2385,16 @@ test('CT65: the take-back of a start whose add failed puts the record back exact
       }
     }
     const after = recordOf(ctx);
-    if (ctx.world.record.bytes() !== bytes) {
+    if (c.mode === 'confirm') {
+      // ADR tagging-edges/0007 D2 takeBackStart: prior's passes and history, then the confirm line re-added, pruned.
+      const lines = (after && Array.isArray(after.history)) ? after.history : [];
+      const top = lines[0];
+      const confirmOk = top && top.action === 'confirm' && top.key === null && top.who && top.who.kind === 'owner';
+      if (!confirmOk || exact(lines.slice(1)) !== exact(prior.history.slice(0, 9))) p.push(`the record should read as if only the confirmation had been asked for: the confirm line over the nine newest earlier lines (ADR tagging-edges/0007 D2 takeBackStart); its history is ${show(lines)}`);
+      for (const l of prior.history.slice(0, 9)) if (exact((after.passes || {})[l.key]) !== exact(prior.passes[l.key])) p.push(`the entry of ${l.key} should be as it was; it is ${show((after.passes || {})[l.key])}`);
+      const key = adds.length === 1 ? adds[0].args[2].jobId : null;
+      if (key && has(after.passes || {}, key)) p.push(`the start's entry ${key} should be gone; it is ${show(after.passes[key])}`);
+    } else if (ctx.world.record.bytes() !== bytes) {
       const lines = (after && Array.isArray(after.history)) ? after.history : [];
       const keys = Object.keys((after && after.passes) || {});
       const lostLines = FULL_KEYS.filter((k) => !lines.some((l) => l && l.key === k));
@@ -2511,7 +2585,7 @@ const SCHED_JUST_PAST_DATE = 'repeat:sched:8640000000000001';
 /** An instant as the controller serves it: null, or an ISO string that parses. */
 const isServedTime = (v) => v === null || (typeof v === 'string' && Number.isFinite(Date.parse(v)));
 
-test('CT70: a time outside a JavaScript Date\'s range never makes the controller throw — for a waiting job with a scheduled run\'s id whose millis are past that range (repeat:sched:99999999999999999, and one millisecond past it; BullMQ accepts both, though it refuses the seed form repeat:sched:<entry>:<millis> as a custom id) and for a waiting job whose timestamp is past it: the snapshot resolves with queue \'ok\' and the job listed waiting with since null, and so does the public status\'s control; a Run answers 409 pass-busy (never 500), the confirm route\'s start joins it, and a Stop takes it out of line with 200 taken-out-of-line, recorded (no schedule start at an invalid time); at pickup the gate answers \'go\' with its start recorded at a valid time, and lists it waiting for the lock with since null; and a record whose give-up time is past that range still gives a snapshot and the status, and a Run lines up [review round 1, requested change 5 (toIso returns null for a time a Date cannot hold, so neither the snapshot nor recordStart throws; the stop entry\'s schedule start goes through it and is left out when null; the give-up line does not throw); ADR 0006 D5 "a read that fails … is cannot tell"; D6; D8; D9 step 4; D3 beforeAcquire; D12 "every time an ISO string"; R3]', async () => {
+test('CT70 (revised for story 7 — ADR tagging-edges/0007 D1: the confirm route\'s start is controller.confirm, which leaves it to the waiting job, waiting-pass; § Carry-forwards CF3: a give-up time a Date cannot hold now reads as no give-up, gaveUp null; R1-opt: the start recorded at pickup is at the pickup time, ADR 0006 D3\'s amended note, not merely a valid time): a time outside a JavaScript Date\'s range never makes the controller throw — for a waiting job with a scheduled run\'s id whose millis are past that range (repeat:sched:99999999999999999, and one millisecond past it; BullMQ accepts both, though it refuses the seed form repeat:sched:<entry>:<millis> as a custom id) and for a waiting job whose timestamp is past it: the snapshot resolves with queue \'ok\' and the job listed waiting with since null, and so does the public status\'s control; a Run answers 409 pass-busy (never 500), the confirm route\'s start joins it, and a Stop takes it out of line with 200 taken-out-of-line, recorded (no schedule start at an invalid time); at pickup the gate answers \'go\' with its start recorded at a valid time, and lists it waiting for the lock with since null; and a record whose give-up time is past that range still gives a snapshot and the status, and a Run lines up [review round 1, requested change 5 (toIso returns null for a time a Date cannot hold, so neither the snapshot nor recordStart throws; the stop entry\'s schedule start goes through it and is left out when null; the give-up line does not throw); ADR 0006 D5 "a read that fails … is cannot tell"; D6; D8; D9 step 4; D3 beforeAcquire; D12 "every time an ISO string"; R3]', async () => {
   const p = [];
   const jobs = [
     { name: `${SCHED_PAST_DATE}, waiting`, id: SCHED_PAST_DATE, opts: {}, who: WHO.schedule },
@@ -2540,8 +2614,8 @@ test('CT70: a time outside a JavaScript Date\'s range never makes the controller
       q.push(...codeProblems(run, 'pass-busy', 409).map((x) => `a Run: ${x}`));
       const busy = Array.isArray(run.body.busy) ? run.body.busy.find((i) => i && i.key === c.id) : null;
       if (run.body.code === 'pass-busy' && (!busy || busy.since !== null)) q.push(`a Run's busy list should name ${c.id} with since null; it is ${show(run.body.busy)}`);
-      const conf = await lineUp(ctx, WHO.confirmation, 'confirm');
-      if ((conf.status !== undefined && conf.status !== 200) || !enqueuedOf(conf) || conf.body.joined !== true) q.push(`the confirm route's start should join the waiting job (200 { enqueued: true, joined: true }); it answered ${conf.status} ${show(conf.body)}`);
+      const conf = await confirmA(ctx);
+      if ((conf.status !== undefined && conf.status !== 200) || !enqueuedOf(conf) || conf.body.joined !== true || outcomeOf(conf) !== 'waiting-pass') q.push(`the owner's confirmation should leave it to the waiting job (200 { outcome: 'waiting-pass', enqueued: true, joined: true }, ADR tagging-edges/0007 D2 step 4); it answered ${conf.status} ${show(conf.body)}`);
       ctx.world.clock.advance(SEC);
       try { expectStopped(await stop(ctx, WHO.admin, [{ key: c.id, state: 'waiting' }]), [{ key: c.id, how: 'taken-out-of-line' }], true, 'D9'); } catch (e) { q.push(`a Stop: ${e.message}`); }
       q.push(...entryProblems(ctx, c.id, { jobId: c.id, start: null, stop: { at: iso(T0 + SEC), runId: null, who: { ...WHO.admin } }, skip: true }, 'the Stop'));
@@ -2553,6 +2627,8 @@ test('CT70: a time outside a JavaScript Date\'s range never makes the controller
     // The gate at pickup.
     await withCtl('D3', async (ctx) => {
       await addJob(ctx, c.id, c.opts);
+      ctx.world.clock.advance(7 * SEC); // R1-opt: the pickup comes later than the add, so the two times differ
+      const pickedAt = iso(ctx.world.clock.now());
       const job = pick1(ctx, c.id);
       const q = [];
       let v;
@@ -2562,6 +2638,8 @@ test('CT70: a time outside a JavaScript Date\'s range never makes the controller
       const start = e && e.start;
       if (!start || exact(start.who) !== exact(c.who) || !ISO_RE.test(String(start.at)) || !Number.isFinite(Date.parse(start.at))) {
         q.push(`its start should be recorded, by ${show(c.who)}, at a valid ISO time; the entry is ${show(e)}`);
+      } else if (start.at !== pickedAt) {
+        q.push(`its start should be recorded at the pickup time, ${pickedAt} (ADR 0006 D3's amended note: "the start is recorded at the pickup time instead"; story 7 R1-opt); it is recorded at ${start.at}`);
       }
       try {
         q.push(...itemsProblems((await snap(ctx)).items, [{ key: c.id, state: 'waiting', behind: 'heavy-work', since: null }]).map((x) => `waiting for the lock: ${x}`));
@@ -2578,14 +2656,34 @@ test('CT70: a time outside a JavaScript Date\'s range never makes the controller
       const s = await snap(ctx);
       if (s.queue !== 'ok' || s.items.length) q.push(`the snapshot should read queue 'ok' with nothing busy; it reads ${show(s.raw)}`);
       const g = s.raw.gaveUp;
-      if (g !== null && g !== undefined && !(g && isServedTime(g.at))) q.push(`gaveUp should be null or { key, at } with a time that parses (or null); it is ${show(g)}`);
+      if (g != null) q.push(`gaveUp should be null: a give-up time a Date cannot hold reads as no give-up (ADR tagging-edges/0007 § Carry-forwards CF3, story 6's review carry-forward 3); it is ${show(g)}`);
     } catch (e) { q.push(`the snapshot should resolve; it rejected: ${firstLine(e)}`); }
     const { control } = await statusOf(ctx, 'signed-out', 'D12');
     if (control.queue !== 'ok') q.push(`the status's control should read queue 'ok'; it reads ${show(control.queue)}`);
+    if (control.gaveUp != null) q.push(`the status's control.gaveUp should be null (CF3); it is ${show(control.gaveUp)}`);
     try { await runA(ctx, WHO.owner); } catch (e) { q.push(`a Run: ${firstLine(e)}`); }
     p.push(...q.map((x) => `a record whose give-up time is past a Date's range: ${x}`));
   });
   report(p, 'D5; D12; review round 1, requested change 5');
+});
+
+test('CT71 (story 7, ADR tagging-edges/0007 § Carry-forwards CF3, story 6\'s review carry-forward 3): a record\'s gaveUpAt that a Date cannot hold (1e17, past its range) reads as no give-up — alone, the snapshot\'s and the status\'s gaveUp is null, never { key, at: null } ("at not recorded"); beside it, an entry whose give-up time is valid is the one served, { key, at }; and no later start is needed to clear it [ADR 0007 § Carry-forwards CF3 "in compute()\'s give-up loop, a gaveUpAt that toIso cannot convert counts as no give-up"; ADR 0006 D12 "gaveUp is {key, at} or null"; story 7 § Carry-forwards CF3 "treat such a time as no give-up"]', async () => {
+  const bad = H.lineUpKey(710);
+  const good = H.lineUpKey(711);
+  const p = [];
+  await cases([
+    { name: 'an undatable give-up time alone', passes: { [bad]: H.recordEntry({ jobId: bad, gaveUpAt: 1e17 }) }, want: null },
+    { name: 'an undatable give-up time beside a valid one', passes: { [bad]: H.recordEntry({ jobId: bad, gaveUpAt: 1e17 }), [good]: H.recordEntry({ jobId: good, gaveUpAt: iso(T0 - MIN) }) }, want: { key: good, at: iso(T0 - MIN) } },
+  ], (c) => withCtl('D12', { world: { record: { record: H.recordFile({ passes: c.passes }) } } }, async (ctx) => {
+    const s = await snap(ctx);
+    const g = s.raw.gaveUp === undefined ? null : s.raw.gaveUp;
+    const pc = [];
+    if (exact(g) !== exact(c.want)) pc.push(`the snapshot's gaveUp should be ${show(c.want)}; it is ${show(g)}`);
+    const { control } = await statusOf(ctx, 'signed-out', 'D12');
+    if (exact(control.gaveUp === undefined ? null : control.gaveUp) !== exact(c.want)) pc.push(`the status's control.gaveUp should be ${show(c.want)}; it is ${show(control.gaveUp)}`);
+    report(pc, 'D12; ADR tagging-edges/0007 CF3');
+  })).catch((e) => { p.push(e.message); });
+  report(p);
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
