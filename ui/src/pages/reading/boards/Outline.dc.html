@@ -375,17 +375,17 @@ class Component extends DCLogic {
   }
 
   sections(g, n) {
-    const fam = {}, order = ['Part of', 'Holds', 'History', 'Evidence', 'Questions and answers', 'Plans', 'References', 'Values'];
+    const fam = {}, order = ['Part of', 'Holds', 'History', 'Evidence', 'Questions and answers', 'Plans', 'Other links', 'References', 'Values'];
     const famOf = { SUPERCEDES: 'History', BEARS_ON: 'Evidence', ANSWERS: 'Questions and answers', BLOCKED_BY: 'Plans', SETS_ASIDE: 'Plans', ASSIGNED_TO: 'Plans', REFERENCES: 'References', ENUMERATES: 'Values' };
     const push = (k, l) => { if (l) (fam[k] = fam[k] || []).push(l); };
     n.kinds.concat(n.sets).forEach((x) => push('Part of', this.sentenceLine(g, x, 'It is part of', (g.mem[x] || []).length + ' in it')));
     if (n.role !== 'element') (g.mem[n.id] || []).slice(0, 25).forEach((x) => push('Holds', this.sentenceLine(g, x, 'It holds', this.badges(g.N[x]))));
     (g.out[n.id] || []).forEach((l) => { const t = g.LT[l.type] || {}; const p = l.props || {};
-      push(famOf[l.type] || 'References', this.sentenceLine(g, l.to, 'It ' + (t.reads || l.type).replace(/^X /, '').replace(/ Y$/, ''), [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || '', p.field ? 'field ' + p.field : ''].filter(Boolean).join(', '))); });
+      push(famOf[l.type] || 'Other links', this.sentenceLine(g, l.to, 'It ' + (t.reads || l.type).replace(/^X /, '').replace(/ Y$/, ''), [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || '', p.field ? 'field ' + p.field : ''].filter(Boolean).join(', '))); });
     (g.inn[n.id] || []).forEach((l) => { const t = g.LT[l.type] || {}; const p = l.props || {};
       let before = 'It ' + (t.reverse || l.type).replace(/^Y /, '').replace(/ X$/, '');
       if (l.type === 'BEARS_ON') before = p.polarity >= 0 ? 'Supported by' : 'Undercut by';
-      push(famOf[l.type] || 'References', this.sentenceLine(g, l.from, before, [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || ''].filter(Boolean).join(', '))); });
+      push(famOf[l.type] || 'Other links', this.sentenceLine(g, l.from, before, [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || ''].filter(Boolean).join(', '))); });
     if (fam['Evidence']) fam['Evidence'].sort((a, b) => (b.after.indexOf('strength -') >= 0) - (a.after.indexOf('strength -') >= 0));
     return order.filter((k) => fam[k]).map((k) => ({ title: k + ' · ' + fam[k].length, lines: fam[k].slice(0, 40) }));
   }

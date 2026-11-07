@@ -231,6 +231,12 @@ async function provenances(hs, ta) {
   return out;
 }
 
+/** The edge types the views draw: the seeds (LINK_TYPES), then every declared link type (an element of
+ *  "relationship type" that isn't structural), so a type another brain declares shows once imported. */
+async function drawnTypes() {
+  return [...new Set([...LINK_TYPES, ...Object.keys(await linkTypes()).sort()])].filter((t) => /^[A-Z][A-Z0-9_]{1,40}$/.test(t));
+}
+
 // ── what a scope holds ──────────────────────────────────────────────────────
 
 export async function scopes() {
@@ -372,22 +378,20 @@ async function build(part, ta) {
     };
   });
 
-  const lt = await linkTypes();
+  const lt = await linkTypes(), types = await drawnTypes();
   const links = [];
-  for (const ty of LINK_TYPES) {
-    for (const r of await batched(`UNWIND $u AS u MATCH (a:NostrEvent {uuid:u})-[e:${ty}]->(c:NostrEvent) WHERE c.uuid IN $all `
-      + 'RETURN a.uuid AS a, c.uuid AS c, properties(e) AS p', ids, 300, { all: ids })) {
-      const pr = {};
-      Object.entries(r.p || {}).forEach(([k, v]) => { if (['polarity', 'reliability', 'how', 'reason', 'source', 'note'].includes(k)) pr[k] = v; });
-      if (r.a !== r.c) links.push({ from: r.a, to: r.c, type: ty, ...(Object.keys(pr).length ? { props: pr } : {}) });
-    }
+  for (const r of await batched(`UNWIND $u AS u MATCH (a:NostrEvent {uuid:u})-[e:${types.join('|')}]->(c:NostrEvent) WHERE c.uuid IN $all `
+    + 'RETURN a.uuid AS a, c.uuid AS c, type(e) AS ty, properties(e) AS p', ids, 300, { all: ids })) {
+    const pr = {};
+    Object.entries(r.p || {}).forEach(([k, v]) => { if (['polarity', 'reliability', 'how', 'reason', 'source', 'note'].includes(k)) pr[k] = v; });
+    if (r.a !== r.c) links.push({ from: r.a, to: r.c, type: r.ty, ...(Object.keys(pr).length ? { props: pr } : {}) });
   }
   for (const r of await R('MATCH (sup:Superset)-[:ENUMERATES]->(p:Property) MATCH (k:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(sup) '
     + 'MATCH (p)-[:IS_A_PROPERTY_OF*1..3]->(:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(t:ConceptHeader) '
     + 'WHERE k.uuid IN $all AND t.uuid IN $all RETURN DISTINCT k.uuid AS a, t.uuid AS c, p.name AS f', { all: ids })) {
     links.push({ from: r.a, to: r.c, type: 'ENUMERATES', props: { field: r.f } });
   }
-  const link_types = LINK_TYPES.map((ty) => ({ type: ty, reads: (lt[ty] || {}).reads, reverse: (lt[ty] || {}).reverse,
+  const link_types = types.map((ty) => ({ type: ty, reads: (lt[ty] || {}).reads, reverse: (lt[ty] || {}).reverse,
     family: (lt[ty] || {}).family, meaning: (lt[ty] || {}).meaning }));
   answers(nodes, links);
   await wholeGraphCounts(nodes);
@@ -495,7 +499,7 @@ export async function node({ id, depth = 1 }, ta) {
   const near = new Set([id]);
   let frontier = [id];
   for (let d = 0; d < Math.max(1, Math.min(Number(depth), 2)); d++) {
-    const rows = await batched(`UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[:${LINK_TYPES.join('|')}]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m`, [...frontier].sort());
+    const rows = await batched(`UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[:${(await drawnTypes()).join('|')}]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m`, [...frontier].sort());
     const nxt = [...new Set(rows.map((r) => r.m).filter((m) => m && !near.has(m)))].sort().slice(0, d === 0 ? 40 : 60);
     nxt.forEach((m) => near.add(m));
     frontier = nxt;
@@ -560,7 +564,7 @@ function plumbing() {
 /** One step out from each id: [from, to, how, type]. mode 0 = typed links; 1 = also Sets; 2 = also kinds. */
 async function steps(ids, mode) {
   const out = [], skip = await plumbing(), lt = await linkTypes();
-  for (const r of await batched(`UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[e:${LINK_TYPES.join('|')}]-(m:NostrEvent) `
+  for (const r of await batched(`UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[e:${(await drawnTypes()).join('|')}]-(m:NostrEvent) `
     + 'RETURN u, m.uuid AS m, type(e) AS t, startNode(e).uuid = u AS fwd', ids)) {
     out.push([r.u, r.m, (lt[r.t] || {})[r.fwd ? 'reads' : 'reverse'] || r.t.toLowerCase(), r.t]);
   }
