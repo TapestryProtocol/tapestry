@@ -82,6 +82,10 @@ planning gate because the issue fixed the design.
   independent review, round 2).
 - **Known open issues:** OPEN.md row `2026-11-07-openapi-auth-verify-missing-schema` (two Auth entries `$ref` a schema
   that doesn't exist; predates this book).
+- **At ship (after the close):** CI on nousclawds4/tapestry#28 ran the full stack-free gate on this branch merged onto
+  GitHub `staging`: both new suites passed, and the gate failed 1 of 6675 tests, `setup-alert-polish` S2. That test
+  fails on GitHub `staging` alone, from the /reading views' `writeVerbs.js`, and passes on this branch without them;
+  OPEN.md row `2026-11-07-reading-writeverbs-raw-publish`. The owner chose to ship with it.
 - **Debt:** none logged by an ADR (there is none).
 
 ## 6. Carry-forward register
