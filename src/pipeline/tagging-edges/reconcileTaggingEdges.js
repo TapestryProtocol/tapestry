@@ -384,12 +384,15 @@ async function runInner(depsIn) {
     }
     if (claim) {
       const v = await validateClaim(claim, previous, deps, deps.now());
+      // When the confirmation it took up was made (ADR tagging-edges/0007 D7): an ISO time, or null when it does not parse.
+      const minted = typeof claim.mintedAt === 'string' ? Date.parse(claim.mintedAt) : NaN;
+      const mintedAt = Number.isFinite(minted) ? iso(minted) : null;
       if (v.list) {
         confirmedHeld = v.list;
-        latest.confirmation = { found: true, honoured: true };
+        latest.confirmation = { found: true, honoured: true, mintedAt };
         latest.confirmed = { confirmedRunId: claim.runId, heldCount: v.list.length, removalsApplied: 0, heldNoLongerDue: null };
       } else {
-        latest.confirmation = { found: true, honoured: false, why: v.why };
+        latest.confirmation = { found: true, honoured: false, why: v.why, mintedAt };
       }
       saveQuietly(); // the claim is spent whatever happens next; the stored record says so from now on
     }

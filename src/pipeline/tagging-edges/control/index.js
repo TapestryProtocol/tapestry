@@ -1,24 +1,27 @@
 /**
- * The gap-filling pass's controller (tagging-edges story 6, ADR tagging-edges/0006 D1, D2, D5, D6, D8, D9, D11).
+ * The gap-filling pass's controller (tagging-edges story 6, ADR tagging-edges/0006 D1, D2, D5, D6, D9, D11; story 7,
+ * ADR tagging-edges/0007 D1–D5).
  *
  * One instance per process, `controller` (built from defaultDeps), shared by the routes and the task queue's worker
  * (jobGates.gateFor). It decides, in one promise chain and one order, every moment of a pass the story names:
- *   lineUp({ who, mode })     a start. mode 'run' (Run and the run-task route, D6) is refused while anything is busy;
- *                             mode 'confirm' (the confirm route's enqueue, D8) joins a busy pass that has no stop asked
- *                             for. Each start adds a job under a new, opaque id reconcileTaggingEdges-<12 hex>, so
- *                             nothing ever joins in BullMQ
+ *   lineUp({ who })           a start (Run and the run-task route, D6), refused while anything is busy. Each start adds
+ *                             a job under a new, opaque id reconcileTaggingEdges-<12 hex>, so nothing ever joins in
+ *                             BullMQ
+ *   confirm({ who, runId })   the owner's confirmation of the latest held list, as one step (ADR tagging-edges/0007 D1,
+ *                             D2): refused while one of that list is pending; recorded first; then confirmation.json, a
+ *                             pass waiting or starting with no stop asked for takes it up, else one is lined up as Run's
  *   stop({ who, targets })    a Stop of exactly what its prompt showed (D9): a waiting pass is taken out of line, a
  *                             running one is sent SIGTERM at its own pid, checked against its job and start just before
  *   snapshot({ fresh })       what is busy (D5): report.json's live pass first, then up to four queue reads under one
  *                             deadline; a read that fails or times out is "cannot tell", never "nothing there". Without
  *                             fresh, a snapshot from the last second of the same generation is reused (the status route)
  *   gate                      the worker's per-job decisions (gate.js, D3)
- * Each answer of lineUp and stop is { status, body } and never rejects. Who, the body and the queue being off are the
- * routes' refusals; nothing here reads a session.
+ * Each answer of lineUp, confirm and stop is { status, body } and never rejects. Who, the body and the queue being off
+ * are the routes' refusals; nothing here reads a session.
  *
- * The in-memory marks are mirrored to a private record of who started and stopped each pass (store.js, D11): a Stop
- * takes effect in memory first, so it works when the record cannot be written; a Run is refused then. Who is never
- * logged, never put in job data, and never on a snapshot.
+ * The in-memory marks are mirrored to a private record of who started, stopped and confirmed (store.js, D11; 0007
+ * D5): a Stop takes effect in memory first, so it works when the record cannot be written; a Run or a confirmation is
+ * refused then. Who is never logged, never put in job data, never on a snapshot, and never in confirmation.json.
  *
  * Nothing happens at load: no disk, no Redis. The queue module and the state helpers are reached only when a default
  * dep is called, so queue/index.js can require the gate at init without a cycle. Tests build their own instance with
@@ -42,10 +45,26 @@ const TIMERS = Object.freeze({ stepMs: 2000, pidWaitMs: 3000, pidPollMs: 100, en
 const STATUS_REUSE_MS = 1000;
 const HISTORY_CAP = 10;
 const PASSES_CAP = 40;
+const CONFIRMATION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The sentence beside each code a confirmation is refused with (ADR tagging-edges/0007 D4: the console snippet reads
+ * it); validateConfirmation's refusals carry their own.
+ */
+const CONFIRM_ERRORS = Object.freeze({
+  'already-pending': 'a confirmation of this held list is already pending',
+  'held-list-changed': 'the held list does not match its report',
+  'record-unavailable': 'the confirmation could not be recorded, so nothing was confirmed',
+  'confirmation-unwritten': 'the confirmation could not be written, so nothing is pending',
+  'pass-started': 'a pass started; confirm its report when it ends',
+  'withdraw-failed': 'a pass started and the confirmation could not be withdrawn; that pass may honour it — read its report',
+  error: 'the confirmation could not be carried out',
+});
 
 const passState = () => require('../state');
 const taskQueue = () => require('../../../manage/taskQueue/queue');
 const allowErrorCode = (code) => require('../../../lib/tagging-edges/realtime').allowErrorCode(code);
+const confirmationLib = () => require('../../../lib/tagging-edges/confirmation');
 
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 /** A record entry under `key` only when it is the object's own: a job id such as "__proto__" names no prototype. */
@@ -108,6 +127,12 @@ function defaultDeps() {
     stateDir: () => passState().stateDir(),
     readReport: () => passState().readReport(),
     readConfirmation: () => passState().readPendingConfirmation(),
+    // The confirmation's file work (ADR tagging-edges/0007 D1): only confirm() writes confirmation.json.
+    readHeld: (runId) => passState().readHeld(runId),
+    heldDigest: (list) => passState().heldDigest(list),
+    writeConfirmation: (record) => passState().writeConfirmation(record),
+    withdrawConfirmation: () => passState().withdrawConfirmation(),
+    nonce: () => crypto.randomBytes(16).toString('hex'),
     isAlive: (record) => passState().isAlive(record),
     listClaimed: (runId) => {
       let names;
@@ -289,9 +314,9 @@ function createController(deps) {
     return { ...wrote, prior };
   }
   /**
-   * Take back a start whose add failed (D6 step 3, D8): the record as it was just before the start's own write, so its
-   * entry and history line go, and the oldest line or entry that write's cap or pruning pushed out comes back. Nothing
-   * else writes in between: both writes are one chain step.
+   * Take back a start whose add failed (D6 step 3; 0007 D2): the record as it was just before the start's own write, so
+   * its entry and history line go, and the oldest line or entry that write's cap or pruning pushed out comes back.
+   * Nothing else writes in between: both writes are one chain step.
    */
   const takeBack = (prior) => (r) => {
     r.passes = prior.passes;
@@ -335,8 +360,9 @@ function createController(deps) {
     // 1. report.json, and the liveness of its latest run.
     const latest = latestOf(await d.readReport());
     const alive = !!latest && latest.endedAt == null && (await aliveOf(latest));
-    // 2. the record, loaded on first use. The in-memory marks (phases, skips, noRerun, stopsAsked, endedKeys) are read
-    // later, at classification, after the queue reads, so a gate step or a Stop that lands during those reads is seen.
+    // 2. the record, loaded on first use, and again while its last read was unreadable or damaged. The in-memory marks
+    // (phases, skips, noRerun, stopsAsked, endedKeys) are read later, at classification, after the queue reads, so a
+    // gate step or a Stop that lands during those reads is seen.
     await loadRecord();
     // 3. the queue, while Redis is ready.
     let queue = await health();
@@ -416,10 +442,10 @@ function createController(deps) {
     items.sort((a, b) => (a.state === b.state ? order(a.since) - order(b.since) : (a.state === 'running' ? -1 : 1)));
     s.lastBusy = items.map((it) => it.key);
 
-    // A give-up shows until a later pass has started.
+    // A give-up shows until a later pass has started. One at a time a Date cannot hold is no give-up (0007 CF3).
     let gave = s.lastGaveUp;
     for (const [key, e] of Object.entries(s.record.passes)) {
-      const at = isObject(e) ? msOf(e.gaveUpAt) : NaN;
+      const at = isObject(e) && toIso(e.gaveUpAt) !== null ? msOf(e.gaveUpAt) : NaN;
       if (Number.isFinite(at) && (!gave || at > gave.at)) gave = { key, at };
     }
     const startedMs = latest ? msOf(latest.startedAt) : NaN;
@@ -484,7 +510,7 @@ function createController(deps) {
     return entry.promise;
   }
 
-  // ─── starts (D6, D8) ───────────────────────────────────────────────────────────────────────────────────────────
+  // ─── starts (D6) ───────────────────────────────────────────────────────────────────────────────────────────────
 
   async function add(key, timeoutMs) {
     const data = { taskName: TASK_NAME, customerArgs: null, queryParams: undefined, timeoutMs };
@@ -518,30 +544,126 @@ function createController(deps) {
     return answer(200, { success: true, linedUp: true, key, recorded: true });
   }
 
-  /** The confirm route's start: joins a busy pass with no stop asked for; cannot be refused for want of a record. */
-  async function confirmStep() {
-    const { out } = await compute();
-    if (out.queue !== 'ok') { bump(); return answer(200, { enqueued: false }); }
-    if (out.items.some((it) => it.stopAskedAt == null)) { bump(); return answer(200, { enqueued: true, joined: true }); }
-    const timeoutMs = d.taskTimeoutMs();
-    const key = d.randomKey();
-    s.linedUp.add(key);
-    const wrote = await commitStart(key, iso(d.now()), { kind: 'confirmation' });
-    const added = await add(key, timeoutMs);
-    if (!added.ok) {
-      s.skips.add(key);
-      if (wrote.ok) await commit(takeBack(wrote.prior), [key]);
-      bump();
-      return answer(200, { enqueued: false });
-    }
-    bump();
-    return answer(200, { enqueued: true, jobId: key });
+  function lineUp({ who } = {}) {
+    return step(() => runStep(normalWho(who)))
+      .catch((err) => answer(500, { success: false, code: 'error', cause: allowErrorCode(err && err.code) }));
   }
 
-  function lineUp({ who, mode } = {}) {
-    const confirm = mode === 'confirm';
-    return step(() => (confirm ? confirmStep() : runStep(normalWho(who))))
-      .catch((err) => answer(500, { success: false, code: 'error', cause: allowErrorCode(err && err.code), ...(confirm ? { enqueued: false } : {}) }));
+  // ─── the owner's confirmation (ADR tagging-edges/0007 D1–D5) ─────────────────────────────────────────────────────
+
+  const refuse = (status, code, extra) => answer(status, { success: false, code, error: CONFIRM_ERRORS[code], ...(extra || {}) });
+
+  /**
+   * One chain step, in D2's order: the report checks, the pending check, the held list, the plan from a fresh snapshot,
+   * then the record (the confirm line, and for a line-up its start), confirmation.json, the re-read and its withdraw,
+   * and the line-up. Nothing is written before the record, so a refusal up to it changes nothing; every path bumps the
+   * generation, so a status read cached before the step is never served after it.
+   */
+  async function confirmFlow(who, runId) {
+    try {
+      // 1. The report: the latest, holding removals, its own process ended (liveness read only once the rest holds).
+      const { validateConfirmation, pendingFor } = confirmationLib();
+      const report = await d.readReport();
+      const pre = validateConfirmation({ body: { runId }, report, alive: false });
+      const v = pre.ok ? validateConfirmation({ body: { runId }, report, alive: await aliveOf(pre.latest) }) : pre;
+      if (!v.ok) return answer(v.status, { success: false, code: v.code, error: v.error });
+      const { latest } = v;
+
+      // 2. A confirmation of this held list already pending: refused, nothing written. One that cannot be read is not.
+      let pending = null;
+      try { pending = await d.readConfirmation(); } catch (_) { pending = null; }
+      if (pendingFor(pending, latest, d.now())) return refuse(409, 'already-pending', { runId: pending.runId, expiresAt: pending.expiresAt });
+
+      // 3. The held list, as the report digested it.
+      const list = await d.readHeld(latest.runId);
+      if (!Array.isArray(list) || (await d.heldDigest(list)) !== latest.held.digest) return refuse(409, 'held-list-changed');
+
+      // 4. The plan: who takes the confirmation up. A starting pass is ahead of any waiting one.
+      const { out } = await compute();
+      const open = out.items.filter((it) => it.stopAskedAt == null);
+      let plan = 'lined-up';
+      if (out.queue !== 'ok') plan = 'not-lined-up';
+      else if (open.some((it) => it.state === 'running')) plan = 'starting-pass';
+      else if (open.some((it) => it.state === 'waiting')) plan = 'waiting-pass';
+
+      // 5. The record first: the confirm line, and for a line-up its start (written second, so it shows above).
+      const at = iso(d.now());
+      const line = { action: 'confirm', key: null, at, who, runId };
+      let key = null;
+      let timeoutMs;
+      if (plan === 'lined-up') {
+        timeoutMs = d.taskTimeoutMs();
+        key = d.randomKey();
+        s.linedUp.add(key);
+      }
+      let prior = null;
+      const wrote = await commit((r) => {
+        prior = JSON.parse(JSON.stringify(r));
+        addLine(r, line);
+        if (key) startOf(key, key, at, { kind: 'confirmation' })(r);
+      }, key ? [key] : []);
+      if (!wrote.ok) return refuse(500, 'record-unavailable', { cause: allowErrorCode(wrote.code) });
+      // Best effort, as Run's take-back: the record as before this step, or with only its start gone (Amendment 1 § C).
+      const takeBackAll = () => commit(takeBack(prior), []);
+      const takeBackStart = () => (key ? commit((r) => { takeBack(prior)(r); addLine(r, line); }, []) : null);
+
+      // 6. confirmation.json, with no who.
+      const record = {
+        version: 1,
+        runId,
+        heldDigest: latest.held.digest,
+        heldCount: list.length,
+        nonce: d.nonce(),
+        mintedAt: at,
+        expiresAt: iso(Date.parse(at) + CONFIRMATION_TTL_MS),
+      };
+      try {
+        await d.writeConfirmation(record);
+      } catch (err) {
+        await takeBackAll();
+        return refuse(500, 'confirmation-unwritten', { cause: allowErrorCode(err && err.code) });
+      }
+      const accepted = (outcome, extra) => answer(200, { success: true, confirmed: true, outcome, ...extra, expiresAt: record.expiresAt });
+
+      // 7. The re-read: a pass that recorded itself since step 1 (R11) either claimed it already or is withdrawn from.
+      // A re-read that fails cannot rule a pass out, so it is withdrawn from too.
+      const after = await latestRun();
+      if (!after || after.runId !== runId) {
+        let withdrawn;
+        try {
+          withdrawn = await d.withdrawConfirmation();
+        } catch (err) {
+          await takeBackStart();
+          return refuse(500, 'withdraw-failed', { cause: allowErrorCode(err && err.code) });
+        }
+        if (withdrawn) {
+          await takeBackAll();
+          return refuse(409, 'pass-started');
+        }
+        await takeBackStart();
+        return accepted('taken-up', { enqueued: false, claimedBy: after ? after.runId : null });
+      }
+
+      // 8. The line-up, bounded as Run's; a failure leaves the confirmation pending for Run or the schedule.
+      if (plan === 'not-lined-up') return accepted('not-lined-up', { enqueued: false, reason: 'QUEUE_UNAVAILABLE' });
+      if (plan !== 'lined-up') return accepted(plan, { enqueued: true, joined: true });
+      const added = await add(key, timeoutMs);
+      if (!added.ok) {
+        s.skips.add(key); // an add that lands late completes without spawning (R1)
+        await takeBackStart();
+        return accepted('not-lined-up', added.timedOut
+          ? { enqueued: false, reason: 'QUEUE_UNAVAILABLE' }
+          : { enqueued: false, reason: 'error', cause: allowErrorCode(added.code) });
+      }
+      return accepted('lined-up', { enqueued: true, jobId: key, behindStopping: out.items.length > 0 });
+    } finally {
+      bump();
+    }
+  }
+
+  function confirm({ who, runId } = {}) {
+    return step(() => confirmFlow(normalWho(who), runId))
+      .catch((err) => refuse(500, 'error', { cause: allowErrorCode(err && err.code) }));
   }
 
   // ─── Stop (D9) ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -648,7 +770,7 @@ function createController(deps) {
     step, keyOf, askedAt, isScheduled, isLineUpKey: (key) => LINEUP_ID.test(key), loadRecord, entryOf, recordStart, recordGaveUp, bump,
   };
   const gate = makeGate(s, d);
-  return { lineUp, stop, snapshot, gate };
+  return { lineUp, confirm, stop, snapshot, gate };
 }
 
 /** The process's one instance: the routes and the worker's gate share its chain, marks and record. */

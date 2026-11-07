@@ -7,12 +7,15 @@
  * Run and Stop are the panel's (TaggingPipelinePanel.jsx runPass and stopPasses, through the fetch util's 15 s race),
  * and so is their state, passed down here as props, so a Retry or the switch from an empty report to a ready one
  * loses nothing. This file only renders and asks. The prompt is an inline confirmation that replaces "Stop" while
- * open; it says only what its snapshot holds, never what later polls show, and Cancel sends nothing.
+ * open; it says only what its snapshot holds, never what later polls show, and Cancel sends nothing. When it closes,
+ * focus returns as story 7 sets out (ADR tagging-edges/0007 D15, parts.jsx useReturnFocus): to "Stop" after Cancel,
+ * else to the line that says what the stop did, or the pass section's heading; while its stop is under way, focus is
+ * on the prompt's own heading.
  */
 
 import { useEffect, useRef } from 'react';
 import { stopPromptView } from '../../../utils/taggingPipelineView.js';
-import { ReadFailed, TONE_COLOUR, when } from './parts.jsx';
+import { ReadFailed, TONE_COLOUR, useReturnFocus, when } from './parts.jsx';
 
 /** A line the view gives as { text, at, end }: its text, then the server's time in the viewer's locale, then end. */
 export function TimedLine({ line }) {
@@ -24,10 +27,13 @@ export function WhoLines({ who }) {
   return <><TimedLine line={who.start} />{who.stop && <>{' '}<TimedLine line={who.stop} /></>}</>;
 }
 
-/** The last Run's or Stop's outcome: its sentence, and the refusal's HTTP status or the failure's code and cause. */
-function Outcome({ outcome }) {
+/**
+ * The last Run's or Stop's outcome: its sentence, and the refusal's HTTP status or the failure's code and cause. The
+ * Stop's line takes focus when the prompt has closed (ADR 0007 D15), through `lineRef`.
+ */
+function Outcome({ outcome, lineRef }) {
   return (
-    <p style={{ color: TONE_COLOUR[outcome.tone] }}>
+    <p ref={lineRef} tabIndex={-1} style={{ color: TONE_COLOUR[outcome.tone] }}>
       {outcome.text}
       {outcome.outcome === 'refused' && outcome.httpStatus !== null && ` HTTP status: ${outcome.httpStatus}.`}
       {outcome.code && <> Code: <code>{outcome.code}</code></>}
@@ -39,18 +45,24 @@ function Outcome({ outcome }) {
 /**
  * The Stop prompt (ADR 0006 D16 stopPromptView, D17): a heading, what happens to each pass of the snapshot, and "Stop
  * the pass" (or "Stop the passes") and "Cancel". Focus moves to Cancel when it opens, through an effect, with no timer.
- * While the stop is under way it stays open, its buttons disabled.
+ * While the stop is under way it stays open, its buttons disabled; its send moves focus to the heading first, so focus
+ * never sits on a disabled button (ADR 0007 D15).
  */
 function StopPrompt({ stop, onStop, onCancel }) {
   const cancel = useRef(null);
+  const heading = useRef(null);
   useEffect(() => {
     if (cancel.current) cancel.current.focus();
   }, []);
   const prompt = stopPromptView(stop.snapshot, stop.confirmation);
   const several = stop.snapshot.length > 1;
+  const send = () => {
+    if (heading.current) heading.current.focus();
+    onStop();
+  };
   return (
     <div className="settings-group" style={{ borderColor: TONE_COLOUR.warn }}>
-      <h4>{several ? 'Stop the busy passes?' : 'Stop the busy pass?'}</h4>
+      <h4 ref={heading} tabIndex={-1}>{several ? 'Stop the busy passes?' : 'Stop the busy pass?'}</h4>
       {prompt.blocks.map((b) => (
         <div key={b.key}>
           {b.lines.map((l, i) => <p key={i}><TimedLine line={l} /></p>)}
@@ -62,7 +74,7 @@ function StopPrompt({ stop, onStop, onCancel }) {
           className="btn-small"
           disabled={stop.pending}
           aria-busy={stop.pending ? 'true' : undefined}
-          onClick={onStop}
+          onClick={send}
         >
           {stop.pending ? 'Stopping…' : (several ? 'Stop the passes' : 'Stop the pass')}
         </button>{' '}
@@ -76,11 +88,13 @@ function StopPrompt({ stop, onStop, onCancel }) {
  * `body` is the status body and `view` passView of it; `busy` is busyView of it; `who` is passWho of the pass record's
  * read (`record`) and the status body; `run` is the panel's { pending, outcome } and `stop` its { snapshot,
  * confirmation, pending, outcome }; `onRun()` sends a Run, `onAskStop()` opens the prompt, `onCancelStop()` closes it
- * and `onStop()` sends the stop it shows. Rendered only once the status has a body.
+ * and `onStop()` sends the stop it shows. `headingRef` is the pass section's heading, where focus goes when the prompt
+ * closes with neither "Stop" nor a line to show. Rendered only once the status has a body.
  */
 export default function PassControls({
-  body, view, busy, who, record, onRetryRecord, run, stop, onRun, onAskStop, onCancelStop, onStop,
+  body, view, busy, who, record, onRetryRecord, run, stop, onRun, onAskStop, onCancelStop, onStop, headingRef,
 }) {
+  const focus = useReturnFocus(!!stop.snapshot, headingRef);
   const control = body && body.control && typeof body.control === 'object' ? body.control : null;
   const gaveUp = control && control.gaveUp && typeof control.gaveUp === 'object' ? control.gaveUp : null;
   const whoOf = (key) => who.items.find((w) => w.key === key) || null;
@@ -124,9 +138,9 @@ export default function PassControls({
         </p>
       )}
       {stop.snapshot
-        ? <StopPrompt stop={stop} onStop={onStop} onCancel={onCancelStop} />
-        : busy.canStop && <p><button className="btn-small" onClick={onAskStop}>Stop</button></p>}
-      {stop.outcome && !stop.pending && <Outcome outcome={stop.outcome} />}
+        ? <StopPrompt stop={stop} onStop={onStop} onCancel={() => { focus.cancelled(); onCancelStop(); }} />
+        : busy.canStop && <p><button className="btn-small" ref={focus.opener} onClick={onAskStop}>Stop</button></p>}
+      {stop.outcome && !stop.pending && <Outcome outcome={stop.outcome} lineRef={focus.line} />}
       {who.status === 'failed' && (record.error
         ? <ReadFailed what={who.what} error={record.error} onRetry={onRetryRecord} />
         : <p style={{ color: TONE_COLOUR.bad }}>{who.text}</p>)}

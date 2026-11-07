@@ -1,6 +1,7 @@
 /**
  * The view model for the Tagging pipeline panel (tagging-edges Story 4 / ADR tagging-edges/0004 § UI; Story 5 /
- * ADR tagging-edges/0005 D7, D8, D12, D14; Story 6 / ADR tagging-edges/0006 D16).
+ * ADR tagging-edges/0005 D7, D8, D12, D14; Story 6 / ADR tagging-edges/0006 D16; Story 7 / ADR tagging-edges/0007
+ * D9, D11–D14).
  *
  * Every derivation the panel shows lives here, so the Node gate can import it without a React runner
  * (the nextTaskCountdown.js precedent): which pass is running (by liveness, never by the stored outcome),
@@ -9,14 +10,16 @@
  * the real-time path's switch (story 5): the starting window, which off prompt to show, the warning beside
  * "Turn on", what a change's answer means, and the record of who switched the path. For running and stopping the
  * pass (story 6): the busy passes, what a Run's or a Stop's answer means, the Stop prompt's text, and who started or
- * stopped each pass.
+ * stopped each pass. For confirming held removals (story 7): whether Confirm is offered and what its prompt says
+ * (confirmView), what a confirmation's answer means (confirmOutcome), who confirmed and which pass took a
+ * confirmation up (passWho), and the overdue line (overdueView).
  *
  * Inputs are the bodies of the public reads (GET /api/tagging-edges/status, /realtime/status,
  * /api/scheduled-tasks/list), of the gated GET /api/tagging-edges/drift-counts, /realtime/switch and
- * /api/tagging-edges/pass/record, and readSection's, sendSwitch's, sendRun's and sendStop's results. Nothing here
- * reads a clock: what is stale or expired, and whether the path is still in its starting window, is the server's
- * verdict, passed through. Results carry a tone (ok | warn | bad | neutral), never a colour; the panel maps tones to
- * design tokens.
+ * /api/tagging-edges/pass/record, and readSection's, sendSwitch's, sendRun's, sendStop's and sendConfirm's results.
+ * Nothing here reads a clock: what is stale or expired, whether the path is still in its starting window, and whether
+ * the pass is overdue, is the server's verdict, passed through. Results carry a tone (ok | warn | bad | neutral), never
+ * a colour; the panel maps tones to design tokens.
  *
  * Plain ESM with Node 16 syntax and built-ins only, so the host gate can import it.
  */
@@ -640,19 +643,21 @@ const BEHIND_TEXT = Object.freeze({
 
 /**
  * The busy passes (story 6 AC-2, AC-3; ADR 0006 D5, D12, D16), from the status body's `control` member. → { known,
- * why, items, canStop }. `known` is true only when the server read the task queue (`queue: 'ok'`); otherwise `why`
- * says the server cannot tell whether a pass is waiting, and an absent `control` (a server from before story 6) reads
- * the same, never as nothing waiting. Each item is the server's own, in its order (no who: passWho gives that), plus
- * `line` (waiting or running since its time, and what a waiting pass waits behind) and `stopLine` (a stop asked for,
- * and when, or null), both timed lines. `canStop` is true while some item has no stop asked for.
+ * why, items, canStop }. `known` is true only when the server read the task queue (`queue: 'ok'`) and served its busy
+ * list; otherwise `why` says the server cannot tell whether a pass is waiting, and an absent `control` (a server from
+ * before story 6), or a busy answer with no list (story 7 carry-forward NB2), reads the same, never as nothing
+ * waiting. Each item is the server's own, in its order (no who: passWho gives that), plus `line` (waiting or running
+ * since its time, and what a waiting pass waits behind) and `stopLine` (a stop asked for, and when, or null), both
+ * timed lines. `canStop` is true while some item has no stop asked for.
  */
 export function busyView(statusBody) {
   const control = isObject(statusBody) && isObject(statusBody.control) ? statusBody.control : null;
-  const known = !!control && control.queue === 'ok';
+  const known = !!control && control.queue === 'ok' && Array.isArray(control.busy);
   let why = null;
   if (!known) {
     let reason = 'its answer does not report the task queue';
-    if (control) reason = own(QUEUE_WHY, control.queue) ? QUEUE_WHY[control.queue] : 'the task queue could not be read';
+    if (control && control.queue === 'ok') reason = 'its answer does not list the busy passes';
+    else if (control) reason = own(QUEUE_WHY, control.queue) ? QUEUE_WHY[control.queue] : 'the task queue could not be read';
     why = `The server cannot tell whether a pass is waiting: ${reason}.`;
   }
   const items = (control && Array.isArray(control.busy) ? control.busy : []).filter(isObject).map((b) => ({
@@ -844,12 +849,30 @@ function startLine(start) {
 }
 
 /**
+ * The owner's confirmation a run took up (story 7 AC-4; ADR 0007 D7, D12), as a timed line, for a run whose report
+ * says `confirmation.found === true`; null otherwise. It names when the confirmation was made (the report's
+ * `mintedAt`), and the owner's shortened key when a `confirm` line in the record was made at that instant; a report
+ * from before story 7 has no `mintedAt` and reads "when not recorded". What the run did with it stays the pass
+ * section's own lines (honoured, why not, how many applied), so this line says nothing about that.
+ */
+function confirmationLine(run, history) {
+  const c = isObject(run.confirmation) ? run.confirmation : null;
+  if (!c || c.found !== true) return null;
+  const minted = instant(c.mintedAt);
+  if (minted === null) return { text: 'It took up the owner\'s confirmation (when not recorded)', at: null, end: '.' };
+  const made = history.find((h) => isObject(h) && h.action === 'confirm' && instant(h.at) === minted);
+  const key = made && isObject(made.who) && made.who.kind === 'owner' && has(made.who.key) ? ` (${made.who.key}…)` : '';
+  return timed(`It took up the owner's confirmation${key}, made`, c.mintedAt);
+}
+
+/**
  * One run's who (D16 "A run's start", "A run's stop"; D18). Its start is the entry whose jobId is the run's job.id and
  * whose start is the latest one not after the run's start; its stop is the entry whose stop.runId is the run's runId,
- * under any key, else the joined entry's stop when that stop's runId is null. → { runId, start, stop }, both timed
- * lines (stop null when no stop is known and the pass did not stop on request).
+ * under any key, else the joined entry's stop when that stop's runId is null. → { runId, start, stop, confirmation },
+ * all timed lines (stop null when no stop is known and the pass did not stop on request; confirmation null when the
+ * run found no confirmation of the owner's; story 7, ADR 0007 D12).
  */
-function runWho(run, entries, live) {
+function runWho(run, entries, live, history = []) {
   const jobId = isObject(run.job) && has(run.job.id) ? run.job.id : null;
   const startedAt = instant(run.startedAt);
   let joined = null;
@@ -875,7 +898,12 @@ function runWho(run, entries, live) {
   } else if (noun) {
     stopLine = timed('A stop was asked for', stop.at, live ? ` by ${noun}.` : ` by ${noun}, but the pass ended first.`);
   }
-  return { runId: run.runId, start: joined ? startLine(joined.start) : notRecordedStart(), stop: stopLine };
+  return {
+    runId: run.runId,
+    start: joined ? startLine(joined.start) : notRecordedStart(),
+    stop: stopLine,
+    confirmation: confirmationLine(run, history),
+  };
 }
 
 /**
@@ -884,13 +912,15 @@ function runWho(run, entries, live) {
  * read is current (state 'ready') and in the form D13 gives; otherwise it says the record is loading or could not be
  * read, and shows nothing of a kept body. → { status, state, text, runs, items, history, historyText }, status one of
  * loading | failed | shown:
- * - `runs`: one { runId, start, stop } per report (latest, then previous), `start` and `stop` timed lines.
+ * - `runs`: one { runId, start, stop, confirmation } per report (latest, then previous), each a timed line;
+ *   `confirmation` (story 7; ADR 0007 D12) says the run took up the owner's confirmation, and when it was made.
  * - `items`: one { key, start, stop } per control.busy item. A running item with a run takes its run's; a starting or
  *   waiting one reads its entry's start when startRecorded is true, "refreshing" while the answer lacks it; with
  *   startRecorded false a waiting job not yet picked up is the schedule's (repeat:sched:, at the id's millis) or
  *   "started another way" (not LINEUP_ID's shape), and anything else is "start not recorded".
  * - `history`: the last 10 actions, newest first, each { action, key, text, at, end }; a start whose entry gave up
- *   says so. `historyText` is the empty state's sentence, or null.
+ *   says so, and a confirmation (story 7; ADR 0007 D5, D12) names the held run and who confirmed it. `historyText` is
+ *   the empty state's sentence, or null.
  * Who reads as the owner or an admin (with the shortened key), the schedule, the owner's confirmation, a local call,
  * started another way, or not recorded.
  */
@@ -923,7 +953,8 @@ export function passWho(recordRead, statusBody) {
   const records = (latest ? [latest] : []).concat(Array.isArray(status.previous) ? status.previous.filter(isObject) : [])
     .filter((r) => has(r.runId));
   const isLive = (r) => status.running === true && r === latest;
-  const runs = records.map((r) => runWho(r, entries, isLive(r)));
+  const lines = Array.isArray(body.history) ? body.history : [];
+  const runs = records.map((r) => runWho(r, entries, isLive(r), lines));
 
   const busy = isObject(status.control) && Array.isArray(status.control.busy) ? status.control.busy.filter(isObject) : [];
   const items = busy.map((b) => {
@@ -947,8 +978,13 @@ export function passWho(recordRead, statusBody) {
     return { key: b.key, start, stop: stopper ? timed('A stop was asked for', entry.stop.at, ` by ${stopper}.`) : null };
   });
 
-  const history = (Array.isArray(body.history) ? body.history : [])
-    .filter((h) => isObject(h) && (h.action === 'start' || h.action === 'stop')).slice(0, 10).map((h) => {
+  const history = lines
+    .filter((h) => isObject(h) && ['start', 'stop', 'confirm'].includes(h.action)).slice(0, 10).map((h) => {
+      if (h.action === 'confirm') {
+        const noun = whoNoun(h.who);
+        const what = has(h.runId) ? `Held removals of pass ${h.runId} confirmed` : 'Held removals confirmed';
+        return { action: 'confirm', key: h.key, ...timed(noun ? `${what} by ${noun}` : `${what} (who not recorded)`, h.at) };
+      }
       if (h.action === 'stop') {
         const noun = whoNoun(h.who);
         return { action: 'stop', key: h.key, ...timed(noun ? `Stop asked for by ${noun}` : 'Stop asked for (who not recorded)', h.at) };
@@ -960,6 +996,172 @@ export function passWho(recordRead, statusBody) {
     });
   return { status: 'shown', state: body.state, text: null, runs, items, history,
     historyText: history.length ? null : 'No action has been recorded yet.' };
+}
+
+// ─── Story 7: confirming held removals, and the overdue line (ADR 0007 D9, D11, D13, D14) ───────────────────────────
+
+/** A confirmation that no pass will carry out, which a new one replaces (D9 `replaces`; ratified reading 4). */
+const UNRELIABLE = ['unreadable', 'unknown-expiry', 'expired'];
+
+/**
+ * Whether the held section offers "Confirm held removals", and what its prompt would say (story 7 AC-1, AC-2, AC-3;
+ * ADR 0007 D9, D13). `held` is the panel's held list read ({ runId, offset, state, page, error }) and `runId` the held
+ * section's run id (the latest pass's when it held removals and no pass runs by liveness, else null). → { offer, runId,
+ * count, replaces, when, usedUp }:
+ * - `offer` is true only when the held section has a run id, its held list is read for that run, no busy item is
+ *   running with no stop asked for (a starting pass included), passView's confirmation is not pending for the latest
+ *   pass, and the confirmation is not used up (below). It is the same for the owner and an admin; the panel gives the
+ *   admin the disabled control, and the server decides.
+ * - `count` is the held list read's total; `replaces` is true when the confirmation shown is one no pass will carry
+ *   out (unreadable, its expiry unreadable, expired, or pending for another run).
+ * - `when` is what confirming does, from busyView: 'cannot-tell' when the panel cannot tell whether a pass is waiting,
+ *   'waiting-pass' for a pass waiting with no stop asked for, else 'lines-up'.
+ * - `usedUp` (D13) is true when the latest pass, by liveness, found the owner's confirmation and then failed or was
+ *   stopped: the removals it did not apply can be confirmed again only once a later pass holds them again.
+ */
+export function confirmView(statusBody, held, runId) {
+  const pass = passView(statusBody);
+  const busy = busyView(statusBody);
+  const latest = pass ? pass.latest : null;
+  const conf = pass ? pass.confirmation : { state: 'none' };
+  const latestRunId = latest && has(latest.runId) ? latest.runId : null;
+  const usedUp = !!latest && isObject(latest.confirmation) && latest.confirmation.found === true
+    && (latest.outcome === 'failed' || latest.outcome === 'stopped');
+  const read = has(runId) && isObject(held) && held.state === 'ready' && held.runId === runId && isObject(held.page);
+  const runningNow = busy.items.some((it) => it.state === 'running' && !has(it.stopAskedAt));
+  const pendingLatest = conf.state === 'pending' && latestRunId !== null && conf.runId === latestRunId;
+  let when = 'lines-up';
+  if (!busy.known) when = 'cannot-tell';
+  else if (busy.items.some((it) => it.state === 'waiting' && !has(it.stopAskedAt))) when = 'waiting-pass';
+  return {
+    offer: read && !runningNow && !pendingLatest && !usedUp,
+    runId: has(runId) ? runId : null,
+    count: read ? num(held.page.total) : null,
+    replaces: UNRELIABLE.includes(conf.state) || (conf.state === 'pending' && conf.runId !== latestRunId),
+    when,
+    usedUp,
+  };
+}
+
+/** D11's sentence for a confirmation with no usable answer, word for word. */
+const CONFIRM_UNKNOWN = 'The panel had no answer within 15 seconds, so the outcome is unknown. It shows the state from its next read.';
+/** What each accepted confirmation did (D4's 200 rows but not-lined-up), in the past tense where it is done. */
+const CONFIRM_ACCEPTED = Object.freeze({
+  'lined-up': 'A pass was lined up to carry out the confirmed removals.',
+  'waiting-pass': 'The pass already waiting takes this confirmation up, so nothing new was lined up.',
+  'starting-pass': 'A pass that had just begun takes this confirmation up.',
+});
+const CONFIRM_BEHIND_STOPPING = 'A pass was lined up behind the pass that is stopping, to carry out the confirmed removals.';
+/** An accepted answer with no outcome the panel knows (a server from before story 7): it claims nothing. */
+const CONFIRM_ACCEPTED_UNSAID = 'The server accepted the confirmation, but its answer does not say what happened next. What stands shows here from the next read.';
+/** The out-of-date refusals (D4's 409 rows, as today): why, then what the panel does. */
+const CONFIRM_STALE = Object.freeze({
+  'not-the-latest-report': 'A newer pass ran after the prompt opened, so nothing was confirmed.',
+  'nothing-held': 'The latest pass no longer holds removals, so nothing was confirmed.',
+  running: 'The pass that held these removals was still running, so nothing was confirmed.',
+  'held-list-changed': 'The held list changed after the prompt opened, so nothing was confirmed.',
+});
+const CONFIRM_STALE_THEN = 'The panel now shows the latest state.';
+const CONFIRM_SENTENCE = Object.freeze({
+  'pass-started': 'A pass started meanwhile, so the confirmation was withdrawn and nothing changed.',
+  'withdraw-failed': 'A pass started meanwhile, and the server cannot tell whether the confirmation stands. The panel shows from its next read whether that pass took it up.',
+  'record-unavailable': 'The server could not record the confirmation, so nothing was confirmed. Check that the data volume has free space and is readable and writable, then try again.',
+  'confirmation-unwritten': 'The server could not write the confirmation, so nothing was confirmed. Check that the data volume has free space and is writable, then try again.',
+  refused: 'The server refused the confirmation, so nothing was confirmed by this attempt. Sign in again as the owner, from the instance\'s own address, then try again.',
+  failed: 'The confirmation failed on the server. What stands shows here from the next read. If it repeats, check the control panel\'s log, /var/log/supervisor/brainstorm.log in the tapestry container.',
+});
+const CONFIRM_FAILED_WITHOUT_CODE = 'The server answered with an error status that does not say whether the confirmation was made. What stands shows here from the next read. Try again. If it repeats, check the control panel\'s log, /var/log/supervisor/brainstorm.log in the tapestry container.';
+
+/**
+ * What a confirmation's answer means (story 7 AC-1, AC-2, AC-3, AC-4; ADR 0007 D4, D11). `result` is sendConfirm's.
+ * → { outcome, text, at, end, tone, code, httpStatus, cause }: a line as the panel prints it (`text`, then the server's
+ * time `at` when set, then `end`), with the answer's code and allow-listed cause, or null. `outcome` is the answer's
+ * own (lined-up, waiting-pass, starting-pass, taken-up, not-lined-up), a refusal's code (already-pending, out-of-date,
+ * pass-started), withdraw-failed, refused (401 or 403), failed, accepted (a 200 whose outcome the panel does not
+ * know), or unknown (timeout, network, bad JSON). An accepted answer is never bad; every other one is never ok. No
+ * sentence says a pass was lined up, or takes or took the confirmation up, unless the answer says so.
+ */
+export function confirmOutcome(result) {
+  const r = isObject(result) ? result : {};
+  const body = isObject(r.body) ? r.body : null;
+  const cause = body && has(body.cause) ? body.cause : null;
+  const line = (outcome, text, tone, o = {}) => ({
+    outcome, text, at: null, end: '', tone, code: null, httpStatus: null, cause: null, ...o,
+  });
+  if (r.ok === true) {
+    const o = body ? body.outcome : undefined;
+    if (o === 'lined-up') return line(o, body.behindStopping === true ? CONFIRM_BEHIND_STOPPING : CONFIRM_ACCEPTED[o], 'ok');
+    if (o === 'waiting-pass' || o === 'starting-pass') return line(o, CONFIRM_ACCEPTED[o], 'ok');
+    if (o === 'taken-up') {
+      const by = has(body.claimedBy) ? `, run ${body.claimedBy},` : '';
+      return line(o, `A pass that started meanwhile${by} took this confirmation up.`, 'ok');
+    }
+    if (o === 'not-lined-up') {
+      const reason = has(body.reason) ? body.reason : 'no reason given';
+      return line(o, `The confirmation was made, but no pass was lined up (${reason}). Run a pass now, or the next scheduled pass, takes it up within its 24 hours.`, 'warn', { cause });
+    }
+    return line('accepted', CONFIRM_ACCEPTED_UNSAID, 'warn');
+  }
+  if (r.code === 'http-401' || r.code === 'http-403') {
+    return line('refused', CONFIRM_SENTENCE.refused, 'bad', { httpStatus: num(r.httpStatus) });
+  }
+  if (typeof r.code === 'string' && /^http-\d{3}$/.test(r.code)) {
+    const httpStatus = num(r.httpStatus);
+    const code = body && has(body.code) ? body.code : null;
+    if (code === 'already-pending') {
+      return line(code, '', 'warn', timed('A confirmation of this held list was already pending', body.expiresAt, ', so nothing changed.', 'until'));
+    }
+    if (code !== null && own(CONFIRM_STALE, code)) {
+      return line('out-of-date', `${CONFIRM_STALE[code]} ${CONFIRM_STALE_THEN}`, 'warn', { code, httpStatus });
+    }
+    if (code === 'pass-started' || code === 'withdraw-failed') {
+      return line(code, CONFIRM_SENTENCE[code], 'warn', { code, httpStatus, cause });
+    }
+    if (code === null) return line('failed', CONFIRM_FAILED_WITHOUT_CODE, 'bad', { code: r.code, httpStatus });
+    const text = own(CONFIRM_SENTENCE, code) && code !== 'refused' && code !== 'failed' ? CONFIRM_SENTENCE[code] : CONFIRM_SENTENCE.failed;
+    return line('failed', text, 'bad', { code, httpStatus, cause });
+  }
+  return line('unknown', CONFIRM_UNKNOWN, 'warn');
+}
+
+/** Why the server cannot tell whether the pass is overdue (D8's cannot-tell reasons), as the rest of a sentence. */
+const OVERDUE_REASON = Object.freeze({
+  schedule: 'the server could not read the schedule',
+  rule: 'the server cannot judge the schedule\'s rule, which runs fewer than twice in 400 days',
+  report: 'the server could not read from the pass report when the latest pass began',
+});
+const OVERDUE_QUIET = ['on-time', 'no-entry', 'no-schedule', 'no-pass'];
+const cannotTellOverdue = (why) => ({ state: 'cannot-tell', tone: 'warn', lines: [plain(`The panel cannot tell whether the pass is overdue: ${why}.`)] });
+
+/**
+ * The overdue line in the backstop section (story 7 AC-5; ADR 0007 D8, D14), from the status body, its read ({ state,
+ * body, … }) and busyView of the body. The verdict is the server's (`overdue`, from server time), passed through, so
+ * every viewer sees the same whatever their clock. → null when there is nothing to flag (on-time, no-entry,
+ * no-schedule, no-pass: the section's existing lines stand), else { state, tone, lines }, `lines` timed lines:
+ * - overdue: when the latest pass began and when the schedule expected the next, and, while a pass waits, that the
+ *   warning clears when it begins running;
+ * - cannot-tell: the server's reason, or that its answer has no verdict (a server from before story 7), or that the
+ *   status could not be read; a missing line never stands for on time;
+ * - checking: the status has not answered yet.
+ */
+export function overdueView(statusBody, statusRead, busy) {
+  if (!isObject(statusBody)) {
+    if (isObject(statusRead) && statusRead.state === 'error') return cannotTellOverdue('the pass status could not be read');
+    return { state: 'checking', tone: 'neutral', lines: [plain('Whether the pass is overdue is still being checked.')] };
+  }
+  const o = statusBody.overdue;
+  if (!isObject(o)) return cannotTellOverdue('the server\'s answer does not include the check');
+  if (OVERDUE_QUIET.includes(o.state)) return null;
+  if (o.state !== 'overdue') {
+    return cannotTellOverdue(o.state === 'cannot-tell' && own(OVERDUE_REASON, o.reason) ? OVERDUE_REASON[o.reason] : 'the server gave no reason the panel recognises');
+  }
+  const waiting = isObject(busy) && Array.isArray(busy.items) && busy.items.some((it) => isObject(it) && it.state === 'waiting');
+  const lines = [
+    timed('The pass is overdue: the latest pass began', o.latestBeganAt, ','),
+    timed('and the schedule expected the next', o.expectedAt, '.', 'by'),
+  ];
+  if (waiting) lines.push(plain('A pass is waiting; the warning clears when it begins running.'));
+  return { state: 'overdue', tone: 'warn', lines };
 }
 
 const SCHEDULE_TASK_ID = 'reconcileTaggingEdges';

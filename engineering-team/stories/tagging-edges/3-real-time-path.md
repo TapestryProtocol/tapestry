@@ -534,6 +534,9 @@ approval (2026-09-28):
       - a later pass reports no addition, change or removal that a before-and-after read of the graph cannot trace
         to an Out-of-scope case;
       - AC-2, AC-3 and the one-minute timing are evidenced by the local run.
+
+    *(Closed 2026-10-30, at tagging-edges story 7's Planning: the staging reading of that date is recorded in
+    § Evidence, "The following days, read at story 7's Planning".)*
 15. **One story, not split.** Seven criteria is past the planning guide's ~5. They stay together because a real-time
     writer without its failure rules (AC-3) and catch-up (AC-4) would repeat the follows leg's lost events, and one
     without its switch and status (AC-5, AC-6) could not be turned on or checked. There is no clean seam: AC-3's
@@ -763,6 +766,8 @@ The setup:
 - **What fills the heap:** the long-lived maps (`S`, `B`, the lineage and their indexes) take about 0.9 KB per tagging,
   about 60% of the peak. A catch-up's transients take the rest.
 - **The margin:** the revisit trigger of 100,000 `seen` (today 7,030) leaves 2.4× below the ceiling.
+- **The harness is not committed.** The owner declined to commit the heap-ceiling measurement harness (review 3,
+  round 1, non-blocking 13) on 2026-10-30, at tagging-edges story 7's Planning. The figures above stand as measured.
 
 ### SL19, the relay smoke test (review C8)
 
@@ -870,6 +875,21 @@ Read from both hosts' public routes and read-only Cypher at about 19:20–19:31Z
 That covers open question 14's staging items except the length of the organic-tagging record: one day, where the
 question asks for "the following days". Another read of the status in a few days is due, unless the owner accepts one
 day.
+
+### The following days, read at story 7's Planning (2026-10-30); open question 14 closed
+
+Staging's `GET /api/tagging-edges/realtime/status` at 2026-10-30T01:28:58Z (recorded at tagging-edges story 7's
+Planning, which closes the question; `engineering-team/stories/tagging-edges/7-confirm-held-removals.md` § Docs tasks):
+- `state` `live`, `runningSince` 2026-10-30T00:16:05.716Z, `lastError` null;
+- every `failedReads` count 0 (relay, graph, element, catch-up), `removalsNotPrompted` 0, `droppedOverBacklog` 0,
+  `refused.total` 0, `dbRefused.total` 0, `leftInPlace.total` 0, every lost race 0;
+- since the path first started (2026-09-30T14:26:36Z), with its counts carried across every restart and never reset:
+  243 added, 5 changed, 3 removed, 32 people added; 439 deletions that matched no relationship (the reading of
+  2026-10-01 had none) and none naming another author.
+
+A deletion that matched no relationship is not a failure: the path counts it and moves on, because nothing it deleted
+was a tagging relationship in the graph. So the question's "no failures" holds across a month of organic taggings,
+and **open question 14 is closed**.
 
 ## Deviations
 
