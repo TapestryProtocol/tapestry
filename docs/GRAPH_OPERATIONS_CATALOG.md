@@ -1,6 +1,6 @@
 # Graph Operations — Catalog (draft for review)
 
-**Status:** Draft for review, 2026-11-07. Every name, route and input below is a proposal. Only what cites a decision (D1–D11 in [GRAPH_OPERATIONS_DESIGN_HANDOFF.md](GRAPH_OPERATIONS_DESIGN_HANDOFF.md)) is settled.
+**Status:** Draft for review, 2026-11-07. Every name, route and input below is a proposal. Only what cites a decision (D1–D12 in [GRAPH_OPERATIONS_DESIGN_HANDOFF.md](GRAPH_OPERATIONS_DESIGN_HANDOFF.md)) is settled.
 **Provenance:** Drafted from the design doc's decisions and from today's routes (staging `325b080f9`). None of the wording here is the owner's.
 **Reviewed by the owner:** not yet.
 
@@ -12,6 +12,7 @@
 - **Naming a node.** Every input that names a node takes its `tapestryKey` (D6), or a name or slug that `graph resolve` turns into one. A name that matches more than one node is refused, never guessed; several of today's routes take a name and use the first match.
 - **Every write** checks its guards (D3) unless its group says otherwise, is safe to repeat (keyed as its row says), and never signs (D1). As proposed in the design doc's §5, it also records a change entry: which admin, which operation, what changed.
 - **Every read** returns a capped number of items with a cursor. A read that can include other authors' nodes takes a point of view, `pov`, the owner's by default.
+- **Every exporter takes the same scope:** a node, a graph, or everything (D12). A graph is an element of the `graph` concept, listing nodes and the relationships between them: a concept's concept graph (one of its eight core nodes), a Tapestry (BIBLE §6), or a selection saved as a graph of its own with `graph create-element`. The destination is the only difference between exporters.
 - **Who may call** is given for each group, with exceptions in the rows.
 
 ## At a glance (57 operations)
@@ -132,10 +133,12 @@ Who may call: the owner and admins; the instance's own pipelines also call `impo
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `nostr` | Record nostr events as nodes, with the claims they make as edges | `ids`, `addresses` or `filter`, `relay?` → the nodes recorded; safe to repeat by the event's address or id | `neo4j/event-update` (`buildImportCypher`); the stream consumer; `concept/:handle/pull-community-class-thread`; the `io` import; normalize's `importEventDirect`. Today's two importers build different graphs from the same event: only `buildImportCypher` derives edges from `b` tags. |
+| `nostr` | Record nostr events as nodes, with the claims they make as edges | `ids`, `addresses`, a graph's address or `filter`, `relay?` → the nodes recorded; safe to repeat by the event's address or id | `neo4j/event-update` (`buildImportCypher`); the stream consumer; `concept/:handle/pull-community-class-thread`; the `io` import; normalize's `importEventDirect`. Today's two importers build different graphs from the same event: only `buildImportCypher` derives edges from `b` tags. |
 | `file` | Record a file (markdown, PDF, image, …) as a node that points at it, with whatever its importer extracts | `path`, `kind?`, `concept?` → the node | the second brain's `create-resource` (kinds `file`, `vault-note`) |
 | `web` | Record a web address as a node that points at it | `url`, `concept?` → the node | `create-resource` (kind `web-address`) |
 | `refresh` | Re-read a node's source and update what was recorded | `node` → changed, unchanged or gone | `verify-resource` |
+
+Importing a graph, such as someone else's Tapestry, records its graph element and the letters it refers to.
 
 ## 6. Export (outside data going out)
 
@@ -143,10 +146,12 @@ Who may call: the owner, and admins for everything except where §10's question 
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `nostr` | Publish a node you assert as a signed event, and record that it was sent | `node`, `relays?` → the event's id and address | Refuses someone else's node (copy it first, D8), and a node that refers to nodes with no nostr address yet | every signing route; `/api/strfry/publish` |
-| `file` | Write a node, a concept with its elements, or the whole graph as JSON or markdown | `scope`, `format` → the file | — | the `io` export; `/api/brain/export` |
-| `status` | Which nodes were sent where, and whether each copy is still current | `scope` → each node's letters and whether they're current | — | none |
-| `retract` | Ask relays to delete a letter you published (NIP-09) | `node`, `letter?` → the request sent | — | none |
+| `nostr` | Publish a scope as signed events, and record what was sent | `scope`, `relays?`, `dryRun?` → the letters published; a dry run lists the letters it would publish, as new, changed or unchanged since last sent | Signs only nodes you assert, and refers to someone else's node by its address without re-signing it (D8); reports references to nodes with no nostr address yet (design doc §5, question 4) | every signing route; `/api/strfry/publish` |
+| `file` | Write a scope as a JSON or markdown bundle | `scope`, `format`, `dryRun?` → the file | — | the `io` export; `/api/brain/export` |
+| `status` | Which nodes in a scope were sent where, and whether each copy is still current | `scope` → each node's letters and whether they're current | — | none |
+| `retract` | Ask relays to delete the letters you published for a scope (NIP-09) | `scope`, `dryRun?` → the requests sent | Retracts only letters your keys signed | none |
+
+**What an export does, whatever the destination** (D12; drafting): it resolves the scope to its nodes and edges; adds, or reports, the nodes its letters refer to that have no nostr address yet; orders the letters so each goes out after the ones it refers to; applies D8 node by node; and records "sent as" for each letter. Exporting everything to nostr isn't a backup: letters are public and leave out whatever has no event form (BIBLE §30). Backup stays in lifecycle.
 
 ## 7. Cache
 
@@ -218,3 +223,4 @@ Who may call: the owner only.
 6. **Bulk writes.** Does an agent need to create many elements in one call (a list of 200 dog breeds), or is one call per element fine?
 7. **Order.** Do a concept's or a set's elements need an order, as in a ranked list? If so, is it a field or a property of the edge?
 8. **Watching for changes.** Should an agent be able to subscribe to changes, rather than ask `history` over and over?
+9. **Other people's elements in an export.** When you export a concept or a Tapestry, do other people's elements come along? Your keys can't sign them, so by default the export would carry your own elements and refer to theirs by address.

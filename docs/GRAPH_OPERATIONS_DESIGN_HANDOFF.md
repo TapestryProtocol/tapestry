@@ -1,6 +1,6 @@
 # Graph Operations — a Neo4j-First Operations Stack — Design Handoff
 
-**Status:** 🔴 OPEN: scoping in progress. Eleven decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, and the Tapestry Graph Conjecture is in §9. Nothing is built, and no story, ADR or BIBLE text exists yet.
+**Status:** 🔴 OPEN: scoping in progress. Twelve decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, and the Tapestry Graph Conjecture is in §9. Nothing is built, and no story, ADR or BIBLE text exists yet.
 **Created:** 2026-11-07
 **Provenance:** Scoped in direct conversation with the owner on 2026-11-07 (his Claude Code session `1a32c5d2` on the Mac Studio; part of it in advisory mode, `/discuss` with the Product Expert lens). This is the **Capture** step of the Protocol-Spec Workflow ([engineering-team/workflows/protocol-spec-workflow.md](../engineering-team/workflows/protocol-spec-workflow.md)): settled decisions and open questions, recorded so nothing lives only in the transcript. Every decision in §3 says where it came from. Every quotation credited to the owner is his own typing, with only typography tidied (the rules in [design-philosophies/README.md](../design-philosophies/README.md)); everything not credited to him is drafting. Check his quotes against the session transcript, not against this file.
 **Reviewed by the owner:** not yet.
@@ -9,7 +9,7 @@
 
 ## 0. Where we paused — read this first
 
-- **Settled:** the eleven decisions in §3. D1–D4 fix how the operations are organized; D5–D11 fix the data model underneath them.
+- **Settled:** the twelve decisions in §3. D1–D4 fix how the operations are organized, D5–D11 the data model underneath them, and D12 what an export sends.
 - **Next:** the rest of §5's first question: how a concept marks the fields its elements carry on the Neo4j node, and how plain values and nested objects are stored (D11 settled what a node's `tapestryValue` holds). Then provenance, then which rules refuse a write.
 - **After that:** write the rules document (§7) and the operation list (§6), ratify them, and open an engineering book for a first slice (§8).
 - **How to resume:** continue one question at a time, in advisory mode (`/discuss`). Record each new decision in §3 with its source and date, and move answered questions out of §5.
@@ -91,6 +91,13 @@ The API routes and the internal CLI both call the operations module in-process; 
 - A slug derived from the name is optional data, since it can be recomputed; a slug set by hand is a fact the reduced graph has to keep (drafting).
 - Whether names are unique within a concept stays concept-dependent (§7).
 
+**D12. Every exporter takes the same scope: a node, a graph, or everything.** (Owner, 2026-11-07, after talking with Avi and Vinney: "Alice might want to export (to nostr) a single node, a whole concept, an entire Tapestry (a collection of integrated concepts), some selection of nodes + edges, or the entire concept graph." He then answered drafting's question "Should every exporter take the same scope: a node, a graph, or everything?": "Yes, update the catalog".)
+- A graph is an element of the `graph` concept, listing nodes and the relationships between them. A whole concept is its concept graph, one of its eight core nodes (BIBLE §9); a Tapestry is a subset of Graph (BIBLE §6); a selection is saved as a graph of its own. The destination (nostr, a file, later IPFS) is the only difference between exporters (drafting).
+- An export resolves its scope, adds or reports the unpublished nodes its letters refer to, orders the letters, applies D8 node by node, offers a dry run, and records "sent as" for each letter (drafting).
+- Exporting everything to nostr isn't a backup: letters are public and lose whatever has no event form (BIBLE §30). Backup stays in lifecycle (drafting).
+- Today a Tapestry's members are listed in its JSON, in the `graph` block. Under D10 they would also be edges from the Tapestry node to its members (drafting).
+- Import mirrors it: importing someone else's Tapestry records its graph element and the letters it refers to (drafting).
+
 ## 4. What exists today (assessed 2026-11-07; numbers rechecked on staging `325b080f9`)
 
 - **`/api/normalize/`** has 38 POST routes and 2 GET probes. 31 write to both stores: they sign an event with the TA key, store it in the instance's relay (`strfry import`), and build the Neo4j node from it. 5 write only to Neo4j: add-relationship and delete-relationship (two class-thread edge types; [ADR relationship-primitives/0001](../engineering-team/decisions/relationship-primitives/0001-strfry-free-relationship-primitives.md)), add-subset ([ADR node-primitives/0001](../engineering-team/decisions/done/node-primitives/0001-event-less-add-subset-primitive.md)), prune-superset-edges and wire-implicit-elements. 2 write to Neo4j and then sign: add-node-as-element and apply-enumerations.
@@ -106,7 +113,7 @@ The API routes and the internal CLI both call the operations module in-process; 
 1. **What `tapestryValue` holds, and how concepts map onto nodes.** Under the owner's core rules (§7), a fully reduced graph keeps only each node's tapestryKey and tapestryValue and each relationship's type, so every name, description and field value has to be some node's tapestryValue or follow from the edges. D11 settled the first part: a concept's or an element's tapestryValue is its name. Still open: how a concept marks the fields its elements carry on the node as optional properties (drafting suggests a flag in the schema's `x-tapestry` extension, which the code already reads for `unique` and `derived` but no doc describes); and how nested objects and lists of objects are stored, since Neo4j properties hold only plain values and lists of them: flattened names, child nodes, or a small JSON string.
 2. **Provenance.** Drafting proposes two records, for nodes and for edges: "came from" (set once, at import: the kind of source, its address and its author) and "sent as" (one per publish: transport, address, signing key, time, and the version of the node it carried). Open: how they're represented (a property, a label or a ledger; §30 leaves it open), and how a change records which admin made it.
 3. **Which rules refuse a write and which only report.** Settled rule by rule while writing the rules document (§7).
-4. **Export details.** Whether publishing someone else's node copies its content or only refers to it (D8), and how a letter refers to nodes that have no nostr address yet.
+4. **Export details.** D12 settled the scope. Still open: whether exporting a concept or a Tapestry carries other people's elements (drafting: your own, with theirs referred to by address); how a letter refers to nodes that have no nostr address yet (add them to the export, or stop); and whether publishing someone else's node copies its content or only refers to it (D8).
 5. **The operation list itself** (§6).
 6. **Carried over from earlier in the session:** backup first or new functions first; which external CLI (extend A9's, or write a new one in this repo); the route prefixes for the categories (today's `/api/neo4j/` holds `query` and the event routes).
 
