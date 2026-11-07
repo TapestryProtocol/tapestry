@@ -129,7 +129,6 @@
   "POST /api/publish-signed-kind10040",
   "GET /api/ranking-status",
   "GET /api/reactions/external",
-  "GET /api/ready",
   "GET /api/relay-config",
   "GET /api/relay/external",
   "GET /api/relay/presence",
