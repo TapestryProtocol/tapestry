@@ -11,16 +11,21 @@ info:
 
     **Authentication:** Most write endpoints require a NIP-07 session. Use the Auth
     endpoints to obtain a session. Owner-only endpoints require the instance owner's pubkey.
+
+    **Try it out** sends real requests to this instance, the one serving this page, with
+    your session if you are signed in. A write is a real write.
+
+    **Coverage:** this document does not yet list every route the server registers. The ones
+    it lacks are recorded in `test/fixtures/openapi-known-gaps.json`, and
+    `test/openapi-coverage.test.js` fails when a route is in neither.
   version: 1.0.0
   contact:
     name: Tapestry
-    url: https://github.com/nous-clawds4/tapestry
+    url: https://gitworkshop.dev/npub1zhma4lzxyjc7dvq2klux8hs62wm3je6jspcwclgcxlr6grquwfcq28ccgm/relay.ngit.dev/Tapestry
 
 servers:
-  - url: http://localhost:8080
-    description: Local development (Docker / host nginx)
-  - url: http://localhost:7778
-    description: Direct Express server
+  - url: /
+    description: This instance (the one serving this page)
 
 tags:
   - name: Auth
@@ -1795,6 +1800,1279 @@ paths:
                     type: array
                     items:
                       type: string
+
+  /api/normalize/reconcile-primary-property:
+    post:
+      tags: [Normalize]
+      summary: Bring a concept's Primary Property in line with its JSON Schema
+      description: >-
+        Rewrites the concept's Primary Property node so its `property` section matches the concept's JSON Schema:
+        each property reduced to its `type`, and `required` copied across, as create-concept writes it. Answers
+        `already-consistent` and writes nothing when the two already agree. A firmware install overwrites the
+        primary-property nodes of firmware-seeded concepts; runtime-created concepts are untouched (the answer's
+        `note`). Refusals answer 200 with success false, a `code` and an `error`: `not-found`, `no-schema`,
+        `no-primary-property`, `schema-shape` (the schema doesn't have exactly one top-level property object) or
+        `pp-unreadable`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the
+        handler's own check); 401 when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [concept]
+              properties:
+                concept:
+                  type: string
+                  description: The concept's name
+      responses:
+        '200':
+          description: Reconciled, already consistent, or a refusal (success false, with a code)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [reconciled, already-consistent]
+                  concept:
+                    type: string
+                  ppUuid:
+                    type: string
+                    description: The Primary Property node's uuid
+                  properties:
+                    type: object
+                    description: The property names before and after (reconciled only)
+                    properties:
+                      before:
+                        type: array
+                        items:
+                          type: string
+                      after:
+                        type: array
+                        items:
+                          type: string
+                  note:
+                    type: string
+                  code:
+                    type: string
+                    enum: [not-found, no-schema, no-primary-property, schema-shape, pp-unreadable]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/create-child-goal:
+    post:
+      tags: [Normalize]
+      summary: Create a goal under an existing parent goal
+      description: >-
+        Adds a goal to the `tapestry owner goal` concept as a child of the goal whose slug is `parent`. The goal is a
+        kind 39999 element signed by the Tapestry Assistant and stored locally only (strfry and Neo4j; never
+        published outward). Every check runs before any write, and a refusal writes nothing: refusals answer 200 with
+        success false, a `refusal` and an `error` — `parent-not-found`, `ambiguous-slug` or `name-collides` (the
+        name, its slug or its d-tag is taken, so creating it would overwrite another goal). The four intent fields
+        (`prompt`, `chanceOfSuccess`, `needsHumanInput`, `needsBreakdown`) are stored exactly as sent, and only when
+        sent. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own
+        check); 401 when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parent, name, statement]
+              properties:
+                parent:
+                  type: string
+                  description: The parent goal's slug
+                name:
+                  type: string
+                statement:
+                  type: string
+                  description: What the goal is, in the owner's words (stored as its description)
+                deliverable:
+                  type: string
+                  description: What "done" produces
+                boundary:
+                  type: string
+                  description: What pursuing the goal may not touch
+                origin:
+                  type: string
+                  description: Where the goal came from, in plain words
+                capturedOn:
+                  type: string
+                  description: The date it was captured (YYYY-MM-DD)
+                prompt:
+                  type: string
+                  description: A markdown prompt for an agent starting work on the goal
+                chanceOfSuccess:
+                  type: number
+                  description: Estimated chance (0-100) an agent completes it without human input
+                needsHumanInput:
+                  type: boolean
+                needsBreakdown:
+                  type: boolean
+      responses:
+        '200':
+          description: Created, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [created]
+                  element:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      parent:
+                        type: string
+                  refusal:
+                    type: string
+                    enum: [parent-not-found, ambiguous-slug, name-collides]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/update-goal-intent:
+    post:
+      tags: [Normalize]
+      summary: Set a goal's deliverable, boundary, parent or intent fields
+      description: >-
+        Rewrites the goal whose slug is `goal`, setting whichever of `deliverable`, `boundary`, `parent` and the four
+        intent fields are sent; at least one must be. Values are set, never cleared: an empty `deliverable`,
+        `boundary` or `parent` is refused. The intent fields are stored exactly as sent. Refusals answer 200 with
+        success false, a `refusal` and an `error`, and write nothing: `goal-not-found`, `ambiguous-slug`,
+        `parent-not-found`, `self-parent`, `already-has-parent`, `cycle` or `empty-value`. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal]
+              properties:
+                goal:
+                  type: string
+                  description: The goal's slug
+                deliverable:
+                  type: string
+                boundary:
+                  type: string
+                parent:
+                  type: string
+                  description: The slug of a parent goal (a goal has one parent at most)
+                prompt:
+                  type: string
+                chanceOfSuccess:
+                  type: number
+                needsHumanInput:
+                  type: boolean
+                needsBreakdown:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [updated]
+                  fields:
+                    type: array
+                    description: The fields written
+                    items:
+                      type: string
+                  goal:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                  refusal:
+                    type: string
+                    enum: [goal-not-found, ambiguous-slug, parent-not-found, self-parent, already-has-parent, cycle,
+                      empty-value]
+                  error:
+                    type: string
+        '400':
+          description: No goal slug, or none of the settable fields sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/create-resource:
+    post:
+      tags: [Normalize]
+      summary: Attach an external resource to a goal
+      description: >-
+        Records a resource a goal points at (a file, vault note, nostr event, repository or web address) as an
+        element of the `tapestry external resource` concept, which is created the first time it's needed. The brain
+        points at knowledge; it never holds it. Stored locally only, signed by the Tapestry Assistant. Refusals
+        answer 200 with success false, a `refusal` and an `error`, and write nothing: `unknown-kind`,
+        `goal-not-found`, `ambiguous-slug` or `resource-exists` (this goal already points at that locator). Owner,
+        admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when
+        not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal, title, locator, locatorKind]
+              properties:
+                goal:
+                  type: string
+                  description: The goal's slug
+                title:
+                  type: string
+                locatorKind:
+                  type: string
+                  enum: [file, vault-note, nostr-event, repository, web-address]
+                locator:
+                  type: string
+                  description: Where the resource is (a path, an address, an event id)
+                whyKept:
+                  type: string
+                keywords:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Attached, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [attached]
+                  resource:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      goal:
+                        type: string
+                      title:
+                        type: string
+                      locatorKind:
+                        type: string
+                  refusal:
+                    type: string
+                    enum: [unknown-kind, goal-not-found, ambiguous-slug, resource-exists]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/verify-resource:
+    post:
+      tags: [Normalize]
+      summary: Record that a goal's resource was checked
+      description: >-
+        Stamps the resource attached to `goal` at `locator` as checked today, reachable unless `reachable` is false,
+        and answers its freshness. Refusal (200, success false): `resource-not-found`. Owner, admin or a
+        direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed
+        in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal, locator]
+              properties:
+                goal:
+                  type: string
+                  description: The goal's slug
+                locator:
+                  type: string
+                reachable:
+                  type: boolean
+                  default: true
+                  description: false records the resource as unreachable
+      responses:
+        '200':
+          description: Verified, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [verified]
+                  resource:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      freshness:
+                        type: string
+                        enum: [current, stale, unreachable]
+                  refusal:
+                    type: string
+                    enum: [resource-not-found]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/create-work-record:
+    post:
+      tags: [Normalize]
+      summary: Record a work session against a goal
+      description: >-
+        Appends a `worked` record to the `tapestry work record` concept for the goal: the session, a one-sentence
+        summary, at most two open questions, and what was produced. Each `produced` entry is also attached to the
+        goal as a resource (as create-resource, an existing one is kept). Stored locally only. Refusals answer 200
+        with success false, a `refusal` and an `error`: `too-many-questions`, `goal-not-found`, `ambiguous-slug`, or
+        a create-resource refusal for a produced entry. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal, session, summary]
+              properties:
+                goal:
+                  type: string
+                  description: The goal's slug
+                session:
+                  type: string
+                  description: Who or what did the work
+                summary:
+                  type: string
+                  description: One sentence
+                questions:
+                  type: array
+                  maxItems: 2
+                  items:
+                    type: string
+                produced:
+                  type: array
+                  description: Resources the session produced, each in create-resource's shape
+                  items:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                      locatorKind:
+                        type: string
+                      locator:
+                        type: string
+                      whyKept:
+                        type: string
+                      keywords:
+                        type: array
+                        items:
+                          type: string
+      responses:
+        '200':
+          description: Recorded, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [recorded]
+                  record:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      goal:
+                        type: string
+                      type:
+                        type: string
+                        enum: [worked]
+                  refusal:
+                    type: string
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/note-goal-idea:
+    post:
+      tags: [Normalize]
+      summary: Capture a new goal idea from a session
+      description: >-
+        Captures an idea as a new goal with no parent, and records a `noted` work record attributing it to the
+        session. The intent fields are stored exactly as sent. Refusal (200, success false): `name-collides`.
+        Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401
+        when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, statement, session]
+              properties:
+                name:
+                  type: string
+                statement:
+                  type: string
+                session:
+                  type: string
+                  description: Who or what captured it
+                prompt:
+                  type: string
+                chanceOfSuccess:
+                  type: number
+                needsHumanInput:
+                  type: boolean
+                needsBreakdown:
+                  type: boolean
+      responses:
+        '200':
+          description: Noted, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [noted]
+                  goal:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      name:
+                        type: string
+                  record:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      type:
+                        type: string
+                        enum: [noted]
+                  refusal:
+                    type: string
+                    enum: [name-collides]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/make-proposal:
+    post:
+      tags: [Normalize]
+      summary: Propose a goal to work on next
+      description: >-
+        Records a `proposed` entry in the `tapestry proposal` concept nominating a viable goal (a leaf goal with a
+        deliverable and a boundary), with why now and up to eight passed-over goals, each with a why-not. Refusals
+        answer 200 with success false, a `refusal` and an `error`, and write nothing: `too-many-runners-up`,
+        `runner-up-incomplete`, `goal-not-found`, `ambiguous-slug`, `not-viable`, `runner-up-is-nominee`,
+        `runner-up-duplicate`, `runner-up-unknown`, `runner-up-not-viable` or `already-open`. Owner, admin or a
+        direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed
+        in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal, whyNow]
+              properties:
+                goal:
+                  type: string
+                  description: The nominated goal's slug
+                whyNow:
+                  type: string
+                passedOver:
+                  type: array
+                  maxItems: 8
+                  items:
+                    type: object
+                    required: [goal, whyNot]
+                    properties:
+                      goal:
+                        type: string
+                      whyNot:
+                        type: string
+      responses:
+        '200':
+          description: Proposed, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [proposed]
+                  proposal:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      goal:
+                        type: string
+                  refusal:
+                    type: string
+                    enum: [too-many-runners-up, runner-up-incomplete, goal-not-found, ambiguous-slug, not-viable,
+                      runner-up-is-nominee, runner-up-duplicate, runner-up-unknown, runner-up-not-viable, already-open]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/approve-proposal:
+    post:
+      tags: [Normalize]
+      summary: Approve an open proposal
+      description: >-
+        Records an `approved` decision for the proposal. A decision is final. Refusals answer 200 with success false,
+        a `refusal` and an `error`: `proposal-not-found` or `already-decided`. Owner, admin or a direct-local caller
+        only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proposalId]
+              properties:
+                proposalId:
+                  type: string
+      responses:
+        '200':
+          description: Approved, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDecision'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/skip-proposal:
+    post:
+      tags: [Normalize]
+      summary: Skip an open proposal, with a reason
+      description: >-
+        Records a `skipped` decision for the proposal, with a one-line reason. A decision is final. Refusals answer
+        200 with success false, a `refusal` and an `error`: `reason-required`, `proposal-not-found` or
+        `already-decided`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the
+        handler's own check); 401 when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [proposalId, reason]
+              properties:
+                proposalId:
+                  type: string
+                reason:
+                  type: string
+                  description: Why not this one, in a few words
+      responses:
+        '200':
+          description: Skipped, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDecision'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/record-priority-signal:
+    post:
+      tags: [Normalize]
+      summary: Record that the owner preferred one goal over another
+      description: >-
+        Appends a priority signal: the owner chose the goal `prefers` over the goal `over`, with an optional reason.
+        Any two existing goals can be compared; neither needs to be viable. Refusals answer 200 with success false, a
+        `refusal` and an `error`: `same-goal`, `goal-not-found` or `ambiguous-slug`. Owner, admin or a direct-local
+        caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for
+        any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prefers, over]
+              properties:
+                prefers:
+                  type: string
+                  description: The chosen goal's slug
+                over:
+                  type: string
+                  description: The passed-over goal's slug
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Recorded, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [recorded]
+                  signal:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      prefers:
+                        type: string
+                      over:
+                        type: string
+                  refusal:
+                    type: string
+                    enum: [same-goal, goal-not-found, ambiguous-slug]
+                  error:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/restore-brain:
+    post:
+      tags: [Normalize]
+      summary: Restore a brain export onto this instance
+      description: >-
+        Writes the goals, resources, work records, proposals and priority signals of a brain export artifact into
+        this instance, creating each concept the first time it's needed and keeping every slug, so the links
+        between records survive. Every collision is checked before anything is written; a refusal answers 200 with
+        success false, a `refusal` (`goal-collides` or `record-collides`), the `collisions` and an `error`, and
+        restores nothing. An artifact with the wrong shape is a 400. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [artifact]
+              properties:
+                artifact:
+                  type: object
+                  description: A brain export artifact
+      responses:
+        '200':
+          description: Restored, or a named refusal (success false)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [restored]
+                  restored:
+                    type: object
+                    description: How many of each were written
+                    properties:
+                      goals:
+                        type: integer
+                      resources:
+                        type: integer
+                      workRecords:
+                        type: integer
+                      proposals:
+                        type: integer
+                      signals:
+                        type: integer
+                  refusal:
+                    type: string
+                    enum: [goal-collides, record-collides]
+                  collisions:
+                    type: array
+                    items:
+                      type: object
+                  error:
+                    type: string
+        '400':
+          description: No artifact, or an artifact of the wrong shape
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/record-restore-drill:
+    post:
+      tags: [Normalize]
+      summary: Journal a restore drill
+      description: >-
+        Appends a dated record that an export was restored to a target and whether the result matched the export.
+        Both outcomes are journaled. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and
+        the handler's own check); 401 when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [exportTakenOn, outcome]
+              properties:
+                exportTakenOn:
+                  type: string
+                  description: The date the drilled export was taken
+                outcome:
+                  type: string
+                  enum: [matched, did-not-match]
+                target:
+                  type: string
+                  description: Where it was restored, in plain words (default "a fresh scratch instance")
+      responses:
+        '200':
+          description: Journaled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [journaled]
+                  drill:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      slug:
+                        type: string
+                      drilledOn:
+                        type: string
+                      outcome:
+                        type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/adoption-disposition:
+    post:
+      tags: [Normalize]
+      summary: Record the owner declining or re-queueing a shared concept
+      description: >-
+        Records the owner's stance on a foreign shared concept nominated for adoption: `declined` takes it out of
+        the queue, `requeued` brings it back. The record is an element of the `adoption disposition` concept,
+        instance-private and never published outward. An unknown `disposition` answers 200 with success false and
+        an `error`. If writing the record fails, its error status is passed through. Owner, admin or a direct-local
+        caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for
+        any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target, disposition]
+              properties:
+                target:
+                  type: string
+                  description: The concept's a-tag coordinate (kind:pubkey:d-tag)
+                disposition:
+                  type: string
+                  enum: [declined, requeued]
+      responses:
+        '200':
+          description: Recorded (result is the disposition), or success false with an error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  result:
+                    type: string
+                    enum: [declined, requeued]
+                  element:
+                    type: object
+                    description: The record, as create-element answers it
+                  error:
+                    type: string
+        '400':
+          description: target is not an a-tag coordinate, or writing the record was refused
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/trusted-dictionary-snapshot:
+    post:
+      tags: [Normalize]
+      summary: Save a dated snapshot of the trusted dictionary
+      description: >-
+        Computes the trusted dictionary (the concepts this instance's trust network demonstrably uses) from a point
+        of view, and saves it as a dated element of the `trusted dictionary snapshot` concept, with the cutoff and
+        threshold that derived it. The house point of view by default; `wotPov` user with a 64-hex `userPubkey`
+        asks for that person's. If writing the snapshot fails, its error status is passed through. Owner, admin or a
+        direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed
+        in, 403 for any other signed-in person.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                wotPov:
+                  type: string
+                  enum: [house, user]
+                userPubkey:
+                  type: string
+                  description: Hex pubkey whose point of view to use (with wotPov user)
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  snapshot:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      computedAt:
+                        type: string
+                      memberCount:
+                        type: integer
+                      pov:
+                        type: string
+                        description: The point of view's branch
+                  element:
+                    type: object
+                    description: The snapshot, as create-element answers it
+        '400':
+          description: Writing the snapshot was refused (create-element's 400, passed through)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/add-relationship:
+    post:
+      tags: [Normalize]
+      summary: Add one typed edge between two existing nodes
+      description: >-
+        Adds the single directed relationship (fromUuid)-[relType]->(toUuid) between two nodes already in Neo4j.
+        Neo4j only: nothing is signed or stored in strfry. relType is one of the two class-thread membership types,
+        in either spelling: `HAS_ELEMENT` (CLASS_THREAD_TERMINATION) or `IS_A_SUPERSET_OF`
+        (CLASS_THREAD_PROPAGATION). Idempotent: `created` or `already-existed`. A `created` answer carries a `note`:
+        a firmware install can overwrite a manual edit (re-add a deleted edge, prune an added one). A missing node is
+        a 404 naming it. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the
+        handler's own check); 401 when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipEdit'
+      responses:
+        '200':
+          description: The edge was created, or already existed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  operation:
+                    type: string
+                    enum: [add]
+                  result:
+                    type: string
+                    enum: [created, already-existed]
+                  relType:
+                    type: string
+                    description: The relationship type written (the Neo4j alias)
+                  from:
+                    $ref: '#/components/schemas/NodeRef'
+                  to:
+                    $ref: '#/components/schemas/NodeRef'
+                  note:
+                    type: string
+                    description: The firmware-install overwrite hazard (created only)
+        '400':
+          description: A missing field, or a relType outside the two allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipRefusal'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '404':
+          $ref: '#/components/responses/NodesNotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/delete-relationship:
+    post:
+      tags: [Normalize]
+      summary: Delete one typed edge between two existing nodes
+      description: >-
+        Deletes the single directed relationship (fromUuid)-[relType]->(toUuid), with the same body, the same two
+        allowed types (`HAS_ELEMENT`, `IS_A_SUPERSET_OF`) and the same gate as add-relationship. Neo4j only.
+        Idempotent: `deleted` or `not-found` (no such edge). A `deleted` answer carries the firmware-install
+        overwrite `note`. A missing node is a 404 naming it. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipEdit'
+      responses:
+        '200':
+          description: The edge was deleted, or there was none
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  operation:
+                    type: string
+                    enum: [delete]
+                  result:
+                    type: string
+                    enum: [deleted, not-found]
+                  deletedCount:
+                    type: integer
+                  relType:
+                    type: string
+                  from:
+                    $ref: '#/components/schemas/NodeRef'
+                  to:
+                    $ref: '#/components/schemas/NodeRef'
+                  note:
+                    type: string
+                    description: The firmware-install overwrite hazard (deleted only)
+        '400':
+          description: A missing field, or a relType outside the two allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipRefusal'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '404':
+          $ref: '#/components/responses/NodesNotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/relationship-primitives:
+    get:
+      tags: [Normalize]
+      summary: Probe — the relationship primitives are deployed
+      description: >-
+        A read-only, credential-free deployment probe: it answers a fixed body naming the two relationship
+        primitives, as evidence this build carries them. Registration evidence, not health; it reads nothing. Public:
+        anyone may call it, signed in or not (src/middleware/routeAccess.js).
+      responses:
+        '200':
+          description: The fixed probe answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  surface:
+                    type: string
+                    enum: [relationship-primitives]
+                  operations:
+                    type: array
+                    items:
+                      type: string
+                    example: [add-relationship, delete-relationship]
+
+  /api/normalize/add-subset:
+    post:
+      tags: [Normalize]
+      summary: Create an event-less Set under a Superset or Set
+      description: >-
+        Creates a Set in Neo4j with no nostr event behind it: nothing is signed and nothing is stored in strfry. It
+        gets the address create-set would give the same name and parent, and is registered as an element of the
+        `set` concept. Idempotent by name under the parent, lettered sets included: `created` or `already-existed`.
+        A `created` answer carries a durability `note`: only a Neo4j backup preserves the set. 404 when the parent
+        is missing, 400 when the parent is neither a Superset nor a Set, 409 when the address is already held by
+        another node. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's
+        own check); 401 when not signed in, 403 for any other signed-in person.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [parentUuid, name]
+              properties:
+                parentUuid:
+                  type: string
+                  description: The uuid of the parent Superset or Set
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: The set was created, or already existed under this parent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  operation:
+                    type: string
+                    enum: [add]
+                  result:
+                    type: string
+                    enum: [created, already-existed]
+                  set:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      labels:
+                        type: array
+                        items:
+                          type: string
+                      hasEvent:
+                        type: boolean
+                        description: Whether a letter backs it (already-existed only)
+                  parent:
+                    $ref: '#/components/schemas/NodeRef'
+                  registeredUnder:
+                    type: string
+                    description: The `set` concept's Superset uuid
+                  note:
+                    type: string
+                    description: The durability note (created only)
+        '400':
+          description: A missing parentUuid or name, a non-string description, or a parent that is neither a Superset nor a Set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/NotSignedIn'
+        '403':
+          $ref: '#/components/responses/NotOwnerOrAdmin'
+        '404':
+          description: The parent node is not in Neo4j (`missing` names it)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MissingNodes'
+        '409':
+          description: The address is already held by a node that is not this set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/normalize/node-primitives:
+    get:
+      tags: [Normalize]
+      summary: Probe — the node primitives are deployed
+      description: >-
+        A read-only, credential-free deployment probe: it answers a fixed body naming the node primitives
+        (`add-subset`), as evidence this build carries them. Registration evidence, not health; it reads nothing.
+        Public: anyone may call it, signed in or not (src/middleware/routeAccess.js).
+      responses:
+        '200':
+          description: The fixed probe answer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  surface:
+                    type: string
+                    enum: [node-primitives]
+                  operations:
+                    type: array
+                    items:
+                      type: string
+                    example: [add-subset]
 
   # ──────────────────────────────────────────────
   # Audit
@@ -4984,3 +6262,105 @@ components:
           example: false
         error:
           type: string
+    MissingNodes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        missing:
+          type: array
+          description: Exactly the uuids not found
+          items:
+            type: string
+    NodeRef:
+      type: object
+      properties:
+        uuid:
+          type: string
+        labels:
+          type: array
+          items:
+            type: string
+    RelationshipEdit:
+      type: object
+      required: [fromUuid, toUuid, relType]
+      properties:
+        fromUuid:
+          type: string
+        toUuid:
+          type: string
+        relType:
+          type: string
+          description: >-
+            HAS_ELEMENT or IS_A_SUPERSET_OF (the Neo4j aliases), or the canonical CLASS_THREAD_TERMINATION or
+            CLASS_THREAD_PROPAGATION
+    RelationshipRefusal:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+        allowed:
+          type: array
+          description: The allowed relTypes (an unknown relType only)
+          items:
+            type: string
+    ProposalDecision:
+      type: object
+      properties:
+        success:
+          type: boolean
+        result:
+          type: string
+          enum: [approved, skipped]
+        decision:
+          type: object
+          properties:
+            uuid:
+              type: string
+            slug:
+              type: string
+            proposalId:
+              type: string
+            goal:
+              type: string
+            type:
+              type: string
+              enum: [approved, skipped]
+        refusal:
+          type: string
+          enum: [reason-required, proposal-not-found, already-decided]
+        error:
+          type: string
+  responses:
+    BadRequest:
+      description: A required field is missing or malformed (the error says which)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotSignedIn:
+      description: Not signed in
+    NotOwnerOrAdmin:
+      description: Signed in, but not the owner or an admin
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NodesNotFound:
+      description: A node is not in Neo4j (missing names exactly the uuids not found)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MissingNodes'
+    ServerError:
+      description: An unexpected failure (the error carries its message)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

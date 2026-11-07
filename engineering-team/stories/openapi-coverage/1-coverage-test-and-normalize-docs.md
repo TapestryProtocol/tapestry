@@ -111,6 +111,23 @@ definition changes. (The normalize routes act on the graph, but only their docum
 None. Both were settled at the planning gate (2026-11-06), when the owner chose "Approve as drafted":
 the gap list holds 196 entries, and both additions (AC2 (d) and AC4's description line) stay.
 
+## Deviations
+
+- The 20 entries share five new `components.responses` (BadRequest, NotSignedIn, NotOwnerOrAdmin,
+  NodesNotFound, ServerError) and five new `components.schemas` (MissingNodes, NodeRef, RelationshipEdit,
+  RelationshipRefusal, ProposalDecision), to keep them short. The 171 entries already there still inline theirs;
+  rewriting them is out of scope.
+- Most of these handlers answer a domain refusal as HTTP 200 with `success: false`, a `refusal` name and an
+  `error`, and write nothing. Each entry says so and lists its refusal names in the 200 schema's `refusal` enum,
+  read from the handler and its core (`update-goal-intent` includes `parent-not-found`, which comes from the
+  shared `validateDecompositionOp`).
+- `adoption-disposition` and `trusted-dictionary-snapshot` pass create-element's error status through when the
+  record can't be written; create-element sends 400 or 500, so those are the statuses documented for it.
+- `info.description` also gained a short "Coverage" paragraph naming the gap list and the coverage suite. AC4
+  asked only for the Try it out line; this keeps `/docs` itself as honest as BIBLE §11 now is.
+- BIBLE §11's paragraph also says what Try it out does, and gives the count (196 of 387 on 2026-11-06), dated so
+  a later story that shrinks the list doesn't make it wrong.
+
 ## Linked artifacts
 - ADR: none. Classified Bug at intake, and the design is fixed by the issue (the existing router walk, a
   shrink-only gap list), so Architecture is skipped under Standard; approved at the planning gate.
