@@ -646,7 +646,7 @@ Public, read-only kind-1 read paths sharing the `enrichNotes` item shape (§13) 
 
 ### API Documentation
 
-Swagger UI is served at `/docs` — interactive OpenAPI documentation for all REST endpoints. Publicly accessible (no auth required).
+Swagger UI is served at `/docs`, built from `src/api/openapi.yaml`. Publicly accessible (no auth required). It documents the routes the server registers under `/api/` except those listed in `test/fixtures/openapi-known-gaps.json`, the known gaps (196 on 2026-11-06, of 387 routes). `test/openapi-coverage.test.js` keeps it so: it fails when a registered route is neither documented nor listed, when a listed route has been documented, or when the document names a route the server doesn't register. The list can only shrink. Its **Try it out** sends real requests to the instance serving the page, with the visitor's session.
 
 ### Search (Meilisearch)
 
