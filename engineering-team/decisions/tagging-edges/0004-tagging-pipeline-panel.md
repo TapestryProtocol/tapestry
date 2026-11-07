@@ -903,3 +903,8 @@ recorded before the change, at `88af7df3` (its UI is `66d60cb5`'s), in
   *(Amended by `tagging-edges/0006`, 2026-10-28: a waiting pass is shown since story 6 (0006 D5, D12).)*
 - **New design tokens, an animated shimmer, and light or dark theming.** A static, token-only skeleton is in scope
   (§ UI).
+
+---
+
+*(Amended by `tagging-edges/0007`, 2026-11-07, at the end so no cited line moves: every "story 7" pointer in this
+ADR now means 0007's Confirm on the panel, for the owner.)*

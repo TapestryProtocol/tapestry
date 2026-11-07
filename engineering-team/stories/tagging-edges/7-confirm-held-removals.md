@@ -478,7 +478,7 @@ None, once the owner ratifies the Product Owner's proposals below by approving t
   - production gets read-only checks only, after a promotion.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 
