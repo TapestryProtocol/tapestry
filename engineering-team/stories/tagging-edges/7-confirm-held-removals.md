@@ -477,6 +477,82 @@ None, once the owner ratifies the Product Owner's proposals below by approving t
     - the overdue warning absent while the daily pass is on time;
   - production gets read-only checks only, after a promotion.
 
+## Evidence
+
+### The gate (Implementation, 2026-11-07)
+
+Node 22.23.4, full `npm test`, read from the run records (`gate:status`):
+
+| Run | Tree | Backend its live suites measured | Passed | Failed | Skipped | Suites |
+|---|---|---|---|---|---|---|
+| Before the story `20261107T053043Z-34143-9125` | `79432158`, the failing tests (a worktree; its one untracked entry is its `node_modules`) | started 2026-10-28 | 7,010 | 181 | 173 | 334 |
+| After Implementation `20261107T055729Z-34174-736c` | `60043230` | started 2026-10-28 | 7,154 | 38 | 172 | 334 |
+
+- **Which backend the live suites measured.** Both runs came before the local backend's restart at 21:22:05Z, so their
+  live suites measured the process started on 2026-10-28 23:11:49Z, not this story's server code. The review's run
+  will be the first gate on it.
+- **The story's 12 suites go from failing to passing**, before → after (passed/failed):
+  - confirm, 0/29 → 29/0; confirmation-lib, 0/14 → 14/0; held-fixture, 0/9 → 9/0; overdue, 0/23 → 23/0;
+  - pass-control, 61/13 → 74/0; runner, 88/3 → 91/0; state-routes, 54/10 → 64/0; wiring, 85/2 → 87/0;
+  - fetch, 31/6 → 37/0; panel-source, 34/10 → 44/0; view, 110/22 → 132/0;
+  - task-queue job-gate, 26/2 → 28/0.
+- **One other suite changed:** `relay-scan-bounds`, 27 passed and 1 skipped → 28 passed. Its live probe skipped in the
+  first run and ran in the second; the story does not touch it.
+- **The other 17 failing suites fail in both runs** with the same pass, fail and skip counts.
+- **The browser spec** (`tests/brainstorm/tagging-pipeline-panel.spec.js`, Playwright on the rebuilt UI, chromium):
+  151 of 151.
+
+### The local stack (2026-11-07, times UTC)
+
+The backend was restarted onto `60043230` at 21:22:05Z and the UI rebuilt (`scripts/dev-refresh.sh`). Every held list
+was made only of fixture relationships (ADR 0007 § Evidence). Nothing touched a relay. The owner pressed each Confirm
+on the panel, signed in as the owner. The answer lines themselves were read by the owner only; what is recorded below
+is the server's side, and in each case it is the state D2's plan gives for the outcome named. The panel text quoted
+was read in the app's browser pane with only the two sign-in reads and `/api/settings` stubbed and every non-GET
+blocked (none was sent).
+
+- **Counts before:** `TAGS` 7,030, all at tagging addresses; `NostrUser` 6,201; no fixture nodes. `plan`: B 7,030,
+  T 802.
+- **1. Overdue.** With no enabled entry the status's `overdue` read `no-entry`. A temporary entry with the cron rule
+  `0 3 * * *` (21:23:20Z; first run 2026-11-08 03:00Z, and nothing ran) gave `overdue`, counting 24 h (`periodMs`
+  86,400,000) from the pass that began on 2026-10-29 05:14:51Z. The panel: "The pass is overdue: the latest pass began
+  at 10/29/2026, 1:14:51 AM, and the schedule expected the next by 10/30/2026, 1:14:51 AM." A Run at 21:24:59Z read
+  `on-time` 0.8 s later, and the warning was gone from the panel. The entry was disabled and deleted; `no-entry` again,
+  and no repeat key left in Redis.
+- **2. Confirmed and carried out (run `l1`).** `create` → 7,832 `TAGS`. A Run held exactly the 802
+  (`20261107T212601Z-957b7a82`, `done-removals-held`); `check` passed. The panel: "The latest pass,
+  20261107T212601Z-957b7a82, held 802 removals for the owner to confirm." The owner confirmed at 21:36:43.374Z (lined
+  up): the record gained the confirm line, `who: {kind: 'owner', key: 'f0178122'}` with the held run's id, and at the
+  same instant a start line with `who: {kind: 'confirmation'}`. Pass `20261107T213643Z-fd54ab4f` began 0.3 s later
+  and removed exactly the 802 (`not-on-relay` 802, unchanged 7,030); its report's `confirmation` reads found and
+  honoured, with `mintedAt`. Signed out, the status, the held list, the path status, the Task Explorer's two data
+  routes and the task timeline carry no owner key, no `who` and no `mintedBy`. `cleanup` removed the two nodes and no
+  relationship; the counts equal the first.
+- **3. A waiting pass (run `l2`).** `create`; a Run held the 802; `check` passed. The heavy lock was held (ADR 0006's
+  `HSET … evidence-hold`) and a second Run waited behind it (`state: waiting`, `behind: heavy-work`). The first hold
+  was set to one hour, which ran out (22:38:37Z) before the owner confirmed. The waiting pass then ran, found no
+  confirmation, and held the same 802 again as `20261107T223838Z-94b98aba`, as it should. The step was redone with a
+  three-hour hold, under the four-hour wait limit. The owner confirmed at 23:08:07.442Z (waiting-pass): a confirm line
+  and no start line. The public `confirmationPending` showed only version, runId, heldDigest, heldCount, mintedAt,
+  expiresAt and `expired: false`. The lock was released at 23:08:24Z; the waiting job began about a second later as
+  `20261107T230825Z-f0dbc7b6`, took up the confirmation, and removed exactly the 802. `cleanup`; counts equal the
+  first. **For a re-run:** hold the lock for longer than the owner may take to confirm, and under four hours.
+- **4. The queue unavailable, then expired (run `l3`).** `create`; a Run held the 802 (`20261107T230857Z-c7ded939`);
+  `check` passed. `TASK_QUEUE_ENABLED=false` in the container's `/etc/brainstorm.conf` (that one line, from a backup)
+  and a backend restart (23:09:03Z); the status's `control.queue` read `off`. The owner confirmed at 23:11:14.075Z (not
+  lined up): a confirm line, no start line, no busy pass. `confirmation.json` held version, runId, heldDigest,
+  heldCount, nonce, mintedAt and expiresAt (no `mintedBy`); the public member left out the nonce. With `expiresAt` set
+  a minute into the past, the status read `expired: true`, and the panel said "The owner's confirmation of pass
+  20261107T230857Z-c7ded939 expired at 11/7/2026, 6:10:54 PM. No pass will carry it out. The owner can confirm this
+  held list again." and offered Confirm. Its prompt (opened, then cancelled; nothing sent) ended "This replaces the
+  earlier confirmation, which no pass will carry out." Focus went to Cancel when it opened, and back to "Confirm held
+  removals" after Cancel. The flag was restored (the file identical to its backup) and the backend restarted
+  (23:12:45Z; `control.queue` `ok`). The owner confirmed again at 23:26:05.272Z (lined up): a confirm line and a start
+  line by `confirmation`; pass `20261107T232605Z-e42fcb36` took up the new confirmation and removed exactly the 802.
+  `cleanup`.
+- **After:** one more Run (`20261107T232624Z-d87fefad`, `done`, nothing held), so no fixture held list is the latest.
+  Counts equal the first; no fixture node, no schedule entry, no confirmation, no lock holder; the queue on.
+
 ## Deviations
 
 Logged at Implementation (2026-11-07). Each is a reading of ADR 0007 where its letter left a detail open, or a small
