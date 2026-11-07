@@ -15,4 +15,4 @@ the browser spec opens only the 20 normalize entries.
 Fix shape: define `AuthVerifyResponse` from what the two handlers send (or inline the answer), and consider a
 stack-free check that every `$ref` in the document resolves, which would catch this whole class of error.
 
-**Pointer:** `engineering-team/reviews/openapi-coverage/1-coverage-test-and-normalize-docs.md` § Findings, non-blocking 7
+**Pointer:** `engineering-team/reviews/done/openapi-coverage/1-coverage-test-and-normalize-docs.md` § Findings, non-blocking 7

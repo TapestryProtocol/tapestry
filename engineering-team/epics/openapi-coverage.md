@@ -1,7 +1,7 @@
 # Epic: openapi-coverage — the API document covers the routes the server registers
 
 **Created:** 2026-11-06
-**Status:** Active
+**Status:** Done
 **Book:** `engineering-team/audits/openapi-coverage/book.md` (no PRD — acceptance frame)
 **Provenance:** ngit issue `7a13648f` ("OpenAPI document (`/docs`): covers 171 of 374 routes, and Try it
 out calls localhost", label `docs`).
@@ -17,14 +17,17 @@ area. Each later story documents one more area and takes its lines off the gap l
 
 ## Stories
 
-`stories/openapi-coverage/`.
+`stories/done/openapi-coverage/` (moved there at the book close).
 
 1. `1-coverage-test-and-normalize-docs.md`: the coverage suite and gap list, the 20 undocumented
    `/api/normalize/*` routes, `servers: /`, the contact link, and BIBLE §11's `/docs` line. Bug.
 
 Later areas, largest first (counts of undocumented routes from the 2026-11-06 walk): `/api/tagging-edges`
-(10), `/api/profile-tags` (9), `/api/brain` (8), `/api/concept` (6), and the rest of the gap list. Not
-yet stories.
+(10), `/api/list-headers` (9), `/api/profile-tags` (9), `/api/brain` (8), `/api/concept` (6), and the rest of the
+gap list. Not yet stories.
+
+**Closed 2026-11-07 with its book,** story #1 Done. The later areas are carried forward (audit § 6 item 1, PRD seed
+§ 6) and open as new epics, one area at a time, each lowering `GAP_CEILING`.
 
 ## Related
 

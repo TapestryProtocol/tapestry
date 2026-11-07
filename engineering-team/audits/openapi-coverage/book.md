@@ -1,9 +1,9 @@
 # Book of Work: OpenAPI coverage — `/docs` says what it covers, and Try it out calls this instance
 
 **Slug:** openapi-coverage
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-11-06
-**Closed:** —
+**Closed:** 2026-11-07
 
 ## Intent anchor
 
@@ -22,20 +22,24 @@ So the gap list holds **196** entries here, not 183. Story 1 § Background has t
 
 ### Acceptance frame
 
-- [ ] `/docs` documents the 20 undocumented `/api/normalize/*` routes, each with its body, its answers and
+- [x] `/docs` documents the 20 undocumented `/api/normalize/*` routes, each with its body, its answers and
       who may call it.
-- [ ] Try it out on `/docs` calls the instance that serves the page, shown on a scratch stack with
+- [x] Try it out on `/docs` calls the instance that serves the page, shown on a scratch stack with
       `GET /api/normalize/node-primitives`.
-- [ ] The document's contact link is the team's ngit repository on gitworkshop.dev.
-- [ ] A stack-free suite, `test/openapi-coverage.test.js`, compares the routes the server registers with
+- [x] The document's contact link is the team's ngit repository on gitworkshop.dev.
+- [x] A stack-free suite, `test/openapi-coverage.test.js`, compares the routes the server registers with
       the document and a shrink-only gap list, `test/fixtures/openapi-known-gaps.json`, and fails on an
       undocumented route that isn't listed, on a listed route that is now documented, and on a documented
       route the server doesn't register. `node test/openapi-coverage.test.js` runs it on its own.
-- [ ] The gap list holds 196 entries, none under `/api/normalize`.
-- [ ] BIBLE §11 says what `/docs` covers today, naming the suite and the gap list.
+- [x] The gap list holds 196 entries, none under `/api/normalize`.
+- [x] BIBLE §11 says what `/docs` covers today, naming the suite and the gap list.
 
 Shipping (pushing to ngit or GitHub, staging, production) and any comment on the ngit issue are outside
 this frame and wait for the owner's OK.
+
+Closed 2026-11-07 on `feat/openapi-coverage`, before the branch was pushed or merged; the owner chose "Close the
+book" at the review gate. The gap list holds 196, as the planning gate settled (the issue's 183 came from a text
+search that missed 13 routes).
 
 ## Epics in this book
 - `openapi-coverage` — the API document's coverage test and gap list, and the first area documented
@@ -43,7 +47,7 @@ this frame and wait for the owner's OK.
 
 ## Provenance
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high — every frame bullet checked against the code and by tests; see the audit § 5
 
 ## Close artifacts *(filled by `/close-book`)*
 - Build audit: `engineering-team/audits/openapi-coverage/audit.md`
