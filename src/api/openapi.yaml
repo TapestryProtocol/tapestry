@@ -1882,13 +1882,15 @@ paths:
       summary: Create a goal under an existing parent goal
       description: >-
         Adds a goal to the `tapestry owner goal` concept as a child of the goal whose slug is `parent`. The goal is a
-        kind 39999 element signed by the Tapestry Assistant and stored locally only (strfry and Neo4j; never
-        published outward). Every check runs before any write, and a refusal writes nothing: refusals answer 200 with
-        success false, a `refusal` and an `error` — `parent-not-found`, `ambiguous-slug` or `name-collides` (the
-        name, its slug or its d-tag is taken, so creating it would overwrite another goal). The four intent fields
-        (`prompt`, `chanceOfSuccess`, `needsHumanInput`, `needsBreakdown`) are stored exactly as sent, and only when
-        sent. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own
-        check); 401 when not signed in, 403 for any other signed-in person.
+        kind 39999 element signed by the Tapestry Assistant and stored locally only (strfry and Neo4j; never published
+        outward). Every check runs before any write, and a refusal writes nothing: refusals answer 200 with success
+        false, a `refusal` and an `error` — `parent-not-found`, `ambiguous-slug` or `name-collides` (the name, its slug
+        or its d-tag is taken, so creating it would overwrite another goal). The four intent fields (`prompt`,
+        `chanceOfSuccess`, `needsHumanInput`, `needsBreakdown`) are stored exactly as sent, and only when sent. If the
+        `tapestry owner goal` concept doesn't exist on this instance yet, as on a fresh one, it answers 200 with success
+        false and only an `error`, no `refusal`. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
       requestBody:
         required: true
         content:
@@ -1929,7 +1931,7 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: Created, or a named refusal (success false)
+          description: Created, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -1971,10 +1973,12 @@ paths:
       summary: Set a goal's deliverable, boundary, parent or intent fields
       description: >-
         Rewrites the goal whose slug is `goal`, setting whichever of `deliverable`, `boundary`, `parent` and the four
-        intent fields are sent; at least one must be. Values are set, never cleared: an empty `deliverable`,
-        `boundary` or `parent` is refused. The intent fields are stored exactly as sent. Refusals answer 200 with
-        success false, a `refusal` and an `error`, and write nothing: `goal-not-found`, `ambiguous-slug`,
-        `parent-not-found`, `self-parent`, `already-has-parent`, `cycle` or `empty-value`. Owner, admin or a direct-local caller only
+        intent fields are sent; at least one must be. Values are set, never cleared: an empty `deliverable`, `boundary`
+        or `parent` is refused. The intent fields are stored exactly as sent. Refusals answer 200 with success false, a
+        `refusal` and an `error`, and write nothing: `goal-not-found`, `ambiguous-slug`, `parent-not-found`,
+        `self-parent`, `already-has-parent`, `cycle` or `empty-value`. If the `tapestry owner goal` concept doesn't
+        exist on this instance yet, as on a fresh one, it answers 200 with success false and only an `error`, no
+        `refusal`; so does a goal whose stored record can't be read. Owner, admin or a direct-local caller only
         (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
         signed-in person.
       requestBody:
@@ -2005,7 +2009,7 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: Updated, or a named refusal (success false)
+          description: Updated, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2052,13 +2056,14 @@ paths:
       tags: [Normalize]
       summary: Attach an external resource to a goal
       description: >-
-        Records a resource a goal points at (a file, vault note, nostr event, repository or web address) as an
-        element of the `tapestry external resource` concept, which is created the first time it's needed. The brain
-        points at knowledge; it never holds it. Stored locally only, signed by the Tapestry Assistant. Refusals
-        answer 200 with success false, a `refusal` and an `error`, and write nothing: `unknown-kind`,
-        `goal-not-found`, `ambiguous-slug` or `resource-exists` (this goal already points at that locator). Owner,
-        admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when
-        not signed in, 403 for any other signed-in person.
+        Records a resource a goal points at (a file, vault note, nostr event, repository or web address) as an element
+        of the `tapestry external resource` concept, which is created the first time it's needed. The brain points at
+        knowledge; it never holds it. Stored locally only, signed by the Tapestry Assistant. Refusals answer 200 with
+        success false, a `refusal` and an `error`, and write nothing: `unknown-kind`, `goal-not-found`, `ambiguous-slug`
+        or `resource-exists` (this goal already points at that locator). If the `tapestry owner goal` concept doesn't
+        exist on this instance yet, as on a fresh one, it answers 200 with success false and only an `error`, no
+        `refusal`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own
+        check); 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         required: true
         content:
@@ -2086,7 +2091,7 @@ paths:
                     type: string
       responses:
         '200':
-          description: Attached, or a named refusal (success false)
+          description: Attached, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2129,10 +2134,11 @@ paths:
       tags: [Normalize]
       summary: Record that a goal's resource was checked
       description: >-
-        Stamps the resource attached to `goal` at `locator` as checked today, reachable unless `reachable` is false,
-        and answers its freshness. Refusal (200, success false): `resource-not-found`. Owner, admin or a
-        direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed
-        in, 403 for any other signed-in person.
+        Stamps the resource attached to `goal` at `locator` as checked today, reachable unless `reachable` is false, and
+        answers its freshness. Refusal (200, success false): `resource-not-found`. A resource whose stored record can't
+        be read answers 200 with success false and only an `error`. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
       requestBody:
         required: true
         content:
@@ -2152,7 +2158,7 @@ paths:
                   description: false records the resource as unreachable
       responses:
         '200':
-          description: Verified, or a named refusal (success false)
+          description: Verified, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2193,12 +2199,13 @@ paths:
       summary: Record a work session against a goal
       description: >-
         Appends a `worked` record to the `tapestry work record` concept for the goal: the session, a one-sentence
-        summary, at most two open questions, and what was produced. Each `produced` entry is also attached to the
-        goal as a resource (as create-resource, an existing one is kept). Stored locally only. Refusals answer 200
-        with success false, a `refusal` and an `error`: `too-many-questions`, `goal-not-found`, `ambiguous-slug`, or
-        a create-resource refusal for a produced entry. Owner, admin or a direct-local caller only
-        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
-        signed-in person.
+        summary, at most two open questions, and what was produced. Each `produced` entry is also attached to the goal
+        as a resource (as create-resource, an existing one is kept). Stored locally only. Refusals answer 200 with
+        success false, a `refusal` and an `error`: `too-many-questions`, `goal-not-found`, `ambiguous-slug`, or a
+        create-resource refusal for a produced entry. If the `tapestry owner goal` concept doesn't exist on this
+        instance yet, as on a fresh one, it answers 200 with success false and only an `error`, no `refusal`. Owner,
+        admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not
+        signed in, 403 for any other signed-in person.
       requestBody:
         required: true
         content:
@@ -2241,7 +2248,7 @@ paths:
                           type: string
       responses:
         '200':
-          description: Recorded, or a named refusal (success false)
+          description: Recorded, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2282,10 +2289,11 @@ paths:
       tags: [Normalize]
       summary: Capture a new goal idea from a session
       description: >-
-        Captures an idea as a new goal with no parent, and records a `noted` work record attributing it to the
-        session. The intent fields are stored exactly as sent. Refusal (200, success false): `name-collides`.
-        Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401
-        when not signed in, 403 for any other signed-in person.
+        Captures an idea as a new goal with no parent, and records a `noted` work record attributing it to the session.
+        The intent fields are stored exactly as sent. Refusal (200, success false): `name-collides`. If the `tapestry
+        owner goal` concept doesn't exist on this instance yet, as on a fresh one, it answers 200 with success false and
+        only an `error`, no `refusal`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and
+        the handler's own check); 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         required: true
         content:
@@ -2311,7 +2319,7 @@ paths:
                   type: boolean
       responses:
         '200':
-          description: Noted, or a named refusal (success false)
+          description: Noted, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2364,9 +2372,10 @@ paths:
         deliverable and a boundary), with why now and up to eight passed-over goals, each with a why-not. Refusals
         answer 200 with success false, a `refusal` and an `error`, and write nothing: `too-many-runners-up`,
         `runner-up-incomplete`, `goal-not-found`, `ambiguous-slug`, `not-viable`, `runner-up-is-nominee`,
-        `runner-up-duplicate`, `runner-up-unknown`, `runner-up-not-viable` or `already-open`. Owner, admin or a
-        direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed
-        in, 403 for any other signed-in person.
+        `runner-up-duplicate`, `runner-up-unknown`, `runner-up-not-viable` or `already-open`. If the `tapestry owner
+        goal` concept doesn't exist on this instance yet, as on a fresh one, it answers 200 with success false and only
+        an `error`, no `refusal`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the
+        handler's own check); 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         required: true
         content:
@@ -2393,7 +2402,7 @@ paths:
                         type: string
       responses:
         '200':
-          description: Proposed, or a named refusal (success false)
+          description: Proposed, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2447,6 +2456,7 @@ paths:
               properties:
                 proposalId:
                   type: string
+                  description: The proposal's slug (make-proposal's `proposal.slug`)
       responses:
         '200':
           description: Approved, or a named refusal (success false)
@@ -2482,6 +2492,7 @@ paths:
               properties:
                 proposalId:
                   type: string
+                  description: The proposal's slug (make-proposal's `proposal.slug`)
                 reason:
                   type: string
                   description: Why not this one, in a few words
@@ -2506,11 +2517,12 @@ paths:
       tags: [Normalize]
       summary: Record that the owner preferred one goal over another
       description: >-
-        Appends a priority signal: the owner chose the goal `prefers` over the goal `over`, with an optional reason.
-        Any two existing goals can be compared; neither needs to be viable. Refusals answer 200 with success false, a
-        `refusal` and an `error`: `same-goal`, `goal-not-found` or `ambiguous-slug`. Owner, admin or a direct-local
-        caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for
-        any other signed-in person.
+        Appends a priority signal: the owner chose the goal `prefers` over the goal `over`, with an optional reason. Any
+        two existing goals can be compared; neither needs to be viable. Refusals answer 200 with success false, a
+        `refusal` and an `error`: `same-goal`, `goal-not-found` or `ambiguous-slug`. If the `tapestry owner goal`
+        concept doesn't exist on this instance yet, as on a fresh one, it answers 200 with success false and only an
+        `error`, no `refusal`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the
+        handler's own check); 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         required: true
         content:
@@ -2529,7 +2541,7 @@ paths:
                   type: string
       responses:
         '200':
-          description: Recorded, or a named refusal (success false)
+          description: Recorded, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2570,13 +2582,13 @@ paths:
       tags: [Normalize]
       summary: Restore a brain export onto this instance
       description: >-
-        Writes the goals, resources, work records, proposals and priority signals of a brain export artifact into
-        this instance, creating each concept the first time it's needed and keeping every slug, so the links
-        between records survive. Every collision is checked before anything is written; a refusal answers 200 with
-        success false, a `refusal` (`goal-collides` or `record-collides`), the `collisions` and an `error`, and
-        restores nothing. An artifact with the wrong shape is a 400. Owner, admin or a direct-local caller only
-        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
-        signed-in person.
+        Writes the goals, resources, work records, proposals and priority signals of a brain export artifact into this
+        instance, creating each concept the first time it's needed and keeping every slug, so the links between records
+        survive. Every collision is checked before anything is written; a refusal answers 200 with success false, a
+        `refusal` (`goal-collides` or `record-collides`), the `collisions` and an `error`, and restores nothing. An
+        artifact with the wrong shape is a 400. If this instance has no Assistant identity, it answers 200 with success
+        false and only an `error`. Owner, admin or a direct-local caller only (src/middleware/routeAccess.js, and the
+        handler's own check); 401 when not signed in, 403 for any other signed-in person.
       requestBody:
         required: true
         content:
@@ -2590,7 +2602,7 @@ paths:
                   description: A brain export artifact
       responses:
         '200':
-          description: Restored, or a named refusal (success false)
+          description: Restored, a named refusal, or success false with only an error
           content:
             application/json:
               schema:
@@ -2756,12 +2768,14 @@ paths:
       tags: [Normalize]
       summary: Save a dated snapshot of the trusted dictionary
       description: >-
-        Computes the trusted dictionary (the concepts this instance's trust network demonstrably uses) from a point
-        of view, and saves it as a dated element of the `trusted dictionary snapshot` concept, with the cutoff and
-        threshold that derived it. The house point of view by default; `wotPov` user with a 64-hex `userPubkey`
-        asks for that person's. If writing the snapshot fails, its error status is passed through. Owner, admin or a
-        direct-local caller only (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed
-        in, 403 for any other signed-in person.
+        Computes the trusted dictionary (the concepts this instance's trust network demonstrably uses) from a point of
+        view, and saves it as a dated element of the `trusted dictionary snapshot` concept, with the cutoff and
+        threshold that derived it. The house point of view by default; `wotPov` user with a lower-case 64-hex
+        `userPubkey` asks for that person's, and falls back to the house's when this instance holds no scores for that
+        pubkey. The answer's `snapshot.pov` says which was used: `house` or `personalized`. If writing the snapshot
+        fails, its error status is passed through. Owner, admin or a direct-local caller only
+        (src/middleware/routeAccess.js, and the handler's own check); 401 when not signed in, 403 for any other
+        signed-in person.
       requestBody:
         required: false
         content:
@@ -2774,7 +2788,7 @@ paths:
                   enum: [house, user]
                 userPubkey:
                   type: string
-                  description: Hex pubkey whose point of view to use (with wotPov user)
+                  description: Lower-case 64-hex pubkey whose point of view to use (with wotPov user)
       responses:
         '200':
           description: Saved
@@ -2798,7 +2812,8 @@ paths:
                         type: integer
                       pov:
                         type: string
-                        description: The point of view's branch
+                        enum: [house, personalized]
+                        description: The point of view used (house when a user point of view has no scores here)
                   element:
                     type: object
                     description: The snapshot, as create-element answers it
@@ -6351,6 +6366,10 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotSignedIn:
       description: Not signed in
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotOwnerOrAdmin:
       description: Signed in, but not the owner or an admin
       content:
