@@ -235,3 +235,25 @@ None.
       `AuthVerifyResponse` under `components.schemas`); each holds. Finding 7 is filed as OPEN.md row
       `2026-11-07-openapi-auth-verify-missing-schema`.
 - [x] Completion detection: run by the launching session; the result goes to the owner in chat, not in this file.
+
+## Addendum — round 2 (non-blocking findings 1–4 fixed, `37d68b06c`)
+
+The owner chose to fix findings 1–4 before closing the book. Each fix was re-derived from the code as a fresh claim,
+not taken from the finding's wording:
+
+| Finding | Fix in `src/api/openapi.yaml` | Checked against |
+|---|---|---|
+| 1 | create-child-goal, update-goal-intent, create-resource, create-work-record, note-goal-idea, make-proposal and record-priority-signal say that with no `tapestry owner goal` concept they answer 200 with success false and only an `error`; update-goal-intent adds an unreadable goal record, verify-resource an unreadable resource record, restore-brain a missing Assistant identity. Their 200 descriptions say "a named refusal, or success false with only an error". | `index.js:2239`, `:2356`, `:2378`, `:2571`, `:2682`, `:2876`, `:2958`, `:3215`, `:4827`, `:5043` — each `return { success: false, error }` with no `refusal` |
+| 2 | trusted-dictionary-snapshot: a user point of view needs a lower-case 64-hex `userPubkey` and falls back to the house's when this instance has no scores for it; `snapshot.pov` is `enum: [house, personalized]`. | `src/api/adoption/index.js:156-158` (`/^[0-9a-f]{64}$/`, `branch = 'house'`), the fallback in `resolveQualifying`, and `pov: { branch, … }` in `assembleTrustedDictionary` |
+| 3 | approve-proposal and skip-proposal describe `proposalId` as the proposal's slug, make-proposal's `proposal.slug`. | `index.js:3332` (`records.find((r) => r.type === 'proposed' && r.slug === proposalId)`) |
+| 4 | `components.responses.NotSignedIn` carries the `ErrorResponse` schema. | `src/middleware/auth.js:329-331` (`refuse` → `res.status(status).json({ success: false, error })`) and `:391`, `:398`, `:405` (every 401) |
+
+Re-run after the fix: `node test/openapi-coverage.test.js` 12 passed, 0 failed; `node test/openapi-document.test.js`
+10 passed, 0 failed. All 166 older path entries parse identical to `8198c8ad4`. Every `$ref` in the document resolves
+except `#/components/schemas/AuthVerifyResponse` (finding 7, OPEN.md row `2026-11-07-openapi-auth-verify-missing-schema`).
+The browser spec on a scratch stack built from `37d68b06c`'s tree: 3 passed, none skipped; the scratch instance's
+nginx log holds `"GET /api/normalize/node-primitives HTTP/1.1" 200 72 "http://127.0.0.1:18080/docs/"` from Chrome.
+The forward and the scratch stack were removed. Findings 5, 6 and 8 stay open as written above (5 is for the Tester
+of the next story in this epic).
+
+The verdict stands: **PASS**.
