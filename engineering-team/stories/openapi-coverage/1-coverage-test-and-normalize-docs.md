@@ -1,6 +1,6 @@
 # Story 1: The API docs say what they cover: a coverage test, the normalize routes, and Try it out on this instance
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-06
 **Type:** Bug
 
@@ -134,6 +134,6 @@ the gap list holds 196 entries, and both additions (AC2 (d) and AC4's descriptio
 - Test plan: `engineering-team/stories/openapi-coverage/1-coverage-test-and-normalize-docs.test-plan.md`
   (suites `test/openapi-coverage.test.js`, `test/openapi-document.test.js`; browser spec
   `tests/brainstorm/openapi-docs.spec.js`)
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/openapi-coverage/1-coverage-test-and-normalize-docs.md`
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
