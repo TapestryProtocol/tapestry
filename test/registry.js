@@ -372,6 +372,10 @@ const suites = [
   { file: 'appearance-setting-working.test.js' },
   // appearance-setting #4: the search home's exact path, its rules converted, the badges and stale marker (ADR appearance-setting/0004).
   { file: 'appearance-setting-home.test.js' },
+  // openapi-coverage #1: the API document against the routes the server registers, with a shrink-only gap list
+  // (test/fixtures/openapi-known-gaps.json), and what the document and BIBLE §11 say about it (ngit 7a13648f).
+  { file: 'openapi-coverage.test.js' },
+  { file: 'openapi-document.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so
