@@ -4,8 +4,9 @@
 views: **Table**, **Outline**, **Plan**, **Drift** and **Dictionary**. Anyone can read. **Plan** draws a
 plan (a Set of ranked stories or steps) in order, each item's state, what blocks what, and what the items
 hang on. The harness's `brain plan` reads a story's state from its git branch; git can't be seen from an
-instance, so here a story on a branch reads as unknown and the other states (set aside, answered, blocked,
-ready) come from the graph. In **Outline**, the
+instance, so here a story is done once brain has recorded its merge (its `merged` field), a story on a branch
+with no merge recorded reads as unknown, and the other states (set aside, answered, blocked, ready) come
+from the graph. In **Outline**, the
 signed-in owner can also edit a thing's title and text and make a new item in a kind or a Set.
 
 They were built in the brainstorm-harness repo as `brain-view`, a local viewer. This page serves the

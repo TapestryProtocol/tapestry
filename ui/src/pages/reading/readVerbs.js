@@ -527,9 +527,10 @@ export async function group({ id, offset = 0, limit = 150 }, ta) {
  *  in a scope (Sets whose members carry a rank or branch field). With one: a document of its items, what
  *  they are blocked by or assigned to, what sets them aside or answers them, and plan.items in rank order
  *  with each one's state. brain plan reads a story's branch in the project's git repository; this runs
- *  against an instance, where git can't be seen, so a story with a branch reads as unknown (plan.git is
- *  false) and the rest comes from the graph: set aside while a current decision SETS_ASIDE it, done when
- *  an ANSWERS link reaches it, blocked while anything it is BLOCKED_BY is not done, else ready. */
+ *  against an instance, where git can't be seen (plan.git is false), so the rest comes from the graph:
+ *  set aside while a current decision SETS_ASIDE it; done when its `merged` field holds the merge commit
+ *  (brain records it when it sees the merge) or an ANSWERS link reaches it; a story on a branch with no
+ *  merge recorded reads as unknown; blocked while anything it is BLOCKED_BY is not done, else ready. */
 export async function plan({ id, scope: scopeKey }, ta) {
   if (!id) {
     const h = scopeKey && scopeKey.startsWith('project:') ? scopeKey.slice('project:'.length) : null;
@@ -550,6 +551,7 @@ export async function plan({ id, scope: scopeKey }, ta) {
       const branch = String(d.branch || ''), rank = Number.isFinite(parseFloat(d.rank)) ? parseFloat(d.rank) : null;
       let state = 'open', why = '';
       if ((r.aside || []).length) { state = 'set aside'; why = 'by ' + r.aside.join('; '); }
+      else if (d.merged) { state = 'done'; why = (branch || 'its branch') + ' merged at ' + String(d.merged).slice(0, 12) + ' (recorded)'; }
       else if (r.answered) { state = 'done'; why = 'answered'; }
       else if (branch) { state = 'unknown'; why = 'on ' + branch + '; git can’t be seen from here'; }
       out[r.u] = { n: r.n, state, why, rank, branch, who: (r.who || []).slice().sort(), blockers: r.blockers || [], scope: d.scope || [] };
