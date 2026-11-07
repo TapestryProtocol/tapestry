@@ -114,7 +114,9 @@ the gap list holds 196 entries, and both additions (AC2 (d) and AC4's descriptio
 ## Linked artifacts
 - ADR: none. Classified Bug at intake, and the design is fixed by the issue (the existing router walk, a
   shrink-only gap list), so Architecture is skipped under Standard; approved at the planning gate.
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/openapi-coverage/1-coverage-test-and-normalize-docs.test-plan.md`
+  (suites `test/openapi-coverage.test.js`, `test/openapi-document.test.js`; browser spec
+  `tests/brainstorm/openapi-docs.spec.js`)
 - Review: (filled in after Review phase)
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
