@@ -15,7 +15,7 @@
  *        overdue.js overdueVerdict; the cron period; readConfigStrict; handleStatus's `overdue` member), D6 (`overdue`
  *        is a new status member, computed per request from server time), R12, R13.
  *
- * Intentionally failing until the implementation lands (red phase): src/lib/tagging-edges/overdue.js and
+ * Intentionally failing until the implementation lands (red phase): src/pipeline/tagging-edges/overdue.js and
  * scheduled-tasks' readConfigStrict do not exist yet, and handleStatus serves no `overdue`. Each module is loaded
  * inside its test, so the suite always loads and every test fails on its own with a message naming what is missing.
  *
@@ -49,6 +49,11 @@
  *   - The `overdue` member's keys are closed: state, and only reason, latestBeganAt, expectedAt and periodMs beside it.
  *   - Times on the member are ISO strings (D8 "ISO times").
  *
+ * Module path (revised 2026-11-07, at Implementation, on the owner's decision): src/pipeline/tagging-edges/overdue.js,
+ * not src/lib/tagging-edges/. Story 1's purity pin (test/tagging-edge-contract.test.js) refuses dates and any require
+ * but a sibling in src/lib/tagging-edges/, and the cron judge needs both (ADR 0007 D8's dated note). The tests are
+ * otherwise unchanged.
+ *
  * Hermetic: pure functions, a child process with TZ=UTC for the real cron judge, a temp SCHEDULED_TASKS_CONFIG_PATH
  * for the reader (set before the Scheduled Tasks module is required, and the module dropped from require's cache
  * after), and handleStatus with every dep injected. No Redis, network, graph or /var/lib/brainstorm.
@@ -61,7 +66,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const REPO = path.resolve(__dirname, '..');
-const LIB = 'src/lib/tagging-edges/overdue.js';
+const LIB = 'src/pipeline/tagging-edges/overdue.js';
 const SCHED = 'src/api/scheduled-tasks/index.js';
 const INDEX = 'src/api/tagging-edges/index.js';
 const D8 = 'ADR tagging-edges/0007 D8';
@@ -161,7 +166,7 @@ function cronVerdict(entries, latestRun, nowMs) {
 
 // ─── OV1 ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('OV1 — src/lib/tagging-edges/overdue.js exports overdueVerdict, and loading it reads no file and starts no process (D8)', () => {
+test('OV1 — src/pipeline/tagging-edges/overdue.js exports overdueVerdict, and loading it reads no file and starts no process (D8)', () => {
   const cp = require('child_process');
   const saved = { spawn: cp.spawn, exec: cp.exec, writeFileSync: fs.writeFileSync };
   const touched = [];
