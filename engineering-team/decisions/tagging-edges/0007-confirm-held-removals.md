@@ -173,6 +173,7 @@ serialised place, against one snapshot, with the record written before anything 
 - the confirmation's file work moves into the controller;
 - one pure module (`src/lib/tagging-edges/confirmation.js`) and one more (`src/lib/tagging-edges/overdue.js`) are
   added;
+  *(Amended 2026-11-07: the second is `src/pipeline/tagging-edges/overdue.js`; see D8's note.)*
 - the pass writes one more report member.
 
 ## Consequences
@@ -350,6 +351,10 @@ Line numbers are at `1044e193`; prefer the named functions if they have moved.
 - **Nothing else in the pass changes.** `reportVersion` stays 1.
 
 **D8. The overdue verdict: `src/lib/tagging-edges/overdue.js`.**
+*(Amended 2026-11-07, at Implementation, on the owner's decision: the module is `src/pipeline/tagging-edges/overdue.js`.
+Story 1's purity pin (`test/tagging-edge-contract.test.js`, "purity") refuses `new Date` and any require but a sibling's in
+every file of `src/lib/tagging-edges/`, and the cron judge needs both `cron-parser` and dates. `src/pipeline/tagging-edges/`
+carries no such pin. Nothing else in D8 changes; the overdue suite's module path follows.)*
 - **`overdueVerdict({entries, latest, nowMs, periodOf})`**, pure:
   - **`entries`** are the schedule entries with `taskId === 'reconcileTaggingEdges'` and `enabled === true`. None →
     `{state: 'no-entry'}`.
