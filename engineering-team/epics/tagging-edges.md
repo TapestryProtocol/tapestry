@@ -216,18 +216,30 @@ Planning: admins may also see the panel and use every control but confirming hel
    - *C5-10 (docs):* story 5 § Evidence's browser line (`:301-302`) names the commit and run: the re-review's 86 of 86
      on `442c9dec`, twice.
 
-7. *(planned)* Confirming held removals from the panel, for the owner only, after a prompt. *(Split from item 6 at
-   story 6's Planning, 2026-10-02, the owner.)* From item 6's decisions:
+7. `7-confirm-held-removals.md` — confirming held removals from the panel, for the owner only, after a prompt; with
+   the overdue-pass flag and the prompts' focus fix. *(Split from item 6 at story 6's Planning, 2026-10-02, the
+   owner.)* **Done** (review PASS 2026-11-08, round 3; ADR `tagging-edges/0007`). On staging since 2026-11-08 (PR
+   nousclawds4/tapestry#37), with its staging evidence complete: the owner confirmed a held list made only of fixture
+   relationships, and the pass it lined up removed exactly those. On production since 2026-11-08 (PR
+   nousclawds4/tapestry#40, which promoted this story alone), checked read-only. The review's later follow-ups, and
+   § "Outside this story", are for the owner to place (`reviews/tagging-edges/7-confirm-held-removals.md`). From item
+   6's decisions:
    - **Confirm from the panel** is the owner's only, after a prompt that story 4's Planning set. Story 2's confirm route
      stays owner only.
-   - **Confirm when a pass is already waiting or running** says so plainly and starts nothing new.
-   - **Ledger `2026-09-28-confirm-route-joins-finishing-job`** (the few seconds after a pass ends) is folded here for
-     the confirm route. If story 6's fix for Run also closes it there, the row closes with story 6 and story 7 checks
-     it.
+   - **Confirm when a pass is already waiting or running** says so plainly and starts nothing new. *(Narrowed at story
+     7's Planning, 2026-11-07, the owner: when every busy pass has a stop asked for, Confirm lines up a new pass, as
+     the confirm route already did. Otherwise the owner would be stuck, since Run is refused while a pass is busy.)*
+   - **Ledger `2026-09-28-confirm-route-joins-finishing-job`** (the few seconds after a pass ends) was folded here for
+     the confirm route. Story 6's fix closed it, and story 7 checked it.
    - **Who confirmed, and when,** is recorded and shown, as story 6 shows starts and stops.
 
-   Still open for its Planning: what admins see in Confirm's place (from story 5's Planning orientation), the prompt's
-   wording, and whether a confirmation that expires unused prompts the owner again.
+   Decided at story 7's Planning (the owner, 2026-10-30 and 2026-11-07): admins see a disabled Confirm with its reason;
+   an expired confirmation that no pass used offers Confirm again for the same held list; the public status carries no
+   who; the prompt says how many and from which pass, when they happen, once only within 24 hours, and no undo from
+   the panel; a second confirmation of a pending held list is refused; one that cannot be relied on is replaced. The
+   story also carried the overdue-pass flag (ledger `2026-10-30-prod-pass-gap-unnoticed`, fix shape 2), the prompts'
+   focus fix (ledger `2026-10-28-panel-prompts-return-no-focus`, closed for the prompts only) and the stale browser
+   baseline (ledger `2026-10-28-relay-subtab-baseline-stale`, closed).
 
 Order: 1 → 2 → 3 → 4 → 5 → 6 → 7 (4's page can start once 2's status shape is fixed; 5 to 7 build on 4's panel, and 7
 on 6's waiting state).
