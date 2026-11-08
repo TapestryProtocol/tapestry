@@ -536,3 +536,167 @@ The rest of round 1 is fixed and re-derived:
 - the failed re-read's answer;
 - the plan rows;
 - the records.
+
+## Re-review, round 3 (2026-11-08)
+
+**Diff:** `git diff 20c5efa7..cebcbffa`. `20c5efa7` is round 2's review. Fix round 2's commits are:
+- the tests and the test plan, `188c8165`;
+- ADR 0007's round-2 notes, and ADR 0004's T12 note restored with a dated line at its end, `8cde9c76`;
+- the implementation and the record fixes, `065fa2c1`;
+- the evidence, `d518e3a0`;
+- a ledger row and a line in the test plan's § How to run, `cebcbffa`.
+
+**How it was reviewed.**
+- **The lanes.** Five of the six lanes were resumed. Each re-derived round 2's asks in its dimension from code,
+  commands and records, as reviewer rule 10 asks, the review's own wording included. Each then looked for new problems
+  the round brought in. They ran no suite and made no mutating request.
+- **The server lane was not resumed.** The round's server diff is `overdue.js`, which is the overdue lane's, and a
+  doc comment moved in `confirmation.js`, which the docs and security lanes checked.
+- **The Reviewer's own checks.** The Reviewer ran the gate and the browser spec. It re-checked requested 2, 4 and 5
+  below with its own probes (scratch `rev7/reviewer-r3/`).
+
+### Quality gates (run by reviewer, not trusted)
+
+- [x] `npm test` on Node 22.23.4: `20261108T153416Z-81387-3270 [te7-review3-cebcbffa] started 2026-11-08T15:34:16.272Z
+  on cebcbffa — FAIL, exit 1, 7173 passed, 38 failed, 173 skipped, 334/334 suites`.
+  - **The backend** was spawned at 14:50:18Z on `065fa2c1`. `cebcbffa` changes no source after it.
+  - **Against fix round 2's own run** (`20261108T145041Z-79787-7f9a`), only `relay-scan-bounds` differs: its live
+    probe skipped (28/0/0 → 27/0/1).
+  - The story suites pass in full, and the same 17 suites fail with the same counts.
+- [x] **Browser spec** on the UI built from `cebcbffa`, chromium: **159 passed (2.0m)**.
+- [x] `bash scripts/harness-lint.sh`: clean (0 violations).
+
+### Round 2's asks
+
+| Ask | Round 3 | Evidence |
+|---|---|---|
+| Blocking 1, a long rule read on time | **Fixed** | `overdue.js:81-82`. Any trimmed pattern over 256 characters on an enabled pass entry now gives `cannot-tell`/`rule` before any rule is judged. Round 2's input (every minute, padded to 285 characters, beside a daily interval, the latest pass 2 h ago) read `on-time` at `20c5efa7` and reads `cannot-tell`/`rule` now, as do the 319-character list rule and a long rule beside the daily cron rule. A long rule on a disabled pass entry, or on another task's entry, changes nothing. A long pattern now comes before `no-schedule`, `no-pass` and `report`, as the round-2 D8 note gives. OV27's flipped and new cases are red on round 1's build. |
+| Blocking 2, focus on Turn on | **Fixed** | `PathSwitch.jsx:126-139`, `:161`. The panel lane's probe passed all its cases, P1–P9, in react-dom 19 with StrictMode. Round 1's flag code fails P6 (B150's window case) and P8 (Turn on from the keyboard, then on, then off). The button node is the same across Turn off → Turn on, so the check fires. A stale node after the prompt opens is disconnected, so it is a no-op, and useReturnFocus moves focus once. "Turn on" carries no ref, as PS43 requires. The review's "one ref in both states" was only an example, and would have broken PS43. B150's window case was red on the build before the fix. |
+| Requested 3, the rule sentence | **Fixed** | `taggingPipelineView.js:1131`. It is true for all three causes (the panel lane rendered each one), and B140's, TV129's and TV134's checks still hold. TV137 pins it. |
+| Requested 4, three tests | **Fixed** | TV136 fails both with the Retry branch removed and with an over-wide "any loading read" check. OV30 fails against the planted fault. B155 discriminates on its second read only: the prompt is the third child in both the held-list and the running branches, and the fourth with nothing held. Without the key it remounts there, and the same-element check catches it. |
+| Requested 5, records | **Partly** | ADR 0004 is restored byte for byte. The old file is a prefix of the new one, and its end line is true (`:220` at `17dd5017`, `:223` now). Also fixed: the story's count of 15 red of 24; the superseded Deviation note; the suites table; OPERATIONS `:788` and `:6`; `confirmation.js` (comments only: with them removed, the file is identical). The D8 note states the review's three points, but one clause the review gave is wrong: requested 1 below. |
+
+### Blocking (round 3)
+
+None.
+
+### Requested in this round (non-blocking: record fixes before ship)
+
+These are record fixes. Only requested 4's OV30 may change a test input. Whoever lands them re-derives each changed
+sentence (reviewer rule 10).
+
+1. **ADR 0007 `:736-737`, the round-2 D8 note:** "It lands on the first status read after a restart, or after a save
+   that brings in new patterns".
+   - This is the review's own wording from round 2, requested 5, adopted word for word. After a save it is wrong.
+   - The cache drops the oldest pattern first, so a one-entry save costs 1 judgment on the first read and 31 on the
+     second. Two lanes measured 1, then 31, then 0:
+     - with cheap patterns, 10.5 ms, then 332 ms;
+     - with crafted ones, 0.9 s, then 28.8 s.
+   - **Asked change:** the Architect appends a dated correction: "on the first status read after a restart, and on
+     the first one or two after a save that brings in new patterns".
+   - **Optionally, in the same line:** `:723-724`'s "always rarer than any period that is judged" overstates
+     slightly. A yearly rule under R13 and a judged yearly rule can tie.
+2. **The story's fix-round-2 local status (`7-confirm-held-removals.md:610-613`) shows nothing about the fix.**
+   - The yearly rule `0 3 1 1 *` has one run within 400 days of the check (2027-01-01; the next is 419 days away).
+     So R13 alone reads "cannot tell", and a long rule alone read "cannot tell" at `20c5efa7` too.
+   - **The Reviewer re-checked it,** with the latest pass 2 h before 15:03:46Z:
+
+     | Input | `20c5efa7` | `cebcbffa` |
+     |---|---|---|
+     | the evidence's yearly rule, widened to 300 characters, alone | `cannot-tell`/`rule` | `cannot-tell`/`rule` |
+     | the daily rule `0 3 * * *` widened to 300 characters, beside `0 4 * * *` | `on-time` | `cannot-tell`/`rule` |
+   - **Asked change:** either say the check shows only that a long entry does not fail the status, or redo it with the
+     second pair. Create and delete that entry away from 03:00 and 04:00 UTC, so no pass runs.
+3. **The test plan's coverage map has no rows for round 2's tests or notes** (`7-confirm-held-removals.test-plan.md`).
+   - `:67` lacks TV136 and TV137.
+   - `:68` and `:109` lack OV30.
+   - `:72` and `:111` lack B155.
+   - `:110` lacks TV136.
+   - No row covers any round-2 note: D8's long pattern (OV27), D14's reason (TV137), and D15 decided at the swap
+     (B150's window case).
+   - **Asked change:** add those ids, and three rows for the round-2 notes.
+4. **Three test titles say what is not so:**
+   - **OV27** (`test/tagging-edges-overdue.test.js:725`) quotes the round-2 D8 note without "on an enabled entry for
+     the pass". That is a real condition, and follow-up 1 finds it unpinned.
+   - **B155** (`tests/brainstorm/tagging-pipeline-panel.spec.js:4793`) quotes D15 as "while under way, focus is on
+     the prompt's heading". That text is not in the ADR. D15 reads "A prompt whose send starts moves focus to its own
+     `h4` …".
+   - **OV30** (`:800`) says the hourly interval entry "alone would say overdue 2 h after". At exactly 2 h it says on
+     time: a 1 h period plus 1 h of grace, and the comparison is strict. The Reviewer reproduced it.
+   - **Asked change:** quote the ADR as written, or mark the gap with "…". For OV30, start the hourly case's latest
+     pass 2 h 1 min ago, so it shows the bound overriding a warning; or reword the title.
+5. **Two small slips:**
+   - The story's fix-round-2 commit list (`:592-595`) leaves out `cebcbffa`.
+   - The new ledger row's fix shape names "the cycle skills", which run no Playwright. The run commands are in:
+     - `.claude/agents/tester.md:22`;
+     - `.claude/agents/reviewer.md:22`;
+     - `engineering-team/roles/tester.md:16-17`;
+     - `engineering-team/templates/test-plan.md:38`.
+
+**Who:**
+- 1 is the Architect's;
+- 2 and 5 are the Implementer's;
+- 3 and 4 are the Tester's.
+
+### Non-blocking (follow-ups, not asked in this round)
+
+1. **Three conditions of the long check are unpinned** (two lanes):
+   - it reads only the pass's enabled entries;
+   - it measures the trimmed pattern;
+   - a long pattern that is not a cron reads "cannot tell".
+
+   The code is right today. A build that checked every entry, or the untrimmed length, passes every OV case, and both
+   mistakes err towards a false "cannot tell". The fix is OV27 cases for:
+   - a long rule on a disabled pass entry, and one on another task's entry, each beside a daily interval;
+   - a short rule padded outside past 256 characters;
+   - a long non-cron alone.
+2. **Round 2's second route to Turn on has no browser case:** pressing Turn on from the keyboard, then the path on,
+   then a read showing it off. The panel lane's P8 shows it fixed.
+3. **Superseded round-1 lines carry no forward pointer:** ADR 0007 `:702-703`, and the test plan's `:345`.
+4. **The spec's own run recipe** (`tagging-pipeline-panel.spec.js:277`) lacks `PLAYWRIGHT_HTML_OPEN=never`. The new
+   ledger row covers it.
+5. **No saved log** for fix round 2's red Node runs, or for OV30's and TV136's planted faults. This is the known
+   durability gap (ledger `2026-10-28-browser-lane-recipe-and-run-record`). The claims fit the code.
+6. **`overdue.js:101`, `Math.min(...periods)`,** overflows the call stack at about 130,000 counted entries. This has
+   been so since `60043230`, not this round. The status catches it, and answers 200 with `cannot-tell`/`schedule`:
+   the reason is wrong, nothing fails, and nothing leaks. A running minimum fixes it.
+7. **TV137 bans only R13's words,** so a sentence naming another single cause would pass it. It is acceptable while
+   the sentence is right.
+
+### For the owner
+
+- **A focused control that a later read removes outright still drops focus to the page.** The two cases are "Confirm
+  held removals" once another tab's confirmation is pending, and "Stop" once nothing is busy.
+  - AC-6 is "Prompts return focus", and in these cases no prompt is open, so they do not hold this verdict.
+  - Either a short follow-up story extends D15, or the case gets its own ledger row.
+  - Either way, the row this story closes (`2026-10-28-panel-prompts-return-no-focus`) closes for the prompts only,
+    and says so.
+- **The test plan's three notes for the owner** still have no recorded answer.
+- **Round 1's and round 2's follow-ups, and § Outside this story,** remain for the owner to place.
+
+### Harness friction
+
+1. **Filed by the fix round:** `2026-11-08-local-playwright-run-hangs-on-failure` (`cebcbffa`). Off CI, a red
+   Playwright run never exits, because the HTML reporter serves its report and waits.
+2. **Filed with this review:** `2026-11-08-live-evidence-unchecked-against-old-build`. The fix round checked each
+   green-on-purpose test against a planted fault, but not its live evidence, and that evidence read the same on the
+   build before the fix (requested 2).
+3. **Rule 10 caught the review's own wording** (requested 1), as it is meant to.
+
+## Verdict (round 3)
+
+**PASS**
+
+- **Both blocking issues from round 2 are fixed,** and so are requested 3 and 4.
+  - Each was re-derived from code, probes and the run records, the review's own wording included.
+  - Each new test fails on the build it is meant to catch.
+- **The quality gates are clean.** Every story suite passes. The full gate on `cebcbffa` differs from fix round 2's
+  run only by a live probe's skip. The browser spec passes 159 of 159.
+- **No finding this round is blocking.**
+
+The five requested changes are record fixes, and only OV30 may change a test input. They do not hold the verdict, but
+they should land before the merge to staging, each re-derived by whoever lands it.
+
+With this commit, the story's `**Status:**` (`:3`) becomes Done. The book is not complete yet. Its acceptance frame is
+judged by what has shipped, and story 7 has not shipped. Once story 7 is on production, with its staging evidence (the
+owner runs the fixture over SSH, ADR 0007 § Evidence), the frame's bullets look met, and a close can be offered then.

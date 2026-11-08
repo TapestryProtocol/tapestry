@@ -1,6 +1,6 @@
 # Story 7: Confirming held removals, on the panel
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-10-30
 **Type:** Feature
 
