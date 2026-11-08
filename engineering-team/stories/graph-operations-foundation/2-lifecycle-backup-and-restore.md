@@ -107,6 +107,10 @@ Small judgment calls made in Implementation, inside the ADR:
     - a restored key goes back when the conf can't be rewritten.
 
     Their failing tests came first, in commits of their own (`8cf4fbf27`, `573f4d088`).
+- **Review round 2's three open code points, fixed after its PASS at the owner's word** ("Fix them first", 2026-11-08). The Tester's tests came first (`f3f8b99f0`).
+  - The start right after a restore's load is inside the error that says the backup's graph is in place and names the safety backup (R2-1).
+  - The lock says `offline` before the server's stop is asked for, in the backup and in the restore (R2-2).
+  - J12 pins that `runDetached` resolves on the record, not on the worker's exit (R2-3).
 - **`runDetached` resolves when the run file holds the job's outcome,** or when the worker exits, not only on the exit as Decision 8 had it. After a restore the worker stays on to restart the control panel once its caller has answered, so a caller waiting for the worker's exit would wait on itself.
 - **Rollback that fails too leaves the server stopped.** When rolling back from the safety backup also fails, the job leaves the server stopped for its `finally` to try starting, and the error gives the by-hand steps.
 - **`restartControlPanel` left `_identity.js`:** the worker's `afterJob` calls `system.supervisor('restart', ['brainstorm'])` itself.

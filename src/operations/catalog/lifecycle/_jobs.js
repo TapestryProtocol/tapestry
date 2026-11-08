@@ -154,9 +154,11 @@ async function runBackupJob(request, system) {
     writeIdentityFiles(folder, ident, admins);
 
     const offlineFrom = Date.now();
-    stopped = true; // before the call: a stop that fails halfway is still undone
-    await system.supervisor('stop', ['neo4j']);
+    // Both before the call: a stop that fails halfway is still undone by the finally, and a job killed during the
+    // stop leaves a lock whose recovery starts the server (review round 2, R2-2).
+    stopped = true;
     store.updateLock(runId, { stage: 'offline' });
+    await system.supervisor('stop', ['neo4j']);
     const info = await storeInfo(system);
     const dump = await dumpTo(system, path.join(folder, 'neo4j.dump'));
     await system.supervisor('start', ['neo4j']);
@@ -223,9 +225,10 @@ async function runRestoreJob(request, system) {
     writeIdentityFiles(safetyFolder, ident, adminsBefore);
 
     const offlineFrom = Date.now();
-    stopped = true; // before the call: a stop that fails halfway is still undone
-    await system.supervisor('stop', ['neo4j']);
+    // Both before the call, as in the backup (review round 2, R2-2).
+    stopped = true;
     store.updateLock(runId, { stage: 'offline' });
+    await system.supervisor('stop', ['neo4j']);
     const info = await storeInfo(system);
     const safetyDump = await dumpTo(system, path.join(safetyFolder, 'neo4j.dump'));
     writeManifest(safetyFolder, {
@@ -261,19 +264,22 @@ async function runRestoreJob(request, system) {
       stopped = false;
       throw new Error(`${wrong}. The restore rolled back: the graph is as it was, from the safety backup ${safetyId}.`);
     }
-    await system.supervisor('start', ['neo4j']);
-    await waitForGraph(system);
-    stopped = false;
-    store.updateLock(runId, { stage: 'online' });
-    const offlineMs = Date.now() - offlineFrom;
-
-    // From here on the backup's graph is in place: a failure says so, and where the graph as it was is kept.
-    let step = 'counting what came back';
+    // From here on the backup's graph is in place, from the start on it onwards: a failure says so, and where the graph
+    // as it was is kept (ADR 0002 Amendment 1, A3; review round 2, R2-1). A start that fails leaves `stopped` set, so
+    // the finally tries once more.
+    let step = 'starting the graph database on the loaded backup';
+    let offlineMs;
     let restored;
     let assistant;
     let adminsAfter;
     let resumed;
     try {
+      await system.supervisor('start', ['neo4j']);
+      await waitForGraph(system);
+      stopped = false;
+      store.updateLock(runId, { stage: 'online' });
+      offlineMs = Date.now() - offlineFrom;
+      step = 'counting what came back';
       restored = await countGraph(system);
       step = 'putting the assistant\'s key in place';
       assistant = await identity.restoreIdentity(sourceFolder, source.instance.assistantPubkey);
