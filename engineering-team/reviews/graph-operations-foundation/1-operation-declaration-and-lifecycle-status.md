@@ -245,3 +245,79 @@ None.
 ### Round 2 verdict
 
 **CHANGES_REQUESTED**
+
+## Round 3
+
+**Date:** 2026-11-08
+**Delta:** `git diff 979e2e368..HEAD` (HEAD `7b1bec3b5`)
+- review `3a9c2124b`: round 2 of this file, and the story set back to In Progress;
+- Tester `6ebf85cc4`: L5's title narrowed, and the test plan's fix-round row;
+- Implementer `7b1bec3b5`:
+  - option (a) for round 2's blocking finding: the Deviation at `:76` reworded, plus a new Deviation at `:77`;
+  - round 2's non-blocking 1: the pre-check removed, so the route's catch and the command each handle a result that can't be serialized;
+  - round 2's non-blocking 2: the ledger row's `walk()` example.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] `npm test`: not run, for round 1's reason. CI runs the full stack-free gate on the pull request.
+- [x] **Suites run one by one**, on Node 24.18.0 at HEAD `7b1bec3b5`, with round 1's runner and the same three dead values exported. Results are pass/fail/skip.
+  - **The story's suites:** `operations` 46/0/0 and `openapi-coverage` 13/0/0.
+  - **The tests exercise the new code.** I made two mutations on scratch exports of HEAD, and each is caught by exactly one test:
+    - removing the command's new catch fails only C9 (45/1);
+    - removing the route's try/catch fails only H15 (45/1).
+  - **Role boundaries:** `7b1bec3b5` touched no `test/`, and `6ebf85cc4` touched no `src/` or `bin/`.
+  - **The suites the change touches** (the same 76 as round 2): 76 suites: 2,048 passed, 3 failed, 64 skipped, the same per-suite counts as round 2.
+    - Among them, `admin-action-sweep` 9/0, `admin-action-sweep-access` 13/0, `default-deny-mutations` 14/0, `openapi-document` 10/0 and `stack-free-npm-test` 6/0/1 (G5 passes).
+    - The 3 failures are again `router-stream-limit-on-connect` P1–P3 (BSD sed; they fail the same way on the base).
+    - The same suites were left out as in round 1.
+  - **`scripts/harness-lint.sh`:** clean, 0 violations.
+- [x] **This file is committed as written:** its Round 2 section is byte-identical to what I appended, and round 1 is a byte-exact prefix of the file.
+
+### The fixes, re-derived
+
+- **Round 2's blocking finding: resolved, by option (a).**
+  - **What the Deviation at `:76` now says:**
+    - the error's first line is reported without the require stack;
+    - that line "can still name an absolute path when the error itself does: a missing absolute require, a required JSON file that doesn't parse, a file read at load";
+    - "The list goes only to the owner, admins and direct-local callers."
+  - **The five load-failure probes, re-run at HEAD:** all five come out as one line with no require stack. The relative require and the syntax error are clean, and the three shapes the sentence names show an absolute path. So the sentence, partly my round-2 wording, holds as written.
+  - **Its last sentence holds too:** the list's handler admits only the owner and admins (`src/operations/http.js:64`), direct-local callers pass through the central check's stamp, and H14 refuses a visitor 401 and a stranger 403.
+  - **L5's new title**, "a declaration whose relative require fails is reported by the first line of its error, with no require stack", claims what L5 tests. The test plan's row now says what L5 doesn't claim.
+- **Round 2's non-blocking 1: taken.**
+  - **Serialized once:** `callOperation` no longer stringifies (`src/operations/index.js:108–111`), so each success answer is serialized once, by `res.json` or by the command's print. `callOperation`'s only callers are `http.js` and `cli.js`.
+  - **The route** (`src/operations/http.js:47–56`): `res.json` throws before any header is sent, so the catch answers. I probed through the real central middleware, as a direct-local caller:
+    - a BigInt, a cycle and a throwing `toJSON` each answer 500 `{ success: false, code: 'failed' }`, naming the operation;
+    - a plain operation still answers 200 after them, and the process exits 0.
+  - **The command** (`src/operations/cli.js:113–121`): the same three exit 3, with the same `failed` JSON on stdout, and a plain one exits 0.
+  - **No success answer changed.** The five answers of round 2's comparison (status for the owner and an admin, the list for both, and the command's `lifecycle status`) are byte-identical to round 1's (10,608 bytes).
+  - **The new Deviation at `:77`** ("serialized once, where each surface sends it: the route's catch and the command each answer it as the operation's 500 `failed`") holds, reading the command's exit 3 as its 500.
+- **Round 2's non-blocking 2: taken.** The ledger row now names `test/admin-action-sweep.test.js` and `test/openapi-coverage.test.js` as the callers that write the walker an empty conf, which is still true at `:73` and `:174`. It also says `test/operations.test.js`'s `walk()` did until `506e7584f`, which is true.
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **`src/operations/cli.js:118`: the command's new catch reads `e.message`, where the route reads `(err && err.message) || String(err)` (`http.js:56`).**
+   - For a `toJSON` that throws something other than an Error, the two surfaces differ:
+     - a thrown string reads `failed: boom` from the route but `failed: undefined` from the command;
+     - a thrown `null` makes `cli.main` reject, so the bin exits 3 with a stack on stderr and no JSON on stdout.
+   - Only a pathological `toJSON` reaches this.
+   - **Optional improvement:** use the route's expression.
+2. **Round 1's non-blocking 3 and 4** stand as written. They weren't taken, by the owner's choice.
+
+#### Harness friction
+
+1. None new.
+
+### Close-out for this round
+
+- **The story's Status** is In Progress. Flipping it to Done in place, with this review's commit, is the orchestrator's (harness-lint L1 checks it).
+- **Completion detection** was performed. Its result is in the chat, not in this file.
+
+### Round 3 verdict
+
+**PASS**
