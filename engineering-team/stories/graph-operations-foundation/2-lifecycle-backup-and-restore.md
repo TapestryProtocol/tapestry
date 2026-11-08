@@ -80,6 +80,6 @@ All four were resolved at the planning gate on 2026-11-08.
 - Epic: [engineering-team/epics/graph-operations-foundation.md](../../epics/graph-operations-foundation.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D1, D6, D10, D13); catalog §8
 - Story 1, whose `lifecycle status` this fills in: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md](../../decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
