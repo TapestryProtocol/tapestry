@@ -15,7 +15,8 @@
  *   J7  recovering a stale lock removes only that lock (review round 1)
  *   J8  a restore that failed after its key went in still restarts the control panel: its record carries restarting
  *   J9  a lock appears whole: written to a file of its own and linked into place, never found empty
- *   J10 the worker runs nothing when the lock is no longer its run's (J8–J10: ADR 0002 Amendment 1, A4)
+ *   J10 the worker runs nothing when the lock is no longer its run's
+ *   J11 a restored key is taken back when the conf can't be rewritten (J8–J11: ADR 0002 Amendment 1, A4)
  *   Y1  _system.js runs neo4j-admin as user neo4j through runuser, and supervisorctl, with the arguments the ADR names
  *   Y2  programStatus reads supervisorctl status, which exits 3 when some program isn't running
  *   K1  nginx: /api/tapestry/lifecycle/ keeps X-Forwarded-For, streams and waits 900 s; only the upload takes 9g (A4)
@@ -317,6 +318,39 @@ test('J10: the worker runs nothing when the lock is no longer its run\'s — it 
   assert(lock.runId === theirs.runId && (lock.holders || []).length === 1, `the other run's lock is untouched; got ${show(lock)}`);
   const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split(NL).filter(Boolean) : [];
   assert(calls.length === 0, `nothing was stopped, paused, dumped or asked about; the stand-ins saw ${show(calls)}`);
+});
+
+const IDENTITY = path.join(ROOT, 'src/operations/catalog/lifecycle/_identity.js');
+test('J11: a restored key is taken back when the conf can\'t be rewritten, so the key file and the conf never name different assistants (ADR 0002 Amendment 1, A4)', async () => {
+  need(IDENTITY, 'ADR graph-operations-foundation/0002 Decision 6');
+  const identity = require(IDENTITY);
+  const base = fs.mkdtempSync(path.join(S.base(), 'j11-'));
+  const inst = await F.makeInstance(base, { name: 'here', owner: F.OWNER });
+  const from = await F.makeInstance(base, { name: 'there', owner: F.OWNER });
+  const w = F.writeBackup(inst.backupsDir, { identityDir: from.keysDir, assistantPubkey: from.identity.pubkey, ownerPubkey: F.OWNER, admins: [] });
+  const keyFile = path.join(inst.keysDir, 'tapestry-assistant.json');
+  const before = fs.readFileSync(keyFile);
+  const modeBefore = fs.statSync(keyFile).mode & 0o777;
+  // A conf that can't be rewritten, as root too: a folder where the file should be.
+  const confDir = path.join(base, 'conf-is-a-folder');
+  fs.mkdirSync(confDir);
+  const env = { TAPESTRY_SECURE_KEYS_DIR: inst.keysDir, BRAINSTORM_CONF_PATH: confDir };
+  const saved = {};
+  for (const [k, v] of Object.entries(env)) { saved[k] = process.env[k]; process.env[k] = v; }
+  let threw = null;
+  try {
+    await identity.restoreIdentity(path.join(inst.backupsDir, w.id), from.identity.pubkey);
+  } catch (e) { threw = e; } finally {
+    for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+  assert(threw, 'restoreIdentity fails when the conf can\'t be rewritten');
+  assert(Buffer.compare(fs.readFileSync(keyFile), before) === 0, 'the key file is the instance\'s own again, byte for byte');
+  assert((fs.statSync(keyFile).mode & 0o777) === modeBefore, `the key file keeps its mode; got ${(fs.statSync(keyFile).mode & 0o777).toString(8)}`);
+  const key = await F.readKey(inst.keysDir);
+  assert(key && key.pubkey === inst.identity.pubkey, `it decrypts to this instance's own assistant; got ${show(key && key.pubkey)}`);
+  const left = [...fs.readdirSync(path.dirname(inst.keysDir)).filter((n) => n.startsWith('.restore-key-')),
+    ...fs.readdirSync(inst.keysDir).filter((n) => n.endsWith('.tmp'))];
+  assert(!left.length, `no scratch or temporary file is left; got ${show(left)}`);
 });
 
 // ── The real system, with stand-in commands on PATH ──────────────────────────────────────────────────────────────

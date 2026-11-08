@@ -149,3 +149,11 @@ The harness's in-process job now goes through `_jobs.js`'s `runJob` once it exis
 J10 writes its own conf because the config reader takes `NEO4J_URI` from the conf file only and never from the environment. Without a file it falls back to `bolt://localhost:7687`, and on the Mac Studio that is a private instance.
 
 Red before green: 5 failed and 129 passed.
+
+One more, found while fixing the first point, in a later commit of its own:
+
+| Finding | Test | File |
+|---|---|---|
+| A conf that can't be rewritten after the restored key went in leaves the key file and the conf naming different assistants | J11: `restoreIdentity` with a folder where the conf should be fails, and the key file is the instance's own again, byte for byte and with its mode; no scratch file is left | `backup-job.test.js` |
+
+Red before green: J11 failed alone, 134 passed.
