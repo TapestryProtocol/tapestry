@@ -189,7 +189,7 @@ The reviewer's mutation probe now fails SK3 for both cases it found: an exit cod
 
 The check was run again on the fix round's code (`c179e7e49`), from a standalone install made with `git archive HEAD clients/cli` and `npm ci --omit=dev --offline`, the same as the committed `clients/cli`. Its path, steps and checks are Implementation's, below.
 
-- **The first try failed.** The scratch instance died while firmware was installing (exit 137). The script removed it, nothing was left, and the shared containers stayed up. Docker had about 6.4 GB free.
+- **The first try failed, from outside.** The scratch instance was removed while its firmware was installing: exit 137 is the SIGKILL of `docker rm -f`. The A10.2 session's own live check did it, and said so in a message to this session: it found this instance running under the shared name `tapestry-scratch`, failed on "already exists", and its failure path ran `scripts/scratch-stack.sh down`. Nothing was left behind, and the shared containers stayed up.
 - **The retry passed every step:**
   - `whoami` answered `neither`, exit 1, until the owner made the key an admin, then `admin`, exit 0;
   - `tapestry` listed `lifecycle status`, and its answer through the CLI was the same as the internal command's, both exit 0;
