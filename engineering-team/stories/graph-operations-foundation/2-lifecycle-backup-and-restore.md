@@ -141,4 +141,4 @@ The check used two throwaway instances in turn (`scripts/scratch-stack.sh`). Eac
 - Story 1, whose `lifecycle status` this fills in: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md](../../decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md)
 - Test plan: [2-lifecycle-backup-and-restore.test-plan.md](2-lifecycle-backup-and-restore.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-foundation/2-lifecycle-backup-and-restore.md](../../reviews/graph-operations-foundation/2-lifecycle-backup-and-restore.md)
