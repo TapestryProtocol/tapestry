@@ -158,3 +158,90 @@ None.
 
 - [ ] **Story status flipped to Done in place:** left to the orchestrator, as instructed. This review writes no other file and commits nothing.
 - [x] **Completion detection** was performed. Its result is in the chat, not in this file.
+
+## Round 2
+
+**Date:** 2026-11-08
+**Delta:** `git diff 114bf9a7b..HEAD` (HEAD `979e2e368`)
+- review `9ac1c5914`: this file, and the story flipped to Done;
+- ledger `2b07aee3d`: two `meta` rows;
+- fix-round tests `506e7584f`;
+- fix-round implementation `979e2e368`.
+
+**What it addresses:** round 1's non-blocking 1 and 2, folded in at the owner's choice, and Harness friction 2 for `test/operations.test.js`'s `walk()`.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] `npm test`: not run, for round 1's reason. CI runs the full stack-free gate on the pull request, and `npm run gate:status` still finds no run record here (exit 2).
+- [x] **Suites run one by one**, on Node 24.18.0 at HEAD `979e2e368`, with round 1's runner and the same three dead values exported. Results are pass/fail/skip.
+  - **The story's suites:**
+    - `operations`: 46/0/0 (its 39 tests, which are round 1's 36 plus H15, C9 and L5, and the 7 of `status.test.js`).
+    - `openapi-coverage`: 13/0/0.
+  - **Red before green:** on an export of `506e7584f` (the fix-round tests, before `979e2e368`), `operations` gives 43/3, failing exactly as the test plan's Fix round says:
+    - L5: the require stack in `problem`;
+    - H15: the harness process ended inside `res.json`;
+    - C9: `cli.main` threw "Do not know how to serialize a BigInt".
+  - **Phase 4 left `test/` untouched:** `git show --stat 979e2e368 -- test/` is empty, and `506e7584f` touched no `src/`.
+  - **The suites the change touches** (round 1's 75, plus `stack-free-npm-test`): 76 suites: 2,048 passed, 3 failed, 64 skipped. That is round 1's totals (2,039/3/63 for the 75, plus `stack-free-npm-test`'s 6/0/1) with H15, C9 and L5 added.
+    - The unchanged suites give round 1's counts, among them `admin-action-sweep` 9/0, `admin-action-sweep-access` 13/0, `default-deny-mutations` 14/0, `openapi-document` 10/0 and `stack-free-npm-test` 6/0/1 (G5 passes).
+    - The 3 failures are again `router-stream-limit-on-connect` P1–P3 (BSD sed; they fail the same way on the base).
+    - The same suites were left out as in round 1.
+  - **`scripts/harness-lint.sh`:** clean, 0 violations, including L1 with the story at Done and L15 on the two new rows.
+
+### The fixes, re-derived
+
+- **Non-blocking 1: fixed.**
+  - `src/operations/index.js:109–113` checks, inside `run`'s try, that the answer serializes, so a result that can't be sent is the ADR's 500 `failed`. `src/operations/http.js:44–56` wraps the whole handler, so nothing can reject out of it.
+  - **Round 1's BigInt probe, re-run:**
+    - The request now gets `500 {"success":false,"error":"graph big failed: Do not know how to serialize a BigInt","code":"failed"}`, and the process lives on (exit 0).
+    - The command exits 3, with the same `failed` JSON on stdout.
+  - **Through `callOperation` directly:** a cycle and a throwing `toJSON` also answer 500 `failed`, and `undefined`, plain, Date and NaN results answer 200 as before.
+  - **No success answer changed.** With status's parts stubbed, I compared five answers on an export of `114bf9a7b` and at HEAD: status (owner and admin) and the list (owner and admin) through the real central middleware, and the command's `lifecycle status`. They are byte-identical (10,608 bytes each).
+    - `callOperation` still returns the original `data`.
+    - The app sets no `json replacer` or `json spaces`, so the pre-check serializes exactly as `res.json` does.
+- **Non-blocking 2: partly fixed, and the record overstates it (blocking 1).**
+  - `src/operations/index.js:76` reports the error's first line, so the require stack is gone. L5 pins that for a missing relative require.
+  - But the first line can itself name an absolute path. I probed a throwaway catalog of five declarations that fail to load:
+    - **Clean:** a missing relative require, and a syntax error.
+    - **Still an absolute path:**
+      - a missing absolute require (`require(path.join(__dirname, …))`);
+      - a required JSON file that doesn't parse (Node puts the file's absolute path at the front of the message);
+      - a file read at load (ENOENT names the path).
+- **`walk()`** (`test/operations.test.js:298–305`) now keeps `childEnv`'s dead Neo4j and Redis endpoints. W1 and X1 pass.
+
+### The ledger rows
+
+- **`2026-11-08-suite-screen-misses-hardcoded-urls`** says what Harness friction 1 said, and adds three facts, each checked:
+  - The listener on `:7778` is colima's ssh mux (`ps` on its pid shows `ssh: …/.colima/_lima/colima/ssh.sock [mux]`), and nothing listens on `:8877`.
+  - The Implementation run did read from Grawk's instance. Its log shows the suite's LIVE test "published tagging-with-specific-tag header carries literal recommended/allowed" passing, and both `:8877` tests skipping.
+  - Nothing was written: the test's `getJson` is a plain `fetch` GET, and both routes it read (`/api/assistant/pubkey`, `/api/strfry/scan`) are `PUBLIC_READ`.
+- **`2026-11-08-suite-runner-not-in-repo`** says what Harness friction 2 and 3 said. One of its three examples is now stale: `test/operations.test.js`'s `walk()` stopped writing an empty conf in `506e7584f`, while `test/admin-action-sweep.test.js:73` and `test/openapi-coverage.test.js:174` still do (non-blocking 2 below).
+- **Both rows are well-formed:** harness-lint L15 passes, and the rows they cite exist.
+
+### Findings
+
+#### Blocking
+
+1. **`engineering-team/stories/graph-operations-foundation/1-operation-declaration-and-lifecycle-status.md:76` (with `src/operations/index.js:76`): the reworded Deviation claims more than the code does.**
+   - The sentence "…reported by its error's first line, without the require stack …, so the list carries no absolute path" is false for three of the five load failures probed above.
+   - This is a claim written in the fix round, partly in my own round-1 wording, which reviewer step 10 asks the next round to check as a fresh claim. The book's close-out harvests Deviations, so it would carry the error forward.
+   - **Asked change, either of these:**
+     - **(a) Make the sentence match the code.** For example: "…is reported by its error's first line, without the require stack. That line can still name an absolute path when the error itself does: a missing absolute require, a required JSON file that doesn't parse, a file read at load." Then have the Tester narrow L5's title (`test/operations.test.js:382`) to the case it tests.
+     - **(b) Make the claim true in code.** Rewrite absolute paths in that line, for example the catalog's and the repo's roots, and their real paths, to relative forms. Then add one of the three shapes to L5.
+   - Whichever is chosen, round 3 re-checks the new wording as a claim.
+
+#### Non-blocking
+
+1. **`src/operations/index.js:109–113`: every success answer is now serialized twice:** once in the pre-check, then by `res.json` or the command's print.
+   - **Measured:** about 0.3 ms per MB, so 32 ms and a transient 15.5 MB string for a 100,000-node answer. For status (about 10 KB) it's negligible.
+   - **Optional improvement**, before large reads land (graph, export): serialize once, since `callOperation` can hand each surface the text it already made. Or keep the check for the command only: over HTTP, `http.js`'s new catch already turns a throwing `res.json` into the 500, because `res.json` throws before any header is sent.
+2. **Ledger row `2026-11-08-suite-runner-not-in-repo`:** its `walk()` example is stale since `506e7584f`. Optional: say so in the row, keeping the two callers that still write an empty conf.
+3. **Round 1's non-blocking 3 and 4** were not folded in, by the owner's choice. They stand as written.
+
+#### Harness friction
+
+1. None new.
+
+### Round 2 verdict
+
+**CHANGES_REQUESTED**
