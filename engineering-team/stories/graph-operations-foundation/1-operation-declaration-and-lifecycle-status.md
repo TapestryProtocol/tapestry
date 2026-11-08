@@ -1,6 +1,6 @@
 # Story 1: Declare each operation once — the `/api/tapestry/` routes, their sign-in, and `lifecycle status`
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-08
 **Type:** Feature
 **Loom:** A10.1 — https://loom.brainstorm.world/t/A10.1
