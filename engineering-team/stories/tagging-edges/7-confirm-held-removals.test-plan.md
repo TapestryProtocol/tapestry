@@ -194,11 +194,13 @@ python3 -m http.server 4174 --bind 127.0.0.1 --directory tmp/tp-dist
 ```
 
 ```bash
-BRAINSTORM_SERVER_ACCESSIBLE=true BRAINSTORM_BASE_URL=http://localhost:4174 PATH=<node22>:$PATH npx playwright test tests/brainstorm/tagging-pipeline-panel.spec.js --project=chromium
+PLAYWRIGHT_HTML_OPEN=never BRAINSTORM_SERVER_ACCESSIBLE=true BRAINSTORM_BASE_URL=http://localhost:4174 PATH=<node22>:$PATH npx playwright test tests/brainstorm/tagging-pipeline-panel.spec.js --project=chromium
 ```
 
 Story 7's class alone: add `-g "tagging-edges #7"`; the revised pins: `-g "B9:|B10:|B11:|B38:|B39:|B43:|B94:"`.
-Afterwards stop the server and remove `tmp/tp-dist`.
+Afterwards stop the server and remove `tmp/tp-dist`. `PLAYWRIGHT_HTML_OPEN=never` (added 2026-11-08) keeps a run with a failure from
+hanging: off CI, the HTML reporter otherwise serves its report after one and waits for Ctrl+C (ledger
+`2026-11-08-local-playwright-run-hangs-on-failure`).
 
 The whole gate is `npm test`, read with `npm run gate:status`, on Node 22.
 
