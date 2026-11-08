@@ -839,7 +839,7 @@ carries today, and the pass mints its own.
     also come from a fault in the driver itself. So `no-status` is a fault in the schema check's own code (what it
     passes to the driver included), in the driver itself, or in another library, and still never comes from Neo4j's
     answer. C5-6 was taken at story 6, and the panel's `no-status` sentence now says so
-    (`ui/src/utils/taggingPipelineView.js`, its `'no-status'` key).)*
+    (`ui/src/utils/taggingPipelineView.js:220`).)*
   - **Reads:** `incomplete`, `missing-column` and `uniqueness-not-holding` (`:388-408`, `:421`).
   - **The rest:** `plan-error` (`:436`), `invariant` (`graph.js:164-166`), `signal` (`:310`) and `error` (the
     fallback at `:394`, `:405`, `:423`, `:487`, `:588`). *(Amended at story 5's Architecture, 2026-10-01; ADR `tagging-edges/0005`, R2-1 and R2-9.)*
@@ -908,3 +908,7 @@ recorded before the change, at `88af7df3` (its UI is `66d60cb5`'s), in
 
 *(Amended by `tagging-edges/0007`, 2026-11-07, at the end so no cited line moves: every "story 7" pointer in this
 ADR now means 0007's Confirm on the panel, for the owner.)*
+
+*(Amended by `tagging-edges/0007`, 2026-11-08, at its review round 2, at the end so no cited line moves: T12's dated
+note of 2026-10-28 cites the panel's `no-status` sentence at `ui/src/utils/taggingPipelineView.js:220`, which was
+true when written. The sentence is now at `:223`, its `'no-status'` key.)*
