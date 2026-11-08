@@ -127,3 +127,18 @@ RESULT openapi-coverage.test.js pass=7 fail=6 skipped=0
 RESULT admin-action-sweep.test.js pass=9 fail=0 skipped=0      (unchanged; it must still pass after Implementation)
 RESULT stack-free-npm-test.test.js pass=6 fail=0 skipped=1     (G5: the new suite is registered; test/operations/ isn't scanned)
 ```
+
+## Fix round (review round 1's non-blocking 1 and 2, at the owner's choice, 2026-11-08)
+
+| Finding | Test | File | Level |
+|---|---|---|---|
+| Non-blocking 1: a result that can't be sent as JSON ended the control panel | `H15` the `graph/unserializable` fixture (it returns a BigInt) answers 500 `failed` naming the operation, and the next request is still answered. It runs in a harness process of its own. | `test/operations.test.js` | integration |
+| Non-blocking 1, the command | `C9` the same case through the command exits 3, with the same `failed` JSON on stdout | `test/operations.test.js` | integration |
+| Non-blocking 2: a load problem carried the absolute require stack | `L5` a declaration that fails to `require` is reported by its error's first line: no require stack, no newline, and no absolute path (the fixture folder, its real path, the repo, the temp root). A valid neighbour still loads. | `test/operations.test.js` | unit |
+
+**Also in this round, from the review's Harness friction 2:** `walk()` no longer empties its child's conf. The route walker now keeps `childEnv`'s dead Neo4j and Redis endpoints instead of falling back to `bolt://localhost:7687` (OPEN.md row `2026-11-08-suite-runner-not-in-repo`).
+
+**Verification.** Before the fix, at `2b07aee3d` plus these tests, run with Neo4j and Redis also dead: `operations` gave 43 passed and 3 failed.
+- **L5** got `"it failed to load: Cannot find module './no-such-helper-module-xyz'\nRequire stack:\n- /private/var/folders/…"`.
+- **H15**'s harness process ended (exit 1) inside Express's `res.json`, so it wrote no result.
+- **C9**'s `cli.main` threw "Do not know how to serialize a BigInt".

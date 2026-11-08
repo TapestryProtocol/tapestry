@@ -129,6 +129,10 @@ function fixtureFiles({ echoSummary = 'Echo the inputs it was given' } = {}) {
       head: `const { refusal } = require(${show(REFUSAL)});`,
       run: `async run(inputs) { if (inputs.mode === 'declared') throw refusal('not-found', 'There is nothing here.'); throw refusal('surprise', 'A code the declaration does not name.'); }`,
     }),
+    // A result that can't be sent as JSON (review round 1, non-blocking 1): it must answer 500 failed, not end the process.
+    'graph/unserializable.js': declSource({ ...BASE, group: 'graph', name: 'unserializable', summary: 'Answer with a BigInt' }, {
+      run: 'async run() { return { n: 10n }; }',
+    }),
     'graph/noisy.js': declSource({ ...BASE, group: 'graph', name: 'noisy', summary: 'Log while it runs' }, {
       run: `async run() { console.log('noise-from-the-operation'); console.info('more-noise'); return { quiet: true }; }`,
     }),
@@ -295,8 +299,9 @@ function walk(root = ROOT) {
   if (root === ROOT && WALK) return WALK;
   const dir = tmp('ops-walk-');
   const outFile = path.join(dir, 'out.json');
+  // The conf keeps childEnv's dead Neo4j and Redis endpoints: an empty one would fall back to bolt://localhost:7687
+  // (OPEN.md row `2026-11-08-suite-runner-not-in-repo`).
   const env = { ...childEnv(dir) };
-  fs.writeFileSync(env.BRAINSTORM_CONF_PATH, '');
   const child = spawnSync(process.execPath, [path.join(root, 'test/helpers/routeWalk.js'), outFile], { ...SPAWN, cwd: root, env, timeout: 90000 });
   let data = null;
   try { data = JSON.parse(fs.readFileSync(outFile, 'utf8')); } catch { /* reported by the caller */ }
@@ -372,6 +377,23 @@ test('L3: the other declaration rules each refuse and name their file, and helpe
   const helperHits = [...fx.operations.map((o) => `${o.group}/${o.name}`), ...fx.problems.map((x) => String(x.file))]
     .filter((s) => /parts|_shared/.test(s));
   assert(helperHits.length === 0, `helper files beside a declaration must be ignored; found ${show(helperHits)}`);
+});
+
+test('L5: a declaration that fails to load is reported by the first line of its error, with no require stack and no absolute path', () => {
+  const { loadOperations } = operationsIndex();
+  const dir = writeCatalog(tmp('ops-broken-'), {
+    'graph/broken-require.js': `'use strict';${NL}require('./no-such-helper-module-xyz');${NL}module.exports = {};${NL}`,
+    'graph/good-one.js': declSource({ ...BASE, group: 'graph', name: 'good-one' }),
+  });
+  const { operations, problems } = loadOperations({ dir });
+  assert(same(operations.map((o) => `${o.group} ${o.name}`), ['graph good-one']), `the valid neighbour loads and the broken one doesn't; loaded ${show(operations.map((o) => o.name))}`);
+  const p = problems.find((x) => String(x.file).replace(/\\/g, '/').endsWith('graph/broken-require.js'));
+  assert(p, `the declaration that fails to load must be reported; problems: ${show(problems)}`);
+  const text = String(p.problem);
+  assert(/failed to load/i.test(text) && text.includes('no-such-helper-module-xyz'), `the problem says it failed to load and why; got ${show(text)}`);
+  const paths = [dir, fs.realpathSync(dir), ROOT, os.tmpdir()];
+  assert(!/require stack/i.test(text) && !text.includes(NL) && !paths.some((x) => text.includes(x)),
+    `the problem must carry only its error's first line, no require stack or absolute path (review round 1, non-blocking 2); got ${show(text)}`);
 });
 
 test('L4: loading the catalog, and the route table that spreads its entries, loads no Neo4j driver, LMDB, store or Redis module', () => {
@@ -682,6 +704,44 @@ test('C7: while an operation logs, the command\'s stdout carries only the answer
   const j = stdoutJson(r);
   assert(r.code === 0 && j && j.success === true, `graph noisy must exit 0 with its JSON answer; got ${show(r.code)} ${show(String(r.stdout).slice(0, 300))}`);
   assert(!/noise/.test(r.stdout) && !/noise/.test(r.leaked), `the operation's console output must stay off stdout; stdout ${show(r.stdout)}, leaked ${show(r.leaked)}`);
+});
+
+// A result that can't be sent as JSON, in harness runs of its own: before the fix it ended the process, so it must not
+// share a process with the other results (review round 1, non-blocking 1).
+let UNSERIALIZABLE = null;
+function unserializable() {
+  if (UNSERIALIZABLE) return UNSERIALIZABLE;
+  const http = runHarness({ fixtureDir: fixtureDir(), scenarios: [{ requests: [
+    { id: 'h15-unserializable', app: 'fixture', method: 'GET', url: '/api/tapestry/graph/unserializable', caller: 'owner' },
+    { id: 'h15-still-answers', app: 'fixture', method: 'GET', url: `${ECHO}?text=after`, caller: 'owner' },
+  ] }] });
+  const cli = runHarness({ fixtureDir: fixtureDir(), scenarios: [{ cli: [{ id: 'c9-unserializable', catalog: 'fixture', argv: ['graph', 'unserializable'] }] }] });
+  const pick = (h, id) => {
+    assert(h.data, `the harness wrote no result — the process ended (exit ${h.child.status}): ${(h.child.stderr || '').slice(-300)}`);
+    assert(!h.data.error, `the harness could not run: ${h.data.error}`);
+    const r = (h.data.scenarios || []).flatMap((s) => [...(s.requests || []), ...(s.cli || [])]).find((x) => x.id === id);
+    assert(r, `no harness result for ${id}`);
+    return r;
+  };
+  UNSERIALIZABLE = { http, cli, pick };
+  return UNSERIALIZABLE;
+}
+
+test('H15: an operation whose result can\'t be sent as JSON answers 500 failed, naming it, and the control panel keeps answering', () => {
+  const u = unserializable();
+  const r = u.pick(u.http, 'h15-unserializable');
+  assert(r.status === 500 && r.body && r.body.success === false && r.body.code === 'failed' && /graph unserializable/.test(String(r.body.error)),
+    `want 500 { success: false, code: 'failed' } naming graph unserializable; got ${r.status} ${show(r.body)}`);
+  const after = u.pick(u.http, 'h15-still-answers');
+  assert(after.status === 200 && after.body && after.body.success === true, `the next request must still be answered; got ${after.status} ${show(after.body)}`);
+});
+
+test('C9: the command answers the same case with exit 3 and the same failed JSON on stdout', () => {
+  const u = unserializable();
+  const r = u.pick(u.cli, 'c9-unserializable');
+  const j = stdoutJson(r) || {};
+  assert(r.code === 3 && j.success === false && j.code === 'failed' && /graph unserializable/.test(String(j.error)),
+    `want exit 3 and { success: false, code: 'failed' } naming graph unserializable on stdout; got ${show(r.code)} ${show(String(r.stdout).slice(0, 300))}`);
 });
 
 test('C8: `tapestry <group> <name> --help` shows the operation\'s inputs, its route and who may call it, and runs nothing', () => {
