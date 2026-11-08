@@ -209,14 +209,26 @@ function publishWorkflow() {
   return fs.readFileSync(file, 'utf8');
 }
 
-test('W1: it runs on main and by hand, never on pull requests, and never cancels a roll under way', () => {
+test('W1: it runs on staging and by hand, never on pull requests, and never cancels a roll under way', () => {
   const wf = publishWorkflow();
-  assert(/push:\s*\n\s*branches: \[[^\]]*\bmain\b[^\]]*\]/.test(wf), 'push to main is missing');
+  assert(/push:\s*\n\s*branches: \[staging\]/.test(wf), 'a push to staging, and only staging, rolls the brains (ADR 0001 amendment 1)');
+  assert(!/branches: \[[^\]]*\bmain\b/.test(wf), 'a push to main must not roll them back onto an older build');
   assert(/workflow_dispatch:/.test(wf), 'workflow_dispatch is missing');
   assert(!/pull_request/.test(wf), 'it must not run on pull requests, which could reach the droplet');
-  assert(/branches: \[main\]/.test(wf), 'main is the only branch that rolls the brains');
-  assert(/if: github\.ref == 'refs\/heads\/main'/.test(wf), 'running it by hand from another branch must not roll them');
+  assert(/if: github\.ref == 'refs\/heads\/staging' \|\| \(github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'\)/.test(wf),
+    'running it by hand from a branch other than staging or main must not roll them');
   assert(/cancel-in-progress: false/.test(wf), 'a newer push must not cancel a roll under way');
+});
+
+test('W1b: a push that touches only the team\'s records does not roll the brains', () => {
+  const wf = publishWorkflow();
+  const ignore = (wf.match(/paths-ignore:\s*\n((?:\s+- .+\n)+)/) || [])[1] || '';
+  for (const dir of ['engineering-team', 'product-team', 'ledger']) {
+    assert(ignore.includes(`"${dir}/**"`), `${dir}/ is missing from paths-ignore`);
+  }
+  for (const served of ['src/', 'docs/', 'public/', 'ui/', 'deploy/']) {
+    assert(!ignore.includes(`"${served}`), `${served} holds what a brain runs or serves, so it must not be ignored`);
+  }
 });
 
 test('W2: both images are pushed as dogfood and by commit, with layer caching', () => {
