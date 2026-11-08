@@ -700,3 +700,24 @@ they should land before the merge to staging, each re-derived by whoever lands i
 With this commit, the story's `**Status:**` (`:3`) becomes Done. The book is not complete yet. Its acceptance frame is
 judged by what has shipped, and story 7 has not shipped. Once story 7 is on production, with its staging evidence (the
 owner runs the fixture over SSH, ADR 0007 § Evidence), the frame's bullets look met, and a close can be offered then.
+
+### Record-fix check (2026-11-08)
+
+Round 3's requested 1 to 5 landed in four commits:
+- `637da836`, then `9143f737`: ADR 0007's dated correction;
+- `b24d5729`: the test plan's rows and the three titles;
+- `1b8fe3e9`: the story's live check and the two slips.
+
+The docs lane re-derived every changed sentence from code, commands and logs (reviewer rule 10), and the Reviewer
+re-ran the two that needed a measurement. The record fixes changed no file under `src/`, `ui/` or `scripts/`.
+
+| Ask | Result | Evidence |
+|---|---|---|
+| 1, ADR 0007's D8 cost note | **Holds, after one more fix** | `637da836`'s correction said a one-entry save costs 1 judgment, then 31. The lane found that this holds only when the changed entry is the one judged last. Changing entry *k* of 32 costs 1, then *k*−1, then 0; the Reviewer re-measured it for *k* = 1, 2, 16 and 32 (`1,0,0`, `1,1,0`, `1,15,0`, `1,31,0`). `9143f737` fixes the correction in place, since it was this round's own and not yet accepted. "On the first one or two after a save" holds. |
+| 2, the live check | **Holds** | The first check is marked corrected. The new pair matches the log (16:22:58Z to 16:23:10Z, on the backend spawned at 14:50:18Z on `065fa2c1`). Live: `cannot-tell`/`rule` with both entries, `on-time` with the short one alone. The replay on `20c5efa7`'s `overdue.js` gives `on-time` for both. "Over 10 hours before either rule would have run" is right (10.61 h to 03:00Z). No entry and no Redis key remain. |
+| 3, the coverage map | **Holds** | Each added id exists and fits its row. The three new round-2 rows match the round-2 notes. |
+| 4, three titles | **Holds** | Every quote in OV27's, B155's and OV30's titles is in the ADR, the story or the review. OV30's hourly case starts 2 h 1 min back. Its setup check pins on time for the daily entry alone and overdue for the hourly one alone (the comparison is strict). It still fails against its planted fault (29/1, log kept). No test's verdict changed: overdue is 30/0, and the spec lists 159 tests. |
+| 5, two slips | **Holds** | The commit list names `cebcbffa`. The ledger row now names the four files whose lines run Playwright (`npm run test:playwright`). The cycle skills run none. |
+
+All five requested changes have landed and been re-derived, so nothing from this review stands between the story and
+the merge to staging. The follow-ups and § For the owner stay as round 3 lists them.
