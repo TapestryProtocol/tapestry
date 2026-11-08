@@ -587,6 +587,31 @@ this said every new test failed before the fix.)*
 - **The browser spec** on the UI built from `4943e870`: 158 of 158 (151 before the round, plus B148 to B154).
 - **The local status** after the refresh: `overdue` `no-entry`, no confirmation pending, the latest pass `done`.
 
+### Fix round 2 (review round 2, 2026-11-08, times UTC)
+
+Review round 2 asked for blocking 1 and 2 and requested 3 to 5. The round's commits are:
+- the tests and the test plan, `188c8165`;
+- ADR 0007's round-2 notes, and ADR 0004's T12 note restored with a dated line at its end, `8cde9c76`;
+- the implementation and record fixes, `065fa2c1`.
+
+Of the round's four new tests and two revised, three were red before the fix: OV27 (revised), TV137 and B150
+(revised). OV30, TV136 and B155 were green on purpose, each checked against a planted fault. The test plan's
+§ Verification, "Fix round 2", lists them.
+
+| Run | Tree | Backend its live suites measured | Passed | Failed | Skipped | Suites |
+|---|---|---|---|---|---|---|
+| Review round 2's run `20261108T011950Z-54570-4152` | `f10bc317` | spawned 2026-11-08 00:46:07Z, on `4943e870` | 7,170 | 38 | 173 | 334 |
+| After fix round 2 `20261108T145041Z-79787-7f9a` | `065fa2c1` | spawned 2026-11-08 14:50:18Z, on `065fa2c1` (`scripts/dev-refresh.sh`) | 7,174 | 38 | 172 | 334 |
+
+- **The suites whose counts changed**, all passing in full: overdue, 29 → 30; the view, 135 → 137.
+- **One other changed for its known reason:** `relay-scan-bounds`'s live probe ran (27/0/1 → 28/0/0).
+- **The other 17 failing suites** fail with the same counts.
+- **The browser spec** on the UI built from `065fa2c1`'s tree: 159 of 159 (158 before, plus B155).
+- **The local status,** from 15:03:46Z. An enabled pass entry with a yearly rule (`0 3 1 1 *`) widened to 300
+  characters gave `overdue` `{state: 'cannot-tell', reason: 'rule'}`. It was then disabled, which gave `no-entry`, and
+  deleted. Its scheduler job was due 2027-01-01T03:00Z, and nothing ran. No Redis key for it remains. The disabled
+  seed entry is the pass's only entry again.
+
 ## Deviations
 
 Logged at Implementation (2026-11-07). Each is a reading of ADR 0007 where its letter left a detail open, or a small
