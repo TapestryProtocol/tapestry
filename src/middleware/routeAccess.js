@@ -461,6 +461,9 @@ const ROUTE_ACCESS = Object.freeze({
   'GET /api/tapestry-key/offload-status': PUBLIC_READ,
   'GET /api/tapestry-key/resolve/:key': PUBLIC_READ,
   'GET /api/tapestry-key/status': PUBLIC_READ,
+  // The graph operations (ADR graph-operations-foundation/0001 Decision 3): the list here, and each operation's own
+  // entry generated from its declaration (spread at the end of this table).
+  'GET /api/tapestry/operations': OWNER_READ,
   'GET /api/task-analytics/analytics': PUBLIC_READ,
   'GET /api/task-analytics/performance': PUBLIC_READ,
   'GET /api/task-analytics/predictions': PUBLIC_READ,
@@ -496,6 +499,9 @@ const ROUTE_ACCESS = Object.freeze({
   'GET /api/validate-encoding': PUBLIC_READ,
   'GET /api/whitelist-preview-count': PUBLIC_READ,
   'GET /api/whitelist-stats': PUBLIC_READ,
+  // One exact entry per declared operation under /api/tapestry/, 'owner' or 'owner-only', never more open
+  // (ADR graph-operations-foundation/0001 Decision 3). Checked by the loop below like every other entry.
+  ...require('../operations/routeTable').routeAccessEntries(),
 });
 
 for (const [key, v] of Object.entries(ROUTE_ACCESS)) {

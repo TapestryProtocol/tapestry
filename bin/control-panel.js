@@ -311,10 +311,11 @@ app.get('/:filename.html', (req, res) => {
     res.redirect(302, `/legacy/${req.params.filename}.html${qs}`);
 });
 
-// Swagger UI — serve OpenAPI docs at /docs (before auth so docs are public)
+// Swagger UI — serve OpenAPI docs at /docs (before auth so docs are public). The document is the YAML plus each graph
+// operation's entry, made from its declaration (ADR graph-operations-foundation/0001 Decision 6).
 const swaggerUi = require('swagger-ui-express');
 const yaml = require('js-yaml');
-const openapiSpec = yaml.load(fs.readFileSync(path.join(__dirname, '../src/api/openapi.yaml'), 'utf8'));
+const openapiSpec = require('../src/operations/openapi').withOperationDocs(yaml.load(fs.readFileSync(path.join(__dirname, '../src/api/openapi.yaml'), 'utf8')));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, {
   customSiteTitle: 'Tapestry API Docs',
 }));

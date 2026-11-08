@@ -233,4 +233,5 @@ function registerFirmwareApiRoutes(app) {
   app.post('/api/firmware/install', handleFirmwareInstall);
 }
 
-module.exports = { registerFirmwareApiRoutes };
+// readInstallState is also lifecycle status's firmware part (ADR graph-operations-foundation/0001 Decision 11).
+module.exports = { registerFirmwareApiRoutes, readInstallState };

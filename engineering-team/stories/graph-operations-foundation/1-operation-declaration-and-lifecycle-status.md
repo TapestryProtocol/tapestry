@@ -67,6 +67,17 @@ Both were resolved at the planning gate on 2026-11-08, where the owner chose the
 1. **Who may call `lifecycle status`?** *Resolved: the owner and admins.* The catalog drafts the whole lifecycle group as owner only (§8), but by default admins equal the owner (ADR `security-auth-exposure/0005`, Decision 4). It's a read with nothing secret in it, and an admin agent should be able to check the backup, firmware and cache before it writes. Lifecycle's writes (backup, restore, migrate, seed-firmware, wipe) are their own tasks and keep the catalog's owner-only draft for their own planning.
 2. **Should agents also get a machine-readable list of the operations they may call?** *Resolved: yes, in this story, as AC7.* A10.6 wants an external CLI that reads the declared operations from the instance and needs no change when an operation is added. The list comes from the same declarations, so A10.6 doesn't have to change the shared base.
 
+## Deviations
+
+Small judgment calls made in Implementation, inside the ADR:
+
+- Input names may be camelCase (letters and digits, starting with a letter), while group and operation names are kebab-case. The catalog's inputs include `dryRun`, and the command takes an input by its own name (`--dryRun`).
+- `failed` is reserved along with the built-in refusal codes: it is the code of a 500, so no declaration may name it as a refusal.
+- A load problem's `file` is relative to the catalog (`graph/visible.js`), so the list never carries an absolute path.
+- The list route's `/docs` entry has its own tag, `Tapestry operations`, beside one tag per group.
+- The command prints load problems on stderr only when it lists operations, not on every run.
+- Moving `GET /api/tapestry-key/status`'s counting into `readTapestryKeyCounts()` re-indented the moved block to the file's two spaces. The whitespace inside its two Cypher strings changed with it, and the queries, the counts and the response did not.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet, and "Reads stay behind sign-in")

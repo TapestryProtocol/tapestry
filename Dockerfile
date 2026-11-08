@@ -99,6 +99,10 @@ COPY . /usr/local/lib/node_modules/brainstorm/
 # Make all shell scripts executable (Docker copies preserve owner perms, not execute bit)
 RUN find /usr/local/lib/node_modules/brainstorm -name "*.sh" -exec chmod +x {} +
 
+# The internal command, `tapestry <group> <operation>` (ADR graph-operations-foundation/0001 Decision 7)
+RUN ln -sf /usr/local/lib/node_modules/brainstorm/bin/tapestry.js /usr/local/bin/tapestry \
+    && chmod +x /usr/local/lib/node_modules/brainstorm/bin/tapestry.js
+
 # Only the Vite build runs on each deploy (~12s local, ~30-60s on 2 vCPUs)
 RUN cd /usr/local/lib/node_modules/brainstorm/ui && npm run build
 

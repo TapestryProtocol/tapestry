@@ -29,58 +29,68 @@ function uuidv4() {
 // ── Status ──
 
 /**
+ * Counts of the nodes with and without a tapestryKey, and of what the LMDB holds for each keyed node: derived (a
+ * Tapestry JSON with data), empty, or missing. The answer of GET /api/tapestry-key/status, and lifecycle status's
+ * cache part (ADR graph-operations-foundation/0001 Decision 11).
+ * @returns {Promise<{ initialized: number, uninitialized: number, total: number, lmdb: { derived: number, empty: number, missing: number } }>}
+ */
+async function readTapestryKeyCounts() {
+  const rows = await runCypher(`
+    MATCH (n)
+    WHERE n.uuid IS NOT NULL OR n.id IS NOT NULL
+    WITH n,
+         CASE WHEN n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}' THEN true ELSE false END AS initialized
+    RETURN initialized, count(n) AS count
+  `);
+
+  const result = { initialized: 0, uninitialized: 0, total: 0 };
+  for (const row of rows) {
+    if (row.initialized) {
+      result.initialized = Number(row.count);
+    } else {
+      result.uninitialized = Number(row.count);
+    }
+  }
+  result.total = result.initialized + result.uninitialized;
+
+  // For each initialized node, check its LMDB status
+  let lmdbDerived = 0, lmdbEmpty = 0, lmdbMissing = 0;
+  if (result.initialized > 0) {
+    const keyRows = await runCypher(`
+      MATCH (n)
+      WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
+      RETURN n.tapestryKey AS tk
+    `);
+    for (const row of keyRows) {
+      const entry = store.get(row.tk);
+      if (!entry) {
+        lmdbMissing++;
+      } else {
+        const data = entry.data;
+        if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+          lmdbEmpty++;
+        } else {
+          lmdbDerived++;
+        }
+      }
+    }
+  }
+  result.lmdb = {
+    derived: lmdbDerived,
+    empty: lmdbEmpty,
+    missing: lmdbMissing,
+  };
+
+  return result;
+}
+
+/**
  * GET /api/tapestry-key/status
  * Returns counts of nodes with/without tapestryKey.
  */
 async function handleStatus(req, res) {
   try {
-    const rows = await runCypher(`
-      MATCH (n)
-      WHERE n.uuid IS NOT NULL OR n.id IS NOT NULL
-      WITH n,
-           CASE WHEN n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}' THEN true ELSE false END AS initialized
-      RETURN initialized, count(n) AS count
-    `);
-
-    const result = { initialized: 0, uninitialized: 0, total: 0 };
-    for (const row of rows) {
-      if (row.initialized) {
-        result.initialized = Number(row.count);
-      } else {
-        result.uninitialized = Number(row.count);
-      }
-    }
-    result.total = result.initialized + result.uninitialized;
-
-    // For each initialized node, check its LMDB status
-    let lmdbDerived = 0, lmdbEmpty = 0, lmdbMissing = 0;
-    if (result.initialized > 0) {
-      const keyRows = await runCypher(`
-        MATCH (n)
-        WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
-        RETURN n.tapestryKey AS tk
-      `);
-      for (const row of keyRows) {
-        const entry = store.get(row.tk);
-        if (!entry) {
-          lmdbMissing++;
-        } else {
-          const data = entry.data;
-          if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
-            lmdbEmpty++;
-          } else {
-            lmdbDerived++;
-          }
-        }
-      }
-    }
-    result.lmdb = {
-      derived: lmdbDerived,
-      empty: lmdbEmpty,
-      missing: lmdbMissing,
-    };
-
-    res.json({ success: true, data: result });
+    res.json({ success: true, data: await readTapestryKeyCounts() });
   } catch (err) {
     console.error('[tapestry-key] status error:', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -473,6 +483,7 @@ function registerTapestryKeyRoutes(app) {
 
 module.exports = {
   registerTapestryKeyRoutes,
+  readTapestryKeyCounts,
   handleStatus, handleInitialize, handleGet, handlePut,
   handleOffload, handleOffloadAll, handleOffloadStatus, handleResolve,
 };
