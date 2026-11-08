@@ -330,12 +330,16 @@ The instance then kept the old assistant cached while the key file, the conf and
   - The free-space check is skipped when `load --info` prints no `Bytes:` line; 5.26.10 prints one (Context 1).
   - The control panel's CORS posture, which lets a same-site page read what a signed-in owner may, is added to OPEN.md row 326, where it already lives.
 
-**A4. Four of the round's points still open after A1–A3** (added 2026-11-08, before review round 2):
+**A4. What A1–A3 left open: four of the round's points, and one found while fixing them** (added 2026-11-08, before review round 2):
 - **A restore that fails after the restored key went in restarts the control panel too** (non-blocking 2). This extends A1.
   - When a step after `restoreIdentity` fails (the admins, or starting the writers) and the assistant changed, the error carries `restarting: ['brainstorm']` and says the control panel restarts.
   - `_jobs.js` gets `runJob(request, system)`, which runs the job and makes its record. The worker calls it, and it copies a failure's `restarting` into the failed record.
   - `afterJob` restarts on a failed record's `restarting` as on a done record's `result.restarting`, with the same wait.
   - Without this, the key file and the conf name the backup's assistant while the running control panel keeps the old one.
+- **A key put in place is taken back when the conf can't be rewritten** (found while fixing the point above). This amends Decision 6.
+  - `restoreIdentity` keeps the old key file's bytes and mode.
+  - If rewriting the conf's two lines fails after the new key went in, it puts the old file back, through a temporary file and a rename, and the error goes on.
+  - So the key file and the conf never name different assistants. The restore fails at "putting the assistant's key in place", and the instance's identity is still its own.
 - **Only the upload takes a backup-sized body** (non-blocking 6). This amends Decision 13.
   - The `location /api/tapestry/lifecycle/` block keeps the server's body limit (100m).
   - A `location = /api/tapestry/lifecycle/upload-backup` block has the same headers, buffering and timeouts, plus `client_max_body_size 9g;` and `proxy_request_buffering off;`.
