@@ -17,8 +17,9 @@
  *   - run the command in-process: cli.main(argv, io, opts), with opts { dir } for the fixture catalog;
  *   - (story graph-operations-foundation #2, ADR graph-operations-foundation/0002) install the lifecycle fakes:
  *     lifecycleFake: { stateFile } replaces the methods of src/operations/catalog/lifecycle/_system.js with
- *     test/helpers/lifecycleFakes.js's fakeSystem(stateFile), and _jobs.js's runDetached with one that runs
- *     runBackupJob / runRestoreJob in this process with that system (ADR Decision 8), resolving the same run record.
+ *     test/helpers/lifecycleFakes.js's fakeSystem(stateFile), and _jobs.js's runDetached with one that runs the job
+ *     in this process with that system (ADR Decision 8): through _jobs.js's runJob, as the worker does, once it has
+ *     one (ADR 0002 Amendment 1, A4). It writes the record into the run's file, as the worker does, and resolves it.
  *
  * A request may also carry rawBase64 (a binary body), contentType and extra headers; every answer records its headers
  * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
@@ -178,14 +179,28 @@ function installLifecycleFake(cfg) {
   for (const k of ['runBackupJob', 'runRestoreJob']) {
     if (typeof jobs[k] !== 'function') throw new Error(`_jobs.js must export ${k}(request, system) (ADR graph-operations-foundation/0002 Decision 8)`);
   }
+  // As _worker.js does: the job's record (from _jobs.js's runJob, once it has one, so the worker's way of making it is
+  // the one tested), written into the run's file over what the caller put there; then what runDetached resolves.
+  const store = need('src/operations/catalog/lifecycle/_store.js');
   jobs.runDetached = async (request) => {
-    const job = request && request.op === 'restore' ? jobs.runRestoreJob : jobs.runBackupJob;
-    try {
-      const result = await job(request, sys);
-      return { outcome: 'done', result, finishedAt: new Date().toISOString() };
-    } catch (e) {
-      return { outcome: 'failed', error: (e && e.message) || String(e), finishedAt: new Date().toISOString() };
+    let record;
+    if (typeof jobs.runJob === 'function') {
+      record = await jobs.runJob(request, sys);
+    } else {
+      const job = request && request.op === 'restore' ? jobs.runRestoreJob : jobs.runBackupJob;
+      try {
+        record = { ...request, outcome: 'done', result: await job(request, sys), finishedAt: new Date().toISOString() };
+      } catch (e) {
+        record = { ...request, outcome: 'failed', error: (e && e.message) || String(e), finishedAt: new Date().toISOString() };
+      }
     }
+    if (request && store.isId(request.runId)) {
+      const file = store.runFile(request.runId);
+      store.writeJson(file, { ...(store.readJson(file) || {}), ...record });
+    }
+    return record.outcome === 'done'
+      ? { outcome: 'done', result: record.result, finishedAt: record.finishedAt }
+      : { outcome: record.outcome, error: record.error, finishedAt: record.finishedAt };
   };
   lifecycleFakeInstalled = cfg.stateFile;
 }

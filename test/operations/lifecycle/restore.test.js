@@ -30,6 +30,8 @@
  *   R18  a step after the load that fails says the backup's graph is in place, and names the safety backup
  *   R19  a rollback that fails too gives the by-hand steps: stop, load the safety dump, start
  *   R20  restore's result schema names the report's fields
+ *   R21  a restore that fails after its key went in still has the control panel restarted: the error says so, and
+ *        the failed run carries restarting (ADR 0002 Amendment 1, A4)
  */
 
 const fs = require('fs');
@@ -417,6 +419,36 @@ test('R20: restore\'s result schema names the report\'s fields, and a real repor
   const Ajv = require('ajv');
   const validate = new Ajv({ allErrors: true, strict: false }).compile(op.result.schema);
   assert(validate(S.okData(run, 'x')), `a real report matches the schema: ${show(validate.errors)}`);
+});
+
+test('R21: a restore from another instance whose admins step fails after its key went in still has the control panel restarted: the error says so, and the failed run carries restarting (ADR 0002 Amendment 1, A4)', async () => {
+  const { inst, run, extra } = await S.setup('key-in-then-fails', {
+    mustExist: NEED,
+    before: async (i) => {
+      const from = await F.makeInstance(S.base(), { name: 'key-in-origin', owner: OWNER2, admins: [ADMIN2] });
+      const w = F.writeBackup(i.backupsDir, {
+        identityDir: from.keysDir, assistantPubkey: from.identity.pubkey, ownerPubkey: OWNER2, admins: [ADMIN2], graph: OLD,
+        received: { receivedAt: new Date().toISOString(), by: ADMIN },
+      });
+      // As in R18: a settings path under a regular file, so restoring the admins fails, after the key is in place.
+      const blocker = path.join(i.dir, 'not-a-folder');
+      fs.writeFileSync(blocker, 'a file');
+      return { w: w.id, from, settingsPath: path.join(blocker, 'settings.json') };
+    },
+    env: (i, e) => ({ TAPESTRY_SETTINGS_PATH: e.settingsPath }),
+    scenario: (i, e) => ({ requests: [post('key-in', 'owner', e.w)] }),
+  });
+  const r = F.pick(run, 'key-in');
+  const err = String(r.body && r.body.error);
+  const safety = F.backupIds(inst.backupsDir).filter((id) => id !== extra.w);
+  assert(r.status === 500 && r.body && r.body.code === 'failed', `answers 500 failed; got ${r.status} ${show(r.body)}`);
+  assert(F.confPubkey(inst.conf) === extra.from.identity.pubkey, 'the premise: the backup\'s key went in before the admins step failed (the conf names its assistant)');
+  assert(/in place/i.test(err) && safety.length === 1 && err.includes(safety[0]), `the error says the graph is in place and names the safety backup ${show(safety)}; got ${show(err)}`);
+  assert(/control panel/i.test(err) && /restart/i.test(err), `the error says the control panel restarts to take the restored assistant; got ${show(err)}`);
+  const runs = path.join(inst.backupsDir, '.runs');
+  const recs = fs.existsSync(runs) ? fs.readdirSync(runs).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(runs, f), 'utf8'))).filter((x) => x.op === 'restore') : [];
+  assert(recs.length === 1 && recs[0].outcome === 'failed' && show(recs[0].restarting) === show(['brainstorm']) && recs[0].answeredAt,
+    `the failed run's record carries restarting: ['brainstorm'], so the job restarts the control panel once the answer is out, and the answer marked it; got ${show(recs)}`);
 });
 
 test('R17: no answer, warning or log line carries either assistant\'s private key or either master key', async () => {

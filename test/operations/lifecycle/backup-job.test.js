@@ -13,9 +13,12 @@
  *   J5  … or once its caller is gone, or at its time limit; never after a backup (ADR 0002 Amendment 1)
  *   J6  a job that can't be started is failed, and its lock removed (review round 1)
  *   J7  recovering a stale lock removes only that lock (review round 1)
+ *   J8  a restore that failed after its key went in still restarts the control panel: its record carries restarting
+ *   J9  a lock appears whole: written to a file of its own and linked into place, never found empty
+ *   J10 the worker runs nothing when the lock is no longer its run's (J8–J10: ADR 0002 Amendment 1, A4)
  *   Y1  _system.js runs neo4j-admin as user neo4j through runuser, and supervisorctl, with the arguments the ADR names
  *   Y2  programStatus reads supervisorctl status, which exits 3 when some program isn't running
- *   K1  nginx: /api/tapestry/lifecycle/ keeps X-Forwarded-For, takes large bodies, streams, and waits 900 s
+ *   K1  nginx: /api/tapestry/lifecycle/ keeps X-Forwarded-For, streams and waits 900 s; only the upload takes 9g (A4)
  *   K2  supervisord: neo4j gets 120 s to stop, and the stop reaches its whole process group
  *   K3  the docs: OPERATIONS.md's backups section and ADR security-auth-exposure/0005's pointer to ADR 0002
  */
@@ -232,6 +235,90 @@ test('J7: recovering a stale lock removes only that lock — one another run too
   assert(run.outcome === 'interrupted', `the stale run is still recorded as interrupted; got ${show(run)}`);
 });
 
+test('J8: a restore that failed after its key went in still restarts the control panel once the answer is out — its record carries restarting (ADR 0002 Amendment 1, A4)', async () => {
+  const jobs = afterJobOf();
+  const j = jobDir('j8');
+  const runId = F.newId();
+  await inBackups(j.backups, async () => {
+    const request = { op: 'restore', runId, callerPid: process.pid };
+    fs.writeFileSync(path.join(j.backups, '.runs', `${runId}.json`), JSON.stringify(request));
+    const sys = restartRecorder();
+    let markedAt = null;
+    setTimeout(() => { markedAt = Date.now(); jobs.markAnswered(runId); }, 200);
+    await jobs.afterJob({ ...request, outcome: 'failed', error: 'restoring the admins failed', restarting: ['brainstorm'] }, sys, { pollMs: 25, timeoutMs: 5000 });
+    const restarts = sys.calls.filter((c) => c.action === 'restart' && c.programs.includes('brainstorm'));
+    assert(restarts.length === 1 && markedAt && restarts[0].at >= markedAt, `one restart, after the answer was marked (${markedAt}); got ${show(sys.calls)}`);
+    const file = JSON.parse(fs.readFileSync(path.join(j.backups, '.runs', `${runId}.json`), 'utf8'));
+    assert(file.answeredAt && file.restartedAt, `the run file records answeredAt and restartedAt; got ${show(file)}`);
+  });
+});
+
+test('J9: a lock appears whole — acquireLock writes it to a file of its own and links that into place, so a reader never finds it empty and judges it stale; a held lock still refuses the next (ADR 0002 Amendment 1, A4)', async () => {
+  need(STORE, 'ADR graph-operations-foundation/0002 Decision 7');
+  const store = require(STORE);
+  const j = jobDir('j9');
+  await inBackups(j.backups, async () => {
+    const lockFile = path.join(j.backups, '.lock');
+    const seen = [];
+    const real = { writeFileSync: fs.writeFileSync, openSync: fs.openSync, linkSync: fs.linkSync, readFileSync: fs.readFileSync };
+    const atLock = (p) => typeof p === 'string' && path.resolve(p) === lockFile;
+    const writing = (flags) => /[wa+]/.test(String(flags === undefined ? 'r' : flags));
+    fs.writeFileSync = function (p, ...rest) { if (atLock(p)) seen.push('written in place'); return real.writeFileSync.call(fs, p, ...rest); };
+    fs.openSync = function (p, flags, ...rest) { if (atLock(p) && writing(flags)) seen.push('opened in place to write'); return real.openSync.call(fs, p, flags, ...rest); };
+    fs.linkSync = function (src, dest) {
+      const out = real.linkSync.call(fs, src, dest);
+      if (atLock(dest)) {
+        let whole = false;
+        try { whole = store.isId(JSON.parse(real.readFileSync.call(fs, lockFile, 'utf8')).runId); } catch { whole = false; }
+        seen.push(whole ? 'linked whole' : 'linked empty');
+      }
+      return out;
+    };
+    let first;
+    let second;
+    try {
+      first = store.acquireLock({ op: 'backup' });
+      second = store.acquireLock({ op: 'restore' });
+    } finally { Object.assign(fs, real); }
+    assert(first && store.isId(first.runId) && second === null, `the first takes the lock, and the second is refused while it is held; got ${show({ first, second })}`);
+    assert(seen.length >= 1 && seen.every((s) => s === 'linked whole'), `the lock file only ever appears whole, by a link; got ${show(seen)}`);
+    const left = fs.readdirSync(j.backups).filter((n) => n !== '.lock' && n !== '.runs');
+    assert(left.length === 0, `no temporary file is left beside the lock; got ${show(left)}`);
+    const l = store.inspectLock();
+    assert(l && l.runId === first.runId && l.stale === false, `the lock is the first run's, and live; got ${show(l)}`);
+  });
+});
+
+const WORKER = path.join(ROOT, 'src/operations/catalog/lifecycle/_worker.js');
+test('J10: the worker runs nothing when the lock is no longer its run\'s — it records the run failed, saying so, and the other run\'s lock stays (ADR 0002 Amendment 1, A4)', () => {
+  need(WORKER, 'ADR graph-operations-foundation/0002 Decision 8');
+  const j = jobDir('j10');
+  const runId = F.newId();
+  const theirs = F.writeLock(j.backups, { op: 'restore', pid: process.pid, stage: 'online' });
+  fs.writeFileSync(path.join(j.backups, '.runs', `${runId}.json`), JSON.stringify({ op: 'backup', runId, callerPid: process.pid }));
+  const bin = stubBin(j.dir);
+  const log = path.join(j.dir, 'stub.log');
+  const keys = path.join(j.dir, 'secure-keys'); // empty: a job that ran anyway would fail on the key, not on the lock
+  fs.mkdirSync(keys);
+  // Dead endpoints, in a conf of its own: the config reader takes NEO4J_URI from the conf file only, never from the
+  // environment, and without a file it falls back to bolt://localhost:7687 — wherever a worker that ran anyway would go.
+  const conf = path.join(j.dir, 'brainstorm.conf');
+  fs.writeFileSync(conf, ['export NEO4J_URI="bolt://127.0.0.1:9"', 'export NEO4J_USER="neo4j"', 'export NEO4J_PASSWORD="none"',
+    'export REDIS_HOST="127.0.0.1"', 'export REDIS_PORT="9"', ''].join(NL));
+  const env = {
+    ...j.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, STUB_LOG: log, STUB_DIR: j.dir,
+    TAPESTRY_SECURE_KEYS_DIR: keys, BRAINSTORM_CONF_PATH: conf,
+  };
+  const r = spawnSync(process.execPath, [WORKER, runId], { cwd: ROOT, env, encoding: 'utf8', timeout: 30000 });
+  const rec = JSON.parse(fs.readFileSync(path.join(j.backups, '.runs', `${runId}.json`), 'utf8'));
+  assert(rec.outcome === 'failed' && /lock/i.test(String(rec.error)) && !rec.result,
+    `the run is failed, saying its lock isn't its own; got ${show(rec)} (stdout ${show(String(r.stdout).slice(-300))}, stderr ${show(String(r.stderr).slice(-300))})`);
+  const lock = JSON.parse(fs.readFileSync(path.join(j.backups, '.lock'), 'utf8'));
+  assert(lock.runId === theirs.runId && (lock.holders || []).length === 1, `the other run's lock is untouched; got ${show(lock)}`);
+  const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split(NL).filter(Boolean) : [];
+  assert(calls.length === 0, `nothing was stopped, paused, dumped or asked about; the stand-ins saw ${show(calls)}`);
+});
+
 // ── The real system, with stand-in commands on PATH ──────────────────────────────────────────────────────────────
 
 function stubBin(dir) {
@@ -327,10 +414,11 @@ test('Y2: programStatus reads `supervisorctl status`, which exits 3 when some pr
 
 // ── The Docker configuration and the docs ────────────────────────────────────────────────────────────────────────
 
-function nginxBlock() {
+/** The inside of the docker/nginx.conf `location … { … }` block that `re` finds, or null. */
+function nginxLocation(re) {
   const conf = fs.readFileSync(path.join(ROOT, 'docker/nginx.conf'), 'utf8');
-  const at = conf.search(/location\s+\/api\/tapestry\/lifecycle\/\s*\{/);
-  assert(at >= 0, 'docker/nginx.conf has a `location /api/tapestry/lifecycle/ { … }` block');
+  const at = conf.search(re);
+  if (at < 0) return null;
   let depth = 0;
   let i = conf.indexOf('{', at);
   const start = i;
@@ -340,24 +428,38 @@ function nginxBlock() {
   }
   return conf.slice(start + 1, i);
 }
+function nginxBlock() {
+  const b = nginxLocation(/location\s+\/api\/tapestry\/lifecycle\/\s*\{/);
+  assert(b !== null, 'docker/nginx.conf has a `location /api/tapestry/lifecycle/ { … }` block');
+  return b;
+}
 const bytes = (v) => { const m = String(v).match(/^(\d+)([kmg]?)$/i); if (!m) return NaN; return Number(m[1]) * ({ '': 1, k: 1024, m: 1024 ** 2, g: 1024 ** 3 })[m[2].toLowerCase()]; };
 const secs = (v) => { const m = String(v).match(/^(\d+)(s|m)?$/); if (!m) return NaN; return Number(m[1]) * (m[2] === 'm' ? 60 : 1); };
 
-test('K1: nginx sends /api/tapestry/lifecycle/ on with X-Forwarded-For (or it would be trusted as local), large bodies, no buffering, and 900 s', () => {
-  const b = nginxBlock();
-  const has = (re, what) => assert(re.test(b), `the lifecycle block must have ${what}; it is: ${show(b)}`);
-  has(/proxy_set_header\s+X-Forwarded-For\s+\$proxy_add_x_forwarded_for\s*;/, 'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for');
-  has(/proxy_set_header\s+Host\s+\$host\s*;/, 'proxy_set_header Host $host');
-  has(/proxy_pass\s+http:\/\/127\.0\.0\.1:7778\s*;/, 'proxy_pass http://127.0.0.1:7778 (no URI, so the path passes as it is)');
-  has(/proxy_http_version\s+1\.1\s*;/, 'proxy_http_version 1.1');
-  has(/proxy_request_buffering\s+off\s*;/, 'proxy_request_buffering off');
-  has(/proxy_buffering\s+off\s*;/, 'proxy_buffering off');
-  const max = (b.match(/client_max_body_size\s+(\S+?)\s*;/) || [])[1];
-  assert(max === '0' || bytes(max) >= 9 * 1024 ** 3, `client_max_body_size of at least 9g; got ${show(max)}`);
-  for (const k of ['proxy_read_timeout', 'proxy_send_timeout']) {
-    const v = (b.match(new RegExp(`${k}\\s+(\\S+?)\\s*;`)) || [])[1];
-    assert(secs(v) >= 900, `${k} of at least 900s; got ${show(v)}`);
-  }
+test('K1: nginx sends /api/tapestry/lifecycle/ on with X-Forwarded-For (or it would be trusted as local), no buffering and 900 s — and only the upload takes a backup-sized body (ADR 0002 Amendment 1, A4)', () => {
+  const common = (b, where) => {
+    const has = (re, what) => assert(re.test(b), `${where} must have ${what}; it is: ${show(b)}`);
+    has(/proxy_set_header\s+X-Forwarded-For\s+\$proxy_add_x_forwarded_for\s*;/, 'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for');
+    has(/proxy_set_header\s+Host\s+\$host\s*;/, 'proxy_set_header Host $host');
+    has(/proxy_pass\s+http:\/\/127\.0\.0\.1:7778\s*;/, 'proxy_pass http://127.0.0.1:7778 (no URI, so the path passes as it is)');
+    has(/proxy_http_version\s+1\.1\s*;/, 'proxy_http_version 1.1');
+    has(/proxy_buffering\s+off\s*;/, 'proxy_buffering off');
+    for (const k of ['proxy_read_timeout', 'proxy_send_timeout']) {
+      const v = (b.match(new RegExp(`${k}\\s+(\\S+?)\\s*;`)) || [])[1];
+      assert(secs(v) >= 900, `${where}: ${k} of at least 900s; got ${show(v)}`);
+    }
+  };
+  const prefix = nginxBlock();
+  common(prefix, 'the lifecycle block');
+  const prefixMax = (prefix.match(/client_max_body_size\s+(\S+?)\s*;/) || [])[1];
+  assert(prefixMax === undefined || (prefixMax !== '0' && bytes(prefixMax) <= 100 * 1024 ** 2),
+    `the lifecycle block keeps the server's body limit (100m at most), so a visitor can't send 9 GB to every lifecycle route; got ${show(prefixMax)}`);
+  const upload = nginxLocation(/location\s+=\s*\/api\/tapestry\/lifecycle\/upload-backup\s*\{/);
+  assert(upload !== null, 'docker/nginx.conf has a `location = /api/tapestry/lifecycle/upload-backup { … }` block');
+  common(upload, 'the upload block');
+  assert(/proxy_request_buffering\s+off\s*;/.test(upload), `the upload block streams the body to the app (proxy_request_buffering off); it is: ${show(upload)}`);
+  const max = (upload.match(/client_max_body_size\s+(\S+?)\s*;/) || [])[1];
+  assert(max !== '0' && bytes(max) >= 9 * 1024 ** 3, `the upload block takes a body of at least 9g, and not an unlimited one; got ${show(max)}`);
 });
 
 test('K2: supervisord gives neo4j 120 s to stop, and stops its whole process group', () => {

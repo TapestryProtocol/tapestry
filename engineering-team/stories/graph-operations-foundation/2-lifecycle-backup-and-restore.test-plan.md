@@ -132,3 +132,20 @@ Added by the Tester after review round 1, failing first (commit `2c6de20c6`):
 | An interrupted restore's safety backup | P1b extended | `status.test.js` |
 
 Red before green: 11 failed and 119 passed on `2c6de20c6`; after the fix, 130 passed.
+
+### Before review round 2: four points still open (ADR 0002 Amendment 1, A4)
+
+Added by the Tester, failing first, in their own commit:
+
+| Finding (round 1) | Tests | File |
+|---|---|---|
+| Non-blocking 2: a restore that fails after its key went in restarts nothing | J8: `afterJob` restarts on a failed record's `restarting`, once the answer is out · R21: the error says the control panel restarts, and the failed run's record carries `restarting` | `backup-job.test.js`, `restore.test.js` |
+| Non-blocking 6: every lifecycle route takes a 9g body | K1 rewritten: the prefix keeps the server's limit (100m at most); `location = /api/tapestry/lifecycle/upload-backup` takes at least 9g and streams it | `backup-job.test.js` |
+| Non-blocking 8: a lock read half written is judged stale | J9: the lock file only ever appears whole, by a link; a held lock still refuses the next; no temporary file is left | `backup-job.test.js` |
+| Non-blocking 8: the worker runs when the lock isn't its run's | J10: the real worker, with stand-in commands and dead endpoints in a conf of its own, records the run failed and touches nothing | `backup-job.test.js` |
+
+The harness's in-process job now goes through `_jobs.js`'s `runJob` once it exists, as the worker does, and writes the record into the run's file. R21 reads that record.
+
+J10 writes its own conf because the config reader takes `NEO4J_URI` from the conf file only and never from the environment. Without a file it falls back to `bolt://localhost:7687`, and on the Mac Studio that is a private instance.
+
+Red before green: 5 failed and 129 passed.
