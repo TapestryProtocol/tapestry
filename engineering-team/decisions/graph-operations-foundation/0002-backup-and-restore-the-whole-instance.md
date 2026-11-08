@@ -289,3 +289,43 @@ ADR 0005 gets a line under its header pointing here.
 - Changing the owner. Restore reports a different one.
 - Online backup, and restoring part of a graph.
 - Making the droplets' host nginx part of the repo. Its two settings are an operator's step, written in OPERATIONS.md.
+
+## Amendment 1: fixes from review round 1 (2026-11-08)
+
+Review round 1 (`engineering-team/reviews/graph-operations-foundation/2-lifecycle-backup-and-restore.md`) found one blocking gap in Decision 6. The control panel was restarted after an assistant-changing restore only if the restore's caller was still there:
+- over HTTP, `afterAnswer` work was registered after the job finished, so a client that had already gone never set it off;
+- an interrupted command never reached it.
+
+The instance then kept the old assistant cached while the key file, the conf and the admins were the backup's. The owner approved the fix below with the round's smaller fixes ("Fix it, with the extras", 2026-11-08).
+
+**A1. The job restarts the control panel, once the answer is out or its caller is gone.** This replaces Decision 6's last point.
+- **The request names its caller.** `runDetached` writes `callerPid: process.pid` into the request.
+- **The worker waits, then restarts.** After a job whose result asks for a restart (`restarting` includes `brainstorm`), `_worker.js` calls `afterJob(record, system)`. It waits, polling the run file every 500 ms for at most 120 s, until one of these holds:
+  - the caller has marked the run answered (`answeredAt`);
+  - the caller's pid is gone;
+  - the 120 s are up.
+
+  Then it calls `system.supervisor('restart', ['brainstorm'])` once and records `restartedAt`.
+- **The restore declaration** registers `context.afterAnswer(() => markAnswered(runId))` instead of the restart itself.
+- **One rule covers both callers.**
+  - Over HTTP the caller is the control panel. It marks the run once the response is out, so the restart can't cut the answer short.
+  - From the command the caller is the command's own process. It marks the run before it exits, or, if Ctrl-C ends it first, the worker sees its pid gone.
+
+**A2. After-answer work runs at once when the response has already finished or closed** (amends Decision 10). A client that gave up before the answer no longer suppresses the work.
+
+**A3. Smaller fixes**, each from the round's non-blocking findings:
+- **If the job can't be started, its lock is released.** `runDetached` removes the request's lock and resolves `{ outcome: 'failed', error }` when the run file or the spawn fails before the job starts.
+- **Recovery removes only the lock it found stale.** After its own steps it releases by `runId`, never by path, so a fresh lock taken meanwhile stays.
+- **What to undo is recorded before the call that needs undoing.** The jobs note the writers as paused, and the server as stopped, before calling `supervisorctl stop`, so a stop that fails halfway is still undone.
+- **The restore's errors say where things stand.**
+  - When a step after the load fails, the error says the backup's graph is in place and names the safety backup.
+  - When the rollback itself fails, the by-hand command says to stop the server first and start it after.
+- **The dump's and the load's last output line goes to the run's log,** as Decision 4 step 5 intended.
+- **Restore's result schema** names the report's fields.
+- **The rest:**
+  - an aborted download stops reading its file;
+  - the restored npub is always derived from the key;
+  - an interrupted restore's status names its safety backup.
+- **Recorded, not changed.**
+  - The free-space check is skipped when `load --info` prints no `Bytes:` line; 5.26.10 prints one (Context 1).
+  - The control panel's CORS posture, which lets a same-site page read what a signed-in owner may, is added to OPEN.md row 326, where it already lives.
