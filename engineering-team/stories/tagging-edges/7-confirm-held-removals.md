@@ -701,6 +701,49 @@ made only of fixture relationships, and nothing touched a relay.
     - `cleanup` does not remove them.
     - Ledger row `2026-11-08-held-fixture-leaves-safety-copies`.
 
+### Production (2026-11-08, times UTC)
+
+Read-only, as ADR 0007 § Evidence asks.
+
+- **The promotion carried story 7 alone.** Staging then held 123 commits that main lacked, mostly other work. The owner
+  chose to ship only this story, and to merge on GitHub.
+  - **The branch:** `promote/tagging-edges-7`, cut from main `ff8e6719`. It holds the story's 24 commits
+    (`7acc2df6..16183606`), copied with `cherry-pick -x`.
+  - **Conflicts:** only the `**Last updated:**` lines of BIBLE.md and OPERATIONS.md, where the story's side was taken.
+  - **The tree changes the same files** as the story's diff on staging.
+- **Checked before the PR,** on that tree, with Node 22:
+  - the story's 12 suites, with the counts of fix round 2: confirm 32, confirmation-lib 18, held-fixture 9, overdue
+    30, pass-control 75, runner 91, state-routes 64, wiring 87, fetch 37, panel-source 44, view 137, job-gate 28;
+  - main's openapi-coverage suite, 12;
+  - the browser spec on a UI built from that tree, 159 of 159.
+- **Merged.**
+  - **The PR:** nousclawds4/tapestry#40. Its required checks passed: Test in 5 min 50 s, and the main-source guard.
+  - **The safe-to-merge check:** it waited 4 minutes for production's hourly search refresh, and read safe at
+    20:06:30Z.
+  - **The merge:** 20:06:38Z, as `61b5bff1`.
+  - **The deploy:** run 42518417142, 3 min 5 s. Its log reads `Updating ff8e6719..61b5bff1`, and the container was
+    recreated.
+- **Before the merge:** the latest pass was `20261108T142438Z-738ff780`, `done`, holding nothing. The status had no
+  `overdue` member, and the real-time path was `live`. The pass's daily entry, `reconcileTaggingEdges`, is enabled.
+- **The smoke test (`docs/SMOKE_TEST.md`):**
+  - **Tier 1:** stable after 3 polls of 2 s, and Neo4j ready after 4.
+  - **Tier 2:** every page and route answered 200, apart from `get-user-data`'s known 504 for the test pubkey.
+    Search returned hits.
+  - **Tier 3, the bundle:** it changed (`index-BUwKYM1L.js` → `index-D8WkVzeK.js`), and it carries "Confirm held
+    removals", the `rule` reason's sentence from fix round 2, and the overdue line's still-checking sentence. It does
+    not carry the rule clause fix round 2 replaced.
+  - **Tier 3, the status:**
+    - `overdue` reads `on-time`, counting 24 h from the latest pass's start (14:24:38.980Z);
+    - `confirmationPending` is null, and the queue is `ok`;
+    - signed out, the status, the held list, the path status, the Task Explorer's two data routes and the schedule
+      list each answered 200 with no `who`, `mintedBy` or nonce.
+  - **Tier 5:** the path status and the schedule list answer 200. Signed out, the pass record and the drift counts
+    answer 401.
+  - **The path after the restart** read `live` and running.
+- **Not seen on production.** The panel itself was not viewed, since this session has no owner sign-in there:
+  Settings showed its owner-only gate, with no console errors. The bundle's strings are the check that its new text
+  is served.
+
 ## Deviations
 
 Logged at Implementation (2026-11-07). Each is a reading of ADR 0007 where its letter left a detail open, or a small

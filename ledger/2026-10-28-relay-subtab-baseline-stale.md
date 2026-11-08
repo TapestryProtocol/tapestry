@@ -3,8 +3,8 @@
 **Id:** 2026-10-28-relay-subtab-baseline-stale
 **Type:** bug
 **Opened:** 2026-10-28 (tagging-edges #6 Test Design; seen by its runner)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-08 — tagging-edges story 7, all three parts of the fix, on production since 2026-11-08 (nousclawds4/tapestry#40). (a) `tests/brainstorm/fixtures/relay-subtab-requests.json` gained the Negentropy Sync GET by hand. Re-recording was not possible, because the recorder refuses any build that contains the panel. (b) B39's per-sub-tab checks are `expect.soft`, so one stale sub-tab no longer hides the others. (c) The spec's header ("A story that changes a Relays sub-tab runs B39") and a comment above `RELAY_TABS` in `ui/src/pages/settings/RelaySettings.jsx` say a story that changes a Relays sub-tab runs B39. B39 is green with every sub-tab matching (story 7's test plan, § Verification).
 
 **What was seen.**
 - **What B39 checks.** `tests/brainstorm/tagging-pipeline-panel.spec.js` B39 (story 4 AC-6, T10) checks that each existing
