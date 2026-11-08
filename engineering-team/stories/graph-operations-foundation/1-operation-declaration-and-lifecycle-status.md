@@ -72,6 +72,6 @@ Both were resolved at the planning gate on 2026-11-08, where the owner chose the
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet, and "Reads stay behind sign-in")
 - Epic: [engineering-team/epics/graph-operations-foundation.md](../../epics/graph-operations-foundation.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D1, D13, §2); catalog Conventions and §8
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-foundation/0001-declare-each-operation-once.md](../../decisions/graph-operations-foundation/0001-declare-each-operation-once.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
