@@ -27,6 +27,7 @@ import './reading.css';
 const VIEWS = [
   { key: 'table', label: 'Table', board: 'Table', about: 'one group as rows, columns or time' },
   { key: 'outline', label: 'Outline', board: 'Outline', about: 'the scope as an outline; one thing read in full, its context as sentences' },
+  { key: 'plan', label: 'Plan', board: 'Plan', about: 'a plan in order: each item’s state, what blocks what, and what it hangs on' },
   { key: 'drift', label: 'Drift', board: 'Drift', about: 'go from thing to thing; it suggests what connects to what you have looked at' },
   { key: 'dictionary', label: 'Dictionary', board: 'Community', about: 'this instance among other people’s concepts: ours, copies, taken in, on the community relay; and the people', scoped: false },
 ];

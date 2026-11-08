@@ -533,6 +533,65 @@ export async function group({ id, offset = 0, limit = 150 }, ta) {
   return doc;
 }
 
+/** A plan: a Set of stories or steps, as the harness's `brain plan` reads it. Without an id: the plans
+ *  in a scope (Sets whose members carry a rank or branch field). With one: a document of its items, what
+ *  they are blocked by or assigned to, what sets them aside or answers them, and plan.items in rank order
+ *  with each one's state. brain plan reads a story's branch in the project's git repository; this runs
+ *  against an instance, where git can't be seen (plan.git is false), so the rest comes from the graph:
+ *  set aside while a current decision SETS_ASIDE it; done when its `merged` field holds the merge commit
+ *  (brain records it when it sees the merge) or an ANSWERS link reaches it; a story on a branch with no
+ *  merge recorded reads as unknown; blocked while anything it is BLOCKED_BY is not done, else ready. */
+export async function plan({ id, scope: scopeKey }, ta) {
+  if (!id) {
+    const h = scopeKey && scopeKey.startsWith('project:') ? scopeKey.slice('project:'.length) : null;
+    const rows = await R("MATCH (s:NostrEvent)-[:HAS_ELEMENT]->(e:NostrEvent)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
+      + "WHERE 'Set' IN labels(s) AND NOT 'Superset' IN labels(s) "
+      + "AND (j.value CONTAINS '\"rank\"' OR j.value CONTAINS '\"branch\"') AND ($h IS NULL OR j.value CONTAINS $h) "
+      + 'RETURN s.uuid AS u, s.name AS n, count(DISTINCT e) AS c ORDER BY c DESC, n', { h });
+    return { link_types: [], nodes: [], links: [], plans: rows.map((r) => ({ id: r.u, name: r.n, count: Number(r.c) })) };
+  }
+  const ms = await members(id);
+  const states = async (hs) => {
+    const out = {};
+    for (const r of await batched("UNWIND $u AS u MATCH (n:NostrEvent {uuid:u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
+      + 'RETURN u, n.name AS n, head(collect(j.value)) AS j, exists { MATCH ()-[:ANSWERS]->(n) } AS answered, '
+      + '[(d)-[:SETS_ASIDE]->(n) WHERE NOT exists { MATCH ()-[:SUPERCEDES]->(d) } | d.name] AS aside, '
+      + '[(n)-[:BLOCKED_BY]->(b) | b.uuid] AS blockers, [(n)-[:ASSIGNED_TO]->(p) | p.name] AS who', hs)) {
+      let d = {}; try { d = JSON.parse(r.j || '{}') || {}; } catch { d = {}; }
+      const branch = String(d.branch || ''), rank = Number.isFinite(parseFloat(d.rank)) ? parseFloat(d.rank) : null;
+      let state = 'open', why = '';
+      if ((r.aside || []).length) { state = 'set aside'; why = 'by ' + r.aside.join('; '); }
+      else if (d.merged) { state = 'done'; why = (branch || 'its branch') + ' merged at ' + String(d.merged).slice(0, 12) + ' (recorded)'; }
+      else if (r.answered) { state = 'done'; why = 'answered'; }
+      else if (branch) { state = 'unknown'; why = 'on ' + branch + '; git can’t be seen from here'; }
+      out[r.u] = { n: r.n, state, why, rank, branch, who: (r.who || []).slice().sort(), blockers: r.blockers || [], scope: d.scope || [] };
+    }
+    return out;
+  };
+  const ws = await states(ms);
+  const outIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent {uuid:u})-[:BLOCKED_BY|ASSIGNED_TO]->(m:NostrEvent) RETURN DISTINCT m.uuid AS m', ms)).map((r) => r.m);
+  const inIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent {uuid:u})<-[:SETS_ASIDE|ANSWERS]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m', [...ms, ...outIds])).map((r) => r.m);
+  const extra = [...new Set([...outIds, ...inIds])].filter((u) => !(u in ws)).sort();
+  const wx = await states(extra);
+  const all = { ...wx, ...ws };
+  const label = (v) => {
+    const blocked = v.blockers.some((b) => !all[b] || all[b].state !== 'done');
+    if (v.state === 'open') return blocked ? 'blocked' : 'ready';
+    return v.state === 'unknown' && blocked ? 'blocked' : v.state;
+  };
+  // the project: the handle its items' json scope names most often
+  const pj = await projects(), votes = {};
+  Object.values(ws).forEach((v) => (Array.isArray(v.scope) ? v.scope : []).forEach((x) => { if (pj[x]) votes[x] = (votes[x] || 0) + 1; }));
+  const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0];
+  const items = Object.entries(ws).map(([u, v]) => ({ id: u, rank: v.rank, state: v.state, label: label(v), why: v.why, who: v.who, branch: v.branch }))
+    .sort((a, b) => (a.rank === null) - (b.rank === null) || (a.rank || 0) - (b.rank || 0) || String(ws[a.id].n).localeCompare(String(ws[b.id].n)));
+  const name = ((await R('MATCH (s:NostrEvent {uuid:$u}) RETURN s.name AS n', { u: id }))[0] || {}).n;
+  const doc = await build(Object.fromEntries([id, ...ms, ...extra].map((u) => [u, null])), ta);
+  doc.plan = { id, name, project: best ? pj[best[0]] : null, git: false, items,
+    states: Object.fromEntries(Object.entries(wx).map(([u, v]) => [u, label(v)])) };
+  return doc;
+}
+
 export async function search({ q, limit = 14 }, ta) {
   const ws = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!ws.length) return { link_types: [], nodes: [], links: [], results: [] };
@@ -811,4 +870,4 @@ export async function community(_, ta, config = {}) {
   };
 }
 
-export const VERBS = { scopes, scope, node, group, search, path, community };
+export const VERBS = { scopes, scope, node, group, search, path, community, plan };

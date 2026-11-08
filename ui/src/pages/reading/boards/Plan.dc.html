@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plan: a plan's items in order, what blocks what, and what they hang on</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="{{rootStyle}}">
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 12px 16px 4px 16px">
+    <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">Plans here</span>
+    <sc-for list="{{plans}}" as="p" hint-placeholder-count="2">
+      <button onClick="{{p.pick}}" title="{{p.tip}}" style="{{p.style}}">{{p.label}}</button>
+    </sc-for>
+  </div>
+  <div style="padding: 0 16px; font-size: 20px; font-weight: 600; line-height: 1.3">{{title}}</div>
+  <div style="padding: 2px 16px 0 16px; font-size: 12px; line-height: 1.5; color: #5B5A55">{{summary}}</div>
+  <sc-if value="{{hasNote}}" hint-placeholder-val="{{false}}"><div style="margin: 6px 16px 0 16px; padding: 6px 10px; font-size: 12px; line-height: 1.5; color: #6B4A12; background: #FBF3E2; border-radius: 6px">{{note}}</div></sc-if>
+  <div style="display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 16px 0 16px; font-size: 11px; line-height: 16px; color: #5B5A55">
+    <sc-for list="{{legend}}" as="k" hint-placeholder-count="6">
+      <span style="display: inline-flex; align-items: center; gap: 5px"><span style="{{k.style}}"></span>{{k.t}}</span>
+    </sc-for>
+  </div>
+  <div style="{{plotStyle}}">
+    <sc-if value="{{hasHint}}" hint-placeholder-val="{{false}}"><p style="position: absolute; left: 16px; right: 16px; top: 60px; margin: 0; text-align: center; font-size: 13px; line-height: 1.5; color: #5B5A55">{{hint}}</p></sc-if>
+    <sc-for list="{{captions}}" as="k" hint-placeholder-count="0">
+      <span style="{{k.style}}">{{k.t}}</span>
+    </sc-for>
+    <sc-for list="{{edges}}" as="e" hint-placeholder-count="0">
+      <div style="{{e.style}}"></div>
+    </sc-for>
+    <sc-for list="{{marks}}" as="m" hint-placeholder-count="0">
+      <span style="{{m.style}}">{{m.t}}</span>
+    </sc-for>
+    <sc-for list="{{cards}}" as="c" hint-placeholder-count="0">
+      <button onClick="{{c.pick}}" onMouseEnter="{{c.enter}}" onMouseLeave="{{c.leave}}" data-peek="{{c.id}}" title="{{c.tip}}" style="{{c.style}}">
+        <span style="display: flex; align-items: center; gap: 6px; min-width: 0">
+          <span style="font-size: 11px; color: #8A867C; min-width: 22px">{{c.rank}}</span>
+          <span style="{{c.badgeStyle}}">{{c.label}}</span>
+          <span style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.name}}</span>
+        </span>
+        <span style="display: block; margin-top: 3px; font-size: 11px; line-height: 1.3; color: #5B5A55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.sub}}</span>
+      </button>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  // Live only: it runs under the reading views (window.Brain is the data). The scope comes from the menu
+  // bar (Brain.state.scope); the plan open is Brain.state.item when that is one of the scope's plans.
+  // Data: /api/read/plan?scope=<key> lists the plans; /api/read/plan?id=<Set> is one, with plan.items in
+  // rank order and each item's state by brain plan's rule (from git where it can be seen).
+  constructor(props) { super(props); this.state = { scope: null, plans: null, id: null, doc: null, hov: null, err: null }; }
+
+  componentDidMount() {
+    this._offs = [Brain.on('scope', (k) => this.useScope(k)), Brain.on('item', (id) => this.useItem(id)), Brain.on('go', (id) => this.useItem(id))];
+    if (Brain.state.scope) this.useScope(Brain.state.scope);
+  }
+  componentWillUnmount() { (this._offs || []).forEach((f) => f()); }
+
+  useScope(k) {
+    if (!k || k === this.state.scope) return;
+    this.setState({ scope: k, plans: null, doc: null, err: null });
+    Brain.api('plan', { scope: k }).then((d) => {
+      if (this.state.scope !== k) return;
+      const plans = d.plans || [], want = plans.find((p) => p.id === Brain.state.item) ? Brain.state.item : (plans[0] || {}).id;
+      this.setState({ plans });
+      if (want) this.open(want);
+    }).catch((e) => this.setState({ err: String(e.message || e) }));
+  }
+  useItem(id) { if (id && id !== this.state.id && (this.state.plans || []).some((p) => p.id === id)) this.open(id); }
+  open(id) {
+    this.setState({ id, doc: null, hov: null });
+    if (Brain.state.item !== id) Brain.set('item', id);
+    Brain.api('plan', { id }).then((d) => { if (this.state.id === id) this.setState({ doc: d }); }).catch((e) => this.setState({ err: String(e.message || e) }));
+  }
+  // a card opens its thing in the Outline, in this scope
+  read(id) { location.hash = '#/outline/' + encodeURIComponent(Brain.state.scope || '') + '/' + encodeURIComponent(id); }
+
+  get COLOURS() {
+    return { done: ['#E7F0E7', '#3F6B3F'], 'being built': ['#E1F0F7', '#1E6E91'], ready: ['#DDF0E3', '#24683F'], blocked: ['#F7E3DE', '#9E3A26'],
+      'set aside': ['#ECEBE7', '#6B6862'], unknown: ['#FBF0D9', '#8A5A12'], open: ['#ECEBE7', '#3A3935'] };
+  }
+  get LINKS() {   // type: [colour, line, what the legend says]
+    return { BLOCKED_BY: ['#B4442E', 'solid', 'blocked by (the arrow points at the blocker)'], SETS_ASIDE: ['#8A867C', 'dashed', 'set aside by a decision'],
+      ANSWERS: ['#1E4FBF', 'solid', 'answered by'], SUPERCEDES: ['#5B5A55', 'dotted', 'replaced by'] };
+  }
+  short(s, k) { s = String(s || ''); return s.length > k ? s.slice(0, k - 1) + '…' : s; }
+
+  renderVals() {
+    const s = this.state, W = Math.max(760, (window.innerWidth || 1200) - 4), d = s.doc;
+    const chip = (on) => 'font-size: 12px; padding: 3px 10px; min-height: 26px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (on ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#DCDAD3; background: #FFFFFF; color: #3A3935');
+    const C = this.COLOURS, LK = this.LINKS;
+    const legend = ['done', 'being built', 'ready', 'blocked', 'set aside', 'unknown'].map((t) => ({ t, style: 'display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: ' + C[t][0] + '; border: 1.5px solid ' + C[t][1] }))
+      .concat(Object.values(LK).map(([c, line, t]) => ({ t, style: 'display: inline-block; width: 18px; height: 0; border-top: 2px ' + line + ' ' + c })));
+    const base = { rootStyle: 'width: 100%; box-sizing: border-box; background: #FFFFFF; font-family: Inter, system-ui, sans-serif; color: #1C1C1A',
+      plotStyle: 'position: relative; width: ' + W + 'px; height: 200px; overflow: hidden', title: '', summary: '', hasNote: false, note: '', legend,
+      plans: (s.plans || []).map((p) => ({ label: this.short(p.name, 48) + '  ' + p.count, tip: p.name, pick: () => this.open(p.id), style: chip(p.id === s.id) })),
+      captions: [], edges: [], marks: [], cards: [], hasHint: false, hint: '' };
+    if (s.err) return Object.assign(base, { hasHint: true, hint: 'Could not read the plan: ' + s.err });
+    if (s.plans && !s.plans.length) return Object.assign(base, { hasHint: true, hint: 'No plans in this scope. A plan is a Set of stories or steps with a rank field (brain plan <Set> reads one).' });
+    if (!d) return Object.assign(base, { hasHint: true, hint: 'Loading…' });
+
+    const P = d.plan, N = {}; d.nodes.forEach((n) => { N[n.id] = n; });
+    const items = P.items.filter((i) => N[i.id]), idx = {}; items.forEach((i, k) => { idx[i.id] = k; });
+    const counts = {}; items.forEach((i) => { counts[i.label] = (counts[i.label] || 0) + 1; });
+    base.title = P.name || 'Plan';
+    base.summary = items.length + ' items: ' + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => n + ' ' + k).join(', ')
+      + (P.project ? ' · project ' + P.project : '') + ' · in rank order, top to bottom; click one to read it in the Outline';
+    if (!P.git) { base.hasNote = true; base.note = 'Git can’t be seen from here (a hosted instance, or no repository registered for ' + (P.project || 'this project') + '), so a story on a branch reads as unknown. Blocked, set aside and answered come from the graph and are current.'; }
+
+    // geometry: arcs on the left, the items in a column, what they hang on in one or two columns on the right
+    const top = 16, ch = 50, gap = 10, row = ch + gap;
+    const spans = [];
+    d.links.forEach((l) => { if (l.type === 'BLOCKED_BY' && idx[l.from] !== undefined && idx[l.to] !== undefined) spans.push(l); });
+    const arcW = spans.length ? Math.min(150, 26 + 8 * Math.max(...spans.map((l) => Math.abs(idx[l.from] - idx[l.to])))) : 24;
+    const cx = 16 + arcW, cw = Math.min(560, Math.round(W * 0.42));
+    const ow = Math.min(320, Math.round((W - cx - cw - 120) / 2)), ox1 = cx + cw + 70, ox2 = ox1 + ow + 50;
+    const yOf = (k) => top + k * row;
+
+    // outside things: level 1 touches an item; level 2 touches only level 1 (a decision answering a blocking question)
+    const lvl = {}, near = {};
+    d.links.forEach((l) => {
+      [[l.from, l.to], [l.to, l.from]].forEach(([a, b]) => { if (idx[a] === undefined && idx[b] !== undefined && N[a] && l.type !== 'ASSIGNED_TO') { lvl[a] = 1; (near[a] = near[a] || []).push(idx[b]); } });
+    });
+    d.links.forEach((l) => {
+      [[l.from, l.to], [l.to, l.from]].forEach(([a, b]) => { if (idx[a] === undefined && !lvl[a] && lvl[b] === 1 && N[a] && l.type !== 'ASSIGNED_TO') { lvl[a] = 2; (near[a] = near[a] || []).push(b); } });
+    });
+    const at = {};
+    items.forEach((i, k) => { at[i.id] = { x: cx, y: yOf(k), w: cw, h: ch, item: true }; });
+    const stack = (level, x) => {
+      const list = Object.keys(lvl).filter((u) => lvl[u] === level).map((u) => {
+        const ys = near[u].map((v) => (typeof v === 'number' ? yOf(v) : (at[v] || { y: 0 }).y));
+        return { u, want: ys.reduce((a, b) => a + b, 0) / ys.length };
+      }).sort((a, b) => a.want - b.want);
+      let floor = top; list.forEach((o) => { const y = Math.max(o.want, floor); at[o.u] = { x, y, w: ow, h: ch, item: false }; floor = y + row; });
+    };
+    stack(1, ox1); stack(2, ox2);
+    const H = Math.max(...Object.values(at).map((p) => p.y + p.h), top + 40) + 24;
+    base.plotStyle = 'position: relative; width: ' + W + 'px; height: ' + H + 'px; overflow: hidden';
+    if (Object.keys(lvl).length) base.captions.push({ t: 'what they hang on, outside the plan', style: 'position: absolute; left: ' + ox1 + 'px; top: 0; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #8A867C' });
+
+    // hovering a card keeps it and its own links bright
+    const lit = {}; if (s.hov) { lit[s.hov] = true; d.links.forEach((l) => { if (l.from === s.hov) lit[l.to] = true; if (l.to === s.hov) lit[l.from] = true; }); }
+    const fade = (a, b) => (s.hov ? (a === s.hov || b === s.hov ? 1 : 0.12) : 0.85);
+
+    // blocked-by between two items: an arc on the left, from the blocked one to its blocker, with a mark at the blocker
+    spans.forEach((l) => {
+      const a = idx[l.from], b = idx[l.to], y1 = yOf(Math.min(a, b)) + ch / 2, y2 = yOf(Math.max(a, b)) + ch / 2;
+      const w = Math.min(arcW - 8, 14 + 8 * Math.abs(a - b)), o = fade(l.from, l.to);
+      base.edges.push({ style: 'position: absolute; left: ' + (cx - w) + 'px; top: ' + y1 + 'px; width: ' + w + 'px; height: ' + (y2 - y1) + 'px; box-sizing: border-box; border: 2px solid ' + LK.BLOCKED_BY[0] + '; border-right: none; border-radius: 100% 0 0 100% / 50% 0 0 50%; opacity: ' + o });
+      base.marks.push({ t: '▸', style: 'position: absolute; left: ' + (cx - 9) + 'px; top: ' + (yOf(b) + ch / 2 - 9) + 'px; font-size: 13px; line-height: 18px; color: ' + LK.BLOCKED_BY[0] + '; opacity: ' + o });
+    });
+    // every other link with both ends shown: a straight line from the item's right edge (or the nearer box's edge)
+    d.links.forEach((l) => {
+      if (l.type === 'ASSIGNED_TO' || !at[l.from] || !at[l.to] || (at[l.from].item && at[l.to].item)) return;
+      const [a, b] = at[l.from].x <= at[l.to].x ? [at[l.from], at[l.to]] : [at[l.to], at[l.from]];
+      const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
+      const len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, k = LK[l.type] || ['#9C988D', 'solid'];
+      base.edges.push({ style: 'position: absolute; left: ' + x1 + 'px; top: ' + y1 + 'px; width: ' + len + 'px; height: 0; border-top: 2px ' + k[1] + ' ' + k[0] + '; transform-origin: 0 0; transform: rotate(' + ang + 'deg); opacity: ' + fade(l.from, l.to) });
+    });
+
+    const enter = (id) => () => { if (this.state.hov !== id) this.setState({ hov: id }); };
+    const leave = () => { if (this.state.hov) this.setState({ hov: null }); };
+    const card = (id, p, label, rank, sub) => {
+      const c = C[label] || C.open, n = N[id];
+      return { id, rank, label, name: n.name, sub, tip: n.name + (sub ? '\n' + sub : ''), pick: () => this.read(id), enter: enter(id), leave,
+        badgeStyle: 'flex: none; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: ' + c[0] + '; color: ' + c[1],
+        style: 'position: absolute; left: ' + p.x + 'px; top: ' + p.y + 'px; width: ' + p.w + 'px; height: ' + p.h + 'px; box-sizing: border-box; padding: 6px 10px; text-align: left; cursor: pointer; background: #FFFFFF; color: #1C1C1A; border-radius: 8px; border: 1.5px solid ' + (p.item ? c[1] : '#C9C6BD') + (p.item ? '' : '; border-style: dashed') + '; opacity: ' + (s.hov && !lit[id] ? 0.3 : 1) };
+    };
+    const blockers = (u) => d.links.filter((l) => l.type === 'BLOCKED_BY' && l.from === u && N[l.to])
+      .map((l) => (idx[l.to] !== undefined ? '#' + String(items[idx[l.to]].rank).replace(/\.0$/, '') + ' ' : '') + this.short(N[l.to].name, 34));
+    base.cards = items.map((i) => card(i.id, at[i.id], i.label, i.rank === null ? '-' : String(i.rank).replace(/\.0$/, ''),
+      [i.who.length ? 'assigned to ' + i.who.join(', ') : '', i.why, i.label === 'blocked' ? 'blocked by ' + blockers(i.id).join('; ') : ''].filter(Boolean).join(' · ')))
+      .concat(Object.keys(lvl).filter((u) => at[u]).map((u) => {
+        const n = N[u], st = P.states[u], kind = (n.kinds || []).map((k) => (N[k] || {}).name || String(k).split(':').pop()).filter(Boolean)[0] || '';
+        return card(u, at[u], ['done', 'being built', 'blocked', 'set aside', 'unknown'].includes(st) ? st : (kind || 'outside'), '', kind ? 'a ' + kind + (n.scopes && n.scopes.length ? ' · ' + n.scopes.join(', ') : '') : '');
+      }));
+    return base;
+  }
+}
+</script>
+</body>
+</html>

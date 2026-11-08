@@ -1,7 +1,12 @@
 # Reading views (experimental)
 
-`/reading` (avatar menu → Reading Views (experimental)) reads this instance's concept graph as four
-views: **Table**, **Outline**, **Drift** and **Dictionary**. Anyone can read. In **Outline**, the
+`/reading` (avatar menu → Reading Views (experimental)) reads this instance's concept graph as five
+views: **Table**, **Outline**, **Plan**, **Drift** and **Dictionary**. Anyone can read. **Plan** draws a
+plan (a Set of ranked stories or steps) in order, each item's state, what blocks what, and what the items
+hang on. The harness's `brain plan` reads a story's state from its git branch; git can't be seen from an
+instance, so here a story is done once brain has recorded its merge (its `merged` field), a story on a branch
+with no merge recorded reads as unknown, and the other states (set aside, answered, blocked, ready) come
+from the graph. In **Outline**, the
 signed-in owner can also edit a thing's title and text and make a new item in a kind or a Set.
 
 They were built in the brainstorm-harness repo as `brain-view`, a local viewer. This page serves the
@@ -12,7 +17,7 @@ with nothing installed.
 |---|---|
 | `boards/*.dc.html` | The views, as the design canvas exports them: a template and a logic class each. Copied unchanged from brainstorm-harness `reading/boards/`. |
 | `dcPlayer.jsx` | Plays a `.dc.html` board on React (a port of the harness's Preact `reading/dc.js`). |
-| `readVerbs.js` | The reads the boards ask for (scopes, scope, node, group, search, path, community), a port of the harness's `bin/brain-slice`. |
+| `readVerbs.js` | The reads the boards ask for (scopes, scope, node, group, search, path, community, plan), a port of the harness's `bin/brain-slice`. |
 | `writeVerbs.js` | Outline's writes: `can(id)` (what may be done to a node, and why not, in words) and `write('edit' \| 'create', …)`. A port of brain-view's writes. |
 | `brainData.js` | `window.Brain`: the cache and shared state the boards' logic reads. |
 | `ReadingViews.jsx` | The page: the bar (views, scope, jump-to-anything) over the open board. |
