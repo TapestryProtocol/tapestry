@@ -32,6 +32,8 @@
  *   R20  restore's result schema names the report's fields
  *   R21  a restore that fails after its key went in still has the control panel restarted: the error says so, and
  *        the failed run carries restarting (ADR 0002 Amendment 1, A4)
+ *   R22  a server that won't start on the loaded backup: the error says the graph is in place, names the safety backup
+ *   R23  the lock says offline before the server is stopped (R22–R23: review round 2, R2-1 and R2-2)
  */
 
 const fs = require('fs');
@@ -449,6 +451,30 @@ test('R21: a restore from another instance whose admins step fails after its key
   const recs = fs.existsSync(runs) ? fs.readdirSync(runs).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(runs, f), 'utf8'))).filter((x) => x.op === 'restore') : [];
   assert(recs.length === 1 && recs[0].outcome === 'failed' && show(recs[0].restarting) === show(['brainstorm']) && recs[0].answeredAt,
     `the failed run's record carries restarting: ['brainstorm'], so the job restarts the control panel once the answer is out, and the answer marked it; got ${show(recs)}`);
+});
+
+test('R22: a server that won\'t start on the loaded backup: the error says the backup\'s graph is in place and names the safety backup, and the server is started again (review round 2, R2-1)', async () => {
+  const { inst, run, extra } = await S.setup('start-fails', {
+    mustExist: NEED,
+    instance: { failures: { startFails: 1 } },
+    before: (i) => ({ x: ownBackup(i).id }),
+    scenario: (i, e) => ({ requests: [post('start-fails', 'owner', e.x)] }),
+  });
+  const r = F.pick(run, 'start-fails');
+  const err = String(r.body && r.body.error);
+  const safety = F.backupIds(inst.backupsDir).filter((id) => id !== extra.x);
+  assert(r.status === 500 && r.body && r.body.code === 'failed', `answers 500 failed; got ${r.status} ${show(r.body)}`);
+  assert(/in place/i.test(err) && safety.length === 1 && err.includes(safety[0]), `the error says the backup's graph is in place and names the safety backup ${show(safety)}; got ${show(err)}`);
+  assert(/starting the graph database/i.test(err), `the error says it was starting the graph database that failed; got ${show(err)}`);
+  const s = F.readState(inst.state);
+  assert(s.online === true && s.graph.tx === 12, `the server is started again, on the backup's graph; got ${show({ online: s.online, tx: s.graph.tx })}`);
+});
+
+test('R23: the lock says offline before the server is stopped, so a job killed during the stop leaves a lock whose recovery starts the server (review round 2, R2-2)', async () => {
+  const { inst, run } = await same();
+  S.okData(run, 'x');
+  const stops = F.calls(inst.state, 'supervisor').filter((e) => e.action === 'stop' && e.programs.includes('neo4j'));
+  assert(stops.length >= 1 && stops.every((e) => e.lockStage === 'offline'), `each time the server's stop is asked for, the lock already says offline; got ${show(stops.map((e) => e.lockStage))}`);
 });
 
 test('R17: no answer, warning or log line carries either assistant\'s private key or either master key', async () => {

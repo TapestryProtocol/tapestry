@@ -61,6 +61,7 @@ function newFakeState(file, over = {}) {
       loadFailures: 0, // this many loads fail (and leave the store broken) before loads succeed again
       txOffsetOnce: 0, // the next successful load comes up at a different transaction
       writeAfterStart: 0, // this many starts are followed by a write (a new key) before anything else can count
+      startFails: 0, // this many `start neo4j` calls fail, leaving the server stopped, before starts succeed again
       ...(over.failures || {}),
     },
     log: [],
@@ -105,6 +106,16 @@ function aliasOf(query) {
   return all.length ? all[all.length - 1][1] : null;
 }
 
+/**
+ * The stage the run's lock records at this moment, as a recovery would read it, or null when there is no lock
+ * (review round 2, R2-2). The harness runs with the instance's TAPESTRY_BACKUPS_DIR.
+ */
+function lockStageNow() {
+  const dir = process.env.TAPESTRY_BACKUPS_DIR;
+  if (!dir) return null;
+  try { return JSON.parse(fs.readFileSync(path.join(dir, '.lock'), 'utf8')).stage || null; } catch { return null; }
+}
+
 /** The stand-in for _system.js. Every call is logged in the state file, in order. */
 function fakeSystem(stateFile) {
   const load = () => readState(stateFile);
@@ -113,7 +124,7 @@ function fakeSystem(stateFile) {
     async supervisor(action, programs) {
       const s = load();
       const list = [].concat(programs || []);
-      const entry = { call: 'supervisor', action, programs: list, online: s.online, at: Date.now() };
+      const entry = { call: 'supervisor', action, programs: list, online: s.online, at: Date.now(), lockStage: lockStageNow() };
       for (const p of list) {
         if (p === 'neo4j') {
           if (action === 'stop' && s.failures.stopThrows) {
@@ -123,6 +134,14 @@ function fakeSystem(stateFile) {
             s.log.push(entry);
             save(s);
             throw new Error('supervisorctl stop neo4j exited 2 (fake): stopped, but the client lost its connection');
+          }
+          if (action === 'start' && s.failures.startFails > 0) {
+            // the server won't start, on the store it has (review round 2, R2-1)
+            s.failures.startFails--;
+            entry.threw = true;
+            s.log.push(entry);
+            save(s);
+            throw new Error('supervisorctl start neo4j exited 7 (fake): neo4j: ERROR (spawn error)');
           }
           if (action === 'stop') s.online = false;
           if (action === 'start' || action === 'restart') {

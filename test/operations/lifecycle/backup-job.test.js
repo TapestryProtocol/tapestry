@@ -17,6 +17,7 @@
  *   J9  a lock appears whole: written to a file of its own and linked into place, never found empty
  *   J10 the worker runs nothing when the lock is no longer its run's
  *   J11 a restored key is taken back when the conf can't be rewritten (J8–J11: ADR 0002 Amendment 1, A4)
+ *   J12 runDetached resolves once the record is written, while the worker stays on (review round 2, R2-3)
  *   Y1  _system.js runs neo4j-admin as user neo4j through runuser, and supervisorctl, with the arguments the ADR names
  *   Y2  programStatus reads supervisorctl status, which exits 3 when some program isn't running
  *   K1  nginx: /api/tapestry/lifecycle/ keeps X-Forwarded-For, streams and waits 900 s; only the upload takes 9g (A4)
@@ -40,7 +41,11 @@ const SYSTEM = path.join(ROOT, 'src/operations/catalog/lifecycle/_system.js');
 const need = (abs, why) => { if (!fs.existsSync(abs)) throw new Error(`${path.relative(ROOT, abs)} does not exist yet (${why})`); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** A stand-in worker: reads its request, notes it started, waits payload.delayMs, writes a result and releases the lock. */
+/**
+ * A stand-in worker: reads its request, notes it started, waits payload.delayMs, writes a result and releases the lock.
+ * With payload.lingerMs it then stays on that long, as a restore's worker does while it waits for the answer, and
+ * notes when it exits.
+ */
 const FAKE_WORKER = [
   `'use strict';`,
   `const fs = require('fs'); const path = require('path');`,
@@ -52,6 +57,11 @@ const FAKE_WORKER = [
   `  if (req.payload.mode === 'vanish') process.exit(1);`,
   `  fs.writeFileSync(file, JSON.stringify({ ...req, outcome: 'done', result: { echoed: req.payload.value, workerPid: process.pid }, finishedAt: new Date().toISOString() }));`,
   `  try { const l = JSON.parse(fs.readFileSync(path.join(dir, '.lock'), 'utf8')); if (l.runId === runId) fs.rmSync(path.join(dir, '.lock')); } catch {}`,
+  `  if (req.payload.lingerMs) {`,
+  `    process.on('exit', () => fs.writeFileSync(path.join(dir, 'exited-' + runId), String(Date.now())));`,
+  `    setTimeout(() => process.exit(0), req.payload.lingerMs);`,
+  `    return;`,
+  `  }`,
   `  process.exit(0);`,
   `}, req.payload.delayMs || 0);`,
 ].join(NL);
@@ -92,6 +102,27 @@ test('J1: runDetached writes the request to .runs/<runId>.json, runs the worker 
   assert(rec.result.workerPid !== r.pid, 'the worker is a process of its own');
   const file = JSON.parse(fs.readFileSync(path.join(j.backups, '.runs', `${runId}.json`), 'utf8'));
   assert(file.op === 'backup' && file.runId === runId && file.payload.value === 42 && file.outcome === 'done', `the run file holds the request and the outcome; got ${show(file)}`);
+});
+
+test('J12: runDetached resolves once the job\'s record is written, while its worker stays on — a restore\'s worker waits for the caller\'s answer before it restarts the control panel, so a caller waiting for the worker\'s exit would wait on itself (review round 2, R2-3)', () => {
+  need(JOBS, 'ADR graph-operations-foundation/0002 Decision 8');
+  const j = jobDir('j12');
+  const runId = F.newId();
+  const script = path.join(j.dir, 'caller.js');
+  fs.writeFileSync(script, callerScript(runId, { value: 12, lingerMs: 6000 }, j.worker));
+  const t0 = Date.now();
+  const r = spawnSync(process.execPath, [script], { cwd: ROOT, env: j.env, encoding: 'utf8', timeout: 30000 });
+  const took = Date.now() - t0;
+  const stillOn = !fs.existsSync(path.join(j.backups, `exited-${runId}`));
+  const started = path.join(j.backups, `started-${runId}`);
+  const pid = fs.existsSync(started) ? Number(fs.readFileSync(started, 'utf8')) : null;
+  try {
+    const rec = resultOf(r.stdout);
+    assert(rec && rec.outcome === 'done' && rec.result && rec.result.echoed === 12, `runDetached resolves the worker's record; got ${show(rec)} ${String(r.stderr).slice(-300)}`);
+    assert(took < 4000 && stillOn, `runDetached resolves on the record, while the worker is still on: it took ${took} ms, and the worker was ${stillOn ? 'still on' : 'gone'} (it stays on 6 s)`);
+  } finally {
+    if (pid) { try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ } }
+  }
 });
 
 test('J2: the job finishes and writes its result even when Ctrl-C reaches its caller\'s whole process group mid-run', async () => {

@@ -30,6 +30,7 @@
  *   B18  no answer, warning or log line carries a private key or a master key
  *   B19  an instance with no admins records none, not its launch settings' empty quotes (found by the live check)
  *   B20  a stop that stops the server but then fails is still undone (review round 1)
+ *   B21  the lock says offline before the server is stopped (review round 2, R2-2)
  */
 
 const fs = require('fs');
@@ -360,6 +361,14 @@ test('B20: a stop that stops the server but then fails is still undone: the serv
   assert(s.online === true && s.programs['stream-consumer'] === 'RUNNING' && s.programs['tagging-edges-realtime'] === 'RUNNING',
     `the server is started again and both writers run; got ${show({ online: s.online, programs: s.programs })}`);
   assert(F.backupIds(inst.backupsDir).length === 0 && F.leftovers(inst.backupsDir).length === 0, 'nothing is kept');
+});
+
+test('B21: the lock says offline before the server is stopped, so a job killed during the stop leaves a lock whose recovery starts the server (review round 2, R2-2)', async () => {
+  const { inst, run } = await setup('stage-first', { scenario: () => ({ requests: [post('stage-first', 'owner', {})] }) });
+  okData(run, 'stage-first');
+  const stops = F.calls(inst.state, 'supervisor').filter((e) => e.action === 'stop' && e.programs.includes('neo4j'));
+  assert(stops.length === 1 && stops[0].lockStage === 'offline',
+    `when the server's stop is asked for, the lock already says offline (B12's recovery starts the server only then); got ${show(stops.map((e) => e.lockStage))}`);
 });
 
 test('B17: backups live on the data volume — /var/lib/brainstorm/backups unless TAPESTRY_BACKUPS_DIR says otherwise', () => {

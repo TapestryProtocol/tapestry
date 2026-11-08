@@ -156,4 +156,17 @@ One more, found while fixing the first point, in a later commit of its own:
 |---|---|---|
 | A conf that can't be rewritten after the restored key went in leaves the key file and the conf naming different assistants | J11: `restoreIdentity` with a folder where the conf should be fails, and the key file is the instance's own again, byte for byte and with its mode; no scratch file is left | `backup-job.test.js` |
 
-Red before green: J11 failed alone and 134 passed. That ran on a working tree that held A4's other fixes but not J11's, which no commit holds. `573f4d088` itself gives 129 passed and 6 failed, since A4's code came after it. The Reviewer re-derived the claim by mutation in round 2: `bac10ad30` with only `restoreIdentity`'s conf rollback removed gives 134 passed, with J11 failing.
+Red before green: J11 failed alone and 134 passed. That ran on a working tree that held A4's other fixes but not J11's, which no commit holds.
+
+### Review round 2's open points
+
+Added by the Tester after round 2 (PASS, with four non-blocking points), in their own commit:
+
+| Point | Test | File |
+|---|---|---|
+| R2-1: the start right after the load is outside the error that says the graph is in place | R22: the fake's first `start neo4j` fails (`startFails`); the error says the backup's graph is in place, says it was starting the graph database, and names the safety backup; the server is started again on the backup's graph | `restore.test.js` |
+| R2-2: the lock's `stage: 'offline'` is written after the stop returns | B21 and R23: each `stop neo4j` the fake hears finds the lock already saying `offline` (the fake records the lock's stage at every supervisor call) | `backup.test.js`, `restore.test.js` |
+| R2-3: nothing tests that `runDetached` resolves on the record, not the worker's exit | J12: a stand-in worker writes its record and stays on 6 s; `runDetached` resolves within 4 s, while it is still on | `backup-job.test.js` |
+| R2-4: the J11 line above didn't say which tree it ran on | (corrected above) | — |
+
+Red before green: B21, R22 and R23 fail, and 136 pass. J12 passes from the start, since it pins what the code already does. Proved by mutation: with `runDetached` resolving on the worker's exit only, J12 fails ("it took 6071 ms, and the worker was gone"). `573f4d088` itself gives 129 passed and 6 failed, since A4's code came after it. The Reviewer re-derived the claim by mutation in round 2: `bac10ad30` with only `restoreIdentity`'s conf rollback removed gives 134 passed, with J11 failing.
