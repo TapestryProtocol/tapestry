@@ -148,6 +148,47 @@ The check used two throwaway instances in turn (`scripts/scratch-stack.sh`). Eac
 - **The graphs match.** Every node of B equals A's export (by id, labels and properties), and so does every relationship (by id, type, ends and properties). The 2,535 tapestryKeys are the same set.
 - **An earlier run, on `8fcb3d675`,** passed the same checks. It found the `[""]` admin list that `b25f6588f` fixes (Deviations).
 
+### Review round 1's fixes (2026-11-08)
+
+**The suites, on `28c4f6e65`,** through the same runner (dead endpoints, and a `docker` that refuses every call):
+- **`test/operations.test.js`, 135/0.** That is the module's 47 (A10.1's 39 plus F1–F8) and the 88 under `test/operations/`:
+  - backup 20/0, restore 21/0, list-backups 6/0, download-backup 7/0, upload-backup 10/0;
+  - the job, the system and the configuration 16/0;
+  - status 8/0.
+- **The gates:** `admin-action-sweep` 9/0, `admin-action-sweep-access` 13/0, `default-deny-mutations` 14/0, `openapi-coverage` 13/0, `openapi-document` 10/0, `stack-free-npm-test` 6/0 (1 skipped).
+
+**The two Docker files, in the image** (round 1's non-blocking 9). Each check ran in a throwaway container of `tapestry-tapestry:latest`, with this branch's two files mounted in and no network:
+- **`nginx -t` passes.** `nginx -T` shows the server's `client_max_body_size 100m`, the lifecycle prefix with no limit of its own, and `location = /api/tapestry/lifecycle/upload-backup` with `9g`.
+- **supervisord reads the conf with its own loader** (`supervisor.options.ServerOptions().realize`). `[program:neo4j]` has `stopwaitsecs=120`, and `stopasgroup` and `killasgroup` are true.
+
+**Live check run 3, on `d118662c4`: a client that gives up** (round 1's blocking case). It was the same two-instance check as above, except that the restore's client gave up after 3 s (`curl -m 3`, exit 28), so nobody waited for the answer.
+- **The restart.** The job finished at 23:13:38.718Z. The control panel marked the run answered 120 ms later. The job restarted it at 23:13:39.224Z, with `restartedBecause: "the answer is out"`.
+- **B answered as A's assistant** (`d4fa3566…`, where B's own was `67aaf1a3…`) by the check's next poll, about 4 s after the restart.
+- **The report, from the run's file:**
+  - transaction 6934, recorded and loaded;
+  - the counts and the key digest matched;
+  - the graph offline 22.4 s;
+  - the admins went from `[]` to A's;
+  - `restarting: ["brainstorm"]`.
+- **The graphs match.** 3,147 nodes, 3,610 relationships and the same set of 2,535 tapestryKeys.
+- **The rest held as in run 2.** The download had one sha256 by the command and by the route. The upload was kept as `uploaded`, `sameInstance: false`, and the same file again was `alreadyHeld`. The safety backup is listed as `before-restore`.
+
+**Live check run 4, on `28c4f6e65`: the same check on the final code.** A4's lock is linked into place on the instances' own data volume, on every run's path. Every check of run 3 held again:
+- **The restart.** The client gave up after 3 s. The job finished at 23:33:13.168Z, the run was marked answered at 23:33:13.279Z, and the job restarted the control panel at 23:33:13.677Z, `restartedBecause: "the answer is out"`.
+- **B answered as A's assistant** (`7062b6b5…`, where B's own was `349db554…`).
+- **The report:**
+  - transaction 6944, recorded and loaded;
+  - the counts and the key digest matched;
+  - the graph offline 20.7 s;
+  - the admins went from `[]` to A's;
+  - `restarting: ["brainstorm"]`.
+- **The graphs match.** 3,147 nodes, 3,610 relationships and the same set of 2,535 tapestryKeys.
+- **The download, upload and listing:**
+  - the download had one sha256 by the command and by the route;
+  - the same file uploaded again was `alreadyHeld`;
+  - the safety backup is listed as `before-restore`;
+  - the conf's two lines and `settings.json` name A's assistant and admin.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Backup bullet)
