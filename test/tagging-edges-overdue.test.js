@@ -35,6 +35,17 @@
  *   OV19–OV23  handleStatus's `overdue` member (D6, D8): served from the injected reader and the server's now; a
  *              reader that throws → cannot-tell, never a 500; it clears when a new pass begins; no who; the server's
  *              clock, not the host's.
+ *   OV24–OV29  added at story 7's fix round (2026-11-07; its review, round 1, requested 4, 6 and 7; ADR 0007
+ *              § Fix-round notes, D8):
+ *              OV24  the status's own default schedule reader (readConfigStrict over SCHEDULED_TASKS_CONFIG_PATH), with
+ *                    no reader injected. Green on purpose: the default works today, and no other test reaches it.
+ *              OV25  more than 32 distinct cron patterns: none is judged, cannot-tell/rule. Red until the fix.
+ *              OV26  a second status read with 33 patterns makes no parse call (nor does the first). Red until the fix.
+ *              OV27  a pattern longer than 256 characters is not judged; one of exactly 256 still is. Red until the fix.
+ *              OV28  exactly 32 distinct patterns are still judged, and only the pass's enabled entries count. Green on
+ *                    purpose: the boundary the fix must keep.
+ *              OV29  a throw from the verdict (an entry that cannot become a string or a number) is
+ *                    cannot-tell/schedule and a 200, never a 500. Red until the fix.
  *
  * Choices this suite makes where the ADR leaves a detail open:
  *   - overdueVerdict filters its `entries` itself (D8's first rule: "the schedule entries with taskId
@@ -48,6 +59,24 @@
  *     passes it to overdueVerdict; the tests inject it.
  *   - The `overdue` member's keys are closed: state, and only reason, latestBeganAt, expectedAt and periodMs beside it.
  *   - Times on the member are ISO strings (D8 "ISO times").
+ *   - Fix round, the default reader (OV24): handleStatus gets no readScheduleEntries key at all (not one set to
+ *     undefined, which would replace the default). SCHEDULED_TASKS_CONFIG_PATH names a temp file, and the Scheduled
+ *     Tasks module is dropped from require's cache first, since it fixes its CONFIG_PATH when it loads. The runner puts
+ *     the env and the cache back after each test.
+ *   - Fix round, counting the cron work (OV25–OV28): each case runs in its own child with TZ=UTC. There, cron-parser's
+ *     parseExpression is wrapped before the verdict's module loads, so a parse is seen however the module reaches it.
+ *     The periodOf spy, where one is given, is the child's own.
+ *     - The rules that fill the cache are monthly ones (`<m> 3 1 * *`, a 31-day period), which are cheap to judge, so
+ *       the red run stays short.
+ *     - "Distinct" is by the trimmed pattern. Entries that repeat a pattern count it once, and only the pass's enabled
+ *       entries count.
+ *     - The 256-character boundary is "0 3 * * *" with its first gap widened by spaces (cron-parser splits on any
+ *       whitespace), so both sides of it are the same daily rule. The other long rule is written out as lists: 319
+ *       characters, every minute.
+ *     - A rule that is not judged is counted with no period, as R13's are: alone it is cannot-tell/rule.
+ *   - Fix round, a throw from the verdict (OV29): the entries come from JSON.parse, as a hand-edited file gives them.
+ *     The status answers cannot-tell/schedule, as for a schedule that cannot be read: that is the fix-round D8 note.
+ *     A verdict that answered something else for such entries would not be what the note says.
  *
  * Module path (revised 2026-11-07, at Implementation, on the owner's decision): src/pipeline/tagging-edges/overdue.js,
  * not src/lib/tagging-edges/. Story 1's purity pin (test/tagging-edge-contract.test.js) refuses dates and any require
@@ -56,7 +85,8 @@
  *
  * Hermetic: pure functions, a child process with TZ=UTC for the real cron judge, a temp SCHEDULED_TASKS_CONFIG_PATH
  * for the reader (set before the Scheduled Tasks module is required, and the module dropped from require's cache
- * after), and handleStatus with every dep injected. No Redis, network, graph or /var/lib/brainstorm.
+ * after), and handleStatus with every dep injected (OV24 leaves out only the schedule reader, over a temp file). No
+ * Redis, network, graph or /var/lib/brainstorm.
  */
 
 const assert = require('assert');
@@ -504,6 +534,252 @@ test('OV23 — the status judges by the server\'s injected now, not the process 
   } finally { Date.now = realNow; }
   assert.strictEqual(right.state, 'on-time', `20 h after a daily pass, by the server's now: on time (${D8}); got ${JSON.stringify(right)}`);
   assert.deepStrictEqual(wrong, right, `the same member whatever the process clock says (${D8}); got ${JSON.stringify(wrong)}`);
+});
+
+// ─── OV24–OV29 — added at story 7's fix round (2026-11-07; its review, round 1, requested 4, 6 and 7) ──────────────
+
+const FIX8 = 'ADR tagging-edges/0007 § Fix-round notes (2026-11-07), D8';
+const same = (a, b) => { try { assert.deepStrictEqual(a, b); return true; } catch (_) { return false; } };
+/** Every problem at once, under one reference. */
+function report(problems, ref) {
+  if (problems.length) assert.fail(`${problems.join('\n        ')}\n        (${ref})`);
+}
+
+/**
+ * handleStatus with no readScheduleEntries key at all, so index.js's own default runs: readConfigStrict() over
+ * SCHEDULED_TASKS_CONFIG_PATH, which the Scheduled Tasks module fixes when it loads (so it is dropped from require's
+ * cache first). Every other dep is injected, as status() injects them.
+ */
+async function statusWithDefaultReader({ report: rep, configPath }) {
+  assert.ok(path.isAbsolute(configPath) && configPath.startsWith(os.tmpdir()) && !configPath.startsWith('/var/lib'),
+    `setup: the schedule file must be a temp file; it is ${configPath}`);
+  process.env.SCHEDULED_TASKS_CONFIG_PATH = configPath;
+  forget(SCHED);
+  forget(INDEX);
+  const index = require(path.join(REPO, INDEX));
+  const files = { '/state/report.json': rep === undefined ? null : JSON.stringify(rep) };
+  const deps = {
+    stateDir: () => '/state',
+    readFile: async (p) => {
+      if (files[p] == null) throw Object.assign(new Error(`ENOENT ${p}`), { code: 'ENOENT' });
+      return files[p];
+    },
+    isAlive: async () => false,
+    snapshot: async () => ({ queue: 'ok', items: [], gaveUp: null }),
+    now: () => NOW,
+  };
+  assert.ok(!Object.prototype.hasOwnProperty.call(deps, 'readScheduleEntries'), 'setup: no schedule reader may be injected');
+  const res = fakeRes();
+  const origError = console.error;
+  console.error = () => {};
+  try { await index.handleStatus({ method: 'GET', headers: {}, query: {} }, res, deps); } finally { console.error = origError; }
+  return res;
+}
+
+test('OV24 (story 7 fix round; review requested 4; green on purpose — the default works today, and no other test reaches it) — with no schedule reader injected, the status reads the schedule through index.js\'s own default, readConfigStrict over SCHEDULED_TASKS_CONFIG_PATH: a valid file with one enabled reconcileTaggingEdges entry gives that entry\'s verdict; a file that does not parse gives overdue {state: cannot-tell, reason: schedule}, never no-entry, and still a 200 with the report; neither read writes the file (D8 "The reader", "In handleStatus: … over d.readScheduleEntries() (a new dep calling readConfigStrict())"; AC-5 "When it cannot tell … A missing warning never stands for on time")', async () => {
+  const dir = TMP();
+  try {
+    const file = path.join(dir, 'scheduled-tasks.json');
+    const rep = reportWith(NOW - 26 * HOUR);
+    const good = JSON.stringify({ version: 2, entries: [entry({ id: 'entry-daily' })] }, null, 2);
+    fs.writeFileSync(file, good);
+    const okRes = await statusWithDefaultReader({ report: rep, configPath: file });
+    const ok = overdueOf(okRes);
+    assert.deepStrictEqual(ok, { state: 'overdue', latestBeganAt: iso(NOW - 26 * HOUR), expectedAt: iso(NOW - 2 * HOUR), periodMs: DAY },
+      `the default reader reads the temp file's one enabled daily entry, so 26 h after the latest pass began the status says overdue, with its times (${D8} "a new dep calling readConfigStrict()"); got ${JSON.stringify(ok)}`);
+    assert.strictEqual(fs.readFileSync(file, 'utf8'), good, `the status's read of the schedule writes nothing (${D8})`);
+
+    fs.writeFileSync(file, '{ not json');
+    const badRes = await statusWithDefaultReader({ report: rep, configPath: file });
+    const bad = overdueOf(badRes);
+    assert.deepStrictEqual(bad, { state: 'cannot-tell', reason: 'schedule' },
+      `a schedule file that does not parse: the default reader must throw, so the status says it cannot tell (${D8} "a read or parse error throws"; AC-5). readConfig() would read it as no entries, and the panel would show no-entry; got ${JSON.stringify(bad)}`);
+    assert.ok(badRes.body.latest && badRes.body.latest.runId === rep.latest.runId, `the report is still served beside it (${D8} "The status never fails for it"); got ${JSON.stringify(badRes.body).slice(0, 300)}`);
+    assert.strictEqual(fs.readFileSync(file, 'utf8'), '{ not json', `a file that does not parse is left as it is (${D8})`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+/** 03:<m> on the 1st of each month: a 31-day period, cheap to judge. */
+const MONTHLY = (m, h = 3) => `${m} ${h} 1 * *`;
+const monthlies = (n, h = 3) => Array.from({ length: n }, (_, i) => MONTHLY(i, h));
+const DAILY = '0 3 * * *';
+const MONTH_MS = 31 * DAY;
+const cronEntry = (cron, i, o = {}) => entry({ id: `cron-${i}`, cron, intervalDays: 0, ...o });
+const numbers = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i).join(',');
+/** Every minute, written out as lists: 319 characters. */
+const LONG_LIST = `${numbers(0, 59)} ${numbers(0, 23)} ${numbers(1, 31)} * *`;
+/** "0 3 * * *" (03:00 every day) with its first gap widened to make the pattern `len` characters long. */
+const paddedDaily = (len) => `0${' '.repeat(len - 8)}3 * * *`;
+
+/**
+ * Fix round (the bound on the cron work): in a child with TZ=UTC (the container's zone, as cronVerdict), cron-parser's
+ * parseExpression wrapped to record each pattern it is asked to parse, then each step run in order in that one process,
+ * so the per-pattern cache carries from step to step. The wrapper is installed before the verdict's module loads, so a
+ * parse is seen however that module reaches cron-parser. A step is
+ *   { verdict: { entries, latest, nowMs }, periodMs }   overdueVerdict; with periodMs, periodOf is a spy answering it
+ *   { status: { entries, report, nowMs } }               handleStatus, every dep injected, readScheduleEntries included
+ * → per step { v, parsed, asked } (or { threw, parsed, asked }), or { status, body, parsed }: `parsed` the patterns
+ * parseExpression was asked for during the step, `asked` the patterns periodOf was asked for.
+ */
+function countedCron(steps) {
+  const script = `
+    const path = require('path');
+    const REPO = ${JSON.stringify(REPO)};
+    const steps = ${JSON.stringify(steps)};
+    const say = (o) => { process.stdout.write(JSON.stringify(o)); process.exit(0); };
+    let parser;
+    try { parser = require(require.resolve('cron-parser', { paths: [path.join(REPO, ${JSON.stringify(path.dirname(LIB))})] })); }
+    catch (e) { say({ loadError: 'cron-parser did not load: ' + String(e && e.message).split('\\n')[0] }); }
+    const realParse = parser.parseExpression;
+    let parsed = [];
+    parser.parseExpression = function (...a) { parsed.push(String(a[0])); return realParse.apply(this, a); };
+    (async () => {
+      const out = [];
+      for (const s of steps) {
+        parsed = [];
+        if (s.verdict) {
+          let mod;
+          try { mod = require(path.join(REPO, ${JSON.stringify(LIB)})); }
+          catch (e) { say({ loadError: String(e && e.message).split('\\n')[0], code: e && e.code }); }
+          const asked = [];
+          const input = Object.assign({}, s.verdict);
+          if (s.periodMs !== undefined) input.periodOf = (p) => { asked.push(String(p)); return s.periodMs; };
+          try { out.push({ v: mod.overdueVerdict(input), parsed, asked }); }
+          catch (e) { out.push({ threw: String(e && e.message), parsed, asked }); }
+        } else {
+          const index = require(path.join(REPO, ${JSON.stringify(INDEX)}));
+          const text = JSON.stringify(s.status.report);
+          const res = { statusCode: 200, body: undefined };
+          res.status = (c) => { res.statusCode = c; return res; };
+          res.json = (b) => { res.body = b; return res; };
+          const deps = {
+            stateDir: () => '/state',
+            readFile: async (p) => {
+              if (p === '/state/report.json' && s.status.report) return text;
+              throw Object.assign(new Error('ENOENT ' + p), { code: 'ENOENT' });
+            },
+            isAlive: async () => false,
+            snapshot: async () => ({ queue: 'ok', items: [], gaveUp: null }),
+            now: () => s.status.nowMs,
+            readScheduleEntries: async () => s.status.entries,
+          };
+          await index.handleStatus({ method: 'GET', headers: {}, query: {} }, res, deps);
+          out.push({ status: res.statusCode, body: res.body, parsed });
+        }
+      }
+      say({ out });
+    })().catch((e) => say({ fatal: String(e && e.message) }));`;
+  const r = spawnSync(process.execPath, ['-e', script], { cwd: REPO, env: { ...process.env, TZ: 'UTC' }, encoding: 'utf8', timeout: 60000, maxBuffer: 16 * 1024 * 1024 });
+  let out;
+  try { out = JSON.parse(r.stdout); } catch (_) { assert.fail(`the counted cron child gave no answer (status ${r.status}${r.signal ? `, signal ${r.signal}` : ''}): ${String(r.stderr).slice(0, 400)}`); }
+  if (out.loadError) assert.fail(out.code === 'MODULE_NOT_FOUND' ? `${LIB} does not exist yet (${D8}): expected a module exporting overdueVerdict` : `the counted cron child could not load what it tests (${D8}): ${out.loadError}`);
+  if (out.fatal) assert.fail(`the counted cron child failed (${D8}): ${out.fatal}`);
+  return out.out;
+}
+const showV = (r) => (r.threw ? `it threw ${r.threw}` : JSON.stringify(r.v));
+const listed = (patterns) => `${patterns.length} (${patterns.slice(0, 3).map((p) => JSON.stringify(p.length > 40 ? `${p.slice(0, 20)}…(${p.length} characters)` : p)).join(', ')}${patterns.length > 3 ? ', …' : ''})`;
+
+test('OV25 (story 7 fix round; review requested 6; red until the fix) — when the pass\'s enabled entries carry more than 32 distinct cron patterns, none is judged and the verdict is {state: cannot-tell, reason: rule}: periodOf, a spy, is never asked, and through the real judge cron-parser\'s parseExpression is never called — for 33 monthly rules, and for 32 monthly rules beside the daily 03:00 rule, which alone would say on time (ADR 0007 § Fix-round notes, D8 "More distinct patterns than the cache holds … none is judged and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; review requested 6 "answer cannot-tell/rule without judging when the distinct patterns exceed the cache")', () => {
+  const sets = [
+    ['33 monthly rules', monthlies(33)],
+    ['32 monthly rules and the daily 03:00 rule', [...monthlies(32), DAILY]],
+  ];
+  const problems = [];
+  for (const [what, patterns] of sets) {
+    const entries = patterns.map((p, i) => cronEntry(p, i));
+    for (const spy of [true, false]) {
+      const label = `${what}, ${spy ? 'with periodOf a spy' : 'through the real judge'}`;
+      const [r] = countedCron([{ verdict: { entries, latest: latest(NOW - HOUR), nowMs: NOW }, ...(spy ? { periodMs: 6 * HOUR } : {}) }]);
+      if (r.threw || !same(r.v, { state: 'cannot-tell', reason: 'rule' })) problems.push(`${label}: the verdict should be {state: cannot-tell, reason: rule}; ${r.threw ? `it threw ${r.threw}` : `it is ${showV(r)}`}`);
+      if (r.parsed.length) problems.push(`${label}: no pattern may be judged, yet parseExpression was called for ${listed(r.parsed)}`);
+      if (spy && r.asked.length) problems.push(`${label}: periodOf may not be asked, yet it was asked for ${listed(r.asked)}`);
+    }
+  }
+  report(problems, `${FIX8}: at most 32 are judged`);
+});
+
+test('OV26 (story 7 fix round; review requested 6; red until the fix) — a status read with 33 distinct patterns makes no parse call, and nor does the second read in the same process: each answers 200 with overdue {state: cannot-tell, reason: rule}, so a signed-out viewer\'s poll never pays for judging them (review requested 6 "add a test that a second status read with more patterns than the cache makes no parse calls"; ADR 0007 § Fix-round notes, D8 "What remains: each pattern\'s first judgment still runs synchronously, once per process while cached. At most 32 are judged")', () => {
+  const entries = monthlies(33).map((p, i) => cronEntry(p, i));
+  const rep = reportWith(NOW - HOUR);
+  const reads = countedCron([{ status: { entries, report: rep, nowMs: NOW } }, { status: { entries, report: rep, nowMs: NOW } }]);
+  const problems = [];
+  reads.forEach((r, i) => {
+    const label = i === 0 ? 'the first status read' : 'the second status read';
+    if (r.status !== 200) problems.push(`${label}: the status should answer 200; it answered ${r.status} ${JSON.stringify(r.body).slice(0, 200)}`);
+    else if (!same(r.body && r.body.overdue, { state: 'cannot-tell', reason: 'rule' })) problems.push(`${label}: overdue should be {state: cannot-tell, reason: rule}; it is ${JSON.stringify(r.body && r.body.overdue)}`);
+    if (r.parsed.length) problems.push(`${label} called parseExpression for ${listed(r.parsed)}; with more distinct patterns than the cache holds it may call it for none`);
+  });
+  report(problems, `${FIX8}; review requested 6`);
+});
+
+test('OV27 (story 7 fix round; review requested 6; red until the fix) — a cron pattern longer than 256 characters is not judged (no parse call, periodOf never asked for it) and its period cannot be told: alone it is {state: cannot-tell, reason: rule} (a rule written out as lists, 319 characters, every minute; and the daily 03:00 rule widened to 257 characters); beside an enabled daily interval entry, that entry\'s verdict stands (on time 2 h after, not the long rule\'s every minute); the daily rule widened to exactly 256 characters is still judged, 24 h (ADR 0007 § Fix-round notes, D8 "A pattern longer than 256 characters is not judged. Its period cannot be told (null), as R13\'s rules are"; review requested 6 "skip a pattern past a fixed length")', () => {
+  assert.strictEqual(LONG_LIST.length, 319, `setup: the list rule is 319 characters; it is ${LONG_LIST.length}`);
+  assert.ok(paddedDaily(256).length === 256 && paddedDaily(257).length === 257, 'setup: the widened daily rules are 256 and 257 characters');
+  const at2h = latest(NOW - 2 * HOUR);
+  const cases = [
+    { what: 'the 319-character list rule alone, through the real judge', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1)], want: { state: 'cannot-tell', reason: 'rule' } },
+    { what: 'the 319-character list rule alone, with periodOf a spy', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1)], periodMs: MIN, want: { state: 'cannot-tell', reason: 'rule' } },
+    { what: 'the daily rule widened to 257 characters, alone', long: paddedDaily(257), entries: [cronEntry(paddedDaily(257), 2)], want: { state: 'cannot-tell', reason: 'rule' } },
+    { what: 'the 319-character list rule beside an enabled daily interval entry', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1), entry({ id: 'daily-interval' })], want: { state: 'on-time', latestBeganAt: iso(NOW - 2 * HOUR), expectedAt: iso(NOW + 22 * HOUR), periodMs: DAY } },
+    { what: 'the daily rule widened to exactly 256 characters, still judged', judged: paddedDaily(256), entries: [cronEntry(paddedDaily(256), 3)], want: { state: 'on-time', latestBeganAt: iso(NOW - 2 * HOUR), expectedAt: iso(NOW + 22 * HOUR), periodMs: DAY } },
+  ];
+  const problems = [];
+  for (const c of cases) {
+    const [r] = countedCron([{ verdict: { entries: c.entries, latest: at2h, nowMs: NOW }, ...(c.periodMs !== undefined ? { periodMs: c.periodMs } : {}) }]);
+    if (r.threw || !same(r.v, c.want)) problems.push(`${c.what}: the verdict should be ${JSON.stringify(c.want)}; it is ${showV(r)}`);
+    if (c.long && r.parsed.includes(c.long)) problems.push(`${c.what}: a pattern of ${c.long.length} characters may not be judged, yet parseExpression was called for it`);
+    if (c.long && r.asked && r.asked.includes(c.long)) problems.push(`${c.what}: periodOf may not be asked for a pattern of ${c.long.length} characters, yet it was`);
+    if (c.judged && !r.parsed.includes(c.judged)) problems.push(`${c.what}: a pattern of exactly 256 characters is judged (only one longer is not), yet parseExpression was never called for it`);
+  }
+  report(problems, `${FIX8}: a pattern longer than 256 characters`);
+});
+
+test('OV28 (story 7 fix round; review requested 6; green on purpose — the boundary the fix keeps) — exactly 32 distinct cron patterns are still judged: 31 monthly rules and the daily 03:00 rule give the daily rule\'s 24 h through the real judge (overdue 26 h after), each of the 32 parsed; with periodOf a spy, every one is asked; 40 entries repeating those same 32 patterns are judged the same; and only the pass\'s enabled entries count, so 40 more distinct patterns on disabled entries and on another task\'s entries are never parsed (ADR 0007 § Fix-round notes, D8 "When the enabled entries for the pass carry more than 32 distinct cron patterns" — 32 is not more; D8 "The most frequent counts")', () => {
+  const p32 = [...monthlies(31), DAILY];
+  const at26h = latest(NOW - 26 * HOUR);
+  const overdueDaily = { state: 'overdue', latestBeganAt: iso(NOW - 26 * HOUR), expectedAt: iso(NOW - 2 * HOUR), periodMs: DAY };
+  const others = monthlies(40, 4);
+  const cases = [
+    { what: '32 distinct patterns, through the real judge', entries: p32.map((p, i) => cronEntry(p, i)), want: overdueDaily, parsedAll: p32 },
+    { what: '32 distinct patterns, with periodOf a spy answering 6 h', entries: p32.map((p, i) => cronEntry(p, i)), periodMs: 6 * HOUR, want: { state: 'overdue', latestBeganAt: iso(NOW - 26 * HOUR), expectedAt: iso(NOW - 20 * HOUR), periodMs: 6 * HOUR }, askedAll: p32 },
+    { what: '40 entries over the same 32 distinct patterns', entries: [...p32, ...p32.slice(0, 8)].map((p, i) => cronEntry(p, i)), want: overdueDaily, parsedAll: p32 },
+    {
+      what: 'the daily rule on the pass\'s one enabled entry, beside 40 distinct patterns on disabled pass entries and another task\'s enabled entries',
+      entries: [cronEntry(DAILY, 0), ...others.slice(0, 20).map((p, i) => cronEntry(p, 100 + i, { enabled: false })), ...others.slice(20).map((p, i) => cronEntry(p, 200 + i, { taskId: 'syncNegentropyPresets' }))],
+      want: overdueDaily, parsedNone: others,
+    },
+  ];
+  const problems = [];
+  for (const c of cases) {
+    const [r] = countedCron([{ verdict: { entries: c.entries, latest: at26h, nowMs: NOW }, ...(c.periodMs !== undefined ? { periodMs: c.periodMs } : {}) }]);
+    if (r.threw || !same(r.v, c.want)) problems.push(`${c.what}: the verdict should be ${JSON.stringify(c.want)}; it is ${showV(r)}`);
+    if (c.parsedAll) { const missed = c.parsedAll.filter((p) => !r.parsed.includes(p)); if (missed.length) problems.push(`${c.what}: each pattern is judged, yet parseExpression was never called for ${listed(missed)}`); }
+    if (c.askedAll) { const missed = c.askedAll.filter((p) => !r.asked.includes(p)); if (missed.length) problems.push(`${c.what}: periodOf should be asked for every pattern, yet not for ${listed(missed)}`); }
+    if (c.parsedNone) { const hit = c.parsedNone.filter((p) => r.parsed.includes(p)); if (hit.length) problems.push(`${c.what}: only the pass's enabled entries count, yet parseExpression was called for ${listed(hit)}`); }
+  }
+  report(problems, `${FIX8}: at most 32 are judged`);
+});
+
+test('OV29 (story 7 fix round; review requested 7; red until the fix) — a schedule entry the verdict cannot read makes overdueVerdict throw, and the status still answers 200 with overdue {state: cannot-tell, reason: schedule} and the rest of its body (reportVersion, running, the latest report, previous, confirmationPending, control): an enabled pass entry whose cron is {"toString": null}, and one with an empty cron whose intervalDays is {"toString": null, "valueOf": null}, each as JSON.parse reads a hand-edited file (ADR 0007 § Fix-round notes, D8 "A throw from overdueVerdict in handleStatus gives {state: \'cannot-tell\', reason: \'schedule\'}, as a throw from the reader does. The status never fails for it"; AC-5 "When it cannot tell")', async () => {
+  const cases = [
+    ['a cron that is {"toString": null}', '[{"id":"hand-1","taskId":"reconcileTaggingEdges","label":"x","args":{},"enabled":true,"intervalDays":1,"intervalHours":0,"intervalMinutes":0,"cron":{"toString":null}}]'],
+    ['an empty cron and intervalDays {"toString": null, "valueOf": null}', '[{"id":"hand-2","taskId":"reconcileTaggingEdges","label":"x","args":{},"enabled":true,"intervalDays":{"toString":null,"valueOf":null},"intervalHours":0,"intervalMinutes":0,"cron":""}]'],
+  ];
+  const rep = reportWith(NOW - HOUR);
+  const problems = [];
+  for (const [what, text] of cases) {
+    const res = await status({ report: rep, readScheduleEntries: async () => JSON.parse(text) });
+    if (res.statusCode !== 200) {
+      problems.push(`${what}: the public status should still answer 200, with overdue {state: cannot-tell, reason: schedule}; it answered ${res.statusCode} ${JSON.stringify(res.body)}`);
+      continue;
+    }
+    const b = res.body || {};
+    if (!same(b.overdue, { state: 'cannot-tell', reason: 'schedule' })) problems.push(`${what}: overdue should be {state: cannot-tell, reason: schedule}; it is ${JSON.stringify(b.overdue)}`);
+    const missing = ['reportVersion', 'running', 'latest', 'previous', 'confirmationPending', 'control'].filter((k) => !Object.prototype.hasOwnProperty.call(b, k));
+    if (missing.length) problems.push(`${what}: the rest of the status should still be served; it lacks ${missing.join(', ')}`);
+    if (!(b.latest && b.latest.runId === rep.latest.runId)) problems.push(`${what}: the latest report should still be served; it is ${JSON.stringify(b.latest)}`);
+  }
+  report(problems, `${FIX8}: a throw from overdueVerdict`);
 });
 
 // ─── the runner ─────────────────────────────────────────────────────────────────────────────────────────────────

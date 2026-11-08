@@ -62,6 +62,12 @@
  *              CT70 (waiting-pass; its give-up narrowed to gaveUp null for CF3; R1-opt: the start at pickup is at the
  *              pickup time). CT71 is new (CF3). Red until story 7 lands: the controller has no confirm, and a give-up
  *              time a Date cannot hold still reads { key, at: null }.
+ *   CT72       added at story 7's fix round (2026-11-07; its review, round 1, requested 3): story 7 AC-7's first bullet,
+ *              "Confirm changes nothing else. It does not change any schedule entry or the path's switch". It is CT63's
+ *              world and checks, with the owner's confirmation in place of Run and Stop. The confirmation is lined up
+ *              with nothing busy, taken up by a waiting pass, not lined up with Redis not ready, and not lined up with
+ *              its add refused. Green on purpose: confirmFlow never reaches the scheduler or the switch, and no test
+ *              pinned it before (CT63 runs only Run and Stop).
  *
  * Hermetic: the controller is always an instance built by createController(deps) over the shared fakes (makeWorld:
  * a BullMQ-faithful fake queue, an in-memory record, a fake process table, a fake clock). TAGGING_EDGES_STATE_DIR
@@ -2684,6 +2690,53 @@ test('CT71 (story 7, ADR tagging-edges/0007 § Carry-forwards CF3, story 6\'s re
     report(pc, 'D12; ADR tagging-edges/0007 CF3');
   })).catch((e) => { p.push(e.message); });
   report(p);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CT72 — added at story 7's fix round (2026-11-07): AC-7, Confirm changes no schedule entry and not the switch
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+test('CT72 (story 7 fix round, 2026-11-07; its review, round 1, requested 3; green on purpose — confirmFlow never reaches the scheduler or the switch, and this pins it): Confirm changes nothing else, so it does not change any schedule entry or the path\'s switch. Four cases, each answered as it should be: the owner\'s confirmation lined up with nothing busy, taken up by a waiting pass, not lined up with Redis not ready, and not lined up with its add refused. The fake queue\'s whole surface is in reach (remove and the job-scheduler calls). The queue sees only reads and adds; the scheduler keeps its entry, template and next run; the backstop\'s next run stays in the queue; and the Scheduled Tasks entries file and realtime/switch.json and switch-history.json, under both state directories, are unchanged byte for byte [story 7 AC-7 "Confirm changes nothing else. It does not change any schedule entry or the path\'s switch"; ADR tagging-edges/0007 D2 (no step touches a schedule or the switch); ADR 0006 § Constraints "schedules never change", "The real-time path is not touched"; CT63 is the model]', async () => {
+  const schedFile = process.env.SCHEDULED_TASKS_CONFIG_PATH;
+  assert(typeof schedFile === 'string' && path.isAbsolute(schedFile) && !schedFile.startsWith('/var/lib/brainstorm'),
+    `setup: run() should point SCHEDULED_TASKS_CONFIG_PATH at a temp file before anything loads; it is ${show(schedFile)}`);
+  const runDir = process.env.TAGGING_EDGES_STATE_DIR;
+  await cases([
+    { name: 'lined up, nothing busy', outcome: 'lined-up', set: async () => {} },
+    { name: 'taken up by a waiting pass', outcome: 'waiting-pass', set: async (ctx) => { await runA(ctx); } },
+    { name: 'not lined up, Redis not ready', outcome: 'not-lined-up', set: async (ctx) => { ctx.world.health = 'not-ready'; } },
+    { name: 'not lined up, its add refused', outcome: 'not-lined-up', set: async (ctx) => { ctx.q.inject('add', { error: 'ECONNRESET' }); } },
+  ], (c) => withCtl('D9', { fullQueue: true }, async (ctx) => {
+    const dirs = [...new Set([runDir, ctx.world.stateDirPath()].filter(Boolean))];
+    try {
+      fs.writeFileSync(schedFile, scheduledTasksText());
+      for (const d of dirs) seedRealtimeSwitch(d);
+      const realtimeDirs = dirs.map((d) => path.join(d, 'realtime'));
+      const filesBefore = filesSnapshot([schedFile], realtimeDirs);
+      assert(typeof ctx.deps.queue.removeJobScheduler === 'function' && typeof ctx.deps.queue.upsertJobScheduler === 'function' && typeof ctx.deps.queue.remove === 'function',
+        'setup: the controller\'s queue should reach the fake\'s whole surface (remove, upsertJobScheduler, removeJobScheduler)');
+      const sid = ctx.q.plantScheduled({ millis: T0 + HOUR, every: EVERY });
+      const before = ctx.q.scheduler(SCHED_ENTRY);
+      const held = ctx.world.holdRemovals();
+      await c.set(ctx);
+      const a = await confirmA(ctx, { runId: held.runId });
+      const p = [];
+      if (a.status !== 200 || a.body.success !== true || a.body.confirmed !== true || outcomeOf(a) !== c.outcome) {
+        p.push(`setup: the owner's confirmation should answer 200 { success: true, confirmed: true, outcome: '${c.outcome}' } (ADR tagging-edges/0007 D4); it answered ${a.status} ${show(a.body)}`);
+      }
+      if (!ctx.world.confirmation || ctx.world.confirmation.runId !== held.runId) p.push(`setup: the confirmation should stand, so the step ran to its end; confirmation.json is ${show(ctx.world.confirmation)}`);
+      const changes = queueChanges(ctx);
+      if (changes.length) p.push(`the queue should see only reads and adds; it also saw ${show(changes)}`);
+      const after = ctx.q.scheduler(SCHED_ENTRY);
+      if (exact(after) !== exact(before)) p.push(`the scheduler should be unchanged: ${show(before)}; it is ${show(after)}`);
+      if (!ctx.q.has(sid)) p.push('the backstop\'s next run was removed from the queue; a confirmation never touches it');
+      p.push(...filesProblems(filesBefore, filesSnapshot([schedFile], realtimeDirs), 'after the confirmation'));
+      report(p.map((x) => `${x} (story 7 AC-7; ADR tagging-edges/0007 D2)`));
+    } finally {
+      try { fs.rmSync(schedFile, { force: true }); } catch (_) { /* best effort */ }
+      if (runDir) { try { fs.rmSync(path.join(runDir, 'realtime'), { recursive: true, force: true }); } catch (_) { /* best effort */ } }
+    }
+  }));
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
