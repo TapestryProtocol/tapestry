@@ -68,7 +68,7 @@ Decisions inside it that the spec left open or the tree changed:
 - A brain's Neo4j login can be reached through port 443, so that Neo4j Browser can connect, and is protected by the
   brain's own random password. Caddy does this, so other instances are not affected.
 - One brain filling the shared disk affects all of them. The disk floor is checked only before a create.
-- Dogfood brains ride `main`, so they update when `staging` is promoted. Changed by amendment 1: they follow `staging`.
+- Dogfood brains ride `main`, so they update when `staging` is promoted. Changed by amendments 1 and 2: they follow `staging`, rolled only by changes they run.
 - A first launch takes 8 to 10 minutes on the 8 GB droplet, because the firmware install is real work on a cold Neo4j:
   438 events and over 3,000 nodes, with no waits to remove, and three times the heap made no difference. Each brain signs
   with its own key, so a shared pre-built starting point is separate work. The owner accepted this on 2026-11-04.
@@ -97,3 +97,24 @@ older build than the one they had been tried on.
 - Other deployments' workflows are unchanged.
 
 **Origin:** Vinney asked about updating the brains from `staging` on every push, 2026-11-08; Avi chose it.
+
+## Amendment 2: only what a brain runs rolls the brains (2026-11-08)
+
+**Changes:** amendment 1's first point, which rolled the brains on every push to `staging` except one touching only
+`engineering-team/`, `product-team/` or `ledger/`.
+
+That still rolled them for pushes that change nothing a brain runs: docs, tests, harness tooling, other workflows.
+Since 2026-11-01, 23 of 29 pushes to `staging` would have rolled them under amendment 1, and 15 under this one.
+
+- A push to `staging` rolls the brains only when it changes a path in `publish-image.yml`'s `paths` list: the code and
+  UI (`src/`, `ui/`, `public/`, `lib/`, `bin/`, `config/`, `customers/`, `setup/`, `firmware/`, `plugins/`, `tools/`), the
+  images' own files (`Dockerfile`, `.dockerignore`, `docker/`, `patches/`, `package.json`, `package-lock.json`,
+  `index.js`, `nip50-proxy/`, `nostr-search/`), `deploy/` and the workflow itself. Markdown and `*.test.*` files inside
+  them don't count, except `docs/information-for-agents.md`, which a brain serves.
+- Test W1c lists every other top-level path as one the brains don't run. A new top-level path fails it until it is put
+  in one list or the other, so a folder the image starts using can't be missed.
+- A roll still restarts only a brain whose image changed, since `compose up` leaves an unchanged container alone. So a
+  push that touches only `deploy/` updates the launcher and Caddy without restarting a brain.
+- GitHub reads only a push's first 300 changed files for this filter. After a bigger push, run the workflow by hand.
+
+**Origin:** Avi asked for the brains to roll only on changes that bear on them, 2026-11-08.
