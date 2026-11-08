@@ -22,4 +22,4 @@ overdue test injects it, and no status test reads the default, so swapping it fo
 parse error into "no entry" instead of "cannot tell") would pass every suite (review
 `tagging-edges/7-confirm-held-removals.md`, requested 4).
 
-**Pointer:** `engineering-team/reviews/tagging-edges/3-real-time-path.md` § Non-blocking 8 and § Harness friction 2.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/3-real-time-path.md` § Non-blocking 8 and § Harness friction 2.

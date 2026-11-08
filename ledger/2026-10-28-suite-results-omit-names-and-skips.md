@@ -27,5 +27,5 @@
   names could be flagged by the gate as a warning.
 - Gate-engine follow-ups also gather in OPEN.md row 291; this one is not among them.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 4 and 8;
+**Pointer:** `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 4 and 8;
 `test/helpers/gateRecord.js`; `test/helpers/gateRunner.js` (`normalize`).

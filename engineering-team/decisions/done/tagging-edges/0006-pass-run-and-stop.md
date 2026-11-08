@@ -3,7 +3,7 @@
 **Status:** Accepted (Amendment 1 appended 2026-10-28 — Stop's target keys are any 1 to 256 characters with no control
 character; residual R9; the Implementer's as-built readings ratified)
 **Date:** 2026-10-02 (re-read on 2026-10-27 against `48de58a7`, after merging `origin/staging`)
-**Story:** `engineering-team/stories/tagging-edges/6-pass-run-and-stop.md`
+**Story:** `engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md`
 **Amends:** ADR `tagging-edges/0002` (run, stop, the stopped outcome, who started a pass, the run-task route's answers
 for this pass), with dated notes in ADRs `0003`, `0004` and `0005` (§ Amendments).
 **Amended (2026-11-07):** by `tagging-edges/0007` — D8's confirm step (now one controller step, refused when it cannot

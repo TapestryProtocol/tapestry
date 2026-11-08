@@ -19,4 +19,4 @@ Fix shape: wherever a workflow or template asks for live evidence of a fix, it a
 (pure function, probe or scratch copy) against the code before the fix, and that the record name both answers. The
 Implementer's workflow (`engineering-team/workflows/4-implementation.md`) and the review checklist are the places.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md` § "Re-review, round 3", requested 2
+**Pointer:** `engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md` § "Re-review, round 3", requested 2

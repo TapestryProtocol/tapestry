@@ -3,14 +3,14 @@
  * Tests for Story 6 (epic tagging-edges) — the pass's routes: Run, Stop, the gated record read, and the general run-task
  * route's branch for this pass.
  *
- * Story: engineering-team/stories/tagging-edges/6-pass-run-and-stop.md — AC-1 (Run: lined up, refused while busy, just
+ * Story: engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md — AC-1 (Run: lined up, refused while busy, just
  *        after a pass ends, the queue unavailable), AC-3 (Stop: what it acts on, the stale prompt, nothing to stop),
  *        AC-4 (who may: every refused caller changes and records nothing; either may act on the other's pass; the
  *        run-task route answers as Run does, local calls exempt from the who-check only, other tasks unchanged), AC-5
  *        (who did it: each kind of who, a Run refused when it cannot be recorded, a Stop that takes effect unrecorded,
  *        who readable only by the owner or an admin), and the Test tasks "Server cases for AC-1 and AC-4" and "Server
  *        cases for AC-5" as corrected at Architecture (2026-10-27).
- * ADR:   engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md — Implementation notes ("The routes": one
+ * ADR:   engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md — Implementation notes ("The routes": one
  *        defaultDeps, with getAdminPubkeys), D6 (Run: the handler's checks, the off-queue refusal, the chain step, the
  *        answers, "every exported pass.js handler resolves and never rejects"), D7 (the run-task branch and its
  *        delegate: who, sameHost for local calls, no JSON, the answers with `message`, the flag off), D9 (Stop: the

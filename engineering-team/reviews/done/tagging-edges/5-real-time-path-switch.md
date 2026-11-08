@@ -112,7 +112,7 @@
        263's intent.
      - Leave SR34's assertions and C9 unchanged.
      - Run `gate-result-record` (34/0) and `tagging-edges-switch-record` through `run()`.
-2. **`engineering-team/stories/tagging-edges/5-real-time-path-switch.md:272-273` (§ Evidence, the gate).**
+2. **`engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md:272-273` (§ Evidence, the gate).**
    - **The problem.** It says the 13 suites failing in both runs are "this host's standing live-stack set". They are
      not: the standing set is 12. `gate-result-record` was red in both runs because the baseline was taken at
      `b6726818`, which already held SR34. The test plan's Verification ("No regressions") makes the same omission.

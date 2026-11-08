@@ -3,16 +3,16 @@
  * Tests for Story 3 (epic tagging-edges) — the real-time path's supervisord wrapper,
  * src/pipeline/tagging-edges/realtime/run.sh, run in child processes.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md — AC-5 (off by default; off means off; recovers
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md — AC-5 (off by default; off means off; recovers
  *        alone; alongside the pass), AC-3 (a bad setup writes nothing), and "For Test Design → The switch and status".
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — the Decision diagram, § "Where it runs
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — the Decision diagram, § "Where it runs
  *        (D2-A)" (the program block and "The wrapper run.sh"), § "Status and switch (D8-A)" ("The wrapper does not
  *        restart Node while the switch is off"), § "Knowing what changed while it was away" (the state table:
  *        daemon.lock "by the wrapper"), C20, and "Clarifications (Test Design)" T23 (the wrapper's test seams), T24 and
  *        T28 (the wrapper's details: flock and sleep through PATH, index.js beside run.sh, `&&` in the per-start
  *        subshell, backoff sleeps in the background, bash-3.2-compatible), and T34 (the healthy-run seam
  *        TAGGING_EDGES_REALTIME_HEALTHY_SECONDS; RW22, added from the mutation pass over the blind reference).
- * Story 5 (engineering-team/stories/tagging-edges/5-real-time-path-switch.md; ADR tagging-edges/0005 D1, D4, the
+ * Story 5 (engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md; ADR tagging-edges/0005 D1, D4, the
  *        Constraints and Seams "The wrapper"): RW23–RW24 run the wrapper on switch.json version 2 — `role` and
  *        `onSince` after `changedBy` — as the owner-or-admin route writes it. Story 5 leaves run.sh unchanged (ADR 0005
  *        Constraints: "The engine and run.sh stay unchanged"; "No key of switch.json other than on may hold the text

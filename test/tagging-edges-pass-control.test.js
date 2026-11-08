@@ -3,13 +3,13 @@
  * Tests for Story 6 (epic tagging-edges) — the pass's controller: lining a pass up, stopping one, what is busy, and
  * the private record of who did each.
  *
- * Story: engineering-team/stories/tagging-edges/6-pass-run-and-stop.md — AC-1 (Run: nothing busy, busy, just after a
+ * Story: engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md — AC-1 (Run: nothing busy, busy, just after a
  *        pass ends, the queue unavailable), AC-2 (waiting and stopping, the same for every viewer; the server unable
  *        to tell; a waiting pass that gives up), AC-3 (Stop: what it acts on, the out-of-date prompt, a waiting and a
  *        running pass, too late, nothing to stop, the schedule), AC-4 (either may act on the other's pass), AC-5 (who
  *        did it: every kind of who, only what happened, an action that cannot be recorded, the last 10), AC-6
  *        (nothing else moves), and the Test tasks "Server cases for AC-1 … AC-5" at the controller's level.
- * ADR:   engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md — D1 (one instance, the chain, bounded
+ * ADR:   engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md — D1 (one instance, the chain, bounded
  *        Redis, refusals outside the chain), D2 (an id per start, the job key, the id's millis), D5 (the busy
  *        snapshot), D6 (Run), D8 (the confirm route's start), D9 (Stop), D11 (the record), D12 (the status's
  *        `control` member), D14 (codes), and § Seams for Test Design (the deps list, the fakes, the load-time pins,
@@ -50,7 +50,7 @@
  *              outside a Date's range, in a scheduled id's millis, a job's timestamp or a record's give-up time, makes
  *              nothing throw (CT70). CT45's title now cites D2's amended rule; its body is unchanged.
  *
- *   Story 7 (2026-11-07; engineering-team/stories/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1,
+ *   Story 7 (2026-11-07; engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1,
  *              D2, D5 and § Carry-forwards CF3, R1-opt). D1: "confirmStep goes. lineUp({mode: 'confirm'}) is no longer
  *              called by anything" — controller.confirm({ who, runId }) replaces it. Every test that called the confirm
  *              mode is revised, not deleted, through one helper (confirmA, which gives the world a held report first):

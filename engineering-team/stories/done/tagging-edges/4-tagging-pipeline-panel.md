@@ -190,7 +190,7 @@ The Reviewer checks these against the diff, not with tests.
 - [ ] **BIBLE.** §11 gets any route the panel adds, and §16 an entry.
 - [ ] **The handoff.** `docs/TAGGING_EDGES_HANDOFF.md` § 0 and §2.3 name the panel.
 
-**Carried forward from story 3's review.** These are the open items of C1–C9: `reviews/tagging-edges/3-real-time-path.md`
+**Carried forward from story 3's review.** These are the open items of C1–C9: `reviews/done/tagging-edges/3-real-time-path.md`
 § "Re-review, round 3", placed here by the owner on 2026-09-30. `epics/tagging-edges.md` item 4 gives each one's
 places in full, re-checked at `origin/staging` `58abd891`.
 - [ ] **C1.** strfry's skip mark is per index-key value, not per subscription.
@@ -465,7 +465,7 @@ Small judgement calls made at Implementation (2026-09-30), too small for an ADR 
 
 ## Linked artifacts
 
-- ADR: `engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md` (also amends ADR 0003 for C1, C2's ADR
+- ADR: `engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md` (also amends ADR 0003 for C1, C2's ADR
   half, C3, C5 and C7)
-- Test plan: `engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/4-tagging-pipeline-panel.md`

@@ -46,7 +46,7 @@ Unscoped kind 5 is the fallback. Production already holds 9,341 kind-5 events; d
 tagging-edges story 2's ADR should name where kind 5 comes from, next to where taggings come from. (Story 2, approved
 2026-09-27, has the graph follow the local relay; carrying revokes between instances stays with this row.)
 
-**Pointer:** ADR `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md` § New debt / follow-ups
+**Pointer:** ADR `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md` § New debt / follow-ups
 item 5; census in `engineering-team/epics/tagging-edges.md` § Key facts; OPEN.md row 25 (the runbook and the
 `#z`-scoped sync plan).
 

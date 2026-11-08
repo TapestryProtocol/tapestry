@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-09-30
-**Story:** `engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md`
+**Story:** `engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md`
 
 ## Context
 

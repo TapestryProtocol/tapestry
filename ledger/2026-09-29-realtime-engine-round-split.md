@@ -23,5 +23,5 @@ journal). Each step takes and returns the state object, so the stall-or-slow tes
 later tested, on their own. `makeEngine`'s other parts (the journal, the status, the catch-up, the first start) could
 follow the same way, one at a time.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/3-real-time-path.md` § Non-blocking 10;
+**Pointer:** `engineering-team/reviews/done/tagging-edges/3-real-time-path.md` § Non-blocking 10;
 `src/pipeline/tagging-edges/realtime/index.js` (`roundBody`); ADR `tagging-edges/0003` T20 (the seam the suites use).

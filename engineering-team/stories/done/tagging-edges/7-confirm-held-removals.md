@@ -325,7 +325,7 @@ and "running". In addition:
 ### Carry-forwards
 
 Placed by the owner on 2026-10-30. Each is small, and none gates this story's criteria.
-- **From story 6's review** (`reviews/tagging-edges/6-pass-run-and-stop.md` § "Re-review, round 2", carry-forwards
+- **From story 6's review** (`reviews/done/tagging-edges/6-pass-run-and-stop.md` § "Re-review, round 2", carry-forwards
   1–8, and round 1's non-blocking 1 and 2; carry-forward 9 is already done). The review gives each one's evidence in
   full.
   - *CF1 (ADR, code comment):* ADR 0006 D5's note says the record is loaded "only on first use". It is also re-read
@@ -345,7 +345,7 @@ Placed by the owner on 2026-10-30. Each is small, and none gates this story's cr
     its 4-hour lifetime. Today's hook cannot throw. Guard the call, or say in the JSDoc that the hook must not throw.
   - *NB2 (code, optional):* the panel reads a busy answer with no list as "known and empty", which could close an open
     Stop prompt. Treat it as unknown.
-- **From story 5's review** (`reviews/tagging-edges/5-real-time-path-switch.md`, round 1, non-blocking 2):
+- **From story 5's review** (`reviews/done/tagging-edges/5-real-time-path-switch.md`, round 1, non-blocking 2):
   - *E1 (test):* nothing pins the drift line's guard, "The explained part does not include them". Extend B43, or add
     a case.
 - **Proposed by the Product Owner** (story 6's review, round 2, requested change 1, its optional test half; the
@@ -558,7 +558,7 @@ with no word on how it was started.)*
 
 ### The fix round (review round 1, 2026-11-07 to 08, times UTC)
 
-The review (`engineering-team/reviews/tagging-edges/7-confirm-held-removals.md`) asked for blocking 1 and requested 2
+The review (`engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md`) asked for blocking 1 and requested 2
 to 11. The round's commits are:
 - the tests and the test plan, `fffb2d91`;
 - ADR 0007's fix-round notes, `0637e9b9`;
@@ -810,8 +810,8 @@ choice beside it.
 - Wording that is the Implementer's: the used-up line, the cannot-tell reasons, and the opening line's added sentence.
 
 ## Linked artifacts
-- ADR: `engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md`
-- Test plan: `engineering-team/stories/tagging-edges/7-confirm-held-removals.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md`
+- ADR: `engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/7-confirm-held-removals.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md`
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)

@@ -39,5 +39,5 @@ mocks, so no test covers the bullet. Six more rows cited tests that cover someth
 record failure, B147 for the `nonGet` checks), and B129's title claimed a next read it never stages. Found only at
 Review, by reading each row against its test (review `tagging-edges/7-confirm-held-removals.md`, requested 3 and 10).
 
-**Pointer:** `engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md` § Harness friction 1 (round 1) and
-§ Re-review, round 2; `engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.test-plan.md` § Edge cases.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/4-tagging-pipeline-panel.md` § Harness friction 1 (round 1) and
+§ Re-review, round 2; `engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.test-plan.md` § Edge cases.

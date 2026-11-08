@@ -1,7 +1,7 @@
 # Test Plan: Story 2 — The gap-filling pass and backfill
 
-**Story:** `engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md` (binding context: `tagging-edges/0001` as
+**Story:** `engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md` (binding context: `tagging-edges/0001` as
 amended by 0002, and `src/lib/tagging-edges/contract.js`)
 **Date:** 2026-09-27 (round 2, after the review: 2026-09-28; round 3, after the re-review: 2026-09-28)
 
@@ -465,7 +465,7 @@ four of the six extra variants (M1b, M2b, M8b, M14b):
 
 ### Round 2 (2026-09-28)
 
-The review of 2026-09-28 (`engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md`) found
+The review of 2026-09-28 (`engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md`) found
 documented behaviours with no test (its items 8–17) and two blocking defects a test should pin (Blocking 1 and 2).
 Round 2 adopts its candidate tests, renumbered into each suite's series, and adds three:
 

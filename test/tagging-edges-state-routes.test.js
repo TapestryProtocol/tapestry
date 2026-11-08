@@ -2,12 +2,12 @@
 /**
  * Tests for Story 2 (epic: tagging-edges) — the gap-filling pass's state files and its three routes.
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md (AC-5: large removals held and
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md (AC-5: large removals held and
  *        confirmed only by the owner; AC-7: every run leaves a report the owner can read, a stopped run reads failed)
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md — D8, D9, "The owner's confirmation",
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md — D8, D9, "The owner's confirmation",
  *        "The report", "Who reads it", Implementation notes (state.js; src/api/tagging-edges/index.js; the
  *        reconcileTaggingEdges registry entry) and "Seams for Test Design" → State, Routes, Channels
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * Intentionally failing until story 2's implementation lands (red phase): src/pipeline/tagging-edges/state.js and
  * src/api/tagging-edges/index.js do not exist, and taskRegistry.json has no reconcileTaggingEdges entry. Each module
@@ -54,7 +54,7 @@
  *     fs.fsyncSync (EIO) for the length of one call, and restore them in `finally`. On Node 22 writeFileSync never
  *     calls fs.writeSync, so their short-write halves exercise writeFileSync's own loop only on Node 16.
  *
- * Story 6 (2026-10-27; engineering-team/stories/tagging-edges/6-pass-run-and-stop.md, ADR tagging-edges/0006 D2, D5, D8,
+ * Story 6 (2026-10-27; engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md, ADR tagging-edges/0006 D2, D5, D8,
  * D12 and § Seams "Revised pins"). The confirm route lines its pass up through the controller's
  * lineUp({ who: { kind: 'confirmation' }, mode: 'confirm' }), guarded by queueHealth(), never by runViaQueueAsync or the
  * isQueueAvailable() ping. The public status gains a who-free `control` member from the controller's snapshot.
@@ -78,7 +78,7 @@
  *     item's within { key, jobId, state, since, behind, runId, stopAskedAt, startRecorded, confirmation }. A subset,
  *     so a member that is absent rather than null passes; any other member fails, since it could carry who under
  *     another name (ADR § Constraints: the four kinds of who "stay indistinguishable to a signed-out reader").
- * Story 7 (2026-11-07; engineering-team/stories/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1,
+ * Story 7 (2026-11-07; engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1,
  * D2, D5, D6 and § Seams "Revised pins"). The confirm route keeps only its who and body checks and hands the rest to
  * d.confirm({ who: { kind: 'owner', key }, runId }), the controller's one step (D1); its old deps (readFile, heldDigest,
  * readHeld, writeConfirmation, withdrawConfirmation, nonce, lineUp, queueHealth) are the controller's now.

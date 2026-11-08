@@ -2,7 +2,7 @@
 
 **Status:** Accepted (2026-11-07)
 **Date:** 2026-11-07
-**Story:** `engineering-team/stories/tagging-edges/7-confirm-held-removals.md`
+**Story:** `engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md`
 **Amends:** ADR `tagging-edges/0002` (the confirm route's sequence and answers, C12's public confirmation) and ADR
 `tagging-edges/0006` (D8, D11's history, D12's status members, R-items named below), with dated notes (§ Amendments).
 
@@ -680,7 +680,7 @@ byte-identical: each note is a line of its own.
 
 ## Fix-round notes (2026-11-07, review round 1)
 
-Review `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md` asked for these. Each refines a decision
+Review `engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md` asked for these. Each refines a decision
 above; nothing above is struck, and no cited line moves.
 
 - **D2 step 7, a re-read that fails** (review requested 9). A re-read of `report.json` that throws, or reads nothing,

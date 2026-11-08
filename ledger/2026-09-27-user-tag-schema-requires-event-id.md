@@ -33,6 +33,6 @@ Then reinstall firmware on each deployment (AGENTS.md §6). `tag-pinning`'s sche
 rule (`firmware/versions/v1.0.0/concepts/tag-pinning/json-schema.json:27`); whether any pin is address-only was not
 checked.
 
-**Pointer:** story `engineering-team/stories/tagging-edges/1-tagging-edge-contract.md` § Acceptance criteria
-(departure 1); ADR `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md` § New debt / follow-ups
+**Pointer:** story `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.md` § Acceptance criteria
+(departure 1); ADR `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md` § New debt / follow-ups
 item 3; census in `engineering-team/epics/tagging-edges.md` § Key facts.

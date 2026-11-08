@@ -20,7 +20,7 @@ drives the Dashboard's "missing" banner and its only fix button (row `2026-09-27
 The real rollout risk was the reverse of the one stated: because nothing visible flips, a writer could run before the
 rule exists and no surface would say so. Story 2 therefore requires the rule from deploy (its AC-6).
 
-The handoff's docs-lane review (`engineering-team/reviews/tagging-edges/handoff-doc-2026-09-27.md:52`, item 4.3)
+The handoff's docs-lane review (`engineering-team/reviews/done/tagging-edges/handoff-doc-2026-09-27.md:52`, item 4.3)
 marked the claim "Holds", citing `FirmwareExplorer.jsx:64, :541`: it read the lines that compute and apply the
 disabled state, not the render condition around them. Two §2.4 claims were also looser than they read: "reusable as
 is" (a registry task must be a bash entry script, `src/manage/taskQueue/launchChildTask.sh:344`, :349), and
@@ -30,5 +30,5 @@ schedule file, `src/api/scheduled-tasks/index.js:130-137`, OPEN.md row 336).
 **The lesson.** A claim about what a UI shows needs the render condition that encloses the cited line, not only the
 line; verify it on an instance in the state the claim is about (here: firmware installed).
 
-**Pointer:** `docs/TAGGING_EDGES_HANDOFF.md` §2.4 and §4; `engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md`
+**Pointer:** `docs/TAGGING_EDGES_HANDOFF.md` §2.4 and §4; `engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md`
 AC-6.

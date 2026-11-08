@@ -2,12 +2,12 @@
 /**
  * Tests for Story 2 (epic: tagging-edges) — the gap-filling pass's runner, driven through fake ports.
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md (AC-1 … AC-7)
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md — "Implementation notes →
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md (AC-1 … AC-7)
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md — "Implementation notes →
  *        reconcileTaggingEdges.js" steps 1–12, the Decision diagram, D9, D11, "The owner's confirmation", "The report",
  *        and "Seams for Test Design → Runner with fake ports" and "→ Identities". Binding context: ADR
  *        tagging-edges/0001 (amended) and src/lib/tagging-edges/contract.js.
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * Intentionally failing until src/pipeline/tagging-edges/reconcileTaggingEdges.js lands, together with the pure
  * planner it calls (src/lib/tagging-edges/sweep.js) — red phase. The runner is require()d LAZILY inside each test
@@ -76,8 +76,8 @@
  *
  * Story 7 (ADR tagging-edges/0007 D7): SR88–SR91 pin latest.confirmation.mintedAt, when the confirmation the pass took
  * up was made; no earlier test changes (none compares latest.confirmation whole).
- * Story 6 (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md AC-3, AC-5; ADR
- * engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D10 and § Seams for Test Design → "Runner seams",
+ * Story 6 (engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md AC-3, AC-5; ADR
+ * engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md D10 and § Seams for Test Design → "Runner seams",
  * "A handler-lifetime pin", "Revised pins"):
  *   - A stop on request finishes `stopped`, reasonCode 'requested', failure null, exit 0, with no TASK_ERROR and a
  *     TASK_END that says stopped. SR50, SR68 and SR69 are revised to it (each keeps what it proves about the claim and
@@ -2113,7 +2113,7 @@ test('SR75: a scan port other than scanStrict that rejects with an unredacted st
 });
 
 /* ══════════════════════════ story 3 (ADR tagging-edges/0003): the runner after the extractions ══════════════════════════
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md. ADR: engineering-team/decisions/tagging-edges/
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md. ADR: engineering-team/decisions/done/tagging-edges/
  * 0003-real-time-path.md — § Amendments → ADR 0002 ("The pre-image line shape. It gains writer ('pass' or 'realtime')")
  * and Implementation notes → New files (identities.js, preimage.js) and Changed files (reconcileTaggingEdges.js: "use
  * identities.js and preimage.js (records gain writer: 'pass'), re-export resolveIdentities … Behaviour is otherwise
@@ -2155,10 +2155,10 @@ test('SR77: the runner still exports resolveIdentities, and it is the very funct
 });
 
 /* ══════════════════════════ story 6 (ADR tagging-edges/0006 D10): the stopped outcome, the handlers, the job id ══════════════════════════
- * Story: engineering-team/stories/tagging-edges/6-pass-run-and-stop.md — AC-3 ("a pass that stops at a safe point shows
+ * Story: engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md — AC-3 ("a pass that stops at a safe point shows
  * its own outcome … not failed"; "a stop that reaches it before it takes up the owner's confirmation leaves that
  * confirmation pending"), AC-5 (who started a pass is joined to its run through the run's job id). ADR:
- * engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D10 ("Handlers", "stopNow()", "exitCodeFor",
+ * engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md D10 ("Handlers", "stopNow()", "exitCodeFor",
  * "The job id") and § Seams for Test Design → "Runner seams", "A handler-lifetime pin". Red until D10 lands. */
 
 /** A world with a pending confirmation whose schema read sends SIGTERM (the stop is honoured before the claim). */
@@ -2458,7 +2458,7 @@ test('SR87 (ADR tagging-edges/0006 D10 "Never at module top level"): loading the
 });
 
 /* ══════════════════════════ story 7: when the confirmation the pass took up was made (ADR tagging-edges/0007 D7) ══════════
- * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md AC-4 ("The pass that took a confirmation up
+ * Story: engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md AC-4 ("The pass that took a confirmation up
  * names it: the owner's confirmation, and when it was made"). ADR tagging-edges/0007 D7: in step 7 latest.confirmation
  * gains mintedAt, the claim's mintedAt when it parses as a date, as an ISO string, else null; set on found: true only,
  * honoured or not; nothing else in the pass changes (reportVersion stays 1). Red until story 7 lands: the pass records

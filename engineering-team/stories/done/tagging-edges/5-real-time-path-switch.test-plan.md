@@ -1,9 +1,9 @@
 # Test Plan: Story 5 — The real-time path's switch, on the panel
 
-**Story:** `engineering-team/stories/tagging-edges/5-real-time-path-switch.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md` (accepted, `8a082b75`)
+**Story:** `engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md` (accepted, `8a082b75`)
 **Date:** 2026-10-01
-**Review:** `engineering-team/reviews/tagging-edges/5-real-time-path-switch.md`, round 1 (§ Review round 1 below)
+**Review:** `engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md`, round 1 (§ Review round 1 below)
 
 ## The suites
 
@@ -163,7 +163,7 @@ The writers had to decide these where the ADR leaves room. Each is in its test's
 
 ## Review round 1
 
-The review (`engineering-team/reviews/tagging-edges/5-real-time-path-switch.md`, CHANGES_REQUESTED at `ee170bf0`)
+The review (`engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md`, CHANGES_REQUESTED at `ee170bf0`)
 asked for these tests. "Fails now" means it fails on `ee170bf0` for the missing behaviour, with a message that says
 what is expected. "Pins" means the behaviour is already there: the test passes now, and a wrong version built in
 scratch fails it.

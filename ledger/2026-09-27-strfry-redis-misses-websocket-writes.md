@@ -44,5 +44,5 @@ tagging-edges epic's real-time path (story 3), "from every way an event can reac
 
 **Pointer:** epic `engineering-team/epics/tagging-edges.md` § Key facts / guardrails (the "Known defects in the
 follows pipeline" bullet: "the relay-websocket gap in the strfry patch"); review
-`engineering-team/reviews/tagging-edges/1-tagging-edge-contract.md` Blocking 4; related OPEN.md row
+`engineering-team/reviews/done/tagging-edges/1-tagging-edge-contract.md` Blocking 4; related OPEN.md row
 `2026-09-27-strfry-redis-never-reconnects`.

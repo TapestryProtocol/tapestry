@@ -26,5 +26,10 @@
   - spell multi-path searches out (row 342).
 - Row 342's proposed rule could land in the same list.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 3 and 9; OPEN.md rows
+**Pointer:** `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 3 and 9; OPEN.md rows
 237, 342 and 111.
+
+**Seen again, 2026-11-08 (tagging-edges story 7, staging evidence).** Commands handed to the owner to paste
+into a bash shell over SSH used `<T>` as a placeholder for a number. Pasted as is, bash read `<T` as "take input from
+a file named T", and `; echo` after it as a syntax error. Neither command ran, so no harm was done. Recipes for a human
+to paste should give literal values, or a `T=834` line first, never angle-bracket placeholders.

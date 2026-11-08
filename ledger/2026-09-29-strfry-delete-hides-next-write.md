@@ -96,7 +96,7 @@ it to every subscription and to exactly as many writes as events deleted.)
 - for subscribers that cannot wait for a periodic re-read, re-read on a timer, or re-subscribe after an operator
   delete.
 
-**Pointer:** story `engineering-team/stories/tagging-edges/3-real-time-path.md` § Evidence (the local end-to-end
+**Pointer:** story `engineering-team/stories/done/tagging-edges/3-real-time-path.md` § Evidence (the local end-to-end
 run); ADR `tagging-edges/0003` owner decision 10 and A1 clarification 24; review
-`engineering-team/reviews/tagging-edges/3-real-time-path.md` § Blocking 3 (round 1) and R2-1 (round 2); OPERATIONS
+`engineering-team/reviews/done/tagging-edges/3-real-time-path.md` § Blocking 3 (round 1) and R2-1 (round 2); OPERATIONS
 §12.9 "Things to know".

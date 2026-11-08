@@ -2,10 +2,10 @@
 /**
  * Shared fixtures for the tagging-edges story-2 suites (the gap-filling pass).
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md (binding context: ADR 0001, amended,
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md (binding context: ADR 0001, amended,
  *        and src/lib/tagging-edges/contract.js)
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * One copy of the events, identities and graph-snapshot rows the story-2 suites build from, so the planner, runner,
  * graph-port and route suites cannot disagree about what a tagging or a stored relationship looks like.

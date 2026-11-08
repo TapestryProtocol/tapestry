@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-09-26
-**Story:** `engineering-team/stories/tagging-edges/1-tagging-edge-contract.md`
+**Story:** `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.md`
 **Amended (2026-09-28):** by `tagging-edges/0003` — R2-NB3's limit is the pass's; the real-time path's reading of
 kind 5, its waiting in place of refusing to start, and a failed element read (notes beside the stamp-pubkey binding,
 R2-NB3, the revokes consequence, step 5 and clarification 11).

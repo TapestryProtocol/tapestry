@@ -324,7 +324,7 @@ addition:
 
 ### Carry-forwards from story 5's review (C5-1 to C5-10)
 
-Placed by the owner on 2026-10-01 (`reviews/tagging-edges/5-real-time-path-switch.md` § "Re-review, round 2",
+Placed by the owner on 2026-10-01 (`reviews/done/tagging-edges/5-real-time-path-switch.md` § "Re-review, round 2",
 carry-forwards 1–10; the epic's item 6 holds each one's ask). Who does each:
 - **Tester (test plan, test comments):** C5-1, C5-2 and C5-3, in story 5's test plan and suites.
 - **Architect (ADR):** C5-7; C5-8's ADR 0005 D6 note; C5-9's re-dating of ADR 0005's round-1 notes (below); and
@@ -873,6 +873,6 @@ These are small judgement calls made at Implementation (2026-10-28), too small f
 
 ## Linked artifacts
 
-- ADR: `engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md`
-- Test plan: `engineering-team/stories/tagging-edges/6-pass-run-and-stop.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md`
+- ADR: `engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md`

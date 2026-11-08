@@ -159,6 +159,6 @@ Still open, for later phases:
 
 ## Linked artifacts
 
-- ADR: `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md`
-- Test plan: `engineering-team/stories/tagging-edges/1-tagging-edge-contract.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/1-tagging-edge-contract.md`
+- ADR: `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/1-tagging-edge-contract.md`

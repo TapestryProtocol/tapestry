@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-09-27
-**Story:** `engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md`
+**Story:** `engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md`
 **Amends:** `tagging-edges/0001` (see "Amendments to ADR 0001")
 **Amended (2026-09-28):** by `tagging-edges/0003` — the binding for story 3 (items 2–4), the R2-NB3 limit, the
 residuals, owner decision 2, the pre-image line, `scanStrict`'s contract, C16, and a new clarification C20.
@@ -738,7 +738,7 @@ Each goes into ADR 0001 in the same commit as this ADR, with an "Amended by `tag
   *either* identity is missing or malformed, and that the form is lowercase 64-hex (A3).
 - **R2-6:** clarification 9's `events.cpp` cite (ADR 0001:436, `:57-60`) reads `:59-62`; step 1 (:316-318) says
   strfry rejects an event whose `d` value is not a string, and files one with a missing or empty `d` under `''`;
-  story 1's test plan (`engineering-team/stories/tagging-edges/1-tagging-edge-contract.test-plan.md:205`) says four
+  story 1's test plan (`engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.test-plan.md:205`) says four
   clarifications.
 - **R2-7:** the stance-bucketing paragraph (ADR 0001:222-225) takes BIBLE's qualified wording (BIBLE.md:315:
   `""`, `"NaN"`, `"-Infinity"` can bucket differently in Cypher and JS).
@@ -1224,7 +1224,7 @@ refused or failed. The report, not the job result, is authoritative.
 ## Clarifications (Test Design, 2026-09-27)
 
 Test Design validated the suites against a blind reference implementation and mutation testing (test plan
-`engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md` § "Validation of the suite
+`engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md` § "Validation of the suite
 itself"). That work found interface details this ADR left open. They are settled here so the Implementer and the
 tests agree. Ratified by the owner at the Test Design gate (2026-09-27), including C2, C9 (`nostrUser_pubkey` need
 only be present), C12 and C13 as written:

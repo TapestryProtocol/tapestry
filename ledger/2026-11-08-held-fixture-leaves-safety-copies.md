@@ -25,5 +25,5 @@ Fix shape: drop `evidence` from the fixture relationships, since the address alr
   names its properties (HF8 checks only the labels);
 - a dated note on ADR 0007 § Evidence, whose fixture bullet names `evidence: run`.
 
-**Pointer:** `engineering-team/stories/tagging-edges/7-confirm-held-removals.md` § Evidence, "Staging", "What the
+**Pointer:** `engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md` § Evidence, "Staging", "What the
 counts left"

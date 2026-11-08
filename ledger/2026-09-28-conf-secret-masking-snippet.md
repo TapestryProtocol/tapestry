@@ -15,4 +15,4 @@ re-inventing this masking step; nothing shared and tested exists.
 the environment without echoing them, with a test that feeds it the real variable names; briefs that need Neo4j access
 point to it. Rotating the local development credential is the owner's call.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § Harness friction 3; AGENTS.md.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § Harness friction 3; AGENTS.md.
