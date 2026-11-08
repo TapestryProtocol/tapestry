@@ -22,6 +22,7 @@ const path = require('path');
 const { validateDeclaration, builtInRefusalsFor, METHODS } = require('./declaration');
 const { checkInputs } = require('./inputs');
 const { isRefusal } = require('./refusal');
+const { hasFileResult } = require('./files');
 
 const DEFAULT_DIR = path.join(__dirname, 'catalog');
 const PREFIX = '/api/tapestry';
@@ -43,7 +44,10 @@ function describe(decl, file) {
     summary: decl.summary,
     description: decl.description || '',
     inputs: decl.inputs || {},
-    result: { description: decl.result.description || '', schema: decl.result.schema },
+    result: hasFileResult(decl)
+      ? { description: decl.result.description || '', file: { contentType: decl.result.file.contentType } }
+      : { description: decl.result.description || '', schema: decl.result.schema },
+    body: decl.body ? { file: { contentTypes: [...decl.body.file.contentTypes], maxBytes: decl.body.file.maxBytes } } : null,
     refusals: [...builtInRefusalsFor(decl), ...(decl.refusals || []).map(({ code, status, when }) => ({ code, status, when }))],
     declaredRefusals: decl.refusals || [],
     file,
@@ -95,37 +99,62 @@ function findOperation(group, name, opts) {
 
 /**
  * Check the inputs, run the operation, and give the answer every surface sends.
+ *
+ * The operation gets `context.afterAnswer(fn)`: work to do once the answer is out — the route runs it when the
+ * response has finished or closed, the command before it exits (ADR graph-operations-foundation/0002 Decision 10). The
+ * collected functions come back as `after`, whatever the outcome. A file result comes back as `file` in place of `body`.
  * @param {object} op          a loaded operation
  * @param {*} raw              its raw inputs: the query, the command's flags, or the JSON body
- * @param {{ via: 'http'|'cli', caller: { role: string, pubkey: string|null } }} context
+ * @param {{ via: 'http'|'cli', caller: { role: string, pubkey: string|null }, body?: import('stream').Readable }} context
  * @param {{ source: 'query'|'cli'|'body' }} opts
- * @returns {Promise<{ status: number, body: object }>}
+ * @returns {Promise<{ status: number, body?: object, file?: object, after: Function[] }>}
  */
 async function callOperation(op, raw, context, { source = 'query' } = {}) {
+  const after = [];
   const checked = checkInputs(op, raw, source);
-  if (!checked.ok) return { status: 400, body: { success: false, ...checked.refusal } };
+  if (!checked.ok) return { status: 400, body: { success: false, ...checked.refusal }, after };
+  const ctx = { ...context, afterAnswer: (fn) => { if (typeof fn === 'function') after.push(fn); } };
   try {
-    const data = await op.declaration.run(checked.inputs, context);
+    const data = await op.declaration.run(checked.inputs, ctx);
+    if (op.result.file) {
+      const file = data && data.file;
+      if (!file || typeof file.open !== 'function' || !Number.isInteger(file.size) || file.size < 0) {
+        return { status: 500, body: { success: false, error: `${op.group} ${op.name} failed: it answered without the file its declaration promises`, code: 'failed' }, after };
+      }
+      return { status: 200, file: { name: file.name, size: file.size, contentType: file.contentType || op.result.file.contentType, open: file.open }, after };
+    }
     // A result that can't be sent as JSON (a BigInt, a cycle) fails where each surface serializes it, once: http.js
     // and cli.js each answer that as this operation's 500 `failed` (review rounds 1 and 2).
-    return { status: 200, body: { success: true, data: data === undefined ? null : data } };
+    return { status: 200, body: { success: true, data: data === undefined ? null : data }, after };
   } catch (err) {
     if (isRefusal(err)) {
-      const declared = op.declaredRefusals.find((r) => r.code === err.code);
-      if (declared) return { status: declared.status, body: { success: false, error: err.message, code: err.code } };
+      // Its own declared refusals, and the built-in ones it can get (a file body's `too-large`, which the body's
+      // stream ends with, reaches the operation's run and comes back here).
+      const declared = op.refusals.find((r) => r.code === err.code);
+      if (declared) return { status: declared.status, body: { success: false, error: err.message, code: err.code }, after };
       return {
         status: 500,
         body: { success: false, error: `${op.group} ${op.name} failed: it refused with '${err.code}', which its declaration doesn't list (${err.message})`, code: 'failed' },
+        after,
       };
     }
-    return { status: 500, body: { success: false, error: `${op.group} ${op.name} failed: ${(err && err.message) || String(err)}`, code: 'failed' } };
+    return { status: 500, body: { success: false, error: `${op.group} ${op.name} failed: ${(err && err.message) || String(err)}`, code: 'failed' }, after };
   }
 }
 
-/** An operation as the list shows it: the facts /docs shows, machine-readable (AC7). */
-function listEntry(op) {
-  const { group, name, summary, description, kind, access, method, route, command, inputs, result, refusals } = op;
-  return { group, name, summary, description, kind, access, method, route, command, inputs, result, refusals };
+/** Run the work an operation left for after its answer, once, in order; a failure is logged, never thrown. */
+async function runAfterAnswer(after, op) {
+  for (const fn of after || []) {
+    try { await fn(); } catch (err) { console.error(`[operations] ${op.group} ${op.name}: work after the answer failed: ${(err && err.message) || err}`); }
+  }
 }
 
-module.exports = { loadOperations, findOperation, callOperation, listEntry, DEFAULT_DIR, PREFIX, LIST_ROUTE };
+/** An operation as the list shows it: the facts /docs shows, machine-readable (AC7). A file body is shown when there is one. */
+function listEntry(op) {
+  const { group, name, summary, description, kind, access, method, route, command, inputs, result, refusals } = op;
+  const entry = { group, name, summary, description, kind, access, method, route, command, inputs, result, refusals };
+  if (op.body) entry.body = op.body;
+  return entry;
+}
+
+module.exports = { loadOperations, findOperation, callOperation, runAfterAnswer, listEntry, DEFAULT_DIR, PREFIX, LIST_ROUTE };

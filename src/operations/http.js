@@ -10,8 +10,9 @@
  * handshake (ADR security-auth-exposure/0003); nothing new.
  */
 
-const { loadOperations, callOperation, listEntry, LIST_ROUTE } = require('./index');
+const { loadOperations, callOperation, runAfterAnswer, listEntry, LIST_ROUTE } = require('./index');
 const { getConfigFromFile, getAdminPubkeys } = require('../utils/config');
+const { hasFileBody, mediaType, limitStream, safeFileName } = require('./files');
 
 /**
  * Who is calling: a direct-local caller (the central check stamped req.localTrusted), the owner, an admin, someone
@@ -38,8 +39,38 @@ function gate(access, caller) {
   return { status: 403, body: { success: false, error: ownerOnly ? 'Only the owner can do this.' : 'Only the owner or an admin can do this.', code: 'not-allowed' } };
 }
 
+/** Run `after` once the response has finished or closed, whichever comes first, and only once. */
+function afterResponse(res, after, op) {
+  if (!after || !after.length) return;
+  let ran = false;
+  const go = () => { if (ran) return; ran = true; runAfterAnswer(after, op); };
+  res.on('finish', go);
+  res.on('close', go);
+}
+
+/** Send a file result as an attachment (ADR graph-operations-foundation/0002 Decision 10). */
+function sendFile(res, file) {
+  res.status(200);
+  res.set({
+    'Content-Type': file.contentType,
+    'Content-Length': String(file.size),
+    'Content-Disposition': `attachment; filename="${safeFileName(file.name)}"`,
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  const stream = file.open();
+  // Once the headers are out, a failure can only cut the response short.
+  stream.on('error', (err) => {
+    console.error(`[operations] sending ${file.name} failed: ${(err && err.message) || err}`);
+    res.destroy(err);
+  });
+  stream.pipe(res);
+}
+
 function operationHandler(op) {
-  const source = op.method === 'GET' ? 'query' : 'body';
+  const fileBody = hasFileBody(op.declaration);
+  // A file body's operation takes its inputs from the query string, as a read does.
+  const source = op.method === 'GET' || fileBody ? 'query' : 'body';
   return async function tapestryOperation(req, res) {
     // Express 4 doesn't catch a rejected async handler, and an unhandled rejection ends the process, so nothing may
     // escape this function (review round 1, non-blocking 1). That includes a result res.json can't serialize: it
@@ -48,9 +79,26 @@ function operationHandler(op) {
       const caller = callerOf(req);
       const refused = gate(op.access, caller);
       if (refused) return res.status(refused.status).json(refused.body);
+      let body;
+      if (fileBody) {
+        // The connection closes after the answer: a body left unread is never parsed as the next request.
+        res.set('Connection', 'close');
+        const spec = op.declaration.body.file;
+        const type = mediaType(req.headers['content-type']);
+        if (!spec.contentTypes.map((t) => t.toLowerCase()).includes(type)) {
+          return res.status(415).json({ success: false, error: `${op.group} ${op.name} takes a body of type ${spec.contentTypes.join(' or ')}, not ${type || 'none'}.`, code: 'wrong-content-type' });
+        }
+        const declared = req.headers['content-length'];
+        if (declared !== undefined && Number(declared) > spec.maxBytes) {
+          return res.status(413).json({ success: false, error: `The body is ${declared} bytes; ${op.group} ${op.name} takes at most ${spec.maxBytes}.`, code: 'too-large' });
+        }
+        body = limitStream(req, spec.maxBytes, 'The body');
+      }
       const raw = source === 'query' ? req.query : req.body;
-      const { status, body } = await callOperation(op, raw, { via: 'http', caller }, { source });
-      return res.status(status).json(body);
+      const answer = await callOperation(op, raw, { via: 'http', caller, body }, { source });
+      afterResponse(res, answer.after, op);
+      if (answer.file) return sendFile(res, answer.file);
+      return res.status(answer.status).json(answer.body);
     } catch (err) {
       if (res.headersSent) return undefined;
       return res.status(500).json({ success: false, error: `${op.group} ${op.name} failed: ${(err && err.message) || String(err)}`, code: 'failed' });

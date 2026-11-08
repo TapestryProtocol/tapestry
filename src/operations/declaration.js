@@ -10,7 +10,11 @@
  *                 ordinary signed-in people (the book's frame: new reads stay behind sign-in)
  *   summary       one line; description, for /docs and the list, optional
  *   inputs        { <name>: { schema, required?, description? } }, optional
- *   result        { description?, schema } — the JSON Schema of the answer's `data`
+ *   result        { description?, schema } — the JSON Schema of the answer's `data` — or, for a read only,
+ *                 { description?, file: { contentType } }: the answer is a file (ADR graph-operations-foundation/0002
+ *                 Decision 10)
+ *   body          { file: { contentTypes, maxBytes } }, for a write only and optional: the body is a file, and the
+ *                 declared inputs come from the query string
  *   refusals      [{ code, status (4xx), when }] — the operation's own, optional
  *   run           async (inputs, context) => data
  * Schemas use the subset OpenAPI 3.0 and ajv share. Other fields are allowed and ignored by the generators.
@@ -18,6 +22,7 @@
 
 const Ajv = require('ajv');
 const { GROUPS, REFUSED_GROUPS } = require('./groups');
+const { hasFileBody } = require('./files');
 
 const NAME_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const INPUT_NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
@@ -32,11 +37,17 @@ const BUILT_IN_REFUSALS = Object.freeze([
   { code: 'unknown-input', status: 400, when: 'An input the operation does not take', applies: () => true },
   { code: 'missing-input', status: 400, when: 'A required input left out', applies: (d) => Object.values(d.inputs || {}).some((i) => i && i.required) },
   { code: 'invalid-input', status: 400, when: 'An input of the wrong type, or out of range', applies: (d) => Object.keys(d.inputs || {}).length > 0 },
-  { code: 'invalid-body', status: 400, when: 'A body that is not a JSON object', applies: (d) => d.kind === 'write' },
+  { code: 'invalid-body', status: 400, when: 'A body that is not a JSON object', applies: (d) => d.kind === 'write' && !hasFileBody(d) },
+  { code: 'wrong-content-type', status: 415, when: 'A body of a type the operation does not take', applies: (d) => hasFileBody(d) },
+  { code: 'too-large', status: 413, when: 'A body larger than the operation takes', applies: (d) => hasFileBody(d) },
   { code: 'sign-in-required', status: 401, when: 'Not signed in', applies: () => true },
   { code: 'not-allowed', status: 403, when: 'Signed in, but not someone the operation is for', applies: () => true },
 ]);
-const RESERVED_CODES = new Set([...BUILT_IN_REFUSALS.map((r) => r.code), 'failed']);
+// The two file-body codes are reserved only where they apply: a read that answers with a file may declare its own
+// `too-large` (ADR graph-operations-foundation/0002 Decision 1). Every other built-in code is reserved everywhere.
+const FILE_BODY_CODES = new Set(['wrong-content-type', 'too-large']);
+const RESERVED_CODES = new Set([...BUILT_IN_REFUSALS.map((r) => r.code).filter((c) => !FILE_BODY_CODES.has(c)), 'failed']);
+const reservedFor = (decl) => new Set([...RESERVED_CODES, ...(hasFileBody(decl) ? FILE_BODY_CODES : [])]);
 
 // One compiler for checking that a declaration's schemas compile (the meta-schema catches a nonsense type).
 const schemaChecker = new Ajv({ allErrors: true, strict: false });
@@ -97,13 +108,30 @@ function validateDeclaration(decl, where) {
     }
   }
 
-  // result
-  if (!isObject(decl.result) || !isObject(decl.result.schema)) {
-    problems.push('it has no result schema (result: { description, schema })');
+  // result: a JSON Schema, or (for a read) a file
+  const fileResult = isObject(decl.result) && decl.result.file !== undefined;
+  if (!isObject(decl.result) || (!isObject(decl.result.schema) && !fileResult)) {
+    problems.push('it has no result schema (result: { description, schema }) or file (result: { description, file: { contentType } })');
+  } else if (fileResult) {
+    if (decl.result.schema !== undefined) problems.push('its result is either a schema or a file, not both');
+    if (!isObject(decl.result.file) || !nonEmpty(decl.result.file.contentType)) problems.push('its result file must name its contentType (result: { file: { contentType } })');
+    if (decl.kind !== 'read') problems.push(`only a read answers with a file; its kind is ${JSON.stringify(decl.kind)}`);
   } else {
     const bad = compiles(decl.result.schema);
     if (bad) problems.push(`its result schema doesn't compile: ${bad}`);
-    if (decl.result.description !== undefined && typeof decl.result.description !== 'string') problems.push('its result description must be text');
+  }
+  if (isObject(decl.result) && decl.result.description !== undefined && typeof decl.result.description !== 'string') problems.push('its result description must be text');
+
+  // body: a file, for a write
+  if (decl.body !== undefined) {
+    const f = isObject(decl.body) ? decl.body.file : undefined;
+    if (!isObject(f)) {
+      problems.push('its body must be { file: { contentTypes, maxBytes } }');
+    } else {
+      if (!Array.isArray(f.contentTypes) || !f.contentTypes.length || !f.contentTypes.every(nonEmpty)) problems.push('its body file must list the contentTypes it takes');
+      if (!Number.isInteger(f.maxBytes) || f.maxBytes < 1) problems.push(`its body file's maxBytes must be a whole number of bytes, at least 1; got ${JSON.stringify(f.maxBytes)}`);
+    }
+    if (decl.kind !== 'write') problems.push(`only a write takes a file body; its kind is ${JSON.stringify(decl.kind)}`);
   }
 
   // refusals
@@ -111,9 +139,10 @@ function validateDeclaration(decl, where) {
     problems.push('its refusals must be a list of { code, status, when }');
   } else {
     const seen = new Set();
+    const reserved = reservedFor(decl);
     for (const r of decl.refusals || []) {
       if (!isObject(r) || !NAME_RE.test(String(r.code))) { problems.push(`a refusal's code ${JSON.stringify(r && r.code)} must be kebab-case`); continue; }
-      if (RESERVED_CODES.has(r.code)) problems.push(`its refusal '${r.code}' repeats a built-in code (${[...RESERVED_CODES].join(', ')})`);
+      if (reserved.has(r.code)) problems.push(`its refusal '${r.code}' repeats a built-in code (${[...reserved].join(', ')})`);
       if (seen.has(r.code)) problems.push(`its refusal '${r.code}' is listed twice`);
       seen.add(r.code);
       if (!Number.isInteger(r.status) || r.status < 400 || r.status > 499) problems.push(`its refusal '${r.code}' must have a 4xx status, not ${JSON.stringify(r.status)}`);

@@ -74,6 +74,25 @@ All four were resolved at the planning gate on 2026-11-08.
 3. **Moving a backup between instances?** *Resolved: download and upload routes:* "Add owner + admin routes to download and upload a backup."
 4. **The assistant's secret key and the admin list?** *Resolved: the owner chose the option "Admins get it all".* Admins may download the key, and restore the key and the admin list. For these operations, that replaces the two owner-only rules of 2026-10-10 (ADR `security-auth-exposure/0005`, item 3 of the owner's gate decisions). The ADR records it.
 
+## Deviations
+
+Small judgment calls made in Implementation, inside the ADR:
+
+- **A test fix, kicked back to the Tester** (its own commit, `fb9c65cf1`). The 401 and 403 come from the central check, which answers before the module and carries no `code`. F2, B15, R16, D6 and U9 now assert as A10.1's H5 does: the status, `success: false`, and an error naming who may call.
+- **The two file-body codes are reserved only where they apply.** `wrong-content-type` and `too-large` are built in only for a declaration with a file body. A read may declare its own `too-large`, as `download-backup` does for an 8 GiB dump. Every other built-in code is reserved everywhere, as before.
+- **A thrown built-in refusal keeps its status.** `callOperation` answers a refusal a run throws at its status when the code is among the operation's refusals, built-ins included. The body's stream ends with `too-large`, which reaches the run.
+- **Two helper files the ADR didn't name.**
+  - `src/operations/files.js` holds the module's file helpers: the size counter, writing a stream to the command's stdout, and safe attachment names.
+  - `src/operations/catalog/lifecycle/_common.js` holds what the five declarations share: result schemas, the opening checks, and restore's verification of a backup.
+- **`bin/tapestry.js` is unchanged.** `cli.main`'s default `io` now includes `process.stdin`, so the bin needs no edit.
+- **The command says the job finishes on its own for `restore` too,** not only for `backup`.
+- **An upload's folder is `.incoming-<random>`, not `.incoming-<runId>`.** An upload takes no lock, so it has no run id.
+- **The Neo4j version comes from `neo4j-admin --version`,** for the manifest and for restore's check alike. Decision 4 also named `CALL dbms.components()` for the manifest.
+- **Stale-lock recovery does more than Decision 7 lists.** It also restarts the writers the dead run paused (the lock records them as `paused`), and it removes a dead restore's incomplete safety folder (the lock records it as `safety`).
+- **Restore always warns about the cache:** each node's Tapestry JSON in the LMDB may be out of step until it is rebuilt.
+- **The upload limit is 8 GiB plus 64 MiB:** room for a dump just under the 8 GiB a tar member holds, and still under nginx's 9g.
+- **OPEN.md row 281** (event-less sets have no backup) is DONE.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Backup bullet)

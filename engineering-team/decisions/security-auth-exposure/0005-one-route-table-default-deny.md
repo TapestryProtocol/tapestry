@@ -7,6 +7,9 @@
 **Supersedes (in part):** ADR `security-auth-exposure/0002` Decision items 1 and 4 (the central check's hand-kept lists, and
 "no change to the authenticated branch"); ADR `security-auth-exposure/0004`'s "the middleware is left as is". ADRs 0001
 (direct-local trust), 0003 (signed sign-in) and 0004's route guards stand unchanged.
+**Amended for five operations by:** ADR `graph-operations-foundation/0002` (2026-11-08). For `lifecycle backup`, `restore`,
+`list-backups`, `download-backup` and `upload-backup`, admins may download the assistant's secret key and restore the key
+and the admin list, at the owner's ruling; item 3 of the owner's decisions below still holds on its own routes.
 
 ## Context
 
