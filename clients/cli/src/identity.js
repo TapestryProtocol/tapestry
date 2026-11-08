@@ -164,7 +164,10 @@ function mismatch(ev, t) {
 function askSigner(command, template, io) {
   return new Promise((resolve, reject) => {
     let child;
-    try { child = spawn('/bin/sh', ['-c', command], { stdio: ['pipe', 'pipe', 'pipe'] }); } catch (e) {
+    // A process group of its own, so a timeout ends the programs the command started too, not only its shell
+    // (review round 1).
+    const group = process.platform !== 'win32';
+    try { child = spawn('/bin/sh', ['-c', command], { stdio: ['pipe', 'pipe', 'pipe'], detached: group }); } catch (e) {
       reject(new Failed(`The signer command couldn't start: ${e.message}`));
       return;
     }
@@ -172,7 +175,7 @@ function askSigner(command, template, io) {
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => io.err(String(d)));
     const timer = setTimeout(() => {
-      child.kill('SIGKILL');
+      try { if (group) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { child.kill('SIGKILL'); }
       reject(new Failed(`The signer didn't answer within ${SIGNER_TIMEOUT_MS / 1000} seconds. Is it waiting for an approval?`));
     }, SIGNER_TIMEOUT_MS);
     child.on('error', (e) => { clearTimeout(timer); reject(new Failed(`The signer command couldn't start: ${e.message}`)); });

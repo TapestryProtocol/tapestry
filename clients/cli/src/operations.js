@@ -125,9 +125,21 @@ function bodyOf(op, inputs) {
   return copy;
 }
 
+/**
+ * Whether a listed route stays under /api/tapestry/ as the instance will read it: no dot segment, plain or
+ * percent-encoded, no backslash or empty segment, and the same path once a URL has normalized it (review round 1).
+ */
+function underPrefix(route) {
+  if (typeof route !== 'string' || !route.startsWith(PREFIX)) return false;
+  if (/(^|\/)\.\.?(\/|$)|%2e|\\|\/\//i.test(route)) return false;
+  let normalized;
+  try { normalized = new URL(route, 'http://x').pathname; } catch { return false; }
+  return normalized === route && normalized.startsWith(PREFIX);
+}
+
 /** Call an operation from its list entry: the instance's { status, json }. */
 async function callOperation(ctx, op, inputs) {
-  if (typeof op.route !== 'string' || !op.route.startsWith(PREFIX)) {
+  if (!underPrefix(op.route)) {
     throw new Failed(`${ctx.origin} lists ${op.group} ${op.name} at ${JSON.stringify(op.route)}, which isn't under ${PREFIX}; this CLI calls nothing else.`);
   }
   if (op.method === 'GET') {

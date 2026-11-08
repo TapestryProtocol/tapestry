@@ -20,7 +20,7 @@ const { EXIT } = require('./commands');
 const { CliError, Usage, Setup, messageOf } = require('./errors');
 const identity = require('./identity');
 const { resolveInstance, originOf, timeoutMs } = require('./instance');
-const { signIn, signOut } = require('./signin');
+const { signIn, signOut, isSignInRefusal } = require('./signin');
 const sessions = require('./sessions');
 const ops = require('./operations');
 const { version } = require('../package.json');
@@ -137,7 +137,7 @@ async function operation(io, env, home, g, group, rest) {
   if (r.status >= 200 && r.status < 300 && r.json.success === true) return EXIT.ANSWERED;
   if (r.status >= 500) { io.err(`${group} ${name} failed on ${ctx.origin} (HTTP ${r.status}): ${messageOf(r.json)}\n`); return EXIT.FAILED; }
   if (r.status === 403) io.err(`${op.access === 'owner-only' ? `${group} ${name} is the owner's only on ${ctx.origin}.` : ops.notOwnerOrAdmin(ctx)}\n`);
-  if (r.status === 401) io.err(`${ctx.origin} didn't accept the sign-in of ${ctx.identity.npub}, even after signing in again.\n`);
+  if (isSignInRefusal(r)) io.err(`${ctx.origin} didn't accept the sign-in of ${ctx.identity.npub}, even after signing in again.\n`);
   if (r.status >= 400) return EXIT.REFUSED;
   io.err(`${ctx.origin} answered ${group} ${name} with HTTP ${r.status} but no success.\n`);
   return EXIT.FAILED;
@@ -173,7 +173,8 @@ async function main(argv, io = { stdout: process.stdout, stderr: process.stderr 
   const out = (s) => io.stdout.write(s);
   const err = (s) => io.stderr.write(s);
   try {
-    if (typeof fetch !== 'function' || typeof AbortSignal.timeout !== 'function') throw new Usage('This CLI needs Node 20 or later.');
+    if (typeof fetch !== 'function' || typeof AbortSignal.timeout !== 'function' || typeof Headers === 'undefined'
+      || typeof Headers.prototype.getSetCookie !== 'function') throw new Usage(`This CLI needs Node 20 or later (this is Node ${process.versions.node}).`);
     return await run(argv || [], { out, err }, env);
   } catch (e) {
     if (e instanceof CliError) {

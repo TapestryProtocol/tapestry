@@ -7,9 +7,9 @@
  *   2. sign { kind 22242, tags [['challenge', c]], content 'Tapestry authentication' }, with the key or the signer
  *   3. POST /api/auth/login-user { event }    → the session, regenerated: the cookie the CLI keeps
  *
- * The key signs nothing else, and nothing else is sent from it. A call that comes back 401 drops the kept sign-in, signs
- * in once more and is retried once (once per run); a 401 is answered before an operation runs, so a write is never sent
- * twice.
+ * The key signs nothing else, and nothing else is sent from it. A call that comes back with the instance's own sign-in
+ * 401 drops the kept sign-in, signs in once more and is retried once (once per run); that 401 is answered before an
+ * operation runs, so a write is never sent twice. An operation's own declared 401 is a refusal, never resent.
  */
 
 const sessions = require('./sessions');
@@ -39,18 +39,28 @@ async function signIn(ctx) {
   return kept.cookie;
 }
 
-/** A call made with the kept sign-in, signing in when there's none, and once more after a 401. */
+/**
+ * Whether an answer is the instance's own sign-in refusal (ADR graph-operations-foundation/0006 Decision 5, amended at
+ * review round 1): a 401 from the central check, which has no `code`, or from the router's re-check,
+ * `sign-in-required`, a built-in code no declaration may use. Both come before an operation runs. Any other 401 is an
+ * operation's own declared refusal, answered like any refusal and never resent.
+ */
+function isSignInRefusal(r) {
+  return r.status === 401 && (!r.json || r.json.code === undefined || r.json.code === 'sign-in-required');
+}
+
+/** A call made with the kept sign-in, signing in when there's none, and once more after the instance's sign-in 401. */
 async function authed(ctx, method, route, body) {
   const kept = sessions.get(ctx.home, ctx.origin, ctx.identity.pubkey);
   let cookie = kept ? kept.cookie : await signIn(ctx);
   let r = await send(ctx.origin, method, route, { cookie, body, ...ctx.http });
-  if (r.status === 401 && !ctx.signedInAgain) {
+  if (isSignInRefusal(r) && !ctx.signedInAgain) {
     ctx.signedInAgain = true;
     sessions.drop(ctx.home, ctx.origin, ctx.identity.pubkey);
     cookie = await signIn(ctx);
     r = await send(ctx.origin, method, route, { cookie, body, ...ctx.http });
   }
-  if (r.status === 401) sessions.drop(ctx.home, ctx.origin, ctx.identity.pubkey);
+  if (isSignInRefusal(r)) sessions.drop(ctx.home, ctx.origin, ctx.identity.pubkey);
   return r;
 }
 
@@ -65,4 +75,4 @@ async function signOut(ctx) {
   return { hadSignIn: !!kept, problem };
 }
 
-module.exports = { signIn, authed, signOut, SIGN_IN_KIND, SIGN_IN_CONTENT };
+module.exports = { signIn, authed, signOut, isSignInRefusal, SIGN_IN_KIND, SIGN_IN_CONTENT };

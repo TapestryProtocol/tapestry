@@ -53,7 +53,7 @@ Run `tapestry use <url>` once to set a default instance, like `https://tapestry.
 
 ## Start here, every time
 
-1. `tapestry whoami` says who your key is on this instance: `owner`, `admin` or `neither`. If it says `neither` (exit 1), stop, and ask the owner to make your npub an admin.
+1. `tapestry whoami` says who your key is on this instance: `owner`, `admin` or `neither`. If it says `neither` (exit 1), stop, and ask the owner to make your npub an admin. If it says `local`, you reached the instance's own port on its own machine, which it trusts without a sign-in and so can't tell who you are: use its public address instead, so your changes are known to be yours.
 2. `tapestry lifecycle status` gives the instance's state: its last backup, its firmware, the migrations applied and its cache. Read it before you change anything.
 3. `tapestry`, or `tapestry help`, lists every operation you may call here, by group, with a one-line summary of each.
 
@@ -76,7 +76,7 @@ stdout carries only the instance's JSON answer: `{ "success": true, "data": … 
 | 0 | answered | use `data` |
 | 1 | refused | read `code`, `error` and `input`, then fix the call, or stop and say why |
 | 2 | usage | the command line is wrong, or something isn't set up: read stderr |
-| 3 | failed | the instance failed, couldn't be reached, timed out (`TAPESTRY_TIMEOUT`, in seconds, 300 by default) or answered something that isn't its JSON: read stderr, and try once more at most |
+| 3 | failed | the instance failed, couldn't be reached, timed out (`TAPESTRY_TIMEOUT`, in seconds, 300 by default) or answered something that isn't its JSON: read stderr. A read may be tried once more. A write may have run before it failed, so read back what it would have changed before you try it again |
 
 ## Never
 

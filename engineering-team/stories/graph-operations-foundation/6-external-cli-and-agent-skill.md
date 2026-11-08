@@ -97,6 +97,7 @@ None. The CLI reads no concept itself. The operations it calls touch what they t
 ## Out of scope
 
 - **An MCP server.** D14 adds one later, made the same way. Where it runs is decided when it's built.
+- **Operations that send or take a file.** The CLI speaks JSON only. The A10.2 branch (backup and restore) adds operations that download and upload a backup file, which an admin may call. Whichever of the two lands second makes the CLI handle them, unless the owner decides otherwise (review round 1, non-blocking 1).
 - **The instance's side.** No new operation, and no change to how operations are declared, routed, listed or documented (story 1). If the Architect finds the list lacks a fact the CLI needs, that's a change to story 1's shared files, to raise at the architecture gate.
 - **The instance's sign-in.** No new kind of sign-in for agents, such as tokens. The CLI uses the signed-challenge sign-in the instance has.
 - **Making a key an admin from the CLI.** The owner does that on the instance.
@@ -139,6 +140,16 @@ Small judgment calls made in Implementation, inside the ADR:
 - An instance whose list doesn't name its `caller` yet (one older than this story) is answered with `role: "owner or admin"`, so the CLI still works against it.
 - A signer's event may carry a `created_at` up to 600 s from the one asked for, the instance's own window, in case a signer stamps the time itself. Its kind, pubkey, content and tags must be the same, and its signature must verify.
 - The lockfile was made offline from npm's cache (`npm install --package-lock-only --offline`). Its two direct dependencies are the root's exact versions; npm chose the indirect ones (`@noble/ciphers` 0.5.3, for one).
+
+The review's round 1 fixes, inside the ADR as amended (Decision 5):
+
+- **Retries (B2).** Only the instance's own sign-in 401 is retried after a new sign-in: the central check's, with no `code`, or `sign-in-required`. An operation's declared 401 is a refusal. It is never resent, the kept sign-in stays, and stderr doesn't blame the sign-in (`clients/cli/src/signin.js` `isSignInRefusal`).
+- **The route guard** also refuses a listed route with a dot segment, plain or `%2e`, a backslash or an empty segment, or one that a URL would normalize to another path.
+- **A signer runs in a process group of its own,** so its timeout ends the programs it started, not only its shell. That was checked by hand with a one-second copy: a signer command that started two `sleep`s left none behind.
+- **The Node check** also tests `Headers#getSetCookie` and names the Node it found, so Node 18 is told why.
+- **The skill** now says:
+  - a failed write may have run, so read back what it would have changed before trying it again;
+  - what the `local` role means, and to use the instance's public address so its changes are known to be the agent's.
 
 ## Evidence
 
