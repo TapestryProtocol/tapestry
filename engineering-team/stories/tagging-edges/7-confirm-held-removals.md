@@ -592,7 +592,8 @@ this said every new test failed before the fix.)*
 Review round 2 asked for blocking 1 and 2 and requested 3 to 5. The round's commits are:
 - the tests and the test plan, `188c8165`;
 - ADR 0007's round-2 notes, and ADR 0004's T12 note restored with a dated line at its end, `8cde9c76`;
-- the implementation and record fixes, `065fa2c1`.
+- the implementation and record fixes, `065fa2c1`;
+- a ledger row, and `PLAYWRIGHT_HTML_OPEN=never` in the test plan's § How to run, `cebcbffa`.
 
 Of the round's four new tests and two revised, three were red before the fix: OV27 (revised), TV137 and B150
 (revised). OV30, TV136 and B155 were green on purpose, each checked against a planted fault. The test plan's
@@ -607,10 +608,22 @@ Of the round's four new tests and two revised, three were red before the fix: OV
 - **One other changed for its known reason:** `relay-scan-bounds`'s live probe ran (27/0/1 → 28/0/0).
 - **The other 17 failing suites** fail with the same counts.
 - **The browser spec** on the UI built from `065fa2c1`'s tree: 159 of 159 (158 before, plus B155).
-- **The local status,** from 15:03:46Z. An enabled pass entry with a yearly rule (`0 3 1 1 *`) widened to 300
-  characters gave `overdue` `{state: 'cannot-tell', reason: 'rule'}`. It was then disabled, which gave `no-entry`, and
-  deleted. Its scheduler job was due 2027-01-01T03:00Z, and nothing ran. No Redis key for it remains. The disabled
-  seed entry is the pass's only entry again.
+- **The local status, first check,** from 15:03:46Z. An enabled pass entry with a yearly rule (`0 3 1 1 *`) widened to
+  300 characters gave `overdue` `{state: 'cannot-tell', reason: 'rule'}`. It was then disabled, which gave `no-entry`,
+  and deleted. Its scheduler job was due 2027-01-01T03:00Z, and nothing ran. No Redis key for it remains. *(Corrected
+  2026-11-08, at review round 3, requested 2: this shows only that a long entry does not fail the status. The yearly
+  rule has one run within 400 days, so R13 alone reads "cannot tell", and a long rule alone read "cannot tell" before
+  the fix too.)*
+- **The local status, a check that tells the builds apart,** 16:22:58Z to 16:23:10Z, on the backend spawned at
+  14:50:18Z on `065fa2c1`, with the latest pass `20261107T232624Z-d87fefad` (begun 2026-11-07T23:26:24.929Z):
+
+  | Enabled pass entries | The live status | The same input, replayed on `20c5efa7`'s `overdue.js` |
+  |---|---|---|
+  | the daily rule `0 3 * * *` widened to 300 characters, and `0 4 * * *` | `cannot-tell`/`rule` | `on-time` (`periodMs` 86,400,000) |
+  | `0 4 * * *` alone (the long entry disabled) | `on-time`, `expectedAt` 2026-11-08T23:26:24.929Z | `on-time`, the same |
+
+  Both entries were then disabled, which gave `no-entry`, and deleted, over 10 hours before either rule would have run.
+  Nothing ran, and no Redis key for either remains. The disabled seed entry is the pass's only entry again.
 
 ## Deviations
 
