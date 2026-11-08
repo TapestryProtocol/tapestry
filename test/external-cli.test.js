@@ -14,8 +14,8 @@
  *
  *   S1–S7    signing in with the agent's own key; S7 a declared 401 (review round 1)       [AC1; ADR 0006 Decision 5]
  *   O1–O6    the operations come from the instance                                       [AC2]
- *   K1–K11   calling an operation: flags, typing, answers, exit codes, transport; K11 dots [AC3, AC5; ADR 0006 Decisions 1, 4, 6]
- *   I1–I15   the key, the instance, and who the agent is there                            [AC4]
+ *   K1–K12   calling an operation: flags, typing, answers, exit codes, transport; K11 dots; K12 a declared 403 [AC3, AC5; ADR 0006 Decisions 1, 4, 6]
+ *   I1–I16   the key, the instance, and who the agent is there; I16 the signer's process group [AC4]
  *   SK1–SK4  the skill                                                                    [AC6]
  *   P1–P5    the package, the version banner, the README, and staying out of the image    [ADR 0006 Decisions 1, 2, 9, 10]
  *   A1–A3    only the sign-in and /api/tapestry/, nothing signed but the challenge        [AC5] — last, over every request
@@ -149,6 +149,14 @@ function catalog(extra = {}) {
     }, { run: 'async run(inputs) { await new Promise((r) => setTimeout(r, inputs.ms)); return { waited: inputs.ms }; }' }),
     'lifecycle/owner-thing.js': declSource({ ...BASE, group: 'lifecycle', name: 'owner-thing', access: 'owner-only', summary: 'Only for the owner' }, {
       run: `async run() { ${COUNT('lifecycle owner-thing')} return { ok: true }; }`,
+    }),
+    // A read whose own declared refusal is a 403 (review round 2, non-blocking 1).
+    'graph/not-yours.js': declSource({
+      ...BASE, group: 'graph', name: 'not-yours', summary: 'Refuse with a 403 of its own',
+      refusals: [{ code: 'not-yours', status: 403, when: 'The thing asked for belongs to someone else' }],
+    }, {
+      head: `const { refusal } = require(${show(REFUSAL)});`,
+      run: `async run() { ${COUNT('graph not-yours')} throw refusal('not-yours', 'That belongs to someone else.'); }`,
     }),
     // A write whose own declared refusal is a 401, as a declaration may give any 4xx (review round 1, B2).
     'graph/needs-approval.js': declSource({
@@ -314,11 +322,14 @@ function fakeSigner(signKey, { mangle = null } = {}) {
   fs.writeFileSync(keyPath, signKey.hex);
   fs.chmodSync(keyPath, 0o600);
   const seen = path.join(dir, 'seen.txt');
+  const pgid = path.join(dir, 'pgid.txt');
   const script = path.join(dir, 'signer.js');
   fs.writeFileSync(script, [
     "'use strict';",
     "const fs = require('fs');",
     `const { finalizeEvent } = require(${show(require.resolve('nostr-tools/pure', { paths: [ROOT] }))});`,
+    // Its own process group, so a test can see the CLI didn't give it one of its own (review round 2).
+    `fs.writeFileSync(${show(pgid)}, require('child_process').execSync('ps -o pgid= -p ' + process.pid).toString().trim());`,
     "let input = '';",
     "process.stdin.on('data', (d) => { input += d; });",
     "process.stdin.on('end', () => {",
@@ -333,7 +344,7 @@ function fakeSigner(signKey, { mangle = null } = {}) {
     '  process.stdout.write(JSON.stringify(ev) + String.fromCharCode(10));',
     '});',
   ].join(NL));
-  return { command: `"${process.execPath}" "${script}"`, seen };
+  return { command: `"${process.execPath}" "${script}"`, seen, pgid };
 }
 
 /** Every file under dir, recursively. */
@@ -649,6 +660,15 @@ test('K11: a list entry whose route leaves /api/tapestry/ by dot segments is nev
   }
 });
 
+test('K12: an operation\'s own declared 403 is its refusal, not a sign that the key is neither owner nor admin (review round 2)', async () => {
+  const m = INST.mark();
+  const r = await cli(['graph', 'not-yours'], A);
+  const j = json(r.stdout);
+  assert(r.code === 1 && j && j.success === false && j.code === 'not-yours', `exit 1 with the operation's own refusal as it came; ${said(r)}`);
+  assert(INST.since(m).filter((x) => x.path === '/api/tapestry/graph/not-yours').length === 1, 'the call reached the instance once');
+  assert(!/neither its owner nor an admin|owner's only/i.test(r.stderr), `stderr must not say the key isn't allowed, when the operation itself refused; got ${show(tail(r.stderr))}`);
+});
+
 // ── I: the key, the instance, and who the agent is there (AC4) ───────────────────────────────────────────────────
 
 test('I1: `tapestry key new` makes a key only its user can read, prints its npub and hex but not the secret, and never overwrites one (AC4)', async () => {
@@ -842,6 +862,17 @@ test('I15: runs started at once by one agent all succeed, and what they keep sta
   const m = INST.mark();
   const later = await cli(['graph', 'echo-inputs', '--text', 'later'], a);
   assert(later.code === 0 && count(INST.since(m), '/api/auth/verify-user') === 0, `a later run reuses a kept sign-in; ${said(later)}`);
+});
+
+test('I16: a signer runs in the CLI\'s own process group, so it keeps the terminal for a passphrase and Ctrl-C reaches it (review round 2)', async () => {
+  const signer = fakeSigner(ADMIN);
+  const r = await cli(['graph', 'echo-inputs', '--text', 'same-group'], { home: newHome(), env: { TAPESTRY_INSTANCE: INST.url, TAPESTRY_SIGNER: signer.command, TAPESTRY_PUBKEY: ADMIN.npub } });
+  assert(r.code === 0, `the call through the signer succeeds; ${said(r)}`);
+  assert(fs.existsSync(signer.pgid), 'the signer ran and recorded its process group');
+  // The CLI ran in this process's group (spawned without detached), so a signer in the CLI's group is in this one.
+  const mine = require('child_process').execSync(`ps -o pgid= -p ${process.pid}`).toString().trim();
+  const its = fs.readFileSync(signer.pgid, 'utf8').trim();
+  assert(its === mine, `the signer must share the CLI's process group (${mine}), not lead one of its own; it ran in ${its}`);
 });
 
 // ── SK: the skill (AC6) ───────────────────────────────────────────────────────────────────────────────────────────

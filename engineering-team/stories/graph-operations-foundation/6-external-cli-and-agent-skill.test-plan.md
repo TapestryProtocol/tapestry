@@ -16,6 +16,7 @@ There is one new suite and one new helper, the operations suite gains two tests,
   Two more modes stand in for things that aren't an instance: one answers HTML, the other a 302.
 - **`test/operations.test.js` gains H16 and D6,** for the list's `caller` (ADR Decision 7).
 - **Review round 1:** `S7` and `K11` are new, `SK2` and `SK3` are stricter, and `test/brains-launcher-repo.test.js` W1c lists the new top-level `clients/` as a path the brains don't run (B1).
+- **Review round 2:** `I16` and `K12` are new; the fake signer records its process group.
 
 ## Coverage map
 
@@ -45,12 +46,14 @@ There is one new suite and one new helper, the operations suite gains two tests,
 | Decision 4 | `K9` a call slower than `TAPESTRY_TIMEOUT` exits 3 within about a second, saying it timed out | same | integration |
 | Decision 1 | `K10` the client's `parseFlags` gives the internal command's inputs, help and usage errors for fifteen argument lists | same | unit |
 | AC5 | `K11` a list entry whose route leaves `/api/tapestry/` by dot segments (`..`, `%2e%2e`) is refused before any call (review round 1) | same | unit |
+| AC3 | `K12` an operation's own declared 403 is a refusal: exit 1, the instance's JSON, and no stderr saying the key isn't the owner or an admin (review round 2) | same | integration |
 | AC4: the key | `I1` `key new` writes `<home>/key` at 0600 in a 0700 home, prints `{ file, npub, pubkey }` and not the secret, refuses to overwrite, and `--file` writes elsewhere | same | integration |
 | AC4 | `I2` `key show` prints `{ source, npub, pubkey }` from a key file, `TAPESTRY_SECRET_KEY` and a signer, never a secret | same | integration |
 | AC4 | `I3` a key file others can read is refused (exit 2, naming `chmod 600` and the file) and nothing is sent; at 0600 it works | same | integration |
 | AC4 | `I4` `TAPESTRY_SECRET_KEY` as hex or nsec works, and no file in the home holds the secret | same | integration |
 | AC4 | `I5` a signer command of the agent's own gets the unsigned sign-in event as one JSON line on stdin, its stderr reaches the agent, the call runs as its key, and the home holds no secret | same | integration (fake signer) |
 | AC4 | `I6` a signer returning another challenge, another key's event or a bad signature fails the sign-in (exit 3), and that event is never sent | same | integration |
+| AC4 | `I16` a signer runs in the CLI's own process group, so it keeps the terminal for a passphrase and Ctrl-C reaches it (review round 2, R2-B1) | same | integration (fake signer records its process group) |
 | AC4 | `I7` two agents' keys in one home: each call runs as its own key, and each key signs in exactly once | same | integration |
 | AC4 | `I8` the instance comes from `--instance`, then `TAPESTRY_INSTANCE`, then `tapestry use`; alternating two instances signs in to neither again | same | integration (two instances) |
 | AC4 | `I9` the home and everything in it are readable only by the agent's user | same | structural (after the calls) |
@@ -114,7 +117,7 @@ The ADR leaves these to the tests. The Implementer builds to them.
   - `A1` and `A3` check that requests were made and files were found.
 - [ ] **Not covered:** an instance whose list has a group named like one of the CLI's own commands (ADR Decision 2). Today's groups can't take those names, and making the case means a hand-made list served by a stub instance. Low value now.
 - [ ] **Not covered:** https itself. The suite's instances are plain http on loopback, which the CLI allows. The live check covers a real proxy path.
-- [ ] **Not covered, by a test (review round 1):** a signer that hangs past its 180 seconds is killed with the programs it started, and Node older than 20 is refused by name (the check now includes `Headers#getSetCookie`). Both are code-only: a test would wait three minutes, or need an older Node.
+- [ ] **Not covered, by a test (review rounds 1 and 2):** Node older than 20 is refused by name (the check includes `Headers#getSetCookie`); a test would need an older Node. A signer that hangs past its 180 seconds is killed, but a program it started in the background may outlive that: it runs in the CLI's own process group (`I16`), which keeps its terminal and lets Ctrl-C reach it, and that is the trade (review round 2, R2-B1, which withdrew round 1's group kill).
 
 ## Test infrastructure
 
