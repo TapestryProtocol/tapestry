@@ -116,3 +116,19 @@ The new tests fail with the current code, for the reasons they should. The run w
 ```
 
 The helpers were checked on their own first. A real key decrypts, the fake neo4j round-trips a dump through `info`, `load --info` and `load`, and the ustar writer's archive is read by the test's reader and listed by the system's bsdtar.
+
+## Round 2: tests for review round 1's fixes (ADR 0002 Amendment 1)
+
+Added by the Tester after review round 1, failing first (commit `2c6de20c6`):
+
+| Finding | Tests | File |
+|---|---|---|
+| Blocking: the restart depended on the caller | F8: after-answer work runs when the client gave up before the answer (harness `abortAfterMs`) · R5 rewritten: the answer marks its run answered, and the route restarts nothing · J4: the job restarts once the caller marks the answer out, not before · J5: or once the caller is gone, or at its time limit; never after a backup, a no-change restore or a failed one | `operations.test.js`, `restore.test.js`, `backup-job.test.js` |
+| A job that can't start kept its lock | J6 | `backup-job.test.js` |
+| Recovery could remove a fresh lock | J7 | `backup-job.test.js` |
+| What to undo was recorded after the stop call | B20 (the fake's `stopThrows`) | `backup.test.js` |
+| Restore's errors after the load | R18 (in place, and the safety backup) · R19 (stop, load, start, by hand) | `restore.test.js` |
+| Restore's result schema | R20 | `restore.test.js` |
+| An interrupted restore's safety backup | P1b extended | `status.test.js` |
+
+Red before green: 11 failed and 119 passed on `2c6de20c6`; after the fix, 130 passed.

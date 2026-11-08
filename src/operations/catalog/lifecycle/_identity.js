@@ -124,7 +124,7 @@ async function restoreIdentity(folder, expectedPubkey) {
   const { getPublicKey, nip19 } = require('nostr-tools');
   const pubkey = getPublicKey(Buffer.from(keys.privkey, 'hex'));
   if (pubkey !== expectedPubkey) throw new Error('the backup\'s assistant key is not the assistant its manifest names');
-  const npub = keys.npub || nip19.npubEncode(pubkey);
+  const npub = nip19.npubEncode(pubkey); // derived from the key itself, never taken from the stored copy
 
   const dir = keysDir();
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
@@ -173,9 +173,4 @@ function restoreAdmins(pubkeys) {
   return readAdmins();
 }
 
-/** Restart the control panel, once it has answered, so it drops the assistant it cached. */
-function restartControlPanel(system) {
-  return system.supervisor('restart', ['brainstorm']);
-}
-
-module.exports = { keysDir, confPath, namedAssistant, ownerPubkey, readIdentity, checkIdentity, restoreIdentity, readAdmins, restoreAdmins, restartControlPanel };
+module.exports = { keysDir, confPath, namedAssistant, ownerPubkey, readIdentity, checkIdentity, restoreIdentity, readAdmins, restoreAdmins };

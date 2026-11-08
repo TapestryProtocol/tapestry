@@ -65,7 +65,12 @@ const RESULT_SCHEMA = {
         type: 'object',
         nullable: true,
         description: 'A backup or restore that stopped before it finished, until the next one tidies up after it, or null',
-        properties: { runId: { type: 'string', nullable: true }, op: { type: 'string' }, startedAt: { type: 'string', nullable: true } },
+        properties: {
+          runId: { type: 'string', nullable: true },
+          op: { type: 'string' },
+          startedAt: { type: 'string', nullable: true },
+          safety: { type: 'string', nullable: true, description: "An interrupted restore's safety backup, the graph as it was before it" },
+        },
       },
       note: { type: 'string', description: 'What this part knows, in words' },
     }),
@@ -113,9 +118,14 @@ const status = {
         ? { id: latest.id, takenAt: latest.takenAt, note: latest.note, size: latest.size, origin: latest.origin, reason: latest.reason }
         : null;
       const lock = store.inspectLock();
-      const interrupted = lock && lock.stale ? { runId: lock.runId || null, op: lock.op, startedAt: lock.startedAt || null } : null;
+      const interrupted = lock && lock.stale
+        ? { runId: lock.runId || null, op: lock.op, startedAt: lock.startedAt || null, safety: store.isId(lock.safety) ? lock.safety : null }
+        : null;
       const words = [last ? `The most recent backup is ${last.id}, taken ${last.takenAt}.` : 'No backup has been taken yet.'];
-      if (interrupted) words.push(`A ${interrupted.op} was interrupted (it began ${interrupted.startedAt}); the next backup, restore or upload tidies up after it.`);
+      if (interrupted) {
+        const safety = interrupted.safety ? ` Its safety backup, the graph as it was, is ${interrupted.safety}.` : '';
+        words.push(`A ${interrupted.op} was interrupted (it began ${interrupted.startedAt}); the next backup, restore or upload tidies up after it.${safety}`);
+      }
       return { known: true, last, count: store.count(), lastRun: store.lastRun(), interrupted, note: words.join(' ') };
     },
     async firmware() {

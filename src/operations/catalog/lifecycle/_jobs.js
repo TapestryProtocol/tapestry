@@ -88,24 +88,32 @@ async function dumpTo(system, file) {
     tee.end();
     await written;
   }
+  console.log(`[lifecycle] neo4j-admin database dump: exit ${r.code}; ${lastLine(r.stderr)}`);
   if (r.code !== 0) throw new Error(`neo4j-admin database dump failed: ${tail(r.stderr)}`);
   return { size, sha256: hash.digest('hex') };
 }
 /** Load `file` into the stopped database, replacing it. */
-function loadFrom(system, file) {
-  return system.neo4jAdmin(['database', 'load', 'neo4j', '--from-stdin', '--overwrite-destination=true'], { stdin: fs.createReadStream(file) });
+async function loadFrom(system, file) {
+  const r = await system.neo4jAdmin(['database', 'load', 'neo4j', '--from-stdin', '--overwrite-destination=true'], { stdin: fs.createReadStream(file) });
+  console.log(`[lifecycle] neo4j-admin database load: exit ${r.code}; ${lastLine(r.stderr || r.stdout)}`);
+  return r;
 }
 
-/** Stop the writers that are running, record them on the lock, and return them. */
-async function pauseWriters(system, runId) {
+/**
+ * Stop the writers that are running. `onPaused(running)` hears which, before the stop is asked for, so a stop that
+ * fails halfway is still undone by the job's `finally` (ADR 0002 Amendment 1); the lock records them for a recovery.
+ */
+async function pauseWriters(system, runId, onPaused) {
   const status = await system.programStatus(store.WRITERS);
   const running = store.WRITERS.filter((w) => status[w] === 'RUNNING');
   if (running.length) {
     store.updateLock(runId, { paused: running });
+    onPaused(running);
     await system.supervisor('stop', running);
   }
   return running;
 }
+const lastLine = (s) => String(s || '').trim().split('\n').filter(Boolean).pop() || '';
 
 function writeIdentityFiles(folder, ident, admins) {
   fs.mkdirSync(path.join(folder, 'identity'), { recursive: true, mode: 0o700 });
@@ -133,7 +141,7 @@ async function runBackupJob(request, system) {
   let folder = null;
   let kept = false;
   try {
-    paused = await pauseWriters(system, runId);
+    paused = await pauseWriters(system, runId, (running) => { paused = running; });
     const before = await countGraph(system);
     const neo4jVersion = await system.version();
     const id = store.newId();
@@ -146,8 +154,8 @@ async function runBackupJob(request, system) {
     writeIdentityFiles(folder, ident, admins);
 
     const offlineFrom = Date.now();
+    stopped = true; // before the call: a stop that fails halfway is still undone
     await system.supervisor('stop', ['neo4j']);
-    stopped = true;
     store.updateLock(runId, { stage: 'offline' });
     const info = await storeInfo(system);
     const dump = await dumpTo(system, path.join(folder, 'neo4j.dump'));
@@ -203,7 +211,7 @@ async function runRestoreJob(request, system) {
   let safetyFolder = null;
   let safetyKept = false;
   try {
-    paused = await pauseWriters(system, runId);
+    paused = await pauseWriters(system, runId, (running) => { paused = running; });
     const before = await countGraph(system);
     const neo4jVersion = await system.version();
     const safetyId = store.newId();
@@ -215,8 +223,8 @@ async function runRestoreJob(request, system) {
     writeIdentityFiles(safetyFolder, ident, adminsBefore);
 
     const offlineFrom = Date.now();
+    stopped = true; // before the call: a stop that fails halfway is still undone
     await system.supervisor('stop', ['neo4j']);
-    stopped = true;
     store.updateLock(runId, { stage: 'offline' });
     const info = await storeInfo(system);
     const safetyDump = await dumpTo(system, path.join(safetyFolder, 'neo4j.dump'));
@@ -244,12 +252,13 @@ async function runRestoreJob(request, system) {
     }
     if (wrong) {
       const back = await loadFrom(system, path.join(safetyFolder, 'neo4j.dump'));
+      if (back.code !== 0) {
+        // Left stopped for the finally to try starting; the store may not come up, so say how to put it back by hand.
+        throw new Error(`${wrong}, and rolling back from the safety backup ${safetyId} failed too (${tail(back.stderr)}). To put the graph back by hand: stop the graph database (supervisorctl stop neo4j), load the safety dump (runuser -u neo4j -- neo4j-admin database load neo4j --from-stdin --overwrite-destination=true < ${path.join(safetyFolder, 'neo4j.dump')}), then start it again (supervisorctl start neo4j).`);
+      }
       await system.supervisor('start', ['neo4j']);
       await waitForGraph(system);
       stopped = false;
-      if (back.code !== 0) {
-        throw new Error(`${wrong}, and rolling back from the safety backup ${safetyId} failed too (${tail(back.stderr)}). Load it by hand: runuser -u neo4j -- neo4j-admin database load neo4j --from-stdin --overwrite-destination=true < ${path.join(safetyFolder, 'neo4j.dump')}`);
-      }
       throw new Error(`${wrong}. The restore rolled back: the graph is as it was, from the safety backup ${safetyId}.`);
     }
     await system.supervisor('start', ['neo4j']);
@@ -257,15 +266,28 @@ async function runRestoreJob(request, system) {
     stopped = false;
     store.updateLock(runId, { stage: 'online' });
     const offlineMs = Date.now() - offlineFrom;
-    const restored = await countGraph(system);
 
-    const assistant = await identity.restoreIdentity(sourceFolder, source.instance.assistantPubkey);
-    assistant.before = ident.assistantPubkey;
-    assistant.changed = assistant.before !== assistant.after;
-    const adminsAfter = identity.restoreAdmins(source.admins.pubkeys);
-    const resumed = [...paused];
-    if (paused.length) await system.supervisor('start', paused);
-    paused = [];
+    // From here on the backup's graph is in place: a failure says so, and where the graph as it was is kept.
+    let step = 'counting what came back';
+    let restored;
+    let assistant;
+    let adminsAfter;
+    let resumed;
+    try {
+      restored = await countGraph(system);
+      step = 'putting the assistant\'s key in place';
+      assistant = await identity.restoreIdentity(sourceFolder, source.instance.assistantPubkey);
+      assistant.before = ident.assistantPubkey;
+      assistant.changed = assistant.before !== assistant.after;
+      step = 'restoring the admins';
+      adminsAfter = identity.restoreAdmins(source.admins.pubkeys);
+      step = 'starting the paused writers';
+      resumed = [...paused];
+      if (paused.length) await system.supervisor('start', paused);
+      paused = [];
+    } catch (err) {
+      throw new Error(`Backup ${id}'s graph is in place, but ${step} failed: ${err.message}. The graph as it was is in the safety backup ${safetyId}.`);
+    }
 
     const exact = source.graph.countsExact === true;
     const recordedCounts = pick(source.graph);
@@ -318,15 +340,29 @@ async function runRestoreJob(request, system) {
 async function runDetached(request, opts = {}) {
   const workerPath = opts.workerPath || path.join(__dirname, '_worker.js');
   const file = store.runFile(request.runId);
-  store.writeJson(file, { ...request, startedAt: new Date().toISOString() });
-  const log = fs.openSync(store.runLog(request.runId), 'a', 0o600);
-  let exit;
+  let log;
+  try {
+    // The caller's pid, so the job can tell when it is gone (ADR 0002 Amendment 1).
+    store.writeJson(file, { ...request, callerPid: process.pid, startedAt: new Date().toISOString() });
+    log = fs.openSync(store.runLog(request.runId), 'a', 0o600);
+  } catch (err) {
+    // The job never started, so nothing else would free its lock (review round 1).
+    store.releaseLock(request.runId);
+    return { outcome: 'failed', error: `the ${request.op} job couldn't be started: ${err.message}`, finishedAt: new Date().toISOString() };
+  }
+  let exit = 'still running';
   try {
     const child = spawn(process.execPath, [workerPath, request.runId], { detached: true, stdio: ['ignore', log, log], env: process.env });
-    exit = await new Promise((resolve) => {
-      child.on('error', (err) => resolve(`could not start (${err.message})`));
-      child.on('exit', (code, signal) => resolve(code === null ? `signal ${signal}` : `exit ${code}`));
+    // Resolve on the job's record, not on the worker's exit: after a restore the worker stays on to restart the
+    // control panel once this caller has answered (afterJob), so waiting for its exit would wait on ourselves.
+    await new Promise((resolve) => {
+      let settled = false;
+      const finish = () => { if (!settled) { settled = true; clearInterval(timer); resolve(); } };
+      const timer = setInterval(() => { const r = store.readJson(file); if (r && r.outcome) finish(); }, 250);
+      child.on('error', (err) => { exit = `could not start (${err.message})`; finish(); });
+      child.on('exit', (code, signal) => { exit = code === null ? `signal ${signal}` : `exit ${code}`; finish(); });
     });
+    child.unref();
   } finally {
     fs.closeSync(log);
   }
@@ -344,4 +380,39 @@ async function runDetached(request, opts = {}) {
     : { outcome: record.outcome, error: record.error, finishedAt: record.finishedAt };
 }
 
-module.exports = { runBackupJob, runRestoreJob, runDetached, waitForGraph, graphAnswers, countGraph };
+/** Merge `fields` into a run's file, making it if need be. */
+function updateRun(runId, fields) {
+  const file = store.runFile(runId);
+  store.writeJson(file, { runId, ...(store.readJson(file) || {}), ...fields });
+}
+
+/** The caller's word that the answer is out (ADR 0002 Amendment 1): the job may restart the control panel now. */
+function markAnswered(runId) {
+  if (store.isId(runId)) updateRun(runId, { answeredAt: new Date().toISOString() });
+}
+
+/**
+ * What the job does once its record is written (ADR 0002 Amendment 1): after a restore that changed the assistant, it
+ * restarts the control panel — once the caller has marked the answer out, once the caller is gone, or at the time
+ * limit — so the restart never cuts the answer short and never waits on a caller that went away.
+ */
+async function afterJob(record, system, { pollMs = 500, timeoutMs = 120000 } = {}) {
+  const restart = record && record.outcome === 'done' && record.result && Array.isArray(record.result.restarting)
+    && record.result.restarting.includes('brainstorm');
+  if (!restart) return { restarted: false };
+  const started = Date.now();
+  let why = 'the time limit';
+  for (;;) {
+    const run = store.readJson(store.runFile(record.runId)) || {};
+    if (run.answeredAt) { why = 'the answer is out'; break; }
+    if (!store.pidAlive(record.callerPid)) { why = 'the caller is gone'; break; }
+    if (Date.now() - started >= timeoutMs) break;
+    await system.sleep(pollMs);
+  }
+  await system.supervisor('restart', ['brainstorm']);
+  updateRun(record.runId, { restartedAt: new Date().toISOString(), restartedBecause: why });
+  console.log(`[lifecycle] restarted the control panel, since ${why}`);
+  return { restarted: true, why };
+}
+
+module.exports = { runBackupJob, runRestoreJob, runDetached, afterJob, markAnswered, waitForGraph, graphAnswers, countGraph };

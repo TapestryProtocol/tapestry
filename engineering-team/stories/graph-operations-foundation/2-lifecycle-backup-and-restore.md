@@ -95,6 +95,13 @@ Small judgment calls made in Implementation, inside the ADR:
 - **Found by the live check: an instance with no admins recorded `[""]`.** The conf reader returns `BRAINSTORM_ADMIN_PUBKEYS=""` as the two characters `""` (OPEN.md row `2026-11-08-admin-list-empty-quotes`, left for its own story). A restore would have written that into another instance's settings, overriding its own admins. Backup and restore now keep only real 64-hex pubkeys. The Tester's failing test B19 came first, in its own commit (`2289da6f1`).
 - **The report's `restarting` names `tagging-edges-realtime` only when it was running and so came back with the new key.** The live check's old scratch image has no such program.
 - **Two robustness fixes from self-review.** The detached `supervisorctl restart` has an error handler, so a missing `supervisorctl` can't crash the process. And `dumpTo` closes its file even when `neo4j-admin` fails to start.
+- **Review round 1's fixes follow ADR 0002 Amendment 1.**
+  - The job restarts the control panel once the answer is out, once the caller is gone, or at 120 s.
+  - After-answer work runs at once when the response has already closed.
+  - The Tester's failing tests came first, in their own commit (`2c6de20c6`).
+- **`runDetached` resolves when the run file holds the job's outcome,** or when the worker exits, not only on the exit as Decision 8 had it. After a restore the worker stays on to restart the control panel once its caller has answered, so a caller waiting for the worker's exit would wait on itself.
+- **Rollback that fails too leaves the server stopped.** When rolling back from the safety backup also fails, the job leaves the server stopped for its `finally` to try starting, and the error gives the by-hand steps.
+- **`restartControlPanel` left `_identity.js`:** the worker's `afterJob` calls `system.supervisor('restart', ['brainstorm'])` itself.
 
 ## Evidence
 

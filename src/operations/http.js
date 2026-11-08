@@ -39,11 +39,16 @@ function gate(access, caller) {
   return { status: 403, body: { success: false, error: ownerOnly ? 'Only the owner can do this.' : 'Only the owner or an admin can do this.', code: 'not-allowed' } };
 }
 
-/** Run `after` once the response has finished or closed, whichever comes first, and only once. */
-function afterResponse(res, after, op) {
+/**
+ * Run `after` once the response has finished or closed, whichever comes first, and only once — at once when it already
+ * has (`isClosed()`), since a client that gave up before the answer must not stop the work (ADR
+ * graph-operations-foundation/0002 Amendment 1).
+ */
+function afterResponse(res, after, op, isClosed) {
   if (!after || !after.length) return;
   let ran = false;
   const go = () => { if (ran) return; ran = true; runAfterAnswer(after, op); };
+  if (isClosed() || res.writableFinished || res.destroyed) { go(); return; }
   res.on('finish', go);
   res.on('close', go);
 }
@@ -64,6 +69,8 @@ function sendFile(res, file) {
     console.error(`[operations] sending ${file.name} failed: ${(err && err.message) || err}`);
     res.destroy(err);
   });
+  // A client that goes away stops the reading too, so the file isn't held open.
+  res.on('close', () => { if (!res.writableFinished) stream.destroy(); });
   stream.pipe(res);
 }
 
@@ -75,6 +82,8 @@ function operationHandler(op) {
     // Express 4 doesn't catch a rejected async handler, and an unhandled rejection ends the process, so nothing may
     // escape this function (review round 1, non-blocking 1). That includes a result res.json can't serialize: it
     // throws before any header is sent, so the catch still answers 500 `failed`.
+    let closed = false;
+    res.once('close', () => { closed = true; });
     try {
       const caller = callerOf(req);
       const refused = gate(op.access, caller);
@@ -96,7 +105,7 @@ function operationHandler(op) {
       }
       const raw = source === 'query' ? req.query : req.body;
       const answer = await callOperation(op, raw, { via: 'http', caller, body }, { source });
-      afterResponse(res, answer.after, op);
+      afterResponse(res, answer.after, op, () => closed);
       if (answer.file) return sendFile(res, answer.file);
       return res.status(answer.status).json(answer.body);
     } catch (err) {

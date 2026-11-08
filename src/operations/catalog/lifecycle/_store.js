@@ -210,13 +210,18 @@ function startTimeOf(pid) {
     return Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19]);
   } catch { return null; }
 }
-function holderAlive(h) {
-  if (!h || !Number.isInteger(h.pid) || h.pid <= 0) return false;
+/** Is a process with this pid running (on this host)? */
+function pidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
-    process.kill(h.pid, 0);
+    process.kill(pid, 0);
+    return true;
   } catch (err) {
-    if (!err || err.code !== 'EPERM') return false;
+    return !!err && err.code === 'EPERM';
   }
+}
+function holderAlive(h) {
+  if (!h || !pidAlive(h.pid)) return false;
   if (h.startTime !== null && h.startTime !== undefined) {
     const now = startTimeOf(h.pid);
     if (now !== null && now !== h.startTime) return false; // the pid was reused
@@ -290,10 +295,14 @@ async function recoverIfStale(system, waitForGraph) {
   }
   if (lock.runId && isId(lock.runId)) {
     const prior = readJson(runFile(lock.runId)) || { runId: lock.runId, op: lock.op };
-    writeJson(runFile(lock.runId), { ...prior, outcome: 'interrupted', finishedAt: new Date().toISOString(), error: `The ${lock.op} that began ${lock.startedAt} stopped before it finished; the next lifecycle operation tidied up after it.` });
+    const safety = isId(lock.safety) ? ` Its safety backup is ${lock.safety}.` : '';
+    writeJson(runFile(lock.runId), { ...prior, outcome: 'interrupted', finishedAt: new Date().toISOString(), error: `The ${lock.op} that began ${lock.startedAt} stopped before it finished; the next lifecycle operation tidied up after it.${safety}` });
   }
-  fs.rmSync(lockPath(), { force: true });
-  return null;
+  // Only the lock found stale: another run may have recovered it too and taken a lock of its own meanwhile.
+  if (lock.runId) releaseLock(lock.runId);
+  else if (inspectLock() && inspectLock().unreadable) fs.rmSync(lockPath(), { force: true });
+  const now = inspectLock();
+  return now && !now.stale ? now : null;
 }
 
 // ── Runs ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -319,6 +328,6 @@ module.exports = {
   DEFAULT_DIR, ID_PATTERN, ID_RE, MEMBERS, PAYLOAD, WRITERS, MANIFEST_SCHEMA,
   backupsDir, ensureDir, runsDir, runFile, runLog, newId, isId, folderOf, writeJson, readJson, hashFile,
   manifestProblem, readManifest, ids, summaryOf, listBackups, latest, count, heldIds,
-  lockPath, startTimeOf, inspectLock, acquireLock, updateLock, addHolder, releaseLock, busyMessage, recoverIfStale,
+  lockPath, startTimeOf, pidAlive, inspectLock, acquireLock, updateLock, addHolder, releaseLock, busyMessage, recoverIfStale,
   lastRun,
 };

@@ -20,7 +20,47 @@ module.exports = {
   inputs: { backup: C.idInput('The id of the backup to restore, one this instance holds') },
   result: {
     description: 'The report: { restored, safetyBackup, graph: { transaction, counts }, assistant, owner, admins, offlineMs, restarting, warnings }',
-    schema: { type: 'object' },
+    schema: {
+      type: 'object',
+      properties: {
+        restored: { type: 'string', pattern: C.ID_PATTERN, description: 'The backup restored' },
+        safetyBackup: { type: 'string', pattern: C.ID_PATTERN, description: 'The safety backup of the graph as it was, taken first' },
+        graph: {
+          type: 'object',
+          description: 'What proves the restore',
+          properties: {
+            transaction: {
+              type: 'object',
+              description: 'The store\'s last transaction, as the backup recorded it and as it was loaded',
+              properties: { recorded: { type: 'string' }, loaded: { type: 'string', nullable: true }, same: { type: 'boolean' } },
+            },
+            counts: {
+              type: 'object',
+              description: 'The counts the backup recorded and those that came back; match is null when the recorded ones were not exact',
+              properties: { recorded: { type: 'object' }, restored: { type: 'object' }, exact: { type: 'boolean' }, match: { type: 'boolean', nullable: true } },
+            },
+          },
+        },
+        assistant: {
+          type: 'object',
+          description: "The instance's assistant before and after",
+          properties: { before: { type: 'string', nullable: true }, after: { type: 'string' }, changed: { type: 'boolean' } },
+        },
+        owner: {
+          type: 'object',
+          description: "The backup's owner and this instance's, which stays",
+          properties: { backup: { type: 'string' }, instance: { type: 'string' }, same: { type: 'boolean' } },
+        },
+        admins: {
+          type: 'object',
+          description: 'The admins before and after',
+          properties: { before: { type: 'array', items: { type: 'string' } }, after: { type: 'array', items: { type: 'string' } } },
+        },
+        offlineMs: { type: 'integer', minimum: 0, description: 'How long the graph was offline' },
+        restarting: { type: 'array', items: { type: 'string' }, description: 'What restarts to take the restored assistant: the control panel, once the answer is out' },
+        warnings: C.WARNINGS,
+      },
+    },
   },
   refusals: [
     C.UNKNOWN,
@@ -42,11 +82,12 @@ module.exports = {
       if (context && context.via === 'cli') {
         console.log('This restore runs as a job of its own. If this command is interrupted, the job still finishes, and `tapestry lifecycle status` shows how it went.');
       }
-      const report = C.finish(await require('./_jobs').runDetached({ op: 'restore', runId: lock.runId, backup: inputs.backup }));
-      if (report && report.assistant && report.assistant.changed) {
-        context.afterAnswer(() => require('./_identity').restartControlPanel(system));
-      }
-      return report;
+      const jobs = require('./_jobs');
+      // Once the answer is out — or at once, if the caller has gone — the run is marked answered, and the job itself
+      // restarts the control panel when the assistant changed (ADR 0002 Amendment 1). The job doesn't depend on this:
+      // it also restarts once this caller's process is gone.
+      context.afterAnswer(() => jobs.markAnswered(lock.runId));
+      return C.finish(await jobs.runDetached({ op: 'restore', runId: lock.runId, backup: inputs.backup }));
     } finally {
       if (!started) store.releaseLock(lock.runId);
     }
