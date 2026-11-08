@@ -147,6 +147,13 @@ async function restoreIdentity(folder, expectedPubkey) {
   return { before, after: pubkey, changed: before !== pubkey };
 }
 
+/**
+ * Only real pubkeys. The conf reader returns an empty quoted value, BRAINSTORM_ADMIN_PUBKEYS="", as the two characters
+ * "" (src/utils/config.js), so a fresh instance's admin list would otherwise be [""] — and a restore would write that
+ * into another instance's settings, where it would override that instance's own admins (found by the live check).
+ */
+const realPubkeys = (list) => [...new Set((list || []).map((p) => String(p).trim().toLowerCase()).filter((p) => HEX64.test(p)))];
+
 /** The admins in effect, and where they come from: the instance's settings, or its launch settings (the conf). */
 function readAdmins() {
   const { getAdminPubkeys } = require('../../../utils/config');
@@ -156,13 +163,13 @@ function readAdmins() {
     const s = getSettings();
     fromSettings = Array.isArray(s.adminPubkeys) && s.adminPubkeys.length > 0;
   } catch { /* no settings file: the launch settings */ }
-  return { pubkeys: [...getAdminPubkeys()], from: fromSettings ? 'settings' : 'launch-settings' };
+  return { pubkeys: realPubkeys(getAdminPubkeys()), from: fromSettings ? 'settings' : 'launch-settings' };
 }
 
 /** Make the backup's admins the instance's (in its settings). An empty list falls back to the launch settings. */
 function restoreAdmins(pubkeys) {
   const { updateOverrides } = require('../../../config/settings');
-  updateOverrides({ adminPubkeys: [...pubkeys] });
+  updateOverrides({ adminPubkeys: realPubkeys(pubkeys) });
   return readAdmins();
 }
 

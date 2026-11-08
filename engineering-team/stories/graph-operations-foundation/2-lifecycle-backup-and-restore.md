@@ -92,6 +92,9 @@ Small judgment calls made in Implementation, inside the ADR:
 - **Restore always warns about the cache:** each node's Tapestry JSON in the LMDB may be out of step until it is rebuilt.
 - **The upload limit is 8 GiB plus 64 MiB:** room for a dump just under the 8 GiB a tar member holds, and still under nginx's 9g.
 - **OPEN.md row 281** (event-less sets have no backup) is DONE.
+- **Found by the live check: an instance with no admins recorded `[""]`.** The conf reader returns `BRAINSTORM_ADMIN_PUBKEYS=""` as the two characters `""` (OPEN.md row `2026-11-08-admin-list-empty-quotes`, left for its own story). A restore would have written that into another instance's settings, overriding its own admins. Backup and restore now keep only real 64-hex pubkeys. The Tester's failing test B19 came first, in its own commit (`2289da6f1`).
+- **The report's `restarting` names `tagging-edges-realtime` only when it was running and so came back with the new key.** The live check's old scratch image has no such program.
+- **Two robustness fixes from self-review.** The detached `supervisorctl restart` has an error handler, so a missing `supervisorctl` can't crash the process. And `dumpTo` closes its file even when `neo4j-admin` fails to start.
 
 ## Linked artifacts
 

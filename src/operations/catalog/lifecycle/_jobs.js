@@ -80,9 +80,14 @@ async function dumpTo(system, file) {
   const tee = new PassThrough();
   tee.on('data', (c) => { hash.update(c); size += c.length; });
   tee.pipe(out);
-  const r = await system.neo4jAdmin(['database', 'dump', 'neo4j', '--to-stdout'], { stdout: tee });
-  tee.end();
-  await new Promise((resolve, reject) => { out.on('finish', resolve); out.on('error', reject); });
+  const written = new Promise((resolve, reject) => { out.on('finish', resolve); out.on('error', reject); });
+  let r;
+  try {
+    r = await system.neo4jAdmin(['database', 'dump', 'neo4j', '--to-stdout'], { stdout: tee });
+  } finally {
+    tee.end();
+    await written;
+  }
   if (r.code !== 0) throw new Error(`neo4j-admin database dump failed: ${tail(r.stderr)}`);
   return { size, sha256: hash.digest('hex') };
 }
@@ -258,6 +263,7 @@ async function runRestoreJob(request, system) {
     assistant.before = ident.assistantPubkey;
     assistant.changed = assistant.before !== assistant.after;
     const adminsAfter = identity.restoreAdmins(source.admins.pubkeys);
+    const resumed = [...paused];
     if (paused.length) await system.supervisor('start', paused);
     paused = [];
 
@@ -288,7 +294,8 @@ async function runRestoreJob(request, system) {
       owner: { backup: source.instance.ownerPubkey, instance: instanceOwner, same: source.instance.ownerPubkey === instanceOwner },
       admins: { before: adminsBefore.pubkeys, after: adminsAfter.pubkeys },
       offlineMs,
-      restarting: assistant.changed ? ['brainstorm', 'tagging-edges-realtime'] : [],
+      // The control panel restarts after the answer; the writer that reads the assistant came back with the key.
+      restarting: assistant.changed ? ['brainstorm', ...resumed.filter((w) => w === 'tagging-edges-realtime')] : [],
       warnings,
     };
   } finally {

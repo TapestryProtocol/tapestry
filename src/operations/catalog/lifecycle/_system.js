@@ -56,6 +56,7 @@ const system = {
     if (action === 'restart' && list.includes('brainstorm')) {
       // supervisord is about to stop the process running this code, so the client must outlive it.
       const child = spawn('supervisorctl', ['restart', ...list], { detached: true, stdio: 'ignore' });
+      child.on('error', (err) => console.error(`[lifecycle] supervisorctl restart ${list.join(' ')} could not start: ${err.message}`));
       child.unref();
       return { code: 0, stdout: '', stderr: '' };
     }
