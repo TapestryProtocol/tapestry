@@ -68,7 +68,7 @@ Decisions inside it that the spec left open or the tree changed:
 - A brain's Neo4j login can be reached through port 443, so that Neo4j Browser can connect, and is protected by the
   brain's own random password. Caddy does this, so other instances are not affected.
 - One brain filling the shared disk affects all of them. The disk floor is checked only before a create.
-- Dogfood brains ride `main`, so they update when `staging` is promoted.
+- Dogfood brains ride `main`, so they update when `staging` is promoted. Changed by amendment 1: they follow `staging`.
 - A first launch takes 8 to 10 minutes on the 8 GB droplet, because the firmware install is real work on a cold Neo4j:
   438 events and over 3,000 nodes, with no waits to remove, and three times the heap made no difference. Each brain signs
   with its own key, so a shared pre-built starting point is separate work. The owner accepted this on 2026-11-04.
@@ -79,3 +79,21 @@ Decisions inside it that the spec left open or the tree changed:
 Everything new is under `deploy/`: `edge/` (Caddy and launcher), `launcher/` (the service, CLI and tests),
 `templates/brain.compose.yml`, `host/` (the systemd timer and Docker daemon config) and `RUNBOOK.md`.
 `deploy/launcher/backends/compose.js` is the only file that runs Docker.
+
+## Amendment 1: the brains follow `staging` (2026-11-08)
+
+**Changes:** the consequence "Dogfood brains ride `main`".
+
+The brains are where the team tries what it is building. Vinney's reading views went to them before `main` (PR #27), and
+`main` moves only when `staging` is promoted. Riding `main` also meant a promotion would move the brains back onto an
+older build than the one they had been tried on.
+
+- A push to `staging` builds the images and rolls every brain, unless the push touches only `engineering-team/`,
+  `product-team/` or `ledger/`, which no brain serves.
+- A push to `main` no longer rolls them. The workflow can still be run by hand on `main`, and that holds until the next
+  push to `staging`.
+- A roll still goes one brain at a time and stops at the first brain that does not come back, leaving the rest on their
+  old image. It does not wait for `staging`'s tests to pass: the roll's own check is what stops a broken build.
+- Other deployments' workflows are unchanged.
+
+**Origin:** Vinney asked about updating the brains from `staging` on every push, 2026-11-08; Avi chose it.

@@ -2,16 +2,23 @@ name: Publish brain images
 
 # Builds the images brains run, then moves every brain on tapestry.ninja onto them, one at a time. See deploy/RUNBOOK.md.
 # A roll does not reload Caddy, so a Caddyfile change needs the restart the runbook gives.
-# A push to main runs it. It can also be run by hand on main, or on staging to try staging on the brains before it reaches
-# main; the next push to main moves them back onto main's build. A run also leaves the droplet's checkout on the branch it
-# ran from, so the launcher and Caddy follow that branch's deploy/ until the next run.
+# The brains follow staging (brains-launcher ADR 0001, amendment 1): a push to staging runs it, unless the push touches
+# only the team's records, which no brain serves. A push to main doesn't, so promoting staging never moves the brains back
+# onto an older build. It can also be run by hand on staging, or on main to try main's build until the next staging push.
+# A run leaves the droplet's checkout on the branch it ran from, so the launcher and Caddy follow that branch's deploy/
+# until the next run.
 
 on:
   push:
-    branches: [main]
+    branches: [staging]
+    paths-ignore:
+      - "engineering-team/**"
+      - "product-team/**"
+      - "ledger/**"
   workflow_dispatch:
 
-# Later pushes wait their turn. Stopping a roll partway would leave brains on two images for no reason.
+# Later pushes wait their turn. Stopping a roll partway would leave brains on two images for no reason. While a roll runs,
+# GitHub keeps only the newest waiting run, so a burst of pushes ends in one roll onto the last of them.
 concurrency:
   group: publish-image
   cancel-in-progress: false
@@ -22,7 +29,7 @@ permissions:
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/staging')
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
