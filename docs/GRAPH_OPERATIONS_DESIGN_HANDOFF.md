@@ -1,6 +1,6 @@
 # Graph Operations — a Neo4j-First Operations Stack — Design Handoff
 
-**Status:** 🔴 OPEN: scoping in progress. Twelve decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, and the Tapestry Graph Conjecture is in §9. Nothing is built, and no story, ADR or BIBLE text exists yet.
+**Status:** 🔴 OPEN: scoping in progress. Twelve decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, the Tapestry Graph Conjecture is in §9, and the first book, open since 2026-11-07, has its acceptance frame in §8. Nothing is built, and no story, ADR or BIBLE text exists yet.
 **Created:** 2026-11-07
 **Provenance:** Scoped in direct conversation with the owner on 2026-11-07 (his Claude Code session `1a32c5d2` on the Mac Studio; part of it in advisory mode, `/discuss` with the Product Expert lens). This is the **Capture** step of the Protocol-Spec Workflow ([engineering-team/workflows/protocol-spec-workflow.md](../engineering-team/workflows/protocol-spec-workflow.md)): settled decisions and open questions, recorded so nothing lives only in the transcript. Every decision in §3 says where it came from. Every quotation credited to the owner is his own typing, with only typography tidied (the rules in [design-philosophies/README.md](../design-philosophies/README.md)); everything not credited to him is drafting. Check his quotes against the session transcript, not against this file.
 **Reviewed by the owner:** not yet.
@@ -10,8 +10,8 @@
 ## 0. Where we paused — read this first
 
 - **Settled:** the twelve decisions in §3. D1–D4 fix how the operations are organized, D5–D11 the data model underneath them, and D12 what an export sends.
-- **Next:** the rest of §5's first question: how a concept marks the fields its elements carry on the Neo4j node, and how plain values and nested objects are stored (D11 settled what a node's `tapestryValue` holds). Then provenance, then which rules refuse a write.
-- **After that:** write the rules document (§7) and the operation list (§6), ratify them, and open an engineering book for a first slice (§8).
+- **Next:** the first book is open ([book.md](../engineering-team/audits/graph-operations-first-slice/book.md)), and its first story is planned next. The book builds and uses the operations one at a time, and the rest of §5 is settled as the operations that need it are built.
+- **After that:** each rule goes into the rules document (§7) as its guard or check is built, and the settled pieces are ratified when the book closes (§8).
 - **How to resume:** continue one question at a time, in advisory mode (`/discuss`). Record each new decision in §3 with its source and date, and move answered questions out of §5.
 
 ## 1. Why this exists
@@ -166,10 +166,25 @@ Drafting notes on these (not decided):
 
 ## 8. Next steps
 
-1. Settle §5's questions 1–3, one at a time, recording each decision in §3.
-2. Write the rules document (§7) and the operation list (§6).
-3. Ratify them in docs-mode, as the workflow describes: `/plan-feature` → `/design-architecture` → (no test design) → `/implement-feature` → `/review-changes`.
-4. Open the engineering book for a first slice: the fewest operations that let an agent do one real task from start to finish, plus backup.
+The owner's direction (2026-11-07): "build and use these tools, one operation at a time", since "We mostly need to know that the overall structure is a good one." Avi's evidence on PR nousclawds4/tapestry#32 found nothing that changes the structure. So:
+
+1. Open the first book through intake: done 2026-11-07, with the frame below.
+2. Settle each remaining question in §5 when the first operation that needs it is built: the field mapping before the first write, bulk inputs before the writes, and read visibility before any read route is reachable without signing in.
+3. Write each rule into the rules document (§7) as its guard or check is built.
+4. Ratify the settled pieces into the BIBLE and `protocols/` in docs-mode, as the workflow describes, once the book closes.
+
+### The first book: acceptance frame (confirmed 2026-11-07)
+
+Drafted 2026-11-07 at the owner's request ("Yes, draft it", answering drafting's question "Should I draft the first book's acceptance test around rebuilding Avi's brain?"). Avi's comment on PR #32 supplies the benchmark: a brain of the team's public docs at avi.tapestry.ninja (946 documents and decision records from 13 repos, 599 rules, about 8,000 typed links), a race against today's sources, and a ledger of 29 gaps. The frame below is drafting, and the owner confirmed it the same day ("Yes, confirm it"). It is the book's definition of done, kept in [engineering-team/audits/graph-operations-first-slice/book.md](../engineering-team/audits/graph-operations-first-slice/book.md).
+
+- [ ] **Foundation.** Each operation is declared once, and its route, internal CLI command and `/docs` entry come from that declaration. Every node has a unique tapestryKey under one shared label with a uniqueness constraint, today's nodes included. Writes run their guards, record which admin made each change, and never sign. A concept can mark the fields its elements carry as Neo4j properties.
+- [ ] **Backup.** The owner can take a full Neo4j backup and restore it on a fresh instance, with every tapestryKey intact.
+- [ ] **The rebuild.** An agent with only its own key, made an admin, and the instance's URL rebuilds Avi's brain on a fresh instance through the new operations, with no raw Cypher. The operations are built one at a time, in the order the rebuild needs them, and used as each one lands.
+- [ ] **The ledger.** Every gap in Avi's ledger that falls to the operations module is closed, or named as left to a later book, with the reason.
+- [ ] **The race.** Round 3 of Avi's race (15 questions), rerun against the rebuilt brain, gets at least 14 right, with fewer tokens and less time than today's sources took in that round (224k tokens, 7.1 minutes).
+- [ ] **Reads stay behind sign-in.** Until read visibility is decided (catalog §10, question 1), the new read routes require an owner or admin sign-in.
+
+Outside the frame: publishing to nostr (the second priority); importing other people's nostr events, unless the race turns out to need them; making raw writes owner only, which waits until no job needs raw Cypher; and shipping to staging or production, which waits for the owner's OK. The book depends on Avi's build scripts, his race questions with their checked answers, and his gap ledger, which he offered to send. Which external CLI the agent uses (§5, question 6) is settled at the planning gate.
 
 ## 9. The Tapestry Graph Conjecture
 
