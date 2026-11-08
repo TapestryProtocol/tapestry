@@ -329,3 +329,20 @@ The instance then kept the old assistant cached while the key file, the conf and
 - **Recorded, not changed.**
   - The free-space check is skipped when `load --info` prints no `Bytes:` line; 5.26.10 prints one (Context 1).
   - The control panel's CORS posture, which lets a same-site page read what a signed-in owner may, is added to OPEN.md row 326, where it already lives.
+
+**A4. Four of the round's points still open after A1–A3** (added 2026-11-08, before review round 2):
+- **A restore that fails after the restored key went in restarts the control panel too** (non-blocking 2). This extends A1.
+  - When a step after `restoreIdentity` fails (the admins, or starting the writers) and the assistant changed, the error carries `restarting: ['brainstorm']` and says the control panel restarts.
+  - `_jobs.js` gets `runJob(request, system)`, which runs the job and makes its record. The worker calls it, and it copies a failure's `restarting` into the failed record.
+  - `afterJob` restarts on a failed record's `restarting` as on a done record's `result.restarting`, with the same wait.
+  - Without this, the key file and the conf name the backup's assistant while the running control panel keeps the old one.
+- **Only the upload takes a backup-sized body** (non-blocking 6). This amends Decision 13.
+  - The `location /api/tapestry/lifecycle/` block keeps the server's body limit (100m).
+  - A `location = /api/tapestry/lifecycle/upload-backup` block has the same headers, buffering and timeouts, plus `client_max_body_size 9g;` and `proxy_request_buffering off;`.
+  - OPERATIONS.md's block for the droplets' host nginx is split the same way.
+- **The lock appears whole** (non-blocking 8). This amends Decision 7's `open(…, 'wx')`.
+  - `acquireLock` writes the lock to a temporary file beside it and links that into place. The link fails when a lock exists, as `wx` did.
+  - So a reader never finds the lock empty and judges it stale.
+- **The worker runs nothing when the lock isn't its run's** (non-blocking 8). This amends Decision 8.
+  - When `addHolder` finds another run's lock, or none, the worker records the run as failed, saying so, and exits.
+  - It touches neither the system nor the lock.
