@@ -78,6 +78,38 @@ Small judgment calls made in Implementation, inside the ADR:
 - The command prints load problems on stderr only when it lists operations, not on every run.
 - Moving `GET /api/tapestry-key/status`'s counting into `readTapestryKeyCounts()` re-indented the moved block to the file's two spaces. The whitespace inside its two Cypher strings changed with it, and the queries, the counts and the response did not.
 
+## Evidence
+
+### The suites (Implementation, 2026-11-08)
+
+The full `npm test` was not run on this machine, because its live suites can reach a private instance here. CI runs the gate on the pull request.
+
+Instead, 48 suites ran one by one through their `run()` exports, on Node 24.18.0, with every service endpoint dead (set inside the runner). These were the story's and the ones the change touches: every suite that reads the route table, `src/api/index.js`, `bin/control-panel.js`, the Dockerfile, the API document, or the tapestry-key and firmware modules. The tree was `8e9de219b`, a worktree whose one untracked entry is a `node_modules` link.
+
+- **Screened first.** The screen looked for `docker exec`, `TAPESTRY_PORT` and container variables, `strfry/publish` and `nak`, and nine suites matched. Two of them were run anyway, because the match is a route name in their test data and they talk only to their own loopback app: `admin-action-sweep-access`, 13/0, and `default-deny-mutations`, 14/0. The other seven were left out: `author-scoped-inspection-roster`, `brain-first-tapestry-authoring`, `brains-launcher-repo`, `community-reference-nostr-relay-stub`, `create-concept-duplicate-check`, `event-less-create-set` and `tapestry-per-concept-detail-views`.
+- **Totals:** 1,358 passed, 3 failed.
+  - The story's suites: `operations`, 43/0 (its 36 tests and the 7 of `test/operations/lifecycle/status.test.js`), and `openapi-coverage`, 13/0 (re-aimed, with V1). Both failed in Test Design (`9e0008c75`): 1/42 and 7/6.
+  - Unchanged and still passing: `admin-action-sweep` 9/0, `openapi-document` 10/0, `stack-free-npm-test` 6/0 (G5: the registry is complete).
+- **The 3 failures** are `router-stream-limit-on-connect` P1–P3. They run its patch script, which needs GNU sed (its header says so), and this Mac has BSD sed: "invalid command code f". Its Dockerfile tests D1–D3 pass with this story's Dockerfile change.
+
+### The live check (Implementation, 2026-11-08)
+
+The check ran on a throwaway instance (`scripts/scratch-stack.sh`): image `tapestry-tapestry`, this branch's `src/` mounted, firmware installed, no published ports, removed afterwards. It went through the container's own loopback; `bin/tapestry.js` and `bin/control-panel.js` were copied into it, and the command was linked as the Dockerfile links it.
+
+- **`GET /api/tapestry/lifecycle/status`, direct-local:** 200.
+  - backup: none recorded;
+  - firmware: 1.0.0, `all`, 39 of 39;
+  - migrations: none recorded;
+  - cache: 3,142 nodes, 2,533 with a tapestryKey, 609 without, 428 cached, 0 empty, 2,105 not cached.
+  - Asked twice, the answer was byte for byte the same. Its numbers match `GET /api/tapestry-key/status` (2,533 / 609 / 3,142; 428 / 0 / 2,105) and `GET /api/firmware/install-status` (39 of 39).
+- **Refusals.** Proxied and not signed in, as nginx traffic is: 401, "Sign in as the owner or an admin to do this." `?foo=1`: 400 `unknown-input`.
+- **The list.** `GET /api/tapestry/operations` lists lifecycle status with its facts.
+- **The command.**
+  - `tapestry` lists the operation, exit 0.
+  - `tapestry lifecycle status` exits 0. Its stdout is the JSON alone, with 14 log lines on stderr, and it equals the route's answer.
+  - `tapestry lifecycle stats` exits 2, naming `status`.
+- **`/docs`.** With the new entrypoint, the served document lists `/api/tapestry/lifecycle/status` and `/api/tapestry/operations`, and status still answers 200 after the restart.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet, and "Reads stay behind sign-in")
