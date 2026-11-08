@@ -28,7 +28,11 @@ its own, with nothing shared to edit.
    reached as a route under `/api/tapestry/`, a command inside the instance and a `/docs` entry, and listed for agents,
    proved with `lifecycle status` (Loom A10.1).
 
-Later stories follow the Loom tasks A10.2–A10.6, each planned when it is taken.
+6. `stories/graph-operations-foundation/6-external-cli-and-agent-skill.md` — the external CLI, which signs in with an
+   admin agent's own key and calls every operation the instance lists, and the agent's skill (Loom A10.6).
+
+Later stories follow the Loom tasks A10.2–A10.5, each planned when it is taken. The foundation's stories are numbered
+by their Loom task (A10.n is story n), because several are planned at the same time in different sessions.
 
 ## Key facts / guardrails
 
