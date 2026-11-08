@@ -11,7 +11,7 @@
  * off" after Cancel, else to the path section's heading, then to the line that says what happened once it shows.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { offPromptVariant, turnOnWarning } from '../../../utils/taggingPipelineView.js';
 import { ReadFailed, TONE_COLOUR, useReturnFocus, when } from './parts.jsx';
 import { BackstopVerdict } from './ScheduleSection.jsx';
@@ -123,6 +123,14 @@ export default function PathSwitch({ view, body, statusRead, sched, schedPending
   useEffect(() => {
     if (!view.on) setAsking(false);
   }, [view.on]);
+  // "Turn off" with focus that a read replaces in place by "Turn on" (React reuses the button) hands focus to the path
+  // section's heading before anything can press it: focus is never on Turn on (ADR 0007 § Fix-round notes, D15).
+  const turnOffFocused = useRef(false);
+  useLayoutEffect(() => {
+    if (view.on || !turnOffFocused.current) return;
+    turnOffFocused.current = false;
+    if (focus.heading.current && focus.heading.current.isConnected) focus.heading.current.focus();
+  }, [view.on, focus.heading]);
 
   let control;
   if (change.pending) {
@@ -142,7 +150,17 @@ export default function PathSwitch({ view, body, statusRead, sched, schedPending
       />
     );
   } else if (view.on) {
-    control = <button className="btn-small" ref={focus.opener} onClick={() => setAsking(true)}>Turn off</button>;
+    control = (
+      <button
+        className="btn-small"
+        ref={focus.opener}
+        onFocus={() => { turnOffFocused.current = true; }}
+        onBlur={() => { turnOffFocused.current = false; }}
+        onClick={() => { turnOffFocused.current = false; setAsking(true); }}
+      >
+        Turn off
+      </button>
+    );
   } else {
     control = <button className="btn-small" onClick={() => onSwitch(true)}>Turn on</button>;
   }

@@ -509,7 +509,9 @@ was made only of fixture relationships (ADR 0007 § Evidence). Nothing touched a
 on the panel, signed in as the owner. The answer lines themselves were read by the owner only; what is recorded below
 is the server's side, and in each case it is the state D2's plan gives for the outcome named. The panel text quoted
 was read in the app's browser pane with only the two sign-in reads and `/api/settings` stubbed and every non-GET
-blocked (none was sent).
+blocked (none was sent). Every "Run" below is a direct local run-task call from inside the container, recorded
+`who: local`, not the panel's Run. *(Corrected at the review's fix round, 2026-11-07: the section first said "a Run"
+with no word on how it was started.)*
 
 - **Counts before:** `TAGS` 7,030, all at tagging addresses; `NostrUser` 6,201; no fixture nodes. `plan`: B 7,030,
   T 802.
@@ -551,7 +553,8 @@ blocked (none was sent).
   line by `confirmation`; pass `20261107T232605Z-e42fcb36` took up the new confirmation and removed exactly the 802.
   `cleanup`.
 - **After:** one more Run (`20261107T232624Z-d87fefad`, `done`, nothing held), so no fixture held list is the latest.
-  Counts equal the first; no fixture node, no schedule entry, no confirmation, no lock holder; the queue on.
+  Counts equal the first; no fixture node, no temporary or enabled schedule entry (the disabled seed entry stands), no
+  confirmation, no lock holder; the queue on.
 
 ## Deviations
 
@@ -561,8 +564,8 @@ choice beside it.
 **Owner-decided (2026-11-07):**
 - **The overdue module is `src/pipeline/tagging-edges/overdue.js`, not `src/lib/tagging-edges/`.** Story 1's purity pin
   (`test/tagging-edge-contract.test.js`) refuses dates and any outside require there, and the cron judge needs both. The
-  owner chose to move it. ADR 0007 D8 has a dated note, and the overdue suite's module path followed (a one-line test
-  change, recorded in its header).
+  owner chose to move it. ADR 0007 D8 has a dated note, and the overdue suite's module path followed (the `LIB`
+  constant and OV1's title, with a header note).
 
 **Server:**
 - `publicConfirmation` serves an `unreadable` code only when it is an E-code or `error` (else `error`), so a
@@ -596,8 +599,10 @@ choice beside it.
 - D15's "focus parked on the heading moves to the outcome line when it appears" applies to all three prompts, not only
   Turn off. The pass and path sections' heading refs are made in PassSection and PathSection and passed down.
 - D10: a Confirm prompt that remounts while under way focuses its `h4`, not the disabled Cancel. While its snapshot is
-  set the prompt renders in every held-section branch, and the answer line shows in every branch, so a re-read during
-  the send never removes them.
+  set the prompt renders in every held-section branch, and the answer line shows in every branch. Each keeps one element
+  across the branches (a key), so a read that changes the branch never remounts it. *(Corrected at the review's fix
+  round, 2026-11-07: the first wording said a re-read never removes them, which held for the text, not the element;
+  review blocking 1.)*
 - D13: "The owner can confirm this held list again" shows only where the section shows the latest pass's held list;
   elsewhere only "No pass will carry it out." For an unknown expiry, today's "is waiting" sentence stays and D13's two
   sentences are appended.

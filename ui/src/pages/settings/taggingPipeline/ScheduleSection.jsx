@@ -9,7 +9,8 @@
  *
  * Story 7 (ADR tagging-edges/0007 D14): the section also warns when the pass is overdue, or says it cannot tell. That
  * line comes from the pass status, not the schedule list, so it shows in every branch, the list's loading and failed
- * ones included, and the section takes the warn tone while the pass is overdue. It only warns: it starts nothing.
+ * ones included, and the section takes the warn tone while the pass is overdue, unless the list's read has failed
+ * (its bad border stands). It only warns: it starts nothing.
  */
 
 import { Loading, ReadFailed, Section, TONE_COLOUR, counted, when } from './parts.jsx';

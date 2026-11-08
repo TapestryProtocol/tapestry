@@ -1141,12 +1141,16 @@ const cannotTellOverdue = (why) => ({ state: 'cannot-tell', tone: 'warn', lines:
  * - overdue: when the latest pass began and when the schedule expected the next, and, while a pass waits, that the
  *   warning clears when it begins running;
  * - cannot-tell: the server's reason, or that its answer has no verdict (a server from before story 7), or that the
- *   status could not be read; a missing line never stands for on time;
+ *   status could not be read, whether or not a body is kept from an earlier read; a missing line never stands for on
+ *   time;
  * - checking: the status has not answered yet.
  */
 export function overdueView(statusBody, statusRead, busy) {
+  // The latest read failed (a Retry of it still under way included): never a kept verdict (ADR 0007 § Fix-round notes,
+  // D14).
+  const readFailed = isObject(statusRead) && (statusRead.state === 'error' || (statusRead.state === 'loading' && !!statusRead.error));
+  if (readFailed) return cannotTellOverdue('the pass status could not be read');
   if (!isObject(statusBody)) {
-    if (isObject(statusRead) && statusRead.state === 'error') return cannotTellOverdue('the pass status could not be read');
     return { state: 'checking', tone: 'neutral', lines: [plain('Whether the pass is overdue is still being checked.')] };
   }
   const o = statusBody.overdue;
