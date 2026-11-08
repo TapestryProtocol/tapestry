@@ -374,3 +374,165 @@ The rest holds:
 - the overdue rule matches D8;
 - the fixture can never cause a real removal, and its cleanup reaches only fixture nodes;
 - the gate's story suites and the browser spec pass, and the local evidence matches the record.
+
+## Re-review, round 2 (2026-11-08)
+
+**Diff:** `git diff 7be349a6..f10bc317`. `7be349a6` is round 1's review. The fix round's commits are:
+- the tests and the test plan, `fffb2d91`;
+- ADR 0007's fix-round notes, `0637e9b9`;
+- the implementation and the record fixes, `4943e870`;
+- the evidence, `f10bc317`.
+
+**How it was reviewed.**
+- **The lanes.** Round 1's six read-only lanes were resumed. Each re-derived its own asks from code, commands and
+  records, as reviewer rule 10 asks, the review's and the ADR notes' wording included. Each then looked for new problems
+  the fix round brought into its dimension. They ran no suite and made no mutating request.
+- **The Reviewer's own checks.** The Reviewer ran the gate and the browser spec, and reproduced blocking 1 below.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [x] `npm test` on Node 22.23.4: `20261108T011950Z-54570-4152 [te7-review2-f10bc317] started 2026-11-08T01:19:50.824Z on
+  f10bc317 — FAIL, exit 1, 7170 passed, 38 failed, 173 skipped, 334/334 suites`.
+  - **The backend** was spawned at 00:46:07Z on `4943e870`. `f10bc317` changes no source after it.
+  - **Against the fix round's own run** (`20261108T004631Z-59123-13d4`), only `relay-scan-bounds` differs: its live
+    probe skipped (28/0/0 → 27/0/1).
+  - The story suites pass in full, and the same 17 suites fail with the same counts.
+- [x] **Browser spec** on the UI built from `f10bc317`, chromium: **158 passed (2.0m)**.
+- [x] `bash scripts/harness-lint.sh`: clean (0 violations).
+
+### Round 1's asks
+
+| Ask | Round 2 | Evidence |
+|---|---|---|
+| Blocking 1, focus after a Confirm answer; an open prompt taking focus | **Fixed** | `HeldSection.jsx:212`, `:220` keys. The panel lane moved the section between 8 states, every ordered pair (56), three ways: the answer line focused, the prompt under way, and the prompt open with focus elsewhere. Element and focus held each time, with no React warning. B148 and B149 are red before the fix and green after. The Deviation is corrected. |
+| Requested 2, AC-6's other gaps | **Partly** | The coverage part is fixed: B151, B152 and B153; every prompt × way of closing now has a test (the spec lane's table). Turn on is not: blocking 2 below. |
+| Requested 3, AC-7's first bullet | **Fixed** | CT72 runs Confirm in CT63's world, four cases, with CT63's three checks. |
+| Requested 4, the default reader | **Fixed** | OV24 gives `cannot-tell`/`schedule` for bad JSON. With `readConfig()` swapped in it reads `no-entry`, so OV24 tells them apart. |
+| Requested 5, a failed read after a good one | **Fixed** | `taggingPipelineView.js:1151`. "Cannot tell" can't show for a read that did not fail: `error` is set only by a failed answer and cleared only by a good one (`TaggingPipelinePanel.jsx:93-94`). TV133, TV134 and B154. Its Retry branch is untested (requested 4 below). |
+| Requested 6, the cron work's bound | **Partly** | More than 32 patterns: 0.8 ms and 0.1 ms per read, against 8 to 20 s before. The cache only ever holds the pass's patterns and settles in every case simulated. The 256-character skip brings in a false "on time": blocking 1 below. |
+| Requested 7, a verdict throw | **Fixed** | `index.js:187-188`. Both hand-edited entries answer 200 with `cannot-tell`/`schedule` and the full body (OV29). |
+| Requested 8, member types | **Fixed** | `confirmation.js:68-81`. An object `runId` is dropped, and an object `expiresAt` no longer throws (CL15–CL18, CH30). The input is always JSON-parsed, so no getter can reach it. |
+| Requested 9, a failed re-read | **Fixed** | `control/index.js:630-645`. The server lane crossed five re-read results with three withdraw results under two plans, and each answers as the note says. 409 `pass-started` stays only for a re-read that names another run. CH31 and CH32. |
+| Requested 10, plan rows and B129 | **Fixed** | Each row cites what covers it. B129 keeps its old check and stages both next reads. |
+| Requested 11, record fixes | **Fixed** | Each sentence checks against the code. The ADR 0004 cite was fixed by editing an accepted ADR's older note in place: requested 5 below. |
+
+### Blocking (round 2)
+
+1. **`src/pipeline/tagging-edges/overdue.js:82`. A cron rule over 256 characters gives a false "on time" when it is the
+   most frequent rule.**
+   - **Why it happens.** The fix counts a pattern over 256 characters with no period. When a less frequent entry sits
+     beside it, that entry's period decides the verdict.
+   - **Reproduced here.** An every-minute rule padded to 285 characters, beside a daily interval entry, with the latest
+     pass begun 2 h ago, reads `{"state":"on-time",…,"periodMs":86400000}`. At `7be349a6` the same input read overdue,
+     correctly.
+   - **Why the note's reasoning fails.** It says the period "cannot be told (null), as R13's rules are". An R13 rule
+     runs fewer than twice in 400 days, so it is always rarer than any judged period; a skipped long rule may be the
+     most frequent one.
+   - AC-5 rules this out: "the most frequent counts", and "A missing warning never stands for on time".
+   - OV27's fourth case pins the wrong answer. The precondition is an owner-saved cron over 256 characters. It is
+     unlikely, but this round brought it in, and a test now holds it in place.
+   - **Asked change:**
+     - when any counted pattern is skipped for its length, answer `cannot-tell`/`rule`, as the over-32 bound does;
+     - flip OV27's fourth case;
+     - the Architect corrects the D8 fix-round note.
+2. **`ui/src/pages/settings/taggingPipeline/PathSwitch.jsx:126-133`, `:157-158`. Focus can still sit on "Turn on".**
+   - **Why it happens.** The fix tracks "Turn off"'s focus with `onFocus` and `onBlur`. Switching away from the
+     browser tab or window fires a blur on the focused element while it stays `document.activeElement`. The flag
+     clears, a read in the background then turns "Turn off" into "Turn on", and the layout effect does nothing.
+   - **What the owner sees.** Back on the tab, focus is on "Turn on", and one keypress turns the path on with no prompt.
+     This is the panel lane's probe; a panel left open in a background tab is the usual way to reach it.
+   - **A second, browser-dependent route.** "Turn on" pressed from the keyboard becomes "Turning the path on…", then
+     "Turn off", on the same node, with no focus event. A later read showing the path off again leaves focus on
+     "Turn on".
+   - AC-6 names Turn on as a control focus must never land on, and requested 2 asked for exactly this.
+   - **Asked change:**
+     - decide at the swap from `document.activeElement` against the button node, for example one ref on the button in
+       both states;
+     - add a case to B150 that blurs the window before the read.
+
+### Requested in this round (non-blocking: asked now while the story goes back)
+
+3. **The panel's sentence for `cannot-tell`/`rule` is now false for the fix's own causes.**
+   `ui/src/utils/taggingPipelineView.js:1130` says the rule "runs fewer than twice in 400 days". The over-32 bound and
+   the long-pattern rule give the same reason, so 33 daily rules read that way. No test pins the clause.
+   - **Asked change:** drop the clause, or give each cause its own reason and sentence.
+4. **Three behaviours the fix brought in are unpinned:**
+   - the Retry branch of requested 5 (`state 'loading'` with an error kept): one TV case, and its pair with no error;
+   - more than 32 patterns beside an interval entry reads `cannot-tell`/`rule`, which the D8 note gives: one OV case;
+   - the Confirm prompt keeping its element while its confirmation is under way and a read changes the branch. Focus
+     is then on its own `h4`, and a lined-up pass began 0.3 s after the confirm in the local evidence: one B148-style
+     case.
+5. **Records.**
+   - **ADR 0004's older note, edited in place.** `4943e870`, an `impl:` commit, changed the text of story 6's dated
+     note at `0004-tagging-pipeline-panel.md:842`, in an accepted ADR. The note's `:220` was true when written. Restore
+     the line byte for byte. The Architect then appends a line in an `adr:` commit naming the `'no-status'` key (`:223`
+     now). The same edit at ADR 0006 `:1270` is acceptable: that note is this story's own and has not shipped.
+     (§ Harness friction 1.)
+   - **The story overstates the round's red tests** (`7-confirm-held-removals.md:567`). Of the 24 new tests, 15 failed
+     before the fix. The other nine pinned behaviour that already held and were green on purpose: CT72, OV24, OV28,
+     CL18, CH32, TV135, B151, B152 and B153.
+   - **A server Deviation is out of date** (`:602-603`): it still gives a failed re-read as 409 `pass-started`. Add a
+     dated "superseded" note pointing at the D2 step 7 fix-round note.
+   - **The test plan's suites table** (`:11-25`) still lists round 1's id ranges. Extend them, and mark B129 revised.
+   - **ADR 0007's D8 fix-round note:**
+     - "once per process while cached" doesn't hold after an edit. With 32 patterns, changing the last entry cost 1,
+       then 31, then 0 judgments over three reads;
+     - the worst case left is about 1 s for each pattern crafted to be costly, and about 35 s for 32. It lands on the
+       first read after a restart, or after a save that adds new patterns;
+     - an unparseable pattern over 256 characters is counted, so it reads "cannot tell" where a short one reads
+       `no-schedule`.
+
+     State all three, alongside blocking 1's correction.
+   - **OPERATIONS:788** doesn't state the new bounds. Add one clause. OPERATIONS' "Last updated" line (`:6`) still
+     reads 2026-11-04.
+   - **`src/lib/tagging-edges/confirmation.js:60-73`.** `publicConfirmation`'s doc comment now sits above the new
+     helper, not above the function. Move the helper above it.
+
+### Non-blocking (follow-ups, not asked in this round)
+
+1. **When a failed re-read is followed by a withdraw that throws,** the answer is 500 `withdraw-failed`. Its sentence
+   (`control/index.js:61`), and the panel's line for it (`taggingPipelineView.js:1067`), still say a pass started.
+   Reaching it needs both reads to fail. A neutral sentence is the Architect's to word, as D11's are.
+2. **A cron of more than 256 characters that is not a cron** reads `cannot-tell`/`rule`, while a short one reads
+   `no-schedule`. Requested 5's note wording covers it.
+3. **The remaining first-read cost could be spread** by capping how many patterns not yet cached one status read may
+   judge. That would show "cannot tell" for a few seconds after a restart. For the owner, beside requested 5's
+   wording.
+
+### For the owner
+
+- **A focused control that a later read removes outright still loses focus to the page.** Two cases, each confirmed by
+  the panel lane's probes and the Tester's:
+  - "Confirm held removals" once another tab's confirmation is pending;
+  - "Stop" once nothing is busy.
+
+  D15's note covers only a control replaced in place. Either:
+  - **extend D15 and fix it in this story:** a dated note, two browser cases, and a change to the shared focus helper,
+    about one more short cycle;
+  - **or leave it:** it becomes its own ledger row, and the row this story closes
+    (`2026-10-28-panel-prompts-return-no-focus`) closes for the prompts only, saying so.
+- **The test plan's three notes for the owner** still have no recorded answer (round 1, § For the owner).
+
+### Harness friction
+
+1. **Seen again: `2026-10-11-implementer-edited-accepted-adr`.** The fix round's `impl:` commit edited an accepted ADR's
+   older note in place (requested 5). The review's round-1 ask, "Cite the key, or the new line", invited it. A dated
+   note is added to the row in this commit.
+
+## Verdict (round 2)
+
+**CHANGES_REQUESTED.**
+- **Two blocking issues remain.** Each is in a round-1 ask the fix only partly met, and each breaks an AC's explicit
+  rule:
+  - a false "on time" for a long frequent rule (AC-5), which a test now pins;
+  - focus on "Turn on" after the tab loses focus (AC-6).
+- **Requested 3 to 5** are small: one sentence, three tests and record fixes. Requested 5's ADR 0004 line needs the
+  Architect's appended note.
+
+The rest of round 1 is fixed and re-derived:
+- the blocking focus loss on the held section;
+- the coverage gaps;
+- the public status's three robustness fixes;
+- the failed re-read's answer;
+- the plan rows;
+- the records.
