@@ -41,12 +41,19 @@ function gate(access, caller) {
 function operationHandler(op) {
   const source = op.method === 'GET' ? 'query' : 'body';
   return async function tapestryOperation(req, res) {
-    const caller = callerOf(req);
-    const refused = gate(op.access, caller);
-    if (refused) return res.status(refused.status).json(refused.body);
-    const raw = source === 'query' ? req.query : req.body;
-    const { status, body } = await callOperation(op, raw, { via: 'http', caller }, { source });
-    return res.status(status).json(body);
+    // Express 4 doesn't catch a rejected async handler, and an unhandled rejection ends the process, so nothing may
+    // escape this function (review round 1, non-blocking 1).
+    try {
+      const caller = callerOf(req);
+      const refused = gate(op.access, caller);
+      if (refused) return res.status(refused.status).json(refused.body);
+      const raw = source === 'query' ? req.query : req.body;
+      const { status, body } = await callOperation(op, raw, { via: 'http', caller }, { source });
+      return res.status(status).json(body);
+    } catch (err) {
+      if (res.headersSent) return undefined;
+      return res.status(500).json({ success: false, error: `${op.group} ${op.name} failed: ${(err && err.message) || String(err)}`, code: 'failed' });
+    }
   };
 }
 

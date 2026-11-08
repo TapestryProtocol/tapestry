@@ -72,7 +72,8 @@ function loadOperations({ dir = DEFAULT_DIR } = {}) {
       try {
         decl = require(abs);
       } catch (e) {
-        problems.push({ file, problem: `it failed to load: ${e.message}` });
+        // The error's first line only: a require error's later lines are its stack, of absolute paths.
+        problems.push({ file, problem: `it failed to load: ${String((e && e.message) || e).split('\n')[0]}` });
         continue;
       }
       const issues = validateDeclaration(decl, { group, name: f.slice(0, -3) });
@@ -105,7 +106,11 @@ async function callOperation(op, raw, context, { source = 'query' } = {}) {
   if (!checked.ok) return { status: 400, body: { success: false, ...checked.refusal } };
   try {
     const data = await op.declaration.run(checked.inputs, context);
-    return { status: 200, body: { success: true, data: data === undefined ? null : data } };
+    const body = { success: true, data: data === undefined ? null : data };
+    // A result that can't be sent as JSON (a BigInt, a cycle) is this operation's failure, answered below, never a
+    // throw in the caller's hands (review round 1, non-blocking 1).
+    JSON.stringify(body);
+    return { status: 200, body };
   } catch (err) {
     if (isRefusal(err)) {
       const declared = op.declaredRefusals.find((r) => r.code === err.code);
