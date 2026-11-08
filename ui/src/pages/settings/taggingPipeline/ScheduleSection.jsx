@@ -6,9 +6,15 @@
  *
  * BackstopVerdict is the one place each schedule state is put into words: this section and the real-time path's
  * off prompt both render it, so the two cannot drift apart (story 5; ADR tagging-edges/0005 D13).
+ *
+ * Story 7 (ADR tagging-edges/0007 D14): the section also warns when the pass is overdue, or says it cannot tell. That
+ * line comes from the pass status, not the schedule list, so it shows in every branch, the list's loading and failed
+ * ones included, and the section takes the warn tone while the pass is overdue, unless the list's read has failed
+ * (its bad border stands). It only warns: it starts nothing.
  */
 
 import { Loading, ReadFailed, Section, TONE_COLOUR, counted, when } from './parts.jsx';
+import { TimedLine } from './PassControls.jsx';
 
 function Warning({ children }) {
   return <p style={{ color: TONE_COLOUR.warn }}>{children}</p>;
@@ -59,14 +65,31 @@ export function BackstopVerdict({ view, pending = false }) {
   );
 }
 
+/** The overdue line (overdueView's result): its timed lines as one paragraph, in its tone, or nothing. */
+function OverdueLine({ overdue }) {
+  if (!overdue) return null;
+  const tone = overdue.tone === 'neutral' ? null : overdue.tone;
+  return (
+    <p className={tone ? undefined : 'settings-hint'} style={tone ? { color: TONE_COLOUR[tone] } : undefined}>
+      {overdue.lines.map((l, i) => <span key={i}>{i > 0 && ' '}<TimedLine line={l} /></span>)}
+    </p>
+  );
+}
+
 /**
  * `read` is the schedule list's read ({ state, body, error, readAt }); `view` is scheduleView of its body, or null.
- * `onOpenSchedule` opens the Scheduled Tasks sub-tab.
+ * `overdue` is overdueView of the pass status, or null. `onOpenSchedule` opens the Scheduled Tasks sub-tab.
  */
-export default function ScheduleSection({ read, view, onRetry, onOpenSchedule }) {
+export default function ScheduleSection({ read, view, overdue, onRetry, onOpenSchedule }) {
   const title = 'The backstop schedule';
+  const late = !!overdue && overdue.state === 'overdue';
   if (read.state === 'loading') {
-    return <Section testId="tp-schedule" state="loading" title={title}><Loading what="the schedule list" /></Section>;
+    return (
+      <Section testId="tp-schedule" state="loading" title={title} tone={late ? 'warn' : undefined}>
+        <Loading what="the schedule list" />
+        <OverdueLine overdue={overdue} />
+      </Section>
+    );
   }
   if (!view) {
     // No good answer yet, or one that is not a list: the read failed either way, and no figures follow.
@@ -74,6 +97,7 @@ export default function ScheduleSection({ read, view, onRetry, onOpenSchedule })
     return (
       <Section testId="tp-schedule" state="error" title={title}>
         <ReadFailed what="The schedule list" error={error} readAt={null} onRetry={onRetry} />
+        <OverdueLine overdue={overdue} />
       </Section>
     );
   }
@@ -84,11 +108,13 @@ export default function ScheduleSection({ read, view, onRetry, onOpenSchedule })
     </p>
   );
   const warned = view.verdict !== 'one' || view.unscheduled || view.weakerThanDaily;
+  const state = read.state === 'error' ? 'error' : 'ready';
   return (
-    <Section testId="tp-schedule" state={read.state === 'error' ? 'error' : 'ready'} title={title} tone={view.tone}>
+    <Section testId="tp-schedule" state={state} title={title} tone={late ? 'warn' : view.tone}>
       {read.state === 'error' && (
         <ReadFailed what="The schedule list" error={read.error} readAt={read.readAt} onRetry={onRetry} />
       )}
+      <OverdueLine overdue={overdue} />
       <BackstopVerdict view={view} />
       {disabled}
       {warned && (

@@ -206,7 +206,26 @@
  *     Scenario helpers: startPass(o) → the running record (latest; the old latest moves to previous; a live process),
  *     endPass(o) (the latest run ends: o.state, default 'done'; its process exits), setPhases(names), claim(runId) (the
  *     pending confirmation moves to claimed/; o.save marks latest.confirmation.found), kills, cleanup().
- *   adrWorkerCallback({ gate, semaphore, processor, taskName, resourceClass, taskDef })   D3's worker callback as the ADR
+ *      Story 7 (ADR tagging-edges/0007 D1's new deps, § Seams "The controller", "Interleavings"; additive — every dep
+     and member above behaves as before):
+       deps     readHeld(runId) → world.held[runId] (a clone) or null; heldDigest(list) → heldDigestOf(list);
+                writeConfirmation(record) → world.confirmation = record, pushed to world.confirmationWrites;
+                withdrawConfirmation() → true (the record moved to world.withdrawn, confirmation null) or false (none
+                there: a pass claimed it); nonce() → a 32-hex nonce, pushed to world.nonces. Each a recording spy.
+       state    world.held (runId → list), world.heldError (a code readHeld throws), world.confirmationWriteError,
+                world.withdrawError (codes those throw, changing nothing)
+       hooks    world.onCall(name, fn, { when = 'after', times = 1 }) runs fn({ args, result?, world }) on the next
+                `times` calls of the spied dep `name` (readReport, readHeld, writeConfirmation, withdrawConfirmation,
+                writeRecord, queue.add, …), before it runs or after it returned (after an async dep resolved) — to
+                make a pass start or claim between two of the controller's steps. world.failNext(name, code, times = 1)
+                makes the next `times` calls of `name` throw Error with that code, after being logged.
+       world.holdRemovals({ n = 60, list, label, runId, hex, startedAt, jobId, alive, file, fileList, over }) → { runId,
+                list, digest, latest }: a finished pass that held `list` becomes latest (the old latest moves to
+                previous), its held file in world.held (file: false leaves none; fileList writes another list there);
+                alive: true keeps its process alive (the held run's own finishing window).
+   heldList(n, label), heldDigestOf(list) (state.heldDigest's rule), byReasonOf(list); confirmationRecord({ mintedBy:
+   null }) leaves mintedBy out, as story 7 writes it; ADR7, adr7(d); DAY_MS.
+  adrWorkerCallback({ gate, semaphore, processor, taskName, resourceClass, taskDef })   D3's worker callback as the ADR
  *       writes it, for driving a controller's gate in unit tests (the real one in queue/index.js has its own pins)
  *   makeFakeProcessor(world, { writesNoReport })   processJob(job): starts a run in `world` under job.id and settles when
  *       that run ends (end(jobId, o) or world.endPass / a SIGTERM with world.stopOnSignal); writesNoReport ends at once
@@ -284,6 +303,10 @@ const MODULES = Object.freeze({
 
 const ADR = 'ADR tagging-edges/0006';
 const adr = (decision) => (decision ? `${ADR} ${decision}` : ADR);
+/** Story 7's ADR, for messages: adr7('D2 step 5') → 'ADR tagging-edges/0007 D2 step 5'. */
+const ADR7 = 'ADR tagging-edges/0007';
+const adr7 = (decision) => (decision ? `${ADR7} ${decision}` : ADR7);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** D1, D9: the ADR's values. */
 const ADR_TIMERS = Object.freeze({ stepMs: 2000, pidWaitMs: 3000, pidPollMs: 100, endedKeysMs: 10000 });
@@ -1135,20 +1158,44 @@ function reportOf(latest, previous = []) { return { reportVersion: 1, latest, pr
 
 function nonceOf(label) { return crypto.createHash('sha256').update(`nonce:${label}`, 'utf8').digest('hex').slice(0, 32); }
 function claimedName(runId, nonce = nonceOf(runId)) { return `${runId}-${nonce}.json`; }
-/** A pending confirmation.json as the confirm route writes it. */
+/**
+ * A pending confirmation.json as the confirm route wrote it before story 7 (with mintedBy). Story 7 (additive):
+ * o.mintedBy null leaves mintedBy out, as ADR tagging-edges/0007 D2 step 6 writes it; o.expiresAt and o.version
+ * override (an unreadable expiry, a malformed record).
+ */
 function confirmationRecord(o = {}) {
   const mintedAt = o.mintedAt || iso(T0 - 60000);
-  return {
-    version: 1,
+  const rec = {
+    version: o.version === undefined ? 1 : o.version,
     runId: o.runId || '20261027T110000Z-0a1b2c3d',
     heldDigest: o.heldDigest || 'd'.repeat(64),
     heldCount: o.heldCount || 60,
     nonce: o.nonce || nonceOf(o.runId || 'pending'),
     mintedAt,
-    expiresAt: iso(Date.parse(mintedAt) + 24 * 60 * 60 * 1000),
-    mintedBy: OWNER_KEY,
+    expiresAt: o.expiresAt !== undefined ? o.expiresAt : iso(Date.parse(mintedAt) + 24 * 60 * 60 * 1000),
+    mintedBy: o.mintedBy === undefined ? OWNER_KEY : o.mintedBy,
   };
+  if (rec.mintedBy === null) delete rec.mintedBy;
+  return rec;
 }
+
+/** Story 7: a held list of n entries ({ address, seenEventId, reason }), distinct per label. */
+function heldList(n = 60, label = 'held') {
+  return Array.from({ length: n }, (_, i) => ({
+    address: `39999:${'e'.repeat(64)}:tagging-edges-test-${label}-${i}`,
+    seenEventId: crypto.createHash('sha256').update(`seen:${label}:${i}`, 'utf8').digest('hex'),
+    reason: 'not-on-relay',
+  }));
+}
+/** state.heldDigest's rule: sha256 over heldLines (one "address\tseenEventId\treason\n" line per entry, sorted). */
+function heldDigestOf(list) {
+  const lines = (Array.isArray(list) ? list : [])
+    .map((h) => `${h && typeof h === 'object' ? h.address : ''}\t${h && h.seenEventId != null ? h.seenEventId : ''}\t${h && typeof h === 'object' ? h.reason : ''}\n`)
+    .sort()
+    .join('');
+  return crypto.createHash('sha256').update(lines, 'utf8').digest('hex');
+}
+function byReasonOf(list) { return (list || []).reduce((acc, h) => { acc[h.reason] = (acc[h.reason] || 0) + 1; return acc; }, {}); }
 
 /** A /proc/<pid>/stat line: field 22 (starttime) is `start` (test/tagging-edges-state-routes.test.js statLine). */
 function statLine({ pid, comm = 'node', state = 'S', start }) {
@@ -1313,12 +1360,31 @@ function makeWorld(o = {}) {
   let pidN = 5000;
   const endListeners = [];
 
+  // Story 7 (ADR tagging-edges/0007 § Seams "Interleavings"): one-shot hooks and faults on any spied dep, by name.
+  const hooks = []; // { name, when: 'before' | 'after', fn, left }
+  const faults = new Map(); // name → { code, left }
+  function runHooks(name, when, payload) {
+    for (const h of hooks.slice()) {
+      if (h.name !== name || h.when !== when || h.left <= 0) continue;
+      h.left -= 1;
+      h.fn(payload);
+    }
+  }
   function spy(name, impl) {
     const f = function spied(...args) {
       const entry = { seq: ++seq, name, args: safeClone(args) };
       calls.push(entry);
       f.calls.push(entry);
-      return impl.apply(this, args);
+      runHooks(name, 'before', { args, world });
+      const fault = faults.get(name);
+      if (fault && fault.left > 0) {
+        fault.left -= 1;
+        throw errorWithCode(fault.code);
+      }
+      const out = impl.apply(this, args);
+      if (out && typeof out.then === 'function') return out.then((v) => { runHooks(name, 'after', { args, result: v, world }); return v; });
+      runHooks(name, 'after', { args, result: out, world });
+      return out;
     };
     f.calls = [];
     f.spyName = name;
@@ -1345,6 +1411,19 @@ function makeWorld(o = {}) {
     killError: null,
     stopOnSignal: !!o.stopOnSignal,
     onKill: null,
+    // Story 7 (ADR tagging-edges/0007 D1's new deps): held/, confirmation.json's writes and withdrawals, the nonce.
+    held: { ...(o.held || {}) },
+    heldError: null,
+    confirmationWriteError: null,
+    withdrawError: null,
+    confirmationWrites: [],
+    withdrawn: [],
+    nonces: [],
+    onCall(name, fn, { when = 'after', times = 1 } = {}) {
+      if (when !== 'before' && when !== 'after') throw new Error(`taggingEdgesPassFakes.onCall: when is 'before' or 'after', not ${when}`);
+      hooks.push({ name, when, fn, left: times });
+    },
+    failNext(name, code = 'EIO', times = 1) { faults.set(name, { code, left: times }); },
     names: () => calls.map((c) => c.name),
     callsOf: (name) => calls.filter((c) => c.name === name),
     resetCalls: () => { calls.length = 0; },
@@ -1383,6 +1462,22 @@ function makeWorld(o = {}) {
       world.confirmation = null;
       if (c.save && world.report && world.report.latest && world.report.latest.runId === runId) world.report.latest.confirmation = { found: true, honoured: false };
     },
+    holdRemovals(h = {}) {
+      const list = h.list || heldList(h.n === undefined ? 60 : h.n, h.label || 'held');
+      const digest = heldDigestOf(list);
+      const startedAt = h.startedAt || iso(clock.now() - 10 * 60000);
+      const rec = passRecord({
+        state: 'done-removals-held', startedAt, runId: h.runId, hex: h.hex, jobId: h.jobId === undefined ? null : h.jobId,
+        pid: h.pid, startTime: h.startTime, through: 'plan',
+        over: { held: { total: list.length, byReason: byReasonOf(list), digest }, ...(h.over || {}) },
+      });
+      if (h.alive) procs.spawn(rec.process.pid, rec.process.startTime);
+      const r = world.report;
+      const previous = r ? [r.latest, ...(r.previous || [])].filter(Boolean).slice(0, 9) : [];
+      world.report = reportOf(rec, previous);
+      if (h.file !== false) world.held[rec.runId] = clone(h.fileList || list);
+      return { runId: rec.runId, list, digest, latest: rec };
+    },
     cleanup() { if (tempDir) tempDir.cleanup(); tempDir = null; },
   };
 
@@ -1419,6 +1514,28 @@ function makeWorld(o = {}) {
     ownerPubkey: () => world.owner,
     getAdminPubkeys: () => world.admins.slice(),
     timers: { ...FAST_TIMERS, ...(o.timers || {}) },
+    // Story 7 (ADR tagging-edges/0007 D1): the controller's new deps, each a recording spy, synchronous as state.js's.
+    readHeld: spy('readHeld', (runId) => {
+      if (world.heldError) throw errorWithCode(world.heldError);
+      return Object.prototype.hasOwnProperty.call(world.held, runId) && world.held[runId] != null ? clone(world.held[runId]) : null;
+    }),
+    heldDigest: spy('heldDigest', (list) => heldDigestOf(list)),
+    writeConfirmation: spy('writeConfirmation', (rec) => {
+      if (world.confirmationWriteError) throw errorWithCode(world.confirmationWriteError);
+      world.confirmation = clone(rec);
+      world.confirmationError = null;
+      world.confirmationWrites.push(clone(rec));
+      return rec;
+    }),
+    withdrawConfirmation: spy('withdrawConfirmation', () => {
+      if (world.withdrawError) throw errorWithCode(world.withdrawError);
+      if (world.confirmation == null && !world.confirmationError) return false; // a pass claimed it (or none was there)
+      world.withdrawn.push(clone(world.confirmation));
+      world.confirmation = null;
+      world.confirmationError = null;
+      return true;
+    }),
+    nonce: spy('nonce', () => { const n = nonceOf(`world-nonce-${world.nonces.length + 1}`); world.nonces.push(n); return n; }),
   };
   return world;
 }
@@ -1794,6 +1911,45 @@ async function selfCheck() {
     }
   });
 
+  check("story 7's deps: a held report and its held file agree with state.heldDigest's rule; writeConfirmation, withdrawConfirmation (true, then false once claimed), nonce, faults and one-shot hooks between calls", async () => {
+    const world = makeWorld();
+    try {
+      ok(['readHeld', 'heldDigest', 'writeConfirmation', 'withdrawConfirmation', 'nonce'].every((k) => typeof world.deps[k] === 'function'), `story 7's deps: ${brief(Object.keys(world.deps))}`);
+      const h = world.holdRemovals({ n: 3, label: 'self' });
+      const latest = world.deps.readReport().latest;
+      ok(latest.runId === h.runId && latest.outcome === 'done-removals-held' && latest.held.total === 3 && latest.held.digest === h.digest, `the held latest: ${brief(latest)}`);
+      ok(latest.phases.some((p) => p.phase === 'graph-read') && world.deps.isAlive(latest) === false, 'it read the graph and is not alive');
+      const st = loadModule(MODULES.state, ['heldDigest'], adr7('D1'));
+      ok(st.heldDigest(h.list) === h.digest && world.deps.heldDigest(world.deps.readHeld(h.runId)) === h.digest, "the digest is state.heldDigest's");
+      ok(world.deps.readHeld('20200101T000000Z-00000000') === null, 'no held file: null');
+      const n = world.deps.nonce();
+      ok(/^[0-9a-f]{32}$/.test(n) && world.nonces[0] === n && world.deps.nonce() !== n, `nonces: ${brief(world.nonces)}`);
+      let hooked = null;
+      world.onCall('writeConfirmation', ({ result }) => { hooked = result && result.nonce; world.startPass(); });
+      world.deps.writeConfirmation(confirmationRecord({ runId: h.runId, nonce: n, mintedBy: null }));
+      ok(hooked === n && world.report.latest.runId !== h.runId && world.report.previous[0].runId === h.runId, 'the after-hook ran once, after the write, and a pass started');
+      ok(world.confirmation.nonce === n && !('mintedBy' in world.confirmation) && world.confirmationWrites.length === 1, 'the write landed, without mintedBy');
+      world.deps.writeConfirmation(confirmationRecord({ runId: h.runId, nonce: n, mintedBy: null }));
+      ok(world.report.previous.length === 1, 'a one-shot hook does not run twice');
+      ok(world.deps.withdrawConfirmation() === true && world.confirmation === null && world.withdrawn.length === 1, 'withdrawn');
+      world.deps.writeConfirmation(confirmationRecord({ runId: h.runId, nonce: n }));
+      world.claim(world.report.latest.runId);
+      ok(world.deps.withdrawConfirmation() === false, 'claimed first: the withdraw finds nothing');
+      world.failNext('readHeld', 'EIO');
+      await throwsWith(() => world.deps.readHeld(h.runId), /EIO/, 'an injected fault');
+      ok(world.deps.readHeld(h.runId).length === 3 && world.callsOf('readHeld').length === 4, 'the fault was one-shot, and both calls were logged');
+      world.confirmationWriteError = 'ENOSPC';
+      await throwsWith(() => world.deps.writeConfirmation({}), /ENOSPC/, 'a failed write');
+      ok(world.confirmation === null, 'a failed write changes nothing');
+      let before = 0;
+      world.onCall('queue.add', () => { before += 1; }, { when: 'before' });
+      await world.deps.queue.add(TASK, lineUpData(), lineUpOpts(lineUpKey(77)));
+      ok(before === 1 && world.queue.has(lineUpKey(77)), 'a before-hook on an async dep');
+    } finally {
+      world.cleanup();
+    }
+  });
+
   check('the D3 composition over a scripted semaphore and the fake processor: a gate answering skip completes without spawning', async () => {
     const world = makeWorld();
     try {
@@ -2006,6 +2162,7 @@ module.exports = {
   guardProcessKill, recordStructuredEvents, captureConsole,
   // builders
   runIdAt, passRecord, reportOf, confirmationRecord, nonceOf, claimedName, statLine, procStat, makeReadFile, makeProcs,
+  heldList, heldDigestOf, byReasonOf, ADR7, adr7, DAY_MS,
   makeTempStateDir, makeClock, whoOf, recordEntry, historyLine, recordFile, makeRecordStore, makeWorld,
   adrWorkerCallback, makeFakeProcessor,
   // requests

@@ -1459,6 +1459,442 @@ function applyStop({ status, passRecord, viewer, body }) {
 [RUNNING6_RECORD, RUNNING6_SCHEMA_RECORD, RUNNING6_CLAIMED_RECORD, TOO_LATE_DONE_RECORD, STOPPED_UNRECORDED_START_RECORD,
   STOPPED_HAND_RUN_RECORD, STOPPED_NO_ENTRY_RECORD].forEach(deepFreeze);
 
+/* ── Story 7: confirming held removals on the panel (ADR 0007 D2, D4–D8, D12) ───────────────────────────────── */
+
+/*
+ * tagging-edges #7 (story engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
+ * engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md). Additive: nothing above changes, so the
+ * story 4–6 bodies stay a server from before story 7 (no `overdue` member, the old confirmation shape).
+ *   - POST /api/tagging-edges/confirm-held-removals  body {"runId"} (D1, D4): 200 { success, confirmed, outcome,
+ *     enqueued, …, expiresAt } for lined-up | waiting-pass | starting-pass | taken-up | not-lined-up; 409
+ *     already-pending { runId, expiresAt }, not-the-latest-report, nothing-held, running, held-list-changed,
+ *     pass-started; 500 record-unavailable, confirmation-unwritten, withdraw-failed, error { cause }; 401 / 403 / 415
+ *     / 400 before the chain. The 409 and 500 bodies keep `error` beside `code`. No answer carries a who.
+ *   - GET /api/tagging-edges/status gains `overdue` (D8), and serves `confirmationPending` as D6's allowlist:
+ *     version, runId, heldDigest, heldCount, mintedAt, expiresAt and the derived `expired`; never mintedBy or nonce.
+ *   - A pass record's `confirmation` gains `mintedAt` when found (D7); an old report has none.
+ *   - GET /api/tagging-edges/pass/record: `history` also holds `confirm` lines { action: 'confirm', key: null, at,
+ *     who, runId } (D5). A line-up's start is written in the same commit, so it shows above the confirm line.
+ *   - GET /api/auth/user-classification: the panel's role (D9) comes from the signed-in user's classification.
+ * applyConfirm acts on a status and a record as the server would (D2), for the browser mock's default.
+ */
+
+const CONFIRM_TTL_MS = 24 * 60 * 60 * 1000; // a confirmation lasts 24 hours from when it is made (story 2; D2 step 6)
+const plusTtl = (iso) => new Date(Date.parse(iso) + CONFIRM_TTL_MS).toISOString();
+
+/**
+ * The owner's confirmation as the story 7 status serves it (D6's allowlist plus `expired`). By default it is pending
+ * for HELD_RECORD's held list until 45 minutes from NOW, made 24 hours before that.
+ */
+function publicConfirmation({
+  runId = HELD_RECORD.runId, heldDigest = HELD_RECORD.held.digest, heldCount = HELD_TOTAL, expiresAt = after(45), mintedAt,
+  expired = false,
+} = {}) {
+  let minted = mintedAt;
+  if (minted === undefined) minted = Number.isFinite(Date.parse(expiresAt)) ? new Date(Date.parse(expiresAt) - CONFIRM_TTL_MS).toISOString() : at(30);
+  return { version: 1, runId, heldDigest, heldCount, mintedAt: minted, expiresAt, expired };
+}
+
+/** A copy of a status body whose owner's confirmation is pending for its latest held list, made at `mintedAt`. */
+function withConfirmationPending(status, mintedAt = NOW) {
+  const s = clone(status);
+  const l = s.latest;
+  s.confirmationPending = publicConfirmation({ runId: l.runId, heldDigest: l.held.digest, heldCount: l.held.total, mintedAt, expiresAt: plusTtl(mintedAt) });
+  return s;
+}
+
+/** A pass that held 120 removals after HELD_RECORD (11:48), its held list different (its own digest). */
+const HELD_NEWER_RECORD = passRecord({
+  startedMinutesAgo: 12,
+  suffix: '4e2d4e2d',
+  outcome: 'done-removals-held',
+  reasonCode: 'removals-held',
+  reason: `removals held: ${HELD_TOTAL} over the limit (more than 50 and more than 1/10 of 700); the owner can confirm them`,
+  relationships: relationships({ atStart: 700, unchanged: 580 }),
+  held: { total: HELD_TOTAL, byReason: { 'not-on-relay': 100, 'non-tagging': 20 }, digest: 'beef'.padEnd(64, '0') },
+  limit: { base: 700, leftInPlaceExcluded: 0, baseAfterConfirmed: null, removalsPlanned: HELD_TOTAL, floor: 50, fraction: '1/10', exceeded: true },
+});
+
+/** The owner's running pass of story 6 (its run id), ended holding 120 removals of its own (story 7 AC-1 "When the pass ends"). */
+const ENDED_HELD7_RECORD = (() => {
+  const r = passRecord({
+    startedMinutesAgo: 3,
+    suffix: '5a11e7a1',
+    job: { id: PASS_KEYS.RUNNING },
+    outcome: 'done-removals-held',
+    reasonCode: 'removals-held',
+    reason: `removals held: ${HELD_TOTAL} over the limit (more than 50 and more than 1/10 of 700); the owner can confirm them`,
+    relationships: relationships({ atStart: 700, unchanged: 580 }),
+    held: { total: HELD_TOTAL, byReason: { 'not-on-relay': 100, 'non-tagging': 20 }, digest: '5a11'.padEnd(64, '0') },
+    limit: { base: 700, leftInPlaceExcluded: 0, baseAfterConfirmed: null, removalsPlanned: HELD_TOTAL, floor: 50, fraction: '1/10', exceeded: true },
+  });
+  r.endedAt = after(0.25);
+  r.durationMs = Date.parse(r.endedAt) - Date.parse(r.startedAt);
+  return r;
+})();
+
+/*
+ * The overdue verdict (D8), as the status serves it. The schedule fixture these scenes sit beside is SCHEDULE.ONE
+ * (every 6 hours), so the period is 6 hours. The overdue pass began at 04:50 and the next was expected by 10:50: two
+ * distinct clock times, both printed as the server gave them.
+ */
+const OVERDUE_PERIOD_MS = 6 * 60 * 60 * 1000;
+const OVERDUE_LATEST_RECORD = passRecord({ startedMinutesAgo: 430, suffix: '0ede0ede' });
+const isoPlus = (iso, ms) => new Date(Date.parse(iso) + ms).toISOString();
+/** The on-time verdict for a latest pass: it began at its startedAt, the next is expected one period later. */
+function onTimeFor(latest, periodMs = OVERDUE_PERIOD_MS) {
+  if (!latest || typeof latest.startedAt !== 'string') return { state: 'no-pass' };
+  return { state: 'on-time', latestBeganAt: latest.startedAt, expectedAt: isoPlus(latest.startedAt, periodMs), periodMs };
+}
+const OVERDUE = deepFreeze({
+  OVERDUE: {
+    state: 'overdue',
+    latestBeganAt: OVERDUE_LATEST_RECORD.startedAt,
+    expectedAt: isoPlus(OVERDUE_LATEST_RECORD.startedAt, OVERDUE_PERIOD_MS),
+    periodMs: OVERDUE_PERIOD_MS,
+  },
+  ON_TIME: onTimeFor(HELD_RECORD),
+  NO_ENTRY: { state: 'no-entry' },
+  NO_SCHEDULE: { state: 'no-schedule' },
+  NO_PASS: { state: 'no-pass' },
+  CANNOT_TELL_SCHEDULE: { state: 'cannot-tell', reason: 'schedule' },
+  CANNOT_TELL_RULE: { state: 'cannot-tell', reason: 'rule' },
+  CANNOT_TELL_REPORT: { state: 'cannot-tell', reason: 'report' },
+});
+/** A copy of a status body with an `overdue` member. */
+const withOverdue = (status, overdue) => ({ ...clone(status), overdue: clone(overdue) });
+
+/** One `confirm` history line (D5): the owner, with a shortened key, at when the confirmation was made. */
+const confirmLine = (iso, runId, who = ACTOR.owner) => ({ action: 'confirm', key: null, at: iso, who: clone(who), runId });
+
+/** The record after a confirmation the server recorded (D5): the history gains the confirm line, newest first, at most 10. */
+function foldConfirm(prev, { at: iso, runId, who = ACTOR.owner }) {
+  const before = prev && Array.isArray(prev.history) ? clone(prev.history) : [];
+  const passes = prev && prev.passes && typeof prev.passes === 'object' ? clone(prev.passes) : {};
+  const history = [confirmLine(iso, runId, who), ...before]
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+    .slice(0, 10);
+  return passRecordBody({ state: 'recorded', history, passes });
+}
+
+/** The confirm route's answers (D4), each { status, body }. */
+const acceptedConfirm = (outcome, extra) => ({ status: 200, body: { success: true, confirmed: true, outcome, ...extra } });
+const refusedConfirm = (status, code, error, extra = {}) => ({ status, body: { success: false, code, error, ...extra } });
+const CONFIRM_ANSWER = deepFreeze({
+  linedUp: (jobId, { behindStopping = false, expiresAt = plusTtl(NOW) } = {}) => acceptedConfirm('lined-up', { enqueued: true, jobId, behindStopping, expiresAt }),
+  waitingPass: (expiresAt = plusTtl(NOW)) => acceptedConfirm('waiting-pass', { enqueued: true, joined: true, expiresAt }),
+  startingPass: (expiresAt = plusTtl(NOW)) => acceptedConfirm('starting-pass', { enqueued: true, joined: true, expiresAt }),
+  takenUp: (claimedBy, expiresAt = plusTtl(NOW)) => acceptedConfirm('taken-up', { enqueued: false, claimedBy, expiresAt }),
+  notLinedUp: (reason, cause, expiresAt = plusTtl(NOW)) => acceptedConfirm('not-lined-up', { enqueued: false, reason, ...(cause ? { cause } : {}), expiresAt }),
+  alreadyPending: (runId, expiresAt) => refusedConfirm(409, 'already-pending', 'a confirmation of this held list is already pending', { runId, expiresAt }),
+  NOT_LATEST: refusedConfirm(409, 'not-the-latest-report', 'that run is not the latest report'),
+  NOTHING_HELD: refusedConfirm(409, 'nothing-held', 'the latest report held no removals'),
+  RUNNING: refusedConfirm(409, 'running', 'the held run is still running'),
+  HELD_LIST_CHANGED: refusedConfirm(409, 'held-list-changed', 'the held list does not match its report'),
+  PASS_STARTED: refusedConfirm(409, 'pass-started', 'a pass started; confirm its report when it ends'),
+  RECORD_UNAVAILABLE: refusedConfirm(500, 'record-unavailable', 'the record of actions could not be written', { cause: 'ENOSPC' }),
+  CONFIRMATION_UNWRITTEN: refusedConfirm(500, 'confirmation-unwritten', 'the confirmation could not be written', { cause: 'EIO' }),
+  WITHDRAW_FAILED: refusedConfirm(500, 'withdraw-failed', 'a pass started and the confirmation could not be withdrawn', { cause: 'EIO' }),
+  FAILED: refusedConfirm(500, 'error', 'the confirmation failed', { cause: 'EIO' }),
+  BAD_RUN_ID: refusedConfirm(400, 'bad-run-id', 'runId must be a run id'),
+  /** Before the chain, as today: the session (401) and the owner by configuration (403; an admin included). */
+  REFUSED_401: { status: 401, body: { success: false, error: 'Not authenticated' } },
+  REFUSED_403: { status: 403, body: { success: false, error: 'Owner access required' } },
+});
+
+/**
+ * Whether the public status's confirmation is pending for this latest held list (the mock's reading of D3's
+ * pendingFor over D6's public fields): version 1, the same run and digest, not expired, its expiry a time.
+ */
+function confirmationPendingFor(cp, latest) {
+  return isPlain(cp) && !cp.unreadable && cp.version === 1 && isPlain(latest) && cp.runId === latest.runId
+    && isPlain(latest.held) && cp.heldDigest === latest.held.digest && cp.expired !== true
+    && typeof cp.expiresAt === 'string' && Number.isFinite(Date.parse(cp.expiresAt));
+}
+
+const CONFIRM_RUN_ID = /^\d{8}T\d{6}Z-[0-9a-f]{8}$/; // RUN_ID_RE's shape (src/lib/tagging-edges/sweep.js)
+
+/**
+ * The confirm route as the server answers it (D1, D2, D4), at NOW: 401 signed out, 403 for anyone but the owner, 400
+ * for a body without a run id; then 409 not-the-latest-report, nothing-held or running; 409 already-pending when a
+ * confirmation of this held list is pending (nothing changes); otherwise the confirmation is made (pending, 24 h),
+ * the confirm line recorded, and the plan of step 4: the queue not ok (or no control member) → not-lined-up
+ * QUEUE_UNAVAILABLE; a running item with no stop asked for → starting-pass; a waiting one → waiting-pass; else a new
+ * pass lined up under `key`, behind any busy pass (behindStopping), its start recorded as the owner's confirmation.
+ * → { answer: {status, body}, status: the new status or null (unchanged), passRecord: the new record or null }.
+ */
+function applyConfirm({ status, passRecord, viewer, body, key }) {
+  const none = (answer) => ({ answer, status: null, passRecord: null });
+  if (!viewer) return none(CONFIRM_ANSWER.REFUSED_401);
+  if (viewer.role !== 'owner') return none(CONFIRM_ANSWER.REFUSED_403);
+  const runId = isPlain(body) ? body.runId : undefined;
+  if (typeof runId !== 'string' || !CONFIRM_RUN_ID.test(runId)) return none(CONFIRM_ANSWER.BAD_RUN_ID);
+  const s = isPlain(status) ? status : null;
+  const latest = s && isPlain(s.latest) ? s.latest : null;
+  if (!latest || latest.runId !== runId) return none(CONFIRM_ANSWER.NOT_LATEST);
+  if (latest.outcome !== 'done-removals-held' || !isPlain(latest.held) || !(latest.held.total > 0)) return none(CONFIRM_ANSWER.NOTHING_HELD);
+  if (s.running === true) return none(CONFIRM_ANSWER.RUNNING);
+  if (confirmationPendingFor(s.confirmationPending, latest)) {
+    return none(CONFIRM_ANSWER.alreadyPending(s.confirmationPending.runId, s.confirmationPending.expiresAt));
+  }
+  const control = isPlain(s.control) ? s.control : null;
+  const busy = control && Array.isArray(control.busy) ? control.busy.filter(isPlain) : [];
+  let plan = 'line-up';
+  if (!control || control.queue !== 'ok') plan = 'none';
+  else if (busy.some((i) => i.state === 'running' && !i.stopAskedAt)) plan = 'starting-pass';
+  else if (busy.some((i) => i.state === 'waiting' && !i.stopAskedAt)) plan = 'waiting-pass';
+  const who = { kind: 'owner', key: viewer.key };
+  const expiresAt = plusTtl(NOW);
+  let record = foldConfirm(isPlain(passRecord) ? passRecord : null, { at: NOW, runId, who });
+  let next = { ...clone(s), confirmationPending: publicConfirmation({ runId, heldDigest: latest.held.digest, heldCount: latest.held.total, mintedAt: NOW, expiresAt }) };
+  let answer;
+  if (plan === 'none') answer = CONFIRM_ANSWER.notLinedUp('QUEUE_UNAVAILABLE', undefined, expiresAt);
+  else if (plan === 'starting-pass') answer = CONFIRM_ANSWER.startingPass(expiresAt);
+  else if (plan === 'waiting-pass') answer = CONFIRM_ANSWER.waitingPass(expiresAt);
+  else {
+    const item = busyItem({ key, since: NOW, behind: busy.length ? 'pass' : null, startRecorded: true });
+    next = withControl(next, controlBody({ ...control, busy: [...busy, item] }));
+    record = foldPassRecord(record, { action: 'start', key, at: NOW, who: ACTOR.confirmation });
+    answer = CONFIRM_ANSWER.linedUp(key, { behindStopping: busy.length > 0, expiresAt });
+  }
+  return { answer, status: next, passRecord: record };
+}
+
+/** What GET /api/auth/user-classification answers for each viewer (the panel's role, D9). */
+const CLASSIFICATION = deepFreeze({
+  owner: { success: true, classification: 'owner', pubkey: OWNER },
+  admin: { success: true, classification: 'admin', pubkey: ADMIN },
+  customer: { success: true, classification: 'customer', pubkey: CUSTOMER },
+  visitor: { success: true, classification: 'unauthenticated', pubkey: null },
+});
+
+/*
+ * Story 7's times, each its own minute near NOW: the confirmation the latest pass took up was made at 11:51; one a
+ * pass found and did not honour was made at 11:13; one another tab made after this panel's last read, at 11:59.
+ */
+const CONFIRM_TIMES = Object.freeze({ tookUp: at(9), notHonoured: at(47), otherTab: at(1) });
+/** The jobs the owner's confirmation lined up (D5: a start recorded as { kind: 'confirmation' }). */
+const CONFIRM_JOB_KEY = lineUpKey('c7a1c7a1c7a1');
+const OTHER_TAB_JOB_KEY = lineUpKey('c7b2c7b2c7b2');
+
+/** A pass that took up the owner's confirmation made at 11:51 and applied all 120 confirmed removals (D7 mintedAt). */
+const CONFIRMED_APPLIED7_RECORD = passRecord({
+  startedMinutesAgo: 6,
+  suffix: 'c7dd0e07',
+  job: { id: CONFIRM_JOB_KEY },
+  confirmation: { found: true, honoured: true, mintedAt: CONFIRM_TIMES.tookUp },
+  confirmed: { confirmedRunId: HELD_RECORD.runId, heldCount: HELD_TOTAL, removalsApplied: HELD_TOTAL, heldNoLongerDue: 0 },
+  relationships: relationships({ atStart: 700, removed: HELD_TOTAL, removedBy: { 'not-on-relay': 100, 'non-tagging': 20 }, unchanged: 580 }),
+  limit: { base: 700, leftInPlaceExcluded: 0, baseAfterConfirmed: 580, removalsPlanned: HELD_TOTAL, floor: 50, fraction: '1/10', exceeded: false },
+});
+/** ... the same, from a report written before story 7: its confirmation carries no mintedAt ("when not recorded"). */
+const CONFIRMED_UNDATED7_RECORD = (() => {
+  const r = clone(CONFIRMED_APPLIED7_RECORD);
+  r.runId = runIdAt(r.startedAt, 'c7dd0e08');
+  r.confirmation = { found: true, honoured: true };
+  return r;
+})();
+/** A pass that found the owner's confirmation made at 11:13 and did not honour it: a newer pass had held another list. */
+const NOT_HONOURED7_RECORD = passRecord({
+  startedMinutesAgo: 6,
+  suffix: 'c7a0c7a0',
+  job: { id: CONFIRM_JOB_KEY },
+  confirmation: { found: true, honoured: false, why: 'report-changed', mintedAt: CONFIRM_TIMES.notHonoured },
+  relationships: relationships({ atStart: 700, unchanged: 700 }),
+});
+/** A pass that took up the confirmation made at 11:51, then failed writing: it used it up and applied none (D13). */
+const USED_UP_FAILED7_RECORD = (() => {
+  const r = passRecord({
+    startedMinutesAgo: 6,
+    suffix: 'c7fa1107',
+    job: { id: CONFIRM_JOB_KEY },
+    outcome: 'failed',
+    reasonCode: 'write',
+    reason: 'a write failed; every committed batch stands at one version of each tagging',
+    phases: clone(PHASES_DONE).slice(0, 4),
+    confirmation: { found: true, honoured: true, mintedAt: CONFIRM_TIMES.tookUp },
+    relationships: relationships({ atStart: 700 }),
+  });
+  r.failure = { stage: 'write', code: 'SessionExpired', message: 'the session expired' };
+  r.confirmed = { confirmedRunId: HELD_RECORD.runId, heldCount: HELD_TOTAL, removalsApplied: 0, heldNoLongerDue: null };
+  return r;
+})();
+/** ... and one that took it up and was stopped on request after applying 30 of the 120 (D13). */
+const USED_UP_STOPPED7_RECORD = stoppedRecord({
+  startedMinutesAgo: 6,
+  suffix: 'c7570970',
+  job: { id: CONFIRM_JOB_KEY },
+  endedAt: at(4),
+  confirmation: { found: true, honoured: true, mintedAt: CONFIRM_TIMES.tookUp },
+  confirmed: { confirmedRunId: HELD_RECORD.runId, heldCount: HELD_TOTAL, removalsApplied: 30, heldNoLongerDue: 0 },
+  relationships: relationships({ atStart: 700, removed: 30, removedBy: { 'not-on-relay': 30, 'non-tagging': 0 } }),
+});
+
+/** Story 7's busy items. */
+const ITEM7 = deepFreeze({
+  /** A pass launched at 11:59:30 that has not yet recorded itself: running, no run id (ADR 0006 D3's "starting"). */
+  STARTING: busyItem({ key: PASS_KEYS.RUNNING, state: 'running', since: at(0.5), runId: null }),
+  /** ... with a stop asked for at 11:59:45 (so it takes no confirmation up: D2 step 4). */
+  STARTING_STOP_ASKED: busyItem({ key: PASS_KEYS.RUNNING, state: 'running', since: at(0.5), runId: null, stopAskedAt: at(0.25) }),
+  /** The pass another tab's confirmation lined up at 11:59, waiting. */
+  OTHER_TAB_WAITING: busyItem({ key: OTHER_TAB_JOB_KEY, since: CONFIRM_TIMES.otherTab, startRecorded: true }),
+});
+
+/** A story 7 status: story 6's `control` and D8's `overdue` (on time for its latest pass unless given). */
+const s7 = (base, control = controlBody(), overdue) => withOverdue(withControl(base, control), overdue || onTimeFor(base.latest));
+
+/** A record holding a confirmation by the owner at `iso` and, below it in `passes`, the job it lined up (D5). */
+const recordWithConfirm = (iso, runId, jobKey) => foldPassRecord(foldConfirm(PASS_RECORD.EMPTY, { at: iso, runId }), { action: 'start', key: jobKey, at: iso, who: ACTOR.confirmation });
+
+/*
+ * Story 7's scenes, each { status, passRecord } as the browser mock takes them. The latest pass held HELD_RECORD's 120
+ * removals unless said otherwise; the schedule beside them is the mock's default, SCHEDULE.ONE (every 6 hours).
+ */
+const HELD7_BASE = statusBody({ latest: HELD_RECORD, previous: [LATEST_DONE] });
+const heldWith = (confirmationPending) => statusBody({ latest: HELD_RECORD, previous: [LATEST_DONE], confirmationPending });
+const SCENE7 = deepFreeze({
+  /** Nothing busy, no confirmation: Confirm is offered, and confirming lines up a pass. */
+  HELD_NONE: { status: s7(HELD7_BASE), passRecord: PASS_RECORD.EMPTY },
+  /** The owner's confirmation of the latest held list is pending: no Confirm. */
+  HELD_PENDING: { status: s7(heldWith(publicConfirmation())), passRecord: PASS_RECORD.EMPTY },
+  /** A newer pass held another list; the pending confirmation is HELD_RECORD's (an earlier pass): Confirm, replacing it. */
+  PENDING_EARLIER: {
+    status: s7(statusBody({ latest: HELD_NEWER_RECORD, previous: [HELD_RECORD, LATEST_DONE], confirmationPending: publicConfirmation() })),
+    passRecord: PASS_RECORD.EMPTY,
+  },
+  /** The confirmation of the latest held list expired at 11:55, unused: Confirm again (D13). */
+  EXPIRED: { status: s7(heldWith(publicConfirmation({ expiresAt: at(5), expired: true }))), passRecord: PASS_RECORD.EMPTY },
+  /** The confirmation file cannot be read: Confirm, replacing it. */
+  UNREADABLE: { status: s7(heldWith({ unreadable: 'EACCES' })), passRecord: PASS_RECORD.EMPTY },
+  /** A confirmation whose expiry cannot be read: Confirm, replacing it. */
+  UNKNOWN_EXPIRY: { status: s7(heldWith(publicConfirmation({ expiresAt: 'not a time', mintedAt: at(30) }))), passRecord: PASS_RECORD.EMPTY },
+  /** A newer pass held another list since the panel's last read, and no confirmation: the prompt is out of date. */
+  NEWER_HELD: { status: s7(statusBody({ latest: HELD_NEWER_RECORD, previous: [HELD_RECORD, LATEST_DONE] })), passRecord: PASS_RECORD.EMPTY },
+  /** The latest pass held nothing: no Confirm. */
+  NOTHING_HELD: { status: s7(STATUS.CLEAN), passRecord: PASS_RECORD.EMPTY },
+  /** No pass on record: no Confirm, and the overdue verdict is no-pass. */
+  NO_PASS: { status: s7(STATUS.NO_PASS), passRecord: PASS_RECORD.EMPTY },
+  /** The owner's pass running since 11:57 (alive): no held list, no Confirm. */
+  RUNNING: {
+    status: s7(statusBody({ running: true, latest: RUNNING6_RECORD, previous: [HELD_RECORD, LATEST_DONE] }), controlBody({ busy: [ITEM.RUNNING] })),
+    passRecord: recordOf({ [PASS_KEYS.RUNNING]: ENTRY.RUNNING }),
+  },
+  /** ... that pass ended, having held 120 removals of its own: its held list, and Confirm. */
+  RUNNING_ENDED_HELD: {
+    status: s7(statusBody({ latest: ENDED_HELD7_RECORD, previous: [HELD_RECORD, LATEST_DONE] })),
+    passRecord: recordOf({ [PASS_KEYS.RUNNING]: ENTRY.RUNNING }),
+  },
+  /** A pass launched but not yet recorded (control lists it running, the report's latest is still HELD_RECORD): no Confirm. */
+  STARTING: { status: s7(HELD7_BASE, controlBody({ busy: [ITEM7.STARTING] })), passRecord: recordOf({ [PASS_KEYS.RUNNING]: ENTRY.RUNNING }) },
+  /** The owner's Run waiting since 11:58, no stop asked for: Confirm, and the waiting pass takes it up. */
+  WAITING: { status: s7(HELD7_BASE, controlBody({ busy: [ITEM.WAITING] })), passRecord: recordOf({ [PASS_KEYS.WAITING]: ENTRY.WAITING }) },
+  /** Every busy pass has a stop asked for (a starting pass, asked to stop at 11:59:45): Confirm lines up a new pass. */
+  ALL_STOPPING: {
+    status: s7(HELD7_BASE, controlBody({ busy: [ITEM7.STARTING_STOP_ASKED] })),
+    passRecord: recordOf({ [PASS_KEYS.RUNNING]: passEntry({ jobId: PASS_KEYS.RUNNING, start: startOf(PASS_TIMES.runAsked, ACTOR.owner), stop: stopOf(at(0.25), null, ACTOR.admin), noRerun: true }) }),
+  },
+  /** The panel cannot tell whether a pass is waiting: the task queue off, its read failed, not ready, or no control member. */
+  QUEUE_OFF: { status: s7(HELD7_BASE, controlBody({ queue: 'off' })), passRecord: PASS_RECORD.EMPTY },
+  QUEUE_READ_FAILED: { status: s7(HELD7_BASE, controlBody({ queue: 'read-failed' })), passRecord: PASS_RECORD.EMPTY },
+  QUEUE_NOT_READY: { status: s7(HELD7_BASE, controlBody({ queue: 'not-ready' })), passRecord: PASS_RECORD.EMPTY },
+  NO_CONTROL: { status: withOverdue(HELD7_BASE, onTimeFor(HELD_RECORD)), passRecord: PASS_RECORD.EMPTY },
+  /**
+   * The owner confirmed HELD_RECORD's list in another tab at 11:59, after this panel's last read: pending until 11:59
+   * tomorrow, the pass it lined up waiting, the record holding the start above the confirm line (same instant, D5).
+   */
+  HISTORY: {
+    status: s7(withConfirmationPending(HELD7_BASE, CONFIRM_TIMES.otherTab), controlBody({ busy: [ITEM7.OTHER_TAB_WAITING] })),
+    passRecord: recordWithConfirm(CONFIRM_TIMES.otherTab, HELD_RECORD.runId, OTHER_TAB_JOB_KEY),
+  },
+  /** The latest pass took up the owner's confirmation made at 11:51 and applied all 120; the record holds that confirm line. */
+  TOOK_UP: {
+    status: s7(statusBody({ latest: CONFIRMED_APPLIED7_RECORD, previous: [HELD_RECORD] })),
+    passRecord: recordWithConfirm(CONFIRM_TIMES.tookUp, HELD_RECORD.runId, CONFIRM_JOB_KEY),
+  },
+  /** ... with no confirm line at that time in the record (it rotated out, or another record): no key to name. */
+  TOOK_UP_NO_LINE: {
+    status: s7(statusBody({ latest: CONFIRMED_APPLIED7_RECORD, previous: [HELD_RECORD] })),
+    passRecord: recordOf({ [CONFIRM_JOB_KEY]: passEntry({ jobId: CONFIRM_JOB_KEY, start: startOf(CONFIRM_TIMES.tookUp, ACTOR.confirmation) }) }),
+  },
+  /** ... from a report written before story 7 (no mintedAt), its start recorded. */
+  TOOK_UP_UNDATED: {
+    status: s7(statusBody({ latest: CONFIRMED_UNDATED7_RECORD, previous: [HELD_RECORD] })),
+    passRecord: recordOf({ [CONFIRM_JOB_KEY]: passEntry({ jobId: CONFIRM_JOB_KEY, start: startOf(CONFIRM_TIMES.tookUp, ACTOR.confirmation) }) }),
+  },
+  /** The latest pass found the confirmation made at 11:13 and did not honour it (report-changed). */
+  NOT_HONOURED: {
+    status: s7(statusBody({ latest: NOT_HONOURED7_RECORD, previous: [HELD_RECORD] })),
+    passRecord: recordWithConfirm(CONFIRM_TIMES.notHonoured, HELD_RECORD.runId, CONFIRM_JOB_KEY),
+  },
+  /** A confirmation used up by a pass that then failed, and by one that was stopped (D13): no Confirm. */
+  USED_UP_FAILED: {
+    status: s7(statusBody({ latest: USED_UP_FAILED7_RECORD, previous: [HELD_RECORD] })),
+    passRecord: recordWithConfirm(CONFIRM_TIMES.tookUp, HELD_RECORD.runId, CONFIRM_JOB_KEY),
+  },
+  USED_UP_STOPPED: {
+    status: s7(statusBody({ latest: USED_UP_STOPPED7_RECORD, previous: [HELD_RECORD] })),
+    passRecord: recordWithConfirm(CONFIRM_TIMES.tookUp, HELD_RECORD.runId, CONFIRM_JOB_KEY),
+  },
+  /** The latest pass began at 04:50; the 6-hourly entry expected the next by 10:50: overdue (D8). */
+  OVERDUE: { status: s7(statusBody({ latest: OVERDUE_LATEST_RECORD, previous: [] }), controlBody(), OVERDUE.OVERDUE), passRecord: PASS_RECORD.EMPTY },
+  /** ... and a pass is waiting (since 11:58): still overdue, and the warning says one is waiting. */
+  OVERDUE_WAITING: {
+    status: s7(statusBody({ latest: OVERDUE_LATEST_RECORD, previous: [] }), controlBody({ busy: [ITEM.WAITING] }), OVERDUE.OVERDUE),
+    passRecord: recordOf({ [PASS_KEYS.WAITING]: ENTRY.WAITING }),
+  },
+  /** ... that pass began running at 11:59:30: on time again. */
+  OVERDUE_CLEARED: {
+    status: s7(statusBody({ running: true, latest: WAITING_NOW_RUNNING_RECORD, previous: [OVERDUE_LATEST_RECORD] }), controlBody({ busy: [ITEM.WAITING_NOW_RUNNING] }), onTimeFor(WAITING_NOW_RUNNING_RECORD)),
+    passRecord: recordOf({ [PASS_KEYS.WAITING]: ENTRY.WAITING }),
+  },
+  /** The verdicts with no line (D14): no enabled entry, none that runs the pass, no pass on record. */
+  NO_ENTRY_VERDICT: { status: s7(HELD7_BASE, controlBody(), OVERDUE.NO_ENTRY), passRecord: PASS_RECORD.EMPTY },
+  NO_SCHEDULE_VERDICT: { status: s7(HELD7_BASE, controlBody(), OVERDUE.NO_SCHEDULE), passRecord: PASS_RECORD.EMPTY },
+  /** The verdicts that cannot tell (D8, D14): the schedule unreadable on the server, a rule it cannot judge, the report. */
+  CANNOT_TELL_SCHEDULE: { status: s7(HELD7_BASE, controlBody(), OVERDUE.CANNOT_TELL_SCHEDULE), passRecord: PASS_RECORD.EMPTY },
+  CANNOT_TELL_RULE: { status: s7(HELD7_BASE, controlBody(), OVERDUE.CANNOT_TELL_RULE), passRecord: PASS_RECORD.EMPTY },
+  CANNOT_TELL_REPORT: { status: s7(HELD7_BASE, controlBody(), OVERDUE.CANNOT_TELL_REPORT), passRecord: PASS_RECORD.EMPTY },
+});
+
+[HELD_NEWER_RECORD, ENDED_HELD7_RECORD, OVERDUE_LATEST_RECORD, CONFIRMED_APPLIED7_RECORD, CONFIRMED_UNDATED7_RECORD,
+  NOT_HONOURED7_RECORD, USED_UP_FAILED7_RECORD, USED_UP_STOPPED7_RECORD, CONFIRM_TIMES].forEach(deepFreeze);
+
+/*
+ * Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, blocking 1 and
+ * requested 10; ADR 0007 § "Fix-round notes", D15): a read that moves the held section from its held list to none while
+ * the Confirm prompt is open, and the reads that follow a withdraw-failed answer. Added beside SCENE7; nothing above
+ * changes. Each scene is { status, passRecord }, as SCENE7's.
+ */
+/** A newer pass than HELD_RECORD, begun at 11:58 and ended clean at 11:59:23: it held nothing, so the held list goes. */
+const ENDED_CLEAN7_RECORD = passRecord({ startedMinutesAgo: 2, suffix: 'c1ea7e07', relationships: relationships({ atStart: 700, unchanged: 700 }) });
+/**
+ * The pass that started while the owner's confirmation of 12:00 was being made: begun at 12:00:03, it took that
+ * confirmation up, applied all 120 confirmed removals and ended at 12:00:06.
+ */
+const TOOK_UP_NOW7_RECORD = (() => {
+  const r = passRecord({
+    suffix: 'c7aa0e07',
+    confirmation: { found: true, honoured: true, mintedAt: NOW },
+    confirmed: { confirmedRunId: HELD_RECORD.runId, heldCount: HELD_TOTAL, removalsApplied: HELD_TOTAL, heldNoLongerDue: 0 },
+    relationships: relationships({ atStart: 700, removed: HELD_TOTAL, removedBy: { 'not-on-relay': 100, 'non-tagging': 20 }, unchanged: 580 }),
+    limit: { base: 700, leftInPlaceExcluded: 0, baseAfterConfirmed: 580, removalsPlanned: HELD_TOTAL, floor: 50, fraction: '1/10', exceeded: false },
+  });
+  r.startedAt = after(0.05);
+  r.runId = runIdAt(r.startedAt, 'c7aa0e07');
+  r.endedAt = after(0.1);
+  r.durationMs = Date.parse(r.endedAt) - Date.parse(r.startedAt);
+  return r;
+})();
+[ENDED_CLEAN7_RECORD, TOOK_UP_NOW7_RECORD].forEach(deepFreeze);
+const SCENE7_R1 = deepFreeze({
+  /** A newer pass ran and ended between two polls, holding nothing: the held section moves from its list to none. */
+  ENDED_CLEAN: { status: s7(statusBody({ latest: ENDED_CLEAN7_RECORD, previous: [HELD_RECORD, LATEST_DONE] })), passRecord: PASS_RECORD.EMPTY },
+  /** After withdraw-failed: the confirmation of 12:00 stands, pending, and the owner's Run of 11:58 waits to take it up. */
+  WITHDRAW_FAILED_STANDS: { status: withConfirmationPending(SCENE7.WAITING.status, NOW), passRecord: SCENE7.WAITING.passRecord },
+  /** After withdraw-failed: the pass that started meanwhile took the confirmation of 12:00 up and ended, holding nothing. */
+  WITHDRAW_FAILED_TOOK_UP: { status: s7(statusBody({ latest: TOOK_UP_NOW7_RECORD, previous: [HELD_RECORD, LATEST_DONE] })), passRecord: PASS_RECORD.EMPTY },
+});
+
 /* ── The routes ──────────────────────────────────────────────────────────────────────────────────────────────── */
 
 const ROUTES = Object.freeze({
@@ -1475,6 +1911,8 @@ const ROUTES = Object.freeze({
   run: '/api/tagging-edges/pass/run',
   /** Story 6 (ADR 0006 D9): POST Stop, body { targets: [{ key, state }] }. */
   stop: '/api/tagging-edges/pass/stop',
+  /** Story 7 (ADR 0007 D1, D11): POST the owner's confirmation of the latest held list, body { runId }. */
+  confirm: '/api/tagging-edges/confirm-held-removals',
 });
 
 module.exports = {
@@ -1507,6 +1945,14 @@ module.exports = {
   RUNNING6_RECORD, RUNNING6_SCHEMA_RECORD, RUNNING6_CLAIMED_RECORD, stoppedRecord, TOO_LATE_DONE_RECORD, ITEM, ENTRY,
   PASS_RECORD, SCENE, STOP_CASE_TIMES, STOP_CASES, WHO_EACH, HISTORY6, RUN_ANSWER, STOP_ANSWER, busyOf, viewerWho,
   applyRun, applyStop,
+  // confirming held removals (story 7)
+  CONFIRM_TTL_MS, plusTtl, publicConfirmation, withConfirmationPending, HELD_NEWER_RECORD, ENDED_HELD7_RECORD,
+  OVERDUE_PERIOD_MS, OVERDUE_LATEST_RECORD, onTimeFor, OVERDUE, withOverdue, confirmLine, foldConfirm, CONFIRM_ANSWER,
+  confirmationPendingFor, applyConfirm, CLASSIFICATION, CONFIRM_TIMES, CONFIRM_JOB_KEY, OTHER_TAB_JOB_KEY,
+  CONFIRMED_APPLIED7_RECORD, CONFIRMED_UNDATED7_RECORD, NOT_HONOURED7_RECORD, USED_UP_FAILED7_RECORD,
+  USED_UP_STOPPED7_RECORD, ITEM7, recordWithConfirm, SCENE7,
+  // story 7's review, round 1
+  ENDED_CLEAN7_RECORD, TOOK_UP_NOW7_RECORD, SCENE7_R1,
   // routes
   ROUTES,
 };

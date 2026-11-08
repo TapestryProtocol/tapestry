@@ -2459,3 +2459,8 @@ and 25 correct statements of fact.
   `2026-09-27-config-reader-logs-values`). The path reads no credential through that reader. It reaches it only
   through `getOwnerAssistantPubkey()` (via `resolveIdentities` and profile-tags' module load), which logs the TA
   pubkey, a public value.
+
+---
+
+*(Amended by `tagging-edges/0007`, 2026-11-07, at the end so no cited line moves: every "story 7" pointer in this
+ADR now means 0007's Confirm on the panel, for the owner.)*

@@ -28,6 +28,15 @@
  *      Reading where D15 leaves a detail open: the options object is the last argument, as sendSwitch's is (D15 writes the
  *      calls as sendRun() and sendStop(targets); TF30 calls them so, with no options).
  *
+ * TF32–TF37 — tagging-edges Story 7 (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
+ *      engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md D11): sendConfirm(runId) POSTs
+ *      {"runId": …} to /api/tagging-edges/confirm-held-removals through the module's private raced(15000, …), resolving
+ *      sendSwitch's result shapes and never rejecting, as TF25–TF31 pin for sendRun and sendStop. TF1 and TF31 stay as
+ *      they are; TF37 repeats TF31's one-race check with sendConfirm among the five. Each fails by name through
+ *      loadConfirm() until the module exports sendConfirm.
+ *      Reading where D11 leaves a detail open: the options object is the last argument, as story 6's senders take it
+ *      (D11 writes the call as sendConfirm(runId); TF36 calls it so, with no options). The fixtures' answers are D4's.
+ *
  * Stack-free; runs on Node 16 (the host gate, no global fetch) and Node 22.
  * RED until the module exists: each test fails by name through loadFetch().
  */
@@ -763,9 +772,205 @@ test('TF31: the 15 s race is the module\'s one private raced() — sendRun and s
   assert(!bad.length, `the senders share the module's one race (${ADR6} D15):\n      - ${bad.join('\n      - ')}`);
 });
 
+/* ─── TF32–TF37: tagging-edges Story 7 — sendConfirm(runId) (ADR tagging-edges/0007 D11) ─── */
+
+const ADR7 = 'ADR tagging-edges/0007';
+const CONFIRM_URL = '/api/tagging-edges/confirm-held-removals';
+/** The held run the prompt named (ADR 0007 D10's snapshot), in the run-id shape the route accepts. */
+const HELD_RUN_ID = '20261107T030000Z-4e1d0007';
+/** sendConfirm(runId), taking sendSwitch's options object last, as story 6's senders do (this suite's reading of D11). */
+const CONFIRM = {
+  name: 'sendConfirm', url: CONFIRM_URL, body: JSON.stringify({ runId: HELD_RUN_ID }),
+  call: (mod, opts) => mod.sendConfirm(HELD_RUN_ID, opts),
+  sig: `sendConfirm(runId, { fetchImpl, timeoutMs = 15000 }) POSTs {"runId": …} to ${CONFIRM_URL}`,
+};
+/** Loads the module and checks it exports sendConfirm; the failure says what ADR 0007 D11 expects. */
+async function loadConfirm(bust) {
+  const mod = await loadFetch(bust);
+  if (typeof mod.sendConfirm !== 'function') {
+    throw new Error(
+      `${MODULE_REL} does not export sendConfirm yet (${ADR7} D11: ${CONFIRM.sig} through the module's private raced(15000, …), ` +
+      'resolves sendSwitch\'s result shapes and never rejects)'
+    );
+  }
+  return mod;
+}
+/** The confirm route's answers (ADR 0007 D4): every accepted answer adds `outcome`; the 409 and 500 bodies keep `error` beside `code`. */
+const CONFIRM_OKS = [
+  { success: true, confirmed: true, outcome: 'lined-up', enqueued: true, jobId: 'reconcileTaggingEdges-0000000000c7', behindStopping: false, expiresAt: '2026-11-08T12:00:00.000Z' },
+  { success: true, confirmed: true, outcome: 'waiting-pass', enqueued: true, joined: true, expiresAt: '2026-11-08T12:00:00.000Z' },
+  { success: true, confirmed: true, outcome: 'taken-up', enqueued: false, claimedBy: '20261107T120000Z-c0de0009', expiresAt: '2026-11-08T12:00:00.000Z' },
+  { success: true, confirmed: true, outcome: 'not-lined-up', enqueued: false, reason: 'QUEUE_UNAVAILABLE', expiresAt: '2026-11-08T12:00:00.000Z' },
+];
+const CONFIRM_FAILURES = [
+  [409, { success: false, code: 'already-pending', error: 'a confirmation of this held list is already pending', runId: HELD_RUN_ID, expiresAt: '2026-11-08T11:00:00.000Z' }],
+  [409, { success: false, code: 'not-the-latest-report', error: 'that is not the latest report' }],
+  [409, { success: false, code: 'pass-started', error: 'a pass started meanwhile' }],
+  [500, { success: false, code: 'record-unavailable', error: 'the record cannot be written', cause: 'ENOSPC' }],
+  [500, { success: false, code: 'withdraw-failed', error: 'the confirmation could not be withdrawn', cause: 'EACCES' }],
+  [500, { success: false, code: 'confirmation-unwritten', error: 'the confirmation could not be written', cause: 'ENOSPC' }],
+  [401, { success: false, error: 'Sign in as the owner or an admin to do this.' }],
+  [403, { success: false, error: 'Owner access required' }],
+  [403, { success: false, error: 'cross-site request refused' }],
+  [415, { success: false, error: 'JSON body required' }],
+  [400, { success: false, error: 'runId must be a run id' }],
+];
+
+test('TF32: sendConfirm(runId) calls the given fetchImpl exactly once, with \'/api/tagging-edges/confirm-held-removals\' and { method: \'POST\', headers: { \'Content-Type\': \'application/json\' }, body: JSON.stringify({ runId }), signal } — the run id exactly as given, an unaborted AbortSignal, and no other option but the default same-origin credentials, as TF20 pins for sendSwitch [story 7 AC-2 "Only what the prompt showed"; AC-7 "The panel\'s reads still change nothing … apart from this story\'s control"; ADR tagging-edges/0007 D11 "sendConfirm(runId) in taggingPipelineFetch.js: one POST of {"runId": …} as JSON to \'/api/tagging-edges/confirm-held-removals\'"]', async () => {
+  const mod = await loadConfirm();
+  const f = fakeFetch(response(200, JSON.stringify(CONFIRM_OKS[0])));
+  await sendVia(mod, CONFIRM, { fetchImpl: f });
+  const bad = initProblems(CONFIRM, f);
+  assert(!bad.length, `sendConfirm's request (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TF33: sendConfirm resolves sendSwitch\'s result shapes — each accepted answer (lined-up, waiting-pass, taken-up, not-lined-up) is { ok: true, body } with the body as sent; a 409 already-pending, not-the-latest-report or pass-started, a 500 record-unavailable, withdraw-failed or confirmation-unwritten, a 401, a 403, a 415 and a 400 are { ok: false, code: \'http-<status>\', httpStatus, body } with the parsed body and its code; a 502 HTML page has body null; a 2xx that is not a JSON object is bad-json — each after exactly one call [story 7 AC-1 "the answer says plainly which of these happened"; AC-3 "Refused or failed … the panel shows the reason"; ADR tagging-edges/0007 D11 "resolving sendSwitch\'s result shapes", D4]', async () => {
+  const mod = await loadConfirm();
+  const bad = [];
+  for (const body of CONFIRM_OKS) {
+    const f = fakeFetch(response(200, JSON.stringify(body)));
+    const out = await sendVia(mod, CONFIRM, { fetchImpl: f });
+    if (!(out && out.ok === true && sameJson(out.body, body))) bad.push(`a 200 answering ${show(body)}: expected { ok: true, body }; got ${show(out)}`);
+    if (f.calls.length !== 1) bad.push(`a 200 (${body.outcome}): expected one fetchImpl call; got ${f.calls.length}`);
+  }
+  for (const [status, body] of CONFIRM_FAILURES) {
+    const f = fakeFetch(response(status, JSON.stringify(body)));
+    const out = await sendVia(mod, CONFIRM, { fetchImpl: f });
+    const label = `a ${status} answering ${show(body)}`;
+    if (!(out && out.ok === false && out.code === `http-${status}` && out.httpStatus === status && sameJson(out.body, body))) {
+      bad.push(`${label}: expected { ok: false, code: 'http-${status}', httpStatus: ${status}, body } with the parsed body; got ${show(out)}`);
+    }
+    if (f.calls.length !== 1) bad.push(`${label}: a request is never retried: fetchImpl called ${f.calls.length} times`);
+  }
+  const gw = await sendVia(mod, CONFIRM, { fetchImpl: fakeFetch(response(502, '<html><body>Bad Gateway</body></html>')) });
+  if (!(gw && gw.ok === false && gw.code === 'http-502' && gw.httpStatus === 502 && gw.body === null)) bad.push(`a 502 HTML page: expected { ok: false, code: 'http-502', httpStatus: 502, body: null }; got ${show(gw)}`);
+  for (const text of ['<!doctype html><html></html>', '[1]', '']) {
+    const out = await sendVia(mod, CONFIRM, { fetchImpl: fakeFetch(response(200, text)) });
+    if (!(out && out.ok === false && out.code === 'bad-json' && out.httpStatus === 200)) bad.push(`a 200 whose text is ${show(text)}: expected bad-json; got ${show(out)}`);
+  }
+  assert(!bad.length, `sendConfirm's result shapes (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TF34: a confirmation that never settles ends as { ok: false, code: \'timeout\', httpStatus: null, body: null } shortly after timeoutMs (30 ms here), not before — whether fetchImpl ignores its signal, rejects on abort, or answers headers whose body never arrives — after one call [story 7 AC-1 "If the server has not answered within 15 seconds, the control is enabled again and the panel says the outcome is unknown"; ADR tagging-edges/0007 D11 "through the private raced(15000, …)"]', async () => {
+  const mod = await loadConfirm();
+  const abortRejecting = (_url, init) => new Promise((_res, rej) => {
+    const sig = init && init.signal;
+    if (sig && typeof sig.addEventListener === 'function') {
+      sig.addEventListener('abort', () => { const e = new Error('The operation was aborted'); e.name = 'AbortError'; rej(e); });
+    }
+  });
+  const cases = [
+    ['ignores its signal', () => new Promise(() => {})],
+    ['rejects on abort', abortRejecting],
+    ['answers, but its body never arrives', () => ({ ok: true, status: 200, text: () => new Promise(() => {}) })],
+  ];
+  const bad = [];
+  for (const [label, answer] of cases) {
+    const f = fakeFetch(answer);
+    const started = Date.now();
+    let out;
+    try {
+      out = await sendVia(mod, CONFIRM, { fetchImpl: f, timeoutMs: 30 }, 1500);
+    } catch (e) {
+      bad.push(`a fetchImpl that ${label}: it must resolve as timeout, never reject or hang (${ADR7} D11); ${e.message}`);
+      continue;
+    }
+    const elapsed = Date.now() - started;
+    if (!(out && out.ok === false && out.code === 'timeout' && out.httpStatus === null && out.body === null)) bad.push(`a fetchImpl that ${label}: expected { ok: false, code: 'timeout', httpStatus: null, body: null }; got ${show(out)}`);
+    if (elapsed < 20) bad.push(`a fetchImpl that ${label}: the timeout must wait for timeoutMs (30 ms); it settled after ${elapsed} ms`);
+    if (elapsed >= 1000) bad.push(`a fetchImpl that ${label}: with timeoutMs 30 the timeout must come well within a second; it took ${elapsed} ms`);
+    if (f.calls.length !== 1) bad.push(`a fetchImpl that ${label}: expected one call; got ${f.calls.length}`);
+  }
+  assert(!bad.length, `sendConfirm's race (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TF35: sendConfirm never rejects — a fetchImpl that rejects (the network is down), one that throws synchronously, and an answer whose text() rejects each resolve to { ok: false, code: \'network\', httpStatus: null, body: null }, after one call [story 7 AC-3 "Refused or failed … the panel shows the reason"; ADR tagging-edges/0007 D11 "It never rejects"]', async () => {
+  const mod = await loadConfirm();
+  const cases = [
+    ['rejects', () => Promise.reject(new TypeError('Failed to fetch'))],
+    ['throws synchronously', () => { throw new TypeError('fetch is not a function'); }],
+    ['answers, but text() rejects', () => ({ ok: true, status: 200, text: () => Promise.reject(new TypeError('body stream error')) })],
+  ];
+  const bad = [];
+  for (const [label, answer] of cases) {
+    const f = fakeFetch(answer);
+    let out;
+    try {
+      out = await sendVia(mod, CONFIRM, { fetchImpl: f });
+    } catch (e) {
+      bad.push(`a fetchImpl that ${label}: it must resolve to { ok: false, code: 'network' }, never reject; it rejected with ${e.message}`);
+      continue;
+    }
+    if (!(out && out.ok === false && out.code === 'network' && out.httpStatus === null && out.body === null)) bad.push(`a fetchImpl that ${label}: expected { ok: false, code: 'network', httpStatus: null, body: null }; got ${show(out)}`);
+    if (f.calls.length !== 1) bad.push(`a fetchImpl that ${label}: a request is never retried: fetchImpl called ${f.calls.length} times`);
+  }
+  assert(!bad.length, `sendConfirm never rejects (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TF36: sendConfirm\'s defaults — called as sendConfirm(runId) with no options, it calls globalThis.fetch as it is when called, with the same POST and body, and races it for 15 000 ms, the 15 seconds after which the panel says the outcome is unknown [story 7 AC-1 "If the server has not answered within 15 seconds"; ADR tagging-edges/0007 D11 "sendConfirm(runId) … through the private raced(15000, …)"]', async () => {
+  const mod = await loadConfirm();
+  const bad = [];
+  const had = Object.prototype.hasOwnProperty.call(globalThis, 'fetch');
+  const savedFetch = globalThis.fetch;
+  const realSetTimeout = globalThis.setTimeout;
+  const calls = [];
+  const delays = [];
+  try {
+    globalThis.fetch = (url, init) => { calls.push([url, init]); return Promise.resolve(response(200, JSON.stringify(CONFIRM_OKS[0]))); };
+    globalThis.setTimeout = function spiedSetTimeout(fn, ms, ...rest) { delays.push(ms); return realSetTimeout(fn, ms, ...rest); };
+    const out = await guarded(mod.sendConfirm(HELD_RUN_ID), 2000, 'sendConfirm with no options');
+    if (calls.length !== 1) bad.push(`it must call the globalThis.fetch present at call time; it was called ${calls.length} times`);
+    else if (!(calls[0][0] === CONFIRM_URL && calls[0][1] && calls[0][1].method === 'POST' && calls[0][1].body === CONFIRM.body)) {
+      bad.push(`expected globalThis.fetch(${show(CONFIRM_URL)}, { method: 'POST', body: ${show(CONFIRM.body)}, … }); got ${show(calls[0])}`);
+    }
+    if (!(out && out.ok === true)) bad.push(`expected { ok: true, body } through the default fetch; got ${show(out)}`);
+    if (!delays.includes(15000)) bad.push(`its race must be 15000 ms; the timers set were ${show(delays)}`);
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    if (had) globalThis.fetch = savedFetch; else delete globalThis.fetch;
+  }
+  assert(!bad.length, `sendConfirm's defaults (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TF37: the 15 s race is still the module\'s one private raced() — sendConfirm calls raced(…) and sets no timer and builds no AbortController of its own, is defined once, raced stays unexported, and readSection, sendSwitch, sendRun and sendStop still go through it [story 7 AC-1 "within 15 seconds"; ADR tagging-edges/0007 D11 "through the private raced(15000, …)", § Constraints "the view stays clock-free and keeps the 15 s race in taggingPipelineFetch.js"]', async () => {
+  await loadConfirm();
+  const t = require('typescript');
+  const sf = t.createSourceFile(MODULE_ABS, fs.readFileSync(MODULE_ABS, 'utf-8'), t.ScriptTarget.Latest, true, t.ScriptKind.JS);
+  const walk = (node, visit) => { visit(node); t.forEachChild(node, (c) => walk(c, visit)); };
+  const fnsNamed = (name) => {
+    const out = [];
+    walk(sf, (n) => {
+      if (t.isFunctionDeclaration(n) && n.name && n.name.text === name) out.push(n);
+      if (t.isVariableDeclaration(n) && t.isIdentifier(n.name) && n.name.text === name && n.initializer
+        && (t.isArrowFunction(n.initializer) || t.isFunctionExpression(n.initializer))) out.push(n.initializer);
+    });
+    return out;
+  };
+  const calls = (fn, name) => {
+    let hit = 0;
+    walk(fn, (n) => { if (t.isCallExpression(n) && t.isIdentifier(n.expression) && n.expression.text === name) hit++; });
+    return hit;
+  };
+  const bad = [];
+  for (const name of ['readSection', 'sendSwitch', 'sendRun', 'sendStop', 'sendConfirm']) {
+    const fns = fnsNamed(name);
+    if (fns.length !== 1) { bad.push(`${name} is defined ${fns.length} times; expected once`); continue; }
+    if (calls(fns[0], 'raced') === 0) bad.push(`${name} must race its request through the module's raced() (${ADR7} D11)`);
+    if (calls(fns[0], 'setTimeout') > 0) bad.push(`${name} sets a timer of its own; the race is raced()'s`);
+    let ac = false;
+    walk(fns[0], (n) => { if (t.isNewExpression(n) && t.isIdentifier(n.expression) && n.expression.text === 'AbortController') ac = true; });
+    if (ac) bad.push(`${name} builds an AbortController of its own; the race is raced()'s`);
+  }
+  const exportsRaced = sf.statements.some((st) => (t.isFunctionDeclaration(st) && st.name && st.name.text === 'raced'
+    && (st.modifiers || []).some((m) => m.kind === t.SyntaxKind.ExportKeyword))
+    || (t.isExportDeclaration(st) && st.exportClause && t.isNamedExports(st.exportClause) && st.exportClause.elements.some((e) => e.name.text === 'raced' || (e.propertyName && e.propertyName.text === 'raced'))));
+  if (exportsRaced) bad.push('raced must stay private to the module (D11 "the private raced")');
+  assert(!bad.length, `sendConfirm shares the module's one race (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
 /* ─── Run ─── */
 async function run() {
-  console.log('\n--- tagging-pipeline-fetch tests (tagging-edges stories #4–#6) ---');
+  console.log('\n--- tagging-pipeline-fetch tests (tagging-edges stories #4–#7) ---');
   let pass = 0, fail = 0;
   const failures = [];
   for (const [name, fn] of tests) {

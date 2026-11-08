@@ -8,6 +8,8 @@
 residuals, owner decision 2, the pre-image line, `scanStrict`'s contract, C16, and a new clarification C20.
 **Amended (2026-10-02):** by `tagging-edges/0006` — run, stop, the stopped outcome, who started a pass, the run-task
 route's answers for this pass.
+**Amended (2026-11-07):** by `tagging-edges/0007` — the confirm route runs as one controller step, refuses a second
+confirmation and an unrecordable one, and writes no `mintedBy`; C12's public confirmation is an allowlist.
 
 ## Context
 
@@ -497,6 +499,14 @@ they are at most a tenth of what remains. Removals are applied last, so a stop l
   - otherwise a new job is added under its own id.
 
   A join is now the controller's decision, never BullMQ's id.
+  *(Amended by `tagging-edges/0007`, 2026-11-07.)* Since story 7 the whole sequence above is one step of the
+  controller's chain, `controller.confirm` (0007 D1–D2):
+  - a confirmation of this held list that is still pending is refused, 409 `already-pending`, and nothing changes;
+  - the record of actions is written first, and a confirmation that cannot be recorded is refused, 500
+    `record-unavailable`;
+  - the record written is `{ version, runId, heldDigest, heldCount, nonce, mintedAt, expiresAt }`, with no
+    `mintedBy`; who confirmed is in the record of actions only;
+  - every accepted answer carries `outcome` (0007 D4).
 
 The pass **claims** the record at runner step 7 — after its identity, config and schema checks, while holding its
 lock — by `rename(confirmation.json → claimed/<runId>-<nonce>.json)`, atomic, so one claimant. It honours the claim
@@ -587,6 +597,7 @@ Amended at story 5's Architecture, from story 4's review, round 2, R2-8; ADR `ta
   each write batch) and writes `stopped`, `reasonCode: 'requested'`;
 - the handlers now last from just after the lock checks to the end of `finish()`;
 - the pass's run and stop are story 6's, and Confirm is story 7's (story 6's Planning, 2026-10-02).
+  *(2026-11-07: story 7's Confirm is ADR `tagging-edges/0007`.)*
 
 **Who reads it.** `GET /api/tagging-edges/status` returns `{ reportVersion, running, latest, previous,
 confirmationPending }` (the pending record without its nonce); `GET /api/tagging-edges/held?runId=&offset=&limit≤1000`
@@ -861,6 +872,8 @@ Each goes into ADR 0001 in the same commit as this ADR, with an "Amended by `tag
     4's review, round 2, R2-8; ADR `tagging-edges/0005`. Since story 4 the panel shows the report. Until story 6,
     AC-5's confirmation is a signed-in `fetch` from the owner's browser.)*
     *(Amended by `tagging-edges/0006`, 2026-10-28: until story 7, AC-5's confirmation is the signed-in `fetch`.)*
+    *(Amended by `tagging-edges/0007`, 2026-11-07: story 7 puts Confirm on the panel, for the owner; the signed-in
+    `fetch` stays as the way without the panel.)*
 15. **A start refused because another pass holds the lock writes no report**; it emits `TASK_ERROR` / `TASK_END`
     (`not-started`) and the running pass's report stays latest.
     *(Amended by `tagging-edges/0006`, 2026-10-28: a pass taken out of line never starts a process and writes no
@@ -1260,6 +1273,9 @@ only be present), C12 and C13 as written:
   { readFile })`.
 - **C12.** `confirmationPending` carries every field of the record except `nonce`, and may add derived keys such as
   `expired`. The nonce appears nowhere in the answer.
+  *(Superseded by `tagging-edges/0007` D6, 2026-11-07: `confirmationPending` carries only `version`, `runId`,
+  `heldDigest`, `heldCount`, `mintedAt` and `expiresAt`, plus the derived `expired`, or `{unreadable}` for a read that
+  threw. Neither the nonce nor `mintedBy` appears, whatever the file holds.)*
 - **C13.** The confirm route mints `nonce` as 32 lower-case hex characters (`crypto.randomBytes(16)`). The name
   `claimed/<runId>-<nonce>.json` is then built only from checked grammars.
 - **C14.** Each PROGRESS event names its phase as `metadata.phase`, using the report's `phases[].phase` names, with its
@@ -1290,6 +1306,7 @@ only be present), C12 and C13 as written:
   *(Amended at story 5's Architecture, 2026-10-01, from story 4's review, round 2, R2-8; ADR `tagging-edges/0005`:
   the panel is story 4's, the path's switch on it story 5's, and the pass's run, stop and confirm story 6's.)*
   *(Amended by `tagging-edges/0006`, 2026-10-28: the pass's run and stop are story 6's, Confirm story 7's.)*
+  *(2026-11-07: story 7's Confirm is ADR `tagging-edges/0007`.)*
 - Carrying revokes between instances (row `2026-09-27-revokes-do-not-travel`) and the UI revoke naming the address (row
   `2026-09-27-ui-revoke-names-id-only`).
 - Cleaning test-fixture taggings off the relays; it will trip the limit and go through on a confirmed run.

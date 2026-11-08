@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Tests for Story 4 (epic tagging-edges) — the tagging pipeline panel's view model.
+ * Tests for Story 4 (epic tagging-edges) — the tagging pipeline panel's view model; extended by Stories 5, 6 and 7.
  *
  * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md — AC-2 (the pass judged running by
  *        liveness, the latest and earlier passes, "no pass yet", the confirmation's state, the backstop schedule), AC-3
@@ -58,6 +58,61 @@
  *             comes from D5's 1 s reuse; TV110 the plural too-late sentence never says "some". TV90 is revised, not
  *             replaced: every sentence of each accepted Stop's text must be in the past tense (pastProblems), not only
  *             one of them, so "It stops at its next safe point." beside a past sentence fails.
+ *   TV111–TV132 Story 7 (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
+ *             engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md D9, D11, D12, D13, D14, § Carry-forwards
+ *             NB2 and § Seams "The view"), still clock-free (TV4, TV132):
+ *             TV111–TV116 confirmView (D9: offer, runId, count, replaces, when; the confirmation's six states; the held list
+ *             not yet read; a running or starting pass; D13's used-up confirmation); TV117–TV124 confirmOutcome (D11, one
+ *             reading per D4 row, and "never a false answer"); TV125 passWho's history keeps confirm lines (D12); TV126
+ *             runWho's confirmation line (D12, D7); TV127 NB2 (busyView's known needs a busy list); TV128–TV131 overdueView
+ *             (D14); TV132 no clock in any of them. Red until the Implementer: each fails by name ("does not export
+ *             confirmView (ADR tagging-edges/0007 D9 …)"), or, for TV125–TV127, on today's passWho and busyView.
+ *   TV133–TV135 Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, requested
+ *             5; ADR engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md § "Fix-round notes", D14 "a
+ *             failed read after a good one": "This holds whether or not a body is kept from an earlier read. A kept
+ *             verdict is never shown while the latest read has failed."). The panel's useRead keeps the last good body
+ *             when a read fails, and overdueView is given both, so:
+ *             TV133 a failed read that keeps a body whose verdict shows no line (on time, no entry, no schedule, no
+ *             pass) says the panel cannot tell, because the pass status could not be read: the same line a failed read
+ *             with no body gives. TV134 the same for a kept verdict that would show a line (overdue, with nothing busy
+ *             and with a pass waiting; cannot tell for the rule; no overdue member): none of its words, times or reason
+ *             show. Both are red until the fix: today overdueView judges the kept body. TV135 is green on purpose: the
+ *             same bodies read well give their verdicts as before, and a failed read with no body names the status read
+ *             as its reason (TV129 checks only that it cannot tell), so the fix keeps what is right today.
+ *   TV136–TV137 Story 7's fix round 2 (review round 2, requested 3 and 4; ADR 0007 § Fix-round notes D14, and
+ *             round 2 D8): TV136 a Retry of a failed status read under way (state loading, the error kept) still
+ *             cannot tell, because the status could not be read, and its pair with no error kept shows what a good
+ *             read or no answer shows. Green on purpose: round 1's fix does this, and no test ran the branch. TV137
+ *             the line for cannot-tell/rule names no one cause. Red until the fix: today it names R13's.
+ *
+ * Story 7's readings where ADR 0007 leaves a detail open (reported at the Test Design gate):
+ *   - confirmView's members are read by the names D9 gives them (offer, runId, count, replaces, when), with `when` one
+ *     of 'lines-up' | 'waiting-pass' | 'cannot-tell'; extra members are allowed. runId, count, replaces and when are
+ *     pinned only while offer is true. `count` is the held list read's page.total (GET /held's `total`), which the
+ *     fixtures make differ from the report's held.total, since D9 names the list read's.
+ *   - D13's used-up line is exposed as confirmView's `usedUp` (true exactly when the latest pass, by liveness, has
+ *     confirmation.found === true and outcome failed or stopped). D13 leaves where it is computed open; this suite
+ *     chose confirmView, since it already holds the held section's verdicts. A running pass's pessimistic record is not
+ *     the latest pass (passView's liveness rule), so it never reads as used up.
+ *   - confirmOutcome's answer is read shape-free, as story 6's are: the panel's own sentences (string values holding a
+ *     space, less any string copied whole from the result's body) and its tone. D11 names no outcome identifiers, so
+ *     none is asked for. Its tone follows story 4's rule: an accepted confirmation is never bad; every other answer is
+ *     never ok. D11 calls the sentences past-tense, but its own quoted texts mix tenses ("takes it up within its 24
+ *     hours", "It shows the state from its next read"), so tense is not pinned; meaning words are.
+ *   - Two of D11's sentences are pinned word for word, because D11 gives them: the unknown sentence, and the fixed
+ *     parts of the not-lined-up one ("The confirmation was made, but no pass was lined up" and "Run a pass now, or the
+ *     next scheduled pass, takes it up within its 24 hours."), with the server's reason and cause carried anywhere in the
+ *     answer. Every other row is pinned by meaning (TV117–TV122).
+ *   - "Never a false answer" (AC-1) is also read for a 200 with no `outcome` (an answer from before story 7) and one
+ *     with an outcome the panel does not know: neither says a pass was lined up or takes it up (TV124).
+ *   - The confirm line in passWho's history is found as one string holding "held removals", the held run's id and
+ *     "confirmed", beside the owner and the shortened key, at the line's time; the history as an array in the answer
+ *     whose rows match the record's lines in order (TV125).
+ *   - runWho's confirmation line is found in the run's part (story 6's partsFor) as a string holding "took" and "the
+ *     owner's confirmation"; the time and the key are read from the run's part, whose start in the fixtures is by an
+ *     admin, the schedule or a local call, so the owner's key can come only from the confirmation line (TV126).
+ *   - overdueView's "no line" is null, undefined, false or an answer holding no sentence. Its `busy` is busyView of the
+ *     same body, as the panel computes it; "a waiting item" is read as one in state waiting.
  *
  * Story 6's readings where ADR 0006 leaves a detail open (reported at the Test Design gate):
  *   - runOutcome's and stopOutcome's answers are read shape-free, as switchOutcome's are: exactly one of D16's eleven
@@ -2900,9 +2955,792 @@ test('TV110: a Stop whose every target came too late says so of all of them, nev
   assert(!bad.length, `stopOutcome when every stop came too late (${ADR6} D16):\n      - ${bad.join('\n      - ')}`);
 });
 
+// ═══ Story 7 (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR tagging-edges/0007 D9, D11–D14, NB2) ═══
+
+const ADR7 = 'ADR tagging-edges/0007';
+/** Story 7's new exports: the same loader, citing ADR 0007. */
+const fn7 = async (name, where) => {
+  const f = await need(name, where, ADR7);
+  assert(typeof f === 'function', `${VIEW_REL} exports ${name}, but it is not a function (${ADR7} ${where})`);
+  return f;
+};
+const confirmViewFn = () => fn7('confirmView', 'D9 "confirmView(statusBody, held, runId) → {offer, runId, count, replaces, when}"');
+const confirmOutcomeFn = () => fn7('confirmOutcome', 'D11 "confirmOutcome(result), a pure view function, gives a sentence and a tone for each D4 row"');
+const overdueViewFn = () => fn7('overdueView', 'D14 "overdueView(statusBody, statusRead, busy), pure and clock-free"');
+
+// ─── fixtures (story 7): a held list, its read, the public confirmation (D6), the confirm answers (D4), the verdict (D8) ───
+
+const T7 = Date.parse('2026-11-07T12:00:00.000Z');
+/** An ISO time `min` minutes from T7 (negative: before it). */
+const at7 = (min) => new Date(T7 + Math.round(min * 60000)).toISOString();
+const HELD_RUN = '20261107T030000Z-4e1d0007';
+const EARLIER_RUN = '20261106T030000Z-4e1d0006';
+const HELD_DIGEST = '4e1d'.repeat(16);
+/** The report's count and the list's own total differ, so `count` is seen to be the list read's (D9 "count is the held list read's total"). */
+const REPORT_HELD = 833;
+const LIST_TOTAL = 831;
+
+/** The latest pass, which held removals (outcome done-removals-held), as the status serves it. */
+function heldLatest7(over = {}) {
+  return heldRecord({
+    runId: HELD_RUN, startedAt: at7(-540), endedAt: at7(-539.9), durationMs: 6000,
+    reason: `removals held: ${REPORT_HELD} over the limit (more than 50 and more than 1/10 of 7313); the owner can confirm them`,
+    held: { total: REPORT_HELD, byReason: { 'not-on-relay': REPORT_HELD }, digest: HELD_DIGEST },
+    ...over,
+  });
+}
+/** The panel's held list read ({ runId, offset, state, page, error }, TaggingPipelinePanel readHeld), page as GET /held answers. */
+function heldRead7(over = {}) {
+  return {
+    runId: HELD_RUN, offset: 0, state: 'ready', error: null,
+    page: { success: true, runId: HELD_RUN, outcome: 'done-removals-held', digest: HELD_DIGEST, total: LIST_TOTAL, offset: 0, limit: 50,
+      items: [0, 1].map((i) => ({ address: `39999:${'f'.repeat(64)}:tagging-edges-7-t${i}`, reason: 'not-on-relay' })) },
+    ...over,
+  };
+}
+/** No list read yet (the panel's NO_LIST). */
+const NO_LIST7 = { runId: null, offset: 0, state: 'loading', page: null, error: null };
+/** The owner's confirmation as D6's allowlist serves it: no mintedBy, no nonce, the derived expired. */
+function publicConf(over = {}) {
+  return { version: 1, runId: HELD_RUN, heldDigest: HELD_DIGEST, heldCount: LIST_TOTAL, mintedAt: at7(-30), expiresAt: at7(24 * 60 - 30), expired: false, ...over };
+}
+/** The confirmation's six states (story 7 § Test tasks, browser cases AC-1), plus a member that is not an object. */
+const CONF7 = Object.freeze({
+  none: null,
+  'pending for the latest held list': publicConf(),
+  'pending for an earlier pass': publicConf({ runId: EARLIER_RUN, heldDigest: 'e0e0'.repeat(16) }),
+  expired: publicConf({ mintedAt: at7(-25 * 60), expiresAt: at7(-60), expired: true }),
+  unreadable: { unreadable: 'EBADJSON' },
+  'expiry unreadable': publicConf({ expiresAt: 'not a time' }),
+});
+/** The status body with the held latest pass and a known, empty control by default. `noControl` leaves the member out. */
+function status7({ control = control6([]), noControl = false, running = false, latest = heldLatest7(), previous = [], confirmationPending = null, overdue } = {}) {
+  const body = statusBody({ running, latest, previous, confirmationPending: confirmationPending === null ? null : clone(confirmationPending) });
+  if (!noControl) body.control = clone(control);
+  if (overdue !== undefined) body.overdue = clone(overdue);
+  return body;
+}
+/** The held section's runId as the panel derives it (TaggingPipelinePanel heldRunId): the latest pass's id when it held removals and no pass runs. */
+function heldRunIdOf(body) {
+  const l = body && body.latest;
+  return body && body.running !== true && l && l.held && l.held.total > 0 ? l.runId : null;
+}
+
+/** The confirm route's answers (D4), as sendConfirm resolves them. Every 409 and 500 keeps `error` beside `code`. */
+const accepted7 = (outcome, o = {}) => okAnswer({ success: true, confirmed: true, outcome, expiresAt: at7(24 * 60), ...o });
+const ACCEPTED7 = Object.freeze({
+  'lined-up': accepted7('lined-up', { enqueued: true, jobId: lk(7), behindStopping: false }),
+  'lined-up, behind a stopping pass': accepted7('lined-up', { enqueued: true, jobId: lk(8), behindStopping: true }),
+  'waiting-pass': accepted7('waiting-pass', { enqueued: true, joined: true }),
+  'starting-pass': accepted7('starting-pass', { enqueued: true, joined: true }),
+  'taken-up': accepted7('taken-up', { enqueued: false, claimedBy: runId6(9) }),
+});
+const refused7 = (status, code, o = {}) => answer6(status, { success: false, code, error: 'see code', ...o });
+const OUT_OF_DATE = ['not-the-latest-report', 'nothing-held', 'running', 'held-list-changed'];
+const PENDING_UNTIL = at7(23 * 60);
+const NOT_LINED_UP7 = [
+  ['the task queue unavailable', accepted7('not-lined-up', { enqueued: false, reason: 'QUEUE_UNAVAILABLE' })],
+  ['the line-up failing, with its cause', accepted7('not-lined-up', { enqueued: false, reason: 'error', cause: 'ECONNREFUSED' })],
+];
+const FAILED7 = [
+  ['record-unavailable', refused7(500, 'record-unavailable', { cause: 'ENOSPC' }), 'record-unavailable', 'ENOSPC'],
+  ['confirmation-unwritten', refused7(500, 'confirmation-unwritten', { cause: 'EACCES' }), 'confirmation-unwritten', 'EACCES'],
+  ['another 500 (error)', refused7(500, 'error', { cause: 'ETIMEDOUT' }), 'error', 'ETIMEDOUT'],
+  ['a 502 with no JSON (a proxy)', answer6(502, null), 'http-502', null],
+];
+
+// ─── reading story 7's answers (ADR 0007 fixes their content; field names only where D9 names them) ───────────────
+
+/**
+ * The view's own sentences in an answer: its string values holding a space, less any string copied whole from the
+ * result's body, since the server's own `error` text is not the panel's sentence.
+ */
+function ownSentences(v, result) {
+  const copied = new Set(result && result.body ? stringsIn(result.body) : []);
+  return stringsIn(v).filter((s) => /\s/.test(s) && !copied.has(s));
+}
+const own7 = (v, result) => ownSentences(v, result).join(' ');
+/** A sentence with one of these words does not claim what it names ("no pass was lined up", "whether that pass took it up"). */
+const NEGATED = /\b(no|not|never|nothing|whether|if|cannot|could not|couldn't|can't|unknown)\b/i;
+const claimsIn = (text, re) => sentencesOf6(text).filter((s) => re.test(s) && !NEGATED.test(s));
+const LINED_UP = /\blined up\b/i;
+const TAKES_UP = /\b(take|takes|took|taken|taking)\b[^.]{0,40}?\bup\b|\bclaimed\b/i;
+const TOOK_UP = /\btook\b[^.]{0,40}?\bup\b|\btaken up\b|\bclaimed\b/i;
+const UNCHANGED = /\bunchanged\b|\bnothing (has |was )?(changed|confirmed)\b|\bchanged nothing\b|\bwas not confirmed\b|\bnot confirmed\b/i;
+const CANNOT_TELL = /\b(cannot|could not|can't|couldn't) tell\b/i;
+/** D11, verbatim: the unknown sentence, and the fixed parts of the not-lined-up one (its reason sits between them). */
+const UNKNOWN7 = 'The panel had no answer within 15 seconds, so the outcome is unknown. It shows the state from its next read.';
+const NOT_LINED_UP_HEAD = 'The confirmation was made, but no pass was lined up';
+const NOT_LINED_UP_TAIL = 'Run a pass now, or the next scheduled pass, takes it up within its 24 hours.';
+/** Story 4's tones (ADR 0004 § UI "Tones"): an accepted confirmation is never bad; a refusal, failure or unknown answer never ok. */
+function tone7(r, accepted, what) {
+  if (!r || !Object.prototype.hasOwnProperty.call(r, 'tone')) return [];
+  if (!TONES.includes(r.tone)) return [`${what}: tone must be one of ${show(TONES)}; got ${show(r.tone)}`];
+  if (accepted && r.tone === 'bad') return [`${what}: an accepted confirmation is not bad; tone ${show(r.tone)}`];
+  if (!accepted && r.tone === 'ok') return [`${what}: this answer is not ok (nothing was carried out as asked); tone ${show(r.tone)}`];
+  return [];
+}
+/** Does the answer carry `x` as a string, inside a string, or as a number? */
+const carries = (v, x) => leavesIn(v).some((y) => (typeof y === 'string' ? y.includes(String(x)) : y === x));
+/** No line (D14 "no line; the existing lines stand"): nothing, or an answer holding no sentence. */
+const noLine = (v) => v === null || v === undefined || v === false || stringsIn(v).filter((s) => /\s/.test(s)).length === 0;
+/** Every object in `v` (not an array) holding a string value `pred` accepts. */
+function linesSaying(v, pred, out = [], seen = new Set()) {
+  if (!v || typeof v !== 'object' || seen.has(v)) return out;
+  seen.add(v);
+  if (!Array.isArray(v) && Object.values(v).some((x) => typeof x === 'string' && pred(x))) out.push(v);
+  for (const x of Array.isArray(v) ? v : Object.values(v)) linesSaying(x, pred, out, seen);
+  return out;
+}
+
+/* TV111–TV116: confirmView (story 7 AC-1, AC-2, AC-3; ADR 0007 D9, D13) */
+
+test('TV111: confirmView offers Confirm when the latest pass held removals, its held list has been read for that pass, no pass is running and no confirmation is waiting — offer true, with the held section\'s runId, count the held list read\'s total (not the report\'s count), replaces false and when lines-up [story 7 AC-1 "The owner sees Confirm held removals … when the latest pass held removals, and no confirmation of that held list is pending"; AC-2 "how many removals it confirms, and from which pass"; ADR tagging-edges/0007 D9 "confirmView(statusBody, held, runId) → {offer, runId, count, replaces, when}", "count is the held list read\'s total"]', async () => {
+  const confirmView = await confirmViewFn();
+  const body = status7();
+  const runId = heldRunIdOf(body);
+  assert(runId === HELD_RUN, `setup: the held section's runId should be the held latest pass's, ${HELD_RUN}; got ${show(runId)}`);
+  const v = confirmView(body, heldRead7(), runId);
+  fields(v, { offer: true, runId: HELD_RUN, count: LIST_TOTAL, replaces: false, when: 'lines-up' }, `confirmView (${ADR7} D9)`);
+});
+
+test('TV112: Confirm against each of the confirmation\'s states — none: offered, replacing nothing; pending for the latest held list: not offered; pending for an earlier pass, expired, unreadable (as the status serves a failed read, or a member that is not an object), and with an expiry that cannot be read: offered, replacing it [story 7 AC-1 "While a confirmation of the latest held list is pending … offers no Confirm", "A confirmation that cannot be relied on … still offers Confirm. Confirming replaces it", "When the confirmation expires unused … It offers Confirm again for the same held list"; AC-2 "when the panel shows an earlier confirmation that no pass will carry out, that this one replaces it"; ADR tagging-edges/0007 D9 "passView\'s confirmation is not pending with runId equal to the latest\'s", "replaces is true when passView\'s confirmation is unreadable, unknown-expiry, expired, or pending for another run"; § Readings 4]', async () => {
+  const confirmView = await confirmViewFn();
+  const passView = await passViewFn();
+  const bad = [];
+  const cases = [
+    ['none', CONF7.none, 'none', true, false],
+    ['pending for the latest held list', CONF7['pending for the latest held list'], 'pending', false, null],
+    ['pending for an earlier pass', CONF7['pending for an earlier pass'], 'pending', true, true],
+    ['expired', CONF7.expired, 'expired', true, true],
+    ['unreadable', CONF7.unreadable, 'unreadable', true, true],
+    ['unreadable (a member that is not an object)', 'garbage', 'unreadable', true, true],
+    ['expiry unreadable', CONF7['expiry unreadable'], 'unknown-expiry', true, true],
+  ];
+  for (const [label, conf, state, offer, replaces] of cases) {
+    const body = status7({ confirmationPending: conf });
+    const seen = passView(clone(body)).confirmation.state;
+    if (seen !== state) { bad.push(`setup (${label}): passView should read the confirmation as ${state}; it reads ${show(seen)}`); continue; }
+    const v = confirmView(body, heldRead7(), heldRunIdOf(body));
+    if (!v || v.offer !== offer) { bad.push(`${label}: offer must be ${offer}; got ${show(v)}`); continue; }
+    if (offer) {
+      if (v.replaces !== replaces) bad.push(`${label}: replaces must be ${replaces}; got ${show(v.replaces)}`);
+      if (v.runId !== HELD_RUN || v.count !== LIST_TOTAL) bad.push(`${label}: the offer names pass ${HELD_RUN} and its ${LIST_TOTAL} listed removals; got runId ${show(v.runId)}, count ${show(v.count)}`);
+    }
+  }
+  assert(!bad.length, `confirmView against the confirmation's states (${ADR7} D9):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV113: Confirm is not offered until the held list is read — while it loads, after its read failed, while the list on hand is another pass\'s (a restart after a newer pass), and before any list read; nor when there is no held list (the latest pass held nothing, no pass on record) or a pass runs by liveness, so the held section has no runId — while the same status with the list read for its pass offers it [story 7 AC-1 "Until the held list is read, Confirm is not offered", "It is not shown when the latest pass held nothing", "While a pass is running, the held section shows no held list and no Confirm"; ADR tagging-edges/0007 D9 "the held section\'s runId is set", "the held list\'s read is ready for that runId"]', async () => {
+  const confirmView = await confirmViewFn();
+  const bad = [];
+  const body = status7();
+  const ready = confirmView(clone(body), heldRead7(), HELD_RUN);
+  if (!ready || ready.offer !== true) bad.push(`setup: with the list read for ${HELD_RUN} Confirm should be offered; got ${show(ready)}`);
+  const lists = [
+    ['the held list still loading', heldRead7({ state: 'loading', page: null })],
+    ['the held list read failed', heldRead7({ state: 'error', page: null, error: { ok: false, code: 'http-500', httpStatus: 500, body: null } })],
+    ['the list on hand is another pass\'s', heldRead7({ runId: EARLIER_RUN })],
+    ['no list read yet', NO_LIST7],
+  ];
+  for (const [label, held] of lists) {
+    const v = confirmView(clone(body), clone(held), HELD_RUN);
+    if (!v || v.offer !== false) bad.push(`${label}: offer must be false; got ${show(v)}`);
+  }
+  const noRun = [
+    ['the latest pass held nothing', status7({ latest: doneRecord() })],
+    ['no pass on record', status7({ latest: null })],
+    ['a pass is running (by liveness)', status7({ running: true, latest: pessimisticRecord(), control: control6([busyItem({ state: 'running', since: at7(-1), runId: '20260930T151500Z-5eed1e55' })]) })],
+  ];
+  for (const [label, b] of noRun) {
+    const runId = heldRunIdOf(b);
+    if (runId !== null) { bad.push(`setup (${label}): the held section's runId should be null; got ${show(runId)}`); continue; }
+    const v = confirmView(b, NO_LIST7, null);
+    if (!v || v.offer !== false) bad.push(`${label}: offer must be false; got ${show(v)}`);
+  }
+  assert(!bad.length, `confirmView before the held list is read (${ADR7} D9):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV114: a busy item running with no stop asked for withholds Confirm — a running pass the status still lists beside the held latest (D5\'s reuse), a starting pass (running, no run yet), a starting pass ahead of a waiting one, and a pass alive while the queue read failed — while a running or starting pass with a stop asked for, and a waiting pass, do not withhold it [story 7 AC-1 "A pass that has begun running: its report is already the latest … The owner can confirm the new pass\'s held list once it ends"; ADR tagging-edges/0007 D9 "no control.busy item is running with no stop asked for (story 6\'s running, a starting pass included)"; § Readings 1 "The panel itself does not offer Confirm then"]', async () => {
+  const confirmView = await confirmViewFn();
+  const bad = [];
+  const running = busyItem({ key: lk(1), jobId: lk(1), state: 'running', since: at7(-1), runId: runId6(1) });
+  const starting = busyItem({ key: lk(2), jobId: lk(2), state: 'running', since: at7(-0.2), runId: null });
+  const waiting = busyItem({ key: lk(3), jobId: lk(3), state: 'waiting', since: at7(-0.5), behind: 'pass' });
+  const cases = [
+    ['a running pass', control6([running]), false],
+    ['a starting pass', control6([starting]), false],
+    ['a starting pass ahead of a waiting one', control6([starting, waiting]), false],
+    ['a pass alive while the queue read failed', control6([busyItem({ key: `run:${runId6(1)}`, jobId: null, state: 'running', since: at7(-1), runId: runId6(1) })], { queue: 'read-failed' }), false],
+    ['a running pass with a stop asked for', control6([{ ...running, stopAskedAt: at7(-0.5) }]), true],
+    ['a starting pass with a stop asked for', control6([{ ...starting, stopAskedAt: at7(-0.1) }]), true],
+    ['a waiting pass', control6([waiting]), true],
+  ];
+  for (const [label, control, offer] of cases) {
+    const body = status7({ control });
+    const v = confirmView(body, heldRead7(), heldRunIdOf(body));
+    if (!v || v.offer !== offer) bad.push(`${label}: offer must be ${offer}; got ${show(v)}`);
+  }
+  assert(!bad.length, `confirmView while a pass is busy (${ADR7} D9):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV115: when says what confirming will do — cannot-tell when the panel cannot tell whether a pass is waiting (no control member, the queue off, not ready or unreadable, a busy answer with no list); waiting-pass for a pass waiting with no stop asked for (behind a pass, behind heavy work, a due scheduled run), also beside a waiting pass that has one; lines-up when nothing is busy or every busy pass has a stop asked for — each with Confirm still offered [story 7 AC-2 "when they happen, for the state the panel last showed, and only the case that applies"; AC-1 "Every busy pass has a stop asked for … Confirming lines up a new pass"; ADR tagging-edges/0007 D9 "when, from busyView: known false → cannot-tell; a waiting item with no stop asked for → waiting-pass; otherwise → lines-up"; NB2]', async () => {
+  const confirmView = await confirmViewFn();
+  const bad = [];
+  const w = (o) => busyItem({ key: lk(4), jobId: lk(4), state: 'waiting', since: at7(-0.6), ...o });
+  const cases = [
+    ['no control member (a server from before story 6)', { noControl: true }, 'cannot-tell'],
+    ['the task queue off', { control: control6([], { queue: 'off' }) }, 'cannot-tell'],
+    ['the task queue not ready', { control: control6([], { queue: 'not-ready' }) }, 'cannot-tell'],
+    ['the task queue unreadable', { control: control6([], { queue: 'read-failed' }) }, 'cannot-tell'],
+    ['a busy answer with no list (NB2)', { control: { queue: 'ok', gaveUp: null } }, 'cannot-tell'],
+    ['nothing busy', { control: control6([]) }, 'lines-up'],
+    ['a pass waiting behind a pass', { control: control6([w({ behind: 'pass' })]) }, 'waiting-pass'],
+    ['a pass waiting behind heavy work', { control: control6([w({ behind: 'heavy-work' })]) }, 'waiting-pass'],
+    ['a due scheduled run waiting', { control: control6([busyItem({ key: seedJob(T7 - 60000), jobId: seedJob(T7 - 60000), state: 'waiting', since: at7(-1), startRecorded: false })]) }, 'waiting-pass'],
+    ['a waiting pass with a stop asked for, and one without', { control: control6([w({ stopAskedAt: at7(-0.3) }), busyItem({ key: lk(5), jobId: lk(5), state: 'waiting', since: at7(-0.4), behind: 'pass' })]) }, 'waiting-pass'],
+    ['the only waiting pass has a stop asked for', { control: control6([w({ stopAskedAt: at7(-0.3) })]) }, 'lines-up'],
+    ['every busy pass has a stop asked for (running and waiting)', { control: control6([busyItem({ key: lk(6), jobId: lk(6), state: 'running', since: at7(-2), runId: runId6(6), stopAskedAt: at7(-1) }), w({ behind: 'pass', stopAskedAt: at7(-0.3) })]) }, 'lines-up'],
+  ];
+  for (const [label, opts, when] of cases) {
+    const body = status7(opts);
+    const v = confirmView(body, heldRead7(), heldRunIdOf(body));
+    if (!v || v.offer !== true) { bad.push(`${label}: Confirm should still be offered (nothing runs with no stop asked); got ${show(v)}`); continue; }
+    if (v.when !== when) bad.push(`${label}: when must be ${show(when)}; got ${show(v.when)}`);
+  }
+  assert(!bad.length, `confirmView's when (${ADR7} D9):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV116: a confirmation used up by a pass that then failed or was stopped is said so, with no Confirm — confirmView\'s usedUp is true for a latest pass that failed, was stopped on request, or was killed (its pessimistic record left behind) after it found the confirmation, honoured or not; it is not for a pass that finished (honouring it, or holding again), a failed pass that found none, or a running pass whose pessimistic record has found it (liveness first) [story 7 AC-1 "When a confirmation is used up by a pass that then failed or was stopped, the panel says so … Until then it offers no Confirm"; ADR tagging-edges/0007 D13 "when the latest pass has confirmation.found === true and its outcome is failed or stopped, say that it used the owner\'s confirmation up … and offer no Confirm"; this suite\'s choice: the flag is confirmView\'s usedUp]', async () => {
+  const confirmView = await confirmViewFn();
+  const bad = [];
+  const found = (o = {}) => ({ confirmation: { found: true, honoured: true, mintedAt: at7(-30), ...o }, confirmed: { confirmedRunId: HELD_RUN, heldCount: REPORT_HELD, removalsApplied: 120, heldNoLongerDue: 0 } });
+  const usedUp = [
+    ['a pass that failed at a write after taking it up', status7({ latest: failedWriteRecord({ runId: runId6(11), ...found() }) })],
+    ['a pass that failed after finding it and not honouring it', status7({ latest: failedWriteRecord({ runId: runId6(12), confirmation: { found: true, honoured: false, why: 'report-changed', mintedAt: at7(-30) } }) })],
+    ['a pass stopped on request after taking it up', status7({ latest: run6(13, -5, lk(13), { ...STOPPED6, ...found() }) })],
+    ['a pass killed after taking it up (its pessimistic record, no longer running)', status7({ running: false, latest: pessimisticRecord({ runId: runId6(14), ...found() }) })],
+  ];
+  const notUsedUp = [
+    ['a pass that finished, honouring it', status7({ latest: doneRecord({ runId: runId6(15), ...found() }) })],
+    ['a pass that honoured it and held again', status7({ latest: heldLatest7(found()) })],
+    ['a pass that finished without honouring it', status7({ latest: doneRecord({ runId: runId6(16), confirmation: { found: true, honoured: false, why: 'expired', mintedAt: at7(-30) } }) })],
+    ['a failed pass that found no confirmation', status7({ latest: failedWriteRecord({ runId: runId6(17) }) })],
+    ['a running pass whose pessimistic record has found it', status7({ running: true, latest: pessimisticRecord({ runId: runId6(18), ...found() }), control: control6([busyItem({ state: 'running', since: at7(-1), runId: runId6(18) })]) })],
+  ];
+  for (const [label, body] of usedUp) {
+    const runId = heldRunIdOf(body);
+    const v = confirmView(body, runId ? heldRead7() : NO_LIST7, runId);
+    if (!v || v.usedUp !== true) bad.push(`${label}: usedUp must be true (D13); got ${show(v)}`);
+    else if (v.offer === true) bad.push(`${label}: no Confirm is offered while the confirmation is used up (D13); got offer true`);
+  }
+  for (const [label, body] of notUsedUp) {
+    const runId = heldRunIdOf(body);
+    const v = confirmView(body, runId ? heldRead7() : NO_LIST7, runId);
+    if (!v || typeof v !== 'object') { bad.push(`${label}: confirmView must answer an object; got ${show(v)}`); continue; }
+    if (v.usedUp === true) bad.push(`${label}: usedUp must not be true; got ${show(v)}`);
+  }
+  assert(!bad.length, `the used-up confirmation (${ADR7} D13):\n      - ${bad.join('\n      - ')}`);
+});
+
+/* TV117–TV124: confirmOutcome (story 7 AC-1, AC-2, AC-3, AC-4; ADR 0007 D4, D11) */
+
+test('TV117: each accepted confirmation has its own sentence — lined up; lined up behind the pass that is stopping (behindStopping); the waiting pass takes it up and nothing new is lined up; a pass that had just begun takes it up; a pass that started meanwhile took it up — five different sentences, and a tone that is never bad [story 7 AC-1 "When nothing is busy, confirming lines up a pass", "A pass waiting with no stop asked for: confirming starts nothing new. The answer says plainly that the waiting pass will take the confirmation up", "Every busy pass has a stop asked for … the answer says so", "the answer says which happened"; ADR tagging-edges/0007 D11 "lined-up (with behind the pass that is stopping when behindStopping); waiting-pass, starting-pass, taken-up", D4]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  const pins = {
+    'lined-up': [[LINED_UP, 'say a pass was lined up']],
+    'lined-up, behind a stopping pass': [[LINED_UP, 'say a pass was lined up'], [/\bbehind\b/i, 'say it waits behind'], [/\bstop/i, 'name the pass that is stopping']],
+    'waiting-pass': [[/\bwaiting\b/i, 'name the waiting pass'], [TAKES_UP, 'say it takes the confirmation up'], [/\bnothing new\b|\bno new pass\b|\bno (other|second) pass\b/i, 'say nothing new was lined up']],
+    'starting-pass': [[/\b(begun|began|started|starting)\b/i, 'say the pass had just begun'], [TAKES_UP, 'say it takes the confirmation up']],
+    'taken-up': [[/\b(started|began|begun|meanwhile)\b/i, 'say a pass started meanwhile'], [TAKES_UP, 'say it took the confirmation up']],
+  };
+  const texts = {};
+  for (const [label, result] of Object.entries(ACCEPTED7)) {
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    if (!text) { bad.push(`${label}: the answer must carry a sentence; got ${show(r)}`); continue; }
+    texts[label] = text;
+    for (const [re, why] of pins[label]) if (!re.test(text)) bad.push(`${label}: the sentence must ${why} (${re}); got ${show(text)}`);
+    if (label === 'lined-up' && /\bstopping\b/i.test(text)) bad.push(`lined-up with behindStopping false must not speak of a stopping pass; got ${show(text)}`);
+    if (/\bno pass was lined up\b|\bnot lined up\b/i.test(text)) bad.push(`${label}: an accepted confirmation must not say no pass was lined up; got ${show(text)}`);
+    bad.push(...tone7(r, true, label));
+    noBang(r, `confirmOutcome(${label})`);
+  }
+  const all = Object.values(texts);
+  if (all.length === 5 && new Set(all).size !== 5) bad.push(`the five accepted answers must have five different sentences; got ${show(texts)}`);
+  assert(!bad.length, `confirmOutcome's accepted answers (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV118: a confirmation made with no pass lined up says so plainly — D11\'s sentence ("The confirmation was made, but no pass was lined up (<reason>). Run a pass now, or the next scheduled pass, takes it up within its 24 hours."), with the server\'s reason (QUEUE_UNAVAILABLE, or error) and its cause when it gives one; it never says a pass was lined up or took it up, and its tone is not ok [story 7 AC-1 "When the confirmation is made but no pass is lined up … The panel says plainly that no pass was lined up, gives the server\'s reason when it gives one, and says that Run, or the next scheduled pass, takes the confirmation up within its 24 hours"; ADR tagging-edges/0007 D11 not-lined-up, D2 step 8, D4]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  for (const [label, result] of NOT_LINED_UP7) {
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    if (!text.includes(NOT_LINED_UP_HEAD)) bad.push(`${label}: the sentence must begin ${show(`${NOT_LINED_UP_HEAD} (<reason>).`)} (D11); got ${show(text)}`);
+    if (!text.includes(NOT_LINED_UP_TAIL)) bad.push(`${label}: the sentence must say ${show(NOT_LINED_UP_TAIL)} (D11); got ${show(text)}`);
+    if (!carries(r, result.body.reason)) bad.push(`${label}: the answer must give the server's reason ${show(result.body.reason)}; got ${show(r)}`);
+    if (result.body.cause && !carries(r, result.body.cause)) bad.push(`${label}: the answer must give the server's cause ${show(result.body.cause)}; got ${show(r)}`);
+    const linedUp = claimsIn(text, LINED_UP);
+    if (linedUp.length) bad.push(`${label}: it must never say a pass was lined up; it says ${show(linedUp)}`);
+    if (TOOK_UP.test(text)) bad.push(`${label}: it must never say a pass took the confirmation up; got ${show(text)}`);
+    bad.push(...tone7(r, false, label));
+  }
+  assert(!bad.length, `confirmOutcome when no pass was lined up (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV119: a second confirmation while one is pending is refused plainly — already-pending says a confirmation of this held list is already pending, and until when (its expiresAt), never that a pass was lined up or took it up, with a tone that is not ok, and a sentence of its own, not the out-of-date one [story 7 AC-1 "A second confirmation while one is pending is refused plainly … The answer says that a confirmation of this held list is already pending, and until when. It changes nothing"; ADR tagging-edges/0007 D11 "already-pending (with its expiresAt)", D2 step 2, D4 "409 {success: false, code: already-pending, runId, expiresAt}"]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  const result = refused7(409, 'already-pending', { runId: HELD_RUN, expiresAt: PENDING_UNTIL });
+  const r = confirmOutcome(clone(result));
+  const text = own7(r, result);
+  if (!/\balready\b/i.test(text) || !/\bpending\b/i.test(text)) bad.push(`the sentence must say a confirmation is already pending; got ${show(text)}`);
+  if (!carriesTime(r, PENDING_UNTIL)) bad.push(`the answer must say until when, ${PENDING_UNTIL}; got ${show(r)}`);
+  if (claimsIn(text, LINED_UP).length || claimsIn(text, TAKES_UP).length) bad.push(`it must never say a pass was lined up or takes it up; got ${show(text)}`);
+  bad.push(...tone7(r, false, 'already-pending'));
+  const stale = own7(confirmOutcome(refused7(409, 'not-the-latest-report')), refused7(409, 'not-the-latest-report'));
+  if (text && text === stale) bad.push(`already-pending must have its own sentence, not the out-of-date one; both read ${show(text)}`);
+  assert(!bad.length, `confirmOutcome for already-pending (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV120: an out-of-date confirmation is refused plainly — not-the-latest-report, nothing-held, running and held-list-changed each say nothing was confirmed and that the panel now shows the latest state; pass-started says a pass started meanwhile and the confirmation was withdrawn, nothing changed; none says a pass was lined up or took it up, and none is ok [story 7 AC-2 "Only what the prompt showed. If the latest pass is no longer the one the prompt named, the confirmation is refused plainly and changes nothing. The panel then shows the new state"; AC-1 "When a pass starts while the confirmation is being made, the answer says plainly which of these happened … the confirmation was withdrawn and nothing changed"; ADR tagging-edges/0007 D11 "out of date (…): nothing was confirmed; the panel now shows the latest state", "pass-started", D2 step 7]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  for (const code of OUT_OF_DATE) {
+    const result = refused7(409, code);
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    if (!/\bnothing was confirmed\b/i.test(text)) bad.push(`${code}: the sentence must say nothing was confirmed (D11); got ${show(text)}`);
+    if (!/\blatest\b/i.test(text) || !/\bshows?\b/i.test(text)) bad.push(`${code}: the sentence must say the panel now shows the latest state (D11); got ${show(text)}`);
+    if (claimsIn(text, LINED_UP).length || claimsIn(text, TAKES_UP).length) bad.push(`${code}: it must never say a pass was lined up or takes it up; got ${show(text)}`);
+    bad.push(...tone7(r, false, code));
+  }
+  const result = refused7(409, 'pass-started');
+  const r = confirmOutcome(clone(result));
+  const text = own7(r, result);
+  if (!/\b(started|began|begun)\b/i.test(text)) bad.push(`pass-started: the sentence must say a pass started meanwhile; got ${show(text)}`);
+  if (!/\bwithdrawn\b/i.test(text) && !UNCHANGED.test(text)) bad.push(`pass-started: the sentence must say the confirmation was withdrawn and nothing changed; got ${show(text)}`);
+  if (claimsIn(text, LINED_UP).length || claimsIn(text, TOOK_UP).length) bad.push(`pass-started: it must never say a pass was lined up or took it up; got ${show(text)}`);
+  bad.push(...tone7(r, false, 'pass-started'));
+  assert(!bad.length, `confirmOutcome when out of date (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV121: when the server cannot tell whether the confirmation stands (withdraw-failed), the panel says so, and that its next read shows whether that pass took it up — never that the confirmation is unchanged or that nothing was confirmed, never that a pass was lined up, and never ok [story 7 AC-1 "When the server cannot tell whether the confirmation stands, the panel says so. It does not show the confirmation as unchanged, and from its next read it shows whether that pass took it up"; ADR tagging-edges/0007 D11 "withdraw-failed: the server cannot tell whether the confirmation stands; the panel shows from its next read whether that pass took it up", D2 step 7]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const result = refused7(500, 'withdraw-failed', { cause: 'EACCES' });
+  const r = confirmOutcome(clone(result));
+  const text = own7(r, result);
+  const bad = [];
+  if (!CANNOT_TELL.test(text)) bad.push(`the sentence must say the server cannot tell whether the confirmation stands; got ${show(text)}`);
+  if (!NEXT_READ.test(text)) bad.push(`the sentence must say the panel's next read shows whether that pass took it up; got ${show(text)}`);
+  if (UNCHANGED.test(text)) bad.push(`it must never show the confirmation as unchanged or say nothing was confirmed (AC-1); got ${show(text)}`);
+  if (claimsIn(text, LINED_UP).length || claimsIn(text, TOOK_UP).length) bad.push(`it must never say a pass was lined up or took it up; got ${show(text)}`);
+  bad.push(...tone7(r, false, 'withdraw-failed'));
+  assert(!bad.length, `confirmOutcome for withdraw-failed (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV122: a failed confirmation shows its code and cause — record-unavailable, confirmation-unwritten, another 500 and a 502 with no JSON each carry the answer\'s code (or http-502) and its cause, never say a pass was lined up or took it up, never tell the owner to sign in again, and are never ok; a 401 or 403 (signed out, an admin, another site, or no JSON) is refused, and says to sign in again as the owner — not "or an admin", since only the owner can confirm [story 7 AC-3 "Refused or failed. When the server refuses the panel\'s request, or cannot carry it out, the panel shows the reason"; AC-4 "When the server cannot record it, Confirm is refused, as Run is"; ADR tagging-edges/0007 D11 "record-unavailable, confirmation-unwritten, other 5xx: failed, with code and cause", "401 or 403: refused, sign in again as the owner", D4]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  const SIGN_IN = /\bsign in again\b/i;
+  for (const [label, result, code, cause] of FAILED7) {
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    if (!text) { bad.push(`${label}: the answer must carry a sentence; got ${show(r)}`); continue; }
+    if (!carries(r, code) && !(code === 'http-502' && carries(r, 502))) bad.push(`${label}: the answer must carry the code ${show(code)}; got ${show(r)}`);
+    if (cause && !carries(r, cause)) bad.push(`${label}: the answer must carry the cause ${show(cause)}; got ${show(r)}`);
+    if (claimsIn(text, LINED_UP).length || claimsIn(text, TOOK_UP).length) bad.push(`${label}: it must never say a pass was lined up or took it up; got ${show(text)}`);
+    if (SIGN_IN.test(text)) bad.push(`${label}: a failure is not a refusal, so it does not say to sign in again; got ${show(text)}`);
+    bad.push(...tone7(r, false, label));
+  }
+  const refusals = REFUSALS6.concat([answer6(403, { success: false, error: 'Owner access required' })]);
+  for (const result of refusals) {
+    const label = `a ${result.httpStatus} ${show(result.body)}`;
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    if (!SIGN_IN.test(text) || !/\bthe owner\b/i.test(text)) bad.push(`${label}: the sentence must say to sign in again as the owner; got ${show(text)}`);
+    if (/\bor an admin\b/i.test(text)) bad.push(`${label}: only the owner can confirm, so it must not say "or an admin"; got ${show(text)}`);
+    if (claimsIn(text, LINED_UP).length || claimsIn(text, TOOK_UP).length) bad.push(`${label}: it must never say a pass was lined up or took it up; got ${show(text)}`);
+    bad.push(...tone7(r, false, label));
+  }
+  assert(!bad.length, `confirmOutcome's failures and refusals (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV123: a confirmation with no usable answer — a timeout, a network failure, or a 2xx whose JSON is bad — reads D11\'s sentence word for word, "The panel had no answer within 15 seconds, so the outcome is unknown. It shows the state from its next read.", never says a pass was lined up or took it up, and is never ok [story 7 AC-1 "If the server has not answered within 15 seconds, the control is enabled again and the panel says the outcome is unknown. It then shows the state from its next read"; ADR tagging-edges/0007 D11 "unknown (timeout, network, bad JSON)"]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  for (const result of NO_ANSWER) {
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    if (!text.includes(UNKNOWN7)) bad.push(`${result.code}: the sentence must read ${show(UNKNOWN7)} (D11); got ${show(text)}`);
+    if (claimsIn(text, LINED_UP).length || claimsIn(text, TOOK_UP).length) bad.push(`${result.code}: it must never say a pass was lined up or took it up; got ${show(text)}`);
+    bad.push(...tone7(r, false, result.code));
+  }
+  assert(!bad.length, `confirmOutcome with no usable answer (${ADR7} D11):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV124: never a false answer — no answer but lined-up says a pass was lined up, and none but waiting-pass, starting-pass and taken-up says a pass takes or took the confirmation up: already-pending, the out-of-date codes, pass-started, withdraw-failed, the failures, a 400, a 415, the refusals, no answer, not-lined-up (lined up only), and a 200 with no outcome (an answer from before story 7) or one the panel does not know [story 7 AC-1 "Never a false answer. Confirm is never answered as lined up, or as taken up, when no pass will take it up"; AC-2 "The answer says what happened … never what the prompt expected"; ADR tagging-edges/0007 D11, D4 "Every accepted answer adds outcome, which the panel reads"]', async () => {
+  const confirmOutcome = await confirmOutcomeFn();
+  const bad = [];
+  const cases = [
+    ['already-pending', refused7(409, 'already-pending', { runId: HELD_RUN, expiresAt: PENDING_UNTIL }), true],
+    ...OUT_OF_DATE.map((code) => [code, refused7(409, code), true]),
+    ['pass-started', refused7(409, 'pass-started'), true],
+    ['withdraw-failed', refused7(500, 'withdraw-failed', { cause: 'EACCES' }), true],
+    ...FAILED7.map(([label, result]) => [label, result, true]),
+    ['a 400', answer6(400, { success: false, error: 'see code' }), true],
+    ['a 415', answer6(415, { success: false, error: 'see code' }), true],
+    ...REFUSALS6.map((result) => [`a ${result.httpStatus} refusal`, result, true]),
+    ...NO_ANSWER.map((result) => [result.code, result, true]),
+    ...NOT_LINED_UP7.map(([label, result]) => [`not-lined-up (${label})`, result, false]),
+    ['a 200 with no outcome (an answer from before story 7)', okAnswer({ success: true, confirmed: true, enqueued: true, joined: true, expiresAt: at7(24 * 60) }), true],
+    ['a 200 whose outcome the panel does not know', accepted7('queued-elsewhere', { enqueued: true }), true],
+  ];
+  for (const [label, result, checkTakeUp] of cases) {
+    const r = confirmOutcome(clone(result));
+    const text = own7(r, result);
+    const linedUp = claimsIn(text, LINED_UP);
+    if (linedUp.length) bad.push(`${label}: it must not say a pass was lined up; it says ${show(linedUp)}`);
+    const takenUp = checkTakeUp ? claimsIn(text, TAKES_UP) : [];
+    if (takenUp.length) bad.push(`${label}: it must not say a pass takes or took the confirmation up; it says ${show(takenUp)}`);
+  }
+  assert(!bad.length, `confirmOutcome never gives a false answer (${ADR7} D11; story 7 AC-1):\n      - ${bad.join('\n      - ')}`);
+});
+
+/* TV125–TV127: who confirmed, in the panel (story 7 AC-4; ADR 0007 D5, D7, D12), and NB2 */
+
+/** A confirm line as D5 writes it: no key, the mint time, the owner with a shortened key, the held run's id. */
+const confirmLine = (at, runId = HELD_RUN) => ({ action: 'confirm', key: null, at, who: { kind: 'owner', key: KEY_OWNER }, runId });
+
+test('TV125: passWho\'s history keeps the confirm lines — "Held removals of pass <runId> confirmed by the owner (<key>…)" at the line\'s time — in the record\'s order among the start and stop lines, newest first: a confirmation start above its confirm line at the same time, a stop, a start, an earlier confirmation of another pass, and a start, none dropped [story 7 AC-4 "Every confirmation the server accepts records the owner, with a shortened key, and when", "The history of the last 10 actions shows the confirmation"; ADR tagging-edges/0007 D12 "passWho\'s history keeps confirm lines beside start and stop", D5 "The confirm line is written first, so the start shows above it (newest first; the sort is stable)"]', async () => {
+  const passWho = await passWhoFn();
+  const history = [
+    { action: 'start', key: lk(3), at: at7(-1), who: who6('confirmation') },
+    confirmLine(at7(-1)),
+    { action: 'stop', key: lk(2), at: at7(-20), who: who6('admin') },
+    { action: 'start', key: lk(2), at: at7(-25), who: who6('owner') },
+    confirmLine(at7(-300), EARLIER_RUN),
+    { action: 'start', key: lk(1), at: at7(-400), who: who6('admin') },
+  ];
+  const passes = {
+    [lk(1)]: passEntry({ jobId: lk(1), start: { at: at7(-400), who: 'admin' } }),
+    [lk(2)]: passEntry({ jobId: lk(2), start: { at: at7(-25), who: 'owner' }, stop: { at: at7(-20), who: 'admin' } }),
+    [lk(3)]: passEntry({ jobId: lk(3), start: { at: at7(-1), who: 'confirmation' } }),
+  };
+  const v = passWho(readyRead(recordAnswer(passes, history)), status7());
+  const rowSays = (h) => (row) => {
+    const ls = stringsIn(row);
+    if (!carriesTime(row, h.at)) return false;
+    if (h.action === 'stop') return ls.some((s) => /\bstop asked for\b/i.test(s));
+    if (h.action === 'start') return ls.some((s) => /\bstarted\b/i.test(s)) && WHO_SAYS[h.who.kind](ls);
+    return ls.some((s) => /\bheld removals\b/i.test(s) && s.includes(h.runId) && /\bconfirmed\b/i.test(s)) && WHO_SAYS.owner(ls);
+  };
+  const shown = arraysIn(v).find((a) => a.length === history.length && history.every((h, i) => rowSays(h)(a[i])));
+  const lists = arraysIn(v).filter((a) => a.length > 1).map((a) => stringsIn(a).filter((s) => /\s/.test(s)));
+  assert(shown, `passWho's history must keep the record's ${history.length} lines in order, each confirm line reading "Held removals of pass <runId> confirmed by the owner (${KEY_OWNER}…)" at its time (${ADR7} D12); the lists in its answer read ${show(lists).slice(0, 900)}`);
+});
+
+test('TV126: a pass that took up the owner\'s confirmation names it — runWho\'s confirmation line says it took up the owner\'s confirmation, made at latest.confirmation.mintedAt, with the owner\'s key when a confirm line in the record has that time, without it when none does, and "when not recorded" for a report with no mintedAt; a run that found none has no such line; the line claims nothing about honouring; the run\'s start line stands; after a failed record read no key shows [story 7 AC-4 "The pass that took a confirmation up names it: the owner\'s confirmation, and when it was made. What it says it did with it stays as today"; ADR tagging-edges/0007 D12 "runWho gains confirmation for a run with confirmation.found === true", "with the key when a confirm line in the record has at === mintedAt", "(when not recorded) when mintedAt is absent", "Kept bodies"; D7 "Old reports have no mintedAt"]', async () => {
+  const passWho = await passWhoFn();
+  const bad = [];
+  const MINT_A = at6(-6);
+  const MINT_B = at6(-66);
+  const CONF_LINE = (s) => /\btook\b/i.test(s) && /\bowner['’]s confirmation\b/i.test(s);
+  const runA = run6(1, -5, lk(1), { confirmation: { found: true, honoured: true, mintedAt: MINT_A }, confirmed: { confirmedRunId: HELD_RUN, heldCount: 60, removalsApplied: 60, heldNoLongerDue: 0 } });
+  const runB = run6(2, -65, lk(2), { confirmation: { found: true, honoured: false, why: 'report-changed', mintedAt: MINT_B } });
+  const runC = run6(3, -125, lk(3), { confirmation: { found: true, honoured: true }, confirmed: { confirmedRunId: EARLIER_RUN, heldCount: 55, removalsApplied: 55, heldNoLongerDue: 0 } });
+  const runD = run6(4, -185, lk(4));
+  const passes = {
+    [lk(1)]: passEntry({ jobId: lk(1), start: { at: at6(-5.3), who: 'admin' } }),
+    [lk(2)]: passEntry({ jobId: lk(2), start: { at: new Date(Date.parse(at6(-65.5))).toISOString(), who: 'schedule' } }),
+    [lk(3)]: passEntry({ jobId: lk(3), start: { at: at6(-125.3), who: 'local' } }),
+    [lk(4)]: passEntry({ jobId: lk(4), start: { at: at6(-185.3), who: 'admin' } }),
+  };
+  const history = [confirmLine(MINT_A), confirmLine(at6(-67), EARLIER_RUN)];
+  const status = statusBody({ latest: runA, previous: [runB, runC, runD] });
+  const v = passWho(readyRead(recordAnswer(passes, history)), clone(status));
+  const partsOf = (run) => partsFor(v, run.runId);
+  const hasLine = (p) => stringsIn(p).some(CONF_LINE);
+  const a = partsOf(runA).filter(hasLine);
+  if (!a.some((p) => carriesTime(p, MINT_A) && stringsIn(p).some((s) => s.includes(KEY_OWNER)))) {
+    bad.push(`run ${runA.runId}: its part must say it took up the owner's confirmation, made at ${MINT_A}, by the owner (${KEY_OWNER}…), since a confirm line has that time; its parts: ${show(partsOf(runA)).slice(0, 600)}`);
+  }
+  for (const p of a) {
+    const said = linesSaying(p, CONF_LINE).flatMap((o) => stringsIn(o)).filter((s) => /\bhonou?r|\bappl(y|ied)\b/i.test(s));
+    if (said.length) bad.push(`run ${runA.runId}: the confirmation line claims nothing about honouring or applying, which stay today's lines (AC-4); it says ${show(said)}`);
+  }
+  bad.push(whoProblem(v, runA.runId, { want: ['admin'], times: [at6(-5.3)] }, `run ${runA.runId}'s start line stands`));
+  const b = partsOf(runB).filter(hasLine);
+  if (!b.some((p) => carriesTime(p, MINT_B))) bad.push(`run ${runB.runId}: its part must say it took up the owner's confirmation, made at ${MINT_B} (found, not honoured); its parts: ${show(partsOf(runB)).slice(0, 600)}`);
+  if (partsOf(runB).some((p) => stringsIn(p).some((s) => s.includes(KEY_OWNER)))) bad.push(`run ${runB.runId}: no confirm line has its mintedAt ${MINT_B}, so no key may show for it`);
+  for (const p of b) {
+    const said = linesSaying(p, CONF_LINE).flatMap((o) => stringsIn(o)).filter((s) => /\bhonou?red\b/i.test(s) && !/\bnot\b/i.test(s));
+    if (said.length) bad.push(`run ${runB.runId} did not honour it, and its confirmation line must not say it did; it says ${show(said)}`);
+  }
+  const c = partsOf(runC).filter(hasLine);
+  if (!c.some((p) => stringsIn(p).some((s) => /\bnot recorded\b/i.test(s)))) bad.push(`run ${runC.runId} (a report with no mintedAt): its confirmation line must say when it was made was not recorded; its parts: ${show(partsOf(runC)).slice(0, 600)}`);
+  if (!partsOf(runD).length) bad.push(`setup: passWho should give run ${runD.runId} a part`);
+  else if (partsOf(runD).some(hasLine)) bad.push(`run ${runD.runId} found no confirmation, so it has no confirmation line; its parts: ${show(partsOf(runD))}`);
+  const failed = passWho(failedRead(recordAnswer(passes, history)), clone(status));
+  if (stringsIn(failed).some((s) => s.includes(KEY_OWNER))) bad.push(`after a failed record read nothing of the kept body shows, so no ${KEY_OWNER}; got ${show(failed)}`);
+  const problems = bad.filter(Boolean);
+  assert(!problems.length, `runWho's confirmation line (${ADR7} D12):\n      - ${problems.join('\n      - ')}`);
+});
+
+test('TV127: a busy answer with no list is unknown, never known and empty — busyView with control.queue ok but no busy member, or busy null, an object or a string, gives known false, a why that says the server cannot tell, nothing that reads as nothing waiting, no items and no Stop; a queue ok with an empty list is still known [story 6 review carry-forward NB2 "the panel reads a busy answer with no list as known and empty, which could close an open Stop prompt. Treat it as unknown"; ADR tagging-edges/0007 § Carry-forwards NB2 "busyView\'s known also requires Array.isArray(control.busy)"]', async () => {
+  const busyView = await busyViewFn();
+  const bad = [];
+  const empty = busyView(status6(control6([])));
+  if (!empty || empty.known !== true) bad.push(`setup: a queue ok with an empty list is known; got ${show(empty)}`);
+  const controls = [
+    ['no busy member', { queue: 'ok', gaveUp: null }],
+    ['busy null', { queue: 'ok', busy: null, gaveUp: null }],
+    ['busy an object', { queue: 'ok', busy: {}, gaveUp: null }],
+    ['busy a string', { queue: 'ok', busy: 'none', gaveUp: null }],
+  ];
+  for (const [label, control] of controls) {
+    const v = busyView(status6(control));
+    if (!v || v.known !== false) { bad.push(`${label}: known must be false; got ${show(v)}`); continue; }
+    if (!v.why || !/\bcannot tell\b/i.test(String(v.why))) bad.push(`${label}: why must say the server cannot tell whether a pass is waiting; got ${show(v.why)}`);
+    const said = stringsIn(v).filter((s) => NOTHING_BUSY.test(s));
+    if (said.length) bad.push(`${label}: it must never read as nothing waiting; got ${show(said)}`);
+    if (!Array.isArray(v.items) || v.items.length !== 0 || v.canStop !== false) bad.push(`${label}: no items and canStop false; got ${show(v)}`);
+  }
+  assert(!bad.length, `busyView for a busy answer with no list (${ADR7} NB2):\n      - ${bad.join('\n      - ')}`);
+});
+
+/* TV128–TV132: the overdue line (story 7 AC-5; ADR 0007 D8, D14), and story 7's view functions read no clock */
+
+const OVERDUE7 = { state: 'overdue', latestBeganAt: at7(-26 * 60), expectedAt: at7(-2 * 60), periodMs: 86400000 };
+const ON_TIME7 = { state: 'on-time', latestBeganAt: at7(-60), expectedAt: at7(23 * 60), periodMs: 86400000 };
+const waitingControl7 = () => control6([busyItem({ key: lk(5), jobId: lk(5), state: 'waiting', since: at7(-3), behind: 'heavy-work' })]);
+/** overdueView as the panel calls it: the status body, its read, and busyView of the body (null with no body). */
+async function overdueOf(body, read) {
+  const overdueView = await overdueViewFn();
+  const busyView = await busyViewFn();
+  const r = read === undefined ? (body ? readyRead(body) : READ_LOADING) : read;
+  return overdueView(body ? clone(body) : null, r, body ? busyView(clone(body)) : null);
+}
+const WAITING_ADDITION = (text) => /\bwaiting\b/i.test(text) && /\bclears?\b/i.test(text);
+
+test('TV128: an overdue pass is flagged — the line says the pass is overdue, when the latest pass began (latestBeganAt) and when the schedule expected the next (expectedAt), with a warn tone if it carries one; with a pass waiting it adds that one is waiting and the warning clears when it begins running, which it does not say with nothing busy or only a running pass [story 7 AC-5 "A warning in the panel\'s backstop section that the pass is overdue, saying when the latest pass began and when one was expected", "So the warning stays while a pass waits, and says that one is waiting"; ADR tagging-edges/0007 D14 "overdue: The pass is overdue: the latest pass began at <latestBeganAt>, and the schedule expected the next by <expectedAt>. When busy shows a waiting item: A pass is waiting; the warning clears when it begins running.", "The section\'s tone becomes warn when overdue"]', async () => {
+  const bad = [];
+  const cases = [
+    ['nothing busy', status7({ overdue: OVERDUE7 }), false],
+    ['a pass waiting', status7({ overdue: OVERDUE7, control: waitingControl7() }), true],
+    ['only a running pass', status7({ overdue: OVERDUE7, running: true, latest: pessimisticRecord(), control: control6([busyItem({ state: 'running', since: at7(-1), runId: '20260930T151500Z-5eed1e55' })]) }), false],
+  ];
+  for (const [label, body, waiting] of cases) {
+    const v = await overdueOf(body);
+    const text = stringsIn(v).filter((s) => /\s/.test(s)).join(' ');
+    if (!/\boverdue\b/i.test(text)) { bad.push(`${label}: the line must say the pass is overdue; got ${show(v)}`); continue; }
+    if (CANNOT_TELL.test(text)) bad.push(`${label}: an overdue verdict is known, so the line must not say it cannot tell; got ${show(text)}`);
+    if (!carriesTime(v, OVERDUE7.latestBeganAt)) bad.push(`${label}: the line must say when the latest pass began, ${OVERDUE7.latestBeganAt}; got ${show(v)}`);
+    if (!carriesTime(v, OVERDUE7.expectedAt)) bad.push(`${label}: the line must say when the next was expected, ${OVERDUE7.expectedAt}; got ${show(v)}`);
+    if (v && Object.prototype.hasOwnProperty.call(v, 'tone') && v.tone !== 'warn') bad.push(`${label}: an overdue line's tone is warn (D14); got ${show(v.tone)}`);
+    if (waiting && !WAITING_ADDITION(text)) bad.push(`${label}: the line must add that a pass is waiting and the warning clears when it begins running; got ${show(text)}`);
+    if (!waiting && WAITING_ADDITION(text)) bad.push(`${label}: no pass is waiting, so the line must not say one is; got ${show(text)}`);
+  }
+  assert(!bad.length, `overdueView when the pass is overdue (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV129: when it cannot tell, the backstop section says so — "The panel cannot tell whether the pass is overdue." with its reason (the schedule, the rule, the report) for state cannot-tell, and also for a status with no overdue member (a server from before story 7) and for a failed status read with no body; it never reads as on time [story 7 AC-5 "When the pass report or the schedule list cannot be read, the backstop section says it cannot tell whether the pass is overdue. A missing warning never stands for on time"; ADR tagging-edges/0007 D14 "cannot-tell, an absent overdue member, or a status read that failed with no body: The panel cannot tell whether the pass is overdue. plus the reason (the schedule, the rule, the report)", D8, R12, R13]', async () => {
+  const bad = [];
+  const SAYS = /\bcannot tell whether the pass is overdue\b/i;
+  const ON_TIME_WORDS = /\bon time\b|\bnot overdue\b|\bis not late\b/i;
+  const texts = {};
+  for (const [reason, re] of [['schedule', /\bschedule\b/i], ['rule', /\brule\b/i], ['report', /\breport\b/i]]) {
+    const v = await overdueOf(status7({ overdue: { state: 'cannot-tell', reason } }));
+    const text = stringsIn(v).filter((s) => /\s/.test(s)).join(' ');
+    texts[reason] = text;
+    if (!SAYS.test(text)) bad.push(`cannot-tell (${reason}): the line must say the panel cannot tell whether the pass is overdue; got ${show(v)}`);
+    if (!re.test(text)) bad.push(`cannot-tell (${reason}): the line must name its reason, the ${reason}; got ${show(text)}`);
+    if (ON_TIME_WORDS.test(text)) bad.push(`cannot-tell (${reason}): it must never read as on time; got ${show(text)}`);
+  }
+  if (Object.values(texts).length === 3 && new Set(Object.values(texts)).size !== 3) bad.push(`each reason has its own line; got ${show(texts)}`);
+  const others = [
+    ['a status with no overdue member', () => overdueOf(status7())],
+    ['a failed status read with no body', () => overdueOf(null, failedRead(null))],
+  ];
+  for (const [label, make] of others) {
+    const v = await make();
+    const text = stringsIn(v).filter((s) => /\s/.test(s)).join(' ');
+    if (!SAYS.test(text)) bad.push(`${label}: the line must say the panel cannot tell whether the pass is overdue; got ${show(v)}`);
+    if (ON_TIME_WORDS.test(text)) bad.push(`${label}: it must never read as on time; got ${show(text)}`);
+  }
+  assert(!bad.length, `overdueView when it cannot tell (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV130: before the status has answered, the line says whether the pass is overdue is still being checked — never that it cannot tell, that it is overdue, or that it is on time [ADR tagging-edges/0007 D14 "While the status has not answered: Whether the pass is overdue is still being checked."; story 7 AC-5 "A missing warning never stands for on time"]', async () => {
+  const v = await overdueOf(null, READ_LOADING);
+  const text = stringsIn(v).filter((s) => /\s/.test(s)).join(' ');
+  const bad = [];
+  if (!/\bstill being checked\b/i.test(text)) bad.push(`the line must say whether the pass is overdue is still being checked; got ${show(v)}`);
+  if (CANNOT_TELL.test(text)) bad.push(`it is not yet known, so it must not say it cannot tell; got ${show(text)}`);
+  if (/\bon time\b|\bnot overdue\b/i.test(text)) bad.push(`it must never read as on time; got ${show(text)}`);
+  if (carriesTime(v, OVERDUE7.latestBeganAt)) bad.push(`no verdict is known, so no time is given; got ${show(v)}`);
+  assert(!bad.length, `overdueView before the status answers (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV131: no line for on-time, no-entry, no-schedule and no-pass — with nothing busy and with a pass waiting — so the backstop section\'s existing lines stand, while the same call with an overdue verdict gives one [story 7 AC-5 "No warning when no entry is enabled; the backstop section\'s existing warning stands. There is also none when no pass is on record"; ADR tagging-edges/0007 D14 "on-time, no-entry, no-schedule and no-pass: no line; the existing lines stand"]', async () => {
+  const bad = [];
+  const over = await overdueOf(status7({ overdue: OVERDUE7 }));
+  if (noLine(over)) bad.push(`setup: an overdue verdict should give a line; got ${show(over)}`);
+  for (const verdict of [ON_TIME7, { state: 'no-entry' }, { state: 'no-schedule' }, { state: 'no-pass' }]) {
+    for (const [label, control] of [['nothing busy', control6([])], ['a pass waiting', waitingControl7()]]) {
+      const v = await overdueOf(status7({ overdue: verdict, control }));
+      if (!noLine(v)) bad.push(`${verdict.state}, ${label}: no line (D14); got ${show(v)}`);
+    }
+  }
+  assert(!bad.length, `overdueView gives no line when there is nothing to flag (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV132: story 7\'s view functions read no clock — confirmView, confirmOutcome, overdueView and passWho (its confirm lines and a run\'s confirmation line) give the same answer for the same input with the client clock stubbed to 2099 and to 1970, and never call Date.now; so a pending confirmation the client clock has passed still withholds Confirm, an on-time verdict whose expected time the client clock has passed gives no line, and every viewer whose clock is wrong sees the same [story 7 AC-5 "The same for every viewer. A viewer whose device clock is wrong sees the same as everyone else"; ADR tagging-edges/0007 D14 "overdueView (pure, clock-free)", § Constraints "the view stays clock-free"; D8 "computed per request from server time"; TV4]', async () => {
+  const confirmView = await confirmViewFn();
+  const confirmOutcome = await confirmOutcomeFn();
+  const overdueView = await overdueViewFn();
+  const busyView = await busyViewFn();
+  const passWho = await passWhoFn();
+  const pendingBody = status7({ confirmationPending: publicConf({ expiresAt: at7(-24 * 60) }) });
+  const onTimeBody = status7({ overdue: { ...ON_TIME7, expectedAt: '2027-01-01T00:00:00.000Z' } });
+  const overBody = status7({ overdue: OVERDUE7, control: waitingControl7() });
+  const runA = run6(1, -5, lk(1), { confirmation: { found: true, honoured: true, mintedAt: at6(-6) } });
+  const record = readyRead(recordAnswer({ [lk(1)]: passEntry({ jobId: lk(1), start: { at: at6(-5.3), who: 'admin' } }) }, [confirmLine(at6(-6))]));
+  const all = () => [
+    confirmView(clone(pendingBody), heldRead7(), HELD_RUN),
+    confirmView(status7({ confirmationPending: CONF7.expired }), heldRead7(), HELD_RUN),
+    confirmOutcome(refused7(409, 'already-pending', { runId: HELD_RUN, expiresAt: PENDING_UNTIL })),
+    confirmOutcome(clone(ACCEPTED7['lined-up'])),
+    overdueView(clone(onTimeBody), readyRead(onTimeBody), busyView(clone(onTimeBody))),
+    overdueView(clone(overBody), readyRead(overBody), busyView(clone(overBody))),
+    passWho(clone(record), statusBody({ latest: runA })),
+  ];
+  const far = await withClock(Date.parse('2099-01-01T00:00:00.000Z'), async (calls) => ({ v: all(), n: calls.n }));
+  const old = await withClock(0, async (calls) => ({ v: all(), n: calls.n }));
+  assert(far.n === 0 && old.n === 0, `story 7's view functions must not call Date.now (${ADR7} § Constraints); it was called ${far.n + old.n} time(s)`);
+  ['confirmView (pending)', 'confirmView (expired)', 'confirmOutcome (already-pending)', 'confirmOutcome (lined-up)', 'overdueView (on-time)', 'overdueView (overdue)', 'passWho'].forEach((name, i) => {
+    same(far.v[i], old.v[i], `${name}: the same input must give the same answer whatever the client clock (${ADR7} § Constraints)`);
+  });
+  assert(far.v[0] && far.v[0].offer === false, `a confirmation the server calls pending withholds Confirm whatever the client clock says (${ADR7} D9); got ${show(far.v[0])}`);
+  assert(noLine(far.v[4]), `an on-time verdict gives no line whatever the client clock says (${ADR7} D14); got ${show(far.v[4])}`);
+});
+
+/* TV133–TV135: story 7's review, round 1, requested 5 (ADR 0007 § Fix-round notes, D14 "a failed read after a good one") */
+
+const ADR7_D14_NOTE = `${ADR7} § Fix-round notes, D14 "a failed read after a good one"`;
+/** The reason D14's note gives: the pass status could not be read (the status read, not the server's own reasons). */
+const STATUS_UNREAD = /\b(?:pass )?status\b[^.]*\b(?:could not|couldn't|cannot|can't) be read\b|\b(?:could not|couldn't|cannot|can't) read\b[^.]*\bstatus\b/i;
+const CANNOT_TELL_OVERDUE = /\bcannot tell whether the pass is overdue\b/i;
+/** The view's sentences (string values holding a space), in order: two answers say the same when these are equal. */
+const sentencesOfLine = (v) => stringsIn(v).filter((s) => /\s/.test(s));
+/** The verdicts that show no line (D14 "on-time, no-entry, no-schedule and no-pass: no line"), each kept from a good read. */
+const QUIET7 = [
+  ['on time', () => status7({ overdue: ON_TIME7 })],
+  ['no entry', () => status7({ overdue: { state: 'no-entry' } })],
+  ['no schedule', () => status7({ overdue: { state: 'no-schedule' } })],
+  ['no pass', () => status7({ overdue: { state: 'no-pass' } })],
+];
+/** The kept verdicts that would show a line, each with the words of its own that must not show once the read fails. */
+const LOUD7 = [
+  ['overdue, nothing busy', () => status7({ overdue: OVERDUE7 }), [/\bthe pass is overdue\b/i]],
+  ['overdue, a pass waiting', () => status7({ overdue: OVERDUE7, control: waitingControl7() }), [/\bthe pass is overdue\b/i, /\bwaiting\b/i, /\bclears?\b/i]],
+  ['cannot tell, for the rule', () => status7({ overdue: { state: 'cannot-tell', reason: 'rule' } }), [/\brule\b/i]],
+  ['no overdue member (a server before story 7)', () => status7(), [/\bdoes not include\b/i]],
+];
+/** What a failed read must say, whatever body it keeps: cannot tell, because the status could not be read, as with no body. */
+async function failedReadProblems(label, body) {
+  const bad = [];
+  const v = await overdueOf(body, failedRead(body));
+  const text = sentencesOfLine(v).join(' ');
+  if (!CANNOT_TELL_OVERDUE.test(text)) bad.push(`${label}: a failed read after a good one must say the panel cannot tell whether the pass is overdue; got ${show(v)}`);
+  else if (!STATUS_UNREAD.test(text)) bad.push(`${label}: with the reason that the pass status could not be read; got ${show(text)}`);
+  if (carriesTime(v, OVERDUE7.latestBeganAt) || carriesTime(v, OVERDUE7.expectedAt) || carriesTime(v, ON_TIME7.latestBeganAt) || carriesTime(v, ON_TIME7.expectedAt)) {
+    bad.push(`${label}: no time of the kept verdict shows; got ${show(v)}`);
+  }
+  const none = await overdueOf(null, failedRead(null));
+  if (show(sentencesOfLine(v)) !== show(sentencesOfLine(none))) {
+    bad.push(`${label}: the line is the one a failed read with no body gives ("whether or not a body is kept"), ${show(sentencesOfLine(none))}; got ${show(sentencesOfLine(v))}`);
+  }
+  return { bad, v, text };
+}
+
+test('TV133: a status read that fails after a good one says the panel cannot tell whether the pass is overdue, because the pass status could not be read, when the body it keeps holds a verdict that shows no line — on time, no entry, no schedule, no pass — never nothing, and never a time of that verdict: the line is the one a failed read with no body gives; the same bodies read well show no line [story 7 AC-5 "A missing warning never stands for on time", "When the pass report … cannot be read, the backstop section says it cannot tell whether the pass is overdue"; ADR tagging-edges/0007 § Fix-round notes, D14 "A status read that failed gives The panel cannot tell whether the pass is overdue. with the reason that the pass status could not be read. This holds whether or not a body is kept from an earlier read"; review round 1, requested 5]', async () => {
+  const bad = [];
+  for (const [label, make] of QUIET7) {
+    const ok = await overdueOf(make());
+    if (!noLine(ok)) bad.push(`setup, ${label}: read well, this verdict shows no line (D14); got ${show(ok)}`);
+    bad.push(...(await failedReadProblems(`${label}, then a failed read`, make())).bad);
+  }
+  assert(!bad.length, `overdueView with a failed read that keeps a quiet verdict (${ADR7_D14_NOTE}):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV134: a status read that fails after a good one never shows the verdict the body it keeps holds — an overdue pass (with nothing busy, and with a pass waiting), cannot tell for the rule, or an answer with no overdue member — but says the panel cannot tell whether the pass is overdue, because the pass status could not be read: none of the kept verdict\'s words, times or reason, and the line a failed read with no body gives [story 7 AC-5; ADR tagging-edges/0007 § Fix-round notes, D14 "A kept verdict is never shown while the latest read has failed"; review round 1, requested 5]', async () => {
+  const bad = [];
+  for (const [label, make, own] of LOUD7) {
+    const ok = sentencesOfLine(await overdueOf(make())).join(' ');
+    for (const re of own) if (!re.test(ok)) bad.push(`setup, ${label}: read well, this verdict's line says ${re}; got ${show(ok)}`);
+    const { bad: b, text } = await failedReadProblems(`${label}, then a failed read`, make());
+    bad.push(...b);
+    const rest = text.replace(CANNOT_TELL_OVERDUE, ' ').replace(STATUS_UNREAD, ' ');
+    for (const re of own) if (re.test(rest)) bad.push(`${label}, then a failed read: the kept verdict never shows (${re}); got ${show(text)}`);
+  }
+  assert(!bad.length, `overdueView with a failed read that keeps a verdict with a line (${ADR7_D14_NOTE}):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV135: green on purpose — a good read shows each verdict as before: no line for on time, no entry, no schedule and no pass; the overdue line with both times, and the waiting addition while a pass waits; cannot tell with the server\'s own reason for the rule, and with no overdue member — never the status-read reason; and a failed read with no body says it cannot tell because the pass status could not be read [story 7 AC-5; ADR tagging-edges/0007 D14, § Fix-round notes D14; review round 1, requested 5: what the fix must not change]', async () => {
+  const bad = [];
+  for (const [label, make] of QUIET7) {
+    const v = await overdueOf(make());
+    if (!noLine(v)) bad.push(`${label}, read well: no line (D14); got ${show(v)}`);
+  }
+  for (const [label, make, own] of LOUD7) {
+    const v = await overdueOf(make());
+    const text = sentencesOfLine(v).join(' ');
+    for (const re of own) if (!re.test(text)) bad.push(`${label}, read well: its line says ${re}; got ${show(text)}`);
+    if (STATUS_UNREAD.test(text)) bad.push(`${label}, read well: a good read never says the status could not be read; got ${show(text)}`);
+    if (label.startsWith('overdue') && !(carriesTime(v, OVERDUE7.latestBeganAt) && carriesTime(v, OVERDUE7.expectedAt))) bad.push(`${label}, read well: the line carries when the latest pass began and when the next was expected; got ${show(v)}`);
+  }
+  const none = await overdueOf(null, failedRead(null));
+  const text = sentencesOfLine(none).join(' ');
+  if (!CANNOT_TELL_OVERDUE.test(text) || !STATUS_UNREAD.test(text)) bad.push(`a failed read with no body: cannot tell, because the pass status could not be read (D14); got ${show(none)}`);
+  assert(!bad.length, `overdueView with a good read, and a failed one with no body (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
+});
+
+/* TV136–TV137: story 7's fix round 2 (review round 2, requested 3 and 4; ADR 0007 § Fix-round notes, D14, and round 2) */
+
+/** A Retry of the status read under way (useRead's showLoading): state 'loading', the kept body, and the error kept or not. */
+const retryRead = (keptBody, error) => ({ ...failedRead(keptBody, error === undefined ? { ok: false, code: 'http-500', httpStatus: 500, body: null } : error), state: 'loading', error: error === undefined ? { ok: false, code: 'http-500', httpStatus: 500, body: null } : error });
+
+test('TV136: green on purpose — while a Retry of a failed status read is under way (state loading, the error kept), the line stays the one a failed read gives: the panel cannot tell whether the pass is overdue, because the pass status could not be read, whatever body is kept (each quiet verdict, each loud one, and none), never the kept verdict; its pair, a read under way with no error kept, shows the kept body\'s verdict as a good read does, and with no body says the check is still being made [story 7 AC-5 "A missing warning never stands for on time"; ADR tagging-edges/0007 § Fix-round notes, D14 "A kept verdict is never shown while the latest read has failed"; review round 2, requested 4 "the Retry branch of requested 5 … one TV case, and its pair with no error"]', async () => {
+  const bad = [];
+  const failedLine = show(sentencesOfLine(await overdueOf(null, failedRead(null))));
+  for (const [label, make] of [...QUIET7, ...LOUD7.map(([l, m]) => [l, m]), ['no body kept', () => null]]) {
+    const body = make();
+    const retry = await overdueOf(body, retryRead(body));
+    const text = sentencesOfLine(retry).join(' ');
+    if (!CANNOT_TELL_OVERDUE.test(text) || !STATUS_UNREAD.test(text)) bad.push(`${label}, a Retry under way with the error kept: cannot tell, because the pass status could not be read; got ${show(retry)}`);
+    else if (show(sentencesOfLine(retry)) !== failedLine) bad.push(`${label}, a Retry under way with the error kept: the line a failed read gives, ${failedLine}; got ${show(sentencesOfLine(retry))}`);
+    const pending = await overdueOf(body, { state: 'loading', body: body === null ? null : clone(body), error: null, readAt: body === null ? null : '2026-10-01T14:02:15.000Z' });
+    const want = body === null ? await overdueOf(null, READ_LOADING) : await overdueOf(body);
+    if (show(pending) !== show(want)) bad.push(`${label}, a read under way with no error kept: the same as ${body === null ? 'before the status has answered' : 'a good read of that body'}, ${show(want)}; got ${show(pending)}`);
+  }
+  assert(!bad.length, `overdueView while a read is under way (${ADR7_D14_NOTE}):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV137: the line for {state: cannot-tell, reason: rule} still says it is the rule the server cannot judge, but names no one cause, since the server gives that reason for three: a rule that runs fewer than twice in 400 days, more than 32 distinct patterns, and a pattern longer than 256 characters — so it never says the rule runs fewer than twice in 400 days [story 7 AC-5 "When it cannot tell … the backstop section says it cannot tell whether the pass is overdue"; ADR tagging-edges/0007 D8 R13, § Fix-round notes D8, and round 2 D8; review round 2, requested 3 "drop the clause, or give each cause its own reason and sentence"]', async () => {
+  const v = await overdueOf(status7({ overdue: { state: 'cannot-tell', reason: 'rule' } }));
+  const text = sentencesOfLine(v).join(' ');
+  const bad = [];
+  if (!CANNOT_TELL_OVERDUE.test(text) || !/\brule\b/i.test(text)) bad.push(`it says the panel cannot tell whether the pass is overdue, and that it is the rule; got ${show(text)}`);
+  if (/\bfewer than\b|\btwice\b|\b400 days\b/i.test(text)) bad.push(`it names R13's cause, which the server's reason does not carry (33 daily rules give it too); got ${show(text)}`);
+  assert(!bad.length, `overdueView for cannot-tell/rule (${ADR7} § Fix-round notes D8; review round 2, requested 3):\n      - ${bad.join('\n      - ')}`);
+});
+
 // ─── runner ────────────────────────────────────────────────────────────────────────────────────────────────────
 async function run() {
-  console.log('\n--- tagging pipeline view model tests (epic tagging-edges, Stories 4–6 — ADR 0004 § UI, T1–T6; ADR 0005; ADR 0006 D16) ---');
+  console.log('\n--- tagging pipeline view model tests (epic tagging-edges, Stories 4–7 — ADR 0004 § UI, T1–T6; ADR 0005; ADR 0006 D16; ADR 0007 D9, D11–D14) ---');
   let pass = 0, fail = 0;
   const failures = [];
   for (const [name, fn] of tests) {

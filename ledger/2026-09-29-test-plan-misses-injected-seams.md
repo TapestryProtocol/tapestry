@@ -16,4 +16,10 @@ ADR adds. Two local end-to-end runs exercised the module live, which is evidence
 real implementations behind injected seams. Each ADR "New file" or default dependency is named with the suite that
 loads the real module, or with an explicit waiver (for example live-only, with the evidence that covers it).
 
+**Seen again, 2026-11-07 (tagging-edges #7).** The status route's overdue verdict reads the schedule through an
+injected `readScheduleEntries`, whose default calls the strict reader (`src/api/tagging-edges/index.js:51`). Every
+overdue test injects it, and no status test reads the default, so swapping it for the lenient reader (which turns a
+parse error into "no entry" instead of "cannot tell") would pass every suite (review
+`tagging-edges/7-confirm-held-removals.md`, requested 4).
+
 **Pointer:** `engineering-team/reviews/tagging-edges/3-real-time-path.md` § Non-blocking 8 and § Harness friction 2.

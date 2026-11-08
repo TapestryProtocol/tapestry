@@ -12,7 +12,8 @@
  *   ended(job)          synchronous, in memory: the job is ending; its in-memory marks are dropped (the record keeps them)
  *   gaveUp(job, err)    a chain step that always resolves: the give-up, and gaveUpAt on the job's entry, best effort
  *   skipped(job)        the completed job's return value, { skipped: true, jobId }
- * The gate never reads Redis, and records no who for a start lineUp records (owner, admin, local, confirmation).
+ * The gate never reads Redis, and records no who for a start lineUp or confirm records (owner, admin, local; the owner's
+ * confirmation's start is confirm's, ADR tagging-edges/0007 D2).
  */
 
 function makeGate(state, deps) {

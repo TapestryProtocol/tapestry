@@ -9,6 +9,7 @@
  * does not count as running. A figure the path has never produced reads "not yet available", never 0.
  */
 
+import { useRef } from 'react';
 import { Explained, Figures, Loading, NOT_YET, ReadFailed, Section, TONE_COLOUR, figure, took, when } from './parts.jsx';
 import PathSwitch, { SwitchRecord } from './PathSwitch.jsx';
 
@@ -158,15 +159,17 @@ function Problems({ view, body }) {
  * switch (story 5): `statusRead` is the pass status read, `sched` scheduleView of the schedule list or null,
  * `schedPending` true while that list is being read (its first read, or a Retry), `record` the switch record's read
  * and `recordView` switchRecordView of it, `change` the panel's change state and `onSwitch(on)` sends one. The
- * control and the record render only once the path status has a body.
+ * control and the record render only once the path status has a body. The section's heading takes focus when the
+ * switch's prompt closes with no line to show (story 7; ADR tagging-edges/0007 D15), so its ref is passed down.
  */
 export default function PathSection({
   read, view, onRetry, statusRead, sched, schedPending, record, recordView, onRetryRecord, change, onSwitch,
 }) {
   const title = 'The real-time path';
+  const heading = useRef(null);
   if (!view || read.state === 'loading') {
     return (
-      <Section testId="tp-path" state={read.state} title={title}>
+      <Section testId="tp-path" state={read.state} title={title} headingRef={heading}>
         {read.state === 'error'
           ? <ReadFailed what="The path status" error={read.error} onRetry={onRetry} />
           : <Loading what="the path status" />}
@@ -180,7 +183,7 @@ export default function PathSection({
   if (failed) state = 'error';
   else if (!view.started) state = 'empty';
   return (
-    <Section testId="tp-path" state={state} title={title} tone={view.tone}>
+    <Section testId="tp-path" state={state} title={title} tone={view.tone} headingRef={heading}>
       {failed && <ReadFailed what="The path status" error={read.error} readAt={read.readAt} onRetry={onRetry} />}
       <OnLine view={view} body={body} />
       <PathSwitch
@@ -191,6 +194,7 @@ export default function PathSection({
         schedPending={schedPending}
         change={change}
         onSwitch={onSwitch}
+        headingRef={heading}
       />
       <SwitchRecord read={record} view={recordView} onRetry={onRetryRecord} />
       {view.state !== null && (

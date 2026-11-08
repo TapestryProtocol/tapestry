@@ -116,17 +116,8 @@ function scheduler() {
 
 // ── Config read/write ──────────────────────────────────────────────────
 
-function readConfig() {
-  let parsed = null;
-  let fileExisted = false;
-  try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      fileExisted = true;
-      parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
-    }
-  } catch (e) {
-    console.error('[scheduled-tasks] Error reading config:', e.message);
-  }
+/** The config from what was read: `parsed` (null for nothing), and whether the file existed. */
+function configFrom(parsed, fileExisted) {
   // Always pipe through the migrator — idempotent on v2, transparently
   // upgrades v1 (ADR 0019 per-task shape) on first read.
   let registry = null;
@@ -139,6 +130,26 @@ function readConfig() {
     config.entries = freshInstallEntries(registry);
   }
   return config;
+}
+
+/**
+ * readConfig, but a read or parse error throws instead of reading as an
+ * empty config, so a reader that must not take a failure for "no entries"
+ * can tell (the tagging pass's overdue verdict, ADR tagging-edges/0007 D8).
+ */
+function readConfigStrict() {
+  const fileExisted = fs.existsSync(CONFIG_PATH);
+  const parsed = fileExisted ? JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) : null;
+  return configFrom(parsed, fileExisted);
+}
+
+function readConfig() {
+  try {
+    return readConfigStrict();
+  } catch (e) {
+    console.error('[scheduled-tasks] Error reading config:', e.message);
+    return configFrom(null, true);
+  }
 }
 
 function writeConfig(config) {
@@ -578,6 +589,7 @@ module.exports = {
   reconcileSchedulesFromConfig,
   // Exported for testability / reuse:
   readConfig,
+  readConfigStrict,
   isRegisteredTask,
   getRecentRuns,
   groupEventsIntoSessions,
