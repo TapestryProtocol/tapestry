@@ -3,7 +3,7 @@
  * Tests for Story 7 (epic tagging-edges) — confirming held removals: the controller's one confirmation step, and the
  * confirm route that hands every confirmation to it.
  *
- * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md — AC-1 (Confirm for the owner: nothing
+ * Story: engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md — AC-1 (Confirm for the owner: nothing
  *        busy, a pass waiting, a pass that has begun or only just started, every busy pass with a stop asked for,
  *        "Never a false answer", a second confirmation while one is pending, no pass lined up, a pass starting while
  *        the confirmation is being made, a confirmation that cannot be relied on), AC-2 ("Only what the prompt
@@ -11,7 +11,7 @@
  *        records nothing), AC-4 (what is recorded; refused when it cannot be recorded; no public read names who), and
  *        § Test tasks "Server cases for AC-1 to AC-4", the last bullet included (signed-out reads after the owner's
  *        confirmation).
- * ADR:   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md — D1 (controller.confirm, one chain
+ * ADR:   engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md — D1 (controller.confirm, one chain
  *        step; the route keeps only the who and body checks), D2 (the step's nine steps, in order; takeBackStart), D3
  *        (pendingFor, through the controller), D4 (the answers), D5 (the confirm line; refused when unrecordable), D6
  *        (the public confirmation: no who), § Readings 1 (a starting pass is joined), R10, R11, § Seams for Test

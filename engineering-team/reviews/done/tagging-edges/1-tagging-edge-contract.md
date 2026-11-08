@@ -4,9 +4,9 @@
 **Date:** 2026-09-27
 **Verdict:** **PASS** (after re-review; see "Re-review (2026-09-27)" at the bottom. Round 1 was CHANGES_REQUESTED.)
 **Diff:** the whole branch is `git diff 72469bde..7e18a404` on `feat/tagging-edges`. It has four commits: `60e33542` story, `03c75544` ADR (plus the one-line 0009 note), `491735fe` failing tests, and `7e18a404` implementation (`src/lib/tagging-edges/{contract,index}.js`, BIBLE §6/§21/§30 + Last updated, story Deviations). 11 files, 2,023 insertions, 2 deletions. The implementation commit touches no test file (`git diff --stat 491735fe..7e18a404`: BIBLE, story, contract.js, index.js). I re-checked the shared line: `git fetch origin staging` leaves `origin/staging` at `72469bde`, so the branch is 0 behind, and `git merge-tree --write-tree 7e18a404 origin/staging` exits 0.
-**Story:** `engineering-team/stories/tagging-edges/1-tagging-edge-contract.md` (Approved 2026-09-26; Architecture-gate ruling 2026-09-27)
-**ADR:** `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md`, including "Clarifications (Test Design, 2026-09-27)" 1–8
-**Test plan:** `engineering-team/stories/tagging-edges/1-tagging-edge-contract.test-plan.md`
+**Story:** `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.md` (Approved 2026-09-26; Architecture-gate ruling 2026-09-27)
+**ADR:** `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md`, including "Clarifications (Test Design, 2026-09-27)" 1–8
+**Test plan:** `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.test-plan.md`
 **Book:** `engineering-team/audits/tagging-edges/book.md` (acceptance frame, no PRD)
 
 ## Quality gates (run by reviewer, not trusted)
@@ -133,7 +133,7 @@ Should-fix items. They conform to the ADR as written, so each one needs an owner
 7. **BIBLE.md:316** — AC-3's target-move rule ("a newer version naming a different person moves the relationship") is not stated. One sentence would fix it.
 8. **contract.js:1-12 / ADR "Binding for later stories"** — the precondition "callers pass only relay-verified events" appears only in the story's Out of scope. Story 3 is the most likely caller to break it.
 9. **BIBLE.md:300** — `protocols/drafts/tags.md` is written as a code span. Every other drafts citation in BIBLE is a Markdown link (:210, :407, :415, :1626, :1669, :1680).
-10. **stories/tagging-edges/1-tagging-edge-contract.md:97** — commits this machine's full TA pubkey (`8387ec0e…294f`). OPEN.md rows 44, 127, 168 and 223 track exactly this kind of stale local-literal-in-docs. Use `<TA>` or elide it as the ADR does (:46).
+10. **stories/done/tagging-edges/1-tagging-edge-contract.md:97** — commits this machine's full TA pubkey (`8387ec0e…294f`). OPEN.md rows 44, 127, 168 and 223 track exactly this kind of stale local-literal-in-docs. Use `<TA>` or elide it as the ADR does (:46).
 11. **audits/tagging-edges/book.md** — it lacks the template's `**Confidence at close:**` placeholder and the `## Close artifacts` section (`templates/book.md:61,63`). The previous book carried both from opening.
 12. **test-plan.md:168** (the finder cited :170) — "adjusted only for the six ADR clarifications", but the ADR has eight, and commit `491735fe` says eight.
 
@@ -328,7 +328,7 @@ Should-fix items for the owner to decide. Carrying them into story 2's ADR is en
 1. **The Implementer's after-gate ran on a dirty tree again.** Run `20260927T124211Z-4360-960f` was on `e78c1152+dirty` (`dirtyCount: 17`) and finished at 12:47:33Z. `4a9c11ac` and `914f59fa` were committed at 12:47:54Z. This is the second round in a row. My committed-tree run matches it on all 227 suites, so nothing was hidden. I propose no row. If the owner wants the after-gate run on a committed tree, that is a change to workflow 4.
 
 ### On PASS
-- **Story status not flipped.** This re-review was scoped to the review file only, so the story's `**Status:**` (still `Approved`) was not changed. The caller should set `**Status:** Done` in `engineering-team/stories/tagging-edges/1-tagging-edge-contract.md` in the review commit. Until then, `bash scripts/harness-lint.sh` exits 1 with a single violation, L1 ("review … is PASS-final but story status is 'Approved'").
+- **Story status not flipped.** This re-review was scoped to the review file only, so the story's `**Status:**` (still `Approved`) was not changed. The caller should set `**Status:** Done` in `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.md` in the review commit. Until then, `bash scripts/harness-lint.sh` exits 1 with a single violation, L1 ("review … is PASS-final but story status is 'Approved'").
 - **Completion detection** goes in the chat, not in this file.
 
 ### Verdict

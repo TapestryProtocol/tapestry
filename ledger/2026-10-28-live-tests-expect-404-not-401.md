@@ -30,6 +30,6 @@
   route table's message) with the probe's 200.
 - The tests are the Tester's, so the change is a small bug story (Test Design, then Review), not an edit in passing.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Quality gates and § "Outside this story"
+**Pointer:** `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Quality gates and § "Outside this story"
 1; ADR `tagging-edges/0006` § Seams, "Live and evidence" (the 404-to-401 note); ledger
 `2026-10-11-route-table-release`.

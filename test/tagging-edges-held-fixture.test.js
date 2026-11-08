@@ -3,12 +3,12 @@
  * Tests for Story 7 (epic tagging-edges) — the evidence fixture: the script that makes a held list of relationships
  * created only for a test, checks the held list is exactly theirs, and takes them out again.
  *
- * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md — § Open questions, "Evidence": every held
+ * Story: engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md — § Open questions, "Evidence": every held
  *        list made only of relationships created for the test; no tagging on any relay touched, nothing published or
  *        deleted on a relay; no real person shown tagging or tagged; nothing from before the test changed or removed;
  *        "Before the owner confirms, the held list is checked to be exactly the test's"; "everything it created is
  *        taken out again afterwards"; about 810 needed at 2026-11-07's count.
- * ADR:   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md — § Evidence ("The fixture": two
+ * ADR:   engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md — § Evidence ("The fixture": two
  *        TaggingEdgesEvidence nodes, never NostrUser; T TAGS between them at addresses under the author ffff…ffff,
  *        not a valid key; T = floor(B / 9) + 1 + max(20, ceil(B / 450)); one transaction. "The script":
  *        scripts/tagging-edges-held-fixture.js, its commands, and "Exports for the Tester: FIXTURE_AUTHOR,

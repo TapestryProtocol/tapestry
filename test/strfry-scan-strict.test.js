@@ -2,12 +2,12 @@
 /**
  * Tests for Story 2 (epic: tagging-edges) — the strict relay reader the gap-filling pass reads its relay through.
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md (AC-4: a read that fails or comes
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md (AC-4: a read that fails or comes
  *        back incomplete changes nothing and says which read failed and why; AC-1 / AC-3 lean on a complete read)
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md — D2 "Reading the relay" (a new small
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md — D2 "Reading the relay" (a new small
  *        streaming reader, one `#z` scan, no count), § Implementation notes → `src/lib/strfryScanStrict.js`, and
  *        § Seams for Test Design → "Strict reader"
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * Unit under test: `scanStrict(filter, { timeoutMs, isExpected, maxBytes, spawnImpl })` from src/lib/strfryScanStrict.js
  * → `{ events, lines, bytes, elapsedMs }`, or a rejection with `ScanError { code, message, stderrTail }`. A failed or
@@ -29,8 +29,8 @@
  * test/helpers/taggingEdgesFixtures.js — never a deployment's TA and never the ADR 0015 literal.
  * Works on Node 16 and 22: no global fetch, no structuredClone, no node:test.
  *
- * Story 3 (the real-time path) amends the reader. Story: engineering-team/stories/tagging-edges/3-real-time-path.md;
- * ADR: engineering-team/decisions/tagging-edges/0003-real-time-path.md — § Amendments → ADR 0002 "New files
+ * Story 3 (the real-time path) amends the reader. Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md;
+ * ADR: engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § Amendments → ADR 0002 "New files
  * (src/lib/strfryScanStrict.js)", § Implementation notes → Changed files, owner decision 6 (CF-3), and § Clarifications
  * T1. SS31–SS39 are its red-phase tests: the `onEvent` streaming option (events not kept; every completeness rule
  * unchanged), filter arrays, the argv text written with `\/` and size-checked before spawn (`filter-too-large`,

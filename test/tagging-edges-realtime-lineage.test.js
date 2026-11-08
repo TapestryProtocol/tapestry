@@ -3,10 +3,10 @@
  * Tests for Story 3 (epic tagging-edges) — the real-time path's LINEAGE: revokes by event id, and what an empty read
  * keeps (ADR 0003 Amendment A1). Engine level, driven through the T20 seam with every dependency faked.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md — AC-2, AC-3 ("What a removal needs": "A deletion
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md — AC-2, AC-3 ("What a removal needs": "A deletion
  *        naming a version the path has since seen replaced at that address prompts nothing"), AC-4 and AC-6, as
  *        amended at Architecture on 2026-09-29 by Amendment A1.
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — § Amendment A1: A1-1 (the lineage), A1-2
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § Amendment A1: A1-1 (the lineage), A1-2
  *        (learning; a read or scan placed at its capture), A1-3 (an e target resolves only as its address's top), A1-4
  *        (the gate: clause i, clause ii), A1-5 (no discards; at most 8 by-e revokes per entry), A1-6 (absolute v / o
  *        lines, lineage rows, the unfed backlog in pending), A1-7 (older capped at 8), A1-8 (the census), A1-9 (the

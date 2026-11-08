@@ -8,7 +8,7 @@
 
 **What was seen.**
 - **The hold was written down.** At 15:31:54Z on 2026-10-02, story 5's file on staging
-  (`engineering-team/stories/tagging-edges/5-real-time-path-switch.md` at `811c7666`, which PR #809 merged to main as
+  (`engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md` at `811c7666`, which PR #809 merged to main as
   `09ec35b0`) had a section titled "After the merge to staging (not yet run)". It said a Staging section holding the
   evidence "must exist here before staging is promoted to main".
 - **The promotion did not read it.** At that moment, another session's promotion of all of staging merged story 5

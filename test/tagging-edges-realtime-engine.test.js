@@ -3,8 +3,8 @@
  * Tests for Story 3 (epic tagging-edges) — the real-time path's ENGINE, driven through its seam with every dependency
  * faked.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md (AC-1 … AC-7, confirmed items 6–15, "For Test Design")
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — § Decision (What it hears, Where it runs,
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md (AC-1 … AC-7, confirmed items 6–15, "For Test Design")
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § Decision (What it hears, Where it runs,
  *        Knowing what changed while it was away, What it decides and writes, Failure handling, Coexisting with the pass,
  *        Status and switch, Throughput and ceilings) and § Clarifications (Test Design) T15, T16, T19, T20, T21, and
  *        the settled T25 (a round completes every address it decided; the upper-case kind-5 corner), T26 (the store),
@@ -56,7 +56,7 @@
  * RE82 comes from the review's round 2, non-blocking R2-NB9: a subscription's close is logged through log() with its
  * fixed reason and its close code, and nothing unredacted. It passes now.
  *
- * RE70b comes from story 6 (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md AC-6; ADR tagging-edges/0006
+ * RE70b comes from story 6 (engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md AC-6; ADR tagging-edges/0006
  * § Constraints "a stopped pass that ends through finish() still gets its catch-up", D10): RE70 with a pass that ends
  * stopped on request (the fakes' w.passEnd(runId, { outcome: 'stopped', reasonCode: 'requested', stopped: true });
  * its defaults stay a finished pass's 'done', 'done', false). It passes now and is meant to: the engine reads only

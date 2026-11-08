@@ -2,12 +2,12 @@
 /**
  * Tests for Story 2 (epic tagging-edges) — the gap-filling pass's pure planner, src/lib/tagging-edges/sweep.js.
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md — "Implementation notes → New files →
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md — "Implementation notes → New files →
  *        sweep.js", "The rule for one address", "The removal rule and the limit (R2-NB3, AC-5)", and "Seams for Test
  *        Design → Planner, stack-free" and "→ Identities". Binding context: ADR tagging-edges/0001 (amended by 0002,
  *        A1–A11) and src/lib/tagging-edges/contract.js.
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * Intentionally failing until src/lib/tagging-edges/sweep.js lands (red phase). The module is require()d LAZILY inside
  * each test through load() / fn(), so loading this suite never crashes the runner, and each test fails with

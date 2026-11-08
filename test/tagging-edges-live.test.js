@@ -2,10 +2,10 @@
 /**
  * Tests for Story 2 (epic tagging-edges) — the gap-filling pass: live checks against the LOCAL stack only.
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md ("Seams for Test Design → Live, local stack
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md ("Seams for Test Design → Live, local stack
  *        only"; binding context: ADR tagging-edges/0001 as amended, and src/lib/tagging-edges/contract.js)
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * Intentionally red until story 2's implementation lands: src/pipeline/tagging-edges/graph.js and
  * src/lib/tagging-edges/sweep.js do not exist yet. Both are require()d LAZILY inside each test through load
@@ -781,8 +781,8 @@ test('SL16: the sandbox deletes exactly its own fixtures — its TAGS addresses,
 }, 'sandbox');
 
 // ═══ Story 3 (ADR tagging-edges/0003): the real-time path's reads, read-only (the default class) ════════════════
-// Story: engineering-team/stories/tagging-edges/3-real-time-path.md ("For Test Design → Live tests": never wipe the
-// local graph's dev TAGS; nothing is published). ADR: engineering-team/decisions/tagging-edges/0003-real-time-path.md
+// Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md ("For Test Design → Live tests": never wipe the
+// local graph's dev TAGS; nothing is published). ADR: engineering-team/decisions/done/tagging-edges/0003-real-time-path.md
 // (Implementation notes → graph.js readAt / readKeys / READ_KEYS; § What it hears; clarification T4; test orientation:
 // "An opt-in live suite: read-only checks of readAt and readKeys, and a limit:0 websocket smoke test against the local
 // relay"). SL17–SL18 follow this file's skip rules (NEO4J_* from the environment, a local host only). SL19 sends one

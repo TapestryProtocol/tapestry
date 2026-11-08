@@ -5,9 +5,9 @@
 **Reviewer:** Claude (acting as Reviewer)
 **Date:** 2026-09-28
 **Diff:** `git diff origin/staging...da787035` on `feat/tagging-edges-2` (merge-base `88e8659a`). Seven commits: `0af7cc5b` story, `1b1e1ad8` ledger (Planning), `cd997e2e` ADR 0002, `dfdb7595` ledger (Architecture), `05e5f013` failing tests, `64885ce7` implementation, `da787035` one comment reworded. 45 files, 13,403 insertions, 57 deletions. `origin/staging` (`354eb966`) has since gained seven router-fix commits. They touch two of this branch's files, in hunks that do not overlap: `BIBLE.md` (staging :529; branch :8, :316-320, :651, :1470) and `test/registry.js` (staging :170; branch :261). `git merge-tree --write-tree da787035 origin/staging` exits 0.
-**Story:** `engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md` (Status: Approved)
-**ADR:** `engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md`, with Owner decisions 1–15, Amendments A1–A11 to ADR 0001, Implementation notes and Clarifications C1–C19. Also ADR `tagging-edges/0001` as amended.
-**Test plan:** `engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md`
+**Story:** `engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md` (Status: Approved)
+**ADR:** `engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md`, with Owner decisions 1–15, Amendments A1–A11 to ADR 0001, Implementation notes and Clarifications C1–C19. Also ADR `tagging-edges/0001` as amended.
+**Test plan:** `engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md`
 **Book:** `engineering-team/audits/tagging-edges/book.md` (acceptance frame, no PRD)
 
 The review ran as parallel lenses (spec, ADR, correctness, security, docs, test gaps). A separate verify pass then tried to refute every finding. This report keeps only findings the verify pass confirmed, at its severity. Where two verify passes rated the same text differently, I take the higher rating and say so. Probe scripts and outputs are in the session scratchpad `$R = /private/tmp/claude-506/-Users-VIRGIL-repos-nous-clawds4-tapestry/dbce76a9-dc52-45aa-8aa5-d9f79c120c25/scratchpad/s2-review/`, which is ephemeral. Every request to the local stack was a read: GETs, read-only Cypher, `EXPLAIN` in a READ session, and `docker exec` reads. Nothing in the checkout was modified.
@@ -296,7 +296,7 @@ The review ran as parallel lenses (spec, ADR, correctness, security, docs, test 
 
    **Asked change:** replace the clause with "changes nothing when a read its plan is made from (the graph snapshot or the relay scan) fails or comes back incomplete; a batch's verify re-read that fails ends the run failed, with the batches already committed standing, each tagging at one version".
 
-6. **engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md:114-115** (the R2-4 text this diff adds) — **"so an upper-case pubkey in the address does not delete on the relay" is false.**
+6. **engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md:114-115** (the R2-4 text this diff adds) — **"so an upper-case pubkey in the address does not delete on the relay" is false.**
 
    **What strfry does** (the container's source, strfry 1.1.0 `f31a1b9`, with `events.cpp` and `EventUtils.h` unmodified):
    - It decodes the `a` pubkey case-insensitively (`EventUtils.h:49`, `hex.h`), so the author check at `events.cpp:43-45` passes.
@@ -704,7 +704,7 @@ The round-3 check found six wording nits. None is behaviour; none was fixed here
 4. **Round 1's two harness rows are filed:** `ledger/2026-09-28-live-and-evidence-runs-unrecorded.md` and `ledger/2026-09-28-conf-secret-masking-snippet.md` (both at `0548e41a`).
 
 ### On PASS
-- **Story status flipped to `Done`** in this review commit (`engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md`), so L1 holds.
+- **Story status flipped to `Done`** in this review commit (`engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md`), so L1 holds.
 - **The round-2 findings are closed** (Round 3 above); the six carry-forwards are the owner's to place (story 3's docs tasks or a ledger row). None changes what the pass does to the graph.
 - **Completion detection** goes in the chat, not in this file.
 

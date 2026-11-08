@@ -46,7 +46,7 @@ each promotion, as for nousclawds4/tapestry#11. Each promotion needs the owner's
 4. Bring the result into `staging`, so both branches carry the same rule.
 
 **Pointer:** `docs/harness/H2_0-baseline.md` (on `main`); the message of commit `73bfa5ca`; PR nousclawds4/tapestry#11
-and its merge commit `8534b050`; `engineering-team/stories/tagging-edges/6-pass-run-and-stop.md` § Evidence,
+and its merge commit `8534b050`; `engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md` § Evidence,
 "Production".
 
 **Update 2026-11-05 (book `setup-create-account`, both ships).** The skills themselves now lag the practice:
@@ -63,3 +63,7 @@ and its merge commit `8534b050`; `engineering-team/stories/tagging-edges/6-pass-
     brains-launcher commits stayed off main twice that way.
 - **Add to the fix shape:** whichever merge rule the owner confirms, write the mirror route into both skills, and the
   Director's copy of the staging chain.
+
+**Seen again, 2026-11-08 (tagging-edges story 7's promotion, nousclawds4/tapestry#40).** The owner was asked
+again, and again chose a GitHub merge by the session, as the OK the baseline asks for. The promotion carried story 7
+alone, cherry-picked onto `promote/tagging-edges-7` (ledger `2026-11-08-selective-promotion-diverges-main`).

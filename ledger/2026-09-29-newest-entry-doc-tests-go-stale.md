@@ -20,5 +20,5 @@ is newest goes stale at the next story that updates the line. Until then it shap
 - In the Tester's guidance (`engineering-team/workflows/3-test-design.md`), write doc tests as "an entry records X",
   never "the newest entry is X". Still open: this half is why the row stays open.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/3-real-time-path.md` § Harness friction 1; story 3 § Deviations
+**Pointer:** `engineering-team/reviews/done/tagging-edges/3-real-time-path.md` § Harness friction 1; story 3 § Deviations
 (Docs, first line).

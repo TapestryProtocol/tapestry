@@ -3,13 +3,13 @@
  * Tests for Story 5 (epic tagging-edges) — the real-time path's switch: who may change it, the record of who did, and
  * the gated read of that record.
  *
- * Story: engineering-team/stories/tagging-edges/5-real-time-path-switch.md — AC-4 (who may switch: a signed-in owner or
+ * Story: engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md — AC-4 (who may switch: a signed-in owner or
  *        admin, enforced by the server; every refused caller changes and records nothing; last change wins; a failed
  *        on changes nothing; an off still takes effect when it cannot be recorded), AC-5 (who did it: role, a
  *        shortened key and when; the unrecorded off; the last 10 changes, newest first; the never-switched state; the
  *        change made before story 5 as the owner's; only a signed-in owner or admin reads who), the Test tasks
  *        "Server cases for AC-4" and "Server cases for AC-5", and the two residuals accepted at Architecture.
- * ADR:   engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md — D1 (switch.json version 2 and
+ * ADR:   engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md — D1 (switch.json version 2 and
  *        switch-history.json), D2 (write order and the failure matrix), D3 (switchEntry, switchRecord, foldHistory), D4
  *        (onSince), D5 (who may switch; ownerOrAdmin), D6 (GET on the switch path), D9 (concurrent changes), D10 (the
  *        pre-story-5 record), D11 (the POST's answers), § Consequences (residuals (a) and (b)) and § Seams for Test
@@ -67,7 +67,7 @@
  *   - ownerOrAdmin(req, d) is given d with ownerPubkey() and getAdminPubkeys() (drift.js's shape after withDeps), plus
  *     getOwnerPubkey as the same function, as the DR suite's bundle does.
  *
- * Review round 1 (engineering-team/reviews/tagging-edges/5-real-time-path-switch.md):
+ * Review round 1 (engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md):
  *   - Blocking 1: SR34's case rows each name their own first status (status1), which the assertion reads. It is never
  *     derived from the expected body. (Corrected at story 6's Test Design, 2026-10-27, C5-2.) gate-result-record's C9
  *     (row 263) refuses one spelling of such a derivation: a ternary on a success flag, its pattern a `?` and then

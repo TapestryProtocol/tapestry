@@ -22,5 +22,5 @@ Fix shape, for the owner to choose (review round 3 priced the first at about one
   section's heading when the focused control goes;
 - **or leave it** as a known gap, and close this row saying so.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md` § "Re-review, round 3", "For the
+**Pointer:** `engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md` § "Re-review, round 3", "For the
 owner", first bullet

@@ -1,10 +1,10 @@
 # Test Plan: Story 4 — The tagging pipeline panel
 
-**Story:** `engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md`, with § Clarifications (Test Design,
+**Story:** `engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md`, with § Clarifications (Test Design,
 2026-09-30) T1–T11, as amended at `c496d853` (review round 1: T5's `countsPredatePass`), and T12 at `3a672f68`
 (review round 1: `failureCode`)
-**Review:** `engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md`, round 1 (§ Review round 1 below)
+**Review:** `engineering-team/reviews/done/tagging-edges/4-tagging-pipeline-panel.md`, round 1 (§ Review round 1 below)
 **Date:** 2026-09-30
 
 ## The suites
@@ -102,7 +102,7 @@ ADR 0004's T1–T11 fix the shapes. The suites also take these readings, which t
 
 ## Review round 1
 
-The review (`engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md`, CHANGES_REQUESTED at `39d94811`)
+The review (`engineering-team/reviews/done/tagging-edges/4-tagging-pipeline-panel.md`, CHANGES_REQUESTED at `39d94811`)
 asked for these tests. "Fails now" means it fails on `c496d853` for the missing behaviour, with a message that says
 what is expected. "Pins" means the behaviour is already there: the test passes now, and a wrong version built in
 scratch fails it.

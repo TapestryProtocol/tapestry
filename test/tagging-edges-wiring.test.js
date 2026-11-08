@@ -2,11 +2,11 @@
 /**
  * Tests for Story 2 (epic: tagging-edges) — the gap-filling pass: its wiring and its Neo4j port.
  *
- * Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md
- * ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md
+ * Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md
  *        ("Implementation notes" → graph.js and Changed files; "Seams for Test Design" → Static sentinels and
  *        Graph port, stack-free). Binding context: ADR 0001 (amended) and src/lib/tagging-edges/contract.js.
- * Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ * Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  *
  * Intentionally red until story 2's implementation lands (red phase): src/pipeline/tagging-edges/graph.js does not
  * exist, and the registry entry, the fresh-install seed, both expected-rule lists, the setup script's statement, the
@@ -33,7 +33,7 @@
  *   Story 3's review, round 1 (2026-09-29), conform item 1(e): SWR72 reads each SHOW transaction's config on the fake
  *   driver — readSchema keeps no default transaction time-out for the pass (as story 2 shipped it), and a caller's
  *   timeoutMs bounds it (the real-time path's own; test/tagging-edges-realtime-engine.test.js RE81).
- *   Story 5 (2026-10-01; engineering-team/stories/tagging-edges/5-real-time-path-switch.md, ADR tagging-edges/0005 D5,
+ *   Story 5 (2026-10-01; engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md, ADR tagging-edges/0005 D5,
  *   D6, Consequences and Seams "The wiring"): SWR67 is revised in place — the switch path now carries a POST and a
  *   GET, each behind adminApi.requireOwnerOrAdmin, so it counts registrations per method, not the path literal. Red
  *   until story 5 lands: the POST is still behind requireOwnerOnly and the GET (handleRealtimeSwitchRecord) is not
@@ -44,7 +44,7 @@
  *   own. Red until story 5 lands: index.js has no ownerOrAdmin, and both routes still compare for themselves.
  *   SWR74 is new (D5 "Shared helpers"): realtime.js's defaultDeps gains the lazy getAdminPubkeys provider, which no
  *   suite exercises because every admin test injects the lookup.
- *   Story 6 (2026-10-27; engineering-team/stories/tagging-edges/6-pass-run-and-stop.md, ADR tagging-edges/0006 D2, D3,
+ *   Story 6 (2026-10-27; engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md, ADR tagging-edges/0006 D2, D3,
  *   D6, D7, D8, D10, D13 and § Seams "Registration pins", "Load-time pins"): SWR75–SWR84 are new; no earlier test changes.
  *     SWR75–SWR77 read source: the three pass routes' registrations (per method, behind requireOwnerOrAdmin); the route
  *       table's entries and resolveRouteAccess's answers; run-task's one-line branch for this pass (return await on the
@@ -70,7 +70,7 @@
  *     At 2cbf6124, the commit before that fix, the processor set the variable for every id, so SWR86 failed there; it
  *     has passed since the fix round. (Corrected at story 7, from story 6's review, round 2, carry-forward 5: this line
  *     said "the processor leaves the variable out only for an id that holds NUL", a tree that was never committed.)
- *   Story 7 (2026-11-07; engineering-team/stories/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1
+ *   Story 7 (2026-11-07; engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1
  *     and § Carry-forwards CF4):
  *     SWR84 is revised in place (ADR 0007 D1: index.js's defaultDeps gains confirm, from the default controller, and
  *       loses writeConfirmation, withdrawConfirmation, heldDigest, nonce, lineUp and queueHealth): the owner's
@@ -1918,8 +1918,8 @@ test('SWR60: the port refuses, before any transaction and before preimage, a row
 });
 
 // ══ Story 3 (ADR tagging-edges/0003): the real-time path's wiring ═══════════════════════════════════════════════
-// Story: engineering-team/stories/tagging-edges/3-real-time-path.md (AC-3, AC-5, AC-6, AC-7). ADR:
-// engineering-team/decisions/tagging-edges/0003-real-time-path.md — § Where it runs, § Coexisting with the pass,
+// Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md (AC-3, AC-5, AC-6, AC-7). ADR:
+// engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § Where it runs, § Coexisting with the pass,
 // § Status and switch, C20, Implementation notes, and § Clarifications T20, T22–T24, T27, T28 and T30. Red until the
 // implementation lands: the supervisord program, the realtime/ folder, graph.js's READ_KEYS / readAt / readKeys, the
 // two routes and the lockHeld callers' { file } do not exist yet. Static reads, plus the fake driver above for readAt /

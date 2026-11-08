@@ -3,8 +3,8 @@
  * Property suite for Story 3 (epic tagging-edges) — the real-time path's ENGINE under a deterministic property fuzzer,
  * as ADR 0003 Amendment A1-20 ("The fuzzer") registers it.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md (AC-1, AC-2, AC-3, AC-5, AC-6; items 7 and 9)
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — Amendment A1: A1-2 (learning), A1-3
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md (AC-1, AC-2, AC-3, AC-5, AC-6; items 7 and 9)
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — Amendment A1: A1-2 (learning), A1-3
  *        (resolution), A1-4 (the gate, clauses (i) and (ii)), A1-5 (no discards; at most 8 by-e revokes per entry),
  *        A1-7 (at most 8 older ids per address), A1-8 (the census), A1-10 (first start), A1-15 (the lineage follows store
  *        order), A1-16 (owner decisions 2, 5, 9, 10 and 11 as amended), A1-20 ("The fuzzer") and A1-21 (what the last

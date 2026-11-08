@@ -257,7 +257,7 @@ brought only docs. The story's commits are:
 
 ### Requested in this round (non-blocking: accuracy fixes, asked now while the story goes back)
 
-1. **`engineering-team/stories/tagging-edges/6-pass-run-and-stop.md:586` (ST-1, UI-1, DR-3).**
+1. **`engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md:586` (ST-1, UI-1, DR-3).**
    - **The problem.** "It closes by itself when the busy list read is empty, whether or not the queue state is known."
      contradicts `:623-624` in the same list. `:586` was never true of any committed code:
      `TaggingPipelinePanel.jsx:201` requires `busy.known` at `ca504c42` and at HEAD. Amendment 1 § C (ADR `:1463-1469`)
@@ -312,7 +312,7 @@ brought only docs. The story's commits are:
      - **The Architect.** A dated note on T12 naming a fault in the driver itself.
      - **The Tester.** Reword PC55's title.
      - **The test plan.** Change the row "AC-6, C5-6's copy, if taken | none drafted" (`:84`) to say it was taken.
-8. **`engineering-team/stories/tagging-edges/6-pass-run-and-stop.test-plan.md:76-85`, the AC-6 rows (ST-4).**
+8. **`engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.test-plan.md:76-85`, the AC-6 rows (ST-4).**
    - **The problem.** The coverage map never names AC-6's "Follows, mutes and reports are untouched". It holds by
      construction: no graph module in `control/*.js`, `pass.js` or `jobGates.js`, and the runner diff touches no graph
      write. Story 5's plan mapped the same clause (to SR14 and SR47).

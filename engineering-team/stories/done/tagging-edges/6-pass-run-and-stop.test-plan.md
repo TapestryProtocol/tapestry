@@ -1,7 +1,7 @@
 # Test Plan: Story 6 — Running and stopping the pass, on the panel
 
-**Story:** `engineering-team/stories/tagging-edges/6-pass-run-and-stop.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md`
+**Story:** `engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md`
 **Date:** 2026-10-28
 
 ## The suites
@@ -176,7 +176,7 @@ at 5.76.10). So the seed form `repeat:sched:<entry>:<millis>` cannot be added by
 
 | Item | Where | Level |
 |---|---|---|
-| C5-1: `stack-free-npm-test` skips G2 on host Node 16.17.0, because G2's probe calls the global `fetch`; its 7 / 0 is Node 22.23.3's | `engineering-team/stories/tagging-edges/5-real-time-path-switch.test-plan.md` (Verification, review round 1: the note and the table row) | doc |
+| C5-1: `stack-free-npm-test` skips G2 on host Node 16.17.0, because G2's probe calls the global `fetch`; its 7 / 0 is Node 22.23.3's | `engineering-team/stories/done/tagging-edges/5-real-time-path-switch.test-plan.md` (Verification, review round 1: the note and the table row) | doc |
 | C5-2: `gate-result-record` C9 refuses one spelling (`? 200 : 500`), in the files it scans; SR34's literal per-row statuses are what keep SR34 from deriving its status | the same plan (two dated notes); the header comment of `test/tagging-edges-switch-record.test.js` and SR34's in-test comment | doc; test comment |
 | C5-3: PC55's exemption is wider than the plan said (the regex at `test/tagging-pipeline-codes.test.js:930` at `442c9dec`): what it exempts, what it does not read, and why "Every Neo4jError …" passes | the same plan ("Readings taken in this round") | doc |
 | C5-4: the panel change chosen by the Architect (D20) | PS34, B113 | source pin; browser |

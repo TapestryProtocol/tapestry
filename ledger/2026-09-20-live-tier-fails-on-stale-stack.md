@@ -207,3 +207,8 @@ backend its live suites measured.** It is the second door again: current files, 
 **Fix-shape addendum.** The gate record could carry the backend's start time, or the commit it booted from, read once
 when the run starts. `npm run gate:status` could then warn when it predates the newest `src/` or `bin/` commit. It is
 fix shape 2's build-identity probe, recorded once per run instead of checked per suite.
+
+**Seen again, 2026-11-08 (tagging-edges story 7).** The story's first gate runs (Implementation,
+2026-11-07) came before the local backend's restart onto the story's code. So their live suites measured the process
+started on 2026-10-28, and the story records it (story 7 § Evidence, "The gate"). Every later run in the story's
+tables names the backend it measured: its spawn time and the commit it ran.
