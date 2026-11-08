@@ -6,6 +6,8 @@ character; residual R9; the Implementer's as-built readings ratified)
 **Story:** `engineering-team/stories/tagging-edges/6-pass-run-and-stop.md`
 **Amends:** ADR `tagging-edges/0002` (run, stop, the stopped outcome, who started a pass, the run-task route's answers
 for this pass), with dated notes in ADRs `0003`, `0004` and `0005` (§ Amendments).
+**Amended (2026-11-07):** by `tagging-edges/0007` — D8's confirm step (now one controller step, refused when it cannot
+be recorded), D11's `confirm` action, D12's status members; the dated notes below name each.
 
 ## Context
 
@@ -282,6 +284,8 @@ keeps a Stop working without disk, and leaves schedules untouched. Its costs are
 - The run-task route answering as Run does for this pass.
 - **The confirm route's enqueue goes through the same start function** (D8), which closes ledger row
   `2026-09-28-confirm-route-joins-finishing-job` in this story. Story 7 checks it, as the story's Out of scope allows.
+  *(2026-11-07: ADR `tagging-edges/0007` keeps the finishing window a line-up, D2 step 4, and story 7 checks it from
+  the panel.)*
 - **A pass that was asked to stop is never started again by a stalled re-run after a restart,** when the stop was
   recorded. The `noRerun` mark is per job (D9).
 
@@ -318,6 +322,7 @@ keeps a Stop working without disk, and leaves schedules untouched. Its costs are
 
 **Debt and follow-ups:**
 - The ledger row above closes here; story 7 re-checks it from the panel.
+  *(2026-11-07: story 7's Confirm is ADR `tagging-edges/0007`.)*
 - **OPERATIONS §10.6** (`:578`) says a job whose heavy-lock wait timed out stays in BullBoard's failed tab. That holds
   only for scheduled runs; on-demand jobs carry `removeOnFail` and are deleted (docs task).
 - A pre-existing, separate defect was found while probing: per-customer job ids contained `:`, which BullMQ 5.76.10
@@ -510,6 +515,9 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
   in-memory marks (`phases`, `skips`, `noRerun`, `stopsAsked`, `endedKeys`) are read at classification, after the
   queue reads, so a gate step or a Stop that lands during those reads is seen. Each later read sees fresher state, so
   the order is sound. The I/O order above is unchanged, and CT11 still pins it.)*
+  *(Amended by `tagging-edges/0007`, 2026-11-07, story 6's review carry-forward 1: "only loads the record, on first
+  use" reads "loads the record on first use, and again while its last read was unreadable or damaged" (`loadRecord`).
+  The point about read order holds.)*
 - **`queue`** is `'ok'`, `'off'` (`queueHealth` off), `'not-ready'`, or `'read-failed'` (a throw or a time-out).
 - **Liveness comes first.** A live `latest` (`endedAt` null, `isAlive`) is a `running` item, whatever the queue read
   found. Its key is, in order:
@@ -646,6 +654,14 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
   (as D6 step 3), and answer `enqueued: false`.
   *(Amended 2026-10-28: the take-back is D6 step 3's, as amended; see Amendment 1 § C.)*
 - **The ledger row** closes here (§ Consequences).
+- *(Superseded by `tagging-edges/0007` D1–D5, 2026-11-07.)* The confirm route's whole sequence is now one controller
+  step, `controller.confirm`, and `confirmStep` is gone. In particular:
+  - "the confirm route's start cannot be refused, so an unreadable record or a failed write goes ahead unrecorded" no
+    longer holds: the confirmation and its start are recorded first, and refused, 500 `record-unavailable`, when that
+    write fails. A schedule's start still goes ahead unrecorded (D3);
+  - a busy pass is joined only when it will take the confirmation up: a starting pass first, then a waiting one, each
+    with no stop asked for; otherwise a new job is lined up, the answer saying `behindStopping` when anything is busy;
+  - every accepted answer carries `outcome` (0007 D4).
 
 **D9. Stop: `stop({who, targets})`.**
 - **Mounted** as `app.post('/api/tagging-edges/pass/stop', adminApi.requireOwnerOrAdmin, handlePassStop)`, keyed
@@ -795,6 +811,8 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
     kept.
   - **A successful re-read** clears the state.
 - **Who is never logged.**
+- *(Amended by `tagging-edges/0007` D5, 2026-11-07: `history` also holds `confirm` lines, `{action: 'confirm', key:
+  null, at, who: {kind: 'owner', key}, runId}`. `version` stays 1.)*
 
 **D12. The public status: a `control` member, with no who.** `handleStatus` adds `control: {queue, busy, gaveUp}` to
 `computeStatus`'s answer:
@@ -828,6 +846,8 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
 - **`gaveUp`** is `{key, at}` or null: `lastGaveUp` (or the record's latest `gaveUpAt`) whenever it is later than `latest.startedAt`,
   whatever else is busy; otherwise null.
 - **A failed queue read** leaves the report served, with `queue: 'read-failed'`, never a 500.
+- *(Amended by `tagging-edges/0007` D6 and D8, 2026-11-07: the status also returns `overdue`, the server's verdict on
+  whether the pass is overdue, and `confirmationPending` is 0007 D6's allowlist, with no `mintedBy`.)*
 
 **D13. The gated record read: `GET /api/tagging-edges/pass/record`.**
 - **Gate.** It is mounted with `adminApi.requireOwnerOrAdmin` and re-checked with `ownerOrAdmin`, `sameHost` included,
@@ -1068,6 +1088,7 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
   - B38's allowed set gains the record read.
   - B9 follows the new empty-state line, and B10's message names story 7.
   - TF1 is unchanged.
+  - *(2026-11-07: story 7 revises these for `sendConfirm` and the panel's Confirm; ADR `tagging-edges/0007` § Seams.)*
 
 **Registration pins.**
 - **Registration.** SWR11- and SWR67-style tests register each new route exactly once, behind
@@ -1149,6 +1170,7 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
     re-run of a stopped job is skipped.
   - The record and its gated read.
   - Confirm stays the console snippet's until story 7.
+    *(2026-11-07: story 7's Confirm is ADR `tagging-edges/0007`.)*
 - **§10.6** (`:578`): an on-demand job (run-task, the panel's Run, the confirm route) is removed when its heavy-lock
   wait times out, so it does not stay in BullBoard's failed tab. A scheduled run's job does stay.
 
@@ -1170,6 +1192,9 @@ All line numbers are at `48de58a7` (after the merge of `origin/staging`); prefer
   admin.
 
 ## Amendments to ADRs 0002–0005 (dated notes; the original text stays)
+
+*(2026-11-07: every "story 7" in this section's notes means the Confirm of ADR `tagging-edges/0007`, which adds its own
+dated notes to ADRs 0002–0006.)*
 
 ### ADR 0002
 
@@ -1241,6 +1266,9 @@ the run-task route's answers for this pass.`
   request finishes `stopped` with `failure: null`. The `signal` entries stay, for older reports.
 - **`:879`:** Run and Stop are story 6's (0006), Confirm story 7's.
 - **`:881-882`:** a waiting pass is shown since story 6 (0006 D5, D12).
+- **`:838-842` (T12), at story 6's review fix round (2026-10-28):** the driver's code-less errors also come from a fault
+  in the driver itself, and the panel's `no-status` sentence says so (`taggingPipelineView.js`, its `'no-status'` key). *(Listed 2026-11-07, by `tagging-edges/0007`,
+  story 6's review carry-forward 2.)*
 
 **C5-9, re-dated in place.** Change only the date, from 2026-10-02 to 2026-10-01, in the notes at `:261`, `:347` and
 `:840`.
@@ -1249,6 +1277,9 @@ the run-task route's answers for this pass.`
 
 **C5-9, re-dated in place.** Change only the date, from 2026-10-02 to 2026-10-01, in the notes at `:339`, `:444` and
 `:483`. *(The story says "ADR 0005's six notes". Three of the six are ADR 0004's, listed above.)*
+
+**At story 6's review fix round (2026-10-28):** the note at `:733-734`, that the code-less error also comes from a fault
+in the driver itself. *(Listed 2026-11-07, by `tagging-edges/0007`, story 6's review carry-forward 2.)*
 
 **Carry-forwards:**
 - **C5-7 (D5, `:331-333`):** a removal that empties settings.json's `adminPubkeys` falls back to
@@ -1266,6 +1297,7 @@ the run-task route's answers for this pass.`
 ## Out of scope
 
 - **Confirm from the panel,** what admins see in its place, and who confirmed: story 7.
+  *(2026-11-07: story 7's Confirm is ADR `tagging-edges/0007`.)*
 - **Who may change schedules:** settled outside this story.
   - Since 2026-10-10, schedule create, update and delete are for the owner, an admin or a direct local call
     (`security-auth-exposure` story 6; `src/middleware/routeAccess.js:366-367`, `:372`).
@@ -1277,6 +1309,7 @@ the run-task route's answers for this pass.`
 - **Naming the heavy lock's holder,** or clearing leaked leases at boot (ledger `2026-09-27-stale-heavy-lease-after-deploy`).
 - **The 30-minute time-out's `kill -9`.**
 - **`confirmationPending.mintedBy`** on the public status: story 7's question.
+  *(Answered by `tagging-edges/0007` D6, 2026-11-07: it goes, from every confirmation the public status shows.)*
 
 ---
 

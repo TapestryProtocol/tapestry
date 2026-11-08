@@ -101,7 +101,9 @@ function createSemaphore(redis, caps, options) {
    * acquire asks it at the top of each loop pass and again just after a
    * winning attempt. When it answers true, acquire hands back any lease it
    * just won, emits wait_end "abandoned" (only if wait_begin was emitted),
-   * and resolves null. Without it, acquire never resolves null.
+   * and resolves null. Without it, acquire never resolves null. A hook that
+   * throws reads as false (ADR tagging-edges/0007 NB1): acquire goes on, and
+   * a lease it wins is handed back by the caller's release, as usual.
    *
    * @param {string} resourceClass
    * @param {Object} [context]  { taskName, target, jobId } — included in
@@ -115,7 +117,10 @@ function createSemaphore(redis, caps, options) {
     const leaseId = crypto.randomUUID();
     const start = Date.now();
     let waitEmitted = false;
-    const shouldAbandon = typeof ctx.shouldAbandon === 'function' ? ctx.shouldAbandon : null;
+    const hook = typeof ctx.shouldAbandon === 'function' ? ctx.shouldAbandon : null;
+    const shouldAbandon = hook && (() => {
+      try { return hook(); } catch (_e) { return false; }
+    });
 
     function abandoned() {
       if (waitEmitted) {

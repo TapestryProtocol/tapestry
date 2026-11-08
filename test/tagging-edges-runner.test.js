@@ -74,6 +74,8 @@
  *   job                 → (story 6) the BullMQ job id the pass runs under, a string, or null.
  * A confirmation record's mintedAt / expiresAt are ISO-8601 strings.
  *
+ * Story 7 (ADR tagging-edges/0007 D7): SR88–SR91 pin latest.confirmation.mintedAt, when the confirmation the pass took
+ * up was made; no earlier test changes (none compares latest.confirmation whole).
  * Story 6 (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md AC-3, AC-5; ADR
  * engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D10 and § Seams for Test Design → "Runner seams",
  * "A handler-lifetime pin", "Revised pins"):
@@ -2453,6 +2455,59 @@ test('SR87 (ADR tagging-edges/0006 D10 "Never at module top level"): loading the
   assert((p.exports || []).includes('makeRunId'), `fixture: the runner loaded and exports makeRunId; it exports ${show(p.exports)}`);
   assert(isPlainObject(p.signalsBefore) && isPlainObject(p.signalsAfter), `fixture: the probe counted the process's signal listeners; got ${show({ before: p.signalsBefore, after: p.signalsAfter })}`);
   same(p.signalsAfter, p.signalsBefore, `the process's SIGTERM and SIGINT listeners before and after requiring the runner and calling defaultDeps() (${adr6('D10')}: the handlers are registered inside run(), never at module top level)`);
+});
+
+/* ══════════════════════════ story 7: when the confirmation the pass took up was made (ADR tagging-edges/0007 D7) ══════════
+ * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md AC-4 ("The pass that took a confirmation up
+ * names it: the owner's confirmation, and when it was made"). ADR tagging-edges/0007 D7: in step 7 latest.confirmation
+ * gains mintedAt, the claim's mintedAt when it parses as a date, as an ISO string, else null; set on found: true only,
+ * honoured or not; nothing else in the pass changes (reportVersion stays 1). Red until story 7 lands: the pass records
+ * { found, honoured, why? } only. */
+const adr7 = (d) => `ADR tagging-edges/0007 ${d}`;
+/** latest's top-level members and its confirmation, for "nothing else in the report changes". */
+async function confirmationRun(confirmation, o = {}) {
+  const s = heldScenario({ confirmation, prefix: o.prefix || 'sr88' });
+  const w = await runPass(makeWorld({ files: s.files, rows: s.rows, events: o.events || [] }));
+  return { s, w, l: finalLatest(w), doc: reportDocsOf(w).pop() };
+}
+
+test('SR88 (story 7 — ADR tagging-edges/0007 D7): a pass that takes up and honours the owner\'s confirmation records when it was made — latest.confirmation is exactly { found: true, honoured: true, mintedAt: the claim\'s mintedAt as an ISO string } (one written without milliseconds reads with them), confirmed is as before, and the report\'s other members are those of a pass that found none; reportVersion stays 1', async () => {
+  const list = heldListFor(F.manyTaggings(60, { prefix: 'sr88' }));
+  const c = confirmationFor(RUN_HELD, list, { mintedAt: T0 - HOUR });
+  c.mintedAt = c.mintedAt.replace(/\.\d{3}Z$/, 'Z'); // a time that parses, written without milliseconds
+  const r = await confirmationRun(c, { prefix: 'sr88' });
+  same(r.l.confirmation, { found: true, honoured: true, mintedAt: iso(T0 - HOUR) }, `latest.confirmation (${adr7('D7')}: "latest.confirmation gains mintedAt: the claim's mintedAt when it parses as a date, as an ISO string")`);
+  eq(r.l.confirmed && r.l.confirmed.confirmedRunId, RUN_HELD, 'confirmed.confirmedRunId, as before');
+  eq(r.doc && r.doc.reportVersion, 1, `reportVersion (${adr7('D7')} "reportVersion stays 1")`);
+  const none = await confirmationRun(null, { prefix: 'sr88' });
+  same(Object.keys(r.l).sort(), Object.keys(none.l).sort(), `latest's members beside a pass that found no confirmation (${adr7('D7')} "Nothing else in the pass changes")`);
+});
+
+test('SR89 (story 7 — ADR tagging-edges/0007 D7 "set on found: true only, honoured or not"): a pass that takes up a confirmation and does not honour it records when it was made too — an expired one: { found: true, honoured: false, why: \'expired\', mintedAt }; one whose digest no longer matches: { found: true, honoured: false, why: \'digest-mismatch\', mintedAt }', async () => {
+  const list = heldListFor(F.manyTaggings(60, { prefix: 'held' }));
+  const expired = confirmationFor(RUN_HELD, list, { mintedAt: T0 - 25 * HOUR });
+  const r1 = await confirmationRun(expired, { prefix: 'held' });
+  same(r1.l.confirmation, { found: true, honoured: false, why: 'expired', mintedAt: iso(T0 - 25 * HOUR) }, `an expired confirmation's latest.confirmation (${adr7('D7')})`);
+  const other = confirmationFor(RUN_HELD, list, { mintedAt: T0 - HOUR, heldDigest: 'f'.repeat(64) });
+  const r2 = await confirmationRun(other, { prefix: 'held' });
+  same(r2.l.confirmation, { found: true, honoured: false, why: 'digest-mismatch', mintedAt: iso(T0 - HOUR) }, `a confirmation whose digest no longer matches (${adr7('D7')})`);
+});
+
+test('SR90 (story 7 — ADR tagging-edges/0007 D7 "else null"): when the claim\'s mintedAt does not parse as a date, latest.confirmation.mintedAt is null — a confirmation whose mintedAt is "not a time" (and is honoured: the claim\'s check reads its expiry, not its mint), and a claimed file that cannot be read (found, not honoured, why \'unreadable\')', async () => {
+  const list = heldListFor(F.manyTaggings(60, { prefix: 'held' }));
+  const c = confirmationFor(RUN_HELD, list, { mintedAt: T0 - HOUR });
+  c.mintedAt = 'not a time';
+  const r1 = await confirmationRun(c, { prefix: 'held' });
+  same(r1.l.confirmation, { found: true, honoured: true, mintedAt: null }, `a mintedAt that does not parse (${adr7('D7')})`);
+  const r2 = await confirmationRun({ unreadable: true }, { prefix: 'held' });
+  same(r2.l.confirmation, { found: true, honoured: false, why: 'unreadable', mintedAt: null }, `a claimed file that cannot be read (${adr7('D7')})`);
+});
+
+test('SR91 (story 7 — ADR tagging-edges/0007 D7 "It is set on found: true only"): a pass that finds no pending confirmation records latest.confirmation with no mintedAt member at all — { found: false, honoured: false } — and holds removals over the limit as before', async () => {
+  const r = await confirmationRun(null, { prefix: 'held' });
+  assert(r.l.confirmation && r.l.confirmation.found === false, `setup: the pass should find no confirmation; latest.confirmation is ${show(r.l.confirmation)}`);
+  assert(!Object.prototype.hasOwnProperty.call(r.l.confirmation, 'mintedAt'), `latest.confirmation should carry no mintedAt when found is false (${adr7('D7')}); it is ${show(r.l.confirmation)}`);
+  expectOutcome(r.l, 'done-removals-held', 'no confirmation');
 });
 
 async function run() {

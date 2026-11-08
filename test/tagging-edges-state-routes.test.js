@@ -78,6 +78,20 @@
  *     item's within { key, jobId, state, since, behind, runId, stopAskedAt, startRecorded, confirmation }. A subset,
  *     so a member that is absent rather than null passes; any other member fails, since it could carry who under
  *     another name (ADR § Constraints: the four kinds of who "stay indistinguishable to a signed-out reader").
+ * Story 7 (2026-11-07; engineering-team/stories/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1,
+ * D2, D5, D6 and § Seams "Revised pins"). The confirm route keeps only its who and body checks and hands the rest to
+ * d.confirm({ who: { kind: 'owner', key }, runId }), the controller's one step (D1); its old deps (readFile, heldDigest,
+ * readHeld, writeConfirmation, withdrawConfirmation, nonce, lineUp, queueHealth) are the controller's now.
+ *   - routeDeps gains confirm: by default a controller over this test's own state directory (diskControl: report.json,
+ *     confirmation.json, held/ and the withdraw rename through state.js, liveness through the injected readFile, the
+ *     shared fakes' queue and record), built on first use, so RT14–RT16 and RT20 keep what they prove once the route
+ *     delegates (they pass before and after); o.confirmSpy answers with a canned { status, body }.
+ *   - Revised in place, not deleted: RT4 (D6's allowlist supersedes "every field except the nonce"), RT17, RT18, RT19,
+ *     RT31 and RT32–RT36 (D2's outcomes; RT33 is now the R11 case: a pass that records itself after the controller's
+ *     report check is withdrawn, pass-started; RT36's stopping pass is a job waiting for the lock whose stop is on
+ *     record). New: RT39–RT40 (D6). The status's overdue member (D8) is another suite's.
+ *   - Red until story 7 lands: the route still runs its own sequence and calls lineUp, and confirmationPending carries
+ *     every field but the nonce.
  *   - Red until story 6 lands: the confirm route still pings isQueueAvailable() and enqueues through
  *     runViaQueueAsync, handleStatus reads no snapshot, and src/pipeline/tagging-edges/control/ does not exist (loaded
  *     lazily through the helper's loadModule, which names the module and the ADR decision). RT19 passes today and
@@ -737,7 +751,50 @@ function routeDeps(o = {}) {
   const snap = o.snapshot || idleSnapshot();
   if (snap) deps.snapshot = snap;
   if (o.isAlive) deps.isAlive = o.isAlive;
-  return { deps, readFile, enqueued, lineUps, order, pings: () => pings, healthAsked: () => healthAsked };
+  // Story 7 (ADR tagging-edges/0007 D8): the status reads the schedule through d.readScheduleEntries(); no schedule
+  // here, so no status test reads the module's scheduled-tasks.json (the overdue member is another suite's).
+  deps.readScheduleEntries = () => [];
+  // Story 7 (ADR tagging-edges/0007 D1): the route hands every confirmation to d.confirm, the controller's one step.
+  // Here it is a controller over this test's own state directory (diskControl), built on first use, or eagerly with
+  // o.control (a test that arranges its queue or record first), or a plain spy with o.confirmSpy.
+  let control = null;
+  const confirms = [];
+  const makeControl = () => diskControl(process.env.TAGGING_EDGES_STATE_DIR, readFile, { health: health(), enqueued, ...(o.control || {}) });
+  if (o.control) control = makeControl();
+  deps.confirm = (args) => {
+    confirms.push(copy(args));
+    order.push('confirm');
+    if (o.confirmSpy) return Promise.resolve(copy(o.confirmSpy));
+    if (!control) control = makeControl();
+    if (typeof control.ctl.confirm !== 'function') throw Object.assign(new Error(`the controller has no confirm yet (${P.adr7('D1')})`), { code: 'ENOCONFIRM' });
+    return control.ctl.confirm(args);
+  };
+  return { deps, readFile, enqueued, lineUps, order, confirms, control: () => control, pings: () => pings, healthAsked: () => healthAsked };
+}
+/**
+ * Story 7: a controller whose confirmation reads and writes `root` through state.js (report.json, confirmation.json,
+ * held/, the withdraw rename), with liveness through the suite's injected readFile (/proc from its table), over the
+ * shared fakes' queue and in-memory record. o.health is the queue's; o.world, makeWorld's options; o.deps(base) →
+ * dep overrides; every add is also pushed to o.enqueued.
+ */
+function diskControl(root, readFile, o = {}) {
+  const { createController } = loadController();
+  const st = loadState();
+  const world = P.makeWorld({ owner: OWNER, admins: [ADMIN], stateDir: root, health: o.health || 'ready', ...(o.world || {}) });
+  const base = {
+    ...world.deps,
+    readReport: () => st.readReport({ readFile }),
+    readConfirmation: () => st.readPendingConfirmation(),
+    readHeld: (runId) => st.readHeld(runId),
+    heldDigest: (list) => st.heldDigest(list),
+    writeConfirmation: (rec) => st.writeConfirmation(rec),
+    withdrawConfirmation: () => st.withdrawConfirmation(),
+    isAlive: (rec) => st.isAlive(rec, { readFile }),
+  };
+  base.queue = { ...world.deps.queue, add: (...a) => { if (o.enqueued) o.enqueued.push({ via: 'controller.add', args: a[2] }); return world.deps.queue.add(...a); } };
+  const deps = { ...base, ...(typeof o.deps === 'function' ? o.deps(base, st) : {}) };
+  const ctl = createController(deps);
+  return { world, ctl, st };
 }
 function showRes(res) { return `${res.statusCode} ${brief(res.body)}`; }
 /** Call a handler with a fresh trace window: what it answered, what it touched, what it changed, what it enqueued. */
@@ -1339,7 +1396,7 @@ test('RT3: computeStatus with no report yet reads not running, with no latest', 
   assert(out.latest === null || out.latest === undefined, `latest with no report should be null; got ${brief(out.latest)}`);
 });
 
-test('RT4: computeStatus shows a pending confirmation without its nonce — every other field kept as stored, keys derived from it allowed — none as null, and carries reportVersion 1 and previous as stored (ADR "Who reads it")', () => {
+test('RT4 (revised for story 7 — ADR tagging-edges/0007 D6 supersedes ADR 0002 C12\'s "every field of the record except nonce": the public confirmation is an allowlist, so mintedBy is no longer required here; RT39 pins what it leaves out): computeStatus shows a pending confirmation without its nonce — every field of D6\'s allowlist (version, runId, heldDigest, heldCount, mintedAt, expiresAt) kept as stored, keys derived from it allowed — none as null, and carries reportVersion 1 and previous as stored (ADR "Who reads it")', () => {
   const routes = loadRoutes();
   need(routes, 'computeStatus', ROUTES_LABEL);
   const rec = confirmationRecord({ nonce: nonceOf('rt4-secret'), mintedAt: '2026-09-27T11:00:00.000Z' });
@@ -1349,10 +1406,11 @@ test('RT4: computeStatus shows a pending confirmation without its nonce — ever
   assert(pending && typeof pending === 'object', `confirmationPending should show the pending record; got ${brief(pending)}`);
   assert(!('nonce' in pending), `confirmationPending should not carry the nonce; got ${brief(pending)}`);
   const { nonce, ...rest } = rec;
-  // "the pending record without its nonce": every other field, as stored. A key derived from the record (for
-  // example whether it has expired at `now`) may be added — the report shape is additive (ADR Consequences).
-  const lost = Object.keys(rest).filter((k) => JSON.stringify(pending[k]) !== JSON.stringify(rest[k]));
-  assert(lost.length === 0, `confirmationPending should keep every field of the record but the nonce, as stored; these differ or are missing: ${lost.map((k) => `${k} (record ${brief(rest[k])}, shown ${brief(pending[k])})`).join(', ')}`);
+  // Every field of ADR 0007 D6's allowlist, as stored. A key derived from the record (for example whether it has
+  // expired at `now`) may be added — the report shape is additive (ADR Consequences).
+  const ALLOW = ['version', 'runId', 'heldDigest', 'heldCount', 'mintedAt', 'expiresAt'];
+  const lost = ALLOW.filter((k) => JSON.stringify(pending[k]) !== JSON.stringify(rest[k]));
+  assert(lost.length === 0, `confirmationPending should keep every allowlisted field of the record, as stored (ADR tagging-edges/0007 D6); these differ or are missing: ${lost.map((k) => `${k} (record ${brief(rest[k])}, shown ${brief(pending[k])})`).join(', ')}`);
   assert(!JSON.stringify(out).includes(nonce), 'the nonce should appear nowhere in the status');
   eq(out.reportVersion, 1, 'reportVersion');
   same(out.previous, previous, 'previous');
@@ -1640,63 +1698,78 @@ function confirmAskProblems(label, r) {
   return p;
 }
 
-test('RT17 (revised for story 6 — ADR tagging-edges/0006 D8, D2, § Seams "Revised pins"): the owner\'s confirmation of the latest held report writes confirmation.json { version: 1, runId, heldDigest, heldCount, nonce (32 lower-case hex), mintedAt, expiresAt: mintedAt + 24 h, mintedBy: 8-character prefix } in place of an older pending one, consults queueHealth() and then lines up one pass through lineUp({ who: { kind: "confirmation" }, mode: "confirm" }) — never isQueueAvailable() or runViaQueueAsync — and, with nothing busy, answers { confirmed: true, enqueued: true, jobId: the key lineUp lined up, expiresAt } without the nonce and not as joined; the one job added is reconcileTaggingEdges with no queryParams and the 30-minute time-out, and its start is recorded as the owner\'s confirmation [ADR tagging-edges/0006 D8, D2, D11]', async () => {
+test('RT17 (revised for story 6 — ADR tagging-edges/0006 D8, D2; revised again for story 7 — ADR tagging-edges/0007 D1, D2 step 6: confirm replaces lineUp and queueHealth in index.js\'s deps): the owner\'s confirmation of the latest held report is handed to d.confirm({ who: { kind: "owner", key: the owner }, runId }) once, and the route sends its { status, body } — consulting neither queueHealth(), lineUp, isQueueAvailable() nor runViaQueueAsync, and touching nothing under the state directory itself; through a controller over this state directory, confirmation.json { version: 1, runId, heldDigest, heldCount, nonce (32 lower-case hex), mintedAt, expiresAt: mintedAt + 24 h } — no mintedBy — replaces an older pending one, and with nothing busy the answer is { confirmed: true, outcome: "lined-up", enqueued: true, jobId: the job lined up, expiresAt } without the nonce; the one job added is reconcileTaggingEdges with no queryParams and the 30-minute time-out, its start recorded as the owner\'s confirmation beside the confirm line [ADR tagging-edges/0007 D1, D2 steps 4–6, D4, D5; ADR tagging-edges/0006 D2, D11]', async () => {
   const problems = [];
-  // Part 1, with a plain lineUp spy: what the route asks for, and in what order.
+  // Part 1, with a confirm spy: what the route hands over, and that it does nothing else.
   await withState(async (ctx) => {
     await seed(ctx.root, { pending: OLD_PENDING });
     const routes = loadRoutes();
     need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-    const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), routeDeps());
-    problems.push(...confirmAskProblems('with a lineUp spy', r));
+    const answer = { status: 200, body: { success: true, confirmed: true, outcome: 'waiting-pass', enqueued: true, joined: true, expiresAt: '2026-09-28T10:30:00.000Z' } };
+    const bundle = routeDeps({ confirmSpy: answer });
+    const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+    const label = 'with a confirm spy';
+    if (bundle.confirms.length !== 1) problems.push(`${label}: d.confirm should be called once (${P.adr7('D1')}); it was called ${bundle.confirms.length} time(s); the route's calls were ${r.order.join(', ') || '(none)'}`);
+    else {
+      const a = bundle.confirms[0] || {};
+      const who = a.who || {};
+      if (who.kind !== 'owner' || !(who.key === OWNER || who.key === OWNER.slice(0, 8)) || Object.keys(who).length !== 2 || a.runId !== RUN_HELD || Object.keys(a).length !== 2) problems.push(`${label}: d.confirm should get { who: { kind: 'owner', key: the owner }, runId: ${RUN_HELD} } (${P.adr7('D1')}); it got ${brief(a)}`);
+    }
+    if (r.res.statusCode !== 200 || JSON.stringify(sortKeys(r.res.body)) !== JSON.stringify(sortKeys(answer.body))) problems.push(`${label}: the route should send confirm's answer as it is; it sent ${showRes(r.res)}`);
+    const own = r.order.filter((x) => x !== 'confirm');
+    if (own.length) problems.push(`${label}: the route itself called ${own.join(', ')} — confirm replaces lineUp and queueHealth in its deps (${P.adr7('D1')})`);
+    if (r.changed) problems.push(`${label}: the route wrote to the state directory itself (${r.changed}) — writing confirmation.json is the controller's (${P.adr7('D1')}: "Nothing else may write confirmation.json")`);
   });
-  // Part 2, with a controller's lineUp behind the spy: the answer, the job and the record.
+  // Part 2, through a controller over this state directory: the record, the answer, the job and the record of actions.
   try {
     await withState(async (ctx) => {
       const { list, latest } = await seed(ctx.root, { pending: OLD_PENDING });
       const routes = loadRoutes();
       need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-      const { world, ctl } = controlWorld(ctx.root, { report: reportOf(latest, [doneLatest(RUN_OLD)]) });
-      try {
-        const t0 = Date.now();
-        const req = confirmReq({ runId: RUN_HELD }, { origin: `http://${HOST}:8080`, contentType: 'application/json; charset=utf-8' });
-        const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, req, controlDeps(world, ctl));
-        const t1 = Date.now();
-        const label = 'with the controller';
-        if (r.res.statusCode !== 200) problems.push(`${label}: status code for the owner, same host (another port), JSON body: expected 200 (answer: ${showRes(r.res)})`);
-        if (!exists(ctx.root, 'confirmation.json')) problems.push(`${label}: confirmation.json should hold the new record`);
-        else {
-          const rec = readJson(ctx.root, 'confirmation.json');
-          const minted = timeOf(rec.mintedAt);
-          if (rec.version !== 1) problems.push(`${label}: record.version ${brief(rec.version)}`);
-          if (rec.runId !== RUN_HELD) problems.push(`${label}: record.runId ${brief(rec.runId)}`);
-          if (rec.heldDigest !== latest.held.digest) problems.push(`${label}: record.heldDigest is not the held report's digest`);
-          if (rec.heldCount !== list.length) problems.push(`${label}: record.heldCount ${brief(rec.heldCount)}, expected ${list.length}`);
-          if (!(typeof rec.nonce === 'string' && NONCE_RE.test(rec.nonce) && rec.nonce !== OLD_PENDING.nonce)) problems.push(`${label}: record.nonce should be a new nonce of 32 lower-case hex characters; got ${brief(rec.nonce)}`);
-          if (rec.mintedBy !== OWNER.slice(0, 8)) problems.push(`${label}: record.mintedBy ${brief(rec.mintedBy)}, expected the owner's 8-character prefix`);
-          if (!(minted >= t0 - 5000 && minted <= t1 + 5000)) problems.push(`${label}: record.mintedAt should be the time of the request; got ${brief(rec.mintedAt)}`);
-          if (timeOf(rec.expiresAt) - minted !== DAY_MS) problems.push(`${label}: record.expiresAt − record.mintedAt should be 24 h`);
-          const body = r.res.body || {};
-          if (body.confirmed !== true) problems.push(`${label}: answer.confirmed ${brief(body.confirmed)}, expected true`);
-          if (body.enqueued !== true) problems.push(`${label}: answer.enqueued ${brief(body.enqueued)}, expected true (nothing busy: a new job is lined up, ${ADR6('D8')})`);
-          if (body.joined === true) problems.push(`${label}: answer.joined is true, but nothing was busy — a new job was lined up (${ADR6('D8')})`);
-          if (timeOf(body.expiresAt) !== timeOf(rec.expiresAt)) problems.push(`${label}: answer.expiresAt ${brief(body.expiresAt)} is not the record's`);
-          if (JSON.stringify(body).includes(rec.nonce)) problems.push(`${label}: the answer carries the nonce`);
-          const jobs = world.queue.jobs();
-          if (jobs.length !== 1) problems.push(`${label}: jobs in the queue after the confirmation: expected 1, got ${brief(jobs.map((j) => j.id))}`);
-          const job = jobs[0];
-          if (job) {
-            if (body.jobId !== job.id) problems.push(`${label}: answer.jobId ${brief(body.jobId)} should be the key lineUp lined up, ${brief(job.id)} (§ Seams: "It checks jobId against the spy's key")`);
-            if (!P.LINEUP_ID.test(job.id)) problems.push(`${label}: the job id ${brief(job.id)} should match LINEUP_ID ${P.LINEUP_ID} — a new id per start, so nothing ever joins (${ADR6('D2')})`);
-            if (job.name !== TASK || !job.data || job.data.taskName !== TASK) problems.push(`${label}: the job should be ${TASK} (name and data.taskName); got ${brief({ name: job.name, data: job.data })}`);
-            if (job.data && job.data.queryParams !== undefined) problems.push(`${label}: the job should carry no queryParams; got ${brief(job.data.queryParams)} (${ADR6('D2')})`);
-            if (!job.data || job.data.timeoutMs !== TIMEOUT_MS) problems.push(`${label}: the job's timeoutMs should be the registry entry's 30 minutes (${TIMEOUT_MS}); got ${brief(job.data && job.data.timeoutMs)}`);
-            const entry = (recordNow(world).passes || {})[job.id];
-            if (!entry || !entry.start || JSON.stringify(sortKeys(entry.start.who)) !== JSON.stringify(CONFIRMATION_WHO)) problems.push(`${label}: the record should hold the start of ${job.id} as { kind: "confirmation" } (${ADR6('D8, D11')}); got ${brief(entry)}`);
-          }
+      const bundle = routeDeps({ control: {} });
+      const { world } = bundle.control();
+      const t0 = Date.now();
+      const req = confirmReq({ runId: RUN_HELD }, { origin: `http://${HOST}:8080`, contentType: 'application/json; charset=utf-8' });
+      const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, req, bundle);
+      const t1 = Date.now();
+      const label = 'with the controller';
+      if (r.res.statusCode !== 200) problems.push(`${label}: status code for the owner, same host (another port), JSON body: expected 200 (answer: ${showRes(r.res)})`);
+      if (!exists(ctx.root, 'confirmation.json')) problems.push(`${label}: confirmation.json should hold the new record`);
+      else {
+        const rec = readJson(ctx.root, 'confirmation.json');
+        const minted = timeOf(rec.mintedAt);
+        const want = ['expiresAt', 'heldCount', 'heldDigest', 'mintedAt', 'nonce', 'runId', 'version'];
+        if (JSON.stringify(Object.keys(rec).sort()) !== JSON.stringify(want)) problems.push(`${label}: confirmation.json's members should be exactly ${brief(want)} — no mintedBy (${P.adr7('D2 step 6')}); they are ${brief(Object.keys(rec))}`);
+        if (rec.version !== 1) problems.push(`${label}: record.version ${brief(rec.version)}`);
+        if (rec.runId !== RUN_HELD) problems.push(`${label}: record.runId ${brief(rec.runId)}`);
+        if (rec.heldDigest !== latest.held.digest) problems.push(`${label}: record.heldDigest is not the held report's digest`);
+        if (rec.heldCount !== list.length) problems.push(`${label}: record.heldCount ${brief(rec.heldCount)}, expected ${list.length}`);
+        if (!(typeof rec.nonce === 'string' && NONCE_RE.test(rec.nonce) && rec.nonce !== OLD_PENDING.nonce)) problems.push(`${label}: record.nonce should be a new nonce of 32 lower-case hex characters; got ${brief(rec.nonce)}`);
+        if (!Number.isFinite(minted) || t1 < t0) problems.push(`${label}: record.mintedAt should be a time (the controller's clock); got ${brief(rec.mintedAt)}`);
+        if (timeOf(rec.expiresAt) - minted !== DAY_MS) problems.push(`${label}: record.expiresAt − record.mintedAt should be 24 h`);
+        const body = r.res.body || {};
+        if (body.confirmed !== true || body.outcome !== 'lined-up' || body.enqueued !== true) problems.push(`${label}: expected { confirmed: true, outcome: 'lined-up', enqueued: true } — nothing busy, a new job lined up (${P.adr7('D4')}); got ${brief(body)}`);
+        if (body.joined === true) problems.push(`${label}: answer.joined is true, but nothing was busy`);
+        if (timeOf(body.expiresAt) !== timeOf(rec.expiresAt)) problems.push(`${label}: answer.expiresAt ${brief(body.expiresAt)} is not the record's`);
+        if (JSON.stringify(body).includes(rec.nonce)) problems.push(`${label}: the answer carries the nonce`);
+        const jobs = world.queue.jobs();
+        if (jobs.length !== 1) problems.push(`${label}: jobs in the queue after the confirmation: expected 1, got ${brief(jobs.map((j) => j.id))}`);
+        const job = jobs[0];
+        if (job) {
+          if (body.jobId !== job.id) problems.push(`${label}: answer.jobId ${brief(body.jobId)} should be the job lined up, ${brief(job.id)}`);
+          if (!P.LINEUP_ID.test(job.id)) problems.push(`${label}: the job id ${brief(job.id)} should match LINEUP_ID ${P.LINEUP_ID} (${ADR6('D2')})`);
+          if (job.name !== TASK || !job.data || job.data.taskName !== TASK) problems.push(`${label}: the job should be ${TASK} (name and data.taskName); got ${brief({ name: job.name, data: job.data })}`);
+          if (job.data && job.data.queryParams !== undefined) problems.push(`${label}: the job should carry no queryParams; got ${brief(job.data.queryParams)} (${ADR6('D2')})`);
+          if (!job.data || job.data.timeoutMs !== TIMEOUT_MS) problems.push(`${label}: the job's timeoutMs should be the registry entry's 30 minutes (${TIMEOUT_MS}); got ${brief(job.data && job.data.timeoutMs)}`);
+          const rn = recordNow(world);
+          const entry = (rn.passes || {})[job.id];
+          if (!entry || !entry.start || JSON.stringify(sortKeys(entry.start.who)) !== JSON.stringify(CONFIRMATION_WHO)) problems.push(`${label}: the record should hold the start of ${job.id} as { kind: "confirmation" } (${P.adr7('D5')}); got ${brief(entry)}`);
+          const line = (rn.history || []).find((l) => l && l.action === 'confirm');
+          if (!line || line.runId !== RUN_HELD || !line.who || line.who.kind !== 'owner' || line.who.key !== OWNER.slice(0, 8) || line.at !== rec.mintedAt) problems.push(`${label}: the record should hold the confirm line { action: 'confirm', key: null, at: mintedAt, who: { kind: 'owner', key: <8 hex> }, runId } (${P.adr7('D5')}); its history is ${brief(rn.history)}`);
         }
-        problems.push(...confirmAskProblems(label, r));
-      } finally { world.cleanup(); }
+      }
+      const own = r.order.filter((x) => x !== 'confirm');
+      if (own.length) problems.push(`${label}: the route itself called ${own.join(', ')} (${P.adr7('D1')})`);
     });
   } catch (e) {
     problems.push(`with the controller: ${firstLine(e.message)}`);
@@ -1704,7 +1777,7 @@ test('RT17 (revised for story 6 — ADR tagging-edges/0006 D8, D2, § Seams "Rev
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('RT18 (revised for story 6 — ADR tagging-edges/0006 D8 "Queue not ready", § Seams "Revised pins"): with the task queue not ready — queueHealth() answering "not-ready", or "off" when the queue is disabled — the owner\'s confirmation still writes the record and answers { confirmed: true, enqueued: false }; queueHealth() is consulted, lineUp is never called, and nor is the old isQueueAvailable() ping, so the next pass within 24 h uses the record (ADR 0002 "The owner\'s confirmation")', async () => {
+test('RT18 (revised for story 6 — ADR tagging-edges/0006 D8 "Queue not ready"; revised again for story 7 — ADR tagging-edges/0007 D1, D2 step 4: the queue check is the controller\'s plan now, not the route\'s): with the task queue not ready — "not-ready", or "off" when the queue is disabled — the owner\'s confirmation still writes the record and answers 200 { confirmed: true, outcome: "not-lined-up", enqueued: false, reason: "QUEUE_UNAVAILABLE" }, so the next pass within 24 h uses it; the route consults no queueHealth() of its own, and neither lineUp nor the old isQueueAvailable() ping, and nothing is lined up [ADR 0007 D2 step 4 "queue !== \'ok\' → none, with reason: \'QUEUE_UNAVAILABLE\'"; D4; story 7 AC-1 "the confirmation is kept pending"; ADR 0002 "The owner\'s confirmation"]', async () => {
   const problems = [];
   for (const health of ['not-ready', 'off']) {
     await withState(async (ctx) => {
@@ -1713,14 +1786,13 @@ test('RT18 (revised for story 6 — ADR tagging-edges/0006 D8 "Queue not ready",
       need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
       const bundle = routeDeps({ health });
       const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
-      const label = `queueHealth() "${health}"`;
-      if (bundle.healthAsked() < 1) problems.push(`${label}: queueHealth() was never consulted — "the d.isQueueAvailable() guard becomes d.queueHealth() === 'ready'" (${ADR6('D8')}); its queue calls were: ${r.order.join(', ') || '(none)'}`);
-      if (!(r.res.statusCode >= 200 && r.res.statusCode < 300)) problems.push(`${label}: answered ${showRes(r.res)}, expected 2xx`);
-      if (!r.res.body || r.res.body.confirmed !== true) problems.push(`${label}: answer.confirmed should be true; answer ${showRes(r.res)}`);
-      if (!r.res.body || r.res.body.enqueued !== false) problems.push(`${label}: answer.enqueued should be false; answer ${showRes(r.res)}`);
+      const label = `the queue "${health}"`;
+      const body = r.res.body || {};
+      if (r.res.statusCode !== 200 || body.confirmed !== true || body.outcome !== 'not-lined-up' || body.enqueued !== false || body.reason !== 'QUEUE_UNAVAILABLE') problems.push(`${label}: expected 200 { confirmed: true, outcome: 'not-lined-up', enqueued: false, reason: 'QUEUE_UNAVAILABLE' } (${P.adr7('D2 step 4, D4')}); answer ${showRes(r.res)}`);
       if (!(exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD)) problems.push(`${label}: the record should stay in confirmation.json, pending for the next pass`);
-      if (r.lineUps.length) problems.push(`${label}: called lineUp ${r.lineUps.length} time(s) — "Queue not ready … add nothing, record nothing" (${ADR6('D8')}; § Seams: "RT18 … asserts zero lineUp calls")`);
-      if (bundle.pings()) problems.push(`${label}: pinged isQueueAvailable() ${bundle.pings()} time(s) — a ping that can hang while Redis is down (§ Context; ${ADR6('D8')})`);
+      if (bundle.healthAsked()) problems.push(`${label}: the route consulted its own queueHealth() ${bundle.healthAsked()} time(s) — the queue check is the controller's plan now (${P.adr7('D1, D2 step 4')})`);
+      if (r.lineUps.length) problems.push(`${label}: called lineUp ${r.lineUps.length} time(s) (${P.adr7('D1')}: lineUp's confirm mode is gone)`);
+      if (bundle.pings()) problems.push(`${label}: pinged isQueueAvailable() ${bundle.pings()} time(s)`);
       if (r.enqueued.length) problems.push(`${label}: asked for a start ${brief(r.enqueued)}`);
     });
   }
@@ -1748,18 +1820,23 @@ async function arrangeRace(ctx, { claim }) {
   return { proc };
 }
 
-test('RT19 (revised for story 6 — ADR tagging-edges/0006 § Seams "Revised pins"): the withdraw race — when a pass starts right after the record is written and has not claimed it, the route withdraws the record and answers 409 without lining up a pass — no lineUp call and no runViaQueueAsync call — so that pass runs unconfirmed (ADR "The owner\'s confirmation": fail-safe)', async () => {
+test('RT19 (revised for story 6 — ADR tagging-edges/0006 § Seams "Revised pins"; revised again for story 7 — ADR tagging-edges/0007 D2 step 7: the re-read and its withdraw are the controller\'s step now): the withdraw race — when a pass starts right after the record is written and has not claimed it, the record is withdrawn and the answer is 409 pass-started, with no pass lined up — no lineUp call, no add — and the confirm line taken back, so that pass runs unconfirmed (ADR "The owner\'s confirmation": fail-safe)', async () => {
   await withState(async (ctx) => {
     const { proc } = await arrangeRace(ctx, { claim: false });
     const routes = loadRoutes();
     need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-    const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), routeDeps({ proc }));
-    assert(ctx.trace.onCreate.fired, `the race never started: the handler did not write confirmation.json by a rename or writeFile (answer: ${showRes(r.res)}; calls: ${showOps(r.ops)})`);
+    const bundle = routeDeps({ proc, control: {} });
+    const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+    assert(ctx.trace.onCreate.fired, `the race never started: confirmation.json was not written by a rename or writeFile (answer: ${showRes(r.res)}; calls: ${showOps(r.ops)})`);
+    eq(bundle.confirms.length, 1, `d.confirm calls — the route hands the confirmation to the controller's step, which owns the re-read and the withdraw (${P.adr7('D1, D2 step 7')}); the route's own calls were ${r.order.join(', ') || '(none)'}`);
     eq(r.res.statusCode, 409, `status code when a pass started before its claim (answer: ${showRes(r.res)})`);
+    eq(r.res.body && r.res.body.code, 'pass-started', `the answer's code (${P.adr7('D2 step 7')}; answer: ${showRes(r.res)})`);
     assert(!exists(ctx.root, 'confirmation.json'), 'the record should be withdrawn (confirmation.json gone)');
     eq(listDir(ctx.root, 'claimed').length, 0, 'nothing should be in claimed/: the starting pass never claimed it');
-    eq(r.lineUps.length, 0, `lineUp calls after a withdrawal (${ADR6('§ Seams')}: "RT19 also asserts zero lineUp calls")`);
-    eq(r.enqueued.length, 0, 'starts asked for (lineUp or runViaQueueAsync) after a withdrawal');
+    eq(r.lineUps.length, 0, 'lineUp calls after a withdrawal');
+    eq(r.enqueued.length, 0, 'starts asked for (lineUp, runViaQueueAsync or the controller\'s add) after a withdrawal');
+    const rn = recordNow(bundle.control().world);
+    assert(!(rn.history || []).some((l) => l && l.action === 'confirm'), `the confirm line should be taken back with the withdrawal (${P.adr7('D2 step 7')} "take the record back to prior … Nothing changed"); the history is ${brief(rn.history)}`);
   });
 });
 
@@ -1933,81 +2010,66 @@ test('RT30: GET status still serves the report when confirmation.json cannot be 
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('RT31: POST confirm-held-removals answers 500 without enqueueing when the record cannot be written (naming the code and the file, no absolute path), and 500 "withdraw-failed" without enqueueing when a pass started and the withdrawal throws (story Deviations: the ADR\'s 409 assumes the withdraw worked; review 2026-09-28, item 16)', async () => {
+test('RT31 (revised for story 7 — ADR tagging-edges/0007 D2 steps 6–7: confirmation.json\'s write and the withdraw are the controller\'s deps now, not the route\'s): POST confirm-held-removals answers 500 { code: "confirmation-unwritten", cause: "ENOSPC" } without enqueueing when confirmation.json cannot be written (no absolute path in the answer), and 500 { code: "withdraw-failed" } without enqueueing when a pass started and the withdrawal throws (story Deviations: the ADR\'s 409 assumes the withdraw worked; review 2026-09-28, item 16)', async () => {
   const problems = [];
   await withState(async (ctx) => {
     await seed(ctx.root);
     const routes = loadRoutes();
-    const bundle = routeDeps();
-    bundle.deps.writeConfirmation = () => { throw Object.assign(new Error(`ENOSPC: no space left on device, open '${path.join(ctx.root, 'confirmation.json.tmp')}'`), { code: 'ENOSPC' }); };
+    const enospc = () => { throw Object.assign(new Error(`ENOSPC: no space left on device, open '${path.join(ctx.root, 'confirmation.json.tmp')}'`), { code: 'ENOSPC' }); };
+    const bundle = routeDeps({ control: { deps: () => ({ writeConfirmation: enospc }) } });
+    bundle.deps.writeConfirmation = enospc; // the route's old dep too, so neither path can write it
     const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
-    if (r.res.statusCode !== 500) problems.push(`write fails: answered ${showRes(r.res)}, expected 500`);
-    if (!/ENOSPC/.test(brief(r.res.body)) || !/confirmation\.json/.test(brief(r.res.body))) problems.push(`write fails: the answer should name the code and confirmation.json; got ${showRes(r.res)}`);
+    if (r.res.statusCode !== 500 || !r.res.body || r.res.body.code !== 'confirmation-unwritten' || r.res.body.cause !== 'ENOSPC') problems.push(`write fails: expected 500 { code: 'confirmation-unwritten', cause: 'ENOSPC' } (${P.adr7('D2 step 6')}); got ${showRes(r.res)}`);
     if (leaksPath(r.res.body, ctx.root)) problems.push(`write fails: the answer carries an absolute path: ${showRes(r.res)}`);
     if (r.enqueued.length) problems.push(`write fails: enqueued ${brief(r.enqueued)}`);
   });
   await withState(async (ctx) => {
     const { latest } = await seed(ctx.root);
     const routes = loadRoutes();
-    const st = loadState();
-    const bundle = routeDeps();
-    bundle.deps.writeConfirmation = (rec) => {
-      st.writeConfirmation(rec);
-      put(ctx.root, 'report.json', reportOf(pessimistic(RUN_NEW), [latest])); // a pass starts right after the write
-    };
-    bundle.deps.withdrawConfirmation = () => { throw Object.assign(new Error('EIO: i/o error, rename'), { code: 'EIO' }); };
+    const bundle = routeDeps({
+      control: {
+        deps: (base, st) => ({
+          writeConfirmation: (rec) => { st.writeConfirmation(rec); put(ctx.root, 'report.json', reportOf(pessimistic(RUN_NEW), [latest])); }, // a pass starts right after the write
+          withdrawConfirmation: () => { throw Object.assign(new Error('EIO: i/o error, rename'), { code: 'EIO' }); },
+        }),
+      },
+    });
     const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
-    if (r.res.statusCode !== 500) problems.push(`withdraw throws: answered ${showRes(r.res)}, expected 500`);
-    if (!r.res.body || r.res.body.code !== 'withdraw-failed') problems.push(`withdraw throws: the answer's code should be "withdraw-failed"; got ${showRes(r.res)}`);
+    if (r.res.statusCode !== 500 || !r.res.body || r.res.body.code !== 'withdraw-failed') problems.push(`withdraw throws: expected 500 { code: 'withdraw-failed' } (${P.adr7('D2 step 7')}); got ${showRes(r.res)}`);
     if (r.enqueued.length) problems.push(`withdraw throws: enqueued ${brief(r.enqueued)}`);
   });
   assert(problems.length === 0, problems.join('\n        '));
 });
 
 // ─── story 6: D8's branches as the confirm route sees them, and handleStatus's control member (D12) ─────────────────
-// Each drives the real route over a real controller (controlWorld). The disk holds what the route reads (report.json,
-// held/, confirmation.json); the controller reads the same report through the world (world.report), and both judge
-// liveness by the world's process table.
+// Revised for story 7 (ADR tagging-edges/0007 D1–D2): the route hands the confirmation to d.confirm, so RT32–RT36 drive
+// it over a controller whose confirmation reads and writes this state directory (diskControl), arranging that
+// controller's queue and record; each is judged by what the route answers, what is added, and what is recorded.
 const RUN_LIVE = P.runIdAt(P.T0 + 250, '0d0d0d0d');
 // Fixture job keys sit apart from the world's randomKey() (lineUpKey(1), (2), …), so a key the controller mints never
 // collides with one a test planted.
 
-/**
- * A pass starts right after the route's re-read: once confirmation.json exists, the next read of report.json by the
- * route returns what was there, and only then does `onStart` run (the pass's first record appears). So the route's
- * re-read sees the held run still latest, and the controller's fresh snapshot sees the new pass.
- */
-function startAfterReRead(ctx, bundle, onStart) {
-  const rf = bundle.deps.readFile;
-  let written = false;
-  let started = false;
-  ctx.trace.onCreate = { rel: 'confirmation.json', fired: false, fn: () => { written = true; } };
-  const wrapped = function readFile(p, ...rest) {
-    const out = rf(p, ...rest);
-    if (written && !started && relIn(ctx.root, p) === 'report.json') { started = true; quiet(onStart); }
-    return out;
-  };
-  wrapped.calls = rf.calls;
-  bundle.deps.readFile = wrapped;
-  bundle.readFile = wrapped;
-  return { started: () => started };
-}
-/** The joined answer: nothing added, nothing recorded, the confirmation left pending for the busy pass (D8). */
-function joinedProblems(label, r, ctx, world, before) {
+/** One D4 outcome through the route: the answer, nothing added unless lined up, the confirm line, the pending record. */
+function outcomeProblems(label, r, ctx, world, want) {
   const p = [];
   const body = r.res.body || {};
-  if (r.lineUps.length !== 1) p.push(`${label}: lineUp calls: expected 1, got ${r.lineUps.length} — the route must ask the controller (${ADR6('D8')})`);
-  if (r.res.statusCode !== 200) p.push(`${label}: answered ${showRes(r.res)}, expected 200`);
-  if (body.confirmed !== true) p.push(`${label}: answer.confirmed ${brief(body.confirmed)}, expected true`);
-  if (body.enqueued !== true || body.joined !== true) p.push(`${label}: expected { enqueued: true, joined: true } — "Busy with any item that has no stop asked for … add nothing and record nothing. Answer enqueued: true, joined: true" (${ADR6('D8')}); got ${brief({ enqueued: body.enqueued, joined: body.joined, jobId: body.jobId })}`);
+  if (r.res.statusCode !== 200 || body.confirmed !== true || body.outcome !== want.outcome) p.push(`${label}: expected 200 { confirmed: true, outcome: '${want.outcome}' } (${P.adr7('D4')}); got ${showRes(r.res)}`);
+  for (const [k, v] of Object.entries(want.body || {})) if (JSON.stringify(body[k]) !== JSON.stringify(v)) p.push(`${label}: answer.${k} ${brief(body[k])}, expected ${brief(v)}`);
   const adds = world.callsOf('queue.add');
-  if (adds.length) p.push(`${label}: the controller added ${adds.length} job(s) (${brief(adds.map((c) => c.args && c.args[2] && c.args[2].jobId))}) — a busy pass takes the confirmation up, so nothing is lined up (${ADR6('D8')}; story AC-1 "Nothing new is lined up")`);
-  if (world.record.bytes() !== before) p.push(`${label}: the record changed — "record nothing" (${ADR6('D8')}; story AC-5 "A request that lines up no new pass records no start"); now ${brief(world.record.bytes(), 400)}`);
-  if (!(exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD)) p.push(`${label}: the confirmation should stay pending in confirmation.json for the busy pass to take up`);
+  if (want.adds !== undefined && adds.length !== want.adds) p.push(`${label}: the controller added ${adds.length} job(s) (${brief(adds.map((c) => c.args && c.args[2] && c.args[2].jobId))}), expected ${want.adds}`);
+  const rn = recordNow(world);
+  const lines = (rn.history || []).filter((l) => l && l.action === 'confirm');
+  if (lines.length !== 1 || lines[0].runId !== RUN_HELD) p.push(`${label}: the record should hold one confirm line for ${RUN_HELD} (${P.adr7('D5')}); its history is ${brief(rn.history)}`);
+  if (want.noStart) {
+    const starts = Object.entries(rn.passes || {}).filter(([, e]) => e && e.start && e.start.who && e.start.who.kind === 'confirmation');
+    if (starts.length) p.push(`${label}: no start of a pass lined up for the confirmation may survive; passes ${brief(starts)}`);
+  }
+  if (r.lineUps.length) p.push(`${label}: the route called lineUp ${r.lineUps.length} time(s) (${P.adr7('D1')})`);
+  if (!(exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD)) p.push(`${label}: the confirmation should be pending in confirmation.json`);
   return p;
 }
 
-test('RT32: the owner\'s confirmation while a pass is waiting — a Run lined up and waiting in line, or a scheduled run whose time has come waiting in delayed (the seed backstop\'s id form, repeat:sched:seed:reconcileTaggingEdges:<millis>) — writes the record, lines up nothing and records nothing, and answers { confirmed: true, enqueued: true, joined: true }; the confirmation stays pending for the waiting pass [ADR tagging-edges/0006 D8 "Busy with any item that has no stop asked for", D5 waiting; story AC-6 "The confirm route works as before"]', async () => {
+test('RT32 (revised for story 7 — ADR tagging-edges/0007 D2 step 4 "a waiting item with no stop asked for → waiting-pass"): the owner\'s confirmation while a pass is waiting — a Run lined up and waiting in line, or a scheduled run whose time has come waiting in delayed (the seed backstop\'s id form, repeat:sched:seed:reconcileTaggingEdges:<millis>) — writes the record, lines up nothing, records only its confirm line, and answers { confirmed: true, outcome: "waiting-pass", enqueued: true, joined: true }; the confirmation stays pending for that pass [story 7 AC-1 "A pass waiting with no stop asked for: confirming starts nothing new"; ADR tagging-edges/0006 D8 (superseded)]', async () => {
   const problems = [];
   const cases = [
     ['a lined-up Run waiting in line', async (world) => {
@@ -2021,53 +2083,53 @@ test('RT32: the owner\'s confirmation while a pass is waiting — a Run lined up
   ];
   for (const [what, arrange] of cases) {
     await withState(async (ctx) => {
-      const { latest } = await seed(ctx.root, { pending: OLD_PENDING });
+      await seed(ctx.root, { pending: OLD_PENDING });
       const routes = loadRoutes();
       need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-      const { world, ctl } = controlWorld(ctx.root, { report: reportOf(latest, [doneLatest(RUN_OLD)]) });
-      try {
-        await arrange(world);
-        const before = world.record.bytes();
-        const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), controlDeps(world, ctl));
-        problems.push(...joinedProblems(what, r, ctx, world, before));
-      } finally { world.cleanup(); }
+      const bundle = routeDeps({ control: {} });
+      const { world } = bundle.control();
+      await arrange(world);
+      const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+      problems.push(...outcomeProblems(what, r, ctx, world, { outcome: 'waiting-pass', body: { enqueued: true, joined: true }, adds: 0, noStart: true }));
     });
   }
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('RT33: the confirm route meets a pass whose first record appeared after its re-read of report.json — the re-read still saw the held run latest, so nothing is withdrawn — and lineUp\'s fresh snapshot (a status read just before had cached "nothing busy") sees the new pass running: nothing is lined up or recorded, the confirmation stays pending, and the answer is { confirmed: true, enqueued: true, joined: true } — that pass reaches its claim after the write and takes the confirmation up [ADR tagging-edges/0006 D8 "A running pass here", D5 "lineUp, stop and the confirm route always call snapshot(d, {fresh: true})"; § Seams "New cases the review named": "The confirm route meets a pass whose record appeared after its re-read"]', async () => {
+test('RT33 (revised for story 7 — ADR tagging-edges/0007 R11, D2 step 7: the re-read now comes after the plan, inside one step): the confirm route meets a pass whose first record appears after the controller\'s report check — the plan then sees it running, but the re-read sees it latest and withdraws the confirmation: 409 { code: "pass-started" }, nothing lined up, the confirm line taken back, and confirmation.json withdrawn — never answered as taken up or lined up [story 7 AC-1 "When a pass starts while the confirmation is being made … the confirmation was withdrawn and nothing changed"; ADR tagging-edges/0006 § Seams "The confirm route meets a pass whose record appeared after its re-read"]', async () => {
   const problems = [];
   await withState(async (ctx) => {
     const { latest } = await seed(ctx.root, { pending: OLD_PENDING });
     const routes = loadRoutes();
     need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-    need(routes, 'handleStatus', ROUTES_LABEL);
-    const { world, ctl } = controlWorld(ctx.root, { report: reportOf(latest, [doneLatest(RUN_OLD)]) });
-    try {
-      const key = P.lineUpKey(901);
-      world.record.set(recordOfStarts([key, 'owner', P.T0]));
-      const before = world.record.bytes();
-      // A status read caches "nothing busy" (D5's status cache), so only a fresh snapshot can see the late pass.
-      const primed = await callHandler(routes.handleStatus, getReq(PATHS.status), controlDeps(world, ctl, { snapshot: (...a) => ctl.snapshot(...a) }).deps);
-      if (primed.statusCode !== 200) problems.push(`the status read before the confirmation answered ${showRes(primed)}`);
-      const bundle = controlDeps(world, ctl);
-      // The pass's first record appears (its own active job is not modelled: the live record alone makes it busy,
-      // keyed by its job id — D5 "Liveness comes first", rule 2).
-      const race = startAfterReRead(ctx, bundle, () => {
-        world.clock.advance(250);
-        world.startPass({ jobId: key, runId: RUN_LIVE });
-        put(ctx.root, 'report.json', world.report);
-      });
-      const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
-      if (!race.started()) problems.push(`the race never ran: the route did not re-read report.json after writing confirmation.json (answer: ${showRes(r.res)}; reads: ${brief(r.reads)})`);
-      problems.push(...joinedProblems('a pass that started after the re-read', r, ctx, world, before));
-    } finally { world.cleanup(); }
+    const st = loadState();
+    const proc = procStat(NEW_PID, { start: 888000 });
+    const startTime = await startTimeOf(st, NEW_PID, proc);
+    let started = false;
+    const bundle = routeDeps({
+      proc,
+      control: {
+        deps: (base) => ({
+          readReport: () => {
+            const out = base.readReport();
+            if (!started) { started = true; put(ctx.root, 'report.json', reportOf(pessimistic(RUN_LIVE, { pid: NEW_PID, startTime }), [latest])); }
+            return out;
+          },
+        }),
+      },
+    });
+    const { world } = bundle.control();
+    const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+    if (!started) problems.push(`the race never ran: the controller read no report (answer: ${showRes(r.res)})`);
+    if (r.res.statusCode !== 409 || !r.res.body || r.res.body.code !== 'pass-started') problems.push(`expected 409 { code: 'pass-started' } (${P.adr7('D2 step 7')}); got ${showRes(r.res)}`);
+    if (world.callsOf('queue.add').length) problems.push('a job was added');
+    if ((recordNow(world).history || []).some((l) => l && l.action === 'confirm')) problems.push(`the confirm line should be taken back; the history is ${brief(recordNow(world).history)}`);
+    if (exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD) problems.push('the confirmation should be withdrawn');
   });
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('RT34: when lineUp\'s own fresh snapshot cannot read the queue — a queue read that fails, or Redis dropping between the route\'s queueHealth() and the controller\'s step — the owner\'s confirmation still writes the record and answers { confirmed: true, enqueued: false }; nothing is lined up or recorded, and the confirmation stays pending for the next pass [ADR tagging-edges/0006 D8 "Queue not ready, or the chain step\'s fresh snapshot has queue !== \'ok\'", D5 queue "read-failed" / "not-ready"]', async () => {
+test('RT34 (revised for story 7 — ADR tagging-edges/0007 D2 step 4 "queue !== \'ok\' → none"): when the controller\'s own fresh snapshot cannot read the queue — a queue read that fails, or Redis not ready at the controller\'s step — the owner\'s confirmation still writes the record and answers { confirmed: true, outcome: "not-lined-up", enqueued: false, reason: "QUEUE_UNAVAILABLE" }; nothing is lined up, only the confirm line is recorded, and the confirmation stays pending for the next pass [story 7 AC-1 "When the confirmation is made but no pass is lined up … kept pending"]', async () => {
   const problems = [];
   const cases = [
     ['a queue read that fails', (world) => world.queue.inject('getActive', { error: 'ECONNRESET' })],
@@ -2075,29 +2137,20 @@ test('RT34: when lineUp\'s own fresh snapshot cannot read the queue — a queue 
   ];
   for (const [what, spoil] of cases) {
     await withState(async (ctx) => {
-      const { latest } = await seed(ctx.root, { pending: OLD_PENDING });
+      await seed(ctx.root, { pending: OLD_PENDING });
       const routes = loadRoutes();
       need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-      const { world, ctl } = controlWorld(ctx.root, { report: reportOf(latest, [doneLatest(RUN_OLD)]) });
-      try {
-        spoil(world);
-        const before = world.record.bytes();
-        const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), controlDeps(world, ctl, { health: 'ready' }));
-        const body = r.res.body || {};
-        if (r.lineUps.length !== 1) problems.push(`${what}: lineUp calls: expected 1 (the route's own queueHealth() said ready), got ${r.lineUps.length}`);
-        if (!(r.res.statusCode >= 200 && r.res.statusCode < 300)) problems.push(`${what}: answered ${showRes(r.res)}, expected 2xx`);
-        if (body.confirmed !== true || body.enqueued !== false) problems.push(`${what}: expected { confirmed: true, enqueued: false } (${ADR6('D8')}); got ${showRes(r.res)}`);
-        const adds = world.callsOf('queue.add');
-        if (adds.length) problems.push(`${what}: the controller added ${adds.length} job(s) — "add nothing" (${ADR6('D8')})`);
-        if (world.record.bytes() !== before) problems.push(`${what}: the record changed — "record nothing" (${ADR6('D8')}); now ${brief(world.record.bytes(), 400)}`);
-        if (!(exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD)) problems.push(`${what}: the confirmation should stay pending for the next pass, as today`);
-      } finally { world.cleanup(); }
+      const bundle = routeDeps({ control: {} });
+      const { world } = bundle.control();
+      spoil(world);
+      const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+      problems.push(...outcomeProblems(what, r, ctx, world, { outcome: 'not-lined-up', body: { enqueued: false, reason: 'QUEUE_UNAVAILABLE' }, adds: 0, noStart: true }));
     });
   }
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('RT35: when the controller\'s add fails, or does not answer within its 2 s bound (shortened here), the owner\'s confirmation still writes the record and answers { confirmed: true, enqueued: false }, the confirmation stays pending, and no start of that attempt survives in the record — no passes entry with a start and no history line as the owner\'s confirmation [ADR tagging-edges/0006 D8 "An add that fails or times out", D6 step 3, D1 "An add gets its own 2000 ms"; § Seams "New cases the review named": "A Run whose add times out leaves no start in passes or history"]', async () => {
+test('RT35 (revised for story 7 — ADR tagging-edges/0007 D2 step 8 and takeBackStart): when the controller\'s add fails, or does not answer within its bound (shortened here), the owner\'s confirmation still writes the record and answers { confirmed: true, outcome: "not-lined-up", enqueued: false }, the confirmation stays pending, the confirm line stays, and no start of that attempt survives in the record — no passes entry with a start and no history line as the owner\'s confirmation [ADR 0007 D2 step 8 "put the key in skips (R1), take back only the start"; ADR tagging-edges/0006 Amendment 1 § C]', async () => {
   const problems = [];
   const cases = [
     ['an add that fails', { error: 'ECONNRESET' }],
@@ -2105,68 +2158,51 @@ test('RT35: when the controller\'s add fails, or does not answer within its 2 s 
   ];
   for (const [what, plan] of cases) {
     await withState(async (ctx) => {
-      const { latest } = await seed(ctx.root, { pending: OLD_PENDING });
+      await seed(ctx.root, { pending: OLD_PENDING });
       const routes = loadRoutes();
       need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
-      const { world, ctl } = controlWorld(ctx.root, { report: reportOf(latest, [doneLatest(RUN_OLD)]) });
-      try {
-        world.queue.inject('add', plan);
-        const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), controlDeps(world, ctl));
-        world.queue.releaseHangs();
-        const body = r.res.body || {};
-        const adds = world.callsOf('queue.add');
-        if (adds.length < 1) problems.push(`${what}: the controller never tried to add a job (lineUp calls ${r.lineUps.length}) — the case did not run`);
-        if (!(r.res.statusCode >= 200 && r.res.statusCode < 300)) problems.push(`${what}: answered ${showRes(r.res)}, expected 2xx`);
-        if (body.confirmed !== true || body.enqueued !== false) problems.push(`${what}: expected { confirmed: true, enqueued: false } (${ADR6('D8')}); got ${showRes(r.res)}`);
-        if (!(exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD)) problems.push(`${what}: the confirmation should stay pending for the next pass`);
-        const rec = recordNow(world);
-        const starts = Object.entries(rec.passes || {}).filter(([, e]) => e && e.start && e.start.who && e.start.who.kind === 'confirmation');
-        const lines = (rec.history || []).filter((h) => h && h.action === 'start' && h.who && h.who.kind === 'confirmation');
-        if (starts.length || lines.length) problems.push(`${what}: a start that lined up nothing survives in the record — "remove any start entry and history line already written" (${ADR6('D8')}); passes ${brief(starts)}, history ${brief(lines)}`);
-      } finally { world.cleanup(); }
+      const bundle = routeDeps({ control: {} });
+      const { world } = bundle.control();
+      world.queue.inject('add', plan);
+      const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+      world.queue.releaseHangs();
+      if (world.callsOf('queue.add').length < 1) problems.push(`${what}: the controller never tried to add a job — the case did not run`);
+      problems.push(...outcomeProblems(what, r, ctx, world, { outcome: 'not-lined-up', body: { enqueued: false }, noStart: true }));
+      const lines = (recordNow(world).history || []).filter((h) => h && h.action === 'start' && h.who && h.who.kind === 'confirmation');
+      if (lines.length) problems.push(`${what}: a start line that lined up nothing survives: ${brief(lines)}`);
     });
   }
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('RT36: the confirm route meets a pass that started after its re-read and has a stop asked for — the only busy pass — and lines up a new job, as when nothing is busy: { confirmed: true, enqueued: true, jobId: the new key }, not joined, the new job beside the stopping pass\'s, and its start recorded as the owner\'s confirmation [ADR tagging-edges/0006 D8 "Busy only with passes that have a stop asked for … line up a new job, record the start {kind: \'confirmation\'}", D5 stopAskedAt]', async () => {
+test('RT36 (revised for story 7 — ADR tagging-edges/0007 D2 step 4 "every busy item has a stop asked for → line-up, with behindStopping: true"): the confirm route meets a busy pass that has a stop asked for — the only busy pass, a job waiting for the heavy-task lock whose stop is on record — and lines up a new job: { confirmed: true, outcome: "lined-up", enqueued: true, jobId: the new key, behindStopping: true }, not joined, the new job beside the stopping one, its start recorded as the owner\'s confirmation [story 7 AC-1 "Every busy pass has a stop asked for: none of them takes the confirmation up. Confirming lines up a new pass … and the answer says so"; ADR tagging-edges/0006 D8 (superseded)]', async () => {
   const problems = [];
   await withState(async (ctx) => {
-    const { latest } = await seed(ctx.root, { pending: OLD_PENDING });
+    await seed(ctx.root, { pending: OLD_PENDING });
     const routes = loadRoutes();
     need(routes, 'handleConfirmHeldRemovals', ROUTES_LABEL);
     const key = P.lineUpKey(901);
-    // The stopping pass's record: its start, and a stop an admin asked for (with noRerun, as D9 writes it).
     const rec = recordOfStarts([key, 'owner', P.T0]);
-    rec.passes[key] = { ...rec.passes[key], stop: { at: P.iso(P.T0 + 300), runId: RUN_LIVE, who: whoAs('admin') }, noRerun: true };
+    rec.passes[key] = { ...rec.passes[key], stop: { at: P.iso(P.T0 + 300), runId: null, who: whoAs('admin') } };
     rec.history.unshift(P.historyLine('stop', key, P.iso(P.T0 + 300), whoAs('admin')));
-    const { world, ctl } = controlWorld(ctx.root, { report: reportOf(latest, [doneLatest(RUN_OLD)]), record: { record: rec } });
-    try {
-      const bundle = controlDeps(world, ctl);
-      // As RT33: the pass's first record appears after the re-read (its own active job is not modelled).
-      const race = startAfterReRead(ctx, bundle, () => {
-        world.clock.advance(250);
-        world.startPass({ jobId: key, runId: RUN_LIVE });
-        world.clock.advance(100);
-        put(ctx.root, 'report.json', world.report);
-      });
-      const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
-      const body = r.res.body || {};
-      if (!race.started()) problems.push(`the race never ran: the route did not re-read report.json after writing confirmation.json (answer: ${showRes(r.res)})`);
-      if (r.lineUps.length !== 1) problems.push(`lineUp calls: expected 1, got ${r.lineUps.length}`);
-      if (r.res.statusCode !== 200) problems.push(`answered ${showRes(r.res)}, expected 200`);
-      if (body.confirmed !== true || body.enqueued !== true || body.joined === true) problems.push(`expected { confirmed: true, enqueued: true } and not joined — a pass with a stop asked for does not take the confirmation up for sure (${ADR6('D8')}); got ${showRes(r.res)}`);
-      const fresh = world.queue.jobs().filter((j) => j.id !== key);
-      if (fresh.length !== 1) problems.push(`jobs added beside the stopping pass's ${key}: expected 1, got ${brief(fresh.map((j) => j.id))} (${ADR6('D8')})`);
-      const job = fresh[0];
-      if (job) {
-        if (body.jobId !== job.id) problems.push(`answer.jobId ${brief(body.jobId)} should be the new job's key ${job.id}`);
-        if (!P.LINEUP_ID.test(job.id)) problems.push(`the new job id ${brief(job.id)} should match LINEUP_ID (${ADR6('D2')})`);
-        const entry = (recordNow(world).passes || {})[job.id];
-        if (!entry || !entry.start || JSON.stringify(sortKeys(entry.start.who)) !== JSON.stringify(CONFIRMATION_WHO)) problems.push(`the record should hold the new job's start as { kind: "confirmation" } (${ADR6('D8, D11')}); got ${brief(entry)}`);
-      }
-      if (!(exists(ctx.root, 'confirmation.json') && readJson(ctx.root, 'confirmation.json').runId === RUN_HELD)) problems.push('the confirmation should stay pending for the new pass');
-    } finally { world.cleanup(); }
+    const bundle = routeDeps({ control: { world: { record: { record: rec } } } });
+    const { world, ctl } = bundle.control();
+    await world.queue.add(TASK, P.lineUpData(), P.lineUpOpts(key));
+    const job = world.queue.pickUp();
+    const go = await ctl.gate.beforeAcquire(job);
+    assert(go === 'go', `setup: the stopping job should wait for the lock ('go' at beforeAcquire); it answered ${brief(go)}`);
+    const r = await tryHandler(ctx, routes.handleConfirmHeldRemovals, confirmReq({ runId: RUN_HELD }), bundle);
+    const body = r.res.body || {};
+    problems.push(...outcomeProblems('a busy pass with a stop asked for', r, ctx, world, { outcome: 'lined-up', body: { enqueued: true, behindStopping: true }, adds: 1 }));
+    if (body.joined === true) problems.push('the answer is joined, but a stopping pass does not take the confirmation up');
+    const fresh = world.queue.jobs().filter((j) => j.id !== key);
+    const j1 = fresh[0];
+    if (fresh.length !== 1) problems.push(`jobs added beside the stopping pass's ${key}: expected 1, got ${brief(fresh.map((x) => x.id))}`);
+    else {
+      if (body.jobId !== j1.id) problems.push(`answer.jobId ${brief(body.jobId)} should be the new job's key ${j1.id}`);
+      const entry = (recordNow(world).passes || {})[j1.id];
+      if (!entry || !entry.start || JSON.stringify(sortKeys(entry.start.who)) !== JSON.stringify(CONFIRMATION_WHO)) problems.push(`the record should hold the new job's start as { kind: "confirmation" } (${P.adr7('D5')}); got ${brief(entry)}`);
+    }
   });
   assert(problems.length === 0, problems.join('\n        '));
 });
@@ -2306,6 +2342,71 @@ test('RT38: GET status when the queue cannot be read — a read that fails, or o
 });
 
 // ─── runner ───
+// ─── story 7: the public confirmation is an allowlist (ADR tagging-edges/0007 D6) ──────────────────────────────────
+const D6_ALLOW = ['version', 'runId', 'heldDigest', 'heldCount', 'mintedAt', 'expiresAt'];
+
+test('RT39 (story 7 — ADR tagging-edges/0007 D6): GET status serves confirmationPending as D6\'s allowlist — of a confirmation.json that carries mintedBy, a nonce, a who and an extra member (as written before story 7, or edited by hand), only version, runId, heldDigest, heldCount, mintedAt and expiresAt, each as stored, plus the derived expired (false while unexpired, true once expired); a file without heldCount serves no heldCount; mintedBy, the nonce, the who and the extra member reach no signed-out reader, and no owner key appears anywhere in the answer [ADR 0007 D6 "an object → only version, runId, heldDigest, heldCount, mintedAt and expiresAt, each when present, plus the derived expired … So mintedBy and the nonce never reach a signed-out reader, whether the file was written before this story or after, or edited by hand. This supersedes ADR 0002 C12"; story 7 AC-4 "The owner\'s shortened key goes from every confirmation the public status shows"]', async () => {
+  const problems = [];
+  const nonce = nonceOf('rt39-secret');
+  const mintedFuture = new Date(Date.now() - 3600e3).toISOString();
+  const mintedPast = new Date(Date.now() - 30 * 3600e3).toISOString();
+  const cases = [
+    ['pending, with mintedBy, a who and an extra member', { ...confirmationRecord({ nonce, mintedAt: mintedFuture }), who: { kind: 'owner', key: OWNER.slice(0, 8) }, note: 'hand-edited' }, false, D6_ALLOW],
+    ['expired, with mintedBy', confirmationRecord({ nonce, mintedAt: mintedPast }), true, D6_ALLOW],
+    ['pending, without heldCount', (() => { const r = confirmationRecord({ nonce, mintedAt: mintedFuture }); delete r.heldCount; return r; })(), false, D6_ALLOW.filter((k) => k !== 'heldCount')],
+  ];
+  for (const [what, rec, expired, keys] of cases) {
+    await withState(async ({ root }) => {
+      put(root, 'report.json', reportOf(heldLatest(RUN_HELD, heldList(2)), [doneLatest(RUN_OLD)]));
+      put(root, 'confirmation.json', rec);
+      const routes = loadRoutes();
+      need(routes, 'handleStatus', ROUTES_LABEL);
+      const res = await callHandler(routes.handleStatus, getReq(PATHS.status), routeDeps().deps);
+      if (res.statusCode !== 200) { problems.push(`${what}: answered ${showRes(res)}`); return; }
+      const cp = res.body.confirmationPending;
+      if (!cp || typeof cp !== 'object') { problems.push(`${what}: confirmationPending should show the confirmation; it is ${brief(cp)}`); return; }
+      const extra = Object.keys(cp).filter((k) => !D6_ALLOW.includes(k) && k !== 'expired');
+      if (extra.length) problems.push(`${what}: confirmationPending serves ${brief(extra)} beside D6's allowlist (${P.adr7('D6')}); it is ${brief(cp)}`);
+      const lost = keys.filter((k) => JSON.stringify(cp[k]) !== JSON.stringify(rec[k]));
+      if (lost.length) problems.push(`${what}: confirmationPending should keep ${brief(lost)} as stored; it is ${brief(cp)}`);
+      if (!keys.includes('heldCount') && 'heldCount' in cp) problems.push(`${what}: a file without heldCount should serve none ("each when present"); it serves ${brief(cp.heldCount)}`);
+      if (cp.expired !== expired) problems.push(`${what}: expired should be ${expired}; it is ${brief(cp.expired)}`);
+      const text = JSON.stringify(res.body);
+      for (const [label, needle] of [['the owner\'s key', OWNER], ['the owner\'s shortened key', OWNER.slice(0, 8)], ['the nonce', nonce], ['a "mintedBy" member', '"mintedBy"'], ['a "who" member', '"who"'], ['the hand-edited member', 'hand-edited']]) {
+        if (text.includes(needle)) problems.push(`${what}: the public status carries ${label} (${P.adr7('D6')}; story 7 AC-4 "No public read names who confirmed")`);
+      }
+    });
+  }
+  assert(problems.length === 0, problems.join('\n        '));
+});
+
+test('RT40 (story 7 — ADR tagging-edges/0007 D6; passes before and after: D6 keeps today\'s answer for these files): a confirmation.json that cannot be read is still served as { unreadable: <code> } (with nothing else of the file, and the report served), and one that holds a JSON string or a number is served as null [ADR 0007 D6 "null → null; a read that threw → {unreadable: <code>}, as today; … anything else → null, as withoutNonce gives today"; RT30]', async () => {
+  const problems = [];
+  const cases = [
+    ['not JSON', (root) => put(root, 'confirmation.json', `{ "mintedBy": "${OWNER.slice(0, 8)}", not json`), 'unreadable'],
+    ['unreadable (ELOOP)', (root) => unreadable(root, 'confirmation.json'), 'unreadable'],
+    ['a JSON string', (root) => put(root, 'confirmation.json', JSON.stringify(`minted by ${OWNER.slice(0, 8)}`)), null],
+    ['a JSON number', (root) => put(root, 'confirmation.json', '42'), null],
+  ];
+  for (const [what, spoil, want] of cases) {
+    await withState(async ({ root }) => {
+      put(root, 'report.json', reportOf(heldLatest(RUN_HELD, heldList(2)), [doneLatest(RUN_OLD)]));
+      spoil(root);
+      const routes = loadRoutes();
+      need(routes, 'handleStatus', ROUTES_LABEL);
+      const res = await callHandler(routes.handleStatus, getReq(PATHS.status), routeDeps().deps);
+      if (res.statusCode !== 200 || !res.body.latest || res.body.latest.runId !== RUN_HELD) { problems.push(`${what}: the report should be served; answered ${showRes(res)}`); return; }
+      const cp = res.body.confirmationPending;
+      if (want === 'unreadable') {
+        const extra = cp && typeof cp === 'object' ? Object.keys(cp).filter((k) => k !== 'unreadable' && k !== 'expired') : [];
+        if (!cp || typeof cp.unreadable !== 'string' || !cp.unreadable || extra.length) problems.push(`${what}: confirmationPending should be { unreadable: <code> }; it is ${brief(cp)}`);
+      } else if (cp !== null && cp !== undefined) problems.push(`${what}: confirmationPending should be null; it is ${brief(cp)}`);
+      if (JSON.stringify(res.body).includes(OWNER.slice(0, 8))) problems.push(`${what}: the answer carries the owner's shortened key`);
+    });
+  }
+  assert(problems.length === 0, problems.join('\n        '));
+});
+
 async function run() {
   console.log('\n--- tagging-edges state files and routes (epic tagging-edges, Story 2) ---');
   let pass = 0, fail = 0;

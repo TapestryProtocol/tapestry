@@ -67,7 +67,19 @@
  *     code units, String.prototype.length; D10's pattern's bound) reaches no spawn environment, for the pass and for
  *     another task, so no id can make one environment string of 128 KiB or more, which Linux refuses (E2BIG); ids of
  *     exactly 200 code units, one with a character outside the BMP among them, still carry the variable unchanged.
- *     Red until the fix lands: the processor leaves the variable out only for an id that holds NUL.
+ *     At 2cbf6124, the commit before that fix, the processor set the variable for every id, so SWR86 failed there; it
+ *     has passed since the fix round. (Corrected at story 7, from story 6's review, round 2, carry-forward 5: this line
+ *     said "the processor leaves the variable out only for an id that holds NUL", a tree that was never committed.)
+ *   Story 7 (2026-11-07; engineering-team/stories/tagging-edges/7-confirm-held-removals.md, ADR tagging-edges/0007 D1
+ *     and § Carry-forwards CF4):
+ *     SWR84 is revised in place (ADR 0007 D1: index.js's defaultDeps gains confirm, from the default controller, and
+ *       loses writeConfirmation, withdrawConfirmation, heldDigest, nonce, lineUp and queueHealth): the owner's
+ *       confirmation now calls the default controller's confirm once, with { who: { kind: 'owner', key }, runId }, and
+ *       sends its answer, consulting neither lineUp nor queueHealth and writing no confirmation.json itself. Red until
+ *       story 7 lands: the route still runs its own sequence and calls lineUp.
+ *     SWR87 is new, beside SWR85 and SWR86 and with their recorder (CF4): when the guard drops a job id (NUL, or longer
+ *       than 200 code units), a BRAINSTORM_TASK_JOB_ID inherited in the worker's own environment does not reach the
+ *       child either. Red until CF4 lands: the processor spreads process.env and only adds the variable.
  *
  * Stack-free and hermetic: no Neo4j, no strfry, no network, no write to the local graph or relay. Temp directories come
  * from fs.mkdtempSync(os.tmpdir()) and are removed; env changes live only in child processes; the swapped driver
@@ -3136,6 +3148,71 @@ const cases = ${JSON.stringify(cases)};
   assert(problems.length === 0, problems.join('\n        '));
 });
 
+test('SWR87 (story 7, from story 6\'s review, round 2, carry-forward 4): when the processor\'s guard drops a job id — one that carries NUL, or one longer than 200 code units — a BRAINSTORM_TASK_JOB_ID already in the worker\'s own environment (inherited by the control panel\'s process) does not reach the child either: it is deleted from the spawn environment\'s copy, so the pass records job: null without exception; an ordinary id still carries its own id, never the inherited one; the worker\'s own process.env keeps the variable; BRAINSTORM_STRUCTURED_LOGGING stays \'true\' and the inherited environment otherwise stays [ADR tagging-edges/0007 § Carry-forwards CF4 "processor.js deletes BRAINSTORM_TASK_JOB_ID from the child\'s environment copy when the guard drops the id, so an inherited value never reaches the pass, and job: null holds without exception"; ADR tagging-edges/0006 D10 "The processor" and its note at the fix round]', () => {
+  const registryEntry = taskEntry();
+  const NUL = String.fromCharCode(0);
+  const INHERITED = 'reconcileTaggingEdges-inherited0001';
+  const cases = [
+    { label: 'the pass, with a job id that carries NUL', job: { id: `reconcileTaggingEdges${NUL}y`, data: { taskName: TASK, customerArgs: null, timeoutMs: 1800000 } }, taskDef: 'registry', carried: null },
+    { label: 'another task, with a job id of 201 characters', job: { id: `job-${'7'.repeat(197)}`, data: { taskName: 'someOtherTask', customerArgs: null, timeoutMs: 60000 } }, taskDef: { staticArgs: '--mode all' }, carried: null },
+    { label: 'the pass, with an ordinary job id', job: { id: 'reconcileTaggingEdges-a00000000087', data: { taskName: TASK, customerArgs: null, timeoutMs: 1800000 } }, taskDef: 'registry', carried: 'reconcileTaggingEdges-a00000000087' },
+  ];
+  assert(cases[1].job.id.length === 201, `setup: the long id is ${cases[1].job.id.length} code units, not 201`);
+  const code = `${CHILD_SAY}
+const cp = require('child_process');
+const { EventEmitter } = require('events');
+const seen = [];
+cp.spawn = function (cmd, args, opts) {
+  const env = (opts && opts.env) || {};
+  seen.push({ has: Object.prototype.hasOwnProperty.call(env, 'BRAINSTORM_TASK_JOB_ID'), jobIdEnv: env.BRAINSTORM_TASK_JOB_ID, structured: env.BRAINSTORM_STRUCTURED_LOGGING, marker: env.TD6_INHERITED_MARKER, same: env === process.env });
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.stdin = { write() {}, end() {} };
+  child.pid = 424242;
+  setImmediate(() => child.emit('close', 0));
+  return child;
+};
+let processor = null;
+let err = null;
+try { processor = require(${JSON.stringify(PROCESSOR)}); } catch (e) { err = __first(e); }
+const entry = ${JSON.stringify(registryEntry)};
+const cases = ${JSON.stringify(cases)};
+(async () => {
+  const results = [];
+  for (const c of cases) {
+    const before = seen.length;
+    let error = null;
+    try { await processor.processJob(c.job, c.taskDef === 'registry' ? entry : c.taskDef); } catch (e) { error = __first(e); }
+    results.push({ label: c.label, error, spawns: seen.slice(before), ownEnv: process.env.BRAINSTORM_TASK_JOB_ID });
+  }
+  __sayNow({ err, results, inheritedSeen: process.env.BRAINSTORM_TASK_JOB_ID });
+})();
+`;
+  const env = childEnv({ TD6_INHERITED_MARKER: 'inherited' });
+  env.BRAINSTORM_TASK_JOB_ID = INHERITED; // childEnv deletes it; this test puts one in the worker's own environment
+  const out = runChild(code, env, 'the processor check');
+  assert(!out.err, `src/manage/taskQueue/queue/processor.js did not load: ${out.err}`);
+  assert(out.inheritedSeen === INHERITED, `setup: the worker's environment should hold the inherited BRAINSTORM_TASK_JOB_ID; it holds ${show(out.inheritedSeen)}`);
+  const problems = [];
+  for (const c of cases) {
+    const r = (out.results || []).find((x) => x.label === c.label) || {};
+    if (r.error) { problems.push(`${c.label}: processJob failed: ${r.error}`); continue; }
+    if (!r.spawns || r.spawns.length !== 1) { problems.push(`${c.label}: processJob should spawn the launcher once; it spawned ${r.spawns ? r.spawns.length : 0} time(s)`); continue; }
+    const s = r.spawns[0];
+    if (c.carried === null) {
+      if (s.has) problems.push(`${c.label}: the guard dropped the id, so the spawn environment should carry no BRAINSTORM_TASK_JOB_ID; it carries ${show(s.jobIdEnv)}${s.jobIdEnv === INHERITED ? ', the value inherited by the worker' : ''} (ADR tagging-edges/0007 CF4)`);
+    } else if (!s.has || s.jobIdEnv !== c.carried) {
+      problems.push(`${c.label}: the spawn environment should carry the job's own id ${show(c.carried)}, never the inherited one; it ${s.has ? `carries ${show(s.jobIdEnv)}` : 'carries none'} (${ADR6} D10)`);
+    }
+    if (s.same) problems.push(`${c.label}: the spawn was handed process.env itself; the variable must be deleted from a copy, so the worker's own environment is untouched`);
+    if (r.ownEnv !== INHERITED) problems.push(`${c.label}: the worker's own process.env lost its BRAINSTORM_TASK_JOB_ID (it is ${show(r.ownEnv)}): the delete belongs on the spawn environment's copy only`);
+    if (s.structured !== 'true') problems.push(`${c.label}: BRAINSTORM_STRUCTURED_LOGGING should stay 'true'; got ${show(s.structured)}`);
+    if (s.marker !== 'inherited') problems.push(`${c.label}: the spawn environment should still inherit process.env (a marker set in the parent is ${show(s.marker)})`);
+  }
+  assert(problems.length === 0, problems.join('\n        '));
+});
+
 test('SWR79: queue/index.js exports queueHealth(), which answers \'off\' before initTaskQueue, \'ready\' while the shared Redis client\'s status is \'ready\', and \'not-ready\' for any other status (connecting, reconnecting, end), issuing no Redis command (ping is seen when isQueueAvailable() runs, so the recorder works); and it requires jobGates.js by the time initTaskQueue has built its workers [ADR tagging-edges/0006 D2 "A new export in queue/index.js", D3 "The opt-in"; § Seams "Load-time pins"]', () => {
   const code = `${CHILD_SAY}
 const path = require('path');
@@ -3362,7 +3439,7 @@ try { mod = require(${JSON.stringify(PASS_API)}); } catch (e) { err = { code: e 
   assert(problems.length === 0, problems.join('\n        '));
 });
 
-test('SWR84: src/api/tagging-edges/index.js\'s defaultDeps gains queueHealth, lineUp and snapshot from the default controller — with nothing injected but the owner and liveness, handleStatus asks the controller module\'s controller.snapshot, and the owner\'s confirmation of a held report consults queueHealth() and calls controller.lineUp({ who: { kind: "confirmation" }, mode: "confirm" }), never the queue module\'s isQueueAvailable or runViaQueueAsync — the control and queue modules replaced by recorders through the module resolver, so no real queue or controller runs [ADR tagging-edges/0006 D8 "What changes": "index.js\'s defaultDeps gains queueHealth, lineUp and snapshot, all from the default controller", D12; the SWR74 trap]', () => {
+test('SWR84 (revised for story 7 — ADR tagging-edges/0007 D1: confirm replaces lineUp and queueHealth in index.js\'s deps): src/api/tagging-edges/index.js\'s defaultDeps reaches the default controller — with nothing injected but the owner and liveness, handleStatus asks the controller module\'s controller.snapshot, and the owner\'s confirmation of a held report calls controller.confirm({ who: { kind: "owner", key: the owner }, runId }) once and sends its { status, body } — never controller.lineUp, queueHealth(), or the queue module\'s isQueueAvailable or runViaQueueAsync, and writing no confirmation.json itself — the control and queue modules replaced by recorders through the module resolver, so no real queue or controller runs [ADR tagging-edges/0007 D1 "index.js\'s defaultDeps gains confirm, from the default controller, and loses writeConfirmation, withdrawConfirmation, heldDigest, nonce, lineUp and queueHealth … snapshot stays, for the status"; ADR tagging-edges/0006 D12; the SWR74 trap]', () => {
   const dir = td6Temp('defaults');
   let out;
   try {
@@ -3377,7 +3454,9 @@ const QUEUE_INDEX = ${JSON.stringify(QUEUE_INDEX)};
 const QUEUE_DIR = path.dirname(QUEUE_INDEX);
 const calls = [];
 const note = (name, a) => { let args; try { args = JSON.parse(JSON.stringify(a)); } catch (_) { args = null; } calls.push({ name, args }); };
+const CONFIRMED = { status: 200, body: { success: true, confirmed: true, outcome: 'lined-up', enqueued: true, jobId: 'reconcileTaggingEdges-a00000000084', behindStopping: false, expiresAt: '2026-10-28T11:00:00.000Z' } };
 const controller = {
+  confirm: async (...a) => { note('controller.confirm', a); return JSON.parse(JSON.stringify(CONFIRMED)); },
   lineUp: async (...a) => { note('controller.lineUp', a); return {}; },
   snapshot: async (...a) => { note('controller.snapshot', []); return { queue: 'off', busy: [], items: [], gaveUp: null }; },
   stop: async (...a) => { note('controller.stop', a); return {}; },
@@ -3431,28 +3510,33 @@ const RUN = '20261027T110000Z-0a1b2c3d';
       { getOwnerPubkey: () => P.OWNER, isAlive: () => false });
     out.confirm = { status: confirm.status, body: confirm.body, rejected: confirm.rejected ? __first(confirm.rejected) : null };
     out.afterConfirm = calls;
+    out.expected = CONFIRMED;
+    out.confirmationWritten = fs.existsSync(path.join(process.env.TAGGING_EDGES_STATE_DIR, 'confirmation.json'));
   } catch (e) { out.error = __first(e); }
   __sayNow(out);
 })();
 `;
-    out = runChild(code, childEnv({ TAGGING_EDGES_STATE_DIR: dir }), 'the index.js default-deps check');
+    out = runChild(code, childEnv({ TAGGING_EDGES_STATE_DIR: dir, SCHEDULED_TASKS_CONFIG_PATH: path.join(dir, 'scheduled-tasks.json') }), 'the index.js default-deps check');
   } finally { rmTemp(dir); }
   assert(!out.error, `the check could not run: ${out.error}`);
   const problems = [];
   const asked = out.afterStatus || [];
   if (!asked.includes('controller.snapshot')) problems.push(`handleStatus, with no snapshot injected, never asked the default controller's snapshot — "index.js's defaultDeps gains … snapshot … from the default controller" (${ADR6} D8, D12); it called ${show(asked)} (answer ${show(out.status)})`);
+  // Revised for story 7 (ADR tagging-edges/0007 D1): the route's only dep after its checks is the default controller's confirm.
   const calls = out.afterConfirm || [];
   const names = calls.map((c) => c.name);
-  const lineUps = calls.filter((c) => c.name === 'controller.lineUp');
-  if (lineUps.length !== 1) problems.push(`the owner's confirmation, with no lineUp injected, should call the default controller's lineUp once; it called ${show(names)} (answer ${show(out.confirm && out.confirm.status)} ${show(out.confirm && out.confirm.body)}) (${ADR6} D8)`);
+  const confirms = calls.filter((c) => c.name === 'controller.confirm');
+  if (confirms.length !== 1) problems.push(`the owner's confirmation, with no confirm injected, should call the default controller's confirm once (ADR tagging-edges/0007 D1); it called ${show(names)} (answer ${show(out.confirm && out.confirm.status)} ${show(out.confirm && out.confirm.body)})`);
   else {
-    const a = (lineUps[0].args || [])[0] || {};
-    if (a.mode !== 'confirm' || JSON.stringify(sortKeys(a.who)) !== JSON.stringify({ kind: 'confirmation' })) problems.push(`the default lineUp should be called with { who: { kind: 'confirmation' }, mode: 'confirm' }; got ${show(a)} (${ADR6} D8)`);
+    const a = (confirms[0].args || [])[0] || {};
+    const who = a.who || {};
+    const owner = require(PASS_FAKES).OWNER; // the child's session and getOwnerPubkey
+    if (who.kind !== 'owner' || !(who.key === owner || who.key === owner.slice(0, 8)) || Object.keys(who).length !== 2 || a.runId !== '20261027T110000Z-0a1b2c3d') problems.push(`the default confirm should be called with { who: { kind: 'owner', key: the owner }, runId: 20261027T110000Z-0a1b2c3d }; got ${show(a)} (ADR tagging-edges/0007 D1)`);
+    if (!out.confirm || out.confirm.status !== 200 || JSON.stringify(sortKeys(out.confirm.body)) !== JSON.stringify(sortKeys(out.expected.body))) problems.push(`the route should send the controller's { status, body } as it is; it sent ${show(out.confirm)} (ADR tagging-edges/0007 D1)`);
   }
-  const h = names.findIndex((n) => n === 'queue.queueHealth' || n === 'controller.queueHealth');
-  const l = names.indexOf('controller.lineUp');
-  if (h < 0) problems.push(`the owner's confirmation, with no queueHealth injected, never consulted queueHealth() (${ADR6} D8: "the d.isQueueAvailable() guard becomes d.queueHealth() === 'ready'"; it called ${show(names)})`);
-  else if (l >= 0 && h > l) problems.push(`queueHealth() was consulted after lineUp, not before (${ADR6} D8)`);
+  const gone = names.filter((n) => n === 'controller.lineUp' || n === 'queue.queueHealth' || n === 'controller.queueHealth');
+  if (gone.length) problems.push(`the owner's confirmation still calls ${show([...new Set(gone)])} — confirm replaces lineUp and queueHealth in index.js's deps (ADR tagging-edges/0007 D1)`);
+  if (out.confirmationWritten) problems.push('the route wrote confirmation.json itself — writing it is the controller\'s now (ADR tagging-edges/0007 D1, "Every confirmation goes through controller.confirm. Nothing else may write confirmation.json")');
   const legacy = names.filter((n) => n === 'queue.isQueueAvailable' || n === 'queue.runViaQueueAsync' || n === 'queue.runViaQueueSync' || n === 'queue.enqueueTask');
   if (legacy.length) problems.push(`the owner's confirmation still reaches the queue module's ${show([...new Set(legacy)])} — every start of this pass from app code goes through the controller (${ADR6} § Consequences "Constrains", D8)`);
   assert(problems.length === 0, problems.join('\n        '));

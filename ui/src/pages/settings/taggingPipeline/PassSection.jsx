@@ -8,10 +8,15 @@
  * Story 6 (ADR tagging-edges/0006 D17, D18): each pass shows who started it and who asked it to stop, and the
  * controls to run and stop a pass (PassControls.jsx) show in the empty report and the ready one alike, once the
  * status has a body.
+ *
+ * Story 7 (ADR tagging-edges/0007 D12, D15): a pass that took up the owner's confirmation says so, and when it was
+ * made, above what it did with it; and the section's heading takes focus when the Stop prompt closes with nothing
+ * else to land on.
  */
 
+import { useRef } from 'react';
 import { Explained, Loading, ReadFailed, Section, TONE_COLOUR, counted, figure, took, when } from './parts.jsx';
-import PassControls, { WhoLines } from './PassControls.jsx';
+import PassControls, { TimedLine, WhoLines } from './PassControls.jsx';
 
 /** A pass record's figures, in the order the story names them. */
 function passFigures(r) {
@@ -68,7 +73,10 @@ function ConfirmedLine({ confirmed, ended }) {
  */
 const said = (v) => typeof v === 'string' && v !== '';
 
-/** `who` is passWho's { start, stop } for this pass, or null while the record is not shown. */
+/**
+ * `who` is passWho's { start, stop, confirmation } for this pass, or null while the record is not shown. The line
+ * saying it took up the owner's confirmation shows above what it did with it (story 7; ADR 0007 D12).
+ */
 function LatestPass({ latest, tone, who }) {
   const failure = latest.failure && typeof latest.failure === 'object' ? latest.failure : null;
   const confirmation = latest.confirmation && typeof latest.confirmation === 'object' ? latest.confirmation : null;
@@ -95,6 +103,7 @@ function LatestPass({ latest, tone, who }) {
       {failure && said(failure.stderrTail) && (
         <p className="settings-hint">The relay command's last error line, or its exit code: {failure.stderrTail}</p>
       )}
+      {who && who.confirmation && <p><TimedLine line={who.confirmation} /></p>}
       {confirmation && confirmation.honoured === true && (
         <ConfirmedLine confirmed={latest.confirmed} ended={ended} />
       )}
@@ -118,7 +127,10 @@ function LatestPass({ latest, tone, who }) {
   );
 }
 
-/** `whoOf(runId)` is passWho's { start, stop } for that pass, or null while the record is not shown. */
+/**
+ * `whoOf(runId)` is passWho's { start, stop, confirmation } for that pass, or null while the record is not shown. A
+ * pass that took up the owner's confirmation says so in its Who cell (story 7; ADR 0007 D12).
+ */
 function EarlierPasses({ earlier, whoOf }) {
   // Each distinct outcome is explained once, under the table, rather than on every row.
   const outcomes = [...new Set(earlier.map((r) => r.outcome))];
@@ -141,7 +153,10 @@ function EarlierPasses({ earlier, whoOf }) {
               <tr key={r.runId || i}>
                 <td>{when(r.startedAt)}</td>
                 <td><code>{String(r.outcome)}</code></td>
-                <td>{who && <WhoLines who={who} />}</td>
+                <td>
+                  {who && <WhoLines who={who} />}
+                  {who && who.confirmation && <>{' '}<TimedLine line={who.confirmation} /></>}
+                </td>
                 {passFigures(r).map(([label, n]) => <td key={label}>{figure(n)}</td>)}
               </tr>
             );
@@ -159,13 +174,15 @@ function EarlierPasses({ earlier, whoOf }) {
  * `read` is the status read ({ state, body, error, readAt }); `view` is passView of its body, or null before a
  * good answer. `who` is passWho of the pass record's read and the status body; `controls` are PassControls' own
  * props, from the panel. PassControls carries the same key in both branches, so the switch from an empty report to a
- * ready one keeps its instance, and the focus inside it (ADR 0006 D17).
+ * ready one keeps its instance, and the focus inside it (ADR 0006 D17). The section's heading ref is passed to it, for
+ * where focus goes when the Stop prompt closes (ADR 0007 D15).
  */
 export default function PassSection({ read, view, onRetry, who, controls }) {
   const title = 'The gap-filling pass';
+  const heading = useRef(null);
   if (!view) {
     return (
-      <Section testId="tp-pass" state={read.state} title={title}>
+      <Section testId="tp-pass" state={read.state} title={title} headingRef={heading}>
         {read.state === 'error'
           ? <ReadFailed what="The pass report" error={read.error} onRetry={onRetry} />
           : <Loading what="the pass report" />}
@@ -173,7 +190,11 @@ export default function PassSection({ read, view, onRetry, who, controls }) {
     );
   }
   if (read.state === 'loading') {
-    return <Section testId="tp-pass" state="loading" title={title}><Loading what="the pass report" /></Section>;
+    return (
+      <Section testId="tp-pass" state="loading" title={title} headingRef={heading}>
+        <Loading what="the pass report" />
+      </Section>
+    );
   }
 
   const failed = read.state === 'error'
@@ -181,20 +202,20 @@ export default function PassSection({ read, view, onRetry, who, controls }) {
     : null;
   if (view.empty) {
     return (
-      <Section testId="tp-pass" state={failed ? 'error' : 'empty'} title={title}>
+      <Section testId="tp-pass" state={failed ? 'error' : 'empty'} title={title} headingRef={heading}>
         {failed}
         <p>No pass has run yet.</p>
         <p>
           A pass starts when the owner or an admin presses "Run a pass now" below, when an enabled Scheduled Tasks
           entry, "Reconcile tagging relationships", comes due, or when it is run from the Task Explorer.
         </p>
-        <PassControls key="pass-controls" body={read.body} view={view} {...controls} />
+        <PassControls key="pass-controls" body={read.body} view={view} {...controls} headingRef={heading} />
       </Section>
     );
   }
   const whoOf = (runId) => (who.status === 'shown' ? who.runs.find((w) => w.runId === runId) || null : null);
   return (
-    <Section testId="tp-pass" state={failed ? 'error' : 'ready'} title={title} tone={view.tone}>
+    <Section testId="tp-pass" state={failed ? 'error' : 'ready'} title={title} tone={view.tone} headingRef={heading}>
       {failed}
       {view.running && view.current && (
         <div>
@@ -205,7 +226,7 @@ export default function PassSection({ read, view, onRetry, who, controls }) {
           </p>
         </div>
       )}
-      <PassControls key="pass-controls" body={read.body} view={view} {...controls} />
+      <PassControls key="pass-controls" body={read.body} view={view} {...controls} headingRef={heading} />
       {view.latest && <LatestPass latest={view.latest} tone={view.tone} who={whoOf(view.latest.runId)} />}
       {view.earlier.length > 0 && <EarlierPasses earlier={view.earlier} whoOf={whoOf} />}
     </Section>

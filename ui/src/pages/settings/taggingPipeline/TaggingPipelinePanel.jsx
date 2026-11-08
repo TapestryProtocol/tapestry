@@ -4,23 +4,26 @@
  * A panel for the tagging pipeline: the gap-filling pass, its held removals, the backstop schedule, the real-time
  * path, and the drift between the relay and the graph. Every request it sends is a GET, and it changes nothing,
  * apart from the real-time path's switch (story 5; ADR tagging-edges/0005 D12) and the pass's Run and Stop (story 6;
- * ADR tagging-edges/0006 D15, D17): one POST each through sendSwitch, sendRun and sendStop, for the owner or an admin.
- * Confirming held removals from the panel is story 7's.
+ * ADR tagging-edges/0006 D15, D17): one POST each through sendSwitch, sendRun and sendStop, for the owner or an admin;
+ * and the owner's confirmation of held removals (story 7; ADR tagging-edges/0007 D9–D11): one POST through
+ * sendConfirm, offered to the owner, shown disabled to an admin, and decided by the server. The panel reads the
+ * viewer's role from the signed-in user's classification, and the overdue verdict from the pass status.
  *
  * Each section reads its own route through readSection, so it loads, fails and retries on its own, and keeps what
  * it last read when a later read fails. The pass and path status, the switch's record and the record of who started
  * or stopped each pass are re-read every POLL_MS, a tick being skipped while the previous one is in flight; the
  * schedule list every SCHEDULE_POLL_MS; the drift counts only on opening and on Recount. Only the newest request's
  * answer is kept for each read. Every derivation lives in taggingPipelineView.js; this file only fetches, sends the
- * switch's change, Run and Stop, and renders.
+ * switch's change, Run, Stop and Confirm, and renders.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAuth } from '../../../context/AuthContext.jsx';
 import {
-  POLL_MS, SCHEDULE_POLL_MS, busyView, driftView, newestFinishedPass, passView, passWho, pathView, runOutcome,
-  scheduleView, stopOutcome, switchOutcome, switchRecordView,
+  POLL_MS, SCHEDULE_POLL_MS, busyView, confirmOutcome, confirmView, driftView, newestFinishedPass, overdueView,
+  passView, passWho, pathView, runOutcome, scheduleView, stopOutcome, switchOutcome, switchRecordView,
 } from '../../../utils/taggingPipelineView.js';
-import { readSection, sendRun, sendStop, sendSwitch } from '../../../utils/taggingPipelineFetch.js';
+import { readSection, sendConfirm, sendRun, sendStop, sendSwitch } from '../../../utils/taggingPipelineFetch.js';
 import PassSection from './PassSection.jsx';
 import HeldSection from './HeldSection.jsx';
 import ScheduleSection from './ScheduleSection.jsx';
@@ -57,6 +60,19 @@ const NO_RUN = { pending: false, outcome: null };
  * opened, with the owner's confirmation as passView read it then; pending while under way, then its outcome.
  */
 const NO_STOP = { snapshot: null, confirmation: null, pending: false, outcome: null };
+/**
+ * A confirmation of held removals (ADR 0007 D10, D11): the prompt is open while `snapshot` is set, confirmView's
+ * { runId, count, when, replaces } when it opened; pending while under way, then its outcome.
+ */
+const NO_CONFIRM = { snapshot: null, pending: false, outcome: null };
+
+/** The viewer's role on the panel (D9): the owner, an admin, or neither. The server still decides (AC-3). */
+function roleOf(user) {
+  const classification = user ? user.classification : null;
+  if (classification === 'owner') return 'owner';
+  if (classification === 'admin') return 'admin';
+  return null;
+}
 
 /**
  * One section's read: { state, body, error, readAt } and a function that reads again. A failure after a good
@@ -93,6 +109,9 @@ export default function TaggingPipelinePanel({ onOpenTab }) {
   const [change, setChange] = useState(NO_CHANGE);
   const [run, setRun] = useState(NO_RUN);
   const [stop, setStop] = useState(NO_STOP);
+  const [confirm, setConfirm] = useState(NO_CONFIRM);
+  const auth = useAuth();
+  const role = roleOf(auth ? auth.user : null);
   const heldNewest = useRef(0);
   const polling = useRef(false);
   const mounted = useRef(true);
@@ -193,6 +212,29 @@ export default function TaggingPipelinePanel({ onOpenTab }) {
     if (mounted.current) setStop({ ...NO_STOP, outcome });
   }, [stop.snapshot, readStatus, readPassRecord]);
 
+  /**
+   * Confirm the held removals the open prompt named (ADR 0007 D11), as runPass sends a Run: exactly its snapshot's run
+   * id. The prompt stays open while the confirmation is under way. With no answer the panel can read, it closes at once,
+   * the outcome is unknown and the status and the pass record are re-read without waiting; with an answer, it closes
+   * once both re-reads have settled, so the held list and the confirmation shown are as they now stand. Sending a
+   * Confirm clears the last one's outcome.
+   */
+  const confirmHeld = useCallback(async () => {
+    const { runId } = confirm.snapshot;
+    setConfirm((c) => ({ ...c, pending: true, outcome: null }));
+    const result = await sendConfirm(runId);
+    if (!mounted.current) return;
+    const outcome = confirmOutcome(result);
+    if (outcome.outcome === 'unknown') {
+      setConfirm({ ...NO_CONFIRM, outcome });
+      readStatus();
+      readPassRecord();
+      return;
+    }
+    await Promise.allSettled([readStatus(), readPassRecord()]);
+    if (mounted.current) setConfirm({ ...NO_CONFIRM, outcome });
+  }, [confirm.snapshot, readStatus, readPassRecord]);
+
   const pass = status.body ? passView(status.body) : null;
   const busy = status.body ? busyView(status.body) : null;
   const who = passWho(passRecord, status.body);
@@ -249,6 +291,21 @@ export default function TaggingPipelinePanel({ onOpenTab }) {
     else heldNewest.current += 1; // drop any answer for a list that no longer applies
   }, [heldRunId, readHeld]);
 
+  // Whether the held section offers Confirm, and what its prompt would say (D9). The prompt closes by itself when a read
+  // makes Confirm unavailable or names another pass, but never while its confirmation is under way; a change in what is
+  // busy alone leaves it open, saying what it said when it opened (D10).
+  const confirmable = status.body ? confirmView(status.body, held, heldRunId) : null;
+  const offeredRunId = confirmable && confirmable.offer ? confirmable.runId : null;
+  useEffect(() => {
+    setConfirm((c) => (c.snapshot && !c.pending && c.snapshot.runId !== offeredRunId ? { ...c, snapshot: null } : c));
+  }, [offeredRunId]);
+  const askConfirm = () => {
+    if (!confirmable || !confirmable.offer) return;
+    const { runId, count, when, replaces } = confirmable;
+    setConfirm((c) => ({ ...c, snapshot: { runId, count, when, replaces } }));
+  };
+  const cancelConfirm = () => setConfirm((c) => ({ ...c, snapshot: null }));
+
   const path = realtime.body ? pathView(realtime.body) : null;
   const sched = schedule.body ? scheduleView(schedule.body) : null;
   const recordView = switchRecordView(record, realtime.body);
@@ -264,7 +321,7 @@ export default function TaggingPipelinePanel({ onOpenTab }) {
       <p className="settings-hint">
         The gap-filling pass and the real-time path keep one TAGS relationship in the graph for each tagging on the
         relay. This page shows how they are doing, and lets the owner or an admin switch the real-time path on or off,
-        and run or stop a pass.
+        and run or stop a pass. The owner can also confirm held removals.
       </p>
       <PassSection
         read={status}
@@ -291,10 +348,17 @@ export default function TaggingPipelinePanel({ onOpenTab }) {
         held={held}
         onPage={(offset) => readHeld(heldRunId, Math.max(0, offset))}
         onRetry={() => readHeld(held.runId, held.offset)}
+        role={role}
+        confirmable={confirmable}
+        confirm={confirm}
+        onAskConfirm={askConfirm}
+        onConfirm={confirmHeld}
+        onCancelConfirm={cancelConfirm}
       />
       <ScheduleSection
         read={schedule}
         view={sched}
+        overdue={overdueView(status.body, status, busy)}
         onRetry={() => readSchedule({ showLoading: true })}
         onOpenSchedule={() => onOpenTab('schedule')}
       />

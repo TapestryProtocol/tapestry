@@ -2,6 +2,17 @@
   "note": "AC-6 baseline (ADR 0004 T10): the distinct API requests each existing Relays sub-tab sends from its click until 3000 ms later, under tests/brainstorm/tagging-pipeline-panel.spec.js's mocks (catch-all 599). Recorded with TP_RECORD_BASELINE=1 against the UI before story 4.",
   "recordedAt": "88af7df3",
   "settleMs": 3000,
+  "handEdits": [
+    {
+      "at": "2026-11-07, tagging-edges #7 Test Design (ledger 2026-10-28-relay-subtab-baseline-stale, part (a))",
+      "subTab": "sync",
+      "added": [
+        "GET /api/strfry/negentropy-presets"
+      ],
+      "commit": "ffda8152",
+      "why": "relay-stream-gaps #3 (saved negentropy-sync presets, 2026-10-09) made the Negentropy Sync sub-tab read its presets list on mount (RelaySettings.jsx, NegentropySync's loadPresets effect). The baseline was not re-recorded: TP_RECORD_BASELINE=1 refuses any build that contains the Tagging pipeline panel, and every tree with ffda8152 has it (story 4's panel, a2f38940, landed on 2026-09-30, first). The Relays sub-tab source was read at 1044e193/f0afae51 for anything else since this baseline (2026-09-30): fea06ec7 and 458b2607 changed Router Management's stream editor and added no request; no commit since touched the other sub-tabs' requests. A run of B39 against a build of that tree, with this edit, shows every sub-tab equal to the baseline (story 7 Test Design, 2026-11-07)."
+    }
+  ],
   "tabs": [
     "🔄 Router Management",
     "🔃 Negentropy Sync",
@@ -15,6 +26,7 @@
       "GET /api/strfry/router-status"
     ],
     "sync": [
+      "GET /api/strfry/negentropy-presets",
       "GET /api/strfry/negentropy-sync/status"
     ],
     "config": [],

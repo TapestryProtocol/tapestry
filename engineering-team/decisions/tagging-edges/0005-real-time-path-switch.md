@@ -796,3 +796,8 @@ acceptance criteria, and Open question 5, the owner's decision 5 ("It ships turn
   corner.
 - **An `ERR_` family with its own sentence.** It is a possible later nicety.
 - **The 2026-07-21 intake sweep** of other open routes, and Streaming ETL's controls.
+
+---
+
+*(Amended by `tagging-edges/0007`, 2026-11-07, at the end so no cited line moves: every "story 7" pointer in this
+ADR now means 0007's Confirm on the panel, for the owner.)*
