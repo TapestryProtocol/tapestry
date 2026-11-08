@@ -134,7 +134,7 @@ RESULT stack-free-npm-test.test.js pass=6 fail=0 skipped=1     (G5: the new suit
 |---|---|---|---|
 | Non-blocking 1: a result that can't be sent as JSON ended the control panel | `H15` the `graph/unserializable` fixture (it returns a BigInt) answers 500 `failed` naming the operation, and the next request is still answered. It runs in a harness process of its own. | `test/operations.test.js` | integration |
 | Non-blocking 1, the command | `C9` the same case through the command exits 3, with the same `failed` JSON on stdout | `test/operations.test.js` | integration |
-| Non-blocking 2: a load problem carried the absolute require stack | `L5` a declaration that fails to `require` is reported by its error's first line: no require stack, no newline, and no absolute path (the fixture folder, its real path, the repo, the temp root). A valid neighbour still loads. | `test/operations.test.js` | unit |
+| Non-blocking 2: a load problem carried the absolute require stack | `L5` a declaration whose relative `require` fails is reported by its error's first line: no require stack, no newline, and no absolute path (the fixture folder, its real path, the repo, the temp root). A valid neighbour still loads. A first line that itself names an absolute path (a missing absolute require, a JSON file that doesn't parse, a file read at load) still shows it; L5 doesn't claim otherwise (review round 2). | `test/operations.test.js` | unit |
 
 **Also in this round, from the review's Harness friction 2:** `walk()` no longer empties its child's conf. The route walker now keeps `childEnv`'s dead Neo4j and Redis endpoints instead of falling back to `bolt://localhost:7687` (OPEN.md row `2026-11-08-suite-runner-not-in-repo`).
 

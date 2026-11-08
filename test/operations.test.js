@@ -379,7 +379,7 @@ test('L3: the other declaration rules each refuse and name their file, and helpe
   assert(helperHits.length === 0, `helper files beside a declaration must be ignored; found ${show(helperHits)}`);
 });
 
-test('L5: a declaration that fails to load is reported by the first line of its error, with no require stack and no absolute path', () => {
+test('L5: a declaration whose relative require fails is reported by the first line of its error, with no require stack', () => {
   const { loadOperations } = operationsIndex();
   const dir = writeCatalog(tmp('ops-broken-'), {
     'graph/broken-require.js': `'use strict';${NL}require('./no-such-helper-module-xyz');${NL}module.exports = {};${NL}`,
