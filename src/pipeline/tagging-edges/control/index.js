@@ -16,8 +16,9 @@
  *                             deadline; a read that fails or times out is "cannot tell", never "nothing there". Without
  *                             fresh, a snapshot from the last second of the same generation is reused (the status route)
  *   gate                      the worker's per-job decisions (gate.js, D3)
- * Each answer of lineUp, confirm and stop is { status, body } and never rejects. Who, the body and the queue being off
- * are the routes' refusals; nothing here reads a session.
+ * Each answer of lineUp, confirm and stop is { status, body } and never rejects. Who and the body are the routes'
+ * refusals, and so is the queue being off for lineUp; confirm answers a queue that is off itself (not-lined-up).
+ * Nothing here reads a session.
  *
  * The in-memory marks are mirrored to a private record of who started, stopped and confirmed (store.js, D11; 0007
  * D5): a Stop takes effect in memory first, so it works when the record cannot be written; a Run or a confirmation is
@@ -626,8 +627,11 @@ function createController(deps) {
       const accepted = (outcome, extra) => answer(200, { success: true, confirmed: true, outcome, ...extra, expiresAt: record.expiresAt });
 
       // 7. The re-read: a pass that recorded itself since step 1 (R11) either claimed it already or is withdrawn from.
-      // A re-read that fails cannot rule a pass out, so it is withdrawn from too.
-      const after = await latestRun();
+      // A re-read that fails cannot rule a pass out, so it is withdrawn from too; its answer is then 500 error with the
+      // read's cause, never "a pass started" (ADR 0007 § Fix-round notes, D2 step 7).
+      let after = null;
+      let rereadCode;
+      try { after = latestOf(await d.readReport()); } catch (err) { rereadCode = err && err.code; }
       if (!after || after.runId !== runId) {
         let withdrawn;
         try {
@@ -638,7 +642,7 @@ function createController(deps) {
         }
         if (withdrawn) {
           await takeBackAll();
-          return refuse(409, 'pass-started');
+          return after ? refuse(409, 'pass-started') : refuse(500, 'error', { cause: allowErrorCode(rereadCode) });
         }
         await takeBackStart();
         return accepted('taken-up', { enqueued: false, claimedBy: after ? after.runId : null });

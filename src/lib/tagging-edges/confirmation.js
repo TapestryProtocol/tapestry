@@ -59,10 +59,17 @@ const CODE_RE = /^(E[A-Z0-9_]+|error)$/;
 
 /**
  * Pure. The public status's confirmationPending (D6): null for none; a read that threw ({ unreadable: <code> }) as that
- * code alone, with today's expired: false; an object record as only PUBLIC_MEMBERS, each when present, plus the
- * derived expired (true from its expiry on, false when either time does not parse); anything else null. So mintedBy,
+ * code alone, with today's expired: false; an object record as only PUBLIC_MEMBERS, each when present with its type,
+ * plus the derived expired (true from its expiry on, false when either time does not parse or the expiry is not a
+ * string); anything else null. So mintedBy,
  * the nonce and any member added by hand never reach a signed-out reader.
  */
+/** Each public member only with its type (ADR 0007 § Fix-round notes, D6): strings, or non-negative integers. */
+const COUNT_MEMBERS = Object.freeze(['version', 'heldCount']);
+function typedMember(k, v) {
+  return COUNT_MEMBERS.includes(k) ? Number.isInteger(v) && v >= 0 : typeof v === 'string';
+}
+
 function publicConfirmation(record, nowMs) {
   if (!isObject(record)) return null;
   if (own(record, 'unreadable')) {
@@ -70,8 +77,8 @@ function publicConfirmation(record, nowMs) {
     return { unreadable: code, expired: false };
   }
   const out = {};
-  for (const k of PUBLIC_MEMBERS) if (own(record, k)) out[k] = record[k];
-  const expires = Date.parse(record.expiresAt);
+  for (const k of PUBLIC_MEMBERS) if (own(record, k) && typedMember(k, record[k])) out[k] = record[k];
+  const expires = typeof record.expiresAt === 'string' ? Date.parse(record.expiresAt) : NaN;
   out.expired = Number.isFinite(expires) && Number.isFinite(nowMs) ? nowMs >= expires : false;
   return out;
 }

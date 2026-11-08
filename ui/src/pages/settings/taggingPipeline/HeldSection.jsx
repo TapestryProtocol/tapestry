@@ -204,9 +204,12 @@ export default function HeldSection({
   }
   const confirmation = <ConfirmationLine confirmation={pass.confirmation} />;
   // The prompt stays wherever the section is while its confirmation is under way (D10 "never while under way"); the
-  // panel closes it otherwise once a read makes Confirm unavailable. The answer's line shows in every branch.
+  // panel closes it otherwise once a read makes Confirm unavailable. The answer's line shows in every branch. Each keeps
+  // one element across the branches (its key), so a read that changes the branch never remounts it and focus on it
+  // survives (ADR 0007 § Fix-round notes, D15).
   const prompt = confirm.snapshot && (
     <ConfirmPrompt
+      key="confirm-prompt"
       snapshot={confirm.snapshot}
       pending={confirm.pending}
       onConfirm={onConfirm}
@@ -214,7 +217,7 @@ export default function HeldSection({
     />
   );
   const answer = confirm.outcome && !confirm.pending && (
-    <ConfirmAnswer outcome={confirm.outcome} lineRef={focus.line} />
+    <ConfirmAnswer key="confirm-answer" outcome={confirm.outcome} lineRef={focus.line} />
   );
   if (pass.running) {
     return (

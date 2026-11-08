@@ -184,7 +184,8 @@ async function controlOf(d) {
 async function overdueOf(d, report) {
   let entries;
   try { entries = await d.readScheduleEntries(); } catch (_) { return { state: 'cannot-tell', reason: 'schedule' }; }
-  return overdueVerdict({ entries, latest: report && report.latest, nowMs: d.now() });
+  // A schedule the verdict cannot judge (a hand-edited entry) reads the same (ADR 0007 § Fix-round notes, D8).
+  try { return overdueVerdict({ entries, latest: report && report.latest, nowMs: d.now() }); } catch (_) { return { state: 'cannot-tell', reason: 'schedule' }; }
 }
 
 /** GET /api/tagging-edges/status */

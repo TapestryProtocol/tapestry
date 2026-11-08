@@ -26,6 +26,8 @@ const MINUTE_MS = 60 * 1000;
 const HORIZON_MS = 400 * 24 * 60 * 60 * 1000;
 const MAX_RUNS = 1000;
 const CACHE_MAX = 32;
+/** A cron pattern longer than this is not judged: its period cannot be told (ADR 0007 § Fix-round notes, D8). */
+const MAX_PATTERN_LENGTH = 256;
 
 /** pattern → { parses, periodMs }, at most CACHE_MAX, the oldest dropped first. */
 const judged = new Map();
@@ -68,11 +70,16 @@ function overdueVerdict({ entries, latest, nowMs, periodOf } = {}) {
   const enabled = (Array.isArray(entries) ? entries : []).filter((e) => e && e.taskId === TASK_NAME && e.enabled === true);
   if (!enabled.length) return { state: 'no-entry' };
   const periodOfCron = typeof periodOf === 'function' ? periodOf : cronPeriod;
+  const cronOf = (e) => (e.cron ? String(e.cron).trim() : '');
+  // The bound (ADR 0007 § Fix-round notes, D8): more distinct patterns than the cache holds are not judged at all, so a
+  // status read never recomputes them all.
+  if (new Set(enabled.map(cronOf).filter(Boolean)).size > CACHE_MAX) return { state: 'cannot-tell', reason: 'rule' };
   let counted = 0;
   const periods = [];
   for (const e of enabled) {
-    const cron = e.cron ? String(e.cron).trim() : '';
+    const cron = cronOf(e);
     if (cron) {
+      if (cron.length > MAX_PATTERN_LENGTH) { counted += 1; continue; } // not judged: its period cannot be told
       if (!judge(cron, nowMs).parses) continue; // the scheduler cannot run it
       counted += 1;
       const p = periodOfCron(cron, nowMs);

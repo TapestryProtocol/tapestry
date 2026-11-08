@@ -1267,7 +1267,7 @@ the run-task route's answers for this pass.`
 - **`:879`:** Run and Stop are story 6's (0006), Confirm story 7's.
 - **`:881-882`:** a waiting pass is shown since story 6 (0006 D5, D12).
 - **`:838-842` (T12), at story 6's review fix round (2026-10-28):** the driver's code-less errors also come from a fault
-  in the driver itself, and the panel's `no-status` sentence says so (`taggingPipelineView.js:220`). *(Listed 2026-11-07, by `tagging-edges/0007`,
+  in the driver itself, and the panel's `no-status` sentence says so (`taggingPipelineView.js`, its `'no-status'` key). *(Listed 2026-11-07, by `tagging-edges/0007`,
   story 6's review carry-forward 2.)*
 
 **C5-9, re-dated in place.** Change only the date, from 2026-10-02 to 2026-10-01, in the notes at `:261`, `:347` and
