@@ -193,6 +193,21 @@ The check used two throwaway instances in turn (`scripts/scratch-stack.sh`). Eac
   - the safety backup is listed as `before-restore`;
   - the conf's two lines and `settings.json` name A's assistant and admin.
 
+### Review round 2's fixes (2026-11-08)
+
+**The suites, on `7f0227ded`,** through the same runner:
+- **`test/operations.test.js`, 139/0.** That is the module's 47 and the 92 under `test/operations/`:
+  - backup 21/0, restore 23/0, list-backups 6/0, download-backup 7/0, upload-backup 10/0;
+  - the job, the system and the configuration 17/0;
+  - status 8/0.
+- **The gates** passed as before.
+
+**Not live-checked again.** Live checks 3 and 4 ran on `28c4f6e65`. Round 2's commits change only:
+- the order of two steps, so the lock's stage is written before the stop;
+- where one error is caught, the start after a restore's load.
+
+The suites cover both.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Backup bullet)
