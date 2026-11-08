@@ -44,9 +44,9 @@ button{font-family:inherit}
     <sc-for list="{{cards}}" as="c" hint-placeholder-count="0">
       <button onClick="{{c.pick}}" onMouseEnter="{{c.enter}}" onMouseLeave="{{c.leave}}" data-peek="{{c.id}}" title="{{c.tip}}" style="{{c.style}}">
         <span style="display: flex; align-items: center; gap: 6px; min-width: 0">
-          <span style="font-size: 11px; color: #8A867C; min-width: 22px">{{c.rank}}</span>
+          <span style="align-self: flex-start; padding-top: 2px; font-size: 11px; color: #8A867C; min-width: 22px">{{c.rank}}</span>
           <span style="{{c.badgeStyle}}">{{c.label}}</span>
-          <span style="flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.name}}</span>
+          <span style="{{c.nameStyle}}">{{c.name}}</span>
         </span>
         <span style="display: block; margin-top: 3px; font-size: 11px; line-height: 1.3; color: #5B5A55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{c.sub}}</span>
       </button>
@@ -63,7 +63,9 @@ class Component extends DCLogic {
   constructor(props) { super(props); this.state = { scope: null, plans: null, id: null, doc: null, hov: null, err: null }; }
 
   componentDidMount() {
-    this._offs = [Brain.on('scope', (k) => this.useScope(k)), Brain.on('item', (id) => this.useItem(id)), Brain.on('go', (id) => this.useItem(id))];
+    this._resize = () => { const w = window.innerWidth; if (w !== this.state.vw) this.setState({ vw: w }); };
+    window.addEventListener('resize', this._resize);
+    this._offs = [() => window.removeEventListener('resize', this._resize),Brain.on('scope', (k) => this.useScope(k)), Brain.on('item', (id) => this.useItem(id)), Brain.on('go', (id) => this.useItem(id))];
     if (Brain.state.scope) this.useScope(Brain.state.scope);
   }
   componentWillUnmount() { (this._offs || []).forEach((f) => f()); }
@@ -98,7 +100,8 @@ class Component extends DCLogic {
   short(s, k) { s = String(s || ''); return s.length > k ? s.slice(0, k - 1) + '…' : s; }
 
   renderVals() {
-    const s = this.state, W = Math.max(760, (window.innerWidth || 1200) - 4), d = s.doc;
+    // a phone (narrow): items full width, and what they hang on listed below them instead of beside them
+    const vw = window.innerWidth || 1200, narrow = vw < 700, s = this.state, W = narrow ? vw : Math.max(760, vw - 4), d = s.doc;
     const chip = (on) => 'font-size: 12px; padding: 3px 10px; min-height: 26px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (on ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#DCDAD3; background: #FFFFFF; color: #3A3935');
     const C = this.COLOURS, LK = this.LINKS;
     const legend = ['done', 'being built', 'ready', 'blocked', 'set aside', 'unknown'].map((t) => ({ t, style: 'display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: ' + C[t][0] + '; border: 1.5px solid ' + C[t][1] }))
@@ -116,15 +119,15 @@ class Component extends DCLogic {
     const counts = {}; items.forEach((i) => { counts[i.label] = (counts[i.label] || 0) + 1; });
     base.title = P.name || 'Plan';
     base.summary = items.length + ' items: ' + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => n + ' ' + k).join(', ')
-      + (P.project ? ' · project ' + P.project : '') + ' · in rank order, top to bottom; click one to read it in the Outline';
+      + (P.project ? ' · project ' + P.project : '') + ' · in rank order, top to bottom; ' + (narrow ? 'tap' : 'click') + ' one to read it in the Outline';
     if (!P.git) { base.hasNote = true; base.note = 'Git can’t be seen from here (a hosted instance, or no repository registered for ' + (P.project || 'this project') + '), so a story on a branch reads as unknown. Blocked, set aside and answered come from the graph and are current.'; }
 
     // geometry: arcs on the left, the items in a column, what they hang on in one or two columns on the right
-    const top = 16, ch = 50, gap = 10, row = ch + gap;
+    const top = 16, ch = narrow ? 70 : 50, gap = 10, row = ch + gap;
     const spans = [];
     d.links.forEach((l) => { if (l.type === 'BLOCKED_BY' && idx[l.from] !== undefined && idx[l.to] !== undefined) spans.push(l); });
-    const arcW = spans.length ? Math.min(150, 26 + 8 * Math.max(...spans.map((l) => Math.abs(idx[l.from] - idx[l.to])))) : 24;
-    const cx = 16 + arcW, cw = Math.min(560, Math.round(W * 0.42));
+    const arcW = spans.length ? Math.min(narrow ? 46 : 150, 26 + (narrow ? 3 : 8) * Math.max(...spans.map((l) => Math.abs(idx[l.from] - idx[l.to])))) : (narrow ? 8 : 24);
+    const cx = (narrow ? 8 : 16) + arcW, cw = narrow ? W - cx - 10 : Math.min(560, Math.round(W * 0.42));
     const ow = Math.min(320, Math.round((W - cx - cw - 120) / 2)), ox1 = cx + cw + 70, ox2 = ox1 + ow + 50;
     const yOf = (k) => top + k * row;
 
@@ -138,17 +141,21 @@ class Component extends DCLogic {
     });
     const at = {};
     items.forEach((i, k) => { at[i.id] = { x: cx, y: yOf(k), w: cw, h: ch, item: true }; });
-    const stack = (level, x) => {
+    const stack = narrow ? null : (level, x) => {
       const list = Object.keys(lvl).filter((u) => lvl[u] === level).map((u) => {
         const ys = near[u].map((v) => (typeof v === 'number' ? yOf(v) : (at[v] || { y: 0 }).y));
         return { u, want: ys.reduce((a, b) => a + b, 0) / ys.length };
       }).sort((a, b) => a.want - b.want);
       let floor = top; list.forEach((o) => { const y = Math.max(o.want, floor); at[o.u] = { x, y, w: ow, h: ch, item: false }; floor = y + row; });
     };
-    stack(1, ox1); stack(2, ox2);
+    const below = narrow ? top + items.length * row + 34 : 0;
+    if (narrow) {   // listed below the plan, in the order of the first item each touches
+      Object.keys(lvl).sort((a, b) => (lvl[a] - lvl[b]) || (Math.min(...near[a].map((v) => (typeof v === 'number' ? v : 999))) - Math.min(...near[b].map((v) => (typeof v === 'number' ? v : 999)))))
+        .forEach((u, k) => { at[u] = { x: 10, y: below + k * row, w: W - 20, h: ch, item: false }; });
+    } else { stack(1, ox1); stack(2, ox2); }
     const H = Math.max(...Object.values(at).map((p) => p.y + p.h), top + 40) + 24;
     base.plotStyle = 'position: relative; width: ' + W + 'px; height: ' + H + 'px; overflow: hidden';
-    if (Object.keys(lvl).length) base.captions.push({ t: 'what they hang on, outside the plan', style: 'position: absolute; left: ' + ox1 + 'px; top: 0; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #8A867C' });
+    if (Object.keys(lvl).length) base.captions.push({ t: 'what they hang on, outside the plan', style: 'position: absolute; left: ' + (narrow ? 10 : ox1) + 'px; top: ' + (narrow ? below - 18 : 0) + 'px; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #8A867C' });
 
     // hovering a card keeps it and its own links bright
     const lit = {}; if (s.hov) { lit[s.hov] = true; d.links.forEach((l) => { if (l.from === s.hov) lit[l.to] = true; if (l.to === s.hov) lit[l.from] = true; }); }
@@ -163,7 +170,7 @@ class Component extends DCLogic {
     });
     // every other link with both ends shown: a straight line from the item's right edge (or the nearer box's edge)
     d.links.forEach((l) => {
-      if (l.type === 'ASSIGNED_TO' || !at[l.from] || !at[l.to] || (at[l.from].item && at[l.to].item)) return;
+      if (narrow || l.type === 'ASSIGNED_TO' || !at[l.from] || !at[l.to] || (at[l.from].item && at[l.to].item)) return;
       const [a, b] = at[l.from].x <= at[l.to].x ? [at[l.from], at[l.to]] : [at[l.to], at[l.from]];
       const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2;
       const len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI, k = LK[l.type] || ['#9C988D', 'solid'];
@@ -174,8 +181,11 @@ class Component extends DCLogic {
     const leave = () => { if (this.state.hov) this.setState({ hov: null }); };
     const card = (id, p, label, rank, sub) => {
       const c = C[label] || C.open, n = N[id];
-      return { id, rank, label, name: n.name, sub, tip: n.name + (sub ? '\n' + sub : ''), pick: () => this.read(id), enter: enter(id), leave,
-        badgeStyle: 'flex: none; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: ' + c[0] + '; color: ' + c[1],
+      return { id, rank, label, name: n.name, sub,
+        nameStyle: 'flex: 1; min-width: 0; font-size: ' + (narrow ? '13.5px' : '12.5px') + '; font-weight: 600; line-height: 1.25; overflow: hidden; '
+          + (narrow ? 'display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical' : 'white-space: nowrap; text-overflow: ellipsis'),
+        tip: n.name + (sub ? '\n' + sub : ''), pick: () => this.read(id), enter: enter(id), leave,
+        badgeStyle: 'flex: none; align-self: flex-start; font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: ' + c[0] + '; color: ' + c[1],
         style: 'position: absolute; left: ' + p.x + 'px; top: ' + p.y + 'px; width: ' + p.w + 'px; height: ' + p.h + 'px; box-sizing: border-box; padding: 6px 10px; text-align: left; cursor: pointer; background: #FFFFFF; color: #1C1C1A; border-radius: 8px; border: 1.5px solid ' + (p.item ? c[1] : '#C9C6BD') + (p.item ? '' : '; border-style: dashed') + '; opacity: ' + (s.hov && !lit[id] ? 0.3 : 1) };
     };
     const blockers = (u) => d.links.filter((l) => l.type === 'BLOCKED_BY' && l.from === u && N[l.to])
@@ -184,7 +194,14 @@ class Component extends DCLogic {
       [i.who.length ? 'assigned to ' + i.who.join(', ') : '', i.why, i.label === 'blocked' ? 'blocked by ' + blockers(i.id).join('; ') : ''].filter(Boolean).join(' · ')))
       .concat(Object.keys(lvl).filter((u) => at[u]).map((u) => {
         const n = N[u], st = P.states[u], kind = (n.kinds || []).map((k) => (N[k] || {}).name || String(k).split(':').pop()).filter(Boolean)[0] || '';
-        return card(u, at[u], ['done', 'being built', 'blocked', 'set aside', 'unknown'].includes(st) ? st : (kind || 'outside'), '', kind ? 'a ' + kind + (n.scopes && n.scopes.length ? ' · ' + n.scopes.join(', ') : '') : '');
+        // on a phone there are no lines to it, so it says what it touches: "blocks #50, #55"
+        const how = { BLOCKED_BY: 'blocks', SETS_ASIDE: 'sets aside', ANSWERS: 'answers' };
+        const touches = narrow ? d.links.filter((l) => (l.to === u || l.from === u) && how[l.type]).map((l) => {
+          const o = l.to === u ? l.from : l.to, rk = idx[o] !== undefined ? '#' + String(items[idx[o]].rank).replace(/\.0$/, '') : this.short((N[o] || {}).name, 24);
+          return (l.to === u ? how[l.type] : ({ BLOCKED_BY: 'blocked by', SETS_ASIDE: 'set aside by', ANSWERS: 'answered by' })[l.type]) + ' ' + rk;
+        }) : [];
+        return card(u, at[u], ['done', 'being built', 'blocked', 'set aside', 'unknown'].includes(st) ? st : (kind || 'outside'), '',
+          [touches.join(', '), kind ? 'a ' + kind + (n.scopes && n.scopes.length ? ' · ' + n.scopes.join(', ') : '') : ''].filter(Boolean).join(' · '));
       }));
     return base;
   }

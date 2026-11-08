@@ -16,12 +16,12 @@ button,input{font-family:inherit}
 </helmet>
 <div onMouseMove="{{peekMove}}" onMouseDown="{{peekHide}}" onMouseLeave="{{peekHide}}" style="position: relative; min-height: calc(100vh - 57px); box-sizing: border-box; background: #F6F5F1; color: #1C1C1A; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
   <dc-import name="Peek" node="{{peekId}}" x="{{peekX}}" y="{{peekY}}" top="{{peekTop}}" bw="{{peekBW}}" bh="{{peekBH}}" hint-size="0px,0px"></dc-import>
-  <div style="display: flex; flex-wrap: wrap; flex: 1; min-height: 0">
-    <nav aria-label="Groups in this scope" style="flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 16px 12px; border-right: 1px solid #DCDAD3; background: #FBFAF7; display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 57px); overflow-y: auto">
-      <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; padding: 0 6px 6px 6px">Groups here</span>
-      <sc-if value="{{groupsNote}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; line-height: 1.45; color: #5B5A55; padding: 0 6px 8px 6px">{{groupsNote}}</span></sc-if>
+  <div style="{{frameStyle}}">
+    <nav aria-label="Groups in this scope" style="{{navStyle}}">
+      <span style="{{groupsLabelStyle}}">Groups here</span>
+      <sc-if value="{{groupsNote}}" hint-placeholder-val="{{false}}"><span style="{{groupsNoteStyle}}">{{groupsNote}}</span></sc-if>
       <sc-for list="{{groups}}" as="gr" hint-placeholder-count="8">
-        <button onClick="{{gr.pick}}" data-peek="{{gr.peek}}" style="{{gr.style}}"><span style="flex: 1; min-width: 0">{{gr.label}}</span><span style="font-size: 11px; color: #5B5A55">{{gr.count}}</span></button>
+        <button onClick="{{gr.pick}}" data-peek="{{gr.peek}}" style="{{gr.style}}"><span style="{{gr.labelStyle}}">{{gr.label}}</span><span style="{{gr.countStyle}}">{{gr.count}}</span></button>
       </sc-for>
     </nav>
 
@@ -30,24 +30,52 @@ button,input{font-family:inherit}
         <h1 data-peek="{{groupId}}" style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 600">{{groupName}}</h1>
         <span style="font-size: 13px; color: #5B5A55">{{groupNote}}</span>
       </div>
-      <sc-if value="{{hasSame}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #5B5A55">{{same}}</span></sc-if>
+      <sc-if value="{{hasSame}}" hint-placeholder-val="{{false}}"><span style="{{sameStyle}}">{{same}}</span></sc-if>
       <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
-        <span style="display: inline-flex; gap: 2px; background: #ECEAE3; border-radius: 999px; padding: 3px">
+        <span style="{{viewsStyle}}">
           <sc-for list="{{views}}" as="v" hint-placeholder-count="3">
             <button onClick="{{v.pick}}" style="{{v.style}}">{{v.label}}</button>
           </sc-for>
         </span>
-        <input value="{{filter}}" onChange="{{typeFilter}}" placeholder="Filter rows…" aria-label="Filter rows" style="box-sizing: border-box; font-size: 13px; padding: 8px 12px; min-height: 36px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; min-width: 180px">
-        <span style="font-size: 12px; color: #5B5A55">{{countNote}}</span>
-        <sc-if value="{{hasMore}}" hint-placeholder-val="{{false}}"><button onClick="{{loadMore}}" style="font-size: 12px; padding: 6px 12px; min-height: 32px; border-radius: 999px; cursor: pointer; color: #163A8C; background: #EEF2FB; border: 1px solid #C9D6F2">{{moreLabel}}</button></sc-if>
+        <input value="{{filter}}" onChange="{{typeFilter}}" placeholder="Filter rows…" aria-label="Filter rows" style="{{inputStyle}}">
+        <span style="{{countStyle}}">{{countNote}}</span>
+        <sc-if value="{{hasMore}}" hint-placeholder-val="{{false}}"><button onClick="{{loadMore}}" style="{{moreStyle}}">{{moreLabel}}</button></sc-if>
       </div>
       <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px">
-        <span style="font-size: 12px; color: #5B5A55; margin-right: 4px">{{optLabel}}</span>
+        <span style="{{optLabelStyle}}">{{optLabel}}</span>
         <sc-for list="{{opts}}" as="o" hint-placeholder-count="5">
           <button onClick="{{o.pick}}" style="{{o.style}}">{{o.label}}</button>
         </sc-for>
       </div>
+      <sc-if value="{{hasSorts}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px">
+          <span style="{{optLabelStyle}}">Sort by</span>
+          <sc-for list="{{sorts}}" as="so" hint-placeholder-count="4">
+            <button onClick="{{so.sort}}" style="{{so.style}}">{{so.label}} {{so.arrow}}</button>
+          </sc-for>
+        </div>
+      </sc-if>
       <sc-if value="{{waiting}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 14px; color: #5B5A55">{{waiting}}</p></sc-if>
+
+      <sc-if value="{{isCards}}" hint-placeholder-val="{{false}}">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{cards}}" as="ca" hint-placeholder-count="4">
+            <div role="button" tabindex="0" onClick="{{ca.pick}}" data-peek="{{ca.peek}}" style="{{ca.style}}">
+              <span style="font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere">{{ca.name}}</span>
+              <sc-for list="{{ca.long}}" as="cl" hint-placeholder-count="1">
+                <span style="font-size: 14px; line-height: 1.45; color: #2B2A27; overflow-wrap: anywhere">{{cl.v}}</span>
+              </sc-for>
+              <sc-if value="{{ca.hasMeta}}" hint-placeholder-val="{{false}}">
+                <span style="display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 13px; line-height: 1.45; color: #3A3935">
+                  <sc-for list="{{ca.meta}}" as="cm" hint-placeholder-count="3">
+                    <span style="overflow-wrap: anywhere"><span style="color: #8A867C">{{cm.k}}</span> {{cm.v}}</span>
+                  </sc-for>
+                </span>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
 
       <sc-if value="{{isTable}}" hint-placeholder-val="{{true}}">
         <div style="overflow: auto; max-height: calc(100vh - 290px); border: 1px solid #DCDAD3; border-radius: 10px; background: #FFFFFF">
@@ -73,12 +101,12 @@ button,input{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{isBoard}}" hint-placeholder-val="{{false}}">
-        <div style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; max-height: calc(100vh - 290px)">
+        <div style="{{boardStyle}}">
           <sc-for list="{{lanes}}" as="ln" hint-placeholder-count="3">
-            <section style="flex: 0 0 240px; background: #ECEAE3; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 300px); overflow-y: auto">
-              <span style="font-size: 12px; font-weight: 600; color: #2B2A27; padding: 0 2px 4px 2px">{{ln.title}} <span style="font-weight: 400; color: #5B5A55">{{ln.count}}</span></span>
+            <section style="{{ln.style}}">
+              <span style="{{ln.titleStyle}}">{{ln.title}} <span style="font-weight: 400; color: #5B5A55">{{ln.count}}</span></span>
               <sc-for list="{{ln.cards}}" as="cd" hint-placeholder-count="3">
-                <button onClick="{{cd.pick}}" data-peek="{{cd.peek}}" style="{{cd.style}}"><span style="font-size: 13px; font-weight: 500; line-height: 1.35">{{cd.name}}</span><span style="font-size: 11px; color: #5B5A55; line-height: 1.4">{{cd.sub}}</span></button>
+                <button onClick="{{cd.pick}}" data-peek="{{cd.peek}}" style="{{cd.style}}"><span style="font-size: 13px; font-weight: 500; line-height: 1.35">{{cd.name}}</span><span style="{{cd.subStyle}}">{{cd.sub}}</span></button>
               </sc-for>
             </section>
           </sc-for>
@@ -86,13 +114,13 @@ button,input{font-family:inherit}
       </sc-if>
 
       <sc-if value="{{isTime}}" hint-placeholder-val="{{false}}">
-        <div style="display: flex; flex-direction: column; max-height: calc(100vh - 290px); overflow-y: auto; padding-left: 8px">
+        <div style="{{timeStyle}}">
           <sc-for list="{{days}}" as="dy" hint-placeholder-count="3">
-            <section style="display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; padding: 6px 0">
-              <span style="font-size: 12px; font-weight: 600; color: #3A3935; padding-top: 6px; text-align: right">{{dy.when}}<br><span style="font-weight: 400; color: #5B5A55">{{dy.count}}</span></span>
+            <section style="{{dy.style}}">
+              <span style="{{dy.whenStyle}}">{{dy.when}}<br><span style="font-weight: 400; color: #5B5A55">{{dy.count}}</span></span>
               <div style="border-left: 2px solid #CFCDC6; padding-left: 14px; display: flex; flex-direction: column; gap: 4px">
                 <sc-for list="{{dy.items}}" as="it" hint-placeholder-count="2">
-                  <button onClick="{{it.pick}}" data-peek="{{it.peek}}" style="{{it.style}}"><span style="{{it.dotStyle}}"></span><span style="flex: 1; min-width: 0">{{it.name}}</span><span style="font-size: 11px; color: #5B5A55">{{it.sub}}</span></button>
+                  <button onClick="{{it.pick}}" data-peek="{{it.peek}}" style="{{it.style}}"><span style="{{it.dotStyle}}"></span><span style="flex: 1; min-width: 0">{{it.name}}</span><span style="{{it.subStyle}}">{{it.sub}}</span></button>
                 </sc-for>
               </div>
             </section>
@@ -105,10 +133,10 @@ button,input{font-family:inherit}
       <sc-if value="{{hasSel}}" hint-placeholder-val="{{false}}">
         <div style="flex-shrink: 0; display: flex; align-items: flex-start; gap: 10px">
           <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
-            <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{selKind}}</span>
+            <span style="{{selKindStyle}}">{{selKind}}</span>
             <span data-peek="{{selId}}" style="{{selNameStyle}}">{{selName}}</span>
           </div>
-          <button onClick="{{widen}}" title="{{widenTip}}" style="flex: none; font-size: 12px; padding: 0 10px; min-height: 32px; border-radius: 6px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF">{{widenLabel}}</button>
+          <button onClick="{{widen}}" title="{{widenTip}}" style="{{widenStyle}}">{{widenLabel}}</button>
         </div>
       </sc-if>
       <div style="{{asideBodyStyle}}">
@@ -117,7 +145,7 @@ button,input{font-family:inherit}
           <div style="{{fieldsStyle}}">
             <sc-for list="{{selFields}}" as="sf" hint-placeholder-count="4">
               <div style="display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-top: 1px solid #EDEBE4">
-                <span style="font-size: 11px; color: #5B5A55">{{sf.k}}</span>
+                <span style="{{sf.kStyle}}">{{sf.k}}</span>
                 <span style="font-size: 13px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere">{{sf.v}}</span>
               </div>
             </sc-for>
@@ -145,8 +173,14 @@ class Component extends DCLogic {
       Brain.on('go', (id) => this.goTo(id)),
     ];
     if (Brain.state.scope) this.useScope(Brain.state.scope);
+    // narrow screens (a phone held upright) get one column; the width is read in renderVals, this only re-renders
+    this._onResize = () => { cancelAnimationFrame(this._rz); this._rz = requestAnimationFrame(() => this.setState({ vw: window.innerWidth })); };
+    window.addEventListener('resize', this._onResize);
   }
-  componentWillUnmount() { (this._offs || []).forEach((f) => f()); }
+  componentWillUnmount() {
+    (this._offs || []).forEach((f) => f());
+    window.removeEventListener('resize', this._onResize); cancelAnimationFrame(this._rz);
+  }
 
   prep(d) {
     const N = {}, mem = {}, deg = {};
@@ -244,24 +278,51 @@ class Component extends DCLogic {
 
   renderVals() {
     const s = this.state, g = s.g;
-    const chip = (on, small) => 'font-size: ' + (small ? '12px; padding: 4px 10px; min-height: 30px' : '13px; padding: 8px 12px; min-height: 44px') + '; border-radius: 999px; cursor: pointer; border: 1px solid ' + (on ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A');
+    // a phone held upright: one column (groups as a strip, rows as cards, the selected row and its graph below), bigger targets and text
+    const narrow = (window.innerWidth || 1200) < 700, vw = (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 1200;
+    const px = (n) => (narrow ? Math.max(13, n) : n) + 'px';
+    const chip = (on, small) => 'font-size: ' + (small && narrow ? '13px; padding: 6px 12px; min-height: 40px' : small ? '12px; padding: 4px 10px; min-height: 30px' : '13px; padding: 8px 12px; min-height: 44px') + '; border-radius: 999px; cursor: pointer; border: 1px solid ' + (on ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A');
     const p = s.peek;
     const base = {
       peekMove: (e) => this.peekMove(e), peekHide: () => this.peekHide(), peekId: p ? p.id : '', peekX: p ? p.x : 0, peekY: p ? p.y : 0, peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0,
       groups: [], groupsNote: '', groupId: '', groupName: '', groupNote: '', hasSame: false, same: '', views: [], filter: s.filter, typeFilter: (e) => this.setState({ filter: e.target.value }), countNote: '',
       hasMore: false, moreLabel: '', loadMore: () => {}, waiting: '',
-      optLabel: '', opts: [], isTable: false, isBoard: false, isTime: false, cols: [], rows: [], lanes: [], days: [],
+      optLabel: '', opts: [], isTable: false, isCards: false, isBoard: false, isTime: false, cols: [], rows: [], cards: [], hasSorts: false, sorts: [], lanes: [], days: [],
       graphCenter: '', graphTrail: [], graphW: 256, graphH: 210, graphPick: (id) => this.goTo(id), hasSel: false, selKind: '', selName: '', selId: '', selFields: [],
       widen: () => this.setState({ focus: !this.state.focus }), widenLabel: '', widenTip: '', selNameStyle: '' };
-    // the row picked takes the room (the table turns to a list of names); picking a group, or the button, gives it back
-    const focus = !!(s.focus && s.sel);
-    base.mainStyle = 'flex: ' + (focus ? '1 1 0' : '3 1 0') + '; min-width: 0; box-sizing: border-box; padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; transition: flex-grow 0.3s ease';
-    base.asideStyle = 'flex: ' + (focus ? '2.4 1 0' : '1 1 0') + '; min-width: 260px; ' + (focus ? '' : 'max-width: 340px; ') + 'box-sizing: border-box; padding: 16px 18px; border-left: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 57px); overflow-y: auto; transition: flex-grow 0.3s ease';
+    // the row picked takes the room (the table turns to a list of names); picking a group, or the button, gives it back.
+    // Narrow, there is one column already: the selected row sits below the list, and the button goes back up to the list
+    const focus = !!(s.focus && s.sel) && !narrow;
+    base.frameStyle = narrow ? 'display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0' : 'display: flex; flex-wrap: wrap; flex: 1; min-height: 0';
+    base.navStyle = narrow ? 'flex: none; box-sizing: border-box; padding: 10px 16px; border-bottom: 1px solid #DCDAD3; background: #FBFAF7; display: flex; flex-direction: row; align-items: center; gap: 6px; overflow-x: auto'
+      : 'flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 16px 12px; border-right: 1px solid #DCDAD3; background: #FBFAF7; display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 57px); overflow-y: auto';
+    base.groupsLabelStyle = narrow ? 'flex: none; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; padding-right: 4px' : 'font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; padding: 0 6px 6px 6px';
+    base.groupsNoteStyle = narrow ? 'flex: none; max-width: 170px; font-size: 13px; line-height: 1.3; color: #5B5A55' : 'font-size: 12px; line-height: 1.45; color: #5B5A55; padding: 0 6px 8px 6px';
+    base.mainStyle = narrow ? 'flex: none; min-width: 0; box-sizing: border-box; padding: 16px; display: flex; flex-direction: column; gap: 12px'
+      : 'flex: ' + (focus ? '1 1 0' : '3 1 0') + '; min-width: 0; box-sizing: border-box; padding: 18px 22px; display: flex; flex-direction: column; gap: 12px; transition: flex-grow 0.3s ease';
+    base.asideStyle = narrow ? 'flex: none; min-width: 0; box-sizing: border-box; padding: 16px; border-top: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px'
+      : 'flex: ' + (focus ? '2.4 1 0' : '1 1 0') + '; min-width: 260px; ' + (focus ? '' : 'max-width: 340px; ') + 'box-sizing: border-box; padding: 16px 18px; border-left: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 57px); overflow-y: auto; transition: flex-grow 0.3s ease';
     base.asideBodyStyle = focus ? 'display: flex; flex-wrap: wrap; align-items: flex-start; gap: 18px' : 'display: flex; flex-direction: column; gap: 12px';
     base.fieldsStyle = focus ? 'flex: 1 1 360px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: 18px' : 'display: flex; flex-direction: column';
     base.graphW = focus ? 380 : 256; base.graphH = focus ? 300 : 210;
+    if (narrow) { base.graphW = Math.max(240, Math.min(vw - 32, 560)); base.graphH = Math.min(320, Math.round(base.graphW * 0.8)); }
     base.widenLabel = focus ? '\u21e4 back to the table' : '\u21e5 widen'; base.widenTip = focus ? 'Give the table the room again' : 'Give this row the room';
-    base.selNameStyle = 'font-family: \'Space Grotesk\', Inter, sans-serif; font-size: ' + (focus ? '22px' : '16px') + '; font-weight: 600; line-height: 1.25';
+    if (narrow) {
+      base.widenLabel = '\u2191 back to the list'; base.widenTip = 'Scroll back up to the rows';
+      base.widen = () => window.scrollTo({ top: this._listY || 0, behavior: 'smooth' });
+    }
+    base.widenStyle = 'flex: none; font-size: ' + px(12) + '; padding: 0 10px; min-height: ' + (narrow ? '40px' : '32px') + '; border-radius: 6px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF';
+    base.selKindStyle = 'font-size: ' + px(11) + '; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55';
+    base.selNameStyle = 'font-family: \'Space Grotesk\', Inter, sans-serif; font-size: ' + (focus ? '22px' : narrow ? '18px' : '16px') + '; font-weight: 600; line-height: 1.25' + (narrow ? '; overflow-wrap: anywhere' : '');
+    base.sameStyle = 'font-size: ' + px(12) + '; color: #5B5A55' + (narrow ? '; overflow-wrap: anywhere' : '');
+    base.viewsStyle = 'display: inline-flex; gap: 2px; background: #ECEAE3; border-radius: 999px; padding: 3px';
+    base.inputStyle = narrow ? 'box-sizing: border-box; font-size: 16px; padding: 8px 12px; min-height: 44px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; flex: 1 1 100%; width: 100%; min-width: 0'
+      : 'box-sizing: border-box; font-size: 13px; padding: 8px 12px; min-height: 36px; border: 1px solid #CFCDC6; border-radius: 8px; background: #FFFFFF; min-width: 180px';
+    base.countStyle = 'font-size: ' + px(12) + '; color: #5B5A55';
+    base.moreStyle = 'font-size: ' + px(12) + '; padding: 6px 12px; min-height: ' + (narrow ? '40px' : '32px') + '; border-radius: 999px; cursor: pointer; color: #163A8C; background: #EEF2FB; border: 1px solid #C9D6F2';
+    base.optLabelStyle = 'font-size: ' + px(12) + '; color: #5B5A55; margin-right: 4px';
+    base.boardStyle = 'display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start' + (narrow ? '' : '; max-height: calc(100vh - 290px)');
+    base.timeStyle = 'display: flex; flex-direction: column; padding-left: ' + (narrow ? '0' : '8px') + (narrow ? '' : '; max-height: calc(100vh - 290px); overflow-y: auto');
     if (!g || !s.scope) { base.groupName = 'Loading…'; return base; }
 
     const groups = this.groupsHere(g, s.scope), info = s.scopeInfo;
@@ -269,7 +330,10 @@ class Component extends DCLogic {
     const gid = s.group && g.N[s.group] ? s.group : (groups.find((x) => !x.kind) || groups[0] || {}).id;
     if (gid && !s.pages[gid] && !s.loading) Promise.resolve().then(() => this.loadGroup(gid, 0));
     base.groups = groups.slice(0, 60).map((x) => ({ label: this.short(g.N[x.id].name, 44), count: ((g.N[x.id].answers || {}).holds || x.k) + (x.kind ? ' · kind' : ''), peek: x.id, pick: () => this.pickGroup(x.id),
-      style: 'display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; line-height: 1.3; padding: 7px 8px; min-height: 40px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (x.id === gid ? '#DCDAD3; background: #FFFFFF; font-weight: 600' : 'transparent; background: transparent') }));
+      style: narrow ? 'flex: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 14px; line-height: 1.3; padding: 8px 14px; min-height: 40px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (x.id === gid ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF; font-weight: 600' : '#CFCDC6; background: #FFFFFF; color: #1C1C1A')
+        : 'display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; line-height: 1.3; padding: 7px 8px; min-height: 40px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (x.id === gid ? '#DCDAD3; background: #FFFFFF; font-weight: 600' : 'transparent; background: transparent'),
+      labelStyle: narrow ? 'flex: none' : 'flex: 1; min-width: 0',
+      countStyle: 'font-size: ' + px(11) + '; font-weight: 400; color: ' + (narrow && x.id === gid ? '#D8D6CF' : '#5B5A55') }));
     if (!gid) { base.groupName = info ? 'No groups here' : 'Loading…'; return base; }
 
     const gn = g.N[gid], page = s.pages[gid], all = page ? page.ids.filter((id) => g.N[id]) : [];
@@ -298,12 +362,18 @@ class Component extends DCLogic {
     base.countNote = q ? ids.length + ' match' + loaded : all.length + ' of ' + total + ' rows' + (all.length < total ? '; sorting and filtering cover the loaded rows' : '');
 
     base.views = [['table', 'Table'], ['board', 'Board'], ['time', 'Timeline']].map(([v, label]) => ({ label, pick: () => this.setState({ view: v }),
-      style: 'font-size: 13px; padding: 6px 14px; min-height: 32px; border-radius: 999px; cursor: pointer; border: none; ' + (s.view === v ? 'background: #FFFFFF; color: #1C1C1A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1)' : 'background: transparent; color: #3A3935') }));
-    const select = (id) => () => this.setState({ sel: id, focus: true });
+      style: 'font-size: 13px; padding: 6px 14px; min-height: ' + (narrow ? '40px' : '32px') + '; border-radius: 999px; cursor: pointer; border: none; ' + (s.view === v ? 'background: #FFFFFF; color: #1C1C1A; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.1)' : 'background: transparent; color: #3A3935') }));
+    // narrow, the selected row shows below the list: remember where the list was and bring the row's panel into view
+    const select = (id) => () => {
+      this.setState({ sel: id, focus: true });
+      if (!narrow) return;
+      this._listY = window.scrollY;
+      setTimeout(() => { const a = document.querySelector('aside[aria-label="The selected row"]'); if (a && a.scrollIntoView) a.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+    };
     const name = (id) => this.short(g.N[id].name, 90);
 
     if (s.view === 'table') {
-      base.isTable = true;
+      base.isTable = !narrow; base.isCards = narrow;
       base.optLabel = 'Columns';
       base.opts = varying.map((f, i) => { const on = isOn(f, i); return { label: f.k + ' (' + f.n + ')', style: chip(on, true),
         pick: () => { const sh = Object.assign({}, s.shown), hd = Object.assign({}, s.hidden); if (on) { delete sh[f.k]; hd[f.k] = true; } else { delete hd[f.k]; sh[f.k] = true; } this.setState({ shown: sh, hidden: hd }); } }; });
@@ -323,6 +393,17 @@ class Component extends DCLogic {
         style: 'cursor: pointer; border-bottom: 1px solid #EDEBE4; background: ' + (id === s.sel ? '#EEF2FB' : 'transparent'),
         cells: colDefs.map((c, i) => ({ t: c.show ? c.show(id) : this.short(c.val(id), c.wide ? 110 : 40), peek: i === 0 ? id : undefined, sub: c.sub ? c.sub(id) : '',
           style: 'padding: 8px 12px; vertical-align: top; line-height: 1.4; ' + (i === 0 ? 'font-weight: 500; min-width: 200px; max-width: 320px' : c.wide ? 'min-width: 220px; max-width: 380px; color: #2B2A27' : 'white-space: nowrap; color: #3A3935') + (c.num ? '; text-align: right' : '') })) }));
+      // narrow: each row is a card (its name, long text in full lines, the short fields wrapped below); the headers become sort chips
+      if (narrow) {
+        base.hasSorts = true;
+        base.sorts = base.cols.map((c, i) => ({ label: c.label, arrow: c.arrow, sort: c.sort, style: chip(colDefs[i].key === sc.key, true) }));
+        base.cards = ids.map((id) => {
+          const rest = colDefs.slice(1).map((c) => ({ c, v: String(c.show ? c.show(id) : this.short(c.val(id), c.wide ? 220 : 40)) })).filter((x) => x.v !== '');
+          const meta = rest.filter((x) => !x.c.wide).map((x) => ({ k: x.c.label, v: x.v }));
+          return { pick: select(id), peek: id, name: this.short(g.N[id].name, 110), long: rest.filter((x) => x.c.wide).map((x) => ({ v: x.v })), meta, hasMeta: meta.length > 0,
+            style: 'display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 12px 14px; min-height: 44px; box-sizing: border-box; border-radius: 10px; cursor: pointer; color: #1C1C1A; background: ' + (id === s.sel ? '#EEF2FB; border: 1px solid #9DB2E3' : '#FFFFFF; border: 1px solid #DCDAD3') };
+        });
+      }
     }
 
     // a board groups by any field taking a few values, or by kind, scope, origin or the balance of evidence
@@ -338,7 +419,10 @@ class Component extends DCLogic {
       const lanes = {};
       ids.forEach((id) => { const v = by[2](id); (lanes[v] = lanes[v] || []).push(id); });
       base.lanes = Object.keys(lanes).sort((a, b) => lanes[b].length - lanes[a].length).map((v) => ({ title: v, count: lanes[v].length,
+        style: 'flex: 0 0 ' + (narrow ? Math.min(280, vw - 64) : 240) + 'px; background: #ECEAE3; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; max-height: ' + (narrow ? '70vh' : 'calc(100vh - 300px)') + '; overflow-y: auto',
+        titleStyle: 'font-size: ' + px(12) + '; font-weight: 600; color: #2B2A27; padding: 0 2px 4px 2px',
         cards: lanes[v].slice(0, 60).map((id) => { const n = g.N[id], f = n.fields || {}; return { name: name(id), peek: id, pick: select(id), sub: this.short(f.claim && f.claim !== n.name ? f.claim : (f.stance || n.description || ''), 90),
+          subStyle: 'font-size: ' + px(11) + '; color: #5B5A55; line-height: 1.4',
           style: 'flex-shrink: 0; display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 8px 10px; min-height: 44px; border-radius: 8px; cursor: pointer; color: #1C1C1A; background: #FFFFFF; border: 1px solid ' + (id === s.sel ? '#1C1C1A' : '#DCDAD3') }; }) }));
     }
 
@@ -349,9 +433,12 @@ class Component extends DCLogic {
       const days = {};
       ids.forEach((id) => { const d = this.day(g.N[id]) || 'undated'; (days[d] = days[d] || []).push(id); });
       base.days = Object.keys(days).sort().reverse().map((d) => ({ when: d, count: days[d].length + (days[d].length > 1 ? ' things' : ' thing'),
+        style: 'display: grid; grid-template-columns: ' + (narrow ? '84px' : '110px') + ' minmax(0, 1fr); gap: 10px; padding: 6px 0',
+        whenStyle: 'font-size: ' + px(12) + '; font-weight: 600; color: #3A3935; padding-top: 6px; text-align: right',
         items: days[d].slice(0, 60).map((id) => { const n = g.N[id], a = n.answers || {}; return { name: name(id), peek: id, pick: select(id), sub: this.kindOf(g, n),
           dotStyle: 'flex: none; width: 9px; height: 9px; border-radius: 50%; margin-left: -20px; margin-right: 6px; background: ' + (a.replaced ? '#CFCDC6' : a.evidence_against > (a.evidence_for || 0) ? '#B4442E' : a.evidence_for ? '#2F7D4F' : '#8A867C'),
-          style: 'flex-shrink: 0; display: flex; align-items: center; gap: 6px; text-align: left; font-size: 13px; line-height: 1.35; padding: 6px 8px; min-height: 36px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (id === s.sel ? '#DCDAD3; background: #FFFFFF' : 'transparent; background: transparent') }; }) }));
+          subStyle: 'font-size: ' + px(11) + '; color: #5B5A55',
+          style: 'flex-shrink: 0; display: flex; align-items: center; gap: 6px; text-align: left; font-size: 13px; line-height: 1.35; padding: 6px 8px; min-height: ' + (narrow ? '40px' : '36px') + '; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (id === s.sel ? '#DCDAD3; background: #FFFFFF' : 'transparent; background: transparent') }; }) }));
     }
 
     // the selected row: its neighbourhood and every field in full
@@ -360,8 +447,9 @@ class Component extends DCLogic {
     if (sel) {
       const n = g.N[sel];
       base.hasSel = true; base.selId = sel; base.selKind = this.kindOf(g, n); base.selName = n.name;
-      base.selFields = Object.entries(n.fields || {}).map(([k, v]) => ({ k, v: this.short(this.show(v), 600) }))
-        .concat([{ k: 'origin', v: n.provenance }, { k: 'added', v: this.day(n) }]);
+      const kStyle = 'font-size: ' + px(11) + '; color: #5B5A55';
+      base.selFields = Object.entries(n.fields || {}).map(([k, v]) => ({ k, v: this.short(this.show(v), 600), kStyle }))
+        .concat([{ k: 'origin', v: n.provenance, kStyle }, { k: 'added', v: this.day(n), kStyle }]);
     }
     return base;
   }

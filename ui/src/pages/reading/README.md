@@ -1,7 +1,7 @@
 # Reading views (experimental)
 
 `/reading` (avatar menu → Reading Views (experimental)) reads this instance's concept graph as five
-views: **Table**, **Outline**, **Plan**, **Drift** and **Dictionary**. Anyone can read. **Plan** draws a
+views: **Table**, **Outline**, **Plan**, **Drift** and **Dictionary**. Anyone can read. On a phone (under 700px wide) every view stacks into one column, and Outline and the Dictionary go list, then detail, with a Back button. **Plan** draws a
 plan (a Set of ranked stories or steps) in order, each item's state, what blocks what, and what the items
 hang on. The harness's `brain plan` reads a story's state from its git branch; git can't be seen from an
 instance, so here a story is done once brain has recorded its merge (its `merged` field), a story on a branch

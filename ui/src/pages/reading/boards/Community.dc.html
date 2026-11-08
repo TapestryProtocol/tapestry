@@ -37,8 +37,8 @@ button,input{font-family:inherit}
       </sc-for>
     </div>
 
-    <div style="display: flex; flex: 1; min-height: 0; gap: 14px; padding: 12px 24px 20px 12px">
-      <nav aria-label="Whose" style="flex: 0 0 210px; box-sizing: border-box; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 2px; max-height: 76vh; overflow-y: auto">
+    <div style="{{rowStyle}}">
+      <nav aria-label="Whose" style="{{whoseStyle}}">
         <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55; padding: 4px 6px 6px 6px">Whose</span>
         <sc-for list="{{people}}" as="p" hint-placeholder-count="6">
           <button onClick="{{p.pick}}" style="{{p.style}}"><span style="{{p.dotStyle}}"></span><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span>{{p.name}}</span><span style="font-size: 11px; color: #5B5A55">{{p.sub}}</span></span></button>
@@ -75,6 +75,7 @@ button,input{font-family:inherit}
       </main>
 
       <aside aria-label="The selected concept" style="{{detailStyle}}">
+        <sc-if value="{{showBack}}" hint-placeholder-val="{{false}}"><button onClick="{{back}}" style="align-self: flex-start; flex-shrink: 0; font-size: 14px; padding: 9px 14px; min-height: 42px; border-radius: 999px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #3A3935">← All concepts</button></sc-if>
         <sc-if value="{{noSel}}" hint-placeholder-val="{{false}}">
           <div style="display: flex; flex-direction: column; gap: 10px">
             <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 18px; font-weight: 600">{{overviewTitle}}</span>
@@ -89,7 +90,7 @@ button,input{font-family:inherit}
               <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 22px; font-weight: 600; line-height: 1.2">{{sel.name}}</span>
               <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8A867C; overflow-wrap: anywhere">{{sel.id}}</span>
             </div>
-            <button onClick="{{widen}}" title="{{widenTip}}" style="flex: none; font-size: 12px; padding: 0 10px; min-height: 32px; border-radius: 6px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF">{{widenLabel}}</button>
+            <sc-if value="{{showWiden}}" hint-placeholder-val="{{true}}"><button onClick="{{widen}}" title="{{widenTip}}" style="flex: none; font-size: 12px; padding: 0 10px; min-height: 32px; border-radius: 6px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF">{{widenLabel}}</button></sc-if>
           </div>
           <span style="flex-shrink: 0; display: inline-flex; align-self: flex-start; gap: 2px; background: #ECEAE3; border-radius: 999px; padding: 3px">
             <sc-for list="{{detailTabs}}" as="t" hint-placeholder-count="2"><button onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button></sc-for>
@@ -182,13 +183,13 @@ button,input{font-family:inherit}
 
   <sc-if value="{{onPeople}}" hint-placeholder-val="{{false}}">
     <div style="display: flex; flex-wrap: wrap; flex: 1; min-height: 0">
-      <main style="flex: 999 1 720px; min-width: 0; box-sizing: border-box; padding: 16px; overflow: auto">
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #3A3935; padding: 0 0 8px 4px">
+      <main style="{{peopleMainStyle}}">
+        <div style="{{legendStyle}}">
           <span style="display: inline-flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 22px; border-top: 3px solid #7A55D6"></span>we hold theirs</span>
           <span style="display: inline-flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 22px; border-top: 3px dashed #C2701E"></span>theirs points at ours</span>
           <span style="display: inline-flex; align-items: center; gap: 6px"><span style="display: inline-block; width: 22px; border-top: 2px dotted #A9A59B"></span>between others</span>
         </div>
-        <div style="position: relative; width: 1000px; height: 760px">
+        <div style="{{mapBoxStyle}}">
           <sc-for list="{{map.lines}}" as="l" hint-placeholder-count="0"><div style="{{l.style}}"></div></sc-for>
           <sc-for list="{{map.labels}}" as="l" hint-placeholder-count="0"><span style="{{l.style}}">{{l.t}}</span></sc-for>
           <sc-for list="{{map.regions}}" as="r" hint-placeholder-count="0">
@@ -198,10 +199,11 @@ button,input{font-family:inherit}
               <span style="display: flex; flex-wrap: wrap; gap: 4px"><sc-for list="{{r.chips}}" as="c" hint-placeholder-count="3"><span style="{{c.style}}">{{c.t}}</span></sc-for></span>
             </button>
           </sc-for>
-          <sc-if value="{{map.rest}}" hint-placeholder-val="{{false}}"><span style="position: absolute; right: 8px; bottom: 6px; font-size: 12px; color: #5B5A55">{{map.rest}}</span></sc-if>
+          <sc-if value="{{map.rest}}" hint-placeholder-val="{{false}}"><span style="{{restStyle}}">{{map.rest}}</span></sc-if>
         </div>
       </main>
-      <aside aria-label="The selected person" style="flex: 1 1 340px; max-width: 400px; box-sizing: border-box; padding: 18px; border-left: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; max-height: 88vh; overflow-y: auto">
+      <aside aria-label="The selected person" style="{{peopleAsideStyle}}">
+        <sc-if value="{{showPeopleBack}}" hint-placeholder-val="{{false}}"><button onClick="{{peopleBack}}" style="align-self: flex-start; flex-shrink: 0; font-size: 14px; padding: 9px 14px; min-height: 42px; border-radius: 999px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #3A3935">← Everyone</button></sc-if>
         <span style="{{pp.whoStyle}}">{{pp.who}}</span>
         <span style="font-family: 'Space Grotesk', Inter, sans-serif; font-size: 20px; font-weight: 600; line-height: 1.25">{{pp.name}}</span>
         <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #8A867C; overflow-wrap: anywhere">{{pp.key}}</span>
@@ -230,8 +232,10 @@ class Component extends DCLogic {
   // live (brain-view's reading views): this instance's community document, read when the view opens
   // (brain-view caches it five minutes; Refresh reads the relays again); on the canvas, the design data
   componentDidMount() {
+    this._resize = () => { const w = window.innerWidth; if (w !== this.state.vw) this.setState({ vw: w }); };
+    window.addEventListener('resize', this._resize);
     if (window.Brain) {
-      this._offs = [Brain.on('go', (id) => this.jump(id))];
+      this._offs = [() => window.removeEventListener('resize', this._resize), Brain.on('go', (id) => this.jump(id))];
       this.load(false);
       this._tick = setInterval(() => this.forceUpdate(), 30000);
       return;
@@ -499,6 +503,17 @@ class Component extends DCLogic {
     const focus = s.focus && !!s.sel;
     base.listStyle = 'flex: ' + (focus ? '1' : '3') + ' 1 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; max-height: 78vh; transition: flex-grow 0.3s ease';
     base.detailStyle = 'flex: ' + (focus ? '3' : '2') + ' 1 0; min-width: 0; box-sizing: border-box; padding: 16px 18px; background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; max-height: 78vh; overflow-y: auto; transition: flex-grow 0.3s ease';
+    // a phone (narrow): one column. Whose is a strip of chips that scrolls sideways; the list and a
+    // picked concept's detail take turns at full width, and Back returns to the list
+    const narrow = (window.innerWidth || 1200) < 700;
+    base.rowStyle = narrow ? 'display: flex; flex-direction: column; gap: 10px; padding: 8px 10px 20px 10px' : 'display: flex; flex: 1; min-height: 0; gap: 14px; padding: 12px 24px 20px 12px';
+    base.whoseStyle = narrow ? 'flex: none; display: flex; flex-direction: row; align-items: stretch; gap: 6px; overflow-x: auto; padding: 0 0 6px 0' : 'flex: 0 0 210px; box-sizing: border-box; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 2px; max-height: 76vh; overflow-y: auto';
+    base.showBack = narrow && !!s.sel;
+    base.back = () => this.setState({ sel: null, focus: false });
+    if (narrow) {
+      base.listStyle = s.sel ? 'display: none' : 'display: flex; flex-direction: column; gap: 10px; min-width: 0';
+      base.detailStyle = s.sel ? 'box-sizing: border-box; padding: 14px; background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; overflow-x: auto' : 'display: none';
+    }
     if (!s.all) return base;
     const x = this.prep(s.all.instances[s.inst], s.showSystem), I = x.I;
     if (live) { base.instances = []; } else base.instances = Object.keys(s.all.instances).map((k) => ({ label: k === 'hosted' ? 'hosted · ' + s.all.instances[k].instance.url.replace(/^https?:\/\//, '') : 'local (yours only)', style: chip(k === s.inst),
@@ -525,7 +540,7 @@ class Component extends DCLogic {
       return { name: pk ? this.who(x, pk) : 'Everyone', sub: (here ? here + ' here' : '') + (here && there ? ' · ' : '') + (there ? there + ' on the relay' : ''),
         pick: () => this.setState({ person: pk, focus: false }),
         dotStyle: 'flex: none; width: 10px; height: 10px; border-radius: 50%; background: ' + (!pk ? '#CFCDC6' : pk === x.ta ? '#1C1C1A' : '#7A55D6'),
-        style: 'flex-shrink: 0; display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; line-height: 1.3; padding: 6px 8px; min-height: 42px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (on ? '#DCDAD3; background: #FFFFFF; font-weight: 600' : 'transparent; background: transparent') };
+        style: 'flex-shrink: 0; display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; line-height: 1.3; padding: 6px 8px; min-height: 42px; border-radius: 6px; cursor: pointer; color: #1C1C1A; border: 1px solid ' + (on ? '#DCDAD3; background: #FFFFFF; font-weight: 600' : 'transparent; background: transparent') + (narrow ? '; max-width: 240px; white-space: nowrap' : '') };
     });
 
     // ── the list ──
@@ -619,6 +634,20 @@ class Component extends DCLogic {
           { title: 'Theirs, pointing at ours', empty: '', items: p.pointsAtOurs.map((k) => it(k, 'on the relay', true)) },
           { title: 'On the relay, not here', empty: p.relay.length ? '' : 'Nothing of theirs on the relay that we lack.', items: p.relay.slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, 15).map((k) => it(k, k.description ? this.short(k.description, 70) : '', true)) },
         ].filter((sec) => sec.items.length || sec.empty) };
+    }
+    // a phone: the People map becomes a list of the same cards (they say in words who holds whose);
+    // picking one shows that person full width, with Back to everyone
+    base.showWiden = !narrow;
+    base.peopleMainStyle = narrow ? (s.mapSel ? 'display: none' : 'flex: 1 1 100%; min-width: 0; box-sizing: border-box; padding: 10px') : 'flex: 999 1 720px; min-width: 0; box-sizing: border-box; padding: 16px; overflow: auto';
+    base.peopleAsideStyle = narrow ? (s.mapSel ? 'flex: 1 1 100%; box-sizing: border-box; padding: 14px; background: #FFFFFF; display: flex; flex-direction: column; gap: 10px' : 'display: none') : 'flex: 1 1 340px; max-width: 400px; box-sizing: border-box; padding: 18px; border-left: 1px solid #DCDAD3; background: #FFFFFF; display: flex; flex-direction: column; gap: 12px; max-height: 88vh; overflow-y: auto';
+    base.legendStyle = narrow ? 'display: none' : 'display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #3A3935; padding: 0 0 8px 4px';
+    base.mapBoxStyle = narrow ? 'display: flex; flex-direction: column; gap: 8px' : 'position: relative; width: 1000px; height: 760px';
+    base.showPeopleBack = narrow && !!s.mapSel;
+    base.restStyle = narrow ? 'font-size: 13px; color: #5B5A55; padding: 4px 2px' : 'position: absolute; right: 8px; bottom: 6px; font-size: 12px; color: #5B5A55';
+    base.peopleBack = () => this.setState({ mapSel: null });
+    if (narrow) {
+      base.map.lines = []; base.map.labels = [];
+      base.map.regions = base.map.regions.map((r) => Object.assign({}, r, { style: r.style.replace(/position: absolute; left: [^;]+; top: [^;]+; width: [^;]+; height: [^;]+;/, 'position: static; width: 100%; min-height: 64px;') }));
     }
     return base;
   }

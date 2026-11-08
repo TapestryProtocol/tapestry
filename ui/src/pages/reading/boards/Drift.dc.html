@@ -18,7 +18,7 @@ button{font-family:inherit}
 </helmet>
 <div onMouseMove="{{peekMove}}" onMouseDown="{{peekHide}}" onMouseLeave="{{peekHide}}" style="position: relative; min-height: calc(100vh - 57px); box-sizing: border-box; background: #F3F4F1; color: #1C1C1A; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
   <dc-import name="Peek" node="{{peekId}}" x="{{peekX}}" y="{{peekY}}" top="{{peekTop}}" bw="{{peekBW}}" bh="{{peekBH}}" hint-size="0px,0px"></dc-import>
-  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #DCDAD3; background: #FFFFFF">
+  <header style="{{hdrStyle}}">
     <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><span style="font-family: 'Space Grotesk', Inter, sans-serif; font-weight: 600; font-size: 18px">Drift</span>
     <span style="font-size: 13px; color: #5B5A55">Start in</span></sc-if>
     <sc-if value="{{standalone}}" hint-placeholder-val="{{true}}"><sc-for list="{{scopes}}" as="s" hint-placeholder-count="5">
@@ -29,22 +29,22 @@ button{font-family:inherit}
     <button onClick="{{reset}}" style="font-size: 13px; padding: 8px 12px; min-height: 44px; border-radius: 999px; border: 1px solid #CFCDC6; background: #FFFFFF; color: #1C1C1A; cursor: pointer">Forget what I looked at</button>
   </header>
 
-  <div style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 24px; align-items: flex-start">
+  <div style="{{wrapStyle}}">
     <main style="flex: 999 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
       <sc-if value="{{loading}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 15px; color: #5B5A55">Loading the graph slice…</p></sc-if>
       <sc-if value="{{noFocus}}" hint-placeholder-val="{{false}}">
-        <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 600">Where would you like to start?</h1>
+        <h1 style="{{h1aStyle}}">Where would you like to start?</h1>
         <p style="margin: 0; font-size: 14px; color: #3A3935">Open anything. As you look around, the right-hand side works out what you seem to be looking at, and suggests what connects to several things you've seen.</p>
-        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+        <div style="{{gridStyle}}">
           <sc-for list="{{starts}}" as="h" hint-placeholder-count="6">
             <button onClick="{{h.pick}}" data-peek="{{h.peek}}" style="text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 12px; min-height: 44px; border: 1px solid #DCDAD3; border-radius: 10px; background: #FFFFFF; color: #1C1C1A; cursor: pointer"><span style="font-size: 11px; color: #5B5A55">{{h.kind}}</span><span style="font-size: 14px; font-weight: 500; line-height: 1.35">{{h.label}}</span></button>
           </sc-for>
         </div>
       </sc-if>
       <sc-if value="{{hasFocus}}" hint-placeholder-val="{{false}}">
-        <article style="background: #FFFFFF; border: 2px solid #1C1C1A; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px">
+        <article style="{{artStyle}}">
           <span style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">{{f.kind}}</span>
-          <h1 style="margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 600; line-height: 1.25">{{f.name}}</h1>
+          <h1 style="{{h1bStyle}}">{{f.name}}</h1>
           <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #2B2A27; white-space: pre-line">{{f.text}}</p>
           <sc-if value="{{f.hasTag}}" hint-placeholder-val="{{false}}"><span style="{{f.tagStyle}}">{{f.tag}}</span></sc-if>
           <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px">
@@ -71,7 +71,7 @@ button{font-family:inherit}
       </sc-if>
     </main>
 
-    <aside style="flex: 1 1 340px; max-width: 440px; display: flex; flex-direction: column; gap: 14px">
+    <aside style="{{asideStyle}}">
       <dc-import name="LocalGraph" center="{{graphCenter}}" trail="{{graphTrail}}" marks="{{graphMarks}}" on-pick="{{graphPick}}" w="{{graphW}}" h="{{graphH}}" hint-size="340px,330px"></dc-import>
       <section style="background: #FFFFFF; border: 1px solid #DCDAD3; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
         <h2 style="margin: 0; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #5B5A55">You seem to be looking at</h2>
@@ -113,6 +113,16 @@ class Component extends DCLogic {
   renderVals() {
     const b = this.renderVals0(), p = this.state.peek;
     b.standalone = !window.Brain;
+    // a phone (narrow): tighter padding, two starting points a row, the side column below at full width
+    const n = (window.innerWidth || 1200) < 700;
+    b.hdrStyle = n ? 'display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #DCDAD3; background: #FFFFFF' : 'display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid #DCDAD3; background: #FFFFFF';
+    b.wrapStyle = n ? 'display: flex; flex-wrap: wrap; gap: 16px; padding: 12px; align-items: flex-start' : 'display: flex; flex-wrap: wrap; gap: 20px; padding: 20px 24px; align-items: flex-start';
+    b.gridStyle = n ? 'display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px' : 'display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px';
+    b.artStyle = n ? 'background: #FFFFFF; border: 2px solid #1C1C1A; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px' : 'background: #FFFFFF; border: 2px solid #1C1C1A; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 10px';
+    b.asideStyle = n ? 'flex: 1 1 100%; display: flex; flex-direction: column; gap: 14px' : 'flex: 1 1 340px; max-width: 440px; display: flex; flex-direction: column; gap: 14px';
+    b.h1aStyle = n ? "margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 21px; font-weight: 600" : "margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 26px; font-weight: 600";
+    if (n) { b.graphW = Math.max(240, (window.innerWidth || 390) - 24); b.graphH = Math.min(300, Math.round(b.graphW * 0.8)); }
+    b.h1bStyle = n ? "margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 21px; font-weight: 600; line-height: 1.25" : "margin: 0; font-family: 'Space Grotesk', Inter, sans-serif; font-size: 24px; font-weight: 600; line-height: 1.25";
     return Object.assign(b, { peekMove: (e) => this.peekMove(e), peekHide: () => this.peekHide(), peekId: p ? p.id : '', peekX: p ? p.x : 0, peekY: p ? p.y : 0,
       peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0, goTo: (id) => { this.peekHide(); this.goTo(id); } });
   }
@@ -120,8 +130,10 @@ class Component extends DCLogic {
   constructor(props) { super(props); this.state = { g: null, err: null, scope: window.Brain ? Brain.state.scope : 'nomos-protocol', visits: [], focus: null, reading: false }; this.RESET = { focus: null }; }
 
   componentDidMount() {
+    this._resize = () => { const w = window.innerWidth; if (w !== this.state.vw) this.setState({ vw: w }); };
+    window.addEventListener('resize', this._resize);
     if (window.Brain) {
-      this._offs = [
+      this._offs = [() => window.removeEventListener('resize', this._resize),
         Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })),
         Brain.on('scope', (k) => this.liveScope(k)),
         Brain.on('go', (id) => this.goTo(id)),

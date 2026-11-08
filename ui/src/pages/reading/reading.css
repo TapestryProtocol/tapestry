@@ -22,10 +22,6 @@
 .reading-wait { padding: 24px; color: var(--r-muted); font-size: 14px; }
 .reading-error { position: fixed; right: 16px; bottom: 16px; z-index: 90; max-width: 420px; padding: 10px 14px; border-radius: 8px;
   background: #FFF4F2; border: 1px solid #E8C3BC; color: var(--r-bad); font-size: 13px; line-height: 1.45; }
-@media (max-width: 760px) {
-  .reading-bar { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
-  .reading-tag { display: none; }
-}
 .reading-who { font-size: 11px; color: var(--r-muted); white-space: nowrap; }
 .reading-auth { display: flex; align-items: center; }
 /* the app's user menu is styled for its dark shell; on this light bar its sign-in link takes the accent */
@@ -33,3 +29,17 @@
   cursor: pointer; white-space: nowrap; padding: 6px 4px; }
 .reading-jump { flex-shrink: 0; white-space: nowrap; }
 .reading-scope select { max-width: 220px; }
+/* a phone: the brand and the view tabs (scrolling sideways when they don't fit), then the scope picker
+   across the width beside the Search button, then who is signed in. Last in the file, so it wins. */
+@media (max-width: 760px) {
+  .reading-bar { flex-wrap: wrap; padding: 8px 12px; gap: 8px 10px; }
+  .reading-tag, .reading-spacer, .reading-scope-label { display: none; }
+  .reading-views { flex: 1 1 calc(100% - 100px); min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .reading-views::-webkit-scrollbar { display: none; }
+  .reading-views a { flex: none; white-space: nowrap; padding: 9px 13px; font-size: 14px; }
+  .reading-scope { flex: 1 1 200px; min-width: 0; }
+  .reading-scope select { max-width: none; width: 100%; min-height: 42px; font-size: 15px; }
+  .reading-who { order: 10; }
+  .reading-auth { order: 11; margin-left: auto; }
+  .reading-view { min-height: calc(100vh - 150px); }
+}
