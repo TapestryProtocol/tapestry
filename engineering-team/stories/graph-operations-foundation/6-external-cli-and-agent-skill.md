@@ -1,6 +1,6 @@
 # Story 6: The external CLI and the agent's skill — an admin agent calls every operation from outside the instance
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-08
 **Type:** Feature
 **Loom:** A10.6 — https://loom.brainstorm.world/t/A10.6

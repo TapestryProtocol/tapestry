@@ -475,3 +475,83 @@ What I couldn't verify:
 
 ## Verdict (round 3)
 **CHANGES_REQUESTED**
+
+---
+
+# Round 4
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-08
+**Diff:** `git diff 93ea9d97c..77d6a442a`, attributed commit by commit:
+- `ec5839143`: the Tester's line. The test plan's "Not covered" line (`:120`) restates the trade of the signer's timeout. It touches no code and no suite.
+- `48b8d2ecf`: B-R3-1's story fix, the Evidence passage (`:187-191`). It also rewords the trade in the story's Deviation (`:148`) and in the comment in `identity.js` (`:167-170`). That comment is the only code change.
+- `77d6a442a`: the ledger note on `2026-11-05-suite-probe-reaches-private-container` now names `session-start.test.js`, with round 2's run and the lesson about the renamed helper.
+
+**In short.** B-R3-1 is fixed. The story and the ledger now say that round 2's run of `session-start` sent up to 20 read-only probes to `localhost:7778`, and that none of the three digest suites has run here since. Nothing blocking is left. The trade's new wording is better, but it is still a list, and it misses two cases (non-blocking 1).
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`: not run,** for round 1's reason. `npm run gate:status` still has no run record. CI's run on the pull request will be the first full gate of this code.
+- [x] **Suites run one by one** through their `run()` exports, on Node 24.18.0 at `77d6a442a`. Nothing was uncommitted but the `node_modules` link, every service endpoint was dead, and each suite was screened with the helpers it loads, as in round 3:
+
+  | Suite | Result |
+  |---|---|
+  | `external-cli` | 53/0/0 |
+  | `operations` | 48/0/0 |
+  | `openapi-coverage` | 13/0/0 |
+  | `openapi-document` | 10/0/0 |
+  | `admin-action-sweep` | 9/0/0 |
+  | `admin-action-sweep-access` | 13/0/0 |
+  | `default-deny-mutations` | 14/0/0 |
+  | `stack-free-npm-test` | 6/0/1 |
+  | `brains-launcher-repo` | 31/0/0 |
+  | `harness-lint` | 85/0/0 |
+  | `harness-stats` | 12/0/0 |
+  | **Total** | **294/0/1** |
+
+  The Implementer ran two of these at the same commit (`external-cli` 53/0/0 and `harness-lint` 85/0/0), and both agree.
+- [x] **Not run:** `session-start`, `ledger-row-ids` and `rollup-scanners`. I checked their real-tree claims by hand:
+  - `bash scripts/harness-lint.sh`: clean, 0 violations, before this round's verdict was added;
+  - `collect_meta`: exits 0, and lists the changed row (meta, OPEN);
+  - its 244 lines: none is invalid UTF-8.
+
+  All three are registered (`test/registry.js:156-158`), so CI runs them.
+- [x] **A probe of the timeout's kill:** SIGKILL to the signer's shell, as `identity.js:179` sends it, for the kinds of command the new wording names and two it doesn't.
+  - Named: a simple command, 0 left; a list joined by `&&`, 1 left; a list joined by `;`, 1 left; a pipeline, 1 left.
+  - Not named: a background program (`sleep … & wait`), 1 left; a simple command's own child (`sh -c "sleep …; :"`), 1 left.
+
+  I removed what it left.
+- [ ] `npm run test:playwright`: not applicable (no UI).
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+## Round 3's findings, each re-derived as a fresh claim
+
+| Finding | Re-derived by | Result |
+|---|---|---|
+| B-R3-1, the story | Story `:187-191`, claim by claim. Three suites run `scripts/session-start.sh`, and each does (`ledger-row-ids.test.js:28` and `:111`; `rollup-scanners.test.js:194`; `session-start.test.js:33`). Round 2's review ran `session-start` (round 2's gates table: 32/0/0). That was about 20 runs, through a helper imported as `digest`: 18 tests, one of them in a loop of three. So up to 20 read-only probes, each discarding its answer (`-o /dev/null`). "None of the three has run on this machine since" holds for this story's work: I didn't run them at rounds 3 or 4, and no Implementer table lists them. CI runs them (`test/registry.js:156-158`). | Fixed. |
+| B-R3-1, the ledger note | `ledger/2026-11-05-suite-probe-reaches-private-container.md:22-38` names three suites, `session-start.test.js` among them (`:27-31`), with round 2's run and the lesson about the renamed helper. "Skipped the first two at round 2, and all three from round 3 on" (`:35`) holds. Its account of why the screen missed the suite also holds in substance: the file names the script "only in comments and a structure check" (`:29`). In fact it names it in a comment (`:7`), a constant (`:37`) and two structural tests (`:97-104`, `:134-136`), and never in a run. | Fixed. It counts one structure check where there are two, which is immaterial. |
+| Round 3's non-blocking 1, the trade's wording | `identity.js:169-170`, story `:148` and test plan `:120` now say that the timeout ends the shell, that a simple command ends with it, and that "the programs of a pipeline, or of a list joined by `;` or `&&`, may outlive it". The probe bears out each case the wording names. But the wording is a list, and two cases are missing from it: a background program, which the old wording named (1 left), and the programs a simple command starts itself (1 left), as a wrapper script that runs `nak` would. | Improved, still incomplete (non-blocking 1). |
+| Round 3's non-blocking 2, tables vs code | Not taken. They still match: 6 first words and 7 variables. | Still non-blocking (non-blocking 2). |
+| Round 3's friction 1 | In the ledger note (`:28-31`). | Filed. |
+
+## Findings
+
+### Blocking
+None.
+
+### Non-blocking
+1. **`clients/cli/src/identity.js:169-170`, story `:148` and test plan `:120`: the trade is still a list, and it misses two cases.**
+   - A background program (`… &`) and any program a simple command starts itself (a wrapper script's `nak`, say) also outlive the kill, as the probe above shows.
+   - Suggested, as one rule: "The timeout kills only the signer's shell, and so a simple command that the shell runs in its own place. Any other program the command starts, or that its programs start, may outlive it."
+   - My round-3 sentence said much the same. Re-derived, it holds for all six cases.
+2. **The tables still aren't held to the code** (round 1's non-blocking 4). They match today.
+
+### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+1. None new.
+
+## On PASS (same commit)
+- [ ] **Story `**Status:**` flipped to `Done` in place.** Not done here: the launching task asked for this file only. Whoever commits this review sets it, in the same commit (workflow 5). Until then, `harness-lint` reports L1 for the story, since this review is now PASS-final.
+- [x] **Completion detection performed.** Its result is in the chat, not in this file.
+
+## Verdict (round 4)
+**PASS**
