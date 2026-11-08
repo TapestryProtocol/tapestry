@@ -16,3 +16,6 @@ public/kg/
 # The launcher has its own image. Leaving this out means a launcher change does not rebuild the brain image, which
 # would restart every brain.
 deploy/
+# The external CLI (clients/cli/) runs on an agent's own machine, never in the instance (ADR
+# graph-operations-foundation/0006 Decision 10), so a change to it leaves the image as it was.
+clients/

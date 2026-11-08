@@ -121,6 +121,69 @@ Both were resolved at the planning gate on 2026-11-08, where the owner approved 
    - *Recommendation:* from this repo. The CLI installs on its own from a checkout of the repo, without the instance's server and its dependencies, and the skill says how. It uses the agent's key, or its signer, and keeps its sign-ins, so it should come from the team's own source rather than from whichever instance the agent talks to.
    - *Alternatives:* each instance also hands the CLI out, so the agent needs nothing but the URL, but then it trusts every instance's copy with its key; or the CLI is published to a package registry for a one-line install, which needs an account and a publishing step.
 
+## Deviations
+
+Small judgment calls made in Implementation, inside the ADR:
+
+- Two small additions to Decision 1's layout. `src/errors.js` holds the CLI's four error kinds:
+  - `Usage`, exit 2;
+  - `Setup`, a `Usage` for no key or no instance;
+  - `Refused`, exit 1;
+  - `Failed`, exit 3.
+
+  And `config.json` is read and written in `src/identity.js`, beside the home it lives in, rather than in a module of its own.
+- `tapestry help`, `--help` or a bare `tapestry` with nothing set up (no key or no instance) prints how to set up and exits 0. Any other problem (a key file others can read, a bad URL) still fails it, so help never hides a real fault.
+- `tapestry key new` onto an existing file exits 2, naming the file, and leaves it as it was.
+- A list entry whose route isn't under `/api/tapestry/`, or whose method isn't GET or POST, is never called: exit 3. This guards AC5 against a wrong list.
+- The re-sign-in after a 401 happens at most once per run, not once per call, so no run signs in more than twice.
+- An instance whose list doesn't name its `caller` yet (one older than this story) is answered with `role: "owner or admin"`, so the CLI still works against it.
+- A signer's event may carry a `created_at` up to 600 s from the one asked for, the instance's own window, in case a signer stamps the time itself. Its kind, pubkey, content and tags must be the same, and its signature must verify.
+- The lockfile was made offline from npm's cache (`npm install --package-lock-only --offline`). Its two direct dependencies are the root's exact versions; npm chose the indirect ones (`@noble/ciphers` 0.5.3, for one).
+
+## Evidence
+
+### The suites (Implementation, 2026-11-08)
+
+The full `npm test` was not run on this machine, because its live suites can reach a private instance here; CI runs the gate on the pull request. Instead, nine suites ran one by one through their `run()` exports, on Node 24.18.0, with every service endpoint dead. They are the story's own suites and those the change touches: everything that reads the route table, the API document, `.dockerignore` or the test registry. The screen for `docker exec`, `TAPESTRY_PORT` and `:7778` found only the launcher suite's assertion text, which calls nothing.
+
+| Suite | Passed | Failed | Skipped |
+|---|---|---|---|
+| `external-cli` (Test Design: 0 of 49) | 49 | 0 | 0 |
+| `operations`, with H16 and D6 (Test Design: 46 passed, 2 failed) | 48 | 0 | 0 |
+| `openapi-coverage` | 13 | 0 | 0 |
+| `openapi-document` | 10 | 0 | 0 |
+| `admin-action-sweep` | 9 | 0 | 0 |
+| `admin-action-sweep-access` | 13 | 0 | 0 |
+| `default-deny-mutations` | 14 | 0 | 0 |
+| `stack-free-npm-test` (G5: the registry is complete) | 6 | 0 | 1 |
+| `brains-launcher-repo` (reads `.dockerignore`) | 31 | 0 | 0 |
+| **Total** | **193** | **0** | **1** |
+
+**The install.** The README's install was tried on a copy of `clients/cli` in a temporary folder. `npm ci --omit=dev --offline` added 15 packages (nostr-tools, ajv and their own), and the CLI loaded nostr-tools from its own `node_modules`, not the repo's.
+
+### The live check (AC7, Implementation, 2026-11-08)
+
+**The instance.** A throwaway instance (`scripts/scratch-stack.sh`):
+- image `tapestry-tapestry`, with this branch's `src/` mounted;
+- firmware installed;
+- no published ports;
+- removed afterwards, with nothing left behind.
+
+Docker had about 4.9 GB free, so nothing was paused.
+
+**The path in.** The CLI ran on this Mac, from the standalone install, with a fresh `TAPESTRY_HOME` and HOME. It went through a TCP relay from the same local image, on a loopback port, to the instance's nginx. So every request reached the app with `X-Forwarded-For`, as an outside agent's does, and nothing was trusted as local.
+
+1. **The key.** `tapestry key new` printed `{ file, npub, pubkey }`.
+2. **Before the owner acted,** `tapestry whoami` answered `role: neither`, exit 1, with the plain message naming the npub, the instance and the administrators page.
+3. **The owner made the key an admin** by saving the setting the administrators page saves (`updateOverrides({ adminPubkeys })`, inside the container).
+4. **The calls.** `tapestry use <url>`, then:
+   - `tapestry whoami`: `role: admin`, exit 0;
+   - `tapestry` listed `lifecycle status`, the one operation the instance declares here;
+   - `tapestry lifecycle status` exited 0, and its JSON, parsed, was the same as the internal command's, `tapestry lifecycle status` inside the container, which also exited 0: firmware 1.0.0 `all`, 39 of 39; cache 3,142 nodes, 428 cached.
+5. **A second key** that nobody made an admin: `whoami` answered `neither`, exit 1.
+6. **What reached the instance.** nginx's log shows the CLI reached only `POST /api/auth/verify-user`, `POST /api/auth/login-user`, `GET /api/tapestry/operations` and `GET /api/tapestry/lifecycle/status`.
+7. **What the agent keeps.** Its home was `drwx------`, and its `config.json`, `key` and `sessions.json` were each `-rw-------`.
+
 ## Linked artifacts
 
 - Loom: [A10.6](https://loom.brainstorm.world/t/A10.6), memo 95 (D14 and D15)
