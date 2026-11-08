@@ -713,3 +713,40 @@ above; nothing above is struck, and no cited line moves.
     or a key. A read that changes the branch never remounts them, so focus on them survives it.
   - A focused opener that a read replaces in place by a control D15 rules out hands focus to its section's heading.
     Turn off becoming Turn on is the case. "Never on Turn on" covers a button node React reuses.
+
+## Fix-round notes, round 2 (2026-11-08, review round 2)
+
+Review round 2 asked for these. Each refines a decision above or a round-1 note; nothing above is struck, and no cited
+line moves.
+
+- **D8, a pattern too long to judge** (review round 2, blocking 1). This corrects round 1's D8 note "Its period cannot
+  be told (null), as R13's rules are", which was wrong. An R13 rule runs fewer than twice in 400 days, so it is always
+  rarer than any period that is judged, and the most frequent of those can stand for the schedule. A pattern too long
+  to judge may be the most frequent, so no other entry's period may stand for it. So:
+  - **A pattern longer than 256 characters** on an enabled entry for the pass is not judged, and the verdict is
+    `{state: 'cannot-tell', reason: 'rule'}`, whatever stands beside it. More than 32 distinct patterns give the same.
+  - **It is counted whether or not it would parse,** since telling would mean parsing it. So a long pattern that is
+    not a cron reads "cannot tell", where a short one is not counted (`no-schedule` when no other entry runs the
+    pass).
+- **D8, what the bound leaves** (review round 2, requested 5). This replaces round 1's "once per process while
+  cached":
+  - **Judgments are cached per pattern,** at most 32, the oldest dropped first. A save that brings in new patterns
+    gets them judged, and that can push others out to be judged again. With 32 patterns, changing the last entry
+    cost 1, then 31, then 0 judgments over three status reads.
+  - **The worst case left** is about 1 s for each pattern crafted to be costly, about 35 s for 32. It lands on the
+    first status read after a restart, or after a save that brings in new patterns.
+  - **Spreading that cost** (capping how many patterns not yet cached one read may judge) is the owner's to place
+    (review round 2, non-blocking 3). This story does not do it.
+- **D14, the reason for the rule** (review round 2, requested 3). `{state: 'cannot-tell', reason: 'rule'}` now has
+  three causes: R13's, more than 32 distinct patterns, and a pattern too long to judge. The panel's reason names none
+  of them: "the server cannot judge how often a rule in the schedule runs the pass".
+- **D15, decided at the swap** (review round 2, blocking 2). This refines round 1's D15 note on a focused opener that a
+  read replaces in place. Whether "Turn off" had focus is decided when the read swaps it, from `document.activeElement`
+  against the switch's button node. That node is the one "Turn off" last had, kept from its ref, since React reuses it
+  for "Turn on". "Turn on" itself carries no ref, as D15 says ("Neither is ever an opener or a target"). Focus and blur
+  events are not used. A window or tab that loses focus fires a blur while the element stays focused, so a flag set by
+  those events would miss the case.
+- **ADR 0004's T12 note** (review round 2, requested 5). Round 1's fix edited that note's `:220` cite in place, in an
+  `impl:` commit. That was not this story's to edit: the note is story 6's, and it was true when written. The line is
+  restored, and a dated line at ADR 0004's end now gives the sentence's place (`:223`, its `'no-status'` key). The same
+  edit in ADR 0006 (`:1270`) stands, since that note is this story's own and has not shipped.
