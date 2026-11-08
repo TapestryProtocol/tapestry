@@ -233,6 +233,12 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B153 — Stop refused (a lapsed session's 401): focus on the line that says so.                           [AC-6; D15]
  *   B154 — a status read that fails after a good one (on time; overdue): the backstop section cannot tell, because the
  *          pass status could not be read, and never shows the kept verdict; a good read brings it back.   [AC-5; D14 note]
+ *   Story 7's fix round 2 (review round 2, blocking 2 and requested 4; ADR 0007 § Fix-round notes, round 2, D15):
+ *   B150 gains a third case, red until the fix: "Turn off" focused, then the window loses focus (a blur while it stays
+ *   the focused element) before the read shows the path off. B155 is green on purpose: round 1's keys already do it,
+ *   and no case ran it.
+ *   B155 — Confirm under way, focus on the prompt's heading: reads that show a pass running, then ended holding nothing,
+ *          keep the prompt, the same element, and focus on it; the answer then takes focus to its line. [AC-6; D10, D15 note]
  *
  * ── A story that changes a Relays sub-tab runs B39 ───────────────────────────────────────────────────────────────
  * B39 is the only check that the other Relays sub-tabs (Router Management, Negentropy Sync, Relay Configuration,
@@ -4636,10 +4642,11 @@ test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007
     expect(m.log.nonGet, 'a prompt that closes by itself sends nothing').toEqual([]);
   });
 
-  test('B150: when "Turn off" has focus — put back there by Cancel, or moved there by the owner — and a read shows the path off, focus moves to the path section\'s heading: it is never on "Turn on", neither by its text nor as the same button relabelled, so a keypress then sends nothing and the path stays off [AC-6 "Never on Turn on"; ADR 0007 D15 "Never on Turn on or Run a pass now", § Fix-round notes D15 "A focused opener that a read replaces in place by a control D15 rules out hands focus to its section\'s heading. Turn off becoming Turn on is the case. Never on Turn on covers a button node React reuses"; review round 1, requested 2]', async ({ page }) => {
-    test.setTimeout(90000);
+  test('B150: when "Turn off" has focus — put back there by Cancel, moved there by the owner, or moved there by the owner before the window lost focus (they switched to another tab or window, so "Turn off" had a blur while it stayed the focused element) — and a read shows the path off, focus moves to the path section\'s heading: it is never on "Turn on", neither by its text nor as the same button relabelled, so a keypress then sends nothing and the path stays off [AC-6 "Never on Turn on"; ADR 0007 D15 "Never on Turn on or Run a pass now", § Fix-round notes D15 "A focused opener that a read replaces in place by a control D15 rules out hands focus to its section\'s heading. Turn off becoming Turn on is the case. Never on Turn on covers a button node React reuses", and round 2 D15 "decided when the read swaps it, from document.activeElement against the switch\'s button node … Focus and blur events are not used"; review round 1, requested 2; review round 2, blocking 2]', async ({ page }) => {
+    test.setTimeout(120000);
     const m = await mock(page);
-    for (const [i, how] of ['after Cancel', 'the owner moved focus to it'].entries()) {
+    const WINDOW_BLURRED = 'the owner moved focus to it, then the window lost focus';
+    for (const [i, how] of ['after Cancel', 'the owner moved focus to it', WINDOW_BLURRED].entries()) {
       if (i === 0) await openAndSettle(page);
       else await reload(page, m, { realtime: F.REALTIME.ON_LIVE, record: undefined });
       if (how === 'after Cancel') {
@@ -4649,6 +4656,18 @@ test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007
       } else {
         await control(page, 'Turn off').focus();
         await expect(control(page, 'Turn off'), `${how}: setup — focus is on "Turn off"`).toBeFocused();
+        if (how === WINDOW_BLURRED) {
+          // What a browser fires when its window or tab loses focus (review round 2, blocking 2): blur and focusout on the
+          // focused element, then blur on the window, while that element stays document.activeElement.
+          const kept = await page.evaluate(() => {
+            const el = document.activeElement;
+            el.dispatchEvent(new FocusEvent('blur', { relatedTarget: null }));
+            el.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+            window.dispatchEvent(new FocusEvent('blur'));
+            return document.activeElement === el && /^Turn off$/.test((el.innerText || '').trim());
+          });
+          expect(kept, `${how}: setup — after the window's blur, "Turn off" is still the document's focused element`).toBe(true);
+        }
       }
       expect(await markFocused(page), `${how}: setup — "Turn off" is marked`).toBe(true);
       await pauseClock(page);
@@ -4767,6 +4786,43 @@ test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007
       }
     }
     expect(m.log.nonGet, 'it is only a warning: it sends nothing').toEqual([]);
+  });
+
+  /* ── Story 7's fix round 2: review round 2, blocking 2 (B150's window case) and requested 4 (B155) ──────────── */
+
+  test('B155: green on purpose — while a confirmation is under way, focus on the prompt\'s own heading stays on that same heading when a read moves the held section to another branch: the read that shows a pass running (a lined-up pass can begin before the answer comes; it began 0.3 s after the confirm in the local evidence), then the read that shows it ended holding nothing, each leave the prompt shown, the same element, and focus on it; when the answer comes, focus goes to the line that says so, never to the page itself [AC-6 "Never lost. Focus never falls to the page itself"; ADR 0007 D10 "never while under way", D15 "while under way, focus is on the prompt\'s heading", § Fix-round notes D15 "The Confirm prompt and its answer line keep one element identity across the held section\'s branches"; review round 2, requested 4]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({ confirm: async () => { await gate; return F.CONFIRM_ANSWER.linedUp(F.OTHER_TAB_JOB_KEY); } });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the confirmation is sent' }).toEqual([CONFIRM_POST]);
+      await untilFocus(page, onHeadingNamed('tp-held', p.heading), 'setup — while under way, focus is on the prompt\'s own heading (D15)');
+      expect(await markFocused(page), 'setup — that heading is marked').toBe(true);
+      // The prompt sits at the same place among the held section's children in the held list's branch and the running
+      // one, so the first read keeps it even without its key; the branch with nothing held puts it elsewhere.
+      const STEPS = [
+        ['the next read shows a pass running', S.RUNNING, /\bpass is running\b/i],
+        ['the read after it shows that pass ended, holding nothing', S.TOOK_UP, /\bheld no removals\b/i],
+      ];
+      for (const [step, scene, landed] of STEPS) {
+        m.set(scene);
+        await page.clock.runFor(POLL_MS);
+        await untilText(page, 'tp-held', landed, `${step}: the read has landed in the held section`, 5000);
+        await expect(heldHeading(page, p.heading), `${step}: the prompt is still shown while its confirmation is under way (D10)`).toHaveCount(1);
+        await stillFocused(page, onHeadingNamed('tp-held', p.heading), `${step}: focus stays on the prompt's heading (AC-6 "Never lost"; D15 note)`);
+        expect(await onMarked(page), `${step}: and it is the same element, never remounted (D15 note "one element identity")`).toEqual({ same: true, connected: true });
+      }
+    } finally {
+      release();
+    }
+    await expect(heldHeading(page, p.heading), 'the answer closes the prompt (D11)').toHaveCount(0, { timeout: 10000 });
+    await untilFocus(page, onOutcomeLine('tp-held', /\blined up\b/i), 'the answer: focus goes to the line that says a pass was lined up (D15)');
+    expect(m.log.nonGet, 'one confirmation, nothing retried').toEqual([CONFIRM_POST]);
   });
 });
 
