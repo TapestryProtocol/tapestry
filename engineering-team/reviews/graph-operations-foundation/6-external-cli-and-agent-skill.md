@@ -350,3 +350,128 @@ What I couldn't verify:
 
 ## Verdict (round 2)
 **CHANGES_REQUESTED**
+
+---
+
+# Round 3
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-08
+**Diff:** `git diff 1d8d6218b..b55a8a1b1`, attributed commit by commit:
+- `b20ec9cc5`: the Tester's round. It adds I16 (the signer's process group: the fake signer now records its own) and K12 (a read that declares its own 403), with their test-plan rows and the corrected "Not covered" line. It touches no `clients/` or `src/`.
+- `03a63dede`: the fix. The signer is spawned without `detached` again (`identity.js`), and a new `isNotAllowed` (`signin.js`) now decides the 403 note (`main.js`). The story's two Deviations are rewritten. It touches no `test/`.
+- `d6a5d9c77`: round 2's harness-friction item, as a dated note on the existing row `ledger/2026-11-05-suite-probe-reaches-private-container.md`.
+- `b55a8a1b1`: the story's Evidence: the suite table at `d6a5d9c77`, and the three suites that weren't run here.
+
+**In short.** R2-B1 is fixed, and so is round 2's non-blocking 1. Both hold when re-derived through the committed code. One blocking issue is left, and it is about the record, not the code. The story's Evidence says the reviewer didn't run `session-start` at round 2. I did, and that run reached this Mac's private instance through the digest's stack probe. The mistake was in my round-2 screening, which round 2 didn't notice and this round discloses.
+
+## Correction to round 2 (my own)
+
+- **What round 2 ran.** Round 2 ran `session-start` (32/0/0) as a safe suite. It isn't one.
+  - `test/session-start.test.js` imports the digest runner under the name `digest` (`:33`, from `test/helpers/rollupFixtures.js:43-46`) and calls it from 18 tests (`:126` to `:439`). The one at `:189` sits in a loop of three, so the suite runs the digest 20 times.
+  - Each run executes `scripts/session-start.sh`. Its stack probe GETs `http://localhost:7778/api/concept-graph/summaries` (`:41-47`, with `-m 2` and `-o /dev/null`).
+  - So round 2's run sent up to 20 of those GETs to the private instance. They only read. Whether the instance answered, I can't tell.
+- **How the screen missed it.** I grepped the suite for its script constant and for `runDigest`, and missed the alias.
+- **What round 2 got wrong as a result.** Its friction item named two suites in this class; there are three. Its "New" was wrong too: the row `2026-11-05-suite-probe-reaches-private-container` is the class's home, as this round's ledger commit found.
+- **This round** ran none of the three.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`: not run,** for round 1's reason. `npm run gate:status` still has no run record.
+- [x] **Suites run one by one** through their `run()` exports, on Node 24.18.0 at `b55a8a1b1`. Nothing was uncommitted but the `node_modules` link, and every service endpoint was dead. Each suite was screened together with the helpers it loads:
+  - `ledgerFixtures` only builds text;
+  - `gateFixtures` runs the gate engine over fixture suites, with a stub `docker`;
+  - `openapiNormalizeRoutes` runs nothing.
+
+  None of them runs the digest or a live call.
+
+  | Suite | Result |
+  |---|---|
+  | `external-cli` | 53/0/0 (with I16 and K12) |
+  | `operations` | 48/0/0 |
+  | `openapi-coverage` | 13/0/0 |
+  | `openapi-document` | 10/0/0 |
+  | `admin-action-sweep` | 9/0/0 |
+  | `admin-action-sweep-access` | 13/0/0 |
+  | `default-deny-mutations` | 14/0/0 |
+  | `stack-free-npm-test` | 6/0/1 |
+  | `brains-launcher-repo` | 31/0/0 |
+  | `harness-lint` | 85/0/0 |
+  | `harness-stats` | 12/0/0 |
+  | **Total** | **294/0/1** |
+
+  This is the same as the Evidence's table, which was taken at `d6a5d9c77`. Only the story has changed since then.
+- [x] **Not run:** `session-start`, `ledger-row-ids` and `rollup-scanners`, because all three run the digest. I checked their real-tree claims by hand instead:
+  - `bash scripts/harness-lint.sh`: clean, 0 violations;
+  - `collect_meta`: exits 0, and lists the noted row;
+  - its 244 lines: none is invalid UTF-8.
+- [x] **Red before green.** On an export of `b20ec9cc5`, `external-cli` gives 51/2, for the right reasons:
+  - I16 fails because the signer led its own process group;
+  - K12 fails because stderr called the key neither owner nor admin.
+
+  Phase 4 left `test/` alone: `git diff b20ec9cc5..HEAD -- test/` is empty.
+- [x] **Probes through the committed signer path,** `identity.resolveIdentity({ env: { TAPESTRY_SIGNER, … } }).sign()`.
+  - Under a pseudo-terminal: the signer opens `/dev/tty` (`tty-ok`), and a Ctrl-C leaves no signer behind (0 left).
+  - Then SIGKILL to the signer's shell, which is what the timeout does:
+    - a simple command (`sleep …`) is killed (0 left);
+    - a foreground program in a compound command (`sleep …; :`) survives (1 left);
+    - a pipeline member (`sleep … | cat`) survives (1 left).
+
+  I removed what they left.
+- [ ] `npm run test:playwright`: not applicable (no UI).
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+## Round 2's findings, each re-derived as a fresh claim
+
+| Finding | Re-derived by | Result |
+|---|---|---|
+| R2-B1, the signer's session | `identity.js:170` spawns the signer without `detached`, and the timeout kills the shell (`:178`). The probes give `tty-ok`, and nothing left after a Ctrl-C. I16 holds it: the fake signer's process group must be the test's. The CLI is spawned without `detached` too, so that puts the signer in the CLI's session and its foreground group, the two things R2-B1 lost. I16 fails on `b20ec9cc5`. The command it uses, `ps -o pgid= -p`, works on macOS and on CI's Linux. | Fixed. The trade's wording is narrower than the behavior (non-blocking 1). |
+| Round 2's non-blocking 1, a declared 403 | `isNotAllowed` (`clients/cli/src/signin.js:57-59`) takes a 403 with no `code`, or with `not-allowed`. That separates the cases exactly: the central check's 403 has no `code` (`src/middleware/auth.js:329-331`), and the router's is `not-allowed` (`src/operations/http.js:38`), a built-in code (`src/operations/declaration.js:37`) that no declaration may use (`:116`). `main.js:139` uses it. K12 holds it, and fails on `b20ec9cc5`. The list's 403 (`operations.js:32`) still reads the status alone, which is right: the list route has no declared refusals. | Fixed. |
+| Round 2's non-blocking 2, tables vs code | Not taken. The tables and the code still match: 6 first words and 7 variables. | Still non-blocking (non-blocking 2 below). |
+| Round 2's friction 1 | A note on `ledger/2026-11-05-suite-probe-reaches-private-container.md` (`:22-31`), a better home than the new row I proposed. Its references hold: `ledger-row-ids.test.js:14` and `:28`, `rollupFixtures.js:4-6`, `session-start.sh:41-47`. But it names two suites, and says "That review skipped both suites". The class has a third, `session-start.test.js`, which round 2 ran (B-R3-1). | Filed, but incomplete. |
+
+**Also re-derived, new this round:**
+- **The story's two new Deviations.** The 403 one (`:149`) holds. The signer one (`:148`) holds except for its last sentence (non-blocking 1).
+- **The Evidence (`:163-187`).** The table holds at the tip (above). I can't check "They last ran at `d6a5d9c77`", but my run at the tip, where nothing those suites read differs, gives the same counts. Line `:187` doesn't hold (B-R3-1).
+- **The test plan.** Its new rows (`:19`, `:49` K12, `:56` I16) match the tests. Line `:120` carries the same narrow wording of the trade.
+
+## Findings
+
+### Blocking
+
+1. **B-R3-1. `engineering-team/stories/graph-operations-foundation/6-external-cli-and-agent-skill.md:187` and `ledger/2026-11-05-suite-probe-reaches-private-container.md:22-30`: the record of what reached the private instance is wrong.**
+   - **The story.** Line `:187` says the three digest suites "weren't run, here or by the reviewer at round 2". But the reviewer ran `session-start` at round 2 (round 2's gates table: 32/0/0). That run reached `localhost:7778` up to 20 times through the digest's probe, as the correction above explains.
+   - **The ledger note.** It names two suites (`:25-26`) and says "That review skipped both suites" (`:30`). That's true of those two. But `session-start.test.js` runs the digest too, from 18 tests through `digest(...)` (`:33`). The note's own source says so: the header of `rollupFixtures.js` (`:4-6`) calls its digest runner "Shared by test/session-start.test.js and test/rollup-scanners.test.js". A fix made from the note as written would leave that suite out.
+   - **Why it blocks.** This is the record that tells the owner, and the next session on this Mac, whether this story's work reached someone's private instance. As written, it says no. It did, once, read-only.
+   - **Asked change.**
+     - Correct story `:187`: the round-2 review ran `session-start`, and so sent the probe to `localhost:7778`, and none of the three suites has run here since.
+     - Add `session-start.test.js` to the ledger note, with its digest calls and the round-2 run.
+     - Optionally, a line in the note on how a grep screen of the suite missed it (an aliased import). That would support the row's fix shape: a probe URL the runner can point at a dead port makes the screen unnecessary.
+
+### Non-blocking
+
+1. **`clients/cli/src/identity.js:167-169`, story `:148` and test plan `:120`: the signer's trade is wider than "a program the signer starts in the background".**
+   - SIGKILL to the shell, which is the timeout's kill, ends the shell. The only program it ends with it is a simple command that the shell runs in its own place. Under the probe:
+     - `sleep …`: 0 left;
+     - `sleep …; :` (a foreground program): 1 left;
+     - `sleep … | cat`: 1 left.
+   - So the test plan's "A signer that hangs past its 180 seconds is killed" holds only for a simple command.
+   - My round-2 wording ("a program the command started can outlive the 180-second timeout") was accurate. The added "in the background" narrows it.
+   - Suggested: "The timeout ends the shell, and so a signer that the shell runs as a simple command. Any other program the command starts, in the foreground or the background, may outlive it."
+2. **The tables still aren't held to the code** (round 1's non-blocking 4). They match today.
+
+### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+1. **A grep screen of a suite file can't see what the suite runs.**
+   - The screening rule this review followed is to grep the suite for `docker exec`, `TAPESTRY_PORT` and `:7778`. In round 2 it found nothing in `session-start.test.js`, because the call sits in a script the suite runs, through a helper imported under another name.
+   - The row's fix shape would make screening unnecessary: a probe URL the runner can point at a dead port, or a stub `curl`.
+   - Not a new row: add it to the note that B-R3-1 corrects.
+
+## On PASS (same commit)
+- [ ] Not applicable: the round-3 verdict is CHANGES_REQUESTED.
+  - The story's `**Status:**` stays `Approved`, and no completion detection was run.
+  - Round 4: the Implementer corrects story `:187` and the ledger note, and, if taken, the trade's wording in its three places. No code or test change is asked, so round 4 can re-derive the corrected lines and re-run `harness-lint` and `harness-stats`, the suites that read them.
+  - The launching task asked for this file only, so this session commits nothing.
+
+## Verdict (round 3)
+**CHANGES_REQUESTED**
