@@ -128,6 +128,6 @@ Both were resolved at the planning gate on 2026-11-08, where the owner approved 
 - Epic: [engineering-team/epics/graph-operations-foundation.md](../../epics/graph-operations-foundation.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (§2, D14, D15)
 - Story 1 and its ADR: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md); [ADR graph-operations-foundation/0001](../../decisions/graph-operations-foundation/0001-declare-each-operation-once.md) (Decision 7, the command's flags and exit codes; Decision 8, the list)
-- ADR: (filled in after Architecture phase)
+- ADR: [ADR graph-operations-foundation/0006](../../decisions/graph-operations-foundation/0006-external-cli-made-from-the-operations-list.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
