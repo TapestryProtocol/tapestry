@@ -165,8 +165,9 @@ function askSigner(command, template, io) {
   return new Promise((resolve, reject) => {
     let child;
     // In the CLI's own process group, not detached: a detached child gets a session of its own, so it loses the
-    // terminal (a signer asking for a passphrase on /dev/tty) and Ctrl-C no longer reaches it. The trade: a program the
-    // signer starts in the background may outlive the timeout, which ends the shell (review round 2, R2-B1).
+    // terminal (a signer asking for a passphrase on /dev/tty) and Ctrl-C no longer reaches it (review round 2, R2-B1).
+    // The trade: the timeout ends the shell. A simple command, which the shell usually runs in its own place, ends with
+    // it, but the programs of a pipeline, or of a list joined by ; or &&, may outlive it (review round 3).
     try { child = spawn('/bin/sh', ['-c', command], { stdio: ['pipe', 'pipe', 'pipe'] }); } catch (e) {
       reject(new Failed(`The signer command couldn't start: ${e.message}`));
       return;
