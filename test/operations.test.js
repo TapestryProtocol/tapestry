@@ -17,9 +17,9 @@
  *   R1  the route table has exact entries for lifecycle status and the list, resolving to owner     [AC2, AC6]
  *   R2  generated entries follow each declaration; none for an invalid one                          [AC2, Decision 3]
  *   W1  register(app) registers the status route and the list route                                 [AC1, AC7]
- *   H1–H14  the routes, through the real central auth middleware                                    [AC1, AC2, AC5, AC7]
+ *   H1–H16  the routes, through the real central auth middleware; H16 the list's caller (#6)        [AC1, AC2, AC5, AC7]
  *   C1–C8   the command                                                                              [AC3, AC5]
- *   D1–D5   the /docs entries                                                                        [AC4]
+ *   D1–D6   the /docs entries; D6 the list's caller (#6)                                             [AC4]
  *   S1  nothing outside the declaration names the operation's route                                  [AC6]
  *   X1–X2   AC6 in a throwaway copy with only new declaration files added                            [AC6]
  *   T1  per-operation suites under test/operations/ are found and run                               [Decision 12]
@@ -219,6 +219,7 @@ function mainSpec() {
           real('h11-unknown-input', 'owner', `${STATUS}?foo=1`),
           real('h13-list-owner', 'owner', LIST), real('h13-list-admin', 'admin', LIST),
           real('h14-list-visitor', 'visitor', LIST), real('h14-list-stranger', 'stranger', LIST),
+          real('h16-list-local', 'local', LIST),
           fix('h6-owner', 'owner', '/api/tapestry/lifecycle/owner-thing'),
           fix('h6-local', 'local', '/api/tapestry/lifecycle/owner-thing'),
           fix('h6-admin', 'admin', '/api/tapestry/lifecycle/owner-thing'),
@@ -628,6 +629,15 @@ test('H14: the list shows each caller only what they may call, names invalid dec
     `the list refuses a visitor 401 and a stranger 403; got ${got('h14-list-visitor').status} and ${got('h14-list-stranger').status}`);
 });
 
+test('H16: the list names its caller: the owner and an admin with their pubkeys, and a direct-local caller as local (graph-operations-foundation #6, ADR 0006 Decision 7)', () => {
+  const want = [['h13-list-owner', { role: 'owner', pubkey: OWNER }], ['h13-list-admin', { role: 'admin', pubkey: ADMIN }], ['h16-list-local', { role: 'local', pubkey: null }]];
+  for (const [id, caller] of want) {
+    const data = listOf(id);
+    assert(data.caller && same(data.caller, caller), `${id}: the list's data.caller must be ${show(caller)}, so a client can tell the owner from an admin; got ${show(data.caller)}`);
+    assert(Array.isArray(data.operations) && Array.isArray(data.problems), `${id}: operations and problems stay beside caller; got ${show(Object.keys(data))}`);
+  }
+});
+
 // ── C: the command ────────────────────────────────────────────────────────────────────────────────────────────────
 
 test('C1: `tapestry lifecycle status` prints exactly the route\'s answer, with no sign-in, and exits 0 (AC3)', () => {
@@ -807,6 +817,17 @@ test('D3: the list route is documented too, for the owner and admins', () => {
   const doc = withOperationDocs(yaml.load(fs.readFileSync(OPENAPI, 'utf8')));
   const e = doc.paths[LIST] && doc.paths[LIST].get;
   assert(e && e.responses && e.responses['200'] && e.responses['401'] && e.responses['403'], `GET ${LIST} must be documented with 200, 401 and 403; got ${show(e)}`);
+});
+
+test('D6: the list route\'s /docs entry describes the caller it names (graph-operations-foundation #6, ADR 0006 Decision 7)', () => {
+  const { withOperationDocs } = openapi();
+  const doc = withOperationDocs(yaml.load(fs.readFileSync(OPENAPI, 'utf8')));
+  const e = doc.paths[LIST] && doc.paths[LIST].get;
+  // The entry's description already says "the caller may call"; the answer's own shape must name the field.
+  const ok = (e && e.responses && e.responses['200'] && e.responses['200'].description) || '';
+  assert(/\bcaller\b/.test(ok), `GET ${LIST}'s 200 response must name data.caller beside operations and problems; got ${show(ok)}`);
+  assert(/\bowner\b/.test(e.description) && /\badmin\b/.test(e.description) && /\blocal\b/.test(e.description),
+    `its description must say caller.role is owner, admin or local; got ${show(e.description)}`);
 });
 
 test('D4: withOperationDocs leaves the loaded YAML unchanged, and refuses a path the YAML already documents', () => {
