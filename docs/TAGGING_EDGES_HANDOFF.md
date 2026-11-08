@@ -1,6 +1,6 @@
 # Handoff — Tagging edges, stories 2–7 (Tapestry)
 
-**Status:** 🔴 OPEN: stories 1–6 are in production, and story 7 (confirming held removals) is next. Story 6, running and stopping the pass (ADR `tagging-edges/0006`), reached production on 2026-10-29 (PRs nousclawds4/tapestry#6 and nousclawds4/tapestry#11), with its staging evidence complete. Story 5, the real-time path's switch (ADR `tagging-edges/0005`), reached production on 2026-10-02 (PRs #805 and #809). Story 4, the tagging pipeline panel (ADR `tagging-edges/0004`), shipped on 2026-10-01 (PRs #791 and #792). Story 3, the real-time path (ADR `tagging-edges/0003` with Amendment A1), shipped on 2026-09-30 (PRs #785 and #786), and the owner turned it on on both hosts that day. Story 2, the gap-filling pass, shipped on 2026-09-28 (PRs #780 and #781). Story 1, the `TAGS` edge contract, on 2026-09-27 (PRs #764 and #765). § 0 lists what is left.
+**Status:** 🔴 OPEN: stories 1–7 are in production, and the book's close (`/close-book`) is next. Story 7, confirming held removals on the panel (ADR `tagging-edges/0007`), reached production on 2026-11-08 (PRs nousclawds4/tapestry#37 and nousclawds4/tapestry#40), with its staging evidence complete. Story 6, running and stopping the pass (ADR `tagging-edges/0006`), reached production on 2026-10-29 (PRs nousclawds4/tapestry#6 and nousclawds4/tapestry#11), with its staging evidence complete. Story 5, the real-time path's switch (ADR `tagging-edges/0005`), reached production on 2026-10-02 (PRs #805 and #809). Story 4, the tagging pipeline panel (ADR `tagging-edges/0004`), shipped on 2026-10-01 (PRs #791 and #792). Story 3, the real-time path (ADR `tagging-edges/0003` with Amendment A1), shipped on 2026-09-30 (PRs #785 and #786), and the owner turned it on on both hosts that day. Story 2, the gap-filling pass, shipped on 2026-09-28 (PRs #780 and #781). Story 1, the `TAGS` edge contract, on 2026-09-27 (PRs #764 and #765). § 0 lists what is left.
 
 > **Repo metadata. Not part of the handoff text.**
 > - **Source.** The kickoff session of 2026-09-25 to 27 mapped the existing FOLLOWS / MUTES / REPORTS ETL read-only: seven area readers, an adversarial fact-check of 115 load-bearing claims (98 confirmed, 15 corrected, 2 unverifiable), and a completeness critique. It then took a read-only census of production, staging and tags.brainstorm.world, and shipped story 1. This file keeps that map, which otherwise lived only in the session.
@@ -10,7 +10,20 @@
 
 ---
 
-## 0. Where things stand, and what is next (2026-10-02)
+## 0. Where things stand, and what is next (2026-10-02; story 7 added 2026-11-08)
+
+**Story 7 on production; the book's close is next (2026-11-08).** Story 7
+(`engineering-team/stories/tagging-edges/7-confirm-held-removals.md`, ADR `tagging-edges/0007`, review PASS 2026-11-08
+after three rounds) puts Confirm held removals on the panel for the owner, after a prompt. Admins see a disabled
+Confirm with its reason. The status and panel flag an overdue pass, and the panel's prompts return focus. It reached
+staging through nousclawds4/tapestry#37 (2026-11-08), where the owner confirmed a held list made only of fixture
+relationships and the pass removed exactly those. It reached production through nousclawds4/tapestry#40 the same day,
+a promotion of this story alone (its 24 commits cherry-picked onto main), checked read-only. Main and staging now
+hold the story under different commit ids, so the next full staging → main promotion meets the two `**Last
+updated:**` lines it touched again. OPERATIONS §12.8's console snippet is no longer the only way to confirm. What is
+left for the book: `/close-book`, and the owner's placement of the review's follow-ups (ledger
+`2026-11-08-focused-control-removed-drops-focus`, `2026-11-08-held-fixture-leaves-safety-copies`, and the review's
+§ "Outside this story").
 
 **Shipped and switched on.** Stories 1–3 run on staging and production. On 2026-09-30 the owner ran OPERATIONS
 §12.9's steps on both hosts (story 3 § Evidence, "Staging" and "Production"):
@@ -74,11 +87,11 @@ panel by what they act on. At story 6's Planning (2026-10-02) the owner split th
   evidence complete) is running and stopping the pass, for the owner or an admin: Run, Stop, the waiting and stopping
   states every viewer sees, who started or stopped each pass, and the run-task route closed for this pass to anyone
   else.
-- **Story 7** (the epic's item 7, planned) is confirming held removals from the panel, for the owner only, after a
-  prompt.
+- **Story 7** (the epic's item 7; on production since 2026-11-08, above) is confirming held removals from the panel,
+  for the owner only, after a prompt.
 
-Since story 6 the panel runs and stops a pass, and until story 7 OPERATIONS §12.8's console snippet confirms held
-removals. The path is switched on the panel (§12.9).
+Since story 6 the panel runs and stops a pass. Until story 7 (2026-11-08) only OPERATIONS §12.8's console snippet
+confirmed held removals; the panel's Confirm does it now. The path is switched on the panel (§12.9).
 
 Story 5 also carried story 4's review carry-forwards R2-1 to R2-14 (`reviews/tagging-edges/4-tagging-pipeline-panel.md`
 § "Re-review, round 2"; placed in the epic's item 5 by the owner on 2026-10-01): copy accuracy, docs wording and one

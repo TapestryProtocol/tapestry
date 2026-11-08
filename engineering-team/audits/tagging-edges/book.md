@@ -49,7 +49,9 @@ authorized and taken the same day (numbers in story 1's Background).
       5's Planning, the owner: the controls are split by what they act on. Story 5 is the real-time path's switch,
       and story 6 is the pass's run, stop and confirm.)* *(Amended 2026-10-02 at
       story 6's Planning, the owner: the pass's controls are split again. Story 6 is running and stopping a pass,
-      and story 7 is confirming held removals.)*
+      and story 7 is confirming held removals.)* *(Amended 2026-10-30 at story 7's Planning, the owner: story 7 also
+      carries a warning to every viewer when the daily pass is overdue, and focus returned from the panel's prompts.
+      Confirm, the overdue warning and the focus fix reached production on 2026-11-08.)*
 - [ ] **Nothing else moves.** Follows / mutes / reports ingestion is unchanged; no trust, point-of-view or
       count is stored on the new relationships (principles 1–3); nothing locally authored in Neo4j is destroyed
       (principle 4, BIBLE §30).
