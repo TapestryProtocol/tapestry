@@ -556,6 +556,35 @@ with no word on how it was started.)*
   Counts equal the first; no fixture node, no temporary or enabled schedule entry (the disabled seed entry stands), no
   confirmation, no lock holder; the queue on.
 
+### The fix round (review round 1, 2026-11-07 to 08, times UTC)
+
+The review (`engineering-team/reviews/tagging-edges/7-confirm-held-removals.md`) asked for blocking 1 and requested 2
+to 11. The round's commits are:
+- the tests and the test plan, `fffb2d91`;
+- ADR 0007's fix-round notes, `0637e9b9`;
+- the implementation and record fixes, `4943e870`.
+
+The new tests failed before the fix, each for the missing behaviour, and pass after it. The test plan's § Verification,
+"Fix round", lists them.
+
+| Run | Tree | Backend its live suites measured | Passed | Failed | Skipped | Suites |
+|---|---|---|---|---|---|---|
+| The review's run `20261107T234904Z-51977-f97c` | `337f1170` | spawned 2026-11-07 23:12:45Z, on `60043230` | 7,152 | 39 | 173 | 334 |
+| After the fix round `20261108T004631Z-59123-13d4` | `4943e870` | spawned 2026-11-08 00:46:07Z, on `4943e870` (`scripts/dev-refresh.sh`) | 7,171 | 38 | 172 | 334 |
+
+- **The suites whose counts changed**, all passing in full:
+  - confirm, 29 → 32;
+  - confirmation-lib, 14 → 18;
+  - overdue, 23 → 29;
+  - pass-control, 74 → 75;
+  - the view, 132 → 135.
+- **Two others changed for their known reasons:**
+  - `brains-launcher-service` passed again (138/1 → 139/0; the review's § Outside this story 1);
+  - `relay-scan-bounds`'s live probe ran (27/0/1 → 28/0/0).
+- **The other 17 failing suites** fail with the same counts.
+- **The browser spec** on the UI built from `4943e870`: 158 of 158 (151 before the round, plus B148 to B154).
+- **The local status** after the refresh: `overdue` `no-entry`, no confirmation pending, the latest pass `done`.
+
 ## Deviations
 
 Logged at Implementation (2026-11-07). Each is a reading of ADR 0007 where its letter left a detail open, or a small
