@@ -33,5 +33,11 @@ Reviewer showed it with mutation builds that still pass:
 
 No test covers the toast or partial-report live containers. The code is right today.
 
+**Seen again, 2026-11-07 (tagging-edges #7).** The coverage map credited AC-7's first bullet ("Confirm changes no
+schedule entry and not the path's switch") to CT63 and B147: CT63 calls only Run and Stop, and B147 runs against
+mocks, so no test covers the bullet. Six more rows cited tests that cover something else (TV129 for TV128, CH14 for a
+record failure, B147 for the `nonGet` checks), and B129's title claimed a next read it never stages. Found only at
+Review, by reading each row against its test (review `tagging-edges/7-confirm-held-removals.md`, requested 3 and 10).
+
 **Pointer:** `engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md` § Harness friction 1 (round 1) and
 § Re-review, round 2; `engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.test-plan.md` § Edge cases.
