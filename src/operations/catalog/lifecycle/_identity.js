@@ -131,6 +131,9 @@ async function restoreIdentity(folder, expectedPubkey) {
   const masterPath = path.join(dir, MASTER_FILE);
   if (!fs.existsSync(masterPath)) throw new Error(`this instance has no ${MASTER_FILE} in ${dir} to store the key under`);
   const master = fs.readFileSync(masterPath, 'utf8').trim();
+  const keyPath = path.join(dir, KEY_FILE);
+  // The instance's own key file, to put back if the conf can't follow (ADR 0002 Amendment 1, A4).
+  const old = fs.existsSync(keyPath) ? { bytes: fs.readFileSync(keyPath), mode: fs.statSync(keyPath).mode & 0o777 } : null;
   // Stored in a scratch folder beside secure-keys, then renamed over the old file, so it is never half written.
   const scratch = fs.mkdtempSync(path.join(path.dirname(dir), '.restore-key-'));
   try {
@@ -139,11 +142,28 @@ async function restoreIdentity(folder, expectedPubkey) {
     try {
       await storageAt(scratch, master).storeRelayKeys(ACCOUNT, { privkey: keys.privkey, nsec: keys.nsec, pubkey, npub });
     } finally { console.log = saved; }
-    fs.renameSync(path.join(scratch, KEY_FILE), path.join(dir, KEY_FILE));
+    fs.renameSync(path.join(scratch, KEY_FILE), keyPath);
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
   }
-  rewriteConf({ BRAINSTORM_RELAY_PUBKEY: pubkey, BRAINSTORM_RELAY_NPUB: npub });
+  try {
+    rewriteConf({ BRAINSTORM_RELAY_PUBKEY: pubkey, BRAINSTORM_RELAY_NPUB: npub });
+  } catch (err) {
+    // The key file and the conf must name the same assistant, so the instance's own key goes back.
+    try {
+      if (old) {
+        const back = `${keyPath}.${process.pid}.${crypto.randomBytes(3).toString('hex')}.tmp`;
+        fs.writeFileSync(back, old.bytes, { mode: old.mode });
+        fs.chmodSync(back, old.mode);
+        fs.renameSync(back, keyPath);
+      } else {
+        fs.rmSync(keyPath, { force: true });
+      }
+    } catch (undo) {
+      err.message = `${err.message} (and putting this instance's own key back failed too: ${undo.message})`;
+    }
+    throw err;
+  }
   return { before, after: pubkey, changed: before !== pubkey };
 }
 

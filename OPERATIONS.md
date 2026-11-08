@@ -1060,10 +1060,19 @@ The same operations are routes for the owner and admins: `POST /api/tapestry/lif
 
 **A restore** checks the backup first (its files' sha256s, `neo4j-admin database load --info`, its key, its Neo4j version, free space) and changes nothing if it refuses. Then it dumps the graph as it is into a **safety backup**, loads the backup, checks the loaded store's transaction, and rolls back from the safety backup if anything went wrong. It puts the backup's assistant key in place under this instance's own master key (rewriting the conf's `BRAINSTORM_RELAY_PUBKEY` and `BRAINSTORM_RELAY_NPUB` lines) and its admins in `settings.json`. Once the answer is out, or once the caller has gone (a client that gave up, a command ended by Ctrl-C), the job itself restarts the control panel so it takes the restored assistant (ADR `graph-operations-foundation/0002` Amendment 1). A backup from another instance therefore makes this one the same instance, except for the owner, which the report names when it differs. The cache is not rebuilt.
 
-**The droplets' host nginx** sits in front of the container's (§5), with nginx's defaults: 1 MB bodies and 60 s reads. Until an operator adds a block like this to the site's config and reloads nginx, uploads over 1 MB through the public name are refused (413), and a backup or restore that takes over 60 s loses its answer, though the job still finishes:
+**The droplets' host nginx** sits in front of the container's (§5), with nginx's defaults: 1 MB bodies and 60 s reads. Until an operator adds blocks like these to the site's config and reloads nginx, uploads over 1 MB through the public name are refused (413), and a backup or restore that takes over 60 s loses its answer, though the job still finishes:
 
 ```
 location /api/tapestry/lifecycle/ {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 900s;
+    proxy_send_timeout 900s;
+}
+location = /api/tapestry/lifecycle/upload-backup {
     proxy_pass http://127.0.0.1:8080;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -1076,4 +1085,4 @@ location /api/tapestry/lifecycle/ {
 }
 ```
 
-Copy the site's existing `location /` block, keeping its headers (above all `X-Forwarded-For`, which stops the app trusting the request as the local operator), and add the five size and timeout lines. The container's own nginx already has them (`docker/nginx.conf`). There is no deletion or rotation yet: remove an old backup with `docker exec tapestry rm -rf /var/lib/brainstorm/backups/<id>`.
+Copy the site's existing `location /` block twice, keeping its headers (above all `X-Forwarded-For`, which stops the app trusting the request as the local operator). Add the buffering and timeout lines to both, and the two body lines to the upload's alone, so only the upload takes a backup-sized body. The container's own nginx has the same two blocks (`docker/nginx.conf`). There is no deletion or rotation yet: remove an old backup with `docker exec tapestry rm -rf /var/lib/brainstorm/backups/<id>`.

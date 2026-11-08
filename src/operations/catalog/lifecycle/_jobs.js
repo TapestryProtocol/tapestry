@@ -286,7 +286,12 @@ async function runRestoreJob(request, system) {
       if (paused.length) await system.supervisor('start', paused);
       paused = [];
     } catch (err) {
-      throw new Error(`Backup ${id}'s graph is in place, but ${step} failed: ${err.message}. The graph as it was is in the safety backup ${safetyId}.`);
+      // When the backup's key went in first, the running control panel still holds the old one: the job restarts it
+      // all the same, once the answer is out (ADR 0002 Amendment 1, A4).
+      const keyIn = !!(assistant && assistant.changed);
+      const failure = new Error(`Backup ${id}'s graph is in place, but ${step} failed: ${err.message}. The graph as it was is in the safety backup ${safetyId}.${keyIn ? " The backup's assistant key is in place too, so the control panel restarts to take it." : ''}`);
+      if (keyIn) failure.restarting = ['brainstorm'];
+      throw failure;
     }
 
     const exact = source.graph.countsExact === true;
@@ -329,6 +334,23 @@ async function runRestoreJob(request, system) {
     }
     if (!safetyKept && safetyFolder) fs.rmSync(safetyFolder, { recursive: true, force: true });
     store.releaseLock(runId);
+  }
+}
+
+/**
+ * Run a job and make its record, as the worker writes it: { …request, outcome: 'done', result, finishedAt } or
+ * { …request, outcome: 'failed', error, finishedAt }. A failure that still needs a restart — a restore whose key went
+ * in before a later step failed — keeps its `restarting` in the record, for afterJob (ADR 0002 Amendment 1, A4).
+ */
+async function runJob(request, system) {
+  const job = request && request.op === 'restore' ? runRestoreJob : runBackupJob;
+  try {
+    const result = await job(request, system);
+    return { ...request, outcome: 'done', result, finishedAt: new Date().toISOString() };
+  } catch (err) {
+    const record = { ...request, outcome: 'failed', error: (err && err.message) || String(err), finishedAt: new Date().toISOString() };
+    if (err && Array.isArray(err.restarting) && err.restarting.length) record.restarting = err.restarting;
+    return record;
   }
 }
 
@@ -394,11 +416,14 @@ function markAnswered(runId) {
 /**
  * What the job does once its record is written (ADR 0002 Amendment 1): after a restore that changed the assistant, it
  * restarts the control panel — once the caller has marked the answer out, once the caller is gone, or at the time
- * limit — so the restart never cuts the answer short and never waits on a caller that went away.
+ * limit — so the restart never cuts the answer short and never waits on a caller that went away. A failed restore
+ * whose key went in asks for it in the record's own `restarting` (A4).
  */
 async function afterJob(record, system, { pollMs = 500, timeoutMs = 120000 } = {}) {
-  const restart = record && record.outcome === 'done' && record.result && Array.isArray(record.result.restarting)
-    && record.result.restarting.includes('brainstorm');
+  const restarting = !record ? null
+    : record.outcome === 'done' ? record.result && record.result.restarting
+      : record.outcome === 'failed' ? record.restarting : null;
+  const restart = Array.isArray(restarting) && restarting.includes('brainstorm');
   if (!restart) return { restarted: false };
   const started = Date.now();
   let why = 'the time limit';
@@ -415,4 +440,4 @@ async function afterJob(record, system, { pollMs = 500, timeoutMs = 120000 } = {
   return { restarted: true, why };
 }
 
-module.exports = { runBackupJob, runRestoreJob, runDetached, afterJob, markAnswered, waitForGraph, graphAnswers, countGraph };
+module.exports = { runBackupJob, runRestoreJob, runJob, runDetached, afterJob, markAnswered, waitForGraph, graphAnswers, countGraph };

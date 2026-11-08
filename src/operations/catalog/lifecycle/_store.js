@@ -242,11 +242,17 @@ function acquireLock({ op, backup = null }) {
     runId: newId(), op, host: os.hostname(), holders: [{ pid: process.pid, startTime: startTimeOf(process.pid) }],
     stage: 'online', backup, paused: [], startedAt: new Date().toISOString(),
   };
+  // Written whole to a file of its own, then linked into place: the link fails when a lock exists, as `wx` did, and a
+  // reader never finds the lock empty, which inspectLock would judge stale (ADR 0002 Amendment 1, A4).
+  const tmp = `${lockPath()}.${lock.runId}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(lock), { mode: 0o600 });
   try {
-    fs.writeFileSync(lockPath(), JSON.stringify(lock), { flag: 'wx', mode: 0o600 });
+    fs.linkSync(tmp, lockPath());
   } catch (err) {
     if (err && err.code === 'EEXIST') return null;
     throw err;
+  } finally {
+    fs.rmSync(tmp, { force: true });
   }
   return lock;
 }

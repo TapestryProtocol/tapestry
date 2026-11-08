@@ -99,6 +99,14 @@ Small judgment calls made in Implementation, inside the ADR:
   - The job restarts the control panel once the answer is out, once the caller is gone, or at 120 s.
   - After-answer work runs at once when the response has already closed.
   - The Tester's failing tests came first, in their own commit (`2c6de20c6`).
+  - Amendment 1's A4 came before round 2. It covers four of round 1's points that A1–A3 had left open, and one found while fixing them:
+    - a restore that fails after its key went in has the control panel restarted;
+    - only the upload route takes a 9g body;
+    - the lock is linked into place whole;
+    - the worker runs nothing when the lock isn't its run's;
+    - a restored key goes back when the conf can't be rewritten.
+
+    Their failing tests came first, in commits of their own (`8cf4fbf27`, `573f4d088`).
 - **`runDetached` resolves when the run file holds the job's outcome,** or when the worker exits, not only on the exit as Decision 8 had it. After a restore the worker stays on to restart the control panel once its caller has answered, so a caller waiting for the worker's exit would wait on itself.
 - **Rollback that fails too leaves the server stopped.** When rolling back from the safety backup also fails, the job leaves the server stopped for its `finally` to try starting, and the error gives the by-hand steps.
 - **`restartControlPanel` left `_identity.js`:** the worker's `afterJob` calls `system.supervisor('restart', ['brainstorm'])` itself.
