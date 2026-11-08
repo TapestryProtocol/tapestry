@@ -1,6 +1,6 @@
 # Graph Operations — Catalog (draft for review)
 
-**Status:** Draft for review, 2026-11-07. Every name, route and input below is a proposal. Only what cites a decision (D1–D12 in [GRAPH_OPERATIONS_DESIGN_HANDOFF.md](GRAPH_OPERATIONS_DESIGN_HANDOFF.md)) is settled.
+**Status:** Draft for review, 2026-11-07. Every name, route and input below is a proposal. Only what cites a decision (D1–D13 in [GRAPH_OPERATIONS_DESIGN_HANDOFF.md](GRAPH_OPERATIONS_DESIGN_HANDOFF.md)) is settled.
 **Provenance:** Drafted from the design doc's decisions and from today's routes (staging `325b080f9`). None of the wording here is the owner's.
 **Reviewed by the owner:** not yet.
 
@@ -8,7 +8,7 @@
 
 ## Conventions
 
-- **Groups, routes and commands.** Seven command groups, following D1: `graph`, `raw` (the graph's owner-only tier), `rules`, `import` and `export` (the two halves of outside data), `cache` and `lifecycle`. Each operation would be a `GET` (reads) or a `POST` (writes) at `/api/<group>/<operation>`, and the command `tapestry <group> <operation>` on both CLIs. `raw` has no routes. The prefixes are a proposal (design doc §5).
+- **Groups, routes and commands.** Seven command groups, following D1: `graph`, `raw` (the graph's owner-only tier), `rules`, `import` and `export` (the two halves of outside data), `cache` and `lifecycle`. Each operation would be a `GET` (reads) or a `POST` (writes) at `/api/tapestry/<group>/<operation>` (D13), and the command `tapestry <group> <operation>` on both CLIs, so each name maps to the other: `tapestry graph create-set` is `POST /api/tapestry/graph/create-set`. `raw` has no routes.
 - **Naming a node.** Every input that names a node takes its `tapestryKey` (D6), or a name or slug that `graph resolve` turns into one. A name that matches more than one node is refused, never guessed; several of today's routes take a name and use the first match.
 - **Every write** checks its guards (D3) unless its group says otherwise, is safe to repeat (keyed as its row says), and never signs (D1). As proposed in the design doc's §5, it also records a change entry: which admin, which operation, what changed.
 - **Every read** returns a capped number of items with a cursor. A read that can include other authors' nodes takes a point of view, `pov`, the owner's by default.
@@ -16,9 +16,9 @@
 - **Who may call** is given for each group, with exceptions in the rows.
 - **The Today column** starts with how much of the job today's routes already do: **New** (nothing does it), **Partial** (a route does part of it), **Exists** (a route does it without signing) or **Signs** (a route does it, but signs a nostr event first). It names each route, and "(not in /docs)" marks a route that works but isn't in the instance's API document yet.
 
-## At a glance (57 operations)
+## At a glance (58 operations)
 
-- **Graph reads (9):** orient, search, resolve, describe-concept, describe-node, list-elements, class-thread-path, list-relationships, history.
+- **Graph reads (10):** orient, search, resolve, describe-concept, describe-node, list-elements, class-thread-path, list-relationships, walk, history.
 - **Graph writes (22):**
   - concepts: create-concept, update-concept, delete-concept;
   - properties and schema: add-property, update-property, remove-property, set-schema, enumerate;
@@ -46,7 +46,10 @@ Who may call: the owner and admins. Who else may read, and what, is question 1 i
 | `list-elements` | The elements of a concept or a set, through its class thread | `concept` or `set`, `direct?`, `pov?`, `limit`, `cursor` → elements | Partial: `GET /api/concept-graph/subgraph/:handle` (not in /docs) walks out from a node, at most three levels, with no paging and no point of view. |
 | `class-thread-path` | How a node is an element of a concept, or why it isn't | `node`, `concept` → the path, or none | Partial: `GET /api/audit/threads` checks the class threads of whole concepts, not one node's path. |
 | `list-relationships` | A node's typed relationships, in and out | `node`, `type?`, `direction?` → relationships | Exists: `GET /api/concept-graph/node/:handle/neighbors` (not in /docs) returns a node's one-hop neighbors, grouped by relationship type. |
+| `walk` | Follow chosen relationship types out from one or more nodes, up to a depth | `from`, `types?`, `direction?`, `depth`, `pov?`, `limit` → each node reached, with the path that reached it | Partial: `GET /api/concept-graph/subgraph/:handle` (not in /docs) walks out from one node, at most three levels, with no choice of relationship types and no point of view. |
 | `history` | Changes to a node, by one admin, or since a time (proposed) | filters → change entries | New. |
+
+`list-elements`, `class-thread-path` and `list-relationships` are particular walks. A search strategy combines `search`, `walk` and `describe-node`; which strategies to package into `search` itself is left to the search story (design doc §5, question 7). A walk follows only the edges whose authors its point of view trusts.
 
 ## 2. Graph writes
 

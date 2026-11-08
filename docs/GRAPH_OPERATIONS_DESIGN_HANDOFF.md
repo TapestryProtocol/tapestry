@@ -1,6 +1,6 @@
 # Graph Operations — a Neo4j-First Operations Stack — Design Handoff
 
-**Status:** 🔴 OPEN: scoping in progress. Twelve decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, the Tapestry Graph Conjecture is in §9, and the first book, open since 2026-11-07, has its acceptance frame in §8. Nothing is built, and no story, ADR or BIBLE text exists yet.
+**Status:** 🔴 OPEN: scoping in progress. Thirteen decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, the Tapestry Graph Conjecture is in §9, and the first book, open since 2026-11-07, has its acceptance frame in §8. Nothing is built, and no story, ADR or BIBLE text exists yet.
 **Created:** 2026-11-07
 **Provenance:** Scoped in direct conversation with the owner on 2026-11-07 (his Claude Code session `1a32c5d2` on the Mac Studio; part of it in advisory mode, `/discuss` with the Product Expert lens). This is the **Capture** step of the Protocol-Spec Workflow ([engineering-team/workflows/protocol-spec-workflow.md](../engineering-team/workflows/protocol-spec-workflow.md)): settled decisions and open questions, recorded so nothing lives only in the transcript. Every decision in §3 says where it came from. Every quotation credited to the owner is his own typing, with only typography tidied (the rules in [design-philosophies/README.md](../design-philosophies/README.md)); everything not credited to him is drafting. Check his quotes against the session transcript, not against this file.
 **Reviewed by the owner:** not yet.
@@ -9,7 +9,7 @@
 
 ## 0. Where we paused — read this first
 
-- **Settled:** the twelve decisions in §3. D1–D4 fix how the operations are organized, D5–D11 the data model underneath them, and D12 what an export sends.
+- **Settled:** the thirteen decisions in §3. D1–D4 and D13 fix how the operations are organized and named, D5–D11 the data model underneath them, and D12 what an export sends.
 - **Next:** the first book is open ([book.md](../engineering-team/audits/graph-operations-first-slice/book.md)), and its first story is planned next. The book builds and uses the operations one at a time, and the rest of §5 is settled as the operations that need it are built.
 - **After that:** each rule goes into the rules document (§7) as its guard or check is built, and the settled pieces are ratified when the book closes (§8).
 - **How to resume:** continue one question at a time, in advisory mode (`/discuss`). Record each new decision in §3 with its source and date, and move answered questions out of §5.
@@ -98,6 +98,11 @@ The API routes and the internal CLI both call the operations module in-process; 
 - Today a Tapestry's members are listed in its JSON, in the `graph` block. Under D10 they would also be edges from the Tapestry node to its members (drafting).
 - Import mirrors it: importing someone else's Tapestry records its graph element and the letters it refers to (drafting).
 
+**D13. New routes live under `/api/tapestry/<group>/<operation>`.** (Owner, 2026-11-07, asking whether it made sense for "all of our new api endpoints to have /tapestry/ in the path, e.g. /api/tapestry/graph/create-set instead of /api/graph/create-set, so as to distinguish this round of work from older rounds of work"; he answered drafting's recommendation with "Yes, update it".)
+- The prefix mirrors the CLI: `tapestry graph create-set` is `POST /api/tapestry/graph/create-set` (drafting).
+- One prefix gives the new module one place for its access rules, one section in `/docs`, and one base URL for an agent's skill, and it lets the old routes retire one at a time without clashes. No route lives under `/api/tapestry/` today (drafting).
+- The costs: longer paths, a neighbor in the existing `/api/tapestry-key/`, and "Tapestry" also being the name of a curated collection of concepts (BIBLE §6) (drafting).
+
 ## 4. What exists today (assessed 2026-11-07; numbers rechecked on staging `325b080f9`)
 
 - **`/api/normalize/`** has 38 POST routes and 2 GET probes. 31 write to both stores: they sign an event with the TA key, store it in the instance's relay (`strfry import`), and build the Neo4j node from it. 5 write only to Neo4j: add-relationship and delete-relationship (two class-thread edge types; [ADR relationship-primitives/0001](../engineering-team/decisions/relationship-primitives/0001-strfry-free-relationship-primitives.md)), add-subset ([ADR node-primitives/0001](../engineering-team/decisions/done/node-primitives/0001-event-less-add-subset-primitive.md)), prune-superset-edges and wire-implicit-elements. 2 write to Neo4j and then sign: add-node-as-element and apply-enumerations.
@@ -115,7 +120,8 @@ The API routes and the internal CLI both call the operations module in-process; 
 3. **Which rules refuse a write and which only report.** Settled rule by rule while writing the rules document (§7).
 4. **Export details.** D12 settled the scope. Still open: whether exporting a concept or a Tapestry carries other people's elements (drafting: your own, with theirs referred to by address); how a letter refers to nodes that have no nostr address yet (add them to the export, or stop); and whether publishing someone else's node copies its content or only refers to it (D8).
 5. **The operation list itself** (§6).
-6. **Carried over from earlier in the session:** backup first or new functions first; which external CLI (extend A9's, or write a new one in this repo); the route prefixes for the categories (today's `/api/neo4j/` holds `query` and the event routes).
+6. **Carried over from earlier in the session:** backup first or new functions first; which external CLI (extend A9's, or write a new one in this repo). D13 settled the route prefix.
+7. **Search strategies, for the search story.** The owner's idea, 2026-11-07: "one powerful method of search might be something like a two step process: first, use cypher to do a keyword match against name, description, and keywords, but only against Concept Header nodes, not all nodes in the graph. That restriction can improve performance. Second, walk the graph, with the walk depending on the nature of the search. Perhaps return elements of the matching concept header; or maybe walk the graph to find closely related, but not identical, concepts, that may be what the user is looking for but don't have the right keywords -- for example, if they are in a different language." Drafting notes: a walk can follow `IS_THE_CONCEPT_FOR`, `IS_A_SUPERSET_OF`, `HAS_ELEMENT`, `IS_A_PROPERTY_OF`, `ENUMERATES`, `REFERENCES`, `INHERITS_FROM` and `PROVIDED_THE_TEMPLATE_FOR` today. No relationship type says "the same concept in another language", and concept headers have no `keywords` field. Avi's race found its hits in element fields, so concept headers make one entry point rather than the only one. The catalog adds a generic `graph walk` read; which strategies `search` packages, and how walk results rank against text matches, get measured in the search story, against Avi's race.
 
 ## 6. Sketch of the operation families (drafting, not decided)
 
