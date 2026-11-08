@@ -722,7 +722,7 @@ test('OV26 (story 7 fix round; review requested 6; red until the fix) — a stat
   report(problems, `${FIX8}; review requested 6`);
 });
 
-test('OV27 (story 7 fix round; review requested 6; red until the fix. Revised at fix round 2, 2026-11-08: review round 2, blocking 1) — a cron pattern longer than 256 characters is not judged (no parse call, periodOf never asked for it), and the verdict is then {state: cannot-tell, reason: rule} whatever stands beside it, since the rule not judged may be the most frequent: alone (a rule written out as lists, 319 characters, every minute; and the daily 03:00 rule widened to 257 characters); beside an enabled daily interval entry, which alone would say on time 2 h after; and beside the daily 03:00 cron rule, which is judged. The daily rule widened to exactly 256 characters is still judged, 24 h (ADR 0007 § Fix-round notes, round 2, D8 "A pattern longer than 256 characters is not judged, and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; story 7 AC-5 "the most frequent counts", "A missing warning never stands for on time"; review round 1 requested 6 "skip a pattern past a fixed length"; review round 2, blocking 1)', () => {
+test('OV27 (story 7 fix round; review requested 6; red until the fix. Revised at fix round 2, 2026-11-08: review round 2, blocking 1) — a cron pattern longer than 256 characters is not judged (no parse call, periodOf never asked for it), and the verdict is then {state: cannot-tell, reason: rule} whatever stands beside it, since the rule not judged may be the most frequent: alone (a rule written out as lists, 319 characters, every minute; and the daily 03:00 rule widened to 257 characters); beside an enabled daily interval entry, which alone would say on time 2 h after; and beside the daily 03:00 cron rule, which is judged. The daily rule widened to exactly 256 characters is still judged, 24 h (ADR 0007 § Fix-round notes, round 2, D8 "A pattern longer than 256 characters on an enabled entry for the pass is not judged, and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; story 7 AC-5 "the most frequent counts", "A missing warning never stands for on time"; review round 1 requested 6 "skip a pattern past a fixed length"; review round 2, blocking 1)', () => {
   assert.strictEqual(LONG_LIST.length, 319, `setup: the list rule is 319 characters; it is ${LONG_LIST.length}`);
   assert.ok(paddedDaily(256).length === 256 && paddedDaily(257).length === 257, 'setup: the widened daily rules are 256 and 257 characters');
   const at2h = latest(NOW - 2 * HOUR);
@@ -797,17 +797,22 @@ test('OV29 (story 7 fix round; review requested 7; red until the fix) — a sche
 
 // ─── OV30 — added at story 7's fix round 2 (2026-11-08; its review, round 2, requested 4) ─────────────────────────
 
-test('OV30 (story 7 fix round 2; review round 2, requested 4; green on purpose — round 1\'s bound holds today, and no test ran it beside an interval) — more than 32 distinct cron patterns beside an enabled interval entry still give {state: cannot-tell, reason: rule}, with no pattern judged: beside a daily interval entry, which alone would say on time 2 h after, and beside an hourly one, which alone would say overdue 2 h after; the interval entry\'s verdict never stands for the patterns not judged (ADR 0007 § Fix-round notes, D8 "When the enabled entries for the pass carry more than 32 distinct cron patterns, none is judged and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; story 7 AC-5 "the most frequent counts"; review round 2, requested 4)', () => {
-  const at2h = latest(NOW - 2 * HOUR);
+test('OV30 (story 7 fix round 2; review round 2, requested 4; green on purpose — round 1\'s bound holds today, and no test ran it beside an interval) — more than 32 distinct cron patterns beside an enabled interval entry still give {state: cannot-tell, reason: rule}, with no pattern judged: beside a daily interval entry, which alone would say on time 2 h after, and beside an hourly one, which alone would say overdue 2 h 1 min after (a 1 h period and 1 h of grace, the comparison strict: revised at review round 3, requested 4, from "2 h", where it says on time); the interval entry\'s verdict never stands for the patterns not judged (ADR 0007 § Fix-round notes, D8 "When the enabled entries for the pass carry more than 32 distinct cron patterns, none is judged and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; story 7 AC-5 "the most frequent counts"; review round 2, requested 4)', () => {
+  const daily = entry({ id: 'daily-interval' });
+  const hourly = entry({ id: 'hourly-interval', intervalDays: 0, intervalHours: 1 });
   const cases = [
-    ['33 monthly rules beside an enabled daily interval entry', [...monthlies(33).map((p, i) => cronEntry(p, i)), entry({ id: 'daily-interval' })]],
-    ['33 monthly rules beside an enabled hourly interval entry', [...monthlies(33).map((p, i) => cronEntry(p, i)), entry({ id: 'hourly-interval', intervalDays: 0, intervalHours: 1 })]],
+    ['33 monthly rules beside an enabled daily interval entry', daily, latest(NOW - 2 * HOUR), 'on-time'],
+    ['33 monthly rules beside an enabled hourly interval entry', hourly, latest(NOW - 2 * HOUR - MIN), 'overdue'],
   ];
   const problems = [];
-  for (const [what, entries] of cases) {
+  for (const [what, interval, began, alone] of cases) {
+    // Setup (review round 3, requested 4): the interval entry alone gives the verdict the title names.
+    const [a] = countedCron([{ verdict: { entries: [interval], latest: began, nowMs: NOW } }]);
+    if (a.threw || !a.v || a.v.state !== alone) problems.push(`setup, ${what}: the interval entry alone should say ${alone}; it is ${showV(a)}`);
+    const entries = [...monthlies(33).map((p, i) => cronEntry(p, i)), interval];
     for (const spy of [true, false]) {
       const label = `${what}, ${spy ? 'with periodOf a spy' : 'through the real judge'}`;
-      const [r] = countedCron([{ verdict: { entries, latest: at2h, nowMs: NOW }, ...(spy ? { periodMs: 6 * HOUR } : {}) }]);
+      const [r] = countedCron([{ verdict: { entries, latest: began, nowMs: NOW }, ...(spy ? { periodMs: 6 * HOUR } : {}) }]);
       if (r.threw || !same(r.v, { state: 'cannot-tell', reason: 'rule' })) problems.push(`${label}: the verdict should be {state: cannot-tell, reason: rule}; it is ${showV(r)}`);
       if (r.parsed.length) problems.push(`${label}: no pattern may be judged, yet parseExpression was called for ${listed(r.parsed)}`);
       if (spy && r.asked.length) problems.push(`${label}: periodOf may not be asked, yet it was asked for ${listed(r.asked)}`);

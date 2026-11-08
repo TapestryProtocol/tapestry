@@ -64,12 +64,12 @@ test id each changed suite had at `f0afae51` is still there.
 | AC-5, when: interval plus one hour (25 h for daily, the boundary both sides); a calendar rule by its longest gap; the most frequent of several; a refused or failed pass counts; a waiting pass has not begun | OV5–OV12, OV14; TV128; B138, B139 | unit; browser |
 | AC-5, what every viewer sees: the warning with both times, and "a pass is waiting" | OV6, OV19; TV128; B138, B139 | unit; handler; browser |
 | AC-5, no warning with no enabled entry, or no pass on record | OV2, OV3, OV4; TV131; B138 | unit; browser |
-| AC-5, cannot tell: the schedule, the rule, the report, an absent member, a failed status read; never a missing warning for on time | OV12, OV13, OV14, OV16, OV20, OV24, OV29; TV129, TV133, TV134, TV135; B140, B141, B154 | unit; module; handler; browser |
-| AC-5, the rules judged within bounds (more distinct patterns than the cache, a pattern over 256 characters: cannot tell, nothing judged), and a schedule the verdict cannot judge never fails the status | OV25, OV26, OV27, OV28, OV29 | module; handler |
+| AC-5, cannot tell: the schedule, the rule, the report, an absent member, a failed status read; never a missing warning for on time | OV12, OV13, OV14, OV16, OV20, OV24, OV29; TV129, TV133, TV134, TV135, TV136, TV137; B140, B141, B154 | unit; module; handler; browser |
+| AC-5, the rules judged within bounds (more distinct patterns than the cache, a pattern over 256 characters: cannot tell, nothing judged, whatever stands beside them), and a schedule the verdict cannot judge never fails the status | OV25, OV26, OV27, OV28, OV29, OV30 | module; handler |
 | AC-5, the same for every viewer whatever their clock | OV15, OV23; TV132; B142 | unit; handler; browser |
 | AC-5, it clears within 10 s of a new pass beginning | OV21; B139 | handler; browser |
 | AC-5, it is only a warning: it starts and changes nothing | by construction: `overdueVerdict` is pure (OV1, OV15); the panel's reads stay GETs (the `nonGet` checks in B138–B140) | unit; browser |
-| AC-6, focus for Turn off, Stop and Confirm: Cancel → the opener; confirmed, refused, timed out or closed by itself → the outcome line or the section heading; never the page, never Turn on or Run a pass now | PS42, PS43; B143, B144, B145, B148–B153 | source pin; browser |
+| AC-6, focus for Turn off, Stop and Confirm: Cancel → the opener; confirmed, refused, timed out or closed by itself → the outcome line or the section heading; never the page, never Turn on or Run a pass now | PS42, PS43; B143, B144, B145, B148–B153, B155 | source pin; browser |
 | AC-7, Confirm changes no schedule entry and not the path's switch | CT72 (Confirm in CT63's world: lined up, a waiting pass, the queue not ready, the add refused) | component |
 | AC-7, the pass removes only the confirmed entries still due | the runner suite's existing SR2–SR77 (unchanged); SR88–SR91 add only `mintedAt` | unit |
 | AC-7, the confirm route keeps working for the console snippet, its answers and refusals as the panel's | CH26, CH27, CH28; RT17 | handler; child process |
@@ -106,9 +106,12 @@ test id each changed suite had at `f0afae51` is still there.
 | D16, copy and comments | PS44; B146 |
 | Fix-round notes, D2 step 7: a re-read that fails answers 500 `error` | CH31, CH32 |
 | Fix-round notes, D6: each member with its type | CL15–CL18; CH30 |
-| Fix-round notes, D8: the bound on the cron work, and no throw | OV25–OV29 |
-| Fix-round notes, D14: a failed read after a good one | TV133–TV135; B154 |
-| Fix-round notes, D15: one element per target, a control replaced in place | B148, B149, B150 |
+| Fix-round notes, D8: the bound on the cron work, and no throw | OV25–OV30 |
+| Fix-round notes, D14: a failed read after a good one | TV133–TV136; B154 |
+| Fix-round notes, D15: one element per target, a control replaced in place | B148, B149, B150, B155 |
+| Fix-round notes, round 2, D8: a pattern too long to judge gives cannot tell, whatever stands beside it | OV27 (its cases beside an interval entry and beside the daily cron rule) |
+| Fix-round notes, round 2, D14: the reason for the rule names no cause | TV137 |
+| Fix-round notes, round 2, D15: decided at the swap, never from focus events; Turn on carries no ref | B150 (its window case); PS43 |
 | § Evidence, the fixture and its script | HF1–HF9 (the exports, the Cypher and the source; `create`'s refusals are unpinned, review round 1 follow-up 4) |
 
 ### Carry-forwards, ledger rows and the browser baseline
@@ -387,6 +390,17 @@ browser spec, B150, B155   1 / 0      1 / 1    B155 green on purpose; B150 (revi
   - TV137 checks that the rule line still says "rule", which B140 and TV134 need, and names no cause.
 - **Round 1's "Not pinned"** has two of its three items pinned now: OV30 and TV136. The third, a focused opener that a
   later read removes, waits on the owner's decision (review round 2, § For the owner).
+
+### Record fixes (review round 3, 2026-11-08)
+
+Review round 3 asked for these (requested 3 and 4). No test's verdict changed.
+- **The coverage map** names TV136, TV137, OV30 and B155 in their rows, and has three rows for the round-2 notes.
+- **Two titles quote the ADR as written:** OV27 (round 2's D8, "on an enabled entry for the pass"), and B155 (D15,
+  "While under way. A prompt whose send starts moves focus to its own h4").
+- **OV30's hourly case** now starts its latest pass 2 h 1 min ago, and a setup check pins what each interval entry says
+  alone: on time for the daily one at 2 h, overdue for the hourly one at 2 h 1 min. At exactly 2 h the hourly entry
+  says on time, since the comparison is strict, so the old title was wrong. OV30 is still green (overdue 30/0), and it
+  still fails against its planted fault (29/1; the log is kept in the session's scratch, `verify/r3-recfix-ov30-plant.log`).
 
 ## For the owner (at this gate)
 
