@@ -96,6 +96,43 @@ Small judgment calls made in Implementation, inside the ADR:
 - **The report's `restarting` names `tagging-edges-realtime` only when it was running and so came back with the new key.** The live check's old scratch image has no such program.
 - **Two robustness fixes from self-review.** The detached `supervisorctl restart` has an error handler, so a missing `supervisorctl` can't crash the process. And `dumpTo` closes its file even when `neo4j-admin` fails to start.
 
+## Evidence
+
+### The suites (Implementation, 2026-11-08)
+
+The full `npm test` was not run on this Mac, because its live suites reach a private instance here; CI runs the gate on the pull request. Instead, the touched suites ran one by one through their `run()` exports on Node 24.18.0. Every service endpoint was dead and a `docker` that refuses every call was first on PATH, both set inside the runner.
+
+- **`test/operations.test.js`, 121/0 on `b25f6588f`.** That is 46 tests of the module itself (A10.1's 39 plus F1–F7) and the 75 of the suites it finds under `test/operations/`:
+  - backup 19/0, restore 17/0, list-backups 6/0, download-backup 7/0, upload-backup 10/0;
+  - the job, the system and the configuration 8/0;
+  - status 8/0.
+- **Also passing on `b25f6588f`:** `admin-action-sweep` 9/0, `openapi-coverage` 13/0, `openapi-document` 10/0, `stack-free-npm-test` 6/0 (1 skipped).
+- **21 more on `8fcb3d675`,** which the later commits don't reach: they changed only the lifecycle helpers, a test and docs. 498 passed and 3 failed.
+  - The 3 failures are `router-stream-limit-on-connect` P1–P3, whose patch script needs GNU sed where this Mac has BSD sed. A10.1's evidence has the same three.
+  - `admin-action-sweep-access`, `default-deny-mutations` and `brains-launcher-repo` were screened, read and run: their matches are route names and strings in test data.
+  - The suites whose screen matched a container, a publish or a live URL were left out, `entrypoint-template-rendering` among them.
+
+### The live check (Implementation, 2026-11-08)
+
+The check used two throwaway instances in turn (`scripts/scratch-stack.sh`). Each ran image `tapestry-tapestry` with this branch's `src/` mounted at `b25f6588f` and `bin/tapestry.js` copied in, had no published ports, and was removed afterwards. All calls went over the container's own loopback. With 5.6 GB free, nothing had to be paused.
+
+- **Instance A** had firmware installed, a fixture and an admin added to its settings. The fixture was two `LiveCheck` nodes with tapestryKeys and a date, a float and a list of integers, joined by a `LIVE_LINK` relationship with properties.
+  - `tapestry lifecycle backup --note "live check"` exited 0: 3,147 nodes, 3,610 relationships, 2,535 tapestryKeys, counts exact, transaction 6944, the graph offline 18.1 s and answering at once after.
+  - A second backup by the route answered the same way.
+- **The download** gave the same 1.7 MB file by the command and by the route (one sha256).
+  - Its headers: `Content-Type: application/x-tar`, `Content-Length`, `Content-Disposition: attachment; filename="tapestry-backup-<id>.tar"`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+  - bsdtar lists its five members, each mode 0600.
+- **Instance B** was fresh, with its own assistant (`f2778d4d…`, where A's is `8e1c5911…`).
+  - Uploaded by the route, the file was kept as `uploaded`, `sameInstance: false`. The same file again, by the command, was `alreadyHeld`.
+- **The restore,** by the route:
+  - the transaction it recorded was the one loaded (6944, 6944), and the counts and key digest matched;
+  - the safety backup of B's own graph was taken first and is listed as `before-restore`;
+  - the graph was offline 20.8 s;
+  - the admins went from `[]` to A's admin, and `restarting` was `["brainstorm"]`, since the old image has no `tagging-edges-realtime`.
+- **About 4 s after the answer,** `GET /api/assistant/pubkey` on B gave A's assistant. The conf's `BRAINSTORM_RELAY_PUBKEY` and `BRAINSTORM_RELAY_NPUB` lines name it, and `settings.json` holds A's admin.
+- **The graphs match.** Every node of B equals A's export (by id, labels and properties), and so does every relationship (by id, type, ends and properties). The 2,535 tapestryKeys are the same set.
+- **An earlier run, on `8fcb3d675`,** passed the same checks. It found the `[""]` admin list that `b25f6588f` fixes (Deviations).
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Backup bullet)
