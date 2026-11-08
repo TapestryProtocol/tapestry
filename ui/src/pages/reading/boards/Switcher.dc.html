@@ -13,7 +13,7 @@
 <style>body{margin:0}button,input{font-family:inherit}</style>
 </helmet>
 <span style="display: inline-flex">
-  <button onClick="{{show}}" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; min-height: 40px; border-radius: 8px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #3A3935">Jump to anything<span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #F1EFE9; color: #5B5A55">{{keyHint}}</span></button>
+  <button onClick="{{show}}" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 12px; min-height: 40px; border-radius: 8px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #3A3935; white-space: nowrap">{{buttonLabel}}<sc-if value="{{keys}}" hint-placeholder-val="{{true}}"><span style="font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #F1EFE9; color: #5B5A55">{{keyHint}}</span></sc-if></button>
   <sc-if value="{{open}}" hint-placeholder-val="{{false}}">
     <div onClick="{{hide}}" style="position: fixed; inset: 0; z-index: 80; background: rgba(28,28,26,0.32); display: flex; justify-content: center; align-items: flex-start; padding: 10vh 16px 16px 16px; box-sizing: border-box">
       <div onClick="{{stop}}" role="dialog" aria-label="Jump to anything" style="width: 100%; max-width: 640px; background: #FFFFFF; border-radius: 12px; box-shadow: 0 18px 48px rgba(0,0,0,0.22); overflow: hidden; display: flex; flex-direction: column; font-family: Inter, system-ui, sans-serif; color: #1C1C1A">
@@ -25,7 +25,7 @@
           </sc-for>
           <sc-if value="{{none}}" hint-placeholder-val="{{false}}"><p style="margin: 0; padding: 12px 10px; font-size: 14px; color: #5B5A55">Nothing has that in its title or text.</p></sc-if>
         </div>
-        <span style="font-size: 11px; color: #5B5A55; padding: 8px 18px; border-top: 1px solid #EDEBE4; background: #FBFAF7">↑ ↓ to move · Enter to go · Esc to close</span>
+        <sc-if value="{{keys}}" hint-placeholder-val="{{true}}"><span style="font-size: 11px; color: #5B5A55; padding: 8px 18px; border-top: 1px solid #EDEBE4; background: #FBFAF7">↑ ↓ to move · Enter to go · Esc to close</span></sc-if>
       </div>
     </div>
   </sc-if>
@@ -103,7 +103,9 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state, g = s.g;
     const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
-    const base = { keyHint: mac ? '⌘K' : 'Ctrl K', open: s.open, q: s.q, inputRef: this.inputRef, listTitle: '', results: [], none: false,
+    // a phone: a short label, and no keyboard hints (a narrow screen or a touch-only pointer)
+    const narrow = (window.innerWidth || 1200) < 700, touch = typeof matchMedia === 'function' && matchMedia('(hover: none)').matches;
+    const base = { keyHint: mac ? '⌘K' : 'Ctrl K', keys: !(narrow || touch), buttonLabel: narrow ? 'Search' : 'Jump to anything', open: s.open, q: s.q, inputRef: this.inputRef, listTitle: '', results: [], none: false,
       show: () => this.setState({ open: true, q: '', sel: 0 }), hide: () => this.setState({ open: false }), stop: (e) => e.stopPropagation(),
       type: (e) => { const q = e.target.value; this.setState({ q, sel: 0 }); this.search(q); }, key: () => {} };
     if (!g || !s.open) return base;

@@ -136,7 +136,7 @@ export default function ReadingViews() {
         <span className="reading-spacer" />
         <label className="reading-scope" title={view.scoped === false ? 'This view is about the whole instance, not one scope' : ''}
           style={view.scoped === false ? { opacity: 0.45 } : undefined}>
-          Scope
+          <span className="reading-scope-label">Scope</span>
           <select aria-label="Scope" value={scope || ''} disabled={view.scoped === false || !scopes.length}
             onChange={(e) => pickScope(e.target.value)}>
             {!scopes.length && <option value="">Loading…</option>}

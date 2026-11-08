@@ -30,11 +30,14 @@ button{font-family:inherit}
   </header></sc-if>
 
   <div style="display: flex; flex-wrap: wrap; flex: 1; min-height: 0">
-    <nav aria-label="Scope outline" style="flex: 1 1 300px; max-width: 380px; box-sizing: border-box; padding: 16px 12px 16px 20px; border-right: 1px solid #E4E2DB; max-height: 86vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px">
+    <nav aria-label="Scope outline" style="{{navStyle}}">
       <sc-if value="{{loading}}" hint-placeholder-val="{{false}}"><p style="margin: 0; font-size: 14px; color: #5B5A55">Loading the graph slice…</p></sc-if>
       <sc-for list="{{outline}}" as="o" hint-placeholder-count="5">
         <div style="display: flex; flex-direction: column; gap: 2px">
-          <button onClick="{{o.toggle}}" data-peek="{{o.peek}}" aria-expanded="{{o.expanded}}" style="display: flex; justify-content: space-between; gap: 8px; text-align: left; font-size: 13px; font-weight: 600; padding: 8px 6px; min-height: 44px; border: none; background: transparent; color: #1C1C1A; cursor: pointer"><span>{{o.mark}} {{o.label}}</span><span style="font-weight: 400; color: #5B5A55">{{o.count}}</span></button>
+          <div style="display: flex; align-items: stretch; gap: 2px">
+            <button onClick="{{o.toggle}}" aria-expanded="{{o.expanded}}" aria-label="{{o.toggleLabel}}" title="{{o.toggleLabel}}" style="flex: none; width: 34px; min-height: 44px; padding: 0; border: none; border-radius: 6px; background: transparent; color: #5B5A55; font-size: 13px; cursor: pointer">{{o.mark}}</button>
+            <button onClick="{{o.openIt}}" data-peek="{{o.peek}}" title="Open the whole group" style="{{o.style}}"><span>{{o.label}}</span><span style="font-weight: 400; color: #5B5A55">{{o.count}}</span></button>
+          </div>
           <sc-if value="{{o.open}}" hint-placeholder-val="{{false}}">
             <sc-for list="{{o.items}}" as="it" hint-placeholder-count="4">
               <button onClick="{{it.pick}}" data-peek="{{it.peek}}" style="{{it.style}}"><span>{{it.label}}</span><span style="font-size: 11px; color: #5B5A55">{{it.badges}}</span></button>
@@ -44,16 +47,17 @@ button{font-family:inherit}
       </sc-for>
     </nav>
 
-    <main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px; max-height: 86vh; overflow-y: auto">
+    <main style="{{mainStyle}}">
       <div style="max-width: 720px; display: flex; flex-direction: column; gap: 14px">
+        <sc-if value="{{showBack}}" hint-placeholder-val="{{false}}"><button onClick="{{back}}" style="align-self: flex-start; font-size: 14px; padding: 9px 14px; min-height: 42px; border-radius: 999px; cursor: pointer; border: 1px solid #CFCDC6; background: #FFFFFF; color: #3A3935">← The outline</button></sc-if>
         <sc-if value="{{noFocus}}" hint-placeholder-val="{{true}}">
-          <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600">{{scopeTitle}}</h1>
+          <h1 style="{{h1Style}}">{{scopeTitle}}</h1>
           <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.6; color: #2B2A27">{{scopeText}}</p>
         </sc-if>
         <sc-if value="{{hasFocus}}" hint-placeholder-val="{{false}}">
           <p style="margin: 0; font-size: 13px; color: #5B5A55">{{f.kind}} · {{f.whose}}</p>
           <sc-if value="{{ed.reading}}" hint-placeholder-val="{{true}}">
-            <h1 style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.25">{{f.name}}</h1>
+            <h1 style="{{h1Style}}">{{f.name}}</h1>
             <p style="margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 18px; line-height: 1.65; color: #2B2A27; white-space: pre-line">{{f.text}}</p>
           </sc-if>
           <sc-if value="{{ed.editing}}" hint-placeholder-val="{{false}}">
@@ -114,7 +118,7 @@ button{font-family:inherit}
       </div>
     </main>
 
-    <aside style="flex: 1 1 300px; max-width: 340px; box-sizing: border-box; padding: 20px; border-left: 1px solid #E4E2DB; display: flex; flex-direction: column; gap: 16px; max-height: 86vh; overflow-y: auto">
+    <aside style="{{asideStyle}}">
       <dc-import name="LocalGraph" center="{{graphCenter}}" trail="{{graphTrail}}" on-pick="{{graphPick}}" w="{{graphW}}" h="{{graphH}}" hint-size="260px,300px"></dc-import>
       <section style="display: flex; flex-direction: column; gap: 6px">
         <h2 style="margin: 0; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: #9A4A07">Beyond this scope</h2>
@@ -160,6 +164,17 @@ class Component extends DCLogic {
   renderVals() {
     const b = this.renderVals0(), p = this.state.peek;
     b.standalone = !window.Brain;
+    // a phone (narrow): the outline OR the thing open, full width, never both; Back returns to the outline
+    const narrow = (window.innerWidth || 1200) < 700, open = narrow && b.hasFocus;
+    b.navStyle = narrow ? (open ? 'display: none' : 'flex: 1 1 100%; box-sizing: border-box; padding: 10px 12px 24px 12px; display: flex; flex-direction: column; gap: 4px')
+      : 'flex: 1 1 300px; max-width: 380px; box-sizing: border-box; padding: 16px 12px 16px 20px; border-right: 1px solid #E4E2DB; max-height: 86vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px';
+    b.mainStyle = narrow ? (open ? 'flex: 1 1 100%; min-width: 0; box-sizing: border-box; padding: 14px 16px 20px 16px' : 'display: none')
+      : 'flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 40px; max-height: 86vh; overflow-y: auto';
+    b.asideStyle = narrow ? (open ? 'flex: 1 1 100%; box-sizing: border-box; padding: 16px; border-top: 1px solid #E4E2DB; display: flex; flex-direction: column; gap: 16px' : 'display: none')
+      : 'flex: 1 1 300px; max-width: 340px; box-sizing: border-box; padding: 20px; border-left: 1px solid #E4E2DB; display: flex; flex-direction: column; gap: 16px; max-height: 86vh; overflow-y: auto';
+    b.h1Style = "margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: " + (narrow ? '24px' : '30px') + '; font-weight: 600; line-height: 1.25';
+    b.showBack = open;
+    b.back = () => { if (window.Brain) Brain.set('item', null); this.setState({ focus: null }); };
     return Object.assign(b, { peekMove: (e) => this.peekMove(e), peekHide: () => this.peekHide(), peekId: p ? p.id : '', peekX: p ? p.x : 0, peekY: p ? p.y : 0,
       peekTop: p ? p.top : 0, peekBW: p ? p.bw : 0, peekBH: p ? p.bh : 0, goTo: (id) => { this.peekHide(); this.goTo(id); } });
   }
@@ -167,8 +182,10 @@ class Component extends DCLogic {
   constructor(props) { super(props); this.state = { g: null, err: null, scope: window.Brain ? Brain.state.scope : 'civ-anarchy', focus: null, open: {}, reading: false, can: null, canFor: null, ed: null, mk: null, note: null }; this.RESET = { focus: null, open: {} }; }
 
   componentDidMount() {
+    this._resize = () => { const w = window.innerWidth; if (w !== this.state.vw) this.setState({ vw: w }); };
+    window.addEventListener('resize', this._resize);
     if (window.Brain) {
-      this._offs = [
+      this._offs = [() => window.removeEventListener('resize', this._resize),
         Brain.watch(() => this.setState({ g: this.prep(Brain.doc()) })),
         Brain.on('scope', (k) => this.liveScope(k)),
         Brain.on('go', (id) => this.goTo(id)),
@@ -196,6 +213,8 @@ class Component extends DCLogic {
     if (!window.Brain || !id) return;
     Brain.api('node', { id, depth: 1 }).then((d) => {
       const n = (d.nodes || []).find((x) => x.id === id);
+      // a group opened: all of its members (up to 300), so "It holds" lists the whole group
+      if (n && n.role !== 'element') Brain.api('group', { id, offset: 0, limit: 300 }).catch(() => {});
       ((n && n.sets) || []).forEach((s) => { const sn = (d.nodes || []).find((x) => x.id === s); if (!sn || ((sn.answers || {}).holds || 0) <= 150) Brain.api('group', { id: s, offset: 0, limit: 150 }).catch(() => {}); });
     }).catch(() => {});
   }
@@ -379,7 +398,7 @@ class Component extends DCLogic {
     const famOf = { SUPERCEDES: 'History', BEARS_ON: 'Evidence', ANSWERS: 'Questions and answers', BLOCKED_BY: 'Plans', SETS_ASIDE: 'Plans', ASSIGNED_TO: 'Plans', REFERENCES: 'References', ENUMERATES: 'Values' };
     const push = (k, l) => { if (l) (fam[k] = fam[k] || []).push(l); };
     n.kinds.concat(n.sets).forEach((x) => push('Part of', this.sentenceLine(g, x, 'It is part of', (g.mem[x] || []).length + ' in it')));
-    if (n.role !== 'element') (g.mem[n.id] || []).slice(0, 25).forEach((x) => push('Holds', this.sentenceLine(g, x, 'It holds', this.badges(g.N[x]))));
+    if (n.role !== 'element') (g.mem[n.id] || []).slice(0, 300).forEach((x) => push('Holds', this.sentenceLine(g, x, 'It holds', this.badges(g.N[x]))));
     (g.out[n.id] || []).forEach((l) => { const t = g.LT[l.type] || {}; const p = l.props || {};
       push(famOf[l.type] || 'Other links', this.sentenceLine(g, l.to, 'It ' + (t.reads || l.type).replace(/^X /, '').replace(/ Y$/, ''), [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || '', p.field ? 'field ' + p.field : ''].filter(Boolean).join(', '))); });
     (g.inn[n.id] || []).forEach((l) => { const t = g.LT[l.type] || {}; const p = l.props || {};
@@ -387,7 +406,7 @@ class Component extends DCLogic {
       if (l.type === 'BEARS_ON') before = p.polarity >= 0 ? 'Supported by' : 'Undercut by';
       push(famOf[l.type] || 'Other links', this.sentenceLine(g, l.from, before, [p.polarity !== undefined ? 'strength ' + p.polarity : '', p.how || '', p.reason || ''].filter(Boolean).join(', '))); });
     if (fam['Evidence']) fam['Evidence'].sort((a, b) => (b.after.indexOf('strength -') >= 0) - (a.after.indexOf('strength -') >= 0));
-    return order.filter((k) => fam[k]).map((k) => ({ title: k + ' · ' + fam[k].length, lines: fam[k].slice(0, 40) }));
+    return order.filter((k) => fam[k]).map((k) => ({ title: k + ' · ' + fam[k].length, lines: fam[k].slice(0, k === 'Holds' ? 300 : 40) }));
   }
 
   renderVals0() {
@@ -408,9 +427,13 @@ class Component extends DCLogic {
     els.forEach((n) => this.groupsOf(g, n).forEach((x) => { (byGroup[x] = byGroup[x] || []).push(n); }));
     const keys = Object.keys(byGroup).sort((a, b) => byGroup[b].length - byGroup[a].length);
     base.outline = keys.map((x, i) => {
-      const isOpen = s.open[x] !== undefined ? s.open[x] : i < 2;
-      return { label: g.N[x] ? g.N[x].name : x, count: byGroup[x].length, open: isOpen, expanded: isOpen ? 'true' : 'false', mark: isOpen ? '−' : '+',
+      // every group starts collapsed; its arrow collapses or expands it, its name opens the whole group
+      const isOpen = s.open[x] !== undefined ? s.open[x] : s.focus === x;
+      return { label: g.N[x] ? g.N[x].name : x, count: byGroup[x].length, open: isOpen, expanded: isOpen ? 'true' : 'false', mark: isOpen ? '▾' : '▸',
+        toggleLabel: (isOpen ? 'Collapse ' : 'Expand ') + (g.N[x] ? g.N[x].name : 'this group'),
         toggle: () => this.setState({ open: Object.assign({}, s.open, { [x]: !isOpen }) }),
+        openIt: () => { this.setState({ open: Object.assign({}, this.state.open, { [x]: true }) }); this.focusOn(x); },
+        style: 'flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; font-size: 13px; font-weight: 600; padding: 8px 6px; min-height: 44px; border: none; border-radius: 6px; cursor: pointer; color: #1C1C1A; background: ' + (s.focus === x ? '#EEF2FB' : 'transparent'),
         items: byGroup[x].slice(0, 80).map((n) => ({ label: n.name.length > 80 ? n.name.slice(0, 78) + '…' : n.name, badges: this.badges(n), peek: n.id, pick: () => this.focusOn(n.id),
           style: 'display: flex; flex-direction: column; gap: 1px; text-align: left; font-size: 13px; line-height: 1.35; padding: 6px 8px 6px 18px; min-height: 44px; border: none; border-radius: 6px; cursor: pointer; color: #1C1C1A; background: ' + (s.focus === n.id ? '#EDEBE4' : 'transparent') })) };
     });

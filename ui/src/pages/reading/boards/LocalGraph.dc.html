@@ -114,8 +114,10 @@ class Component extends DCLogic {
   }
 
   seg(opts, cur, set) {
+    // a phone or a touch screen: buttons a finger can hit
+    const big = (window.innerWidth || 1200) < 700 || (typeof matchMedia === 'function' && matchMedia('(hover: none)').matches);
     return { opts: opts.map(([v, label, tip]) => ({ label, tip: tip || '', pick: () => set(v),
-      style: 'font-size: 10px; padding: 2px 7px; min-height: 24px; border-radius: 999px; cursor: pointer; border: 1px solid ' + (cur === v ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#DCDAD3; background: #FFFFFF; color: #3A3935') })) };
+      style: (big ? 'font-size: 13px; padding: 6px 12px; min-height: 38px;' : 'font-size: 10px; padding: 2px 7px; min-height: 24px;') + ' border-radius: 999px; cursor: pointer; border: 1px solid ' + (cur === v ? '#1C1C1A; background: #1C1C1A; color: #FFFFFF' : '#DCDAD3; background: #FFFFFF; color: #3A3935') })) };
   }
 
   renderVals() {
