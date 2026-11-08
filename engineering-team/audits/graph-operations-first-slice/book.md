@@ -20,7 +20,7 @@
 
 Outside the frame: publishing to nostr (the second priority); importing other people's nostr events, unless the race turns out to need them; making raw writes owner only, which waits until no job needs raw Cypher; and shipping to staging or production, which waits for the owner's OK.
 
-The book depends on Avi's build scripts, his race questions with their checked answers, and his gap ledger, which he offered to send. Which external CLI the agent uses (design doc §5, question 6) is settled at the planning gate.
+The book depends on Avi's build scripts, his race questions with their checked answers, and his gap ledger, which he offered to send. Which external CLI the agent uses was settled by the design doc's D14 (2026-11-08): a new, thin one in this repo, made from the instance's operation declarations.
 
 ## Epics in this book
 - graph-operations-foundation (proposed; named at planning) — the operation declaration that generates each route, CLI command and `/docs` entry; a tapestryKey on every node; the write path; the field mapping; backup.
