@@ -1127,7 +1127,8 @@ export function confirmOutcome(result) {
 /** Why the server cannot tell whether the pass is overdue (D8's cannot-tell reasons), as the rest of a sentence. */
 const OVERDUE_REASON = Object.freeze({
   schedule: 'the server could not read the schedule',
-  rule: 'the server cannot judge the schedule\'s rule, which runs fewer than twice in 400 days',
+  // Three causes give this reason (ADR 0007 § Fix-round notes, round 2, D14), so it names none of them.
+  rule: 'the server cannot judge how often a rule in the schedule runs the pass',
   report: 'the server could not read from the pass report when the latest pass began',
 });
 const OVERDUE_QUIET = ['on-time', 'no-entry', 'no-schedule', 'no-pass'];

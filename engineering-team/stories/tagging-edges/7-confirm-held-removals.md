@@ -564,8 +564,10 @@ to 11. The round's commits are:
 - ADR 0007's fix-round notes, `0637e9b9`;
 - the implementation and record fixes, `4943e870`.
 
-The new tests failed before the fix, each for the missing behaviour, and pass after it. The test plan's § Verification,
-"Fix round", lists them.
+Of the round's 24 new tests, 15 failed before the fix, each for the missing behaviour, and pass after it. The other
+nine pinned behaviour that already held and were green on purpose: CT72, OV24, OV28, CL18, CH32, TV135, B151, B152 and
+B153. The test plan's § Verification, "Fix round", lists them. *(Corrected 2026-11-08, at review round 2, requested 5:
+this said every new test failed before the fix.)*
 
 | Run | Tree | Backend its live suites measured | Passed | Failed | Skipped | Suites |
 |---|---|---|---|---|---|---|
@@ -600,7 +602,9 @@ choice beside it.
 - `publicConfirmation` serves an `unreadable` code only when it is an E-code or `error` (else `error`), so a
   hand-edited file cannot pass text through. `{unreadable}` keeps today's `expired: false` beside it.
 - D2 step 7: a re-read of the report that throws counts as "a pass may have started" and withdraws (409 `pass-started`,
-  or `taken-up` with `claimedBy: null` if a pass already took it). The old route answered 500.
+  or `taken-up` with `claimedBy: null` if a pass already took it). The old route answered 500. *(Superseded
+  2026-11-08: since the fix round for review round 1, a failed re-read that is withdrawn answers 500 `error`, not 409
+  `pass-started`; ADR 0007 § Fix-round notes, D2 step 7.)*
 - D2 step 1 runs `validateConfirmation` twice, as the route did, so liveness (a /proc read) is read only once the other
   checks hold (RT14 pins it).
 - D2 step 2: a `readConfirmation` that throws counts as not pending, so a new confirmation replaces it.

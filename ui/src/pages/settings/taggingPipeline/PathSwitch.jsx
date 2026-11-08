@@ -11,7 +11,7 @@
  * off" after Cancel, else to the path section's heading, then to the line that says what happened once it shows.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { offPromptVariant, turnOnWarning } from '../../../utils/taggingPipelineView.js';
 import { ReadFailed, TONE_COLOUR, useReturnFocus, when } from './parts.jsx';
 import { BackstopVerdict } from './ScheduleSection.jsx';
@@ -123,12 +123,19 @@ export default function PathSwitch({ view, body, statusRead, sched, schedPending
   useEffect(() => {
     if (!view.on) setAsking(false);
   }, [view.on]);
-  // "Turn off" with focus that a read replaces in place by "Turn on" (React reuses the button) hands focus to the path
-  // section's heading before anything can press it: focus is never on Turn on (ADR 0007 § Fix-round notes, D15).
-  const turnOffFocused = useRef(false);
+  // A read that turns a focused "Turn off" into "Turn on" hands focus to the path section's heading before anything
+  // can press it, so focus is never on Turn on. React reuses the button's node for both, so the node "Turn off" last
+  // had is kept here, and whether it has focus is read at the swap, from the document. Focus events are not used: a
+  // window that loses focus fires a blur while the button stays focused (ADR 0007 § Fix-round notes, D15, and round 2).
+  const lastTurnOff = useRef(null);
+  const turnOffRef = useCallback((el) => {
+    focus.opener.current = el;
+    if (el) lastTurnOff.current = el;
+  }, [focus.opener]);
   useLayoutEffect(() => {
-    if (view.on || !turnOffFocused.current) return;
-    turnOffFocused.current = false;
+    if (view.on) return;
+    const el = lastTurnOff.current;
+    if (!el || !el.isConnected || el !== document.activeElement) return;
     if (focus.heading.current && focus.heading.current.isConnected) focus.heading.current.focus();
   }, [view.on, focus.heading]);
 
@@ -151,13 +158,7 @@ export default function PathSwitch({ view, body, statusRead, sched, schedPending
     );
   } else if (view.on) {
     control = (
-      <button
-        className="btn-small"
-        ref={focus.opener}
-        onFocus={() => { turnOffFocused.current = true; }}
-        onBlur={() => { turnOffFocused.current = false; }}
-        onClick={() => { turnOffFocused.current = false; setAsking(true); }}
-      >
+      <button className="btn-small" ref={turnOffRef} onClick={() => setAsking(true)}>
         Turn off
       </button>
     );
