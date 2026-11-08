@@ -1,6 +1,6 @@
 # Story 2: Back up and restore the whole instance — `lifecycle backup` and `restore`, and moving a backup between instances
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-08
 **Type:** Feature
 **Loom:** A10.2 — https://loom.brainstorm.world/t/A10.2

@@ -163,3 +163,105 @@ Two experiments of my own, described under Blocking 1 and Non-blocking 1, ran on
 ## Verdict
 
 **CHANGES_REQUESTED**
+
+## Round 2
+
+**Date:** 2026-11-08
+**Diff:** `git diff 2544c0fa8..bac10ad30`. It holds ADR 0002 Amendment 1 (`b219ec18d`, with A4 in `b02a38065` and `df80956dc`), the Tester's failing tests (`2c6de20c6`, `8cf4fbf27`, `573f4d088`), the fixes (`d118662c4`, `28c4f6e65`) and the evidence (`bac10ad30`). I checked each round-1 finding as a fresh claim, audited Amendment 1 against the code, and read the new code.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] `npm test`: not run, by the same rule as round 1. `npm run gate:status` still finds no record (exit 2).
+- [x] **Suites at `bac10ad30`**, whose code is `28c4f6e65`'s, through the same runner.
+  - **`test/operations.test.js`: 135/0/0.** That is the module's 47 (A10.1's 39 and F1–F8) and the 88 under `test/operations/`: backup 20, restore 21, list-backups 6, download-backup 7, upload-backup 10, the job, the system and the configuration 16, status 8. It is the story's count.
+  - **The gates and round 1's adjacent suites all pass:** `admin-action-sweep` 9, `admin-action-sweep-access` 13, `default-deny-mutations` 14, `openapi-coverage` 13, `openapi-document` 10, `stack-free-npm-test` 6 with 1 skipped (G2 needs a live panel), `brains-launcher-repo` 31, `ci-test-job` 14, `about-this-instance` 29, `bullboard-admin-access` 9, `task-routes-owner-admin` 5 and `setup-open-sign-up` 41.
+  - **The screen:** the changed suites name only dead `127.0.0.1:9` endpoints, comments and K1's regex text. J10 spawns the real worker, with stand-in commands on PATH and a conf of dead endpoints.
+- [x] **Red before green, re-derived on an export of each commit.**
+  - `2c6de20c6` gives 119/11: F8, J4–J7, B20, R5, R18–R20 and P1b fail. `d118662c4` gives 130/0. Both are as the test plan says.
+  - `8cf4fbf27` gives 129/5 (J8, J9, J10, K1, R21), as the test plan says.
+  - The plan's "J11 failed alone, 134 passed" ran on a tree that no commit holds. `573f4d088` gives 129/6, since A4's code came after it. I re-derived the claim by mutation instead: `bac10ad30` with only `restoreIdentity`'s conf rollback removed gives 134/1, J11 (Non-blocking R2-4).
+- [x] **The two Docker files, in the image.** Each check ran in a throwaway `tapestry-tapestry:latest` container with no network and the branch's file mounted read-only, as the coordinator allowed.
+  - `nginx -t` passes. `nginx -T` shows the server's `client_max_body_size 100m`, the lifecycle prefix with no limit of its own, and `location = /api/tapestry/lifecycle/upload-backup` with `9g` and `proxy_request_buffering off`.
+  - supervisord's own loader reads `[program:neo4j]` as `stopwaitsecs` 120 with `stopasgroup` and `killasgroup` true. `[program:brainstorm]` still has `stopasgroup` false, which the detached job relies on.
+- [x] **Live checks 3 and 4, re-derived from their raw outputs** (`run3/` and `run4/`).
+  - In both, the restore's client gave up after 3 s (`curl -m 3`, exit 28), so nobody waited for the answer.
+  - **Run 4**, whose log names HEAD `28c4f6e65`:
+    - The job finished at 23:33:13.168Z, the control panel marked the run answered at 13.279, and the job restarted it at 13.677, with `restartedBecause: "the answer is out"` and caller pid 234.
+    - The report in the run's file: transaction 6944 both ways, counts exact and matching, offline 20,746 ms, admins from `[]` to A's, `restarting: ["brainstorm"]`, and the assistant from `349db554…` to `7062b6b5…`.
+  - **Run 3** has the same shape: finished 23:13:38.718Z, marked answered 120 ms later, restarted at 39.224, transaction 6934. Its log doesn't name its commit, but its times fall between `d118662c4` and the next commit.
+  - **In both runs:**
+    - B's exports after the restore are byte for byte A's: 3,147 nodes, 3,610 relationships and the same 2,535 tapestryKeys.
+    - The upload was kept as `uploaded` with `sameInstance: false`, and the same file again was `alreadyHeld`.
+    - The safety backup is listed as `before-restore`.
+    - The conf's two lines and `settings.json` name A's assistant and admin.
+  - The live check kept only the last five lines of the worker's log, so it doesn't show the new dump and load lines. My own experiment's output does.
+
+### Round 1's findings, checked again
+
+| Round 1 | Now | Evidence |
+|---|---|---|
+| Blocking 1: the restart depended on the caller | **Fixed** | A1 and A2. The job's worker restarts the control panel once the caller marks the run answered (`restore.js:89`, `_jobs.js:412–441`), once the caller's pid is gone, or at 120 s. After-answer work runs at once when the response has already closed (`http.js:51`, with the flag at `:86`). J4, J5, J8, F8, R5 and R21 pass, and each failed first. My round-1 experiment, re-run: the abandoned request's after-answer work now runs. Runs 3 and 4 show the whole path live. The command's "If this command is interrupted, the job still finishes" is now true of the restart too (J5's dead caller). |
+| NB1: a lock left when the job never starts | **Fixed** | `runDetached` releases the lock and answers `failed` when the run file or its log can't be made (`_jobs.js:366–374`). J6 passes. My round-1 experiment now leaves no lock, and nobody is refused. |
+| NB2: the restore's errors after the load | **Mostly fixed; one step open** | A failure while counting, putting the key in, restoring the admins or starting the writers now says "Backup X's graph is in place … the safety backup Y" (R18). When the key went in before a later failure, the control panel restarts (R21, J8), and a conf that can't follow puts the old key back (J11). The rollback's by-hand steps are stop, load, start (R19). **Open:** the start and the wait right after the load (`_jobs.js:264–265`) sit before the new `try` (`:276`). I ran `runRestoreJob` with the suite's fakes and a start that fails after the load. The error is the bare `supervisorctl start neo4j exited 7: …`, though the backup's graph is on disk and a safety backup exists (Non-blocking R2-1). |
+| NB3: what to undo was recorded after the call | **Fixed in the job** | `paused` and `stopped` are set before the stop (`_jobs.js:111`, `:156`, `:226`), and B20 passes. The lock's `stage` is still written after the stop (Non-blocking R2-2). |
+| NB4: `not-enough-space` fails open | **Recorded, and the reason holds** | I fed a live-check dump to 5.26.10's `neo4j-admin database load --info` in a throwaway container. It prints `Bytes: 272285696`, which `_common.js:122` parses. |
+| NB5: CORS covers the key | **Recorded** | OPEN.md row 326 gains a dated note naming `download-backup`. |
+| NB6: an aborted download, and 9g on every route | **Fixed** | `sendFile` destroys the stream when the client goes (`http.js:73`). Through the real `http.js`, a client that left after 512 KiB of a 50 MiB file stopped the stream at 640 KiB. Only `location = …/upload-backup` takes 9g (K1, `nginx -T`), and OPERATIONS.md's host block is split the same way. |
+| NB7: two undocumented drifts | **Fixed** | The dump's and the load's last line go to the run's log (`_jobs.js:91`, `:98`); my experiment printed both. Restore's schema names the report's fields, and a real report validates against it (R20). |
+| NB8: narrow races and loose ends | **Fixed** | Recovery releases by `runId` and returns any fresh lock as busy (`_store.js:308–311`, J7). What's left is the read-then-remove inside `releaseLock`, now microseconds wide. The lock is linked into place whole (`_store.js:250`, J9). The worker runs nothing when the lock isn't its run's (`_worker.js:24`, J10). The npub is derived from the key (`_identity.js:127`). An interrupted restore's status names its safety backup (P1b). |
+| NB9: the Docker files weren't checked | **Fixed** | `nginx -t` and supervisord's loader pass in the image, checked by the coordinator and again by me (Quality gates). |
+
+### Amendment 1 against the code
+
+- **A1 holds as written.**
+  - `callerPid` is in the request (`_jobs.js:368`).
+  - `afterJob` polls every 500 ms for at most 120 s, restarts once, and records `restartedAt` and why.
+  - The restore declaration registers `markAnswered`, not the restart, and `restartControlPanel` is gone from `_identity.js`.
+- **A2 holds** (`http.js:47–55`).
+- **A3 holds except for one sentence.** "When a step after the load fails, the error says the backup's graph is in place and names the safety backup" is false for the start and the wait right after the load (Non-blocking R2-1). Its "recorded, not changed" points hold (NB4 and NB5 above).
+- **A4 holds, all five points:**
+  - a failed record keeps its `restarting` (`runJob`, `_jobs.js:345–355`);
+  - the conf rollback;
+  - the split nginx blocks;
+  - the linked lock;
+  - the worker's lock check.
+- **The story's Deviations cover what the ADR didn't say:** `runDetached` resolving on the record as well as on the exit, a failed rollback left for the `finally` to start, and the restart's move into the worker.
+
+### The new code
+
+- **Sound.**
+  - The worker stays on after a restore only to restart the control panel. The lock is released before the record is written, so nothing waits on it.
+  - The run file has two writers, and they take turns. The caller marks the run only once the worker's record is in it, and the worker records the restart only after it has seen the mark, or stopped waiting for it.
+  - `markAnswered` checks the id, and `afterJob` sends only signal 0, to the pid in the caller's own record.
+  - Both nginx blocks keep `X-Forwarded-For`.
+  - No secret, debug line or TA literal is added. The new log lines carry only `neo4j-admin`'s last line.
+- **One property rests on the live check alone.**
+  - `runDetached` must resolve on the job's record (`_jobs.js:380–386`), because a restore's worker stays alive after writing it. A caller waiting for the worker's exit would wait up to 120 s on itself, and over HTTP the control panel would be restarted before it answered.
+  - No suite pins this: with the polling removed, so that it resolves on the exit only, all 135 operations tests still pass.
+  - Runs 3 and 4 show it working: the run was marked answered about 120 ms after the job finished (Non-blocking R2-3).
+
+### Findings (round 2)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R2-1. `_jobs.js:264–265`: A3 isn't met for the first step after the load.** If the server doesn't start on the loaded store, or doesn't answer within 300 s, the error says only that, though the backup's graph is on disk and the safety backup exists. Move the two lines into the `try` at `:276`, with a step such as "starting the graph database on the loaded backup", or narrow A3's sentence. `list-backups` still finds the safety backup without Neo4j, so this is about the message, not lost data.
+2. **R2-2. `_jobs.js:156–158` and `:226–228`: the lock's `stage: 'offline'` is written after the stop returns.** The `finally` is now right. But a worker killed during the stop, which may now take up to 120 s, leaves Neo4j stopped under a lock that says `online`, so the next operation's recovery doesn't start it. Write the stage before the call, as A3 does for the job's own flags. A recovery that starts a server already running does no harm.
+3. **R2-3. `runDetached` resolving on the record has no test** (see "The new code"). Add a J-test whose stand-in worker writes its record and stays alive, and assert that `runDetached` resolves before the worker exits.
+4. **R2-4. The test plan's last red-before-green line** ("J11 failed alone, 134 passed") doesn't say it ran on a tree with A4's other fixes but not J11's, which no commit holds. Say so, or cite the mutation above.
+
+#### Harness friction
+
+1. The coordinator asked for the completion-detection result in this file. The review template says the result and the book arithmetic go to the chat or the run journal, "never in this file". I wrote the one-line result below and kept the arithmetic in the chat.
+
+### On PASS (same commit)
+
+- [x] The story's `**Status:**` is flipped to Done in place.
+- [x] Completion detection was performed for book `graph-operations-first-slice`. The book does not look complete, so `/close-book` is not offered. The arithmetic is in the chat.
+
+### Round 2 verdict
+
+**PASS**
