@@ -20,5 +20,5 @@ changes, and drift.js loads nothing new, so DR23 (it loads stack-free) is unaffe
 `test/tagging-edges-drift-route.test.js` and `test/tagging-edges-runner.test.js` (SR77 checks what `identities.js`
 exports, by `resolveIdentities` only).
 
-**Pointer:** `engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md` § Deviations, "The drift route";
-`engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md` § Harness friction 2.
+**Pointer:** `engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md` § Deviations, "The drift route";
+`engineering-team/reviews/done/tagging-edges/4-tagging-pipeline-panel.md` § Harness friction 2.

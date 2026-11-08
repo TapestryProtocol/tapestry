@@ -34,5 +34,5 @@ kind-39999 event.
   each tagging's `d` (or its address), and the revoke should take it.
 - Make the same change to `unpinTag`.
 
-**Pointer:** ADR `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md` § New debt / follow-ups
+**Pointer:** ADR `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md` § New debt / follow-ups
 item 6 and "What strfry 1.1.0 actually does"; strfry source at `/usr/local/src/strfry` in the `tapestry` container.

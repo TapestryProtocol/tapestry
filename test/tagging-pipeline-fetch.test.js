@@ -1,8 +1,8 @@
 /**
  * Tests for tagging-edges Story 4 — the tagging pipeline panel's section reader.
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md
  *        (§ Implementation notes → § UI, `ui/src/utils/taggingPipelineFetch.js`; § Clarifications T7)
  *
  * TF — unit tests of readSection(url, { fetchImpl, timeoutMs }) from
@@ -12,15 +12,15 @@
  *      an injected fake fetchImpl that answers minimal Response-like objects
  *      ({ ok, status, text() }); no request leaves the process.
  *
- * TF20–TF24 — tagging-edges Story 5 (engineering-team/stories/tagging-edges/5-real-time-path-switch.md; ADR
- *      engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md D12 and § Seams "The fetch util"):
+ * TF20–TF24 — tagging-edges Story 5 (engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md; ADR
+ *      engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md D12 and § Seams "The fetch util"):
  *      sendSwitch(on, { fetchImpl, timeoutMs = 15000 }), the panel's one POST. It sends exactly one request to
  *      /api/tagging-edges/realtime/switch, shares readSection's race, resolves readSection's result shapes and never
  *      rejects. readSection is untouched, so TF1 (every read sends GET) stands as it is. Each TF20+ test fails by
  *      name through loadSwitch() until the module exports sendSwitch.
  *
- * TF25–TF31 — tagging-edges Story 6 (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md; ADR
- *      engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D15): sendRun() POSTs {} to
+ * TF25–TF31 — tagging-edges Story 6 (engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md; ADR
+ *      engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md D15): sendRun() POSTs {} to
  *      /api/tagging-edges/pass/run, and sendStop(targets) POSTs {"targets": …} to /api/tagging-edges/pass/stop, each with
  *      sendSwitch's options object last ({ fetchImpl, timeoutMs = 15000 }; D15 "Same race and shapes"), through the
  *      module's private raced(), resolving readSection's result shapes and never rejecting. TF1 stays as it is: every read
@@ -28,8 +28,8 @@
  *      Reading where D15 leaves a detail open: the options object is the last argument, as sendSwitch's is (D15 writes the
  *      calls as sendRun() and sendStop(targets); TF30 calls them so, with no options).
  *
- * TF32–TF37 — tagging-edges Story 7 (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
- *      engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md D11): sendConfirm(runId) POSTs
+ * TF32–TF37 — tagging-edges Story 7 (engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md; ADR
+ *      engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md D11): sendConfirm(runId) POSTs
  *      {"runId": …} to /api/tagging-edges/confirm-held-removals through the module's private raced(15000, …), resolving
  *      sendSwitch's result shapes and never rejecting, as TF25–TF31 pin for sendRun and sendStop. TF1 and TF31 stay as
  *      they are; TF37 repeats TF31's one-race check with sendConfirm among the five. Each fails by name through

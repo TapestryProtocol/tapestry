@@ -48,4 +48,4 @@ within 3 s, or a rejected change's rollback not confirmed). After `docker restar
 
 **Pointer:** epic `engineering-team/epics/tagging-edges.md` § Key facts / guardrails (the "Known defects in the
 follows pipeline" bullet: "the Redis client that never reconnects"); review
-`engineering-team/reviews/tagging-edges/1-tagging-edge-contract.md` Blocking 4; `patches/strfry-redis/redis.cpp`.
+`engineering-team/reviews/done/tagging-edges/1-tagging-edge-contract.md` Blocking 4; `patches/strfry-redis/redis.cpp`.

@@ -15,5 +15,5 @@ the re-review's own mutant pass caught it, and round 3 added SS29, SS30, SR73 an
 **Fix shape.** When a review names mutants for Test Design, the Implementer's after-gate (or the re-review) re-runs
 them on the fixed tree and records the kills beside the test plan's round entry.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § "Re-review" → Harness
+**Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § "Re-review" → Harness
 friction 2; test plan § "Round 3".

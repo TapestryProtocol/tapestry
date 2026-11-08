@@ -1,6 +1,6 @@
 # Epic: tagging-edges — NostrUser→NostrUser relationships that reflect Taggings
 
-**Status:** Active
+**Status:** Done (book closed 2026-11-08; all seven stories on staging and production; the folders sit under `done/`)
 **Created:** 2026-09-26
 **Book:** `engineering-team/audits/tagging-edges/book.md` (no PRD — acceptance frame)
 **Provenance:** the owner's ask of 2026-09-25 ("if Alice Tags Bob as a Podcaster, then I would like there to be
@@ -17,7 +17,7 @@ Planning: admins may also see the panel and use every control but confirming hel
 
 ## Stories
 
-`stories/tagging-edges/`. All seven are features (Standard: all five phases). *(Six until story 6's Planning,
+`stories/done/tagging-edges/`. All seven are features (Standard: all five phases). *(Six until story 6's Planning,
 2026-10-02, when the owner moved Confirm to story 7.)*
 
 1. `1-tagging-edge-contract.md` — what one relationship is: which events count, what the relationship carries,
@@ -25,7 +25,7 @@ Planning: admins may also see the panel and use every control but confirming hel
 2. `2-gap-filling-pass-and-backfill.md` — the gap-filling pass and backfill: writes the relationships, enforces
    one-per-tagging in the database, repairs drift, refuses to mass-delete on a failed or empty relay read. Its first
    run is the backfill. **Done**; on production since 2026-09-28 (PRs #780 / #781).
-   **Carry-forwards from story 1's review** (owner-ratified 2026-09-27; `reviews/tagging-edges/1-tagging-edge-contract.md`
+   **Carry-forwards from story 1's review** (owner-ratified 2026-09-27; `reviews/done/tagging-edges/1-tagging-edge-contract.md`
    § "Re-review", R2-NB1–3 and R2-4–10) — each becomes an acceptance criterion or a docs task of story 2:
    - *R2-NB1:* a `createdAt` that cannot be compared (NaN, undefined, a JSON-round-tripped Neo4j Integer) makes
      `standingEdge` fall to the event-id tie-break. Guard it in the contract (with tests), or normalize every
@@ -50,7 +50,7 @@ Planning: admins may also see the panel and use every control but confirming hel
    2026-09-30; the owner's decisions are in the story.)* **Done** (review PASS 2026-10-01, round 2); on production
    since 2026-10-01 (PRs #791 / #792). Its evidence is complete (2026-10-01): the owner and an admin saw the panel,
    Recount was pressed on production, and a user who is neither was refused Settings on staging.
-   **Carry-forwards from story 3's review** (placed by the owner 2026-09-30; `reviews/tagging-edges/3-real-time-path.md`
+   **Carry-forwards from story 3's review** (placed by the owner 2026-09-30; `reviews/done/tagging-edges/3-real-time-path.md`
    § "Re-review, round 3", C1–C9). Each open one becomes a docs or test task of story 4. Repo line numbers were read
    at `origin/staging` `58abd891` (prefer the named sections if they have drifted); strfry's are from strfry 1.1.0 in
    the container.
@@ -120,7 +120,7 @@ Planning: admins may also see the panel and use every control but confirming hel
    with its staging evidence complete (recorded in PR #813). On production since 2026-10-02 (PR #809): another
    session's promotion of all of staging shipped it before that evidence existed (ledger
    `2026-10-02-promotion-outruns-pre-main-evidence`); production was checked read-only afterwards and was healthy. Its review's 10 carry-forwards are placed under story 6 (C5-1..C5-10).
-   **Carry-forwards from story 4's review** (placed by the owner 2026-10-01; `reviews/tagging-edges/4-tagging-pipeline-panel.md`
+   **Carry-forwards from story 4's review** (placed by the owner 2026-10-01; `reviews/done/tagging-edges/4-tagging-pipeline-panel.md`
    § "Re-review, round 2", R2-1 to R2-14). Each becomes a docs, copy or test task of story 5. Line numbers are at
    `77ae0da4`; the review gives each one's evidence and ask in full.
    - *R2-1 (copy, ADR):* explain the Neo4j driver's own codes, `N/A` (an error with no code, such as a connection
@@ -162,7 +162,7 @@ Planning: admins may also see the panel and use every control but confirming hel
    `tagging-edges/0006`). On staging since 2026-10-29 (PR nousclawds4/tapestry#6), with its staging evidence complete
    (PR nousclawds4/tapestry#7). On production since 2026-10-29 (PR nousclawds4/tapestry#11), checked read-only. Its
    review's 9 carry-forwards, and round 1's non-blocking 1 and 2, are for the owner to place
-   (`reviews/tagging-edges/6-pass-run-and-stop.md` § "Re-review, round 2"). The owner's decisions at story 5's
+   (`reviews/done/tagging-edges/6-pass-run-and-stop.md` § "Re-review, round 2"). The owner's decisions at story 5's
    Planning (2026-10-01), with story 4's (2026-09-30):
    - **Run a pass now,** for the owner or an admin. It is refused plainly while any pass is running, or while a pass
      someone asked for is waiting to start, even one waiting behind scoring for the shared heavy-task lock. The
@@ -190,7 +190,7 @@ Planning: admins may also see the panel and use every control but confirming hel
    The Architect amends ADR 0002 (run, stop and the stopped outcome). Story 2's confirm route stays owner only.
 
    **Carry-forwards from story 5's review** (placed by the owner 2026-10-01;
-   `reviews/tagging-edges/5-real-time-path-switch.md` § "Re-review, round 2", carry-forwards 1–10). Each becomes a docs,
+   `reviews/done/tagging-edges/5-real-time-path-switch.md` § "Re-review, round 2", carry-forwards 1–10). Each becomes a docs,
    copy or test task of story 6. Line numbers are at `442c9dec`; the review gives each one's evidence in full.
    - *C5-1 (test plan):* story 5's test plan (`:286`, `:294`) says the Node suites gave the same results on Node 16 and
      22. `stack-free-npm-test` skips G2 on Node 16; say so.
@@ -216,18 +216,30 @@ Planning: admins may also see the panel and use every control but confirming hel
    - *C5-10 (docs):* story 5 § Evidence's browser line (`:301-302`) names the commit and run: the re-review's 86 of 86
      on `442c9dec`, twice.
 
-7. *(planned)* Confirming held removals from the panel, for the owner only, after a prompt. *(Split from item 6 at
-   story 6's Planning, 2026-10-02, the owner.)* From item 6's decisions:
+7. `7-confirm-held-removals.md` — confirming held removals from the panel, for the owner only, after a prompt; with
+   the overdue-pass flag and the prompts' focus fix. *(Split from item 6 at story 6's Planning, 2026-10-02, the
+   owner.)* **Done** (review PASS 2026-11-08, round 3; ADR `tagging-edges/0007`). On staging since 2026-11-08 (PR
+   nousclawds4/tapestry#37), with its staging evidence complete: the owner confirmed a held list made only of fixture
+   relationships, and the pass it lined up removed exactly those. On production since 2026-11-08 (PR
+   nousclawds4/tapestry#40, which promoted this story alone), checked read-only. The review's later follow-ups, and
+   § "Outside this story", are for the owner to place (`reviews/done/tagging-edges/7-confirm-held-removals.md`). From item
+   6's decisions:
    - **Confirm from the panel** is the owner's only, after a prompt that story 4's Planning set. Story 2's confirm route
      stays owner only.
-   - **Confirm when a pass is already waiting or running** says so plainly and starts nothing new.
-   - **Ledger `2026-09-28-confirm-route-joins-finishing-job`** (the few seconds after a pass ends) is folded here for
-     the confirm route. If story 6's fix for Run also closes it there, the row closes with story 6 and story 7 checks
-     it.
+   - **Confirm when a pass is already waiting or running** says so plainly and starts nothing new. *(Narrowed at story
+     7's Planning, 2026-11-07, the owner: when every busy pass has a stop asked for, Confirm lines up a new pass, as
+     the confirm route already did. Otherwise the owner would be stuck, since Run is refused while a pass is busy.)*
+   - **Ledger `2026-09-28-confirm-route-joins-finishing-job`** (the few seconds after a pass ends) was folded here for
+     the confirm route. Story 6's fix closed it, and story 7 checked it.
    - **Who confirmed, and when,** is recorded and shown, as story 6 shows starts and stops.
 
-   Still open for its Planning: what admins see in Confirm's place (from story 5's Planning orientation), the prompt's
-   wording, and whether a confirmation that expires unused prompts the owner again.
+   Decided at story 7's Planning (the owner, 2026-10-30 and 2026-11-07): admins see a disabled Confirm with its reason;
+   an expired confirmation that no pass used offers Confirm again for the same held list; the public status carries no
+   who; the prompt says how many and from which pass, when they happen, once only within 24 hours, and no undo from
+   the panel; a second confirmation of a pending held list is refused; one that cannot be relied on is replaced. The
+   story also carried the overdue-pass flag (ledger `2026-10-30-prod-pass-gap-unnoticed`, fix shape 2), the prompts'
+   focus fix (ledger `2026-10-28-panel-prompts-return-no-focus`, closed for the prompts only) and the stale browser
+   baseline (ledger `2026-10-28-relay-subtab-baseline-stale`, closed).
 
 Order: 1 → 2 → 3 → 4 → 5 → 6 → 7 (4's page can start once 2's status shape is fixed; 5 to 7 build on 4's panel, and 7
 on 6's waiting state).

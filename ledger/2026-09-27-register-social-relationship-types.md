@@ -30,6 +30,6 @@ Each has `nodeFromType` and `nodeToType` `nostrUser`, `category` `nostr`, and it
 manifest, then reinstall firmware (AGENTS.md §6). The three nostr types already registered are not in the top-level
 `relationshipTypes` list, so deciding whether the four join that list belongs to the same change.
 
-**Pointer:** ADR `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md` § "Sub-decision —
+**Pointer:** ADR `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md` § "Sub-decision —
 registering `TAGS` in the relationship-type concept" and § Consequences, "New debt / follow-ups" item 2;
 `firmware/versions/v1.0.0/concepts/relationship-type/`.

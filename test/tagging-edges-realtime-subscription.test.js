@@ -3,16 +3,16 @@
  * Tests for Story 3 (epic tagging-edges) — the real-time path's live SUBSCRIPTION, the one websocket client:
  * src/pipeline/tagging-edges/realtime/subscription.js, driven for real against an in-process relay.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md — AC-1 (the path hears every stored tagging and
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md — AC-1 (the path hears every stored tagging and
  *        revoke live), AC-3 (a dropped or refused connection loses nothing: the engine reconnects and catches up),
  *        AC-6 (nothing the status carries names where the relay is reached).
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — § What it hears ("One REQ (subscription id
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § What it hears ("One REQ (subscription id
  *        tagging-edges-realtime) carries two filters, both with limit:0"; "Keeping it alive": a ping every 30 s, no pong
  *        within 10 s, any close, CLOSED or NOTICE ends the connection), Implementation notes (subscription.js: "REQ with
  *        limit:0, EOSE, ping and pong … and an onEvent / onEose / onClose surface. No state"), T20 (deps.subscribe({
  *        url, filters, onEvent, onEose, onClose }) → { close() }) and T29 ("subscribe's callbacks are called
  *        asynchronously, never inside subscribe() … A client-side close() fires no onClose").
- * Review: engineering-team/reviews/tagging-edges/3-real-time-path.md, round 1, Non-blocking 8 ("The only websocket client
+ * Review: engineering-team/reviews/done/tagging-edges/3-real-time-path.md, round 1, Non-blocking 8 ("The only websocket client
  *        has no automated test … Tester follow-up: a suite against an in-process ws server") and harness friction 2
  *        (ledger row 2026-09-29-test-plan-misses-injected-seams: every engine suite fakes deps.subscribe).
  *

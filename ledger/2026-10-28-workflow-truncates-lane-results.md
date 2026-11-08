@@ -31,4 +31,4 @@
   review lanes. None does yet; ledger `2026-10-11-reviewer-dispatch-tools-and-commit` meets the same gap from the commit
   side.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 1.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 1.

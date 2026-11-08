@@ -23,5 +23,5 @@
 - Say this in `engineering-team/workflows/4-implementation.md` (the gate step), and in the host-gate note the
   sessions use.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/5-real-time-path-switch.md` § Findings, blocking 1 and 2, and §
+**Pointer:** `engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md` § Findings, blocking 1 and 2, and §
 Harness friction.

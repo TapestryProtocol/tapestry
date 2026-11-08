@@ -27,5 +27,5 @@ still unclaimed. Alternatively, compare the job's `processedOn` with the latest 
 cases in `test/tagging-edges-state-routes.test.js`, and amend ADR `tagging-edges/0002` (the confirm route, "answers
 `{ confirmed: true, enqueued, … }`") and OPERATIONS.md §12.8 "Confirming held removals".
 
-**Pointer:** `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § Non-blocking 3;
+**Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § Non-blocking 3;
 `src/api/tagging-edges/index.js` (`handleConfirmHeldRemovals`, the enqueue at :297-311).

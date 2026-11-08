@@ -16,4 +16,4 @@ including one that emitted `TASK_ERROR` first.
 (for example `metadata.outcome` where present), and pin it with a fixture of a failed run.
 
 **Pointer:** `src/api/scheduled-tasks/index.js:198-210`; ADR
-`engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md` § Consequences.
+`engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md` § Consequences.

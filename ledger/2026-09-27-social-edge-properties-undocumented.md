@@ -52,7 +52,7 @@ work. For REPORTS it is OPEN.md row `2026-09-27-reports-writers-disagree-on-shap
 `report_type` and points back here for the record. FOLLOWS and MUTES have no such row yet: the stream's missing
 `timestamp`, the calculators' clock time and `reconcileAll`'s 0 are open until the shape is decided.
 
-**Pointer:** review `engineering-team/reviews/tagging-edges/1-tagging-edge-contract.md` § Blocking 2; ADR
-`engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md` § Context (the existing FOLLOWS / MUTES /
+**Pointer:** review `engineering-team/reviews/done/tagging-edges/1-tagging-edge-contract.md` § Blocking 2; ADR
+`engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md` § Context (the existing FOLLOWS / MUTES /
 REPORTS writers) and § Consequences, "New debt / follow-ups" item 4; OPEN.md row 5; related OPEN.md row
 `2026-09-27-reports-writers-disagree-on-shape`.

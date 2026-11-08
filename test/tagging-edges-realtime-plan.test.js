@@ -2,8 +2,8 @@
 /**
  * Tests for Story 3 (epic tagging-edges) — the real-time path's pure planner, src/lib/tagging-edges/realtime.js.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md (AC-1 … AC-7; "For Test Design")
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — § Decision ("What it hears", "Knowing what
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md (AC-1 … AC-7; "For Test Design")
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § Decision ("What it hears", "Knowing what
  *        changed while it was away", "What it decides and writes", "Coexisting with the pass", "Status and switch"),
  *        "Implementation notes → New files → realtime.js", the planner list under "Tests the Tester owns → New suites
  *        → The pure planner", and "Clarifications (Test Design, 2026-09-28)" T1–T19, which fix every interface this
@@ -52,7 +52,7 @@
  * Journal lines are written in A1-6's absolute form (v {id, a, top, older}, o {a, top, older}); a record carries an
  * epoch and its lines start with the matching e {epoch} line, as a compaction writes them.
  *
- * Story 3's review, round 2 (engineering-team/reviews/tagging-edges/3-real-time-path.md, R2-NB7) adds RP97: a damaged
+ * Story 3's review, round 2 (engineering-team/reviews/done/tagging-edges/3-real-time-path.md, R2-NB7) adds RP97: a damaged
  * record.json row (a version without a string id, a revoke that is an array) replays to no prompt. It passes now.
  *
  * Hand-rolled in the project's existing test style — no new framework. Runs on Node 16 and 22.

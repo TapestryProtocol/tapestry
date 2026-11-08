@@ -31,4 +31,4 @@ holder process is gone. *(Amended in tagging-edges #2 review round 3, 2026-09-28
 task survives a container re-creation", and named deploys only.)*
 
 **Pointer:** `src/manage/taskQueue/queue/resourceSemaphore.js`; OPERATIONS.md § "The `RESOURCE_CLASS_WAIT_TIMEOUT`
-failure mode"; ADR `engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md` § Consequences and D10.
+failure mode"; ADR `engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md` § Consequences and D10.

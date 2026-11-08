@@ -30,6 +30,6 @@ true cases pass a matching `file`) and ST23 (a foreign inode, a missing file, no
 `test/tagging-edges-state-routes.test.js`; SWR68 in `test/tagging-edges-wiring.test.js` pins that both callers pass
 their lock file.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § Nits, item 1;
+**Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § Nits, item 1;
 `src/pipeline/tagging-edges/state.js` (`lockHeld`); `src/pipeline/tagging-edges/reconcileTaggingEdges.js`
 (`defaultDeps`, step 1); ADR `tagging-edges/0003` § "ADR 0002 clarification C20".
