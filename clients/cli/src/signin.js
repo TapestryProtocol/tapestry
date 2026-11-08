@@ -49,6 +49,15 @@ function isSignInRefusal(r) {
   return r.status === 401 && (!r.json || r.json.code === undefined || r.json.code === 'sign-in-required');
 }
 
+/**
+ * Whether an answer is the instance's own access refusal: a 403 from the central check, which has no `code`, or from
+ * the router's re-check, `not-allowed`, a built-in code no declaration may use (review round 2). Any other 403 is an
+ * operation's own declared refusal.
+ */
+function isNotAllowed(r) {
+  return r.status === 403 && (!r.json || r.json.code === undefined || r.json.code === 'not-allowed');
+}
+
 /** A call made with the kept sign-in, signing in when there's none, and once more after the instance's sign-in 401. */
 async function authed(ctx, method, route, body) {
   const kept = sessions.get(ctx.home, ctx.origin, ctx.identity.pubkey);
@@ -75,4 +84,4 @@ async function signOut(ctx) {
   return { hadSignIn: !!kept, problem };
 }
 
-module.exports = { signIn, authed, signOut, isSignInRefusal, SIGN_IN_KIND, SIGN_IN_CONTENT };
+module.exports = { signIn, authed, signOut, isSignInRefusal, isNotAllowed, SIGN_IN_KIND, SIGN_IN_CONTENT };

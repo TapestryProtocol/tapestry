@@ -164,10 +164,10 @@ function mismatch(ev, t) {
 function askSigner(command, template, io) {
   return new Promise((resolve, reject) => {
     let child;
-    // A process group of its own, so a timeout ends the programs the command started too, not only its shell
-    // (review round 1).
-    const group = process.platform !== 'win32';
-    try { child = spawn('/bin/sh', ['-c', command], { stdio: ['pipe', 'pipe', 'pipe'], detached: group }); } catch (e) {
+    // In the CLI's own process group, not detached: a detached child gets a session of its own, so it loses the
+    // terminal (a signer asking for a passphrase on /dev/tty) and Ctrl-C no longer reaches it. The trade: a program the
+    // signer starts in the background may outlive the timeout, which ends the shell (review round 2, R2-B1).
+    try { child = spawn('/bin/sh', ['-c', command], { stdio: ['pipe', 'pipe', 'pipe'] }); } catch (e) {
       reject(new Failed(`The signer command couldn't start: ${e.message}`));
       return;
     }
@@ -175,7 +175,7 @@ function askSigner(command, template, io) {
     child.stdout.on('data', (d) => { out += d; });
     child.stderr.on('data', (d) => io.err(String(d)));
     const timer = setTimeout(() => {
-      try { if (group) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { child.kill('SIGKILL'); }
+      child.kill('SIGKILL');
       reject(new Failed(`The signer didn't answer within ${SIGNER_TIMEOUT_MS / 1000} seconds. Is it waiting for an approval?`));
     }, SIGNER_TIMEOUT_MS);
     child.on('error', (e) => { clearTimeout(timer); reject(new Failed(`The signer command couldn't start: ${e.message}`)); });

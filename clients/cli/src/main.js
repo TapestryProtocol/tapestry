@@ -20,7 +20,7 @@ const { EXIT } = require('./commands');
 const { CliError, Usage, Setup, messageOf } = require('./errors');
 const identity = require('./identity');
 const { resolveInstance, originOf, timeoutMs } = require('./instance');
-const { signIn, signOut, isSignInRefusal } = require('./signin');
+const { signIn, signOut, isSignInRefusal, isNotAllowed } = require('./signin');
 const sessions = require('./sessions');
 const ops = require('./operations');
 const { version } = require('../package.json');
@@ -136,7 +136,7 @@ async function operation(io, env, home, g, group, rest) {
   io.out(json(r.json));
   if (r.status >= 200 && r.status < 300 && r.json.success === true) return EXIT.ANSWERED;
   if (r.status >= 500) { io.err(`${group} ${name} failed on ${ctx.origin} (HTTP ${r.status}): ${messageOf(r.json)}\n`); return EXIT.FAILED; }
-  if (r.status === 403) io.err(`${op.access === 'owner-only' ? `${group} ${name} is the owner's only on ${ctx.origin}.` : ops.notOwnerOrAdmin(ctx)}\n`);
+  if (isNotAllowed(r)) io.err(`${op.access === 'owner-only' ? `${group} ${name} is the owner's only on ${ctx.origin}.` : ops.notOwnerOrAdmin(ctx)}\n`);
   if (isSignInRefusal(r)) io.err(`${ctx.origin} didn't accept the sign-in of ${ctx.identity.npub}, even after signing in again.\n`);
   if (r.status >= 400) return EXIT.REFUSED;
   io.err(`${ctx.origin} answered ${group} ${name} with HTTP ${r.status} but no success.\n`);

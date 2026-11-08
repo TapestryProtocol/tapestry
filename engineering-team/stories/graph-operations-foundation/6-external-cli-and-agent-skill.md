@@ -145,7 +145,8 @@ The review's round 1 fixes, inside the ADR as amended (Decision 5):
 
 - **Retries (B2).** Only the instance's own sign-in 401 is retried after a new sign-in: the central check's, with no `code`, or `sign-in-required`. An operation's declared 401 is a refusal. It is never resent, the kept sign-in stays, and stderr doesn't blame the sign-in (`clients/cli/src/signin.js` `isSignInRefusal`).
 - **The route guard** also refuses a listed route with a dot segment, plain or `%2e`, a backslash or an empty segment, or one that a URL would normalize to another path.
-- **A signer runs in a process group of its own,** so its timeout ends the programs it started, not only its shell. That was checked by hand with a one-second copy: a signer command that started two `sleep`s left none behind.
+- **A signer runs in the CLI's own process group** (review round 2, R2-B1). Round 1 gave it a group of its own, so that its timeout would end the programs it started. But a detached child also gets a session of its own, so it lost the terminal (a passphrase asked on `/dev/tty`), and Ctrl-C no longer reached it. The trade: a program the signer starts in the background may outlive its 180-second timeout, which ends the shell.
+- **An operation's own declared 403 is a refusal** (review round 2, non-blocking 1). stderr says the key is neither owner nor admin, or that an operation is the owner's only, only for the instance's own access refusals: the central check's 403, with no `code`, or `not-allowed`. That's `isNotAllowed`, beside `isSignInRefusal`.
 - **The Node check** also tests `Headers#getSetCookie` and names the Node it found, so Node 18 is told why.
 - **The skill** now says:
   - a failed write may have run, so read back what it would have changed before trying it again;
