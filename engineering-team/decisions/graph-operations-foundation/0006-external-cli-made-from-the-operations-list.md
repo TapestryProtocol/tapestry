@@ -148,7 +148,8 @@ tapestry help | --help | -h | --version
 2. Sign `{ kind: 22242, created_at: now, tags: [['challenge', challenge]], content: 'Tapestry authentication', pubkey }`: with the key, using nostr-tools' `finalizeEvent`, or with the signer command.
 3. `POST /api/auth/login-user` with `{ event }` and that cookie. Store the new cookie from its `Set-Cookie`, since the session was regenerated.
 
-- **When.** On the first call that needs a sign-in, or by `tapestry login`. A 401 from the list or from an operation drops the stored sign-in, signs in once, and retries the call once. A 401 is answered before the operation runs, so a write is never sent twice. A second 401 is a refusal.
+- **When.** On the first call that needs a sign-in, or by `tapestry login`. A 401 that is the instance's own sign-in refusal drops the stored sign-in, signs in once, and retries the call once, once per run. A second one is a refusal.
+- **Which 401s** (amended at review round 1, 2026-11-08). Only two are the instance's sign-in refusals: the central check's, which has no `code` (`src/middleware/auth.js:329–331`), and the router's re-check, `code: 'sign-in-required'` (`src/operations/http.js:34`), a built-in code no declaration may use. Both come before the operation runs, so retrying them never sends a write twice. Any other 401 is an operation's own declared refusal, and a declaration may give its refusal any 4xx (`src/operations/declaration.js:119`). That one is answered as the refusal it is: exit 1, never resent, and the kept sign-in stays.
 - **A refusal at the sign-in** (`authorized: false`, a non-success login, or any 4xx) exits 1, with the instance's message. A 5xx or no answer exits 3.
 
 **6. The list and the operation commands.**
