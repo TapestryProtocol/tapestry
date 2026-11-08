@@ -13,7 +13,8 @@
  *   R2   a restore takes a safety backup of the graph as it is, then puts the backup in place, and proves it (AC3)
  *   R3   one offline window: writers paused, server stopped once, info, safety dump, load, info, started once (AC3)
  *   R4   a backup from another instance makes this one the same instance: key, conf, admins; owner reported (AC3, AC4)
- *   R5   the control panel restarts once, after the answer; the writers came back with the new key (AC3)
+ *   R5   the answer marks the run answered for the job, which restarts the control panel; the writers came back
+ *        with the new key (AC3, ADR 0002 Amendment 1)
  *   R6   counts that don't match what the backup recorded say so, and name the safety backup (AC3)
  *   R7   a backup whose counts weren't exact can't be matched, and says so (AC3)
  *   R8   unknown, damaged and incompatible backups are refused, changing nothing (AC5)
@@ -26,6 +27,9 @@
  *   R15  an older 5.x backup is accepted
  *   R16  who may call, and `tapestry lifecycle restore --backup <id>` (AC6)
  *   R17  no answer, warning or log line carries a private key or a master key
+ *   R18  a step after the load that fails says the backup's graph is in place, and names the safety backup
+ *   R19  a rollback that fails too gives the by-hand steps: stop, load the safety dump, start
+ *   R20  restore's result schema names the report's fields
  */
 
 const fs = require('fs');
@@ -182,14 +186,15 @@ test('R4: a backup from another instance makes this one the same instance — th
   assert(F.readState(inst.state).graph.tx === 12, 'the backup\'s graph is in place');
 });
 
-test('R5: once the restore has answered, the control panel is restarted once, after everything else; the writers came back with the new key (AC3)', async () => {
+test('R5: once the restore has answered, it marks its run answered for the job, which restarts the control panel; the route restarts nothing; the writers came back with the new key (AC3, ADR 0002 Amendment 1)', async () => {
   const { inst, run, extra } = await other();
   S.okData(run, 'w');
+  const runs = path.join(inst.backupsDir, '.runs');
+  const marked = fs.existsSync(runs) ? fs.readdirSync(runs).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(runs, f), 'utf8'))).filter((r) => r.answeredAt) : [];
+  assert(marked.length === 1 && !Number.isNaN(Date.parse(marked[0].answeredAt)) && F.ID_RE.test(String(marked[0].runId)),
+    `the restore's run is marked answered once the answer is out (.runs/<runId>.json has answeredAt); got ${show(marked)}`);
   const sup = F.calls(inst.state, 'supervisor');
-  const restarts = sup.filter((e) => e.action === 'restart' && e.programs.includes('brainstorm'));
-  assert(restarts.length === 1, `exactly one restart of brainstorm; got ${show(sup)}`);
-  const last = sup[sup.length - 1];
-  assert(last === restarts[0] || (last.action === 'restart' && last.programs.includes('brainstorm')), `the restart comes after everything else; got ${show(sup.map((e) => `${e.action} ${e.programs}`))}`);
+  assert(!sup.some((e) => e.action === 'restart'), `the route restarts nothing itself; the job does, once the answer is out; got ${show(sup.map((e) => `${e.action} ${e.programs}`))}`);
   const writerStarts = sup.filter((e) => (e.action === 'start' || e.action === 'restart') && e.programs.some((p) => F.WRITERS.includes(p)));
   assert(writerStarts.length && writerStarts.every((e) => e.assistantAtStart === extra.from.identity.pubkey), `the writers start once the conf names the new assistant; got ${show(writerStarts)}`);
 });
@@ -363,6 +368,55 @@ test('R16: the owner and admins may restore; a visitor 401, a stranger 403; a mi
   assert(c.code === 0 && j && j.success === true && j.data && j.data.restored === extra.x,
     `\`tapestry lifecycle restore --backup <id>\` exits 0 with the report; got ${show(c.code)} ${show(String(c.stdout).slice(0, 300))} ${String(c.stderr).slice(-300)}`);
   assert(F.readState(inst.state).graph.tx === 12, 'the command\'s restore put the backup in place');
+});
+
+test('R18: a step after the load that fails says the backup\'s graph is in place and names the safety backup (review round 1)', async () => {
+  const { inst, run, extra } = await S.setup('after-load-fails', {
+    mustExist: NEED,
+    before: (i) => {
+      // A settings path under a regular file: reading it finds nothing, and restoring the admins can't write it.
+      const blocker = path.join(i.dir, 'not-a-folder');
+      fs.writeFileSync(blocker, 'a file');
+      return { x: ownBackup(i).id, settingsPath: path.join(blocker, 'settings.json') };
+    },
+    env: (i, e) => ({ TAPESTRY_SETTINGS_PATH: e.settingsPath }),
+    scenario: (i, e) => ({ requests: [post('after-load', 'owner', e.x)] }),
+  });
+  const r = F.pick(run, 'after-load');
+  const safety = F.backupIds(inst.backupsDir).filter((id) => id !== extra.x);
+  assert(r.status === 500 && r.body && r.body.code === 'failed', `answers 500 failed; got ${r.status} ${show(r.body)}`);
+  assert(/in place/i.test(String(r.body.error)) && safety.length === 1 && String(r.body.error).includes(safety[0]),
+    `the error says the backup's graph is in place and names the safety backup ${show(safety)}; got ${show(r.body.error)}`);
+  const s = F.readState(inst.state);
+  assert(s.online === true && s.graph.tx === 12, 'the server runs, with the backup\'s graph');
+});
+
+test('R19: a rollback that fails too says to stop the graph database, load the safety dump by hand, and start it again (review round 1)', async () => {
+  const { inst, run, extra } = await S.setup('rollback-fails', {
+    mustExist: NEED,
+    instance: { failures: { loadFailures: 2 } },
+    before: (i) => ({ x: ownBackup(i).id }),
+    scenario: (i, e) => ({ requests: [post('both-fail', 'owner', e.x)] }),
+  });
+  const r = F.pick(run, 'both-fail');
+  const safety = F.backupIds(inst.backupsDir).filter((id) => id !== extra.x);
+  const err = String(r.body && r.body.error);
+  assert(r.status === 500 && safety.length === 1 && err.includes(safety[0]), `500 failed, naming the safety backup; got ${r.status} ${show(r.body)}`);
+  F.inOrder([err], [/supervisorctl stop neo4j/]);
+  assert(err.indexOf('supervisorctl stop neo4j') < err.indexOf('neo4j-admin database load') && err.indexOf('neo4j-admin database load') < err.indexOf('supervisorctl start neo4j'),
+    `the by-hand steps are stop, load, start, in that order; got ${show(err)}`);
+});
+
+test('R20: restore\'s result schema names the report\'s fields, and a real report matches it (review round 1)', async () => {
+  const { loadOperations } = require(path.join(F.ROOT, 'src/operations/index.js'));
+  const op = loadOperations().operations.find((o) => o.group === 'lifecycle' && o.name === 'restore');
+  const props = Object.keys((op && op.result.schema && op.result.schema.properties) || {}).sort();
+  const want = ['admins', 'assistant', 'graph', 'offlineMs', 'owner', 'restarting', 'restored', 'safetyBackup', 'warnings'];
+  assert(want.every((k) => props.includes(k)), `the schema names ${show(want)}; got ${show(props)}`);
+  const { run } = await same();
+  const Ajv = require('ajv');
+  const validate = new Ajv({ allErrors: true, strict: false }).compile(op.result.schema);
+  assert(validate(S.okData(run, 'x')), `a real report matches the schema: ${show(validate.errors)}`);
 });
 
 test('R17: no answer, warning or log line carries either assistant\'s private key or either master key', async () => {

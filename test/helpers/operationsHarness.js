@@ -121,9 +121,12 @@ function send(port, r) {
       });
       res.on('error', (e) => done({ id: r.id, status: res.statusCode, headers: res.headers, body: `response error: ${e.message}`, bodyBase64: '' }));
     });
-    req.on('error', (e) => done({ id: r.id, status: 0, body: `request error: ${e.message}` }));
+    req.on('error', (e) => done({ id: r.id, status: 0, body: `request error: ${e.message}`, aborted: !!r.abortAfterMs, at: Date.now() }));
     if (r.declaredOnly) req.end(); // headers only (a Content-Length given in r.headers is never sent)
     else req.end(payload);
+    // abortAfterMs: the client gives up and closes the connection before the answer (graph-operations-foundation #2,
+    // review round 1).
+    if (r.abortAfterMs) setTimeout(() => { req.destroy(); done({ id: r.id, status: 0, aborted: true, at: Date.now() }); }, r.abortAfterMs);
   });
 }
 

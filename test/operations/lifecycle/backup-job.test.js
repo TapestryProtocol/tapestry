@@ -9,6 +9,10 @@
  *   J1  runDetached writes the request to .runs/<runId>.json, runs the worker on it, and resolves its result
  *   J2  the job finishes, and writes its result, even when its caller is killed while it runs
  *   J3  a job that dies without a result is reported failed, and its lock is removed
+ *   J4  after an assistant-changing restore, the job restarts the control panel once its caller marks the answer out
+ *   J5  … or once its caller is gone, or at its time limit; never after a backup (ADR 0002 Amendment 1)
+ *   J6  a job that can't be started is failed, and its lock removed (review round 1)
+ *   J7  recovering a stale lock removes only that lock (review round 1)
  *   Y1  _system.js runs neo4j-admin as user neo4j through runuser, and supervisorctl, with the arguments the ADR names
  *   Y2  programStatus reads supervisorctl status, which exits 3 when some program isn't running
  *   K1  nginx: /api/tapestry/lifecycle/ keeps X-Forwarded-For, takes large bodies, streams, and waits 900 s
@@ -123,6 +127,109 @@ test('J3: a job that dies without a result is reported failed, and the lock it h
   const rec = resultOf(r.stdout);
   assert(rec && rec.outcome === 'failed' && /result/i.test(String(rec.error)), `a job with no result is { outcome: 'failed', error } saying so; got ${show(rec)} ${String(r.stderr).slice(-300)}`);
   assert(!fs.existsSync(path.join(j.backups, '.lock')), 'the dead job\'s lock is removed');
+});
+
+// ── After the job: the restart, once the answer is out or the caller is gone (ADR 0002 Amendment 1) ──────────────
+
+const STORE = path.join(ROOT, 'src/operations/catalog/lifecycle/_store.js');
+/** Run `fn` with TAPESTRY_BACKUPS_DIR set to `dir`, then put it back. */
+async function inBackups(dir, fn) {
+  const before = process.env.TAPESTRY_BACKUPS_DIR;
+  process.env.TAPESTRY_BACKUPS_DIR = dir;
+  try { return await fn(); } finally {
+    if (before === undefined) delete process.env.TAPESTRY_BACKUPS_DIR; else process.env.TAPESTRY_BACKUPS_DIR = before;
+  }
+}
+/** A system that only records restarts, and really sleeps. */
+function restartRecorder() {
+  return { calls: [], async supervisor(action, programs) { this.calls.push({ action, programs: [].concat(programs), at: Date.now() }); }, sleep: (ms) => new Promise((r) => setTimeout(r, ms)) };
+}
+function afterJobOf() {
+  need(JOBS, 'ADR graph-operations-foundation/0002 Decision 8');
+  const jobs = require(JOBS);
+  assert(typeof jobs.afterJob === 'function' && typeof jobs.markAnswered === 'function', '_jobs.js exports afterJob(record, system, opts) and markAnswered(runId) (ADR 0002 Amendment 1)');
+  return jobs;
+}
+
+test('J4: after a restore that changed the assistant, the job restarts the control panel once its caller marks the answer out — not before', async () => {
+  const jobs = afterJobOf();
+  const j = jobDir('j4a');
+  const runId = F.newId();
+  await inBackups(j.backups, async () => {
+    const request = { op: 'restore', runId, callerPid: process.pid };
+    fs.writeFileSync(path.join(j.backups, '.runs', `${runId}.json`), JSON.stringify(request));
+    const sys = restartRecorder();
+    let markedAt = null;
+    setTimeout(() => { markedAt = Date.now(); jobs.markAnswered(runId); }, 300);
+    await jobs.afterJob({ ...request, outcome: 'done', result: { restarting: ['brainstorm'] } }, sys, { pollMs: 25, timeoutMs: 5000 });
+    const restarts = sys.calls.filter((c) => c.action === 'restart' && c.programs.includes('brainstorm'));
+    assert(restarts.length === 1 && markedAt && restarts[0].at >= markedAt, `one restart, after the answer was marked (${markedAt}); got ${show(sys.calls)}`);
+    const file = JSON.parse(fs.readFileSync(path.join(j.backups, '.runs', `${runId}.json`), 'utf8'));
+    assert(file.answeredAt && file.restartedAt, `the run file records answeredAt and restartedAt; got ${show(file)}`);
+  });
+});
+
+test('J5: the job restarts the control panel when its caller is gone (a command ended by Ctrl-C), or at its time limit; never after a backup', async () => {
+  const jobs = afterJobOf();
+  const j = jobDir('j5');
+  await inBackups(j.backups, async () => {
+    const restore = (runId, callerPid) => {
+      const request = { op: 'restore', runId, callerPid };
+      fs.writeFileSync(path.join(j.backups, '.runs', `${runId}.json`), JSON.stringify(request));
+      return { ...request, outcome: 'done', result: { restarting: ['brainstorm'] } };
+    };
+    const gone = restartRecorder();
+    const t0 = Date.now();
+    await jobs.afterJob(restore(F.newId(), F.deadPid()), gone, { pollMs: 25, timeoutMs: 5000 });
+    assert(gone.calls.filter((c) => c.action === 'restart').length === 1 && Date.now() - t0 < 2000, `a gone caller: one restart, at once; got ${show(gone.calls)} after ${Date.now() - t0} ms`);
+    const silent = restartRecorder();
+    const t1 = Date.now();
+    await jobs.afterJob(restore(F.newId(), process.pid), silent, { pollMs: 25, timeoutMs: 400 });
+    assert(silent.calls.filter((c) => c.action === 'restart').length === 1 && Date.now() - t1 >= 380, `a silent caller: one restart, at the time limit; got ${show(silent.calls)} after ${Date.now() - t1} ms`);
+    const none = restartRecorder();
+    await jobs.afterJob({ op: 'backup', runId: F.newId(), callerPid: process.pid, outcome: 'done', result: { backup: { id: F.newId() } } }, none, { pollMs: 25, timeoutMs: 400 });
+    await jobs.afterJob({ op: 'restore', runId: F.newId(), callerPid: process.pid, outcome: 'done', result: { restarting: [] } }, none, { pollMs: 25, timeoutMs: 400 });
+    await jobs.afterJob({ op: 'restore', runId: F.newId(), callerPid: process.pid, outcome: 'failed', error: 'x' }, none, { pollMs: 25, timeoutMs: 400 });
+    assert(none.calls.length === 0, `no restart after a backup, a restore that changed nothing, or a failed one; got ${show(none.calls)}`);
+  });
+});
+
+test('J6: a job that can\'t be started (its run file can\'t be written) is failed, and its lock is removed (review round 1)', async () => {
+  need(JOBS, 'ADR graph-operations-foundation/0002 Decision 8');
+  const jobs = require(JOBS);
+  const j = jobDir('j6');
+  fs.rmSync(path.join(j.backups, '.runs'), { recursive: true, force: true });
+  fs.writeFileSync(path.join(j.backups, '.runs'), 'a file where the runs folder should be');
+  const runId = F.newId();
+  F.writeLock(j.backups, { runId, op: 'backup', pid: process.pid });
+  await inBackups(j.backups, async () => {
+    let rec;
+    try { rec = await jobs.runDetached({ op: 'backup', runId }, { workerPath: j.worker }); } catch (e) { rec = { threw: e.message }; }
+    assert(rec && rec.outcome === 'failed' && typeof rec.error === 'string', `resolves { outcome: 'failed', error }; got ${show(rec)}`);
+  });
+  assert(!fs.existsSync(path.join(j.backups, '.lock')), 'the lock is removed, so the next backup isn\'t refused busy');
+});
+
+test('J7: recovering a stale lock removes only that lock — one another run took meanwhile stays (review round 1)', async () => {
+  need(STORE, 'ADR graph-operations-foundation/0002 Decision 7');
+  const store = require(STORE);
+  const j = jobDir('j7');
+  const stale = F.writeLock(j.backups, { op: 'backup', pid: F.deadPid(), stage: 'offline' });
+  const freshRunId = F.newId();
+  const sys = {
+    calls: [],
+    async supervisor(action, programs) {
+      this.calls.push(`${action} ${[].concat(programs).join('+')}`);
+      // Meanwhile another process finishes its own recovery and takes the lock for a run of its own.
+      if (action === 'start') F.writeLock(j.backups, { runId: freshRunId, op: 'restore', pid: process.pid });
+    },
+    async sleep() {},
+  };
+  await inBackups(j.backups, () => store.recoverIfStale(sys, async () => {}));
+  const lock = JSON.parse(fs.readFileSync(path.join(j.backups, '.lock'), 'utf8'));
+  assert(lock.runId === freshRunId, `the fresh lock stays; got ${show(lock)}`);
+  const run = JSON.parse(fs.readFileSync(path.join(j.backups, '.runs', `${stale.runId}.json`), 'utf8'));
+  assert(run.outcome === 'interrupted', `the stale run is still recorded as interrupted; got ${show(run)}`);
 });
 
 // ── The real system, with stand-in commands on PATH ──────────────────────────────────────────────────────────────

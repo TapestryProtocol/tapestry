@@ -973,6 +973,10 @@ function fileFixtureFiles() {
     'graph/after-answer.js': declSource({ ...BASE, group: 'graph', name: 'after-answer', summary: 'Do something once it has answered' }, {
       run: `async run(inputs, context) { context.afterAnswer(async () => { const startedAt = Date.now(); await new Promise((res) => setTimeout(res, 400)); const r = (globalThis.__opsRuns = globalThis.__opsRuns || {}); r['after:' + context.via] = { startedAt, endedAt: Date.now() }; }); return { ok: true }; }`,
     }),
+    // Review round 1: a client that gives up before a slow operation answers must not stop its after-answer work.
+    'graph/slow-after.js': declSource({ ...BASE, group: 'graph', name: 'slow-after', summary: 'Answer slowly, then do something' }, {
+      run: `async run(inputs, context) { await new Promise((res) => setTimeout(res, 500)); context.afterAnswer(async () => { const r = (globalThis.__opsRuns = globalThis.__opsRuns || {}); r['slow-after:' + context.via] = Date.now(); }); return { ok: true }; }`,
+    }),
     // Invalid: a file result on a write, a file body on a read, a result with both, a body with no sensible limit.
     'graph/file-on-write.js': declSource({ ...read, name: 'file-on-write', kind: 'write' }),
     'graph/body-on-read.js': declSource({ ...BASE, group: 'graph', name: 'body-on-read', body: write.body }),
@@ -1003,6 +1007,7 @@ function filesRun() {
         write('fw-nolabel', 'owner', null, fileBytes(10)),
         { id: 'after', app: 'fixture', method: 'GET', url: AFTER, caller: 'owner' },
         { id: 'list', app: 'fixture', method: 'GET', url: LIST, caller: 'owner' },
+        { id: 'gave-up', app: 'fixture', method: 'GET', url: '/api/tapestry/graph/slow-after', caller: 'owner', abortAfterMs: 150 },
       ],
       cli: [
         { id: 'c-read', catalog: 'fixture', argv: ['graph', 'file-read', '--size', '600'] },
@@ -1029,7 +1034,7 @@ test('F1: a read may answer with a file and a write may take one; a file result 
   const { loadOperations } = operationsIndex();
   const { operations, problems } = loadOperations({ dir: fileFixtureDir() });
   const names = operations.map((o) => o.name).sort();
-  assert(same(names, ['after-answer', 'file-read', 'file-write']), `the three valid fixtures load; got ${show(names)}`);
+  assert(same(names, ['after-answer', 'file-read', 'file-write', 'slow-after']), `the four valid fixtures load; got ${show(names)}`);
   const bad = problems.map((p) => p.file).sort();
   assert(same(bad, ['graph/bad-max.js', 'graph/body-on-read.js', 'graph/file-on-write.js', 'graph/schema-and-file.js']), `the four invalid ones are reported; got ${show(problems)}`);
   for (const p of problems) assert(/file|body|maxBytes/i.test(p.problem), `${p.file}'s problem says what is wrong with its file or body; got ${show(p.problem)}`);
@@ -1069,6 +1074,12 @@ test('F4: afterAnswer work runs once the route has answered, and before the comm
   const c = fgot('c-after');
   const cli = frun('after:cli');
   assert(c.code === 0 && cli && c.endedAt >= cli.endedAt, `the command waits for the after-answer work before it exits; got ${show({ code: c.code, ended: c.endedAt, work: cli })}`);
+});
+
+test('F8: after-answer work runs even when the client gave up before the answer (review round 1)', () => {
+  const r = fgot('gave-up');
+  assert(r.aborted === true, `the client gave up before the answer; got ${show(r)}`);
+  assert(typeof frun('slow-after:http') === 'number', `the operation's after-answer work still ran once it had answered; runs: ${show(filesRun().data && filesRun().data.runs)}`);
 });
 
 test('F5: the command writes a file result to stdout and reads a file body from stdin, and refuses a terminal for either (exit 2)', () => {

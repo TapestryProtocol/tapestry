@@ -55,6 +55,7 @@ function newFakeState(file, over = {}) {
     confPath: over.confPath || null,
     failures: {
       cypherDown: false, // every query throws, though the server is "online"
+      stopThrows: false, // `stop neo4j` stops the server, then throws
       dump: false, // the dump writes a few bytes and exits 1
       recoveryRequired: false, // info says the store needs recovery
       loadFailures: 0, // this many loads fail (and leave the store broken) before loads succeed again
@@ -115,6 +116,14 @@ function fakeSystem(stateFile) {
       const entry = { call: 'supervisor', action, programs: list, online: s.online, at: Date.now() };
       for (const p of list) {
         if (p === 'neo4j') {
+          if (action === 'stop' && s.failures.stopThrows) {
+            // supervisorctl stopped the server, then reported a failure (review round 1, non-blocking 3)
+            s.online = false;
+            entry.threw = true;
+            s.log.push(entry);
+            save(s);
+            throw new Error('supervisorctl stop neo4j exited 2 (fake): stopped, but the client lost its connection');
+          }
           if (action === 'stop') s.online = false;
           if (action === 'start' || action === 'restart') {
             s.online = true;
@@ -520,9 +529,10 @@ function deadPid() {
   return Number(r.stdout);
 }
 /** Write a lock as ADR Decision 7 describes it. */
-function writeLock(backupsDir, { runId = newId(), op = 'backup', host = os.hostname(), pid = process.pid, stage = 'online', backup = null, startedAt } = {}) {
+function writeLock(backupsDir, { runId = newId(), op = 'backup', host = os.hostname(), pid = process.pid, stage = 'online', backup = null, safety, startedAt } = {}) {
   fs.mkdirSync(backupsDir, { recursive: true, mode: 0o700 });
   const lock = { runId, op, host, holders: [{ pid, startTime: startTimeOf(pid) }], stage, backup, startedAt: startedAt || new Date().toISOString() };
+  if (safety) lock.safety = safety;
   fs.writeFileSync(path.join(backupsDir, '.lock'), JSON.stringify(lock));
   return lock;
 }

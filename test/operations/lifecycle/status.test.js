@@ -134,12 +134,13 @@ test('P1b: backup shows the most recent backup, how many there are, the last run
     assert(same(b.last, want), `last is the most recent backup ${show(want)}; got ${show(b.last)}`);
     assert(b.lastRun && b.lastRun.runId === runId && b.lastRun.op === 'backup' && b.lastRun.outcome === 'done' && b.lastRun.finishedAt === '2026-11-08T10:00:20.000Z' && b.lastRun.backup === newest.id,
       `lastRun is { runId, op, outcome, finishedAt, backup }; got ${show(b.lastRun)}`);
-    const lock = F.writeLock(backups, { op: 'restore', pid: F.deadPid(), stage: 'offline' });
+    const safetyId = F.newId(new Date('2026-11-08T11:00:00.000Z'));
+    const lock = F.writeLock(backups, { op: 'restore', pid: F.deadPid(), stage: 'offline', safety: safetyId });
     const before = listing(backups);
     const c = backupPart(backups);
-    assert(c.interrupted && c.interrupted.runId === lock.runId && c.interrupted.op === 'restore' && c.interrupted.startedAt === lock.startedAt,
-      `a stale lock shows as interrupted { runId, op, startedAt }; got ${show(c.interrupted)}`);
-    assert(typeof c.note === 'string' && /interrupt/i.test(c.note), `the note says a run was interrupted; got ${show(c.note)}`);
+    assert(c.interrupted && c.interrupted.runId === lock.runId && c.interrupted.op === 'restore' && c.interrupted.startedAt === lock.startedAt && c.interrupted.safety === safetyId,
+      `a stale lock shows as interrupted { runId, op, startedAt, safety }; got ${show(c.interrupted)}`);
+    assert(typeof c.note === 'string' && /interrupt/i.test(c.note) && c.note.includes(safetyId), `the note says a restore was interrupted and names its safety backup; got ${show(c.note)}`);
     assert(same(listing(backups), before) && fs.existsSync(path.join(backups, '.lock')), 'status reads only: the folder and the lock are as they were');
     const s = status();
     const Ajv = require('ajv');

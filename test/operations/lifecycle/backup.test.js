@@ -29,6 +29,7 @@
  *   B17  backups live on the data volume: /var/lib/brainstorm/backups by default
  *   B18  no answer, warning or log line carries a private key or a master key
  *   B19  an instance with no admins records none, not its launch settings' empty quotes (found by the live check)
+ *   B20  a stop that stops the server but then fails is still undone (review round 1)
  */
 
 const fs = require('fs');
@@ -349,6 +350,16 @@ test('B19: an instance with no admins records none — not the empty quotes of i
   assert(show(d.holds && d.holds.admins) === show([]), `holds.admins is empty; got ${show(d.holds && d.holds.admins)}`);
   const admins = JSON.parse(fs.readFileSync(path.join(inst.backupsDir, d.backup.id, 'admins.json'), 'utf8'));
   assert(show(admins) === show({ pubkeys: [], from: 'launch-settings' }), `admins.json is { pubkeys: [], from: 'launch-settings' }; got ${show(admins)}`);
+});
+
+test('B20: a stop that stops the server but then fails is still undone: the server and the writers come back (review round 1)', async () => {
+  const { inst, run } = await setup('stop-throws', { instance: { failures: { stopThrows: true } }, scenario: () => ({ requests: [post('stop-throws', 'owner', {})] }) });
+  const r = F.pick(run, 'stop-throws');
+  assert(r.status === 500 && r.body && r.body.code === 'failed', `answers 500 failed; got ${r.status} ${show(r.body)}`);
+  const s = F.readState(inst.state);
+  assert(s.online === true && s.programs['stream-consumer'] === 'RUNNING' && s.programs['tagging-edges-realtime'] === 'RUNNING',
+    `the server is started again and both writers run; got ${show({ online: s.online, programs: s.programs })}`);
+  assert(F.backupIds(inst.backupsDir).length === 0 && F.leftovers(inst.backupsDir).length === 0, 'nothing is kept');
 });
 
 test('B17: backups live on the data volume — /var/lib/brainstorm/backups unless TAPESTRY_BACKUPS_DIR says otherwise', () => {
