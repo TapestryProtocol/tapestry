@@ -12,9 +12,9 @@
  * `node clients/cli/bin/tapestry.js`, with a temporary TAPESTRY_HOME and HOME and nothing else of this process's
  * environment but PATH. Every key is made here; nothing reaches a relay or a live instance.
  *
- *   S1–S6    signing in with the agent's own key                                          [AC1]
+ *   S1–S7    signing in with the agent's own key; S7 a declared 401 (review round 1)       [AC1; ADR 0006 Decision 5]
  *   O1–O6    the operations come from the instance                                       [AC2]
- *   K1–K10   calling an operation: flags, typing, answers, exit codes, transport          [AC3; ADR 0006 Decisions 1, 4, 6]
+ *   K1–K11   calling an operation: flags, typing, answers, exit codes, transport; K11 dots [AC3, AC5; ADR 0006 Decisions 1, 4, 6]
  *   I1–I15   the key, the instance, and who the agent is there                            [AC4]
  *   SK1–SK4  the skill                                                                    [AC6]
  *   P1–P5    the package, the version banner, the README, and staying out of the image    [ADR 0006 Decisions 1, 2, 9, 10]
@@ -149,6 +149,14 @@ function catalog(extra = {}) {
     }, { run: 'async run(inputs) { await new Promise((r) => setTimeout(r, inputs.ms)); return { waited: inputs.ms }; }' }),
     'lifecycle/owner-thing.js': declSource({ ...BASE, group: 'lifecycle', name: 'owner-thing', access: 'owner-only', summary: 'Only for the owner' }, {
       run: `async run() { ${COUNT('lifecycle owner-thing')} return { ok: true }; }`,
+    }),
+    // A write whose own declared refusal is a 401, as a declaration may give any 4xx (review round 1, B2).
+    'graph/needs-approval.js': declSource({
+      ...BASE, group: 'graph', name: 'needs-approval', kind: 'write', summary: 'Refuse with a 401 of its own, after running',
+      refusals: [{ code: 'needs-approval', status: 401, when: 'The write waits for an approval' }],
+    }, {
+      head: `const { refusal } = require(${show(REFUSAL)});`,
+      run: `async run() { ${COUNT('graph needs-approval')} throw refusal('needs-approval', 'This write waits for an approval.'); }`,
     }),
     ...extra,
   };
@@ -424,6 +432,24 @@ test('S6: the sign-in event is kind 22242 with the challenge, the content the ap
   assert(leaked.length === 0, `no request may carry a secret key; found it in ${show(leaked.map((x) => `${x.method} ${x.path}`))}`);
 });
 
+test('S7: an operation\'s own declared 401 is a refusal: exit 1, sent once and run once, no new sign-in, and the kept sign-in stays (ADR 0006 Decision 5, amended at review round 1)', async () => {
+  const warm = await cli(['graph', 'echo-inputs', '--text', 'warm'], A);
+  assert(warm.code === 0, `the admin agent has a working sign-in first; ${said(warm)}`);
+  const before = await runsOf(INST, 'graph needs-approval');
+  const m = INST.mark();
+  const r = await cli(['graph', 'needs-approval'], A);
+  const j = json(r.stdout);
+  assert(r.code === 1 && j && j.success === false && j.code === 'needs-approval', `exit 1 with the operation's own refusal as it came; ${said(r)}`);
+  const reqs = INST.since(m);
+  assert(reqs.filter((x) => x.path === '/api/tapestry/graph/needs-approval').length === 1, `the write is sent once; got ${show(reqs.map((x) => `${x.method} ${x.path}`))}`);
+  assert((await runsOf(INST, 'graph needs-approval')) === before + 1, 'the write runs exactly once');
+  assert(count(reqs, '/api/auth/verify-user') === 0 && count(reqs, '/api/auth/login-user') === 0, `a declared 401 is not a lost sign-in: no new sign-in; got ${show(reqs.map((x) => x.path))}`);
+  assert(!/sign(ed)?[- ]in/i.test(r.stderr), `stderr must not blame the sign-in; got ${show(tail(r.stderr))}`);
+  const m2 = INST.mark();
+  const after = await cli(['graph', 'echo-inputs', '--text', 'after'], A);
+  assert(after.code === 0 && count(INST.since(m2), '/api/auth/verify-user') === 0, `the kept sign-in stays: the next call doesn't sign in; ${said(after)}`);
+});
+
 // ── O: the operations come from the instance (AC2) ───────────────────────────────────────────────────────────────
 
 test('O1: `tapestry` alone lists, by group with their summaries, the operations this key may call, then the CLI\'s own commands; an admin doesn\'t see the owner\'s only (AC2)', async () => {
@@ -602,6 +628,24 @@ test('K10: the CLI\'s flag rules are the internal command\'s: the same argument 
     const e = ext.parseFlags(c);
     const i = int.parseFlags(c);
     assert(!!e.usage === !!i.usage && same(e.inputs, i.inputs) && !!e.help === !!i.help, `${show(c)}: inside ${show(i)}, outside ${show(e)}`);
+  }
+});
+
+test('K11: a list entry whose route leaves /api/tapestry/ by dot segments is never called (AC5, review round 1)', async () => {
+  mustExist(path.join(CLI_DIR, 'src/operations.js'), `${ADR} Decision 1`);
+  const { callOperation } = require(path.join(CLI_DIR, 'src/operations.js'));
+  const dead = await deadUrl();
+  const ctx = {
+    origin: dead,
+    home: newHome(),
+    io: { out: () => {}, err: () => {} },
+    http: { timeout: 2000, version: 'test' },
+    identity: { pubkey: ADMIN.pubkey, npub: ADMIN.npub, source: 'test', sign: async () => { throw new Error('no signing in this test'); } },
+  };
+  for (const route of ['/api/tapestry/../api/neo4j/query', '/api/tapestry/%2e%2e/api/neo4j/query', '/api/tapestry/graph/../../x']) {
+    let message = null;
+    try { await callOperation(ctx, { group: 'graph', name: 'sneaky', method: 'GET', route }, {}); } catch (e) { message = e.message; }
+    assert(message && /isn't under \/api\/tapestry\//.test(message), `${route}: refused before any call, as not under /api/tapestry/; got ${show(message)}`);
   }
 });
 
@@ -843,11 +887,15 @@ test('SK2: the skill covers what the story lists, in order for a cold start: who
     'help': [/--help/],
     'answers, refusals and exit codes': [/exit/i, /refus/i],
     'what never to do': [/never/i, /owner['’]s key/i, /cypher/i],
+    'the roles whoami names (review round 1)': [/`owner`/, /`admin`/, /`neither`/, /`local`/],
   };
   for (const [topic, res] of Object.entries(topics)) for (const re of res) assert(re.test(body), `the skill must cover ${topic}: missing ${re}`);
   const w = body.indexOf('tapestry whoami');
   const s = body.indexOf('tapestry lifecycle status');
   assert(w >= 0 && s > w, 'the cold start runs whoami before lifecycle status');
+  // A failure may come after a write has half-run, so the skill mustn't tell the agent to resend it blindly (review round 1).
+  const failedRow = body.split(NL).find((l) => /^\|\s*3\s*\|/.test(l));
+  assert(failedRow && /write/i.test(failedRow), `the exit 3 row must say what to do about a write that failed; got ${show(failedRow)}`);
 });
 
 test('SK3: the skill and the CLI agree: every command, global flag, variable and exit code in the CLI\'s tables is in the skill, and the skill names none it lacks (AC6)', () => {
@@ -870,7 +918,26 @@ test('SK3: the skill and the CLI agree: every command, global flag, variable and
       const flag = f.split('=')[0];
       assert(known.has(flag) || first === undefined || /^<.*>$/.test(first) || first === 'lifecycle', `the skill shows the flag ${flag} in \`${line}\`, which the CLI doesn't take`);
     }
+    // A CLI command is shown by all its words, and anything after them is a flag, a flag's value or a <placeholder>
+    // (review round 1: `tapestry key rotate` must not pass for `tapestry key new`).
+    if (firstWords.has(first)) {
+      const rest = words.slice(i);
+      const cmd = t.COMMANDS.find((c) => c.words.every((x, k) => rest[k] === x));
+      assert(cmd, `the skill shows \`${line}\`, which is no CLI command: ${show(rest.slice(0, 2).join(' '))}`);
+      const after = rest.slice(cmd.words.length);
+      for (let k = 0; k < after.length; k++) {
+        const x = after[k];
+        if (/^--?[a-z]/.test(x)) { if (k + 1 < after.length && !/^-/.test(after[k + 1])) k++; continue; }
+        assert(/^<[^>]+>$/.test(x), `the skill shows \`${line}\`, but ${show(x)} after \`tapestry ${cmd.words.join(' ')}\` is neither a flag nor a <placeholder>`);
+      }
+    }
   }
+  // Every exit code the skill gives is one the CLI has (review round 1: an exit 4 must not pass).
+  const given = new Set([
+    ...[...body.matchAll(/^\|\s*(\d+)\s*\|/gm)].map((m) => m[1]),
+    ...[...body.matchAll(/\bexit(?:s| code| status)?\s+(\d+)\b/gi)].map((m) => m[1]),
+  ]);
+  for (const code of given) assert(Object.prototype.hasOwnProperty.call(t.EXIT_CODES, code), `the skill gives exit ${code}, which the CLI doesn't have`);
   const want = { 0: 'answered', 1: 'refused', 2: 'usage', 3: 'failed' };
   assert(same(Object.fromEntries(Object.entries(t.EXIT_CODES).map(([k, v]) => [String(k), v])), Object.fromEntries(Object.entries(want).map(([k, v]) => [String(k), v]))),
     `the exit codes are the internal command's: ${show(want)}; got ${show(t.EXIT_CODES)}`);

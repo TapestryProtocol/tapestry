@@ -15,6 +15,7 @@ There is one new suite and one new helper, the operations suite gains two tests,
 
   Two more modes stand in for things that aren't an instance: one answers HTML, the other a 302.
 - **`test/operations.test.js` gains H16 and D6,** for the list's `caller` (ADR Decision 7).
+- **Review round 1:** `S7` and `K11` are new, `SK2` and `SK3` are stricter, and `test/brains-launcher-repo.test.js` W1c lists the new top-level `clients/` as a path the brains don't run (B1).
 
 ## Coverage map
 
@@ -26,6 +27,7 @@ There is one new suite and one new helper, the operations suite gains two tests,
 | AC1 | `S4` a write after a forgotten sign-in runs exactly once (counted on the instance) | same | integration |
 | AC1 | `S5` a sign-in that never sticks is retried once, not in a loop: exit 1, at most two sign-ins, the instance's refusal on stdout | same | integration |
 | AC1, AC5 | `S6` every sign-in event is kind 22242 with only the challenge tag, the app's content, the key's pubkey and a valid signature; no request carries a secret | same | integration |
+| AC1 (Decision 5, amended) | `S7` an operation's own declared 401 is a refusal: exit 1, the write sent and run once, no new sign-in, nothing on stderr blaming the sign-in, and the kept sign-in still works (review round 1, B2) | same | integration |
 | AC2: the operations come from the instance | `O1` `tapestry`, `help` and `--help` list this key's operations by group with summaries, then the CLI's own commands; an admin doesn't see the owner-only one, the owner does | same | integration |
 | AC2 | `O2` `tapestry <group>` lists one group | same | integration |
 | AC2 | `O3` `<group> <operation> --help` shows inputs, required, the route, a built-in refusal and who may call it, and runs nothing | same | integration |
@@ -42,6 +44,7 @@ There is one new suite and one new helper, the operations suite gains two tests,
 | Decision 4 | `K8` a redirect isn't followed: exit 3 naming its target, and nothing reaches the target | same | integration (redirect + trap) |
 | Decision 4 | `K9` a call slower than `TAPESTRY_TIMEOUT` exits 3 within about a second, saying it timed out | same | integration |
 | Decision 1 | `K10` the client's `parseFlags` gives the internal command's inputs, help and usage errors for fifteen argument lists | same | unit |
+| AC5 | `K11` a list entry whose route leaves `/api/tapestry/` by dot segments (`..`, `%2e%2e`) is refused before any call (review round 1) | same | unit |
 | AC4: the key | `I1` `key new` writes `<home>/key` at 0600 in a 0700 home, prints `{ file, npub, pubkey }` and not the secret, refuses to overwrite, and `--file` writes elsewhere | same | integration |
 | AC4 | `I2` `key show` prints `{ source, npub, pubkey }` from a key file, `TAPESTRY_SECRET_KEY` and a signer, never a secret | same | integration |
 | AC4 | `I3` a key file others can read is refused (exit 2, naming `chmod 600` and the file) and nothing is sent; at 0600 it works | same | integration |
@@ -61,8 +64,8 @@ There is one new suite and one new helper, the operations suite gains two tests,
 | AC5, AC1 | `A2` the only signed events sent were kind-22242 sign-ins to `login-user`; no other request carried a signature; no request anywhere carried a secret | same | integration (all records) |
 | AC5 | `A3` the CLI's code loads no WebSocket, relay, pool or NIP-46 module | same | structural |
 | AC6: the skill | `SK1` `clients/cli/skill/SKILL.md` has frontmatter `name: tapestry-operations`, a description, and OpenClaw's `requires.bins: [tapestry]` | same | structural |
-| AC6 | `SK2` the skill covers each topic the story lists, and the cold start runs `whoami` before `lifecycle status` | same | structural |
-| AC6 | `SK3` the skill and `src/commands.js`'s tables agree on commands, global flags, environment variables and exit codes, and the skill shows no `tapestry …` word, flag or variable the CLI lacks, and names no operation but `lifecycle status` | same | structural |
+| AC6 | `SK2` the skill covers each topic the story lists, and the roles `owner`, `admin`, `neither` and `local`; the cold start runs `whoami` before `lifecycle status`; the exit 3 row says what to do about a write (review round 1) | same | structural |
+| AC6 | `SK3` the skill and `src/commands.js`'s tables agree on commands, global flags, environment variables and exit codes; the skill shows no `tapestry …` word, flag or variable the CLI lacks, shows each CLI command by all its words with only flags, values and `<placeholders>` after them, gives no exit code outside the table, and names no operation but `lifecycle status` (strengthened at review round 1, B3) | same | structural |
 | AC6 | `SK4` the CLI's own help names every table command, and an unknown word exits 2 | same | integration |
 | Decision 1 | `P1` `clients/cli/package.json`: `tapestry-operations-cli`, private, `bin.tapestry`, Node `>=20`, only ajv and nostr-tools at the root lockfile's exact versions; a lockfile beside it | same | structural |
 | Decision 1 | `P2` `bin/tapestry.js` has a node shebang and is executable | same | structural |
@@ -92,6 +95,7 @@ The ADR leaves these to the tests. The Implementer builds to them.
   - `key new` onto an existing file: non-zero, with the file named on stderr;
   - a signer's wrong or unverifiable event: 3, and it is never sent.
 - **`TAPESTRY_TIMEOUT`** is in seconds.
+- **A 401 is retried after one new sign-in only when it is the instance's own sign-in refusal:** no `code` (the central check), or `sign-in-required` (the router). An operation's declared 401 is a refusal like any other (`S7`; ADR 0006 Decision 5, amended at review round 1).
 
 ## Edge cases
 
@@ -110,6 +114,7 @@ The ADR leaves these to the tests. The Implementer builds to them.
   - `A1` and `A3` check that requests were made and files were found.
 - [ ] **Not covered:** an instance whose list has a group named like one of the CLI's own commands (ADR Decision 2). Today's groups can't take those names, and making the case means a hand-made list served by a stub instance. Low value now.
 - [ ] **Not covered:** https itself. The suite's instances are plain http on loopback, which the CLI allows. The live check covers a real proxy path.
+- [ ] **Not covered, by a test (review round 1):** a signer that hangs past its 180 seconds is killed with the programs it started, and Node older than 20 is refused by name (the check now includes `Headers#getSetCookie`). Both are code-only: a test would wait three minutes, or need an older Node.
 
 ## Test infrastructure
 

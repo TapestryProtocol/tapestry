@@ -257,9 +257,10 @@ test('W1b: only a push that changes what a brain runs or serves rolls the brains
 });
 
 // Top-level paths a brain doesn't run or serve. Sorting every path keeps a new folder the image uses from being missed.
+// clients/ is the external CLI, which runs on an agent's own machine (ADR graph-operations-foundation/0006 Decision 10).
 const NOT_RUNTIME = new Set(['.claude', '.env.example', '.gitignore', '.github', 'AGENTS.md', 'BIBLE.md', 'CLAUDE.md',
   'CODEBASE_ANALYSIS.md', 'LICENSE', 'OPEN.md', 'OPERATIONS.md', 'README.md', 'ROADMAP.md', 'SECURITY.md', 'VERIFY_TAG_CORE.md',
-  'concept-sharing-plan.md', 'debug-analyzer-detailed.js', 'design-philosophies', 'docker-compose.dev.yml',
+  'clients', 'concept-sharing-plan.md', 'debug-analyzer-detailed.js', 'design-philosophies', 'docker-compose.dev.yml',
   'docker-compose.override-example.yml', 'docker-compose.yml', 'docs', 'engineering-team', 'ledger', 'playwright.config.js',
   'product-team', 'protocols', 'scripts', 'shell.nix', 'systemd', 'test', 'test-analyzer.js', 'test-data',
   'test-syncwot-structured-logging.sh', 'test-task-end-standardization.sh', 'tests', 'tsconfig.json']);
