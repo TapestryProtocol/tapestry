@@ -758,4 +758,5 @@ Review round 3 asked for this (requested 1). The note it corrects stays as writt
 - **Where a save's cost lands** (round 2's D8 note, "what the bound leaves"). It lands on the first status read after a
   restart, and on the first one or two after a save that brings in new patterns. The cache drops the oldest pattern
   first, and a hit does not move a pattern's place. So with 32 patterns, a save that changes one entry costs 1
-  judgment on the next read and 31 on the read after it, as the same note's "1, then 31, then 0" says.
+  judgment on the next read. On the read after it, it costs one for each pattern judged before the changed one: up to
+  31 when that is the last, as the same note's "1, then 31, then 0" measured, and none when it is the first.
