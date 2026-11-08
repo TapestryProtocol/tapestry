@@ -117,7 +117,7 @@ The ADR leaves these to the tests. The Implementer builds to them.
   - `A1` and `A3` check that requests were made and files were found.
 - [ ] **Not covered:** an instance whose list has a group named like one of the CLI's own commands (ADR Decision 2). Today's groups can't take those names, and making the case means a hand-made list served by a stub instance. Low value now.
 - [ ] **Not covered:** https itself. The suite's instances are plain http on loopback, which the CLI allows. The live check covers a real proxy path.
-- [ ] **Not covered, by a test (review rounds 1 and 2):** Node older than 20 is refused by name (the check includes `Headers#getSetCookie`); a test would need an older Node. A signer that hangs past its 180 seconds is killed, but a program it started in the background may outlive that: it runs in the CLI's own process group (`I16`), which keeps its terminal and lets Ctrl-C reach it, and that is the trade (review round 2, R2-B1, which withdrew round 1's group kill).
+- [ ] **Not covered, by a test (review rounds 1 and 2):** Node older than 20 is refused by name (the check includes `Headers#getSetCookie`); a test would need an older Node. A signer that hangs past its 180 seconds has its shell killed: a simple command, which the shell usually runs in its own place, ends with it, but the programs of a pipeline or of a list joined by `;` or `&&` may outlive it. It runs in the CLI's own process group (`I16`), which keeps its terminal and lets Ctrl-C reach it, and that is the trade (review round 2, R2-B1, which withdrew round 1's group kill; the wording corrected at round 3).
 
 ## Test infrastructure
 
