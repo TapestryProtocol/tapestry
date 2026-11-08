@@ -79,6 +79,11 @@
  *             show. Both are red until the fix: today overdueView judges the kept body. TV135 is green on purpose: the
  *             same bodies read well give their verdicts as before, and a failed read with no body names the status read
  *             as its reason (TV129 checks only that it cannot tell), so the fix keeps what is right today.
+ *   TV136–TV137 Story 7's fix round 2 (review round 2, requested 3 and 4; ADR 0007 § Fix-round notes D14, and
+ *             round 2 D8): TV136 a Retry of a failed status read under way (state loading, the error kept) still
+ *             cannot tell, because the status could not be read, and its pair with no error kept shows what a good
+ *             read or no answer shows. Green on purpose: round 1's fix does this, and no test ran the branch. TV137
+ *             the line for cannot-tell/rule names no one cause. Red until the fix: today it names R13's.
  *
  * Story 7's readings where ADR 0007 leaves a detail open (reported at the Test Design gate):
  *   - confirmView's members are read by the names D9 gives them (offer, runId, count, replaces, when), with `when` one
@@ -3701,6 +3706,36 @@ test('TV135: green on purpose — a good read shows each verdict as before: no l
   const text = sentencesOfLine(none).join(' ');
   if (!CANNOT_TELL_OVERDUE.test(text) || !STATUS_UNREAD.test(text)) bad.push(`a failed read with no body: cannot tell, because the pass status could not be read (D14); got ${show(none)}`);
   assert(!bad.length, `overdueView with a good read, and a failed one with no body (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
+});
+
+/* TV136–TV137: story 7's fix round 2 (review round 2, requested 3 and 4; ADR 0007 § Fix-round notes, D14, and round 2) */
+
+/** A Retry of the status read under way (useRead's showLoading): state 'loading', the kept body, and the error kept or not. */
+const retryRead = (keptBody, error) => ({ ...failedRead(keptBody, error === undefined ? { ok: false, code: 'http-500', httpStatus: 500, body: null } : error), state: 'loading', error: error === undefined ? { ok: false, code: 'http-500', httpStatus: 500, body: null } : error });
+
+test('TV136: green on purpose — while a Retry of a failed status read is under way (state loading, the error kept), the line stays the one a failed read gives: the panel cannot tell whether the pass is overdue, because the pass status could not be read, whatever body is kept (each quiet verdict, each loud one, and none), never the kept verdict; its pair, a read under way with no error kept, shows the kept body\'s verdict as a good read does, and with no body says the check is still being made [story 7 AC-5 "A missing warning never stands for on time"; ADR tagging-edges/0007 § Fix-round notes, D14 "A kept verdict is never shown while the latest read has failed"; review round 2, requested 4 "the Retry branch of requested 5 … one TV case, and its pair with no error"]', async () => {
+  const bad = [];
+  const failedLine = show(sentencesOfLine(await overdueOf(null, failedRead(null))));
+  for (const [label, make] of [...QUIET7, ...LOUD7.map(([l, m]) => [l, m]), ['no body kept', () => null]]) {
+    const body = make();
+    const retry = await overdueOf(body, retryRead(body));
+    const text = sentencesOfLine(retry).join(' ');
+    if (!CANNOT_TELL_OVERDUE.test(text) || !STATUS_UNREAD.test(text)) bad.push(`${label}, a Retry under way with the error kept: cannot tell, because the pass status could not be read; got ${show(retry)}`);
+    else if (show(sentencesOfLine(retry)) !== failedLine) bad.push(`${label}, a Retry under way with the error kept: the line a failed read gives, ${failedLine}; got ${show(sentencesOfLine(retry))}`);
+    const pending = await overdueOf(body, { state: 'loading', body: body === null ? null : clone(body), error: null, readAt: body === null ? null : '2026-10-01T14:02:15.000Z' });
+    const want = body === null ? await overdueOf(null, READ_LOADING) : await overdueOf(body);
+    if (show(pending) !== show(want)) bad.push(`${label}, a read under way with no error kept: the same as ${body === null ? 'before the status has answered' : 'a good read of that body'}, ${show(want)}; got ${show(pending)}`);
+  }
+  assert(!bad.length, `overdueView while a read is under way (${ADR7_D14_NOTE}):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV137: the line for {state: cannot-tell, reason: rule} still says it is the rule the server cannot judge, but names no one cause, since the server gives that reason for three: a rule that runs fewer than twice in 400 days, more than 32 distinct patterns, and a pattern longer than 256 characters — so it never says the rule runs fewer than twice in 400 days [story 7 AC-5 "When it cannot tell … the backstop section says it cannot tell whether the pass is overdue"; ADR tagging-edges/0007 D8 R13, § Fix-round notes D8, and round 2 D8; review round 2, requested 3 "drop the clause, or give each cause its own reason and sentence"]', async () => {
+  const v = await overdueOf(status7({ overdue: { state: 'cannot-tell', reason: 'rule' } }));
+  const text = sentencesOfLine(v).join(' ');
+  const bad = [];
+  if (!CANNOT_TELL_OVERDUE.test(text) || !/\brule\b/i.test(text)) bad.push(`it says the panel cannot tell whether the pass is overdue, and that it is the rule; got ${show(text)}`);
+  if (/\bfewer than\b|\btwice\b|\b400 days\b/i.test(text)) bad.push(`it names R13's cause, which the server's reason does not carry (33 daily rules give it too); got ${show(text)}`);
+  assert(!bad.length, `overdueView for cannot-tell/rule (${ADR7} § Fix-round notes D8; review round 2, requested 3):\n      - ${bad.join('\n      - ')}`);
 });
 
 // ─── runner ────────────────────────────────────────────────────────────────────────────────────────────────────

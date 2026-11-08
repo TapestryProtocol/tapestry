@@ -8,21 +8,21 @@
 
 | Suite | Story 7's tests | Level |
 |---|---|---|
-| `test/tagging-edges-confirm.test.js` (new) | CH1–CH29 | component: `createController(deps)` over the shared fakes (CH1–CH25); handler with an injected `confirm` (CH26–CH27); child process with the real `authMiddleware` and `requireOwnerOnly` (CH28); signed-out reads after a confirmation, as PX38 (CH29) |
-| `test/tagging-edges-confirmation-lib.test.js` (new) | CL1–CL14 | unit, pure |
-| `test/tagging-edges-overdue.test.js` (new) | OV1–OV23 | unit, pure (OV9–OV12 in a child process with `TZ=UTC`, the real `cron-parser`); module with a temp `SCHEDULED_TASKS_CONFIG_PATH` (OV16–OV18); handler with injected deps (OV19–OV23) |
+| `test/tagging-edges-confirm.test.js` (new) | CH1–CH29; CH30–CH32 (review round 1) | component: `createController(deps)` over the shared fakes (CH1–CH25); handler with an injected `confirm` (CH26–CH27); child process with the real `authMiddleware` and `requireOwnerOnly` (CH28); signed-out reads after a confirmation, as PX38 (CH29) |
+| `test/tagging-edges-confirmation-lib.test.js` (new) | CL1–CL14; CL15–CL18 (review round 1) | unit, pure |
+| `test/tagging-edges-overdue.test.js` (new) | OV1–OV23; OV24–OV29 (review round 1); OV27 (revised) and OV30 (review round 2) | unit, pure (OV9–OV12 in a child process with `TZ=UTC`, the real `cron-parser`; OV25–OV28 and OV30 in such a child with `parseExpression` counted); module with a temp `SCHEDULED_TASKS_CONFIG_PATH` (OV16–OV18, OV24); handler with injected deps (OV19–OV23, OV26, OV29) |
 | `test/tagging-edges-held-fixture.test.js` (new) | HF1–HF9 | unit over the script's exports, loaded with the driver and network stubbed; source pin (HF9) |
-| `test/tagging-edges-pass-control.test.js` | CT8, CT24, CT29, CT31–CT34, CT51, CT55, CT58b, CT65, CT70 (revised); CT71 | component |
+| `test/tagging-edges-pass-control.test.js` | CT8, CT24, CT29, CT31–CT34, CT51, CT55, CT58b, CT65, CT70 (revised); CT71; CT72 (review round 1) | component |
 | `test/task-queue-job-gate.test.js` | JG19 (revised); JG27 | component; queue integration |
 | `test/tagging-edges-wiring.test.js` | SWR84 (revised); SWR87; SWR86's header comment (CF5) | module; child process |
 | `test/tagging-edges-state-routes.test.js` | RT4, RT17–RT19, RT31–RT36 (revised); RT39, RT40 | handler |
 | `test/tagging-edges-runner.test.js` | SR88–SR91 | unit over injected ports |
-| `test/tagging-pipeline-view.test.js` | TV111–TV132 | unit, pure and clock-free |
+| `test/tagging-pipeline-view.test.js` | TV111–TV132; TV133–TV135 (review round 1); TV136–TV137 (review round 2) | unit, pure and clock-free |
 | `test/tagging-pipeline-fetch.test.js` | TF32–TF37 | unit, with an injected `fetchImpl` |
 | `test/tagging-pipeline-panel-source.test.js` | PS13, PS14, PS28, PS31 (revised); PS39–PS44 | source pin |
-| `tests/brainstorm/tagging-pipeline-panel.spec.js` | B9, B10, B11, B38, B39, B43, B94 (revised); B118–B147 | browser (Playwright on the rebuilt UI, every `/api` route mocked) |
+| `tests/brainstorm/tagging-pipeline-panel.spec.js` | B9, B10, B11, B38, B39, B43, B94 (revised); B118–B147; B148–B154 and B129 (revised) (review round 1); B150 (revised) and B155 (review round 2) | browser (Playwright on the rebuilt UI, every `/api` route mocked) |
 | `test/helpers/taggingEdgesPassFakes.js` | `readHeld`, `heldDigest`, `writeConfirmation`, `withdrawConfirmation`, `nonce`, `holdRemovals()`, `onCall()` hooks, `failNext()` (additive; self-check 20/0) | fakes |
-| `test/helpers/taggingPipelineFixtures.js` | the confirm route's mock and D4 answers, `overdue`, `mintedAt`, `confirm` lines, the user's classification, 33 story-7 scenes (additive) | fixtures |
+| `test/helpers/taggingPipelineFixtures.js` | the confirm route's mock and D4 answers, `overdue`, `mintedAt`, `confirm` lines, the user's classification, 33 story-7 scenes (additive); `ENDED_CLEAN7_RECORD`, `TOOK_UP_NOW7_RECORD` and `SCENE7_R1` (review round 1) | fixtures |
 | `tests/brainstorm/fixtures/relay-subtab-requests.json` | the Negentropy Sync sub-tab's `GET /api/strfry/negentropy-presets`, added by hand with a `handEdits` note | fixture |
 
 The four new suites are in `test/registry.js`, after `tagging-edges-pass-routes.test.js`. Nothing was deleted: every
@@ -349,6 +349,42 @@ browser spec                       151 / 0       154 / 4      B151, B152, B153 g
   - the overdue line during a Retry after a failed read;
   - a focused opener that a later read removes (Confirm when another tab's confirmation is pending, or Stop once
     nothing is busy). D15's note covers only an opener replaced in place.
+
+### Fix round 2 (review round 2, 2026-11-08)
+
+Review round 2 asked for these tests: blocking 1 and 2, requested 3 and 4. They pin ADR 0007 § Fix-round notes,
+round 2. Each suite was run alone through `run()` on host Node 22.23.4, and the browser cases on chromium, at
+`20c5efa7` plus this round's tests:
+
+```
+suite                     before     after (pass / fail)
+tagging-edges-overdue     29 / 0     29 / 1    OV30 green on purpose; OV27 (revised) red
+tagging-pipeline-view    135 / 0    136 / 1    TV136 green on purpose; TV137 red
+browser spec, B150, B155   1 / 0      1 / 1    B155 green on purpose; B150 (revised) red
+```
+
+- **Four new tests and two revised:** OV30, TV136, TV137 and B155 are new; OV27 and B150 are revised. Three are red
+  before the fix:
+  - OV27: a pattern longer than 256 characters beside a daily interval entry, and beside the daily cron rule, reads
+    on time. Its case beside the interval entry pinned that wrong answer until this round;
+  - TV137: the line for `cannot-tell`/`rule` names R13's cause;
+  - B150: after the window loses focus, focus is on "Turn on" once the read lands.
+
+  None fails on an import, syntax or fixture error.
+- **Green on purpose,** each checked against a planted fault in the working tree, then put back:
+  - OV30 fails when the over-32 bound is applied only when every entry is a cron;
+  - TV136 fails when the Retry branch (`state 'loading'` with an error kept) is taken out of the failed-read check;
+  - B155 fails when the Confirm prompt's key is taken out, on its second read. On its first read, to the running
+    branch, the prompt sits at the same place among the section's children, so it is kept without the key; the read
+    to the branch with nothing held is what tells.
+- **Readings the suites chose:**
+  - a long pattern gives cannot-tell/rule whatever stands beside it. This replaces round 1's reading that it counts
+    with no period;
+  - B150's window case fires what a browser fires when its window or tab loses focus: `blur` and `focusout` on the
+    focused element, then `blur` on the window. Its setup checks that "Turn off" is still `document.activeElement`;
+  - TV137 checks that the rule line still says "rule", which B140 and TV134 need, and names no cause.
+- **Round 1's "Not pinned"** has two of its three items pinned now: OV30 and TV136. The third, a focused opener that a
+  later read removes, waits on the owner's decision (review round 2, § For the owner).
 
 ## For the owner (at this gate)
 

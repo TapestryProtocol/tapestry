@@ -46,6 +46,13 @@
  *                    purpose: the boundary the fix must keep.
  *              OV29  a throw from the verdict (an entry that cannot become a string or a number) is
  *                    cannot-tell/schedule and a 200, never a 500. Red until the fix.
+ *   OV27, OV30 at story 7's fix round 2 (2026-11-08; its review, round 2, blocking 1 and requested 4; ADR 0007
+ *              § Fix-round notes, round 2, D8):
+ *              OV27  revised: a pattern longer than 256 characters makes the verdict cannot-tell/rule whatever stands
+ *                    beside it. Its case beside a daily interval entry said on time, which was false; it is flipped,
+ *                    and a case beside the daily cron rule is added. Both are red until the fix.
+ *              OV30  more than 32 distinct patterns beside an interval entry are still cannot-tell/rule. Green on
+ *                    purpose: round 1's bound already does this, and no test ran it beside an interval.
  *
  * Choices this suite makes where the ADR leaves a detail open:
  *   - overdueVerdict filters its `entries` itself (D8's first rule: "the schedule entries with taskId
@@ -73,7 +80,9 @@
  *     - The 256-character boundary is "0 3 * * *" with its first gap widened by spaces (cron-parser splits on any
  *       whitespace), so both sides of it are the same daily rule. The other long rule is written out as lists: 319
  *       characters, every minute.
- *     - A rule that is not judged is counted with no period, as R13's are: alone it is cannot-tell/rule.
+ *     - A rule that is not judged for its length makes the verdict cannot-tell/rule, alone or beside others. (Until
+ *       fix round 2 it was counted with no period, as R13's are, so another entry's period decided; review round 2,
+ *       blocking 1.)
  *   - Fix round, a throw from the verdict (OV29): the entries come from JSON.parse, as a hand-edited file gives them.
  *     The status answers cannot-tell/schedule, as for a schedule that cannot be read: that is the fix-round D8 note.
  *     A verdict that answered something else for such entries would not be what the note says.
@@ -539,6 +548,7 @@ test('OV23 — the status judges by the server\'s injected now, not the process 
 // ─── OV24–OV29 — added at story 7's fix round (2026-11-07; its review, round 1, requested 4, 6 and 7) ──────────────
 
 const FIX8 = 'ADR tagging-edges/0007 § Fix-round notes (2026-11-07), D8';
+const FIX8R2 = 'ADR tagging-edges/0007 § Fix-round notes, round 2 (2026-11-08), D8';
 const same = (a, b) => { try { assert.deepStrictEqual(a, b); return true; } catch (_) { return false; } };
 /** Every problem at once, under one reference. */
 function report(problems, ref) {
@@ -712,7 +722,7 @@ test('OV26 (story 7 fix round; review requested 6; red until the fix) — a stat
   report(problems, `${FIX8}; review requested 6`);
 });
 
-test('OV27 (story 7 fix round; review requested 6; red until the fix) — a cron pattern longer than 256 characters is not judged (no parse call, periodOf never asked for it) and its period cannot be told: alone it is {state: cannot-tell, reason: rule} (a rule written out as lists, 319 characters, every minute; and the daily 03:00 rule widened to 257 characters); beside an enabled daily interval entry, that entry\'s verdict stands (on time 2 h after, not the long rule\'s every minute); the daily rule widened to exactly 256 characters is still judged, 24 h (ADR 0007 § Fix-round notes, D8 "A pattern longer than 256 characters is not judged. Its period cannot be told (null), as R13\'s rules are"; review requested 6 "skip a pattern past a fixed length")', () => {
+test('OV27 (story 7 fix round; review requested 6; red until the fix. Revised at fix round 2, 2026-11-08: review round 2, blocking 1) — a cron pattern longer than 256 characters is not judged (no parse call, periodOf never asked for it), and the verdict is then {state: cannot-tell, reason: rule} whatever stands beside it, since the rule not judged may be the most frequent: alone (a rule written out as lists, 319 characters, every minute; and the daily 03:00 rule widened to 257 characters); beside an enabled daily interval entry, which alone would say on time 2 h after; and beside the daily 03:00 cron rule, which is judged. The daily rule widened to exactly 256 characters is still judged, 24 h (ADR 0007 § Fix-round notes, round 2, D8 "A pattern longer than 256 characters is not judged, and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; story 7 AC-5 "the most frequent counts", "A missing warning never stands for on time"; review round 1 requested 6 "skip a pattern past a fixed length"; review round 2, blocking 1)', () => {
   assert.strictEqual(LONG_LIST.length, 319, `setup: the list rule is 319 characters; it is ${LONG_LIST.length}`);
   assert.ok(paddedDaily(256).length === 256 && paddedDaily(257).length === 257, 'setup: the widened daily rules are 256 and 257 characters');
   const at2h = latest(NOW - 2 * HOUR);
@@ -720,7 +730,10 @@ test('OV27 (story 7 fix round; review requested 6; red until the fix) — a cron
     { what: 'the 319-character list rule alone, through the real judge', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1)], want: { state: 'cannot-tell', reason: 'rule' } },
     { what: 'the 319-character list rule alone, with periodOf a spy', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1)], periodMs: MIN, want: { state: 'cannot-tell', reason: 'rule' } },
     { what: 'the daily rule widened to 257 characters, alone', long: paddedDaily(257), entries: [cronEntry(paddedDaily(257), 2)], want: { state: 'cannot-tell', reason: 'rule' } },
-    { what: 'the 319-character list rule beside an enabled daily interval entry', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1), entry({ id: 'daily-interval' })], want: { state: 'on-time', latestBeganAt: iso(NOW - 2 * HOUR), expectedAt: iso(NOW + 22 * HOUR), periodMs: DAY } },
+    // Revised at fix round 2 (review round 2, blocking 1): this case said on time, the daily entry's verdict. The long
+    // rule runs every minute, so the pass is two hours overdue by it, and on time was false.
+    { what: 'the 319-character list rule beside an enabled daily interval entry', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1), entry({ id: 'daily-interval' })], want: { state: 'cannot-tell', reason: 'rule' } },
+    { what: 'the 319-character list rule beside the daily 03:00 cron rule, which is judged', long: LONG_LIST, entries: [cronEntry(LONG_LIST, 1), cronEntry(DAILY, 4)], want: { state: 'cannot-tell', reason: 'rule' } },
     { what: 'the daily rule widened to exactly 256 characters, still judged', judged: paddedDaily(256), entries: [cronEntry(paddedDaily(256), 3)], want: { state: 'on-time', latestBeganAt: iso(NOW - 2 * HOUR), expectedAt: iso(NOW + 22 * HOUR), periodMs: DAY } },
   ];
   const problems = [];
@@ -731,7 +744,7 @@ test('OV27 (story 7 fix round; review requested 6; red until the fix) — a cron
     if (c.long && r.asked && r.asked.includes(c.long)) problems.push(`${c.what}: periodOf may not be asked for a pattern of ${c.long.length} characters, yet it was`);
     if (c.judged && !r.parsed.includes(c.judged)) problems.push(`${c.what}: a pattern of exactly 256 characters is judged (only one longer is not), yet parseExpression was never called for it`);
   }
-  report(problems, `${FIX8}: a pattern longer than 256 characters`);
+  report(problems, `${FIX8R2}: a pattern longer than 256 characters`);
 });
 
 test('OV28 (story 7 fix round; review requested 6; green on purpose — the boundary the fix keeps) — exactly 32 distinct cron patterns are still judged: 31 monthly rules and the daily 03:00 rule give the daily rule\'s 24 h through the real judge (overdue 26 h after), each of the 32 parsed; with periodOf a spy, every one is asked; 40 entries repeating those same 32 patterns are judged the same; and only the pass\'s enabled entries count, so 40 more distinct patterns on disabled entries and on another task\'s entries are never parsed (ADR 0007 § Fix-round notes, D8 "When the enabled entries for the pass carry more than 32 distinct cron patterns" — 32 is not more; D8 "The most frequent counts")', () => {
@@ -780,6 +793,27 @@ test('OV29 (story 7 fix round; review requested 7; red until the fix) — a sche
     if (!(b.latest && b.latest.runId === rep.latest.runId)) problems.push(`${what}: the latest report should still be served; it is ${JSON.stringify(b.latest)}`);
   }
   report(problems, `${FIX8}: a throw from overdueVerdict`);
+});
+
+// ─── OV30 — added at story 7's fix round 2 (2026-11-08; its review, round 2, requested 4) ─────────────────────────
+
+test('OV30 (story 7 fix round 2; review round 2, requested 4; green on purpose — round 1\'s bound holds today, and no test ran it beside an interval) — more than 32 distinct cron patterns beside an enabled interval entry still give {state: cannot-tell, reason: rule}, with no pattern judged: beside a daily interval entry, which alone would say on time 2 h after, and beside an hourly one, which alone would say overdue 2 h after; the interval entry\'s verdict never stands for the patterns not judged (ADR 0007 § Fix-round notes, D8 "When the enabled entries for the pass carry more than 32 distinct cron patterns, none is judged and the verdict is {state: \'cannot-tell\', reason: \'rule\'}"; story 7 AC-5 "the most frequent counts"; review round 2, requested 4)', () => {
+  const at2h = latest(NOW - 2 * HOUR);
+  const cases = [
+    ['33 monthly rules beside an enabled daily interval entry', [...monthlies(33).map((p, i) => cronEntry(p, i)), entry({ id: 'daily-interval' })]],
+    ['33 monthly rules beside an enabled hourly interval entry', [...monthlies(33).map((p, i) => cronEntry(p, i)), entry({ id: 'hourly-interval', intervalDays: 0, intervalHours: 1 })]],
+  ];
+  const problems = [];
+  for (const [what, entries] of cases) {
+    for (const spy of [true, false]) {
+      const label = `${what}, ${spy ? 'with periodOf a spy' : 'through the real judge'}`;
+      const [r] = countedCron([{ verdict: { entries, latest: at2h, nowMs: NOW }, ...(spy ? { periodMs: 6 * HOUR } : {}) }]);
+      if (r.threw || !same(r.v, { state: 'cannot-tell', reason: 'rule' })) problems.push(`${label}: the verdict should be {state: cannot-tell, reason: rule}; it is ${showV(r)}`);
+      if (r.parsed.length) problems.push(`${label}: no pattern may be judged, yet parseExpression was called for ${listed(r.parsed)}`);
+      if (spy && r.asked.length) problems.push(`${label}: periodOf may not be asked, yet it was asked for ${listed(r.asked)}`);
+    }
+  }
+  report(problems, `${FIX8}: at most 32 are judged, beside an interval entry`);
 });
 
 // ─── the runner ─────────────────────────────────────────────────────────────────────────────────────────────────
