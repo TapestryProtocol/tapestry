@@ -42,7 +42,8 @@ function operationHandler(op) {
   const source = op.method === 'GET' ? 'query' : 'body';
   return async function tapestryOperation(req, res) {
     // Express 4 doesn't catch a rejected async handler, and an unhandled rejection ends the process, so nothing may
-    // escape this function (review round 1, non-blocking 1).
+    // escape this function (review round 1, non-blocking 1). That includes a result res.json can't serialize: it
+    // throws before any header is sent, so the catch still answers 500 `failed`.
     try {
       const caller = callerOf(req);
       const refused = gate(op.access, caller);

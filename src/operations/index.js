@@ -106,11 +106,9 @@ async function callOperation(op, raw, context, { source = 'query' } = {}) {
   if (!checked.ok) return { status: 400, body: { success: false, ...checked.refusal } };
   try {
     const data = await op.declaration.run(checked.inputs, context);
-    const body = { success: true, data: data === undefined ? null : data };
-    // A result that can't be sent as JSON (a BigInt, a cycle) is this operation's failure, answered below, never a
-    // throw in the caller's hands (review round 1, non-blocking 1).
-    JSON.stringify(body);
-    return { status: 200, body };
+    // A result that can't be sent as JSON (a BigInt, a cycle) fails where each surface serializes it, once: http.js
+    // and cli.js each answer that as this operation's 500 `failed` (review rounds 1 and 2).
+    return { status: 200, body: { success: true, data: data === undefined ? null : data } };
   } catch (err) {
     if (isRefusal(err)) {
       const declared = op.declaredRefusals.find((r) => r.code === err.code);

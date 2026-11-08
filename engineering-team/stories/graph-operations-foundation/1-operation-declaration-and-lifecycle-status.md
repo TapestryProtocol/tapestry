@@ -73,7 +73,8 @@ Small judgment calls made in Implementation, inside the ADR:
 
 - Input names may be camelCase (letters and digits, starting with a letter), while group and operation names are kebab-case. The catalog's inputs include `dryRun`, and the command takes an input by its own name (`--dryRun`).
 - `failed` is reserved along with the built-in refusal codes: it is the code of a 500, so no declaration may name it as a refusal.
-- A load problem's `file` is relative to the catalog (`graph/visible.js`). A declaration that fails to load is reported by its error's first line, without the require stack (review round 1, non-blocking 2), so the list carries no absolute path.
+- A load problem's `file` is relative to the catalog (`graph/visible.js`). A declaration that fails to load is reported by its error's first line, without the require stack (review round 1, non-blocking 2). That line can still name an absolute path when the error itself does: a missing absolute require, a required JSON file that doesn't parse, a file read at load (review round 2). The list goes only to the owner, admins and direct-local callers.
+- A result that can't be sent as JSON is serialized once, where each surface sends it: the route's catch and the command each answer it as the operation's 500 `failed` (review rounds 1 and 2).
 - The list route's `/docs` entry has its own tag, `Tapestry operations`, beside one tag per group.
 - The command prints load problems on stderr only when it lists operations, not on every run.
 - Moving `GET /api/tapestry-key/status`'s counting into `readTapestryKeyCounts()` re-indented the moved block to the file's two spaces. The whitespace inside its two Cypher strings changed with it, and the queries, the counts and the response did not.

@@ -110,7 +110,15 @@ async function run(argv, out, err, opts) {
   if (flags.help) { out(helpFor(op)); return 0; }
 
   const { status, body } = await callOperation(op, flags.inputs, { via: 'cli', caller: LOCAL }, { source: 'cli' });
-  out(`${JSON.stringify(body, null, 2)}\n`);
+  let text;
+  try {
+    text = JSON.stringify(body, null, 2);
+  } catch (e) {
+    // A result that can't be sent as JSON is this operation's failure, answered as the route answers it.
+    out(`${JSON.stringify({ success: false, error: `${op.group} ${op.name} failed: ${e.message}`, code: 'failed' }, null, 2)}\n`);
+    return 3;
+  }
+  out(`${text}\n`);
   if (status === 200) return 0;
   return status >= 500 ? 3 : 1;
 }
