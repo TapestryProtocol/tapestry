@@ -156,4 +156,4 @@ One more, found while fixing the first point, in a later commit of its own:
 |---|---|---|
 | A conf that can't be rewritten after the restored key went in leaves the key file and the conf naming different assistants | J11: `restoreIdentity` with a folder where the conf should be fails, and the key file is the instance's own again, byte for byte and with its mode; no scratch file is left | `backup-job.test.js` |
 
-Red before green: J11 failed alone, 134 passed.
+Red before green: J11 failed alone and 134 passed. That ran on a working tree that held A4's other fixes but not J11's, which no commit holds. `573f4d088` itself gives 129 passed and 6 failed, since A4's code came after it. The Reviewer re-derived the claim by mutation in round 2: `bac10ad30` with only `restoreIdentity`'s conf rollback removed gives 134 passed, with J11 failing.
