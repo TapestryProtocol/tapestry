@@ -310,9 +310,9 @@ test('B15: the owner and admins may back up; a visitor is refused 401 and a stra
   okData(run, 'owner');
   okData(run, 'admin');
   const v = F.pick(run, 'visitor');
-  assert(v.status === 401 && v.body && v.body.code === 'sign-in-required', `a visitor gets 401 sign-in-required; got ${v.status} ${show(v.body)}`);
+  assert(v.status === 401 && v.body && v.body.success === false && /owner/i.test(String(v.body.error)), `a visitor gets 401, told who may call; got ${v.status} ${show(v.body)}`);
   const s = F.pick(run, 'stranger');
-  assert(s.status === 403 && s.body && s.body.code === 'not-allowed', `a stranger gets 403 not-allowed; got ${s.status} ${show(s.body)}`);
+  assert(s.status === 403 && s.body && s.body.success === false && /owner/i.test(String(s.body.error)), `a stranger gets 403, told who may call; got ${s.status} ${show(s.body)}`);
   const l = F.pick(run, 'long-note');
   assert(l.status === 400 && l.body && l.body.code === 'invalid-input' && l.body.input === 'note', `a 201-character note is refused 400 invalid-input, naming it; got ${l.status} ${show(l.body)}`);
 });

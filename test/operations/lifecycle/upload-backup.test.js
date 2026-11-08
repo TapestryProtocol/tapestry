@@ -202,7 +202,7 @@ test('U9: a visitor is refused 401 and a stranger 403 (AC6)', async () => {
   const { run } = await uploads();
   const v = F.pick(run, 'visitor');
   const s = F.pick(run, 'stranger');
-  assert(v.status === 401 && v.body.code === 'sign-in-required' && s.status === 403 && s.body.code === 'not-allowed', `visitor 401, stranger 403; got ${v.status} ${show(v.body)} ${s.status} ${show(s.body)}`);
+  assert(v.status === 401 && v.body.success === false && /owner/i.test(String(v.body.error)) && s.status === 403 && s.body.success === false && /owner/i.test(String(s.body.error)), `visitor 401, stranger 403; got ${v.status} ${show(v.body)} ${s.status} ${show(s.body)}`);
 });
 
 test('U10: `tapestry lifecycle upload-backup < backup.tar` reads the archive from stdin, and won\'t read a terminal (AC6)', async () => {

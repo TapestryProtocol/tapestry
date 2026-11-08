@@ -120,7 +120,7 @@ test('D6: the owner, an admin and a direct-local caller may download; a visitor 
   assert(F.pick(run, 'local').status === 200, 'direct-local 200');
   const v = F.pick(run, 'visitor');
   const s = F.pick(run, 'stranger');
-  assert(v.status === 401 && v.body.code === 'sign-in-required' && s.status === 403 && s.body.code === 'not-allowed', `visitor 401, stranger 403; got ${v.status} ${s.status}`);
+  assert(v.status === 401 && v.body.success === false && /owner/i.test(String(v.body.error)) && s.status === 403 && s.body.success === false && /owner/i.test(String(s.body.error)), `visitor 401, stranger 403; got ${v.status} ${s.status}`);
 });
 
 test('D7: `tapestry lifecycle download-backup --backup <id>` writes the same bytes to stdout, and won\'t write them to a terminal (AC6)', async () => {

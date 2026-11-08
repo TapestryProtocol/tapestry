@@ -350,9 +350,9 @@ test('R16: the owner and admins may restore; a visitor 401, a stranger 403; a mi
   S.okData(run, 'x');
   S.okData(run, 'z'); // the admin's
   const v = F.pick(run, 'visitor');
-  assert(v.status === 401 && v.body.code === 'sign-in-required', `visitor 401; got ${v.status} ${show(v.body)}`);
+  assert(v.status === 401 && v.body.success === false && /owner/i.test(String(v.body.error)), `visitor 401; got ${v.status} ${show(v.body)}`);
   const s = F.pick(run, 'stranger');
-  assert(s.status === 403 && s.body.code === 'not-allowed', `stranger 403; got ${s.status} ${show(s.body)}`);
+  assert(s.status === 403 && s.body.success === false && /owner/i.test(String(s.body.error)), `stranger 403; got ${s.status} ${show(s.body)}`);
   const n = F.pick(run, 'no-id');
   assert(n.status === 400 && n.body.code === 'missing-input' && n.body.input === 'backup', `a missing id is 400 missing-input; got ${n.status} ${show(n.body)}`);
   const b = F.pick(run, 'bad-id');

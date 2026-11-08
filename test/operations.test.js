@@ -1044,7 +1044,7 @@ test('F2: a file result is sent as the file — its type, length, attachment nam
   assert(h['content-disposition'] === 'attachment; filename="demo.bin"' && /no-store/.test(String(h['cache-control'])) && h['x-content-type-options'] === 'nosniff',
     `attachment; filename, no-store and nosniff; got ${show({ cd: h['content-disposition'], cc: h['cache-control'], x: h['x-content-type-options'] })}`);
   const v = fgot('fr-visitor');
-  assert(v.status === 401 && v.body && v.body.code === 'sign-in-required', `a visitor still gets the JSON 401; got ${v.status} ${show(v.body)}`);
+  assert(v.status === 401 && v.body && v.body.success === false && /owner/i.test(String(v.body.error)), `a visitor still gets the central check's JSON 401; got ${v.status} ${show(v.body)}`);
 });
 
 test('F3: a file body arrives as a stream with its other inputs from the query; another type is 415 and too big is 413, without running', () => {
