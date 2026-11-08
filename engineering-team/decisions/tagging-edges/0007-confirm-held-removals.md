@@ -750,3 +750,12 @@ line moves.
   `impl:` commit. That was not this story's to edit: the note is story 6's, and it was true when written. The line is
   restored, and a dated line at ADR 0004's end now gives the sentence's place (`:223`, its `'no-status'` key). The same
   edit in ADR 0006 (`:1270`) stands, since that note is this story's own and has not shipped.
+
+## Correction (2026-11-08, review round 3)
+
+Review round 3 asked for this (requested 1). The note it corrects stays as written.
+
+- **Where a save's cost lands** (round 2's D8 note, "what the bound leaves"). It lands on the first status read after a
+  restart, and on the first one or two after a save that brings in new patterns. The cache drops the oldest pattern
+  first, and a hit does not move a pattern's place. So with 32 patterns, a save that changes one entry costs 1
+  judgment on the next read and 31 on the read after it, as the same note's "1, then 31, then 0" says.
