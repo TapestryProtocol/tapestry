@@ -479,6 +479,11 @@ async function register(app) {
     const { registerFirmwareApiRoutes } = require('./firmware');
     registerFirmwareApiRoutes(app);
 
+    // ── Graph operations under /api/tapestry/ (graph-operations-foundation #1, ADR graph-operations-foundation/0001) ──
+    // One route per operation declared in src/operations/catalog/, and the list at GET /api/tapestry/operations. Each
+    // route's access comes from its declaration, through the route table, and the handler checks it again.
+    require('../operations/http').registerOperationRoutes(app);
+
     const { registerNegentropySyncRoutes } = require('./strfry/negentropySync');
     registerNegentropySyncRoutes(app);
     // Saved negentropy-sync presets, run by the syncNegentropyPresets task (ADR relay-stream-gaps/0003)

@@ -23,7 +23,7 @@ Outside the frame: publishing to nostr (the second priority); importing other pe
 The book depends on Avi's build scripts, his race questions with their checked answers, and his gap ledger, which he offered to send. Which external CLI the agent uses was settled by the design doc's D14 (2026-11-08): a new, thin one in this repo, made from the instance's operation declarations.
 
 ## Epics in this book
-- graph-operations-foundation (proposed; named at planning) — the operation declaration that generates each route, CLI command and `/docs` entry; a tapestryKey on every node; the write path; the field mapping; backup.
+- [graph-operations-foundation](../../epics/graph-operations-foundation.md) (named 2026-11-08, at story 1's planning; Loom A10.1–A10.6) — the operation declaration that generates each route, CLI command and `/docs` entry; a tapestryKey on every node; the write path; the field mapping; backup; the external CLI and the agent's skill.
 - graph-operations-first-slice (proposed; named at planning) — the operations the rebuild needs, built one at a time, then the rebuild and the race.
 
 ## Provenance
