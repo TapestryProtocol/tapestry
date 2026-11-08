@@ -677,3 +677,39 @@ byte-identical: each note is a line of its own.
 - Alerts outside the panel; overdue warnings for other tasks.
 - The `owner-only` access level in the route table: the confirm route keeps `OWNER_ACTION` plus `requireOwnerOnly`.
 - R9 (ADR 0006 Amendment 1 § B) and R10–R13 above.
+
+## Fix-round notes (2026-11-07, review round 1)
+
+Review `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md` asked for these. Each refines a decision
+above; nothing above is struck, and no cited line moves.
+
+- **D2 step 7, a re-read that fails** (review requested 9). A re-read of `report.json` that throws, or reads nothing,
+  cannot rule out a pass, so the confirmation is withdrawn as before. The answer no longer claims that a pass started:
+  - **renamed:** take the record back to `prior` → 500 `{code: 'error', cause}`, `cause` through `allowErrorCode`.
+    Nothing is pending; the panel's next read shows that;
+  - **already gone, or the rename threw:** as step 7 says above (`taken-up` with `claimedBy: null`, or
+    `withdraw-failed`).
+
+  D4's table is unchanged: 500 `error` is already in it. 409 `pass-started` stays only for a re-read that names
+  another run.
+- **D6, each member with its type** (review requested 8). `publicConfirmation` serves an allowlisted member only when
+  it has its type: strings for `runId`, `heldDigest`, `mintedAt` and `expiresAt`; non-negative integers for `version`
+  and `heldCount`. Any other value is left out. `expired` is derived only from a string `expiresAt`, and is false
+  otherwise. A hand-edited file can neither pass an object through nor fail the status.
+- **D8, a bound on the cron work, and no throw** (review requested 6 and 7).
+  - **More distinct patterns than the cache holds.** When the enabled entries for the pass carry more than 32 distinct
+    cron patterns, none is judged and the verdict is `{state: 'cannot-tell', reason: 'rule'}`.
+  - **A pattern longer than 256 characters** is not judged. Its period cannot be told (null), as R13's rules are.
+  - **What remains:** each pattern's first judgment still runs synchronously, once per process while cached. At most
+    32 are judged.
+  - **A throw from `overdueVerdict`** in `handleStatus` gives `{state: 'cannot-tell', reason: 'schedule'}`, as a throw
+    from the reader does. The status never fails for it.
+- **D14, a failed read after a good one** (review requested 5). A status read that failed gives "The panel cannot tell
+  whether the pass is overdue." with the reason that the pass status could not be read. This holds whether or not a
+  body is kept from an earlier read. A kept verdict is never shown while the latest read has failed. AC-5 says that a
+  missing warning never stands for on time.
+- **D15, one element per target, and a control replaced in place** (review blocking 1 and requested 2).
+  - The Confirm prompt and its answer line keep one element identity across the held section's branches: one position,
+    or a key. A read that changes the branch never remounts them, so focus on them survives it.
+  - A focused opener that a read replaces in place by a control D15 rules out hands focus to its section's heading.
+    Turn off becoming Turn on is the case. "Never on Turn on" covers a button node React reuses.
