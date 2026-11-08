@@ -153,13 +153,22 @@ The review's round 1 fixes, inside the ADR as amended (Decision 5):
 
 ## Evidence
 
-### The suites (Implementation, 2026-11-08)
+### The suites (review round 1, 2026-11-08, on the committed tree)
 
-The full `npm test` was not run on this machine, because its live suites can reach a private instance here; CI runs the gate on the pull request. Instead, nine suites ran one by one through their `run()` exports, on Node 24.18.0, with every service endpoint dead. They are the story's own suites and those the change touches: everything that reads the route table, the API document, `.dockerignore` or the test registry. The screen for `docker exec`, `TAPESTRY_PORT` and `:7778` found only the launcher suite's assertion text, which calls nothing.
+The full `npm test` was not run on this machine, because its live suites can reach a private instance here; CI runs the gate on the pull request.
+
+Instead, eleven suites ran one by one through their `run()` exports, on Node 24.18.0, with every service endpoint dead. They are the story's own suites and those the change touches: everything that reads the route table, the API document, `.dockerignore`, the test registry or the committed tree.
+
+They ran at `c179e7e49` with nothing uncommitted but the `node_modules` link. That is the round-1 lesson: `brains-launcher-repo` W1c reads `git ls-tree HEAD`, so a run before the implementation commit couldn't see the new `clients/` (review B1). Implementation's own table said 31/0 for that suite, but it was taken before `clients/` was committed. At that commit the suite fails 30/1, as the review found.
+
+The screen for `docker exec`, `TAPESTRY_PORT` and `:7778` found text only, nothing that calls them:
+- an assertion message in `brains-launcher-repo`;
+- the `localhost:7778` fallback in `stack-free-npm-test.test.js:43`, which the runner points at a dead port;
+- two lines of fixture text for L5 in `harness-lint.test.js`.
 
 | Suite | Passed | Failed | Skipped |
 |---|---|---|---|
-| `external-cli` (Test Design: 0 of 49) | 49 | 0 | 0 |
+| `external-cli` (Test Design: 0 of 49; round 1 adds S7 and K11) | 51 | 0 | 0 |
 | `operations`, with H16 and D6 (Test Design: 46 passed, 2 failed) | 48 | 0 | 0 |
 | `openapi-coverage` | 13 | 0 | 0 |
 | `openapi-document` | 10 | 0 | 0 |
@@ -167,10 +176,27 @@ The full `npm test` was not run on this machine, because its live suites can rea
 | `admin-action-sweep-access` | 13 | 0 | 0 |
 | `default-deny-mutations` | 14 | 0 | 0 |
 | `stack-free-npm-test` (G5: the registry is complete) | 6 | 0 | 1 |
-| `brains-launcher-repo` (reads `.dockerignore`) | 31 | 0 | 0 |
-| **Total** | **193** | **0** | **1** |
+| `brains-launcher-repo` (W1c lists `clients/`) | 31 | 0 | 0 |
+| `harness-lint` | 85 | 0 | 0 |
+| `harness-stats` | 12 | 0 | 0 |
+| **Total** | **292** | **0** | **1** |
+
+The reviewer's mutation probe now fails SK3 for both cases it found: an exit code 4, and `tapestry key rotate`. Its controls fail it too.
 
 **The install.** The README's install was tried on a copy of `clients/cli` in a temporary folder. `npm ci --omit=dev --offline` added 15 packages (nostr-tools, ajv and their own), and the CLI loaded nostr-tools from its own `node_modules`, not the repo's.
+
+### The live check again (AC7, review round 1, 2026-11-08)
+
+The check was run again on the fix round's code (`c179e7e49`), from a standalone install made with `git archive HEAD clients/cli` and `npm ci --omit=dev --offline`, the same as the committed `clients/cli`. Its path, steps and checks are Implementation's, below.
+
+- **The first try failed.** The scratch instance died while firmware was installing (exit 137). The script removed it, nothing was left, and the shared containers stayed up. Docker had about 6.4 GB free.
+- **The retry passed every step:**
+  - `whoami` answered `neither`, exit 1, until the owner made the key an admin, then `admin`, exit 0;
+  - `tapestry` listed `lifecycle status`, and its answer through the CLI was the same as the internal command's, both exit 0;
+  - a second key that nobody made an admin got `neither`, exit 1;
+  - the home was `drwx------`, its files `-rw-------`.
+- **What nginx's log shows,** for this one run alone: `POST /api/auth/verify-user` 200 and `POST /api/auth/login-user` 200, twice each (the agent and the second key); `GET /api/tapestry/operations` 403 twice, then 200 three times; `GET /api/tapestry/lifecycle/status` 200 once. Nothing else.
+- **Removed afterwards,** with no scratch container left.
 
 ### The live check (AC7, Implementation, 2026-11-08)
 
