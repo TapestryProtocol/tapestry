@@ -233,3 +233,120 @@ What I couldn't verify:
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+# Round 2
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-08
+**Diff:** `git diff e5df47f95..801d6a9c0`, attributed commit by commit:
+- `91f510908`: ADR 0006 Decision 5 amended (which 401s are retried). Docs only.
+- `a3cb39f1e`: the Tester's round: `clients` in W1c's `NOT_RUNTIME`, S7, K11, a stricter SK2 and SK3, and the test plan's round-1 record. It touches no `clients/` or `src/`.
+- `c179e7e49`: the fix, in `clients/cli/src/signin.js`, `main.js`, `operations.js`, `identity.js` and `skill/SKILL.md`, plus the story's Deviations and Out of scope. It touches no `test/`.
+- `b7717ff13`: two ledger rows, and a case added to OPEN.md row 294.
+- `66baabf4e`: the story's Evidence: the suites on the committed tree, and the live check run again.
+- `eebdeb882`: one Evidence line (story `:192`), correcting the cause of the rerun's failed first try.
+- `801d6a9c0`: a ledger row on `scripts/scratch-stack.sh`'s one shared name.
+
+**In short.** B1, B2 and B3 are fixed, and each fix holds when re-derived. One new blocking issue comes from this round: the signer now runs in a new session, which takes its terminal away and lets it outlive a Ctrl-C (R2-B1). The change followed my own round-1 suggestion (non-blocking 5), which I withdraw.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`: not run,** for round 1's reason. `npm run gate:status` still has no run record. OPEN.md row 294 now carries this case.
+- [x] **Suites run one by one** through their `run()` exports, on Node 24.18.0 at `801d6a9c0`, with nothing uncommitted but the `node_modules` link and every service endpoint dead (the same runner as round 1):
+
+  | Suite | Result | Why it was run |
+  |---|---|---|
+  | `external-cli` | 51/0/0 | the story's suite, now with S7 and K11 |
+  | `operations` | 48/0/0 | the list's `caller` |
+  | `openapi-coverage` | 13/0/0 | as round 1 |
+  | `openapi-document` | 10/0/0 | as round 1 |
+  | `admin-action-sweep` | 9/0/0 | as round 1 |
+  | `admin-action-sweep-access` | 13/0/0 | as round 1 |
+  | `default-deny-mutations` | 14/0/0 | as round 1 |
+  | `stack-free-npm-test` | 6/0/1 | G5 (G2 skips with no live panel) |
+  | `brains-launcher-repo` | 31/0/0 | W1c now passes (B1) |
+  | `harness-lint` | 85/0/0 | lints the real repo, the new ledger rows included |
+  | `harness-stats` | 12/0/0 | the commit-message slugs |
+  | `session-start` | 32/0/0 | new this round: its tests read this repo's `OPEN.md` and `ledger/` through the meta reader, so they cover the three new rows |
+  | **Total** | **324/0/1** | |
+
+  The eleven suites the story's Evidence names give 292/0/1 at the tip, the same as its table (taken at `c179e7e49`).
+- [x] **Left out, after screening:** `ledger-row-ids` and `rollup-scanners`, which read the ledger too.
+  - Both run `scripts/session-start.sh` (`ledger-row-ids.test.js:111`; `rollup-scanners.test.js:194`, through `test/helpers/rollupFixtures.js:43-46`). Its stack probe GETs `localhost:7778` (`session-start.sh:41-47`), the private instance on this machine (harness friction 1).
+  - Both work on fixture repos, except rollup-scanners' AC-2, which reads this repo's meta list. I ran that check by hand: `collect_meta` exits 0 and lists all three new rows, and none of its 244 lines is invalid UTF-8.
+  - `bash scripts/harness-lint.sh` at the tip is clean, with 0 violations. Its L15 checks every `ledger/*.md`.
+- [x] **Red before green for this round's tests.** On an export of `a3cb39f1e`, `external-cli` gives 48/3, and the three are S7, K11 and SK2, as that commit says. Phase 4 left `test/` alone: `git diff a3cb39f1e..HEAD -- test/` is empty.
+- [x] **Round 1's two probes, re-run at the tip.**
+  - The declared-401 write: one POST, one run and one sign-in (the first), exit 1, nothing on stderr.
+  - SK1–SK3 on the four mutated skills: SK3 fails on the exit code 4 and on `` `tapestry key rotate` ``; both controls still fail it; the unmutated skill passes.
+- [x] **Two new probes,** under a pseudo-terminal (`script -q /dev/null`), kept in the session scratchpad. They spawn a stand-in signer with this CLI's own spawn options, round 1's and round 2's, and check whether it can open `/dev/tty` and whether it survives a Ctrl-C (R2-B1). Neither touched Docker or the worktree, and I removed the stand-ins they left.
+- [ ] `npm run test:playwright`: not applicable (no UI).
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+## Round 1's findings, each re-derived as a fresh claim
+
+| Finding | Re-derived by | Result |
+|---|---|---|
+| B1, W1c | `brains-launcher-repo` at the tip: 31/0. `clients` is in `NOT_RUNTIME` (`test/brains-launcher-repo.test.js:263`), not in the push paths. The Evidence's table holds at the tip. Its screen sentence (story `:164-167`) lists exactly what a grep of the eleven suites finds: `stack-free-npm-test.test.js:43`, `brains-launcher-repo.test.js:335`, `harness-lint.test.js:58` and `:188`. | Fixed. My round-1 wording also asked it to name "the live suites its G1 spawns". Re-derived, that wasn't needed: G1 points them at a dead port itself (`stack-free-npm-test.test.js:121`). |
+| B2, a declared 401 | The probe and S7 (which fails on `a3cb39f1e`): sent once, run once, no second sign-in, exit 1, the kept sign-in still works. The new predicate (`clients/cli/src/signin.js:48-50`) retries only a 401 with no `code`, or with `sign-in-required`. That separates the cases exactly: a declared code must be kebab-case (`src/operations/declaration.js:115`) and can't be a built-in one (`:116`), and both of the instance's sign-in refusals come before the operation runs (the central check, and the router's `gate`, `src/operations/http.js:48-50`). The amended ADR text (`:151-152`) says the same, and its line references are right. | Fixed. The optional 403 half wasn't taken (non-blocking 1). |
+| B3, SK3 | The mutation probe, as above. | Fixed. |
+| Non-blocking 1, A10.2 | The story's Out of scope (`:100`) and a ledger row record it. A10.2 is still off staging (`github/staging` is `5fad20913`). Its branch, now at `d118662c4`, still declares `download-backup` with a file result and `upload-backup` with a file body, both for the owner and admins. | Recorded; the decision stays the owner's. |
+| Non-blocking 2, exit 3's advice | `SKILL.md:79` now separates a read from a write, and its "a write may have run" is the right hedge. SK2 holds it. | Fixed. |
+| Non-blocking 3, the route guard | `underPrefix` (`clients/cli/src/operations.js:132-138`) refuses dot segments, `%2e`, backslashes and `//`, and any route a URL parser would change. That last check also catches a tab or newline, which the parser drops. K11 covers `..` and `%2e%2e`, and fails on `a3cb39f1e`. | Fixed. |
+| Non-blocking 4, tables vs code | Not taken. The code and the tables still match: 6 first words and 7 variables. | Still non-blocking (non-blocking 2 below). |
+| Non-blocking 5, the signer's kill | The timeout now kills the signer's process group (`identity.js:178`). But to get one, the signer is spawned `detached` (`:169-170`), and that does more. | **A regression: R2-B1.** |
+| Non-blocking 6, the Node check | `main.js:176-177` also tests `Headers.prototype.getSetCookie`, and names the Node it found. | Fixed. |
+| Non-blocking 7, the `local` role | `SKILL.md:56`, held by SK2. The new sentence holds: a direct-local caller's `pubkey` is null (`src/operations/http.js:21`), so the instance can't tell who called, whatever sign-in the CLI made. | Fixed. |
+| Friction 1 | `ledger/2026-11-08-evidence-before-commit-misses-tree-suites.md` | Filed; its claims hold. |
+| Friction 2 | OPEN.md row 294, the added case | Filed; accurate. |
+| Friction 3 | `ledger/2026-11-08-parallel-stories-clash-in-shared-files.md` | Filed; its claims hold. Both branches change `http.js` and `openapi.js`, and A10.2 changes the five files it names. |
+
+**Also re-derived, new this round:**
+- **The rerun live check (story `:188-199`).** `live-check3.txt` bears out every claim, including the nginx counts, which are that run's alone: a fresh instance, 2 sign-ins, 2 refusals of the list, then 3 lists and 1 status. The install it ran from is identical to the tip's `clients/cli`, which hasn't changed since `c179e7e49`. `scratch-up3.txt` records the removal: "0 scratch containers left".
+- **The corrected line (story `:192`, `eebdeb882`).** It fits the record and the script.
+  - `scratch-up2.txt` shows the bring-up's ERR trap firing during the firmware install, and the try ended with exit 137 (128 + SIGKILL, which a `docker exec` gets when its container is removed).
+  - On "already exists", `up` removes nothing: it exits at `scripts/scratch-stack.sh:61-64`, before setting its trap at `:67`. But `down` removes by the fixed names (`:26-28`, `:34-38`), so a caller that runs `down` after a failed `up` removes whichever instance holds the name.
+  - The attribution to the A10.2 session rests on its message, which I can't check. Exit 137 is also what a memory kill gives, so the record alone can't tell the two causes apart.
+  - "The shared containers stayed up" isn't in the record.
+- **The scratch-stack ledger row (`801d6a9c0`).** Its claims about the script hold, at the lines above, and the script is unchanged on this branch and on A10.2's (`d118662c4`). Its time, 23:02:43Z, matches the failed try's files, written at 18:02 local. This session's scratchpad holds no wrapper script, so "both sessions fixed their own scratchpad wrappers" is beyond what I can check.
+
+## Findings
+
+### Blocking
+
+1. **R2-B1. `clients/cli/src/identity.js:167-170` (with `:178`): the signer now runs in a new session, which takes its terminal away and lets it outlive a Ctrl-C.**
+   - **The cause.** On POSIX, Node's `detached: true` makes the child "the leader of a new process group and session", not just a new group.
+   - **The terminal.** Under a pseudo-terminal, a stand-in signer spawned as round 1 spawned it can open `/dev/tty` (`tty-ok`). Spawned as round 2 does, it can't (`no-tty`). Its stdin and stdout are the CLI's pipes, so `/dev/tty` is the only way a signer can ask its person for anything, a passphrase for an encrypted key, say. Such a signer now fails, and the sign-in with it. Yet AC4 takes "a signer of the agent's own" however the agent keeps its key, and ADR Decision 3 (`:133`) gives the signer 180 seconds so that its person can answer.
+   - **Ctrl-C.** A stand-in signer (`sh -c 'sleep …'`) spawned as round 1 did died with its parent when a Ctrl-C came through the terminal: none were left. Spawned as round 2 does, both of its processes kept running. I removed them.
+   - **Why the probe applies.** The CLI has no signal handler, so the real CLI behaves the same way. A person's Ctrl-C, or a harness that kills the CLI's process group on its own timeout, now leaves the signer running: waiting on a bunker, say. That is the orphan the change set out to remove, and it now removes it only after 180 seconds.
+   - **Whose suggestion.** This change was my suggestion: round 1, non-blocking 5, "spawn it detached and kill the group". Re-derived, it was wrong, and I withdraw it.
+   - **Asked change.**
+     - Spawn the signer in the CLI's own session again (no `detached`), and keep the timeout's kill of the shell, as in round 1.
+     - Record the trade-off in the Deviations: a program the command started can outlive the 180-second timeout.
+     - Correct the two lines that now say otherwise: the story's Deviation (`:148`) and the test plan's "Not covered" line (`:117`).
+     - Optionally, the Tester can hold this with a test: a fake signer that prints its own process group, which must be the CLI's. Otherwise, a check under a pseudo-terminal, recorded in the Evidence, is enough.
+
+### Non-blocking
+
+1. **`clients/cli/src/main.js:139` still reads a 403 by its status alone.** A declared 403 would be reported as "neither its owner nor an admin". This is round 1's optional half of B2, still open, and now the only place left that reads a refusal by its status.
+2. **The tables still aren't held to the code** (round 1's non-blocking 4). They match today.
+
+### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+1. **Two suites that call themselves stack-free can't run where `localhost:7778` is another instance.**
+   - `ledger-row-ids` says "No stack, no network" (`test/ledger-row-ids.test.js:14`). But its digest run (`:111`), and `rollup-scanners`' `runDigest` (`test/rollup-scanners.test.js:194`, through `test/helpers/rollupFixtures.js:43-46`), run `scripts/session-start.sh`.
+   - That script's stack probe GETs `http://localhost:7778/api/concept-graph/summaries` (`:41-47`). On this machine that is the private instance.
+   - The fixtures already stub `gh` for `whats-open.sh` (`rollupFixtures.js:28-34`); the digest gets no such stub.
+   - Candidate: a variable that skips the probe, set by both fixtures.
+   - New: rows 56 and 203 are about the probe's accuracy, not this.
+
+## On PASS (same commit)
+- [ ] Not applicable: the round-2 verdict is CHANGES_REQUESTED.
+  - The story's `**Status:**` stays `Approved`, and no completion detection was run.
+  - Round 3: the Implementer changes the spawn back and corrects the two lines; the Tester adds the process-group test, if chosen. Then this review runs again.
+  - The launching task asked for this file only, so this session commits nothing.
+
+## Verdict (round 2)
+**CHANGES_REQUESTED**
