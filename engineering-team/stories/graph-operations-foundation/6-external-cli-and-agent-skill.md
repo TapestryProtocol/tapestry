@@ -154,13 +154,13 @@ The review's round 1 fixes, inside the ADR as amended (Decision 5):
 
 ## Evidence
 
-### The suites (review round 1, 2026-11-08, on the committed tree)
+### The suites (review rounds 1 and 2, 2026-11-08, on the committed tree)
 
 The full `npm test` was not run on this machine, because its live suites can reach a private instance here; CI runs the gate on the pull request.
 
 Instead, eleven suites ran one by one through their `run()` exports, on Node 24.18.0, with every service endpoint dead. They are the story's own suites and those the change touches: everything that reads the route table, the API document, `.dockerignore`, the test registry or the committed tree.
 
-They ran at `c179e7e49` with nothing uncommitted but the `node_modules` link. That is the round-1 lesson: `brains-launcher-repo` W1c reads `git ls-tree HEAD`, so a run before the implementation commit couldn't see the new `clients/` (review B1). Implementation's own table said 31/0 for that suite, but it was taken before `clients/` was committed. At that commit the suite fails 30/1, as the review found.
+They last ran at `d6a5d9c77`, the round-2 tip, with nothing uncommitted but the `node_modules` link. Round 1's run was at `c179e7e49`, 292 passed and 0 failed, before round 2's two new tests. That is the round-1 lesson: `brains-launcher-repo` W1c reads `git ls-tree HEAD`, so a run before the implementation commit couldn't see the new `clients/` (review B1). Implementation's own table said 31/0 for that suite, but it was taken before `clients/` was committed. At that commit the suite fails 30/1, as the review found.
 
 The screen for `docker exec`, `TAPESTRY_PORT` and `:7778` found text only, nothing that calls them:
 - an assertion message in `brains-launcher-repo`;
@@ -169,7 +169,7 @@ The screen for `docker exec`, `TAPESTRY_PORT` and `:7778` found text only, nothi
 
 | Suite | Passed | Failed | Skipped |
 |---|---|---|---|
-| `external-cli` (Test Design: 0 of 49; round 1 adds S7 and K11) | 51 | 0 | 0 |
+| `external-cli` (Test Design: 0 of 49; round 1 adds S7 and K11, round 2 I16 and K12) | 53 | 0 | 0 |
 | `operations`, with H16 and D6 (Test Design: 46 passed, 2 failed) | 48 | 0 | 0 |
 | `openapi-coverage` | 13 | 0 | 0 |
 | `openapi-document` | 10 | 0 | 0 |
@@ -180,9 +180,11 @@ The screen for `docker exec`, `TAPESTRY_PORT` and `:7778` found text only, nothi
 | `brains-launcher-repo` (W1c lists `clients/`) | 31 | 0 | 0 |
 | `harness-lint` | 85 | 0 | 0 |
 | `harness-stats` | 12 | 0 | 0 |
-| **Total** | **292** | **0** | **1** |
+| **Total** | **294** | **0** | **1** |
 
 The reviewer's mutation probe now fails SK3 for both cases it found: an exit code 4, and `tapestry key rotate`. Its controls fail it too.
+
+Three suites weren't run, here or by the reviewer at round 2: `session-start`, `ledger-row-ids` and `rollup-scanners`. All three run `scripts/session-start.sh`, whose stack probe curls `localhost:7778`, Grawk's instance on this Mac (OPEN.md row `2026-11-05-suite-probe-reaches-private-container`, note of 2026-11-08). CI runs them in the gate.
 
 **The install.** The README's install was tried on a copy of `clients/cli` in a temporary folder. `npm ci --omit=dev --offline` added 15 packages (nostr-tools, ajv and their own), and the CLI loaded nostr-tools from its own `node_modules`, not the repo's.
 
