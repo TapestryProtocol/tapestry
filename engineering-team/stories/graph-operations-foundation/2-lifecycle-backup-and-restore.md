@@ -81,5 +81,5 @@ All four were resolved at the planning gate on 2026-11-08.
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D1, D6, D10, D13); catalog §8
 - Story 1, whose `lifecycle status` this fills in: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md](../../decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [2-lifecycle-backup-and-restore.test-plan.md](2-lifecycle-backup-and-restore.test-plan.md)
 - Review: (filled in after Review phase)

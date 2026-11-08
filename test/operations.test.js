@@ -174,6 +174,9 @@ function childEnv(dir) {
     TAPESTRY_SETTINGS_PATH: settings,
     BRAINSTORM_BASE_DIR: dir,
     TAPESTRY_LMDB_PATH: path.join(dir, 'lmdb'),
+    // graph-operations-foundation #2: lifecycle status's backup part reads the backups folder, so point it at one
+    // that holds nothing (ADR graph-operations-foundation/0002 Decision 11).
+    TAPESTRY_BACKUPS_DIR: path.join(dir, 'backups'),
     BRAINSTORM_BASE_URL: DEAD,
     TAPESTRY_BASE: DEAD,
     MEILI_URL_HOST: DEAD,
@@ -943,6 +946,169 @@ test('X2: in the same copy, the router answers the new operations for the owner,
   assert(cli.status === 0 && j && j.success === true && j.data && j.data.text === 'hi',
     `the copy's tapestry graph demo-echo --text hi must exit 0 with its JSON answer as the whole of stdout; got ${cli.status} ${show(String(cli.stdout).slice(0, 300))} ${String(cli.stderr).slice(-300)}`);
   assert(!/demo-echo-noise/.test(cli.stdout), 'the operation\'s console.log must not reach the command\'s stdout');
+});
+
+// ── F: file results and file bodies (graph-operations-foundation #2, ADR graph-operations-foundation/0002 Decision 10)
+
+const FILE_READ = '/api/tapestry/graph/file-read';
+const FILE_WRITE = '/api/tapestry/graph/file-write';
+const AFTER = '/api/tapestry/graph/after-answer';
+/** The bytes file-read answers with: `size` bytes, (i * 7) mod 256. */
+const fileBytes = (size) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 7) % 256));
+function fileFixtureFiles() {
+  const read = { ...BASE, group: 'graph', name: 'file-read', summary: 'Answer with a file',
+    inputs: { size: { schema: { type: 'integer', minimum: 1, maximum: 100000, default: 1500 }, required: false, description: 'How many bytes' } },
+    result: { description: 'Some bytes', file: { contentType: 'application/octet-stream' } } };
+  const write = { ...BASE, group: 'graph', name: 'file-write', kind: 'write', summary: 'Take a file',
+    inputs: { label: { schema: { type: 'string', minLength: 1 }, required: true, description: 'A label' } },
+    body: { file: { contentTypes: ['application/octet-stream'], maxBytes: 4096 } },
+    result: { description: 'What arrived', schema: { type: 'object' } } };
+  return {
+    'graph/file-read.js': declSource(read, {
+      run: `async run(inputs) { const buf = Buffer.from(Array.from({ length: inputs.size }, (_, i) => (i * 7) % 256)); return { file: { name: 'demo.bin', size: buf.length, contentType: 'application/octet-stream', open: () => require('stream').Readable.from([buf]) } }; }`,
+    }),
+    'graph/file-write.js': declSource(write, {
+      run: `async run(inputs, context) { const r = (globalThis.__opsRuns = globalThis.__opsRuns || {}); r['file-write:' + inputs.label] = (r['file-write:' + inputs.label] || 0) + 1; const chunks = []; for await (const c of context.body) chunks.push(Buffer.from(c)); const b = Buffer.concat(chunks); return { label: inputs.label, size: b.length, sha256: require('crypto').createHash('sha256').update(b).digest('hex') }; }`,
+    }),
+    'graph/after-answer.js': declSource({ ...BASE, group: 'graph', name: 'after-answer', summary: 'Do something once it has answered' }, {
+      run: `async run(inputs, context) { context.afterAnswer(async () => { const startedAt = Date.now(); await new Promise((res) => setTimeout(res, 400)); const r = (globalThis.__opsRuns = globalThis.__opsRuns || {}); r['after:' + context.via] = { startedAt, endedAt: Date.now() }; }); return { ok: true }; }`,
+    }),
+    // Invalid: a file result on a write, a file body on a read, a result with both, a body with no sensible limit.
+    'graph/file-on-write.js': declSource({ ...read, name: 'file-on-write', kind: 'write' }),
+    'graph/body-on-read.js': declSource({ ...BASE, group: 'graph', name: 'body-on-read', body: write.body }),
+    'graph/schema-and-file.js': declSource({ ...BASE, group: 'graph', name: 'schema-and-file', result: { schema: { type: 'object' }, file: { contentType: 'application/octet-stream' } } }),
+    'graph/bad-max.js': declSource({ ...write, name: 'bad-max', body: { file: { contentTypes: ['application/octet-stream'], maxBytes: -1 } } }),
+  };
+}
+let FILE_FIX = null;
+function fileFixtureDir() { if (!FILE_FIX) FILE_FIX = writeCatalog(tmp('ops-file-fixture-'), fileFixtureFiles()); return FILE_FIX; }
+
+let FILES_RUN = null;
+function filesRun() {
+  if (FILES_RUN) return FILES_RUN;
+  operationsIndex();
+  const b64 = (buf) => buf.toString('base64');
+  const write = (id, caller, label, bytes, extra = {}) => ({ id, app: 'fixture', method: 'POST', url: `${FILE_WRITE}${label ? `?label=${label}` : ''}`, caller, contentType: 'application/octet-stream', rawBase64: b64(bytes), ...extra });
+  FILES_RUN = runHarness({
+    fixtureDir: fileFixtureDir(),
+    scenarios: [{
+      pauseMs: 700,
+      requests: [
+        { id: 'fr-owner', app: 'fixture', method: 'GET', url: `${FILE_READ}?size=1500`, caller: 'owner' },
+        { id: 'fr-visitor', app: 'fixture', method: 'GET', url: FILE_READ, caller: 'visitor' },
+        write('fw-ok', 'admin', 'ok', fileBytes(3000)),
+        write('fw-type', 'owner', 'texty', fileBytes(100), { contentType: 'text/plain' }),
+        write('fw-declared', 'owner', 'declared', fileBytes(5000)),
+        write('fw-chunked', 'owner', 'chunked', fileBytes(5000), { headers: { 'Transfer-Encoding': 'chunked' } }),
+        write('fw-nolabel', 'owner', null, fileBytes(10)),
+        { id: 'after', app: 'fixture', method: 'GET', url: AFTER, caller: 'owner' },
+        { id: 'list', app: 'fixture', method: 'GET', url: LIST, caller: 'owner' },
+      ],
+      cli: [
+        { id: 'c-read', catalog: 'fixture', argv: ['graph', 'file-read', '--size', '600'] },
+        { id: 'c-read-tty', catalog: 'fixture', argv: ['graph', 'file-read'], stdoutIsTTY: true },
+        { id: 'c-write', catalog: 'fixture', argv: ['graph', 'file-write', '--label', 'cli'], stdinBase64: b64(fileBytes(700)) },
+        { id: 'c-write-tty', catalog: 'fixture', argv: ['graph', 'file-write', '--label', 'tty'], stdinIsTTY: true },
+        { id: 'c-after', catalog: 'fixture', argv: ['graph', 'after-answer'] },
+      ],
+    }],
+  });
+  return FILES_RUN;
+}
+function fgot(id) {
+  const m = filesRun();
+  assert(m.data && !m.data.error, `the harness failed: ${(m.data && m.data.error) || (m.child.stderr || '').slice(-500)}`);
+  const r = m.data.scenarios[0].requests.find((x) => x.id === id) || m.data.scenarios[0].cli.find((x) => x.id === id);
+  assert(r, `no result for ${id}`);
+  return r;
+}
+const frun = (key) => ((filesRun().data && filesRun().data.runs) || {})[key];
+const sha = (buf) => require('crypto').createHash('sha256').update(buf).digest('hex');
+
+test('F1: a read may answer with a file and a write may take one; a file result on a write, a body on a read, both kinds of result, or a bad limit is invalid', () => {
+  const { loadOperations } = operationsIndex();
+  const { operations, problems } = loadOperations({ dir: fileFixtureDir() });
+  const names = operations.map((o) => o.name).sort();
+  assert(same(names, ['after-answer', 'file-read', 'file-write']), `the three valid fixtures load; got ${show(names)}`);
+  const bad = problems.map((p) => p.file).sort();
+  assert(same(bad, ['graph/bad-max.js', 'graph/body-on-read.js', 'graph/file-on-write.js', 'graph/schema-and-file.js']), `the four invalid ones are reported; got ${show(problems)}`);
+  for (const p of problems) assert(/file|body|maxBytes/i.test(p.problem), `${p.file}'s problem says what is wrong with its file or body; got ${show(p.problem)}`);
+});
+
+test('F2: a file result is sent as the file — its type, length, attachment name, no-store and nosniff — byte for byte', () => {
+  const r = fgot('fr-owner');
+  const h = r.headers || {};
+  const body = Buffer.from(r.bodyBase64 || '', 'base64');
+  assert(r.status === 200 && body.equals(fileBytes(1500)), `200 with the file's 1500 bytes; got ${r.status}, ${body.length} bytes`);
+  assert(String(h['content-type']).startsWith('application/octet-stream') && Number(h['content-length']) === 1500, `Content-Type and Content-Length; got ${show(h)}`);
+  assert(h['content-disposition'] === 'attachment; filename="demo.bin"' && /no-store/.test(String(h['cache-control'])) && h['x-content-type-options'] === 'nosniff',
+    `attachment; filename, no-store and nosniff; got ${show({ cd: h['content-disposition'], cc: h['cache-control'], x: h['x-content-type-options'] })}`);
+  const v = fgot('fr-visitor');
+  assert(v.status === 401 && v.body && v.body.code === 'sign-in-required', `a visitor still gets the JSON 401; got ${v.status} ${show(v.body)}`);
+});
+
+test('F3: a file body arrives as a stream with its other inputs from the query; another type is 415 and too big is 413, without running', () => {
+  const ok = fgot('fw-ok');
+  assert(ok.status === 200 && ok.body.data && ok.body.data.label === 'ok' && ok.body.data.size === 3000 && ok.body.data.sha256 === sha(fileBytes(3000)),
+    `the operation reads the 3000 bytes it was sent, with label from the query; got ${ok.status} ${show(ok.body)}`);
+  const t = fgot('fw-type');
+  assert(t.status === 415 && t.body.code === 'wrong-content-type' && !frun('file-write:texty'), `text/plain is 415 wrong-content-type and never runs; got ${t.status} ${show(t.body)} runs ${show(frun('file-write:texty'))}`);
+  const d = fgot('fw-declared');
+  assert(d.status === 413 && d.body.code === 'too-large' && !frun('file-write:declared'), `a Content-Length over maxBytes is 413 too-large and never runs; got ${d.status} ${show(d.body)}`);
+  const c = fgot('fw-chunked');
+  assert(c.status === 413 && c.body.code === 'too-large', `a chunked body that grows past maxBytes is 413 too-large; got ${c.status} ${show(c.body)}`);
+  const n = fgot('fw-nolabel');
+  assert(n.status === 400 && n.body.code === 'missing-input' && n.body.input === 'label', `a missing query input is 400 missing-input; got ${n.status} ${show(n.body)}`);
+});
+
+test('F4: afterAnswer work runs once the route has answered, and before the command exits', () => {
+  const r = fgot('after');
+  const http = frun('after:http');
+  assert(r.status === 200 && http && http.endedAt, `the after-answer work ran for the route; got ${r.status} ${show(http)}`);
+  assert(r.at < http.endedAt, `the answer arrived while the after-answer work was still running (answered ${r.at}, work ended ${http.endedAt})`);
+  const c = fgot('c-after');
+  const cli = frun('after:cli');
+  assert(c.code === 0 && cli && c.endedAt >= cli.endedAt, `the command waits for the after-answer work before it exits; got ${show({ code: c.code, ended: c.endedAt, work: cli })}`);
+});
+
+test('F5: the command writes a file result to stdout and reads a file body from stdin, and refuses a terminal for either (exit 2)', () => {
+  const r = fgot('c-read');
+  assert(r.code === 0 && Buffer.from(r.stdoutBase64, 'base64').equals(fileBytes(600)), `exit 0 and the 600 bytes on stdout; got ${show(r.code)} ${Buffer.from(r.stdoutBase64 || '', 'base64').length} bytes`);
+  const rt = fgot('c-read-tty');
+  assert(rt.code === 2 && !rt.stdoutBase64 && />/.test(rt.stderr), `to a terminal: exit 2, nothing written, a hint to redirect; got ${show(rt.code)} ${show(rt.stderr)}`);
+  const w = fgot('c-write');
+  let j = null;
+  try { j = JSON.parse(w.stdout); } catch { /* reported below */ }
+  assert(w.code === 0 && j && j.data && j.data.size === 700 && j.data.sha256 === sha(fileBytes(700)), `stdin's 700 bytes arrive; got ${show(w.code)} ${show(w.stdout)}`);
+  const wt = fgot('c-write-tty');
+  assert(wt.code === 2 && /</.test(wt.stderr) && !frun('file-write:tty'), `from a terminal: exit 2, a hint to send the file on stdin, and it never runs; got ${show(wt.code)} ${show(wt.stderr)}`);
+});
+
+test('F6: /docs documents a file result and a file body as binary content, with the body\'s inputs as query parameters and 413 and 415', () => {
+  const { withOperationDocs } = openapi();
+  const doc = withOperationDocs(SHELL_SPEC(), { dir: fileFixtureDir() });
+  const read = doc.paths[FILE_READ] && doc.paths[FILE_READ].get;
+  const r200 = read && read.responses && read.responses['200'] && read.responses['200'].content;
+  assert(r200 && r200['application/octet-stream'] && same(r200['application/octet-stream'].schema, { type: 'string', format: 'binary' }),
+    `file-read's 200 is binary application/octet-stream; got ${show(r200)}`);
+  assert((read.parameters || []).some((p) => p.name === 'size' && p.in === 'query'), 'file-read keeps its query parameter');
+  const write = doc.paths[FILE_WRITE] && doc.paths[FILE_WRITE].post;
+  const body = write && write.requestBody && write.requestBody.content;
+  assert(body && body['application/octet-stream'] && same(body['application/octet-stream'].schema, { type: 'string', format: 'binary' }) && !body['application/json'],
+    `file-write's body is binary application/octet-stream; got ${show(body)}`);
+  assert((write.parameters || []).some((p) => p.name === 'label' && p.in === 'query' && p.required === true), `file-write's label is a required query parameter; got ${show(write.parameters)}`);
+  assert(write.responses && write.responses['413'] && write.responses['415'], `413 and 415 are documented; got ${show(Object.keys(write.responses || {}))}`);
+});
+
+test('F7: the list carries a file result and a file body, and their refusals', () => {
+  const r = fgot('list');
+  const ops = (r.body && r.body.data && r.body.data.operations) || [];
+  const read = ops.find((o) => o.name === 'file-read');
+  const write = ops.find((o) => o.name === 'file-write');
+  assert(read && read.result && read.result.file && read.result.file.contentType === 'application/octet-stream', `file-read's entry has result.file; got ${show(read)}`);
+  assert(write && write.body && write.body.file && same(write.body.file.contentTypes, ['application/octet-stream']) && write.body.file.maxBytes === 4096, `file-write's entry has its body; got ${show(write && write.body)}`);
+  const codes = Object.fromEntries((write.refusals || []).map((x) => [x.code, x.status]));
+  assert(codes['wrong-content-type'] === 415 && codes['too-large'] === 413 && !('invalid-body' in codes), `file-write can refuse 415 and 413, never invalid-body; got ${show(codes)}`);
 });
 
 // ── T: per-operation suites ───────────────────────────────────────────────────────────────────────────────────────

@@ -9,7 +9,8 @@
  * `parts` object (restored after), or in a child process where an API module is replaced in require.cache, so the
  * gate's own process never holds a stubbed module.
  *
- *   P1  backup says plainly that no backup of the graph is recorded
+ *   P1  backup says plainly when no backup has been taken (graph-operations-foundation #2, ADR 0002 Decision 11)
+ *   P1b backup shows the most recent backup, the count, the last run and an interrupted run, and changes nothing
  *   P2  migrations says plainly that none is recorded
  *   P3  firmware reports the version the instance carries and all, some or none of its concepts in the graph
  *   P4  cache reports how many nodes have a cached Tapestry JSON, and how many don't
@@ -90,10 +91,61 @@ const wrap = (body) => [
   `})();`,
 ].join(NL);
 
-test('P1: backup says plainly that no backup of the graph is recorded', async () => {
-  const b = await status().parts.backup();
-  assert(b && b.known === true && b.last === null && typeof b.note === 'string' && b.note.trim().length > 0,
-    `backup must be { known: true, last: null, note }; got ${show(b)}`);
+// graph-operations-foundation #2 (ADR graph-operations-foundation/0002 Decision 11): the backup part reads the backups
+// folder (TAPESTRY_BACKUPS_DIR), so it runs in a child pointed at a temporary one.
+function backupPart(backupsDir) {
+  const out = child(wrap([
+    `process.env.TAPESTRY_BACKUPS_DIR = ${show(backupsDir)};`,
+    `const s = require(${show(STATUS_FILE)});`,
+    `process.stdout.write('RESULT:' + JSON.stringify(await s.parts.backup()) + '\\n');`,
+  ].join(NL)));
+  return out;
+}
+const listing = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir).sort() : []);
+
+test('P1: backup says plainly when no backup has been taken: last null, count 0, no run, nothing interrupted', () => {
+  status();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-status-backups-'));
+  try {
+    const b = backupPart(path.join(dir, 'none-here'));
+    assert(b && b.known === true && b.last === null && b.count === 0 && b.lastRun === null && b.interrupted === null && typeof b.note === 'string' && b.note.trim().length > 0,
+      `backup must be { known: true, last: null, count: 0, lastRun: null, interrupted: null, note }; got ${show(b)}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('P1b: backup shows the most recent backup, how many there are, the last run, and an interrupted run — and changes nothing (AC2)', async () => {
+  status();
+  const F = require('../../helpers/lifecycleFakes');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-status-backups-'));
+  try {
+    const keys = path.join(dir, 'secure-keys');
+    const id = await F.makeIdentity(keys);
+    const backups = path.join(dir, 'backups');
+    const mine = { identityDir: keys, assistantPubkey: id.pubkey, ownerPubkey: 'aa'.repeat(32), admins: [] };
+    F.writeBackup(backups, { ...mine, takenAt: '2026-11-08T09:00:00.000Z', note: 'older' });
+    const newest = F.writeBackup(backups, { ...mine, takenAt: '2026-11-08T10:00:00.000Z', note: 'before migrate' });
+    const runId = F.newId(new Date('2026-11-08T10:00:00.000Z'));
+    fs.mkdirSync(path.join(backups, '.runs'), { recursive: true });
+    fs.writeFileSync(path.join(backups, '.runs', `${runId}.json`), JSON.stringify({ runId, op: 'backup', outcome: 'done', finishedAt: '2026-11-08T10:00:20.000Z', result: { backup: { id: newest.id } } }));
+    const size = Object.values(F.folderFiles(newest.folder)).reduce((n, x) => n + x.length, 0);
+    const b = backupPart(backups);
+    assert(b && b.known === true && b.count === 2 && b.interrupted === null, `two backups, nothing interrupted; got ${show(b)}`);
+    const want = { id: newest.id, takenAt: '2026-11-08T10:00:00.000Z', note: 'before migrate', size, origin: 'taken', reason: 'requested' };
+    assert(same(b.last, want), `last is the most recent backup ${show(want)}; got ${show(b.last)}`);
+    assert(b.lastRun && b.lastRun.runId === runId && b.lastRun.op === 'backup' && b.lastRun.outcome === 'done' && b.lastRun.finishedAt === '2026-11-08T10:00:20.000Z' && b.lastRun.backup === newest.id,
+      `lastRun is { runId, op, outcome, finishedAt, backup }; got ${show(b.lastRun)}`);
+    const lock = F.writeLock(backups, { op: 'restore', pid: F.deadPid(), stage: 'offline' });
+    const before = listing(backups);
+    const c = backupPart(backups);
+    assert(c.interrupted && c.interrupted.runId === lock.runId && c.interrupted.op === 'restore' && c.interrupted.startedAt === lock.startedAt,
+      `a stale lock shows as interrupted { runId, op, startedAt }; got ${show(c.interrupted)}`);
+    assert(typeof c.note === 'string' && /interrupt/i.test(c.note), `the note says a run was interrupted; got ${show(c.note)}`);
+    assert(same(listing(backups), before) && fs.existsSync(path.join(backups, '.lock')), 'status reads only: the folder and the lock are as they were');
+    const s = status();
+    const Ajv = require('ajv');
+    const validate = new Ajv({ allErrors: true, strict: false }).compile(s.result.schema.properties.backup);
+    assert(validate(b) && validate(c), `each answer matches the backup part's schema: ${show(validate.errors)}`);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('P2: migrations says plainly that none is recorded', async () => {
