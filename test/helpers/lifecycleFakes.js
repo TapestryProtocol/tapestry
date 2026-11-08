@@ -451,7 +451,7 @@ function tarRead(buf) {
  * and the environment for a child running the code under test against them. TA_PUBKEY is left out, so the conf's
  * BRAINSTORM_RELAY_PUBKEY line names the assistant, as it does in a container.
  */
-async function makeInstance(base, { name = 'instance', owner, admins = [], masterKey, graph, programs, failures, confPubkeyOverride } = {}) {
+async function makeInstance(base, { name = 'instance', owner, admins = [], masterKey, graph, programs, failures, confPubkeyOverride, confExtra = [] } = {}) {
   const dir = path.join(base, name);
   fs.mkdirSync(dir, { recursive: true });
   const keysDir = path.join(dir, 'secure-keys');
@@ -467,6 +467,7 @@ async function makeInstance(base, { name = 'instance', owner, admins = [], maste
     `export BRAINSTORM_RELAY_PUBKEY='${named}'`,
     `export BRAINSTORM_RELAY_NPUB='${confPubkeyOverride ? nostr().nip19.npubEncode(named) : identity.npub}'`,
     '# TA pubkey from secure storage (privkey NOT in this file)',
+    ...confExtra,
   ].join(NL) + NL, { mode: 0o664 });
   fs.chmodSync(conf, 0o664);
   const settings = path.join(dir, 'settings.json');

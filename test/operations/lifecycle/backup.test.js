@@ -28,6 +28,7 @@
  *   B16  the command takes a backup without signing in, says on stderr that the job finishes on its own
  *   B17  backups live on the data volume: /var/lib/brainstorm/backups by default
  *   B18  no answer, warning or log line carries a private key or a master key
+ *   B19  an instance with no admins records none, not its launch settings' empty quotes (found by the live check)
  */
 
 const fs = require('fs');
@@ -334,6 +335,20 @@ test('B18: no answer, warning or log line carries the assistant\'s private key o
   for (const [what, secret] of [['the private key', inst.identity.privkey], ['the master key', inst.identity.masterKey]]) {
     assert(!said.includes(secret), `${what} appears in an answer or in the log`);
   }
+});
+
+test('B19: an instance with no admins records none — not the empty quotes of its launch settings\' BRAINSTORM_ADMIN_PUBKEYS=""', async () => {
+  // Found by the live check (2026-11-08): a fresh instance's conf says BRAINSTORM_ADMIN_PUBKEYS="", which the conf
+  // reader returns as the two characters "", so the backup recorded [""] and a restore would have written it into the
+  // other instance's settings, overriding that instance's own admins.
+  const { inst, run } = await setup('no-admins', {
+    instance: { admins: [], confExtra: ['export BRAINSTORM_ADMIN_PUBKEYS=""'] },
+    scenario: () => ({ requests: [post('no-admins', 'owner', {})] }),
+  });
+  const d = okData(run, 'no-admins');
+  assert(show(d.holds && d.holds.admins) === show([]), `holds.admins is empty; got ${show(d.holds && d.holds.admins)}`);
+  const admins = JSON.parse(fs.readFileSync(path.join(inst.backupsDir, d.backup.id, 'admins.json'), 'utf8'));
+  assert(show(admins) === show({ pubkeys: [], from: 'launch-settings' }), `admins.json is { pubkeys: [], from: 'launch-settings' }; got ${show(admins)}`);
 });
 
 test('B17: backups live on the data volume — /var/lib/brainstorm/backups unless TAPESTRY_BACKUPS_DIR says otherwise', () => {
