@@ -1,9 +1,9 @@
 /**
  * Tests for Story 1 (epic: tagging-edges) — the tagging edge contract.
  *
- * Story: engineering-team/stories/tagging-edges/1-tagging-edge-contract.md
- * ADR:   engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md
- * Plan:  engineering-team/stories/tagging-edges/1-tagging-edge-contract.test-plan.md
+ * Story: engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md
+ * Plan:  engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.test-plan.md
  *
  * Intentionally failing until src/lib/tagging-edges/ lands (red phase). The module is
  * require()d LAZILY inside each test, so loading this suite cannot crash the runner.
@@ -13,9 +13,9 @@
  * Hand-rolled in the project's existing test style — no new framework.
  *
  * Extended by Story 2 (tagging-edges #2, the gap-filling pass) — the tests whose names start "S2C":
- *   Story: engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.md
- *   ADR:   engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md ("Seams for Test Design → Contract suite")
- *   Plan:  engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
+ *   Story: engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.md
+ *   ADR:   engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md ("Seams for Test Design → Contract suite")
+ *   Plan:  engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md
  * R2-NB2 (a tag element resolves under its identity d), R2-10 (a retire-path case for clarification 9), the new
  * `stamp` export, and BIBLE §6's status line (re-aimed from story 1's "no pipeline writes TAGS yet"), Revokes
  * bullet, "One version stands" bullet and §30-class bullet, §11's three route rows, a §16 entry and a story-2

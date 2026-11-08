@@ -183,7 +183,7 @@ first start on this instance, which reflects only what arrives afterwards.
 
 ### Carry-forwards from story 4's review (R2-1 to R2-14)
 
-Placed by the owner on 2026-10-01 (`reviews/tagging-edges/4-tagging-pipeline-panel.md` § "Re-review, round 2"; the
+Placed by the owner on 2026-10-01 (`reviews/done/tagging-edges/4-tagging-pipeline-panel.md` § "Re-review, round 2"; the
 epic's item 5 holds each one's ask). All 14 still stand on staging (read at `5e20d462`; story 4's code is unchanged
 since `77ae0da4`). Who does each:
 - **Implementer (copy and docs):** R2-1's copy, R2-2, R2-3's copy, R2-4, R2-5, R2-6, R2-7's OPERATIONS half, R2-8's
@@ -302,7 +302,7 @@ standing failure. The comparison below uses a baseline from before the story.)*
   served on the host, with Node 22 and Chromium. *(Added at story 6's Implementation, 2026-10-28, carry-forward
   C5-10: this line named no commit. The run to cite is the re-review's, round 2, on `442c9dec`: 86 of 86, twice, with
   no retries, against the UI built inside the container from the committed tree at `442c9dec`
-  (`reviews/tagging-edges/5-real-time-path-switch.md` § "Re-review, round 2", Quality gates).)*
+  (`reviews/done/tagging-edges/5-real-time-path-switch.md` § "Re-review, round 2", Quality gates).)*
 - **A baseline worktree's record reads `dirty`** (`dirtyCount: 1`). Its one untracked entry is its `node_modules`
   symlink into the main checkout, which `.gitignore`'s `node_modules/` does not match, since git sees a symlink as a
   file. Its `ui/node_modules` symlink is ignored by `ui/.gitignore`. No tracked file changed.
@@ -448,6 +448,6 @@ Small judgement calls made at Implementation (2026-10-01), too small for an ADR 
 
 ## Linked artifacts
 
-- ADR: `engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md`
-- Test plan: `engineering-team/stories/tagging-edges/5-real-time-path-switch.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/5-real-time-path-switch.md`
+- ADR: `engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/5-real-time-path-switch.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md`

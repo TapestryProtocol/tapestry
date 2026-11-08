@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-10-01
-**Story:** `engineering-team/stories/tagging-edges/5-real-time-path-switch.md`
+**Story:** `engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md`
 
 ## Context
 

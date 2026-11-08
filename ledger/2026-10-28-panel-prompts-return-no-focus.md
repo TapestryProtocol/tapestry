@@ -25,5 +25,5 @@
   a prompt.
 - **Add a browser test for each prompt,** next to the specs that already check focus on open.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/5-real-time-path-switch.md:207-211` (non-blocking 1);
-`engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 6.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md:207-211` (non-blocking 1);
+`engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 6.

@@ -2,12 +2,12 @@
 /**
  * Tests for Story 6 (epic tagging-edges): the job gate in the task queue, the semaphore's abandon hook and queueHealth.
  *
- * Story: engineering-team/stories/tagging-edges/6-pass-run-and-stop.md: AC-1 ("Just after a pass ends", "When the
+ * Story: engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md: AC-1 ("Just after a pass ends", "When the
  *        task queue is unavailable"), AC-2 ("A waiting pass that gives up"), AC-3 ("Confirming a stop of a waiting
  *        pass: the pass never begins running", "The schedule ... the next one comes at its usual time"), AC-5 (the
  *        schedule and "started another way" as who; "a start that cannot be refused goes ahead, and shows as not
  *        recorded"), and the Test tasks "Server cases for AC-3" and "Server cases for AC-5".
- * ADR:   engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md: D1 (one controller instance, its chain
+ * ADR:   engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md: D1 (one controller instance, its chain
  *        and its in-memory state), D2 (queueHealth; the job key), D3 (jobGates.gateFor, the worker callback, the
  *        gate's beforeAcquire, shouldAbandon, afterAcquire, ended, gaveUp and skipped), D4 (the semaphore's abandon
  *        hook), D5 (how the gate's phases show in the busy snapshot), D9 (a Stop's marks, which the gate reads), D11

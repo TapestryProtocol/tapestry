@@ -42,5 +42,5 @@ OPEN.md row `2026-09-27-social-edge-properties-undocumented` asks for it.
 
 **Pointer:** epic `engineering-team/epics/tagging-edges.md` § Key facts / guardrails (the "Known defects in the
 follows pipeline" bullet: "the stream and reconcile writers disagreeing on REPORTS' shape"); review
-`engineering-team/reviews/tagging-edges/1-tagging-edge-contract.md` Blocking 4; related OPEN.md row
+`engineering-team/reviews/done/tagging-edges/1-tagging-edge-contract.md` Blocking 4; related OPEN.md row
 `2026-09-27-social-edge-properties-undocumented`.

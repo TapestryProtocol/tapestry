@@ -2,9 +2,9 @@
 /**
  * Tests for Story 4 (epic tagging-edges) — the strict relay count the drift route counts relay taggings through.
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md — AC-4 ("Unknown, never 0": a count that
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md — AC-4 ("Unknown, never 0": a count that
  *        fails, or takes longer than 10 seconds, reads "unknown", never 0; "Reads only").
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md — § Context ("There is no strict relay
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md — § Context ("There is no strict relay
  *        count": `strfry scan --count` prints one number and exits 0, its stderr is never empty), § Sub-decisions
  *        ("The relay count" (a)), § Server (`countStrict(filter, { timeoutMs = 10000, spawnImpl } = {})`), and
  *        § Seams for Test Design ("countStrict is tested through a fake strfry placed first on PATH

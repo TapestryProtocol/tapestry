@@ -1,7 +1,7 @@
 # Test Plan: Story 1 — The tagging edge contract
 
-**Story:** `engineering-team/stories/tagging-edges/1-tagging-edge-contract.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md` (including its "Clarifications (Test
+**Story:** `engineering-team/stories/done/tagging-edges/1-tagging-edge-contract.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md` (including its "Clarifications (Test
 Design, 2026-09-27)" section)
 **Date:** 2026-09-27
 

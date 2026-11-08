@@ -1,7 +1,7 @@
 # Test Plan: Story 7 — Confirming held removals, on the panel
 
-**Story:** `engineering-team/stories/tagging-edges/7-confirm-held-removals.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md`
+**Story:** `engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md`
 **Date:** 2026-11-07
 
 ## The suites
@@ -311,7 +311,7 @@ pass checked before a starting one; a pass with a stop asked joined), and twenty
 
 ### Fix round (review round 1, 2026-11-07)
 
-Review `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md` asked for these tests (blocking 1,
+Review `engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md` asked for these tests (blocking 1,
 requested 2 to 10). They pin ADR 0007 § Fix-round notes. Each suite was run alone through `run()` on host Node
 22.23.4, and the browser spec on chromium, at `7be349a6` plus this round's tests:
 

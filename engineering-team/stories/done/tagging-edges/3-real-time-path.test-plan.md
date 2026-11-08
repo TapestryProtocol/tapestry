@@ -1,7 +1,7 @@
 # Test Plan: Story 3 — The real-time path
 
-**Story:** `engineering-team/stories/tagging-edges/3-real-time-path.md`
-**ADR:** `engineering-team/decisions/tagging-edges/0003-real-time-path.md` (Decision sections, clarifications T1–T34,
+**Story:** `engineering-team/stories/done/tagging-edges/3-real-time-path.md`
+**ADR:** `engineering-team/decisions/done/tagging-edges/0003-real-time-path.md` (Decision sections, clarifications T1–T34,
 Amendment A1, A1-1…A1-21, and A1 clarifications 1–26)
 **Date:** 2026-09-28; A1 pass 2026-09-29; review round 1 pass 2026-09-29; review round 2 pass 2026-09-29; review round 3
 pass 2026-09-30 (at story 4's Test Design)
@@ -19,7 +19,7 @@ keeps its round-1 text and adds an A1 part:
 
 Where round-1 text names H, `discardSupersededRevokes` or a discard, A1 governs.
 
-**Review round 1 (2026-09-29).** The review (`engineering-team/reviews/tagging-edges/3-real-time-path.md`) asked for
+**Review round 1 (2026-09-29).** The review (`engineering-team/reviews/done/tagging-edges/3-real-time-path.md`) asked for
 changes. The owner ratified its recommendation, and ADR 0003 gained A1 clarifications 20–25 (`d9d0ccf8`). This pass
 adds 17 tests, 8 of them in a new suite, and re-aims one:
 - **Clarifications 20–23 are pinned, and pass now.** The code already does each: RX20, RX21 (20), RX22 (21), RX23

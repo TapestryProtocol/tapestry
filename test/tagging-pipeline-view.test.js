@@ -2,13 +2,13 @@
 /**
  * Tests for Story 4 (epic tagging-edges) — the tagging pipeline panel's view model; extended by Stories 5, 6 and 7.
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md — AC-2 (the pass judged running by
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md — AC-2 (the pass judged running by
  *        liveness, the latest and earlier passes, "no pass yet", the confirmation's state, the backstop schedule), AC-3
  *        (the path: liveness first, its warnings, its counts and gauges, "not yet available" against 0, its last
  *        figures), AC-4 (drift: the difference, the explained part from the newest finished pass, the remainder, what
  *        is named beside it, "unknown, never 0") and AC-5's "every state has its own text" (the explanations and their
  *        "not recognised" fallback).
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md — § Implementation notes › UI
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md — § Implementation notes › UI
  *        (ui/src/utils/taggingPipelineView.js: its form, POLL_MS / SCHEDULE_POLL_MS, EXPLANATIONS, FAMILIES, explain,
  *        passView, newestFinishedPass, pathView, scheduleView, driftView), § Seams for Test Design ("the two view modules
  *        are loaded by import() from Node suites"), and § Clarifications (Test Design, 2026-09-30) T1–T6.
@@ -31,8 +31,8 @@
  *             unexplained still computed (TV59–TV62; review Non-blocking 3) — and usedInsteadOfLatest true while a
  *             pass runs (TV63; T5's note; review Non-blocking 1). The flags helper now holds five flags, so TV48–TV51
  *             pin countsPredatePass's boolean too.
- *   TV64–TV81 Story 5 (engineering-team/stories/tagging-edges/5-real-time-path-switch.md; ADR
- *             engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md D7, D8, D12, D14 and § Seams "The
+ *   TV64–TV81 Story 5 (engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md; ADR
+ *             engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md D7, D8, D12, D14 and § Seams "The
  *             view module"), still clock-free (TV4):
  *             TV64–TV67 pathView's starting window (D7: starting, runningForThisOn, onButNotRunning and state while
  *             starting, the server's inStartWindow verdict only); TV68 offPromptVariant (D8); TV69 turnOnWarning
@@ -42,8 +42,8 @@
  *             names no data-volume remedy, claims no state and says the state shown is from the next read; one
  *             carrying the handler's code keeps the remedy. It fails until a code-less failure has its own sentence.
  *   R2-12 (story 5 § Carry-forwards): TV48's title now says five flags, as the helper holds (a title-only edit).
- *   TV83–TV108 Story 6 (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md; ADR
- *             engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D5, D9, D10, D12, D16, D18 and § Seams
+ *   TV83–TV108 Story 6 (engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md; ADR
+ *             engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md D5, D9, D10, D12, D16, D18 and § Seams
  *             "New cases the review named"), still clock-free (TV4, TV108):
  *             TV83 the stopped outcome's copy (EXPLANATIONS passOutcome.stopped and passReason.requested, OUTCOME_TONE.stopped
  *             neutral, FINISHED unchanged, the signal entries kept); TV84–TV86 busyView; TV87–TV89 runOutcome; TV90–TV92
@@ -58,8 +58,8 @@
  *             comes from D5's 1 s reuse; TV110 the plural too-late sentence never says "some". TV90 is revised, not
  *             replaced: every sentence of each accepted Stop's text must be in the past tense (pastProblems), not only
  *             one of them, so "It stops at its next safe point." beside a past sentence fails.
- *   TV111–TV132 Story 7 (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
- *             engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md D9, D11, D12, D13, D14, § Carry-forwards
+ *   TV111–TV132 Story 7 (engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md; ADR
+ *             engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md D9, D11, D12, D13, D14, § Carry-forwards
  *             NB2 and § Seams "The view"), still clock-free (TV4, TV132):
  *             TV111–TV116 confirmView (D9: offer, runId, count, replaces, when; the confirmation's six states; the held list
  *             not yet read; a running or starting pass; D13's used-up confirmation); TV117–TV124 confirmOutcome (D11, one
@@ -67,8 +67,8 @@
  *             runWho's confirmation line (D12, D7); TV127 NB2 (busyView's known needs a busy list); TV128–TV131 overdueView
  *             (D14); TV132 no clock in any of them. Red until the Implementer: each fails by name ("does not export
  *             confirmView (ADR tagging-edges/0007 D9 …)"), or, for TV125–TV127, on today's passWho and busyView.
- *   TV133–TV135 Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, requested
- *             5; ADR engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md § "Fix-round notes", D14 "a
+ *   TV133–TV135 Story 7's review, round 1 (engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md, requested
+ *             5; ADR engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md § "Fix-round notes", D14 "a
  *             failed read after a good one": "This holds whether or not a body is kept from an earlier read. A kept
  *             verdict is never shown while the latest read has failed."). The panel's useRead keeps the last good body
  *             when a read fails, and overdueView is given both, so:
@@ -2051,7 +2051,7 @@ test('TV82: a failed change whose answer carries no body.code did not come from 
     + `1; story 5's review, requested 6):\n      - ${bad.join('\n      - ')}`);
 });
 
-// ═══ Story 6 (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md; ADR tagging-edges/0006 D5, D9, D10, D12, D16, D18) ═══
+// ═══ Story 6 (engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md; ADR tagging-edges/0006 D5, D9, D10, D12, D16, D18) ═══
 
 const ADR6 = 'ADR tagging-edges/0006';
 /** Story 6's new exports: the same loader, citing ADR 0006. */
@@ -2955,7 +2955,7 @@ test('TV110: a Stop whose every target came too late says so of all of them, nev
   assert(!bad.length, `stopOutcome when every stop came too late (${ADR6} D16):\n      - ${bad.join('\n      - ')}`);
 });
 
-// ═══ Story 7 (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR tagging-edges/0007 D9, D11–D14, NB2) ═══
+// ═══ Story 7 (engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md; ADR tagging-edges/0007 D9, D11–D14, NB2) ═══
 
 const ADR7 = 'ADR tagging-edges/0007';
 /** Story 7's new exports: the same loader, citing ADR 0007. */

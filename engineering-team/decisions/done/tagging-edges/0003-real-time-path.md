@@ -2,7 +2,7 @@
 
 **Status:** Accepted; amended by A1 (2026-09-29)
 **Date:** 2026-09-28
-**Story:** `engineering-team/stories/tagging-edges/3-real-time-path.md`
+**Story:** `engineering-team/stories/done/tagging-edges/3-real-time-path.md`
 
 ## Context
 

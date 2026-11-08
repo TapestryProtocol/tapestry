@@ -16,4 +16,4 @@ other callers still use it.
 Pointer-level here by the house rule; anything sharper belongs in the private advisory SECURITY.md describes.
 
 **Pointer:** `src/utils/config.js` (`getConfigFromFile`); `src/lib/neo4j-driver.js:29-41`; ADR
-`engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md` § Consequences.
+`engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md` § Consequences.

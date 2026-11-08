@@ -2,8 +2,8 @@
 /**
  * Fakes for the real-time path's ENGINE suite (epic tagging-edges, story 3).
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — clarifications T20 (the engine seam and its
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — clarifications T20 (the engine seam and its
  *        deps), T21 (the store) and the § Decision subsections the fakes stand in for. Binding context: ADR 0002's
  *        graph port (src/pipeline/tagging-edges/graph.js, clarification C6 rows) and ADR 0001's contract.
  * Suite: test/tagging-edges-realtime-engine.test.js

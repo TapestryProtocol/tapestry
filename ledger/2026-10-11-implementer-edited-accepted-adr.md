@@ -27,7 +27,7 @@ review-dispatch template that derives "which ADR changes are Architect-phase" fr
 it.
 
 **Seen again, 2026-11-08 (tagging-edges #7, review round 2).** The fix round's `impl:` commit `4943e870` re-pointed a
-line cite inside story 6's dated note at `engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md:842`
+line cite inside story 6's dated note at `engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md:842`
 (an accepted ADR, shipped), editing the note in place rather than appending one. The round-1 review's own ask ("Cite
 the key, or the new line") invited it. Round 2 asks the line restored and an appended note in an `adr:` commit
 (review `tagging-edges/7-confirm-held-removals.md` § Re-review, round 2, requested 5).

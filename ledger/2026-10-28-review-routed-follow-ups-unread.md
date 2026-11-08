@@ -24,5 +24,10 @@
   "goes to story N" items and list each in the story, as carried or as declined.
 - Either way, the review template's Non-blocking section could ask where each item goes.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 6;
-`engineering-team/stories/tagging-edges/6-pass-run-and-stop.md` § "Carry-forwards from story 5's review".
+**Pointer:** `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 6;
+`engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md` § "Carry-forwards from story 5's review".
+
+**Seen again, 2026-11-08 (tagging-edges book close).** Story 7's review left twelve round-1 notes, two round-2
+notes, three round-3 notes and three "outside this story" items. The story 7 test plan left three notes "for the
+owner". None had a row or a story when the book closed. The close placed them in the audit's carry-forward register
+(`engineering-team/audits/tagging-edges/audit.md` §6 #8–#13), which is where they now live.

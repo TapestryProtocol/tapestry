@@ -22,4 +22,4 @@ ADR `tagging-edges/0002` treats the pass's own report as authoritative for this 
 whether an entry-point task (no parent) should return its child's exit code on failure, and pin it with a test.
 
 **Pointer:** `src/manage/taskQueue/launchChildTask.sh:460`, :496-523; ADR
-`engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md` § Consequences.
+`engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md` § Consequences.

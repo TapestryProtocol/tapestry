@@ -2,8 +2,8 @@
 /**
  * tagging-edges #4: the tagging pipeline panel — source-level sentinels (PS-class).
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md (AC-1, AC-5, AC-6)
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md (AC-1, AC-5, AC-6)
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md
  *        § UI, § Seams for Test Design ("Static checks on the panel's source"), § Clarifications T9
  *
  * What it reads (stack-free, no request to any host):
@@ -21,18 +21,18 @@
  * render lines, and today's styles.css, PASS; every test about the new files fails by name ("… not implemented yet").
  *
  * tagging-edges #5 (the real-time path's switch on the panel):
- * Story: engineering-team/stories/tagging-edges/5-real-time-path-switch.md (AC-1, AC-2, AC-6; Test tasks "Story 4's
+ * Story: engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md (AC-1, AC-2, AC-6; Test tasks "Story 4's
  *        GET-only pins are revised, not deleted")
- * ADR:   engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md (§ Constraints, D12, D13, § Seams
+ * ADR:   engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md (§ Constraints, D12, D13, § Seams
  *        "Static pins")
  * PS13 now allows exactly one non-GET, sendSwitch's POST; PS14's paths gain the switch path. PS10, PS11 and PS12 stand
  * as written. PS26–PS28 pin the static facts ADR 0005 fixes. Against 8a082b75 (before story 5's Implementer), PS13,
  * PS14 and PS26–PS28 fail by name; every other test passes.
  *
  * tagging-edges #6 (running and stopping the pass on the panel):
- * Story: engineering-team/stories/tagging-edges/6-pass-run-and-stop.md (AC-1, AC-3, AC-6; Test tasks "Story 4's and
+ * Story: engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md (AC-1, AC-3, AC-6; Test tasks "Story 4's and
  *        story 5's request pins are revised, not deleted"; carry-forward C5-4)
- * ADR:   engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md (§ Constraints, D13, D15, D17, D19, D20,
+ * ADR:   engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md (§ Constraints, D13, D15, D17, D19, D20,
  *        § Seams "Request pins")
  * Revised, not deleted: PS13 now allows exactly the POSTs inside sendSwitch, sendRun and sendStop, each to its literal
  * path; PS14's paths gain /api/tagging-edges/pass/record and the two POST paths, and its message names story 7 for
@@ -52,9 +52,9 @@
  * ca504c42; each fails when its fix is undone.
  *
  * tagging-edges #7 (confirming held removals on the panel):
- * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md (AC-1, AC-2, AC-3, AC-6, AC-7; Test tasks
+ * Story: engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md (AC-1, AC-2, AC-3, AC-6, AC-7; Test tasks
  *        "The earlier stories' pins are revised, not deleted")
- * ADR:   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md (D9, D10, D11, D15, D16, § Seams
+ * ADR:   engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md (D9, D10, D11, D15, D16, § Seams
  *        "Revised pins")
  * Revised, not deleted: PS13 now allows exactly the POSTs inside sendSwitch, sendRun, sendStop and sendConfirm, each to
  * its literal path; PS14's allowed paths gain /api/tagging-edges/confirm-held-removals and no read route (ADR 0007 adds

@@ -2,8 +2,8 @@
 /**
  * Shared fakes for story 6's suites (epic tagging-edges): running and stopping the gap-filling pass.
  *
- * Story: engineering-team/stories/tagging-edges/6-pass-run-and-stop.md (AC-1..AC-6, Test tasks)
- * ADR:   engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md — § Context (probes P1, P2, P5, Q2, Q3),
+ * Story: engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md (AC-1..AC-6, Test tasks)
+ * ADR:   engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md — § Context (probes P1, P2, P5, Q2, Q3),
  *        D1–D14, and § Seams for Test Design (the deps list, the fakes, the load-time pins).
  *
  * Load-safe: this file requires only Node built-ins at load time. BullMQ, the semaphore and every module under test are

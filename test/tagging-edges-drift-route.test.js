@@ -3,10 +3,10 @@
  * Tests for Story 4 (epic tagging-edges) — the drift-counts route the tagging pipeline panel asks for its relay and
  * graph counts.
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md — AC-4 ("Unknown, never 0": a count that
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md — AC-4 ("Unknown, never 0": a count that
  *        fails, or takes longer than 10 seconds, reads "unknown"; "Who may count": only a signed-in owner or admin can
  *        ask for a count, any other request is refused by the server and counts nothing; "Reads only").
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md — § Implementation notes → Server
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md — § Implementation notes → Server
  *        (src/api/tagging-edges/drift.js: the gate, the relay count, the graph count, both counts, the answer, single
  *        flight, registration, reads only), § "Seams for Test Design" → "The route", and the Test Design clarifications
  *        T8 (takenAt, ms, stamps) and T11 (the route's seams).

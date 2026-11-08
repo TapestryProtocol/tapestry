@@ -131,7 +131,7 @@ carrying the canonical stamp, this deployment's own, or both.
 ### Docs tasks
 
 Checked by the Reviewer against the diff, not by tests — except the BIBLE task, whose status line story 1's test
-already checks. Story 1's review carry-forwards (owner-ratified 2026-09-27, `reviews/tagging-edges/1-tagging-edge-contract.md`
+already checks. Story 1's review carry-forwards (owner-ratified 2026-09-27, `reviews/done/tagging-edges/1-tagging-edge-contract.md`
 § "Re-review"): R2-4–R2-9 below; R2-NB1, R2-NB2 and R2-NB3 are carried by AC-2, AC-1 and AC-3; R2-10 is under
 Test Design.
 
@@ -405,6 +405,6 @@ For Test Design:
 
 ## Linked artifacts
 
-- ADR: `engineering-team/decisions/tagging-edges/0002-gap-filling-pass.md`
-- Test plan: `engineering-team/stories/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md`
+- ADR: `engineering-team/decisions/done/tagging-edges/0002-gap-filling-pass.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/2-gap-filling-pass-and-backfill.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md`

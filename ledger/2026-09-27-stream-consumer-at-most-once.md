@@ -37,5 +37,5 @@ must not copy (epic § Key facts / guardrails).
 
 **Pointer:** epic `engineering-team/epics/tagging-edges.md` § Key facts / guardrails (the "Known defects in the
 follows pipeline" bullet: "at-most-once delivery"); review
-`engineering-team/reviews/tagging-edges/1-tagging-edge-contract.md` Blocking 4;
+`engineering-team/reviews/done/tagging-edges/1-tagging-edge-contract.md` Blocking 4;
 `src/pipeline/stream/redis-consumer.js:139-168`.

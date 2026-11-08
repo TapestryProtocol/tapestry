@@ -18,4 +18,4 @@ run, now does). Fix shape: `['html', { open: 'never' }]` in the config, or the s
 `engineering-team/templates/test-plan.md:38`. *(Corrected 2026-11-08, at story 7's review round 3: this named "the cycle
 skills", which run no Playwright.)* Either is a config or harness change for the owner to place.
 
-**Pointer:** `engineering-team/stories/tagging-edges/7-confirm-held-removals.test-plan.md` § How to run
+**Pointer:** `engineering-team/stories/done/tagging-edges/7-confirm-held-removals.test-plan.md` § How to run

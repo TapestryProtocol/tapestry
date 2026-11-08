@@ -4,7 +4,7 @@
 **Date:** 2026-09-27
 **Diff:** the untracked file `docs/TAGGING_EDGES_HANDOFF.md` (130 lines) on `docs/tagging-edges-handoff`, off `origin/staging` `bb5db99a`. Nothing else in the tree changed.
 **Lane:** doc / one-liner (0-intake §3: Implementer + Reviewer). No story; this is the non-numbered review form.
-**Inputs checked against:** epic `epics/tagging-edges.md`, ADR `decisions/tagging-edges/0001-tagging-edge-contract.md`, the story-1 review `reviews/tagging-edges/1-tagging-edge-contract.md`, BIBLE §6 / §24 / §30, and `docs/DICTIONARY_PAGE_HANDOFF.md` for the handoff convention.
+**Inputs checked against:** epic `epics/tagging-edges.md`, ADR `decisions/done/tagging-edges/0001-tagging-edge-contract.md`, the story-1 review `reviews/done/tagging-edges/1-tagging-edge-contract.md`, BIBLE §6 / §24 / §30, and `docs/DICTIONARY_PAGE_HANDOFF.md` for the handoff convention.
 
 ## Quality gates (run by reviewer, not trusted)
 

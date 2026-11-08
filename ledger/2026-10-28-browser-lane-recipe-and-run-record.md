@@ -55,4 +55,4 @@ both.
 (evidence runs need a record before Review); ledger `2026-10-09-light-gate-b-no-gate-status` (a browser-only Gate B
 has nothing to quote).
 
-**Pointer:** `engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 2 and 10.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 2 and 10.

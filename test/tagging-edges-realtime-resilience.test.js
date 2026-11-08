@@ -4,8 +4,8 @@
  * the catch-up share, journal faults, replay exactness, the compaction cadence, the pass rule and the final status.
  * The engine is driven through its seam with every dependency faked, as in test/tagging-edges-realtime-engine.test.js.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md (AC-1 … AC-4, AC-6)
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — § Amendment A1: A1-6 (record and journal: the
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md (AC-1 … AC-4, AC-6)
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § Amendment A1: A1-6 (record and journal: the
  *        epoch, streamed replay, the demotion at journal-unreadable, the compaction cadence), A1-7 (the pass
  *        exception), A1-11 (no start hold), A1-13 (time-outs), A1-14 (the catch-up share), A1-17 (interfaces), A1-18
  *        (settlements: the final status), and A1-20's new engine scenarios 8, 9, 10, 14 and 17. Body context: § Failure
@@ -27,7 +27,7 @@
  * (RX19). Clarification 11's one-single-time-out limit and per-case bounds are RX2's and RX3's; clarification 13 (the
  * pass-overlap ties) is the planner's RP53.
  *
- * Review round 1 (engineering-team/reviews/tagging-edges/3-real-time-path.md, 2026-09-29) adds RX20–RX25. RX20–RX23 pin
+ * Review round 1 (engineering-team/reviews/done/tagging-edges/3-real-time-path.md, 2026-09-29) adds RX20–RX25. RX20–RX23 pin
  * the A1 clarifications the owner ratified from it, which the code already does: a lone change through a total stall
  * is never parked, and a never-answering address beside answering traffic still is after three (clarification 20:
  * RX20, RX21); a live revoke lifts a time-out park (21: RX22); a one-id element time-out counts in failedReads.element

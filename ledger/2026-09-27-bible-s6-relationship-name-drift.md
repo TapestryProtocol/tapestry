@@ -47,5 +47,5 @@ Correct the two `docs/` files in the same PR. The audit's ENUMERATES rule is cod
 one-line fix but cannot make it.
 
 **Pointer:** `BIBLE.md` § 6 "Neo4j Node Labels" and "Relationship Types"; `firmware/versions/v1.0.0/concepts/relationship-type/elements/`;
-the tagging-edges kickoff orientation (ADR `engineering-team/decisions/tagging-edges/0001-tagging-edge-contract.md`
+the tagging-edges kickoff orientation (ADR `engineering-team/decisions/done/tagging-edges/0001-tagging-edge-contract.md`
 § Context, "Concepts").

@@ -324,7 +324,7 @@ absent stance included, carrying the canonical stamp, this deployment's own, or 
 ### Docs tasks
 
 The Reviewer checks these against the diff, not with tests. Story 2's review carry-forwards
-(`reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § "Carry-forwards", placed here at the owner's direction)
+(`reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § "Carry-forwards", placed here at the owner's direction)
 are CF-1 to CF-6; the orientation sweep of 2026-09-28 found the extra places each one names.
 
 - [ ] **BIBLE.**
@@ -879,7 +879,7 @@ day.
 ### The following days, read at story 7's Planning (2026-10-30); open question 14 closed
 
 Staging's `GET /api/tagging-edges/realtime/status` at 2026-10-30T01:28:58Z (recorded at tagging-edges story 7's
-Planning, which closes the question; `engineering-team/stories/tagging-edges/7-confirm-held-removals.md` § Docs tasks):
+Planning, which closes the question; `engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md` § Docs tasks):
 - `state` `live`, `runningSince` 2026-10-30T00:16:05.716Z, `lastError` null;
 - every `failedReads` count 0 (relay, graph, element, catch-up), `removalsNotPrompted` 0, `droppedOverBacklog` 0,
   `refused.total` 0, `dbRefused.total` 0, `leftInPlace.total` 0, every lost race 0;
@@ -1120,7 +1120,7 @@ and 23 (a catch-up's compaction keeps the `older` ids learned since its key read
 
 ## Linked artifacts
 
-- ADR: `engineering-team/decisions/tagging-edges/0003-real-time-path.md` (with Amendment A1, 2026-09-29: revokes by event id and the lineage, after the
+- ADR: `engineering-team/decisions/done/tagging-edges/0003-real-time-path.md` (with Amendment A1, 2026-09-29: revokes by event id and the lineage, after the
   Implementation kick-back)
-- Test plan: `engineering-team/stories/tagging-edges/3-real-time-path.test-plan.md`
-- Review: `engineering-team/reviews/tagging-edges/3-real-time-path.md`
+- Test plan: `engineering-team/stories/done/tagging-edges/3-real-time-path.test-plan.md`
+- Review: `engineering-team/reviews/done/tagging-edges/3-real-time-path.md`
