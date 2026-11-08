@@ -384,6 +384,10 @@ const suites = [
   // (test/fixtures/openapi-known-gaps.json), and what the document and BIBLE §11 say about it (ngit 7a13648f).
   { file: 'openapi-coverage.test.js' },
   { file: 'openapi-document.test.js' },
+  // graph-operations-foundation #1: the operations module — one declaration per operation, and its route, route-table
+  // entry, /docs entry, command and list entry made from it (ADR graph-operations-foundation/0001). It also runs every
+  // suite under test/operations/, so an operation's own suite needs no line here (ADR Decision 12).
+  { file: 'operations.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

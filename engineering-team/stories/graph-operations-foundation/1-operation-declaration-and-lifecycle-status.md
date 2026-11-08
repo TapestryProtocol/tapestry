@@ -73,5 +73,5 @@ Both were resolved at the planning gate on 2026-11-08, where the owner chose the
 - Epic: [engineering-team/epics/graph-operations-foundation.md](../../epics/graph-operations-foundation.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D1, D13, §2); catalog Conventions and §8
 - ADR: [engineering-team/decisions/graph-operations-foundation/0001-declare-each-operation-once.md](../../decisions/graph-operations-foundation/0001-declare-each-operation-once.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [1-operation-declaration-and-lifecycle-status.test-plan.md](1-operation-declaration-and-lifecycle-status.test-plan.md)
 - Review: (filled in after Review phase)
