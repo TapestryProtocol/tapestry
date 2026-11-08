@@ -2,19 +2,45 @@ name: Publish brain images
 
 # Builds the images brains run, then moves every brain on tapestry.ninja onto them, one at a time. See deploy/RUNBOOK.md.
 # A roll does not reload Caddy, so a Caddyfile change needs the restart the runbook gives.
-# The brains follow staging (brains-launcher ADR 0001, amendment 1): a push to staging runs it, unless the push touches
-# only the team's records, which no brain serves. A push to main doesn't, so promoting staging never moves the brains back
-# onto an older build. It can also be run by hand on staging, or on main to try main's build until the next staging push.
-# A run leaves the droplet's checkout on the branch it ran from, so the launcher and Caddy follow that branch's deploy/
-# until the next run.
+# The brains follow staging (brains-launcher ADR 0001, amendments 1 and 2): a push to staging runs it only when the push
+# changes something a brain runs or serves, the paths below. Docs, tests, records and tooling don't roll them. A push to
+# main doesn't, so promoting staging never moves the brains back onto an older build. It can also be run by hand on
+# staging, or on main to try main's build until the next staging push. A run leaves the droplet's checkout on the branch
+# it ran from, so the launcher and Caddy follow that branch's deploy/ until the next run.
+# A new top-level folder the image uses goes in the list below; test W1c fails until every top-level path is sorted.
+# GitHub reads only a push's first 300 changed files here, so after a bigger push, run it by hand.
 
 on:
   push:
     branches: [staging]
-    paths-ignore:
-      - "engineering-team/**"
-      - "product-team/**"
-      - "ledger/**"
+    paths:
+      - "src/**"
+      - "bin/**"
+      - "lib/**"
+      - "config/**"
+      - "customers/**"
+      - "public/**"
+      - "setup/**"
+      - "firmware/**"
+      - "plugins/**"
+      - "tools/**"
+      - "ui/**"
+      - "docker/**"
+      - "patches/**"
+      - "nip50-proxy/**"
+      - "nostr-search/**"
+      - "deploy/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "index.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/publish-image.yml"
+      # Notes and tests inside those folders don't change what a brain does.
+      - "!**/*.md"
+      - "!**/*.test.*"
+      # The one Markdown file a brain serves, at /information-for-agents.md.
+      - "docs/information-for-agents.md"
   workflow_dispatch:
 
 # Later pushes wait their turn. Stopping a roll partway would leave brains on two images for no reason. While a roll runs,

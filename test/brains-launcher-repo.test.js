@@ -220,15 +220,57 @@ test('W1: it runs on staging and by hand, never on pull requests, and never canc
   assert(/cancel-in-progress: false/.test(wf), 'a newer push must not cancel a roll under way');
 });
 
-test('W1b: a push that touches only the team\'s records does not roll the brains', () => {
-  const wf = publishWorkflow();
-  const ignore = (wf.match(/paths-ignore:\s*\n((?:\s+- .+\n)+)/) || [])[1] || '';
-  for (const dir of ['engineering-team', 'product-team', 'ledger']) {
-    assert(ignore.includes(`"${dir}/**"`), `${dir}/ is missing from paths-ignore`);
+/** The push `paths` filter, in order, and GitHub's reading of it: the last pattern a file matches decides, `!` excludes. */
+function pushPaths(wf) {
+  const block = (wf.match(/push:\s*\n\s*branches: \[staging\]\s*\n\s*paths:\s*\n((?:\s+(?:- .+|#.*)\n)+)/) || [])[1] || '';
+  return block.split('\n').map((l) => (l.match(/^\s+- "(.+)"\s*$/) || [])[1]).filter(Boolean);
+}
+function globToRegExp(glob) {
+  const body = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*\//g, '\u0000').replace(/\*\*/g, '\u0001').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]')
+    .replace(/\u0000/g, '(?:.*/)?').replace(/\u0001/g, '.*');
+  return new RegExp(`^${body}$`);
+}
+function rolls(patterns, file) {
+  let hit = false;
+  for (const p of patterns) {
+    const neg = p.startsWith('!');
+    if (globToRegExp(neg ? p.slice(1) : p).test(file)) hit = !neg;
   }
-  for (const served of ['src/', 'docs/', 'public/', 'ui/', 'deploy/']) {
-    assert(!ignore.includes(`"${served}`), `${served} holds what a brain runs or serves, so it must not be ignored`);
+  return hit;
+}
+
+test('W1b: only a push that changes what a brain runs or serves rolls the brains (ADR 0001 amendment 2)', () => {
+  const patterns = pushPaths(publishWorkflow());
+  assert(patterns.length > 0, 'push to staging needs a paths list');
+  for (const f of ['src/api/normalize/nodes.js', 'ui/src/pages/reading/ReadingViews.jsx', 'firmware/elements/x.json', 'Dockerfile',
+    'package-lock.json', 'deploy/edge/Caddyfile', 'nostr-search/src/main/kotlin/A.kt', 'docs/information-for-agents.md',
+    '.github/workflows/publish-image.yml', 'docker/entrypoint.sh', 'public/pages/manage/x.html']) {
+    assert(rolls(patterns, f), `${f} changes what a brain runs or serves, so it must roll them`);
   }
+  for (const f of ['engineering-team/CHANGELOG.md', 'product-team/prd/x.md', 'ledger/2026-11.md', 'BIBLE.md', 'README.md',
+    'docs/HARNESS_REVIEW_HANDOFF_2026-07-02.md', 'ui/src/pages/reading/README.md', 'ui/src/components/items/PlaceView.test.tsx',
+    'deploy/launcher/test/brains.test.js', 'scripts/harness-lint.sh', 'test/brains-launcher-repo.test.js', 'protocols/drafts/x.md',
+    '.github/workflows/test.yml', 'docker-compose.yml']) {
+    assert(!rolls(patterns, f), `${f} doesn't change what a brain runs, so it must not roll them`);
+  }
+});
+
+// Top-level paths a brain doesn't run or serve. Sorting every path keeps a new folder the image uses from being missed.
+const NOT_RUNTIME = new Set(['.claude', '.env.example', '.gitignore', '.github', 'AGENTS.md', 'BIBLE.md', 'CLAUDE.md',
+  'CODEBASE_ANALYSIS.md', 'LICENSE', 'OPEN.md', 'OPERATIONS.md', 'README.md', 'ROADMAP.md', 'SECURITY.md', 'VERIFY_TAG_CORE.md',
+  'concept-sharing-plan.md', 'debug-analyzer-detailed.js', 'design-philosophies', 'docker-compose.dev.yml',
+  'docker-compose.override-example.yml', 'docker-compose.yml', 'docs', 'engineering-team', 'ledger', 'playwright.config.js',
+  'product-team', 'protocols', 'scripts', 'shell.nix', 'systemd', 'test', 'test-analyzer.js', 'test-data',
+  'test-syncwot-structured-logging.sh', 'test-task-end-standardization.sh', 'tests', 'tsconfig.json']);
+
+test('W1c: every top-level path either rolls the brains or is listed as one they do not run', () => {
+  const patterns = pushPaths(publishWorkflow());
+  const ls = spawnSync('git', ['ls-tree', '--name-only', 'HEAD'], { cwd: REPO, encoding: 'utf8' });
+  assert(ls.status === 0, `git ls-tree failed: ${ls.stderr}`);
+  const unsorted = ls.stdout.split('\n').filter(Boolean)
+    .filter((top) => !NOT_RUNTIME.has(top) && !patterns.some((p) => !p.startsWith('!') && (p === top || p.startsWith(`${top}/`))));
+  assert(unsorted.length === 0, `sort these into publish-image.yml's push paths or NOT_RUNTIME here: ${unsorted.join(', ')}`);
 });
 
 test('W2: both images are pushed as dogfood and by commit, with layer caching', () => {
