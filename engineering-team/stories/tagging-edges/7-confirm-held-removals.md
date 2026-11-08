@@ -625,6 +625,82 @@ Of the round's four new tests and two revised, three were red before the fix: OV
   Both entries were then disabled, which gave `no-entry`, and deleted, over 10 hours before either rule would have run.
   Nothing ran, and no Redis key for either remains. The disabled seed entry is the pass's only entry again.
 
+### Staging (2026-11-08, times UTC)
+
+The story reached staging through nousclawds4/tapestry#37, merged as `896b284b`. This run follows ADR 0007 § Evidence,
+"Staging". The fixture script ran in the container over SSH. Both Runs were pressed on the panel in the admin's session
+(`f0178122…`), and Confirm in the owner's (`e5272de9…`). The session read only GET routes: the public ones with no
+cookie, and the panel in the admin's browser session, where it pressed none of the panel's controls. The held list was
+made only of fixture relationships, and nothing touched a relay.
+
+- **Before** (17:47Z): the latest pass was `20261108T142619Z-ef156393`, `done`, holding nothing. No confirmation was
+  pending, the queue was `ok`, and `overdue` read `on-time`. The pass's one enabled entry runs daily at 14:26Z, so no
+  scheduled pass could fall inside the test. The real-time path was `live`.
+- **The fixture (run `s1`).**
+  - `counts`: `TAGS` 7,320, all at tagging addresses; `NostrUser` 3,098,029; no fixture nodes.
+  - `plan`: B 7,320, T 834.
+  - `create --run s1 --count 834 --host staging.brainstorm.world` made the 2 nodes and the 834 relationships.
+- **Held.** The admin (`f0178122…`) pressed Run a pass. Pass `20261108T185715Z-a3aae6fd` began at 18:57:15Z and took
+  2.4 s. It ended `done-removals-held`, holding 834, all `not-on-relay`: "834 over the limit (more than 50 and more than
+  1/10 of 8154)".
+  - `check --run s1 --count 834` exited 0.
+  - The public held list matched: 834 items, every address a fixture one, and its digest equal to the status's
+    `held.digest`. Each item carries only `address`, `reason` and `seenEventId`.
+- **The admin's view.** "The latest pass, 20261108T185715Z-a3aae6fd, held 834 removals for the owner to confirm." and
+  "No confirmation from the owner is waiting." "Confirm held removals" was disabled (`button.disabled` true), with
+  "Only the owner can confirm held removals." beside it, and the list showed 1 to 50 of 834. The console showed no
+  errors, and the overdue warning was absent.
+- **Confirmed** (19:08:23.706Z). The owner (`e5272de9…`), signed in, pressed Confirm.
+  - The prompt read "Confirm the 834 held removals of pass 20261108T185715Z-a3aae6fd?". It then said that confirming
+    lines up a pass, that the confirmation lapses if no pass takes it up within 24 hours, and that a removal cannot be
+    undone from the panel.
+  - The answer line read "A pass was lined up to carry out the confirmed removals." (lined up).
+  - Pass `20261108T190824Z-6840eed1` began 0.6 s after the confirmation and took 2.8 s. It ended `done`, "the graph
+    agrees with the relay".
+  - The pass's report:
+    - `confirmed`: confirmed run `…a3aae6fd`, held 834, 834 removals applied, none no longer due;
+    - `confirmation`: found and honoured, with `mintedAt`;
+    - removed 834 (`not-on-relay` 834); added, changed, refused and people added 0; unchanged 7,320;
+    - limit base 8,154, and 7,320 after the confirmed removals.
+  - The admin's panel then read:
+    - "Held removals of pass 20261108T185715Z-a3aae6fd confirmed by the owner (e5272de9…)", and "Started by the
+      owner's confirmation", both at 2:08:23 PM;
+    - "It took up the owner's confirmation (e5272de9…), made at 11/8/2026, 2:08:23 PM.";
+    - "It applied 834 of the confirmed removals.";
+    - "The latest pass held no removals.", with no Confirm button.
+- **Cleanup.**
+  - `counts` before it: `TAGS` 7,320; the 2 fixture nodes, with no relationships left.
+  - `cleanup --run s1` removed the 2 nodes and 0 relationships.
+  - `counts` after it: no fixture nodes.
+- **After.** The admin pressed Run a pass once more. Pass `20261108T192554Z-04b29be2` read 7,320, changed nothing, and
+  ended `done` holding nothing, so no fixture held list is the latest. No confirmation was pending, the queue was `ok`,
+  and `overdue` read `on-time`.
+- **Signed out** (no cookie), the following carried no `who`, no `mintedBy`, no nonce, and neither key's prefix:
+  - the status, read with the confirmed pass latest and again at the end; its `latest.confirmation` was only `{found,
+    honoured, mintedAt}`;
+  - the held list of each latest pass;
+  - the path status;
+  - the Task Explorer's two data routes (`/api/task-explorer/data`, and `single-task/data` for
+    `reconcileTaggingEdges`);
+  - the schedule list.
+
+  The held list for a pass that is no longer the latest answers 404, "that run is not the latest report".
+- **Not exercised on staging.** A signed-in user who is neither owner nor admin, and a signed-out caller, were not sent
+  to the confirm route, since this session sends no request that is not a GET to a deployment. CH27 and CH28 pin both
+  refusals, CH28 through the real `authMiddleware`.
+- **What the counts left.** `TAGS` ended where it began, 7,320.
+  - `NostrUser` rose by 13 (to 3,098,042). Nothing this test ran added anyone: each of the three passes reports 0 people
+    added, and the path's count of people added stayed at 32. So the 13 came from another writer of `NostrUser`, which
+    the public routes do not name.
+  - The pass also left a file, which ADR 0007 did not foresee. Each fixture relationship carries `evidence`, a key
+    outside the nine, so the confirmed pass saved a safety copy of each before removing it (ADR 0002's pre-image).
+    Staging now holds `preimages/20261108T190824Z-6840eed1.jsonl` in the pass's state directory, 834 lines. The local
+    runs `l1` to `l3` left three such files of 802 lines each.
+    - The copies hold only fixture addresses: both ends read `"null"`, since the fixture nodes carry no pubkey.
+    - No route serves them, and only the owner prunes them.
+    - `cleanup` does not remove them.
+    - Ledger row `2026-11-08-held-fixture-leaves-safety-copies`.
+
 ## Deviations
 
 Logged at Implementation (2026-11-07). Each is a reading of ADR 0007 where its letter left a detail open, or a small
