@@ -193,4 +193,4 @@ Docker had about 4.9 GB free, so nothing was paused.
 - Story 1 and its ADR: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md); [ADR graph-operations-foundation/0001](../../decisions/graph-operations-foundation/0001-declare-each-operation-once.md) (Decision 7, the command's flags and exit codes; Decision 8, the list)
 - ADR: [ADR graph-operations-foundation/0006](../../decisions/graph-operations-foundation/0006-external-cli-made-from-the-operations-list.md)
 - Test plan: [6-external-cli-and-agent-skill.test-plan.md](6-external-cli-and-agent-skill.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [6-external-cli-and-agent-skill.md](../../reviews/graph-operations-foundation/6-external-cli-and-agent-skill.md)
