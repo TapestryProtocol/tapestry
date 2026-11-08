@@ -14,6 +14,7 @@
 - **Every read** returns a capped number of items with a cursor. A read that can include other authors' nodes takes a point of view, `pov`, the owner's by default.
 - **Every exporter takes the same scope:** a node, a graph, or everything (D12). A graph is an element of the `graph` concept, listing nodes and the relationships between them: a concept's concept graph (one of its eight core nodes), a Tapestry (BIBLE §6), or a selection saved as a graph of its own with `graph create-element`. The destination is the only difference between exporters.
 - **Who may call** is given for each group, with exceptions in the rows.
+- **The Today column** starts with how much of the job today's routes already do: **New** (nothing does it), **Partial** (a route does part of it), **Exists** (a route does it without signing) or **Signs** (a route does it, but signs a nostr event first). It names each route, and "(not in /docs)" marks a route that works but isn't in the instance's API document yet.
 
 ## At a glance (57 operations)
 
@@ -37,15 +38,15 @@ Who may call: the owner and admins. Who else may read, and what, is question 1 i
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `orient` | A map of the graph for a newcomer: its concepts, their sizes, recent changes | `limit` → summary | A9's `orient`; `/api/brain/orient`; the concept-graph summaries |
-| `search` | Find concepts and elements by text | `q`, `kind?`, `concept?`, `pov?`, `limit` → matches (tapestryKey, name, kind, concepts) | A9's `search` |
-| `resolve` | Turn a name, slug or nostr address into tapestryKeys | `ref` → candidates, with any ambiguity reported | name lookups that take the first match |
-| `describe-concept` | A concept's definition: its names, description, properties, schema, sets and element count | `concept` → description | A9's `describe`; `/api/concept-graph/node/:handle` and `…/core-nodes` |
-| `describe-node` | One node: its fields, its concepts, its relationships, where it came from and where it was sent | `node` → description | `/api/concept-graph/node/:handle` and `…/neighbors` |
-| `list-elements` | The elements of a concept or a set, through its class thread | `concept` or `set`, `direct?`, `pov?`, `limit`, `cursor` → elements | the concept-graph subgraph reads |
-| `class-thread-path` | How a node is an element of a concept, or why it isn't | `node`, `concept` → the path, or none | `/api/audit/threads` (whole concepts only) |
-| `list-relationships` | A node's typed relationships, in and out | `node`, `type?`, `direction?` → relationships | `…/neighbors` |
-| `history` | Changes to a node, by one admin, or since a time (proposed) | filters → change entries | none |
+| `orient` | A map of the graph for a newcomer: its concepts, their sizes, recent changes | `limit` → summary | Partial: `GET /api/concept-graph/summaries` (not in /docs) lists every concept with a description snippet and its element and set counts, and `GET /api/audit/stats` counts nodes, edges and each concept's elements. Nothing reports recent changes. |
+| `search` | Find concepts and elements by text | `q`, `kind?`, `concept?`, `pov?`, `limit` → matches (tapestryKey, name, kind, concepts) | New. Today an agent writes its own Cypher for `POST /api/neo4j/query`, whose reads are open to anyone. |
+| `resolve` | Turn a name, slug or nostr address into tapestryKeys | `ref` → candidates, with any ambiguity reported | New. Several write routes take a name and use the first match; `GET /api/concept-graph/node/:handle` (not in /docs) takes only a nostr address. |
+| `describe-concept` | A concept's definition: its names, description, properties, schema, sets and element count | `concept` → description | Partial: `GET /api/concept-graph/node/:handle` (not in /docs) returns a concept header's content and `GET /api/concept-graph/node/:handle/core-nodes` (not in /docs) its core nodes, by nostr address only; `GET /api/audit/concept` audits one concept's health. |
+| `describe-node` | One node: its fields, its concepts, its relationships, where it came from and where it was sent | `node` → description | Partial: `GET /api/concept-graph/node/:handle` (not in /docs) returns one node's content and `GET /api/concept-graph/node/:handle/neighbors` (not in /docs) its neighbors, by nostr address only. Nothing records where a node came from or where it was sent. |
+| `list-elements` | The elements of a concept or a set, through its class thread | `concept` or `set`, `direct?`, `pov?`, `limit`, `cursor` → elements | Partial: `GET /api/concept-graph/subgraph/:handle` (not in /docs) walks out from a node, at most three levels, with no paging and no point of view. |
+| `class-thread-path` | How a node is an element of a concept, or why it isn't | `node`, `concept` → the path, or none | Partial: `GET /api/audit/threads` checks the class threads of whole concepts, not one node's path. |
+| `list-relationships` | A node's typed relationships, in and out | `node`, `type?`, `direction?` → relationships | Exists: `GET /api/concept-graph/node/:handle/neighbors` (not in /docs) returns a node's one-hop neighbors, grouped by relationship type. |
+| `history` | Changes to a node, by one admin, or since a time (proposed) | filters → change entries | New. |
 
 ## 2. Graph writes
 
@@ -55,19 +56,19 @@ Who may call: the owner and admins. Each write checks its guards before writing 
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `create-concept` | A concept with its eight core nodes and their wiring (BIBLE §9), with no event | `name`, `plural?`, `description?` → the header's and core nodes' tapestryKeys; safe to repeat by slug | Refuses a slug another concept uses (BIBLE §10, rule 10) | `normalize/create-concept`, `normalize/skeleton` (both sign) |
-| `update-concept` | Change a concept's names, slug or description | `concept`, fields → the concept | Refuses a slug in use | `normalize/set-slug` (signs) |
-| `delete-concept` | Remove a concept and its core nodes | `concept` → removed | Refuses while the concept has elements or sets | none |
+| `create-concept` | A concept with its eight core nodes and their wiring (BIBLE §9), with no event | `name`, `plural?`, `description?` → the header's and core nodes' tapestryKeys; safe to repeat by slug | Refuses a slug another concept uses (BIBLE §10, rule 10) | Signs: `POST /api/normalize/create-concept` and `POST /api/normalize/skeleton`. |
+| `update-concept` | Change a concept's names, slug or description | `concept`, fields → the concept | Refuses a slug in use | Signs: `POST /api/normalize/set-slug` changes the slug only. |
+| `delete-concept` | Remove a concept and its core nodes | `concept` → removed | Refuses while the concept has elements or sets | New. |
 
 **Properties and schema**
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `add-property` | Add a property, under a parent property for nested objects | `concept`, `name`, `type`, `required?`, `description?`, `parent?`, and whether elements carry it on the node (design doc §5, question 1) → the property's tapestryKey | Refuses a duplicate name; reports elements that stop validating | `normalize/create-property` (signs) |
-| `update-property` | Change a property's type, required flag or description | `property`, fields → the property | Reports elements that stop validating | `normalize/save-schema` (signs) |
-| `remove-property` | Remove a property | `property` → removed | Reports elements that still carry it | none |
-| `set-schema` | Make a concept's properties match a given JSON Schema | `concept`, `schema` → the properties added, changed and removed | Reports elements that stop validating | `normalize/save-schema`, `normalize/generate-property-tree` (both sign) |
-| `enumerate` | Make a property's allowed values the elements of another concept | `concept`, `property`, `source` → the link | Refuses an unknown concept or property | `normalize/enumerate`, `normalize/apply-enumerations` |
+| `add-property` | Add a property, under a parent property for nested objects | `concept`, `name`, `type`, `required?`, `description?`, `parent?`, and whether elements carry it on the node (design doc §5, question 1) → the property's tapestryKey | Refuses a duplicate name; reports elements that stop validating | Signs: `POST /api/normalize/create-property`. |
+| `update-property` | Change a property's type, required flag or description | `property`, fields → the property | Reports elements that stop validating | Signs: `POST /api/normalize/save-schema` rewrites the whole schema. |
+| `remove-property` | Remove a property | `property` → removed | Reports elements that still carry it | New. |
+| `set-schema` | Make a concept's properties match a given JSON Schema | `concept`, `schema` → the properties added, changed and removed | Reports elements that stop validating | Signs: `POST /api/normalize/save-schema` and `POST /api/normalize/generate-property-tree`. |
+| `enumerate` | Make a property's allowed values the elements of another concept | `concept`, `property`, `source` → the link | Refuses an unknown concept or property | Signs: `POST /api/normalize/enumerate` and `POST /api/normalize/apply-enumerations`. |
 
 Under D10 a concept's JSON Schema is computed from its property nodes, so there's no write that saves a schema directly: changing the properties changes the schema, and `set-schema` turns a given schema into properties. Today it runs the other way: `save-schema` writes the schema, and `generate-property-tree` builds properties from it.
 
@@ -75,30 +76,30 @@ Under D10 a concept's JSON Schema is computed from its property nodes, so there'
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `create-element` | A node that is an element of a concept, or of a set in its class thread | `concept` or `set`, `name`, `fields` → the tapestryKey; safe to repeat by name within the concept | Refuses fields that don't validate (BIBLE §10, rule 4), and a set outside the concept's class thread | `normalize/create-element` (signs) |
-| `update-node` | Change a node's name, description or fields | `node`, fields (merged) → the node | Refuses a result that doesn't validate, and a node that came from someone else's event (D4) | `normalize/save-element-json`, `normalize/set-json-tag` (both sign) |
-| `add-to-concept` | Make a node an element of another concept, or put it in a set | `node`, `concept` or `set`, `fields?` → the membership | Refuses fields that don't validate | `normalize/add-node-as-element` (then signs), `normalize/add-to-set` (signs) |
-| `remove-from-concept` | Take a node out of a concept or a set | `node`, `concept` or `set` → removed | Refuses the node's last concept (D9) | `normalize/delete-relationship` (the edge only) |
-| `move-element` | Move an element between two sets of the same concept, in one step | `node`, `from`, `to` → moved | Refuses sets of different concepts | none |
-| `copy-node` | Copy someone else's node into a node of your own, linked to theirs (D8) | `node`, `edits?` → the new tapestryKey | — | `normalize/fork-node` (signs) |
-| `merge-nodes` | Merge a near-duplicate into another node: its edges move over and the merge is recorded (BIBLE §10, rule 8) | `keep`, `merge` → the kept node | Refuses a node that came from someone else's event | none |
-| `delete-node` | Delete a node of your own, with its edges | `node` → removed | Refuses core nodes, sets that still have elements, and nodes from someone else's event (§10, question 5) | none: no route deletes a node today |
+| `create-element` | A node that is an element of a concept, or of a set in its class thread | `concept` or `set`, `name`, `fields` → the tapestryKey; safe to repeat by name within the concept | Refuses fields that don't validate (BIBLE §10, rule 4), and a set outside the concept's class thread | Signs: `POST /api/normalize/create-element`. |
+| `update-node` | Change a node's name, description or fields | `node`, fields (merged) → the node | Refuses a result that doesn't validate, and a node that came from someone else's event (D4) | Signs: `POST /api/normalize/save-element-json` and `POST /api/normalize/set-json-tag`. |
+| `add-to-concept` | Make a node an element of another concept, or put it in a set | `node`, `concept` or `set`, `fields?` → the membership | Refuses fields that don't validate | Signs: `POST /api/normalize/add-node-as-element` adds the edge and then signs; `POST /api/normalize/add-to-set` signs. |
+| `remove-from-concept` | Take a node out of a concept or a set | `node`, `concept` or `set` → removed | Refuses the node's last concept (D9) | Partial: `POST /api/normalize/delete-relationship` removes the edge, with no check for the node's last concept. |
+| `move-element` | Move an element between two sets of the same concept, in one step | `node`, `from`, `to` → moved | Refuses sets of different concepts | New. |
+| `copy-node` | Copy someone else's node into a node of your own, linked to theirs (D8) | `node`, `edits?` → the new tapestryKey | — | Signs: `POST /api/normalize/fork-node`. |
+| `merge-nodes` | Merge a near-duplicate into another node: its edges move over and the merge is recorded (BIBLE §10, rule 8) | `keep`, `merge` → the kept node | Refuses a node that came from someone else's event | New. |
+| `delete-node` | Delete a node of your own, with its edges | `node` → removed | Refuses core nodes, sets that still have elements, and nodes from someone else's event (§10, question 5) | New: no route deletes a node. |
 
 **Sets**
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `create-set` | A set under a superset or another set | `parent`, `name`, `description?` → the tapestryKey; safe to repeat by name under the parent | Refuses a parent that isn't a superset or a set | `normalize/add-subset` (no event), `normalize/create-set` (signs) |
-| `link-set` | Put an existing set, or a concept's superset, under another parent | `set`, `parent` → the link | Refuses a cycle | `normalize/add-relationship`; `normalize/link-concepts` (signs) |
-| `unlink-set` | Take a set out from under one of its parents | `set`, `parent` → removed | Refuses the set's last parent | `normalize/delete-relationship` |
-| `delete-set` | Delete an empty set | `set` → removed | Refuses while the set has elements or sets | none |
+| `create-set` | A set under a superset or another set | `parent`, `name`, `description?` → the tapestryKey; safe to repeat by name under the parent | Refuses a parent that isn't a superset or a set | Exists: `POST /api/normalize/add-subset` makes a set with no event; `POST /api/normalize/create-set` signs. |
+| `link-set` | Put an existing set, or a concept's superset, under another parent | `set`, `parent` → the link | Refuses a cycle | Exists: `POST /api/normalize/add-relationship` with the class-thread propagation type, with no cycle check; `POST /api/normalize/link-concepts` signs. |
+| `unlink-set` | Take a set out from under one of its parents | `set`, `parent` → removed | Refuses the set's last parent | Exists: `POST /api/normalize/delete-relationship`, with no check for the set's last parent. |
+| `delete-set` | Delete an empty set | `set` → removed | Refuses while the set has elements or sets | New. |
 
 **Relationships**
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `add-relationship` | A typed relationship between two nodes | `from`, `to`, `type` → the relationship | Refuses a type the rules don't allow | `normalize/add-relationship` (two class-thread types only) |
-| `remove-relationship` | Remove a typed relationship | `from`, `to`, `type` → removed | — | `normalize/delete-relationship` |
+| `add-relationship` | A typed relationship between two nodes | `from`, `to`, `type` → the relationship | Refuses a type the rules don't allow | Partial: `POST /api/normalize/add-relationship` allows two class-thread types only. |
+| `remove-relationship` | Remove a typed relationship | `from`, `to`, `type` → removed | — | Partial: `POST /api/normalize/delete-relationship`, for the same two types. |
 
 ## 3. Raw
 
@@ -106,12 +107,12 @@ Who may call: the owner, from the internal CLI only; no API route (proposed). Th
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `create-node` | Create a bare node, with a new tapestryKey | `tapestryValue?`, `labels?`, `properties?` → the new tapestryKey | write Cypher through `/api/neo4j/query` |
-| `delete-node` | Delete a node and its edges | `node` → removed | write Cypher through `/api/neo4j/query` |
-| `set-property` | Set or remove one property on a node or an edge | `target`, `name`, `value` → the target | write Cypher through `/api/neo4j/query` |
-| `create-edge` | Create an edge of any type between two nodes | `from`, `to`, `type`, `properties?` → the edge | write Cypher through `/api/neo4j/query` |
-| `delete-edge` | Delete one edge | `from`, `to`, `type` → removed | write Cypher through `/api/neo4j/query` |
-| `cypher` | Run any Cypher statement | `statement`, `params?` → the result | `/api/neo4j/query` |
+| `create-node` | Create a bare node, with a new tapestryKey | `tapestryValue?`, `labels?`, `properties?` → the new tapestryKey | Exists: write Cypher through `POST /api/neo4j/query`. |
+| `delete-node` | Delete a node and its edges | `node` → removed | Exists: write Cypher through `POST /api/neo4j/query`. |
+| `set-property` | Set or remove one property on a node or an edge | `target`, `name`, `value` → the target | Exists: write Cypher through `POST /api/neo4j/query`. |
+| `create-edge` | Create an edge of any type between two nodes | `from`, `to`, `type`, `properties?` → the edge | Exists: write Cypher through `POST /api/neo4j/query`. |
+| `delete-edge` | Delete one edge | `from`, `to`, `type` → removed | Exists: write Cypher through `POST /api/neo4j/query`. |
+| `cypher` | Run any Cypher statement | `statement`, `params?` → the result | Exists: `POST /api/neo4j/query`. |
 
 Today `/api/neo4j/query` accepts write Cypher from the owner and from admins (§10, question 4).
 
@@ -121,9 +122,9 @@ Who may call: the owner and admins. The rules themselves are specified in the ru
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `list-rules` | Every rule, what it requires, and whether it refuses a write or only reports | → the rules | BIBLE §10 (text only) |
-| `check` | Run the rules over a node, a concept or the whole graph | `scope`, `rules?` → violations (rule, node, severity, the repair that fixes it) | `/api/audit/*` (11 checks); the Health Audit |
-| `repair` | Fix one violation, or every violation of one rule in a scope | `violation`, or `rule` and `scope` → the fixes made, and the choices left to you | `normalize/skeleton`, `normalize/json`, `normalize/prune-superset-edges`, `normalize/wire-implicit-elements`, `normalize/reconcile-primary-property` |
+| `list-rules` | Every rule, what it requires, and whether it refuses a write or only reports | → the rules | New. BIBLE §10 lists the rules as text. |
+| `check` | Run the rules over a node, a concept or the whole graph | `scope`, `rules?` → violations (rule, node, severity, the repair that fixes it) | Partial: the 11 checks under `/api/audit/` cover some of the rules. |
+| `repair` | Fix one violation, or every violation of one rule in a scope | `violation`, or `rule` and `scope` → the fixes made, and the choices left to you | Partial: `POST /api/normalize/prune-superset-edges` and `POST /api/normalize/wire-implicit-elements` repair without signing; `POST /api/normalize/skeleton`, `POST /api/normalize/json` and `POST /api/normalize/reconcile-primary-property` sign. |
 
 Each repair is a guarded graph write. A repair that needs a choice, such as which of two duplicates to keep, is reported rather than made.
 
@@ -133,10 +134,10 @@ Who may call: the owner and admins; the instance's own pipelines also call `impo
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `nostr` | Record nostr events as nodes, with the claims they make as edges | `ids`, `addresses`, a graph's address or `filter`, `relay?` → the nodes recorded; safe to repeat by the event's address or id | `neo4j/event-update` (`buildImportCypher`); the stream consumer; `concept/:handle/pull-community-class-thread`; the `io` import; normalize's `importEventDirect`. Today's two importers build different graphs from the same event: only `buildImportCypher` derives edges from `b` tags. |
-| `file` | Record a file (markdown, PDF, image, …) as a node that points at it, with whatever its importer extracts | `path`, `kind?`, `concept?` → the node | the second brain's `create-resource` (kinds `file`, `vault-note`) |
-| `web` | Record a web address as a node that points at it | `url`, `concept?` → the node | `create-resource` (kind `web-address`) |
-| `refresh` | Re-read a node's source and update what was recorded | `node` → changed, unchanged or gone | `verify-resource` |
+| `nostr` | Record nostr events as nodes, with the claims they make as edges | `ids`, `addresses`, a graph's address or `filter`, `relay?` → the nodes recorded; safe to repeat by the event's address or id | Exists: `POST /api/neo4j/event-update` imports one event; `POST /api/concept/:handle/pull-community-class-thread` (not in /docs) and `POST /api/io/imports/:tempId/execute` import more, and the stream consumer (a background pipeline, no route) imports continuously. Today's two importers build different graphs from the same event: only `buildImportCypher` derives edges from `b` tags. |
+| `file` | Record a file (markdown, PDF, image, …) as a node that points at it, with whatever its importer extracts | `path`, `kind?`, `concept?` → the node | Signs: `POST /api/normalize/create-resource` records a pointer for a second-brain goal (kinds `file`, `vault-note`), and signs. |
+| `web` | Record a web address as a node that points at it | `url`, `concept?` → the node | Signs: `POST /api/normalize/create-resource` (kind `web-address`). |
+| `refresh` | Re-read a node's source and update what was recorded | `node` → changed, unchanged or gone | Signs: `POST /api/normalize/verify-resource`. |
 
 Importing a graph, such as someone else's Tapestry, records its graph element and the letters it refers to.
 
@@ -146,10 +147,10 @@ Who may call: the owner, and admins for everything except where §10's question 
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `nostr` | Publish a scope as signed events, and record what was sent | `scope`, `relays?`, `dryRun?` → the letters published; a dry run lists the letters it would publish, as new, changed or unchanged since last sent | Signs only nodes you assert, and refers to someone else's node by its address without re-signing it (D8); reports references to nodes with no nostr address yet (design doc §5, question 4) | every signing route; `/api/strfry/publish` |
-| `file` | Write a scope as a JSON or markdown bundle | `scope`, `format`, `dryRun?` → the file | — | the `io` export; `/api/brain/export` |
-| `status` | Which nodes in a scope were sent where, and whether each copy is still current | `scope` → each node's letters and whether they're current | — | none |
-| `retract` | Ask relays to delete the letters you published for a scope (NIP-09) | `scope`, `dryRun?` → the requests sent | Retracts only letters your keys signed | none |
+| `nostr` | Publish a scope as signed events, and record what was sent | `scope`, `relays?`, `dryRun?` → the letters published; a dry run lists the letters it would publish, as new, changed or unchanged since last sent | Signs only nodes you assert, and refers to someone else's node by its address without re-signing it (D8); reports references to nodes with no nostr address yet (design doc §5, question 4) | Partial: `POST /api/strfry/publish` publishes one given event, and every signing route publishes as it writes. Nothing takes a scope or records what was sent. |
+| `file` | Write a scope as a JSON or markdown bundle | `scope`, `format`, `dryRun?` → the file | — | Partial: `POST /api/io/exports` writes a file of chosen nodes and concepts, by nostr address; `GET /api/brain/export` (not in /docs) exports the second brain. |
+| `status` | Which nodes in a scope were sent where, and whether each copy is still current | `scope` → each node's letters and whether they're current | — | New. |
+| `retract` | Ask relays to delete the letters you published for a scope (NIP-09) | `scope`, `dryRun?` → the requests sent | Retracts only letters your keys signed | New. |
 
 **What an export does, whatever the destination** (D12; drafting): it resolves the scope to its nodes and edges; adds, or reports, the nodes its letters refer to that have no nostr address yet; orders the letters so each goes out after the ones it refers to; applies D8 node by node; and records "sent as" for each letter. Exporting everything to nostr isn't a backup: letters are public and leave out whatever has no event form (BIBLE §30). Backup stays in lifecycle.
 
@@ -159,9 +160,9 @@ Who may call: the owner and admins for `get`; the owner for `check` and `rebuild
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `get` | A node's Tapestry JSON, rebuilt first if it's stale | `node` → the JSON | `GET /api/tapestry-key/:key` |
-| `check` | Rebuild a node's JSON from the graph and compare it with the cached copy (D10's check) | `scope` → the differences | none |
-| `rebuild` | Rebuild a node, a concept's elements, or everything | `scope` → how many were rebuilt | `POST /api/tapestry-key/derive/:key`, `derive-all/:label` |
+| `get` | A node's Tapestry JSON, rebuilt first if it's stale | `node` → the JSON | Exists: `GET /api/tapestry-key/:key`. |
+| `check` | Rebuild a node's JSON from the graph and compare it with the cached copy (D10's check) | `scope` → the differences | Partial: `GET /api/tapestry-key/derive-status` counts derived and underived nodes per label; nothing compares a cached copy with a fresh build. |
+| `rebuild` | Rebuild a node, a concept's elements, or everything | `scope` → how many were rebuilt | Exists: `POST /api/tapestry-key/derive/:key` and `POST /api/tapestry-key/derive-all/:label`. |
 
 Today `POST /api/tapestry-key/:key` writes to the cache directly; D10's guard drops it.
 
@@ -171,12 +172,12 @@ Who may call: the owner only.
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
-| `backup` | A full backup of the graph: a Neo4j dump first; later encrypted and chunked into nostr events on a mirror relay (BIBLE §30) | `target?` → the backup's id | none for Neo4j: `bin/backup.js` doesn't back it up |
-| `restore` | Restore a backup, keeping its tapestryKeys and provenance | `backup` → restored | none (the second brain's `restore-brain` restores only its own export) |
-| `seed-firmware` | Install or update the built-in concepts, by the bootstrap path, without undoing local edits | `version?` → installed | `POST /api/firmware/install` (signs, and can undo local edits) |
-| `migrate` | One-time changes to existing data: missing tapestryKeys, relabeling nodes with no event, adding the uniqueness constraint | `migration` → the result | `POST /api/tapestry-key/initialize`; `normalize/migrate-primary-property-ztags` |
-| `wipe` | Erase the graph, only after a backup | `backup` (required) → erased | the Database Settings page, which sends `MATCH (n) DETACH DELETE n` |
-| `status` | The last backup, the firmware version, the migrations applied, and how fresh the cache is | → the status | none |
+| `backup` | A full backup of the graph: a Neo4j dump first; later encrypted and chunked into nostr events on a mirror relay (BIBLE §30) | `target?` → the backup's id | New. `bin/backup.js` doesn't back up Neo4j. |
+| `restore` | Restore a backup, keeping its tapestryKeys and provenance | `backup` → restored | New. The second brain's `restore-brain` restores only its own export. |
+| `seed-firmware` | Install or update the built-in concepts, by the bootstrap path, without undoing local edits | `version?` → installed | Signs: `POST /api/firmware/install`, which can also undo local edits. |
+| `migrate` | One-time changes to existing data: missing tapestryKeys, relabeling nodes with no event, adding the uniqueness constraint | `migration` → the result | Partial: `POST /api/tapestry-key/initialize` stamps missing tapestryKeys; `POST /api/normalize/migrate-primary-property-ztags` is one specific migration. |
+| `wipe` | Erase the graph, only after a backup | `backup` (required) → erased | Exists: the Database Settings page sends `MATCH (n) DETACH DELETE n` through `POST /api/neo4j/query`, with no backup step. |
+| `status` | The last backup, the firmware version, the migrations applied, and how fresh the cache is | → the status | New. |
 
 ## 9. Today's routes and where each goes
 
