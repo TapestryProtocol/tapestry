@@ -39,14 +39,14 @@ test id each changed suite had at `f0afae51` is still there.
 | AC-1, until the held list is read: no Confirm while it loads or after its read failed | TV113; B120 | unit; browser |
 | AC-1, a confirmation that cannot be relied on (unreadable, expiry unreadable, pending for an earlier pass): Confirm offered, and it replaces it | CL6, CL7; CH4; TV112; B118, B123 | unit; component; browser |
 | AC-1, nothing busy: a pass lined up, its start recorded as the owner's confirmation; every viewer sees it waiting | CH6, CH11, CH21; CT32; B124 | component; browser |
-| AC-1, a pass waiting with no stop asked (a due scheduled run included): nothing new, and the answer says the waiting pass takes it up | CH7, CH9; CT31; RT32, RT33; TV117; B128 | component; handler; unit; browser |
+| AC-1, a pass waiting with no stop asked (a due scheduled run included): nothing new, and the answer says the waiting pass takes it up | CH7; CT31; RT32; TV117; B128 | component; handler; unit; browser |
 | AC-1, a pass running: refused out of date, nothing confirmed; a pass that has only just started takes it up, and the answer says which | CH2, CH8, CH15, CH16, CH18; CT31; TV117, TV120; B129 | component; unit; browser |
 | AC-1, every busy pass has a stop asked: a new pass lined up behind it, never "taken up" by a stopping pass | CH10; CT32; RT36; TV117; B128 | component; handler; unit; browser |
 | AC-1, never a false answer, the seconds after a pass ends included | CH11, CH25; TV124; B124 | component; unit; browser |
 | AC-1, a second confirmation while one is pending: refused, its expiry and pass unchanged, nothing recorded (a pass waiting; the queue unavailable; 1 ms before expiry) | CL4, CL5; CH3, CH23; TV119; B126 | unit; component; browser |
 | AC-1, every viewer sees it within 10 s: in the history, pending or taken up; no Confirm for that list while pending | CH22; TV125; B124, B135 | component; unit; browser |
-| AC-1, made but no pass lined up (the queue unavailable, the add failing): kept pending; the panel gives the reason and points at Run or the next scheduled pass | CH6, CH19, CH20; CT33; RT18, RT19; TV118; B127 | component; handler; unit; browser |
-| AC-1, a pass starting mid-confirmation: taken up, withdrawn, or the server cannot tell, each said so | CH15, CH16, CH17, CH18; TV120, TV121; B129 | component; unit; browser |
+| AC-1, made but no pass lined up (the queue unavailable, the add failing): kept pending; the panel gives the reason and points at Run or the next scheduled pass | CH9, CH19, CH20; CT33; RT18, RT34, RT35; TV118; B127 | component; handler; unit; browser |
+| AC-1, a pass starting mid-confirmation: taken up, withdrawn, or the server cannot tell, each said so | CH15, CH16, CH17, CH18, CH31, CH32; TV120, TV121; B129 | component; unit; browser |
 | AC-1, while under way: disabled, says so; no answer in 15 s: enabled again, outcome unknown, then the next read | TF34, TF36; TV123; B124, B125 | unit; browser |
 | AC-1, an expired confirmation: Confirm offered again for the same list; refused once a newer pass ran | CL5; CH4; TV112; B118 | unit; component; browser |
 | AC-1, used up by a pass that failed or was stopped: no Confirm, and the line that a later pass must hold them again | TV116; B132 | unit; browser |
@@ -59,17 +59,18 @@ test id each changed suite had at `f0afae51` is still there.
 | AC-3, refused or failed: the reason, then the held list and confirmation as they stand | TV122; TF33; B134 | unit; browser |
 | AC-4, recorded: the owner with a shortened key, and when, in story 6's record | CH21; CT51 | component |
 | AC-4, the panel: the confirmation in the last 10 actions; the pass that took it up names it and when it was made; what it did stays as today | SR88–SR91; TV125, TV126; B135, B136, B137 | unit; browser |
-| AC-4, cannot be recorded: refused as Run is, the snippet's request too; a schedule's start still goes ahead unrecorded | CH12, CH14; CT34, CT55 | component |
-| AC-4, who may read it: no public read names who confirmed; no shortened key on a pending, expired or unreadable-expiry confirmation; the public status still says pending or expired, of which pass, until when | CL9–CL14; RT39, RT40; CH13, CH29 | unit; handler; component; child process |
+| AC-4, cannot be recorded: refused as Run is, the snippet's request too; a schedule's start still goes ahead unrecorded | CH12; CT34, CT55 | component |
+| AC-4, who may read it: no public read names who confirmed; no shortened key on a pending, expired or unreadable-expiry confirmation; the public status still says pending or expired, of which pass, until when | CL9–CL18; RT39, RT40; CH13, CH29, CH30 | unit; handler; component; child process |
 | AC-5, when: interval plus one hour (25 h for daily, the boundary both sides); a calendar rule by its longest gap; the most frequent of several; a refused or failed pass counts; a waiting pass has not begun | OV5–OV12, OV14; TV128; B138, B139 | unit; browser |
-| AC-5, what every viewer sees: the warning with both times, and "a pass is waiting" | OV6, OV19; TV128, TV129; B138, B139 | unit; handler; browser |
+| AC-5, what every viewer sees: the warning with both times, and "a pass is waiting" | OV6, OV19; TV128; B138, B139 | unit; handler; browser |
 | AC-5, no warning with no enabled entry, or no pass on record | OV2, OV3, OV4; TV131; B138 | unit; browser |
-| AC-5, cannot tell: the schedule, the rule, the report, an absent member, a failed status read; never a missing warning for on time | OV12, OV13, OV14, OV16, OV20; TV130; B140, B141 | unit; module; handler; browser |
+| AC-5, cannot tell: the schedule, the rule, the report, an absent member, a failed status read; never a missing warning for on time | OV12, OV13, OV14, OV16, OV20, OV24, OV29; TV129, TV133, TV134, TV135; B140, B141, B154 | unit; module; handler; browser |
+| AC-5, the rules judged within bounds (more distinct patterns than the cache, a pattern over 256 characters: cannot tell, nothing judged), and a schedule the verdict cannot judge never fails the status | OV25, OV26, OV27, OV28, OV29 | module; handler |
 | AC-5, the same for every viewer whatever their clock | OV15, OV23; TV132; B142 | unit; handler; browser |
 | AC-5, it clears within 10 s of a new pass beginning | OV21; B139 | handler; browser |
-| AC-5, it is only a warning: it starts and changes nothing | by construction: `overdueVerdict` is pure (OV1, OV15), `handleStatus` stays a GET (B147) | unit; browser |
-| AC-6, focus for Turn off, Stop and Confirm: Cancel → the opener; confirmed, refused, timed out or closed by itself → the outcome line or the section heading; never the page, never Turn on or Run a pass now | PS42, PS43; B143, B144, B145 | source pin; browser |
-| AC-7, Confirm changes no schedule entry and not the path's switch | CT63 (unchanged, covers every controller step); B147 | component; browser |
+| AC-5, it is only a warning: it starts and changes nothing | by construction: `overdueVerdict` is pure (OV1, OV15); the panel's reads stay GETs (the `nonGet` checks in B138–B140) | unit; browser |
+| AC-6, focus for Turn off, Stop and Confirm: Cancel → the opener; confirmed, refused, timed out or closed by itself → the outcome line or the section heading; never the page, never Turn on or Run a pass now | PS42, PS43; B143, B144, B145, B148–B153 | source pin; browser |
+| AC-7, Confirm changes no schedule entry and not the path's switch | CT72 (Confirm in CT63's world: lined up, a waiting pass, the queue not ready, the add refused) | component |
 | AC-7, the pass removes only the confirmed entries still due | the runner suite's existing SR2–SR77 (unchanged); SR88–SR91 add only `mintedAt` | unit |
 | AC-7, the confirm route keeps working for the console snippet, its answers and refusals as the panel's | CH26, CH27, CH28; RT17 | handler; child process |
 | AC-7, Run and Stop as story 6 defines, apart from AC-6 | story 6's suites, unchanged and green (pass-routes 40/0; pass-control's 61 untouched tests) | component; handler |
@@ -94,16 +95,21 @@ test id each changed suite had at `f0afae51` is still there.
 | D5, the `confirm` history line | CH21; CT51 |
 | D6, `publicConfirmation` | CL9–CL14; RT4, RT39, RT40; CH29 |
 | D7, `latest.confirmation.mintedAt` | SR88–SR91 |
-| D8, `overdueVerdict`, the cron judge, `readConfigStrict`, the status member | OV1–OV23 |
+| D8, `overdueVerdict`, the cron judge, `readConfigStrict`, the status member | OV1–OV24 |
 | D9, `confirmView` and the role | TV111–TV116; PS39; B118–B120, B133 |
 | D10, the prompt | B121–B123, B131; PS41 |
 | D11, `sendConfirm`, `confirmOutcome`, the flow | TF32–TF37; TV117–TV124; PS40; B124–B130, B134 |
 | D12, who confirmed in the panel | TV125, TV126; B135–B137 |
 | D13, the held section's wording, the used-up line | TV116; B11, B123, B132 |
 | D14, the overdue line | TV128–TV131; B138–B142 |
-| D15, prompt focus | PS42, PS43; B143–B145 |
+| D15, prompt focus | PS42, PS43; B143–B145, B151–B153 |
 | D16, copy and comments | PS44; B146 |
-| § Evidence, the fixture and its script | HF1–HF9 |
+| Fix-round notes, D2 step 7: a re-read that fails answers 500 `error` | CH31, CH32 |
+| Fix-round notes, D6: each member with its type | CL15–CL18; CH30 |
+| Fix-round notes, D8: the bound on the cron work, and no throw | OV25–OV29 |
+| Fix-round notes, D14: a failed read after a good one | TV133–TV135; B154 |
+| Fix-round notes, D15: one element per target, a control replaced in place | B148, B149, B150 |
+| § Evidence, the fixture and its script | HF1–HF9 (the exports, the Cypher and the source; `create`'s refusals are unpinned, review round 1 follow-up 4) |
 
 ### Carry-forwards, ledger rows and the browser baseline
 
@@ -297,6 +303,52 @@ unchanged, and focus falling to the page (B143, B144). None is a syntax, import 
 scratchpad, never in the repo: every new and revised Node test passed against it. Breaking the sketch on purpose was
 caught by the test meant for it: four ways on the server (`mintedBy` written; no generation bump on a refusal; a waiting
 pass checked before a starting one; a pass with a stop asked joined), and twenty-five in the panel's suites.
+
+### Fix round (review round 1, 2026-11-07)
+
+Review `engineering-team/reviews/tagging-edges/7-confirm-held-removals.md` asked for these tests (blocking 1,
+requested 2 to 10). They pin ADR 0007 § Fix-round notes. Each suite was run alone through `run()` on host Node
+22.23.4, and the browser spec on chromium, at `7be349a6` plus this round's tests:
+
+```
+suite                              before        after (pass / fail)
+tagging-edges-pass-control          74 / 0        75 / 0      CT72 green on purpose
+tagging-edges-overdue               23 / 0        25 / 4      OV24, OV28 green on purpose; OV25, OV26, OV27, OV29 red
+tagging-edges-confirmation-lib      14 / 0        15 / 3      CL18 green on purpose; CL15, CL16, CL17 red
+tagging-edges-confirm               29 / 0        30 / 2      CH32 green on purpose; CH30, CH31 red
+tagging-pipeline-view              132 / 0       133 / 2      TV135 green on purpose; TV133, TV134 red
+browser spec                       151 / 0       154 / 4      B151, B152, B153 green on purpose; B148, B149, B150, B154 red;
+                                                              B129 now stages its next read, and stays green
+```
+
+- **What the red tests are waiting for:**
+  - OV25 to OV27: the bound;
+  - OV29: the throw caught;
+  - CL15 to CL17 and CH30: the types;
+  - CH31: the failed re-read's answer;
+  - TV133, TV134 and B154: the failed read;
+  - B148 and B149: the held section's element identity (focus falls to `document.body`, or moves to Cancel and the
+    heading);
+  - B150: Turn off replaced in place by Turn on.
+
+  None fails on an import, syntax or fixture error.
+- **Green on purpose**, each checked against a planted fault in a scratch copy:
+  - CT72 is AC-7's first bullet. It fails on a `removeJobScheduler` call, a changed schedule file, or a changed
+    `switch.json`.
+  - OV24 is the default reader. It fails when that reader is swapped for `readConfig()`.
+  - CL18, CH32, TV135 and B151 to B153 pin behaviour that already holds.
+- **Readings the suites chose:**
+  - "distinct" is distinct trimmed patterns;
+  - the 256/257 boundary is the daily rule padded with spaces, which cron-parser accepts;
+  - a long rule alone counts with no period, so it gives cannot-tell/rule;
+  - OV29 expects the status route's catch;
+  - for a re-read that finds no report, any cause that `allowErrorCode` keeps is accepted;
+  - `Date.parse(7)` reads as a date, so CL16 pins that a number `expiresAt` is left out, with `expired: false`.
+- **Not pinned:**
+  - more than 32 patterns beside a positive interval entry. The D8 note gives cannot-tell/rule;
+  - the overdue line during a Retry after a failed read;
+  - a focused opener that a later read removes (Confirm when another tab's confirmation is pending, or Stop once
+    nothing is busy). D15's note covers only an opener replaced in place.
 
 ## For the owner (at this gate)
 

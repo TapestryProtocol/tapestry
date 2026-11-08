@@ -1859,6 +1859,42 @@ const SCENE7 = deepFreeze({
 [HELD_NEWER_RECORD, ENDED_HELD7_RECORD, OVERDUE_LATEST_RECORD, CONFIRMED_APPLIED7_RECORD, CONFIRMED_UNDATED7_RECORD,
   NOT_HONOURED7_RECORD, USED_UP_FAILED7_RECORD, USED_UP_STOPPED7_RECORD, CONFIRM_TIMES].forEach(deepFreeze);
 
+/*
+ * Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, blocking 1 and
+ * requested 10; ADR 0007 § "Fix-round notes", D15): a read that moves the held section from its held list to none while
+ * the Confirm prompt is open, and the reads that follow a withdraw-failed answer. Added beside SCENE7; nothing above
+ * changes. Each scene is { status, passRecord }, as SCENE7's.
+ */
+/** A newer pass than HELD_RECORD, begun at 11:58 and ended clean at 11:59:23: it held nothing, so the held list goes. */
+const ENDED_CLEAN7_RECORD = passRecord({ startedMinutesAgo: 2, suffix: 'c1ea7e07', relationships: relationships({ atStart: 700, unchanged: 700 }) });
+/**
+ * The pass that started while the owner's confirmation of 12:00 was being made: begun at 12:00:03, it took that
+ * confirmation up, applied all 120 confirmed removals and ended at 12:00:06.
+ */
+const TOOK_UP_NOW7_RECORD = (() => {
+  const r = passRecord({
+    suffix: 'c7aa0e07',
+    confirmation: { found: true, honoured: true, mintedAt: NOW },
+    confirmed: { confirmedRunId: HELD_RECORD.runId, heldCount: HELD_TOTAL, removalsApplied: HELD_TOTAL, heldNoLongerDue: 0 },
+    relationships: relationships({ atStart: 700, removed: HELD_TOTAL, removedBy: { 'not-on-relay': 100, 'non-tagging': 20 }, unchanged: 580 }),
+    limit: { base: 700, leftInPlaceExcluded: 0, baseAfterConfirmed: 580, removalsPlanned: HELD_TOTAL, floor: 50, fraction: '1/10', exceeded: false },
+  });
+  r.startedAt = after(0.05);
+  r.runId = runIdAt(r.startedAt, 'c7aa0e07');
+  r.endedAt = after(0.1);
+  r.durationMs = Date.parse(r.endedAt) - Date.parse(r.startedAt);
+  return r;
+})();
+[ENDED_CLEAN7_RECORD, TOOK_UP_NOW7_RECORD].forEach(deepFreeze);
+const SCENE7_R1 = deepFreeze({
+  /** A newer pass ran and ended between two polls, holding nothing: the held section moves from its list to none. */
+  ENDED_CLEAN: { status: s7(statusBody({ latest: ENDED_CLEAN7_RECORD, previous: [HELD_RECORD, LATEST_DONE] })), passRecord: PASS_RECORD.EMPTY },
+  /** After withdraw-failed: the confirmation of 12:00 stands, pending, and the owner's Run of 11:58 waits to take it up. */
+  WITHDRAW_FAILED_STANDS: { status: withConfirmationPending(SCENE7.WAITING.status, NOW), passRecord: SCENE7.WAITING.passRecord },
+  /** After withdraw-failed: the pass that started meanwhile took the confirmation of 12:00 up and ended, holding nothing. */
+  WITHDRAW_FAILED_TOOK_UP: { status: s7(statusBody({ latest: TOOK_UP_NOW7_RECORD, previous: [HELD_RECORD, LATEST_DONE] })), passRecord: PASS_RECORD.EMPTY },
+});
+
 /* ── The routes ──────────────────────────────────────────────────────────────────────────────────────────────── */
 
 const ROUTES = Object.freeze({
@@ -1915,6 +1951,8 @@ module.exports = {
   confirmationPendingFor, applyConfirm, CLASSIFICATION, CONFIRM_TIMES, CONFIRM_JOB_KEY, OTHER_TAB_JOB_KEY,
   CONFIRMED_APPLIED7_RECORD, CONFIRMED_UNDATED7_RECORD, NOT_HONOURED7_RECORD, USED_UP_FAILED7_RECORD,
   USED_UP_STOPPED7_RECORD, ITEM7, recordWithConfirm, SCENE7,
+  // story 7's review, round 1
+  ENDED_CLEAN7_RECORD, TOOK_UP_NOW7_RECORD, SCENE7_R1,
   // routes
   ROUTES,
 };

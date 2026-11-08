@@ -67,6 +67,18 @@
  *             runWho's confirmation line (D12, D7); TV127 NB2 (busyView's known needs a busy list); TV128–TV131 overdueView
  *             (D14); TV132 no clock in any of them. Red until the Implementer: each fails by name ("does not export
  *             confirmView (ADR tagging-edges/0007 D9 …)"), or, for TV125–TV127, on today's passWho and busyView.
+ *   TV133–TV135 Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, requested
+ *             5; ADR engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md § "Fix-round notes", D14 "a
+ *             failed read after a good one": "This holds whether or not a body is kept from an earlier read. A kept
+ *             verdict is never shown while the latest read has failed."). The panel's useRead keeps the last good body
+ *             when a read fails, and overdueView is given both, so:
+ *             TV133 a failed read that keeps a body whose verdict shows no line (on time, no entry, no schedule, no
+ *             pass) says the panel cannot tell, because the pass status could not be read: the same line a failed read
+ *             with no body gives. TV134 the same for a kept verdict that would show a line (overdue, with nothing busy
+ *             and with a pass waiting; cannot tell for the rule; no overdue member): none of its words, times or reason
+ *             show. Both are red until the fix: today overdueView judges the kept body. TV135 is green on purpose: the
+ *             same bodies read well give their verdicts as before, and a failed read with no body names the status read
+ *             as its reason (TV129 checks only that it cannot tell), so the fix keeps what is right today.
  *
  * Story 7's readings where ADR 0007 leaves a detail open (reported at the Test Design gate):
  *   - confirmView's members are read by the names D9 gives them (offer, runId, count, replaces, when), with `when` one
@@ -3608,6 +3620,87 @@ test('TV132: story 7\'s view functions read no clock — confirmView, confirmOut
   });
   assert(far.v[0] && far.v[0].offer === false, `a confirmation the server calls pending withholds Confirm whatever the client clock says (${ADR7} D9); got ${show(far.v[0])}`);
   assert(noLine(far.v[4]), `an on-time verdict gives no line whatever the client clock says (${ADR7} D14); got ${show(far.v[4])}`);
+});
+
+/* TV133–TV135: story 7's review, round 1, requested 5 (ADR 0007 § Fix-round notes, D14 "a failed read after a good one") */
+
+const ADR7_D14_NOTE = `${ADR7} § Fix-round notes, D14 "a failed read after a good one"`;
+/** The reason D14's note gives: the pass status could not be read (the status read, not the server's own reasons). */
+const STATUS_UNREAD = /\b(?:pass )?status\b[^.]*\b(?:could not|couldn't|cannot|can't) be read\b|\b(?:could not|couldn't|cannot|can't) read\b[^.]*\bstatus\b/i;
+const CANNOT_TELL_OVERDUE = /\bcannot tell whether the pass is overdue\b/i;
+/** The view's sentences (string values holding a space), in order: two answers say the same when these are equal. */
+const sentencesOfLine = (v) => stringsIn(v).filter((s) => /\s/.test(s));
+/** The verdicts that show no line (D14 "on-time, no-entry, no-schedule and no-pass: no line"), each kept from a good read. */
+const QUIET7 = [
+  ['on time', () => status7({ overdue: ON_TIME7 })],
+  ['no entry', () => status7({ overdue: { state: 'no-entry' } })],
+  ['no schedule', () => status7({ overdue: { state: 'no-schedule' } })],
+  ['no pass', () => status7({ overdue: { state: 'no-pass' } })],
+];
+/** The kept verdicts that would show a line, each with the words of its own that must not show once the read fails. */
+const LOUD7 = [
+  ['overdue, nothing busy', () => status7({ overdue: OVERDUE7 }), [/\bthe pass is overdue\b/i]],
+  ['overdue, a pass waiting', () => status7({ overdue: OVERDUE7, control: waitingControl7() }), [/\bthe pass is overdue\b/i, /\bwaiting\b/i, /\bclears?\b/i]],
+  ['cannot tell, for the rule', () => status7({ overdue: { state: 'cannot-tell', reason: 'rule' } }), [/\brule\b/i]],
+  ['no overdue member (a server before story 7)', () => status7(), [/\bdoes not include\b/i]],
+];
+/** What a failed read must say, whatever body it keeps: cannot tell, because the status could not be read, as with no body. */
+async function failedReadProblems(label, body) {
+  const bad = [];
+  const v = await overdueOf(body, failedRead(body));
+  const text = sentencesOfLine(v).join(' ');
+  if (!CANNOT_TELL_OVERDUE.test(text)) bad.push(`${label}: a failed read after a good one must say the panel cannot tell whether the pass is overdue; got ${show(v)}`);
+  else if (!STATUS_UNREAD.test(text)) bad.push(`${label}: with the reason that the pass status could not be read; got ${show(text)}`);
+  if (carriesTime(v, OVERDUE7.latestBeganAt) || carriesTime(v, OVERDUE7.expectedAt) || carriesTime(v, ON_TIME7.latestBeganAt) || carriesTime(v, ON_TIME7.expectedAt)) {
+    bad.push(`${label}: no time of the kept verdict shows; got ${show(v)}`);
+  }
+  const none = await overdueOf(null, failedRead(null));
+  if (show(sentencesOfLine(v)) !== show(sentencesOfLine(none))) {
+    bad.push(`${label}: the line is the one a failed read with no body gives ("whether or not a body is kept"), ${show(sentencesOfLine(none))}; got ${show(sentencesOfLine(v))}`);
+  }
+  return { bad, v, text };
+}
+
+test('TV133: a status read that fails after a good one says the panel cannot tell whether the pass is overdue, because the pass status could not be read, when the body it keeps holds a verdict that shows no line — on time, no entry, no schedule, no pass — never nothing, and never a time of that verdict: the line is the one a failed read with no body gives; the same bodies read well show no line [story 7 AC-5 "A missing warning never stands for on time", "When the pass report … cannot be read, the backstop section says it cannot tell whether the pass is overdue"; ADR tagging-edges/0007 § Fix-round notes, D14 "A status read that failed gives The panel cannot tell whether the pass is overdue. with the reason that the pass status could not be read. This holds whether or not a body is kept from an earlier read"; review round 1, requested 5]', async () => {
+  const bad = [];
+  for (const [label, make] of QUIET7) {
+    const ok = await overdueOf(make());
+    if (!noLine(ok)) bad.push(`setup, ${label}: read well, this verdict shows no line (D14); got ${show(ok)}`);
+    bad.push(...(await failedReadProblems(`${label}, then a failed read`, make())).bad);
+  }
+  assert(!bad.length, `overdueView with a failed read that keeps a quiet verdict (${ADR7_D14_NOTE}):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV134: a status read that fails after a good one never shows the verdict the body it keeps holds — an overdue pass (with nothing busy, and with a pass waiting), cannot tell for the rule, or an answer with no overdue member — but says the panel cannot tell whether the pass is overdue, because the pass status could not be read: none of the kept verdict\'s words, times or reason, and the line a failed read with no body gives [story 7 AC-5; ADR tagging-edges/0007 § Fix-round notes, D14 "A kept verdict is never shown while the latest read has failed"; review round 1, requested 5]', async () => {
+  const bad = [];
+  for (const [label, make, own] of LOUD7) {
+    const ok = sentencesOfLine(await overdueOf(make())).join(' ');
+    for (const re of own) if (!re.test(ok)) bad.push(`setup, ${label}: read well, this verdict's line says ${re}; got ${show(ok)}`);
+    const { bad: b, text } = await failedReadProblems(`${label}, then a failed read`, make());
+    bad.push(...b);
+    const rest = text.replace(CANNOT_TELL_OVERDUE, ' ').replace(STATUS_UNREAD, ' ');
+    for (const re of own) if (re.test(rest)) bad.push(`${label}, then a failed read: the kept verdict never shows (${re}); got ${show(text)}`);
+  }
+  assert(!bad.length, `overdueView with a failed read that keeps a verdict with a line (${ADR7_D14_NOTE}):\n      - ${bad.join('\n      - ')}`);
+});
+
+test('TV135: green on purpose — a good read shows each verdict as before: no line for on time, no entry, no schedule and no pass; the overdue line with both times, and the waiting addition while a pass waits; cannot tell with the server\'s own reason for the rule, and with no overdue member — never the status-read reason; and a failed read with no body says it cannot tell because the pass status could not be read [story 7 AC-5; ADR tagging-edges/0007 D14, § Fix-round notes D14; review round 1, requested 5: what the fix must not change]', async () => {
+  const bad = [];
+  for (const [label, make] of QUIET7) {
+    const v = await overdueOf(make());
+    if (!noLine(v)) bad.push(`${label}, read well: no line (D14); got ${show(v)}`);
+  }
+  for (const [label, make, own] of LOUD7) {
+    const v = await overdueOf(make());
+    const text = sentencesOfLine(v).join(' ');
+    for (const re of own) if (!re.test(text)) bad.push(`${label}, read well: its line says ${re}; got ${show(text)}`);
+    if (STATUS_UNREAD.test(text)) bad.push(`${label}, read well: a good read never says the status could not be read; got ${show(text)}`);
+    if (label.startsWith('overdue') && !(carriesTime(v, OVERDUE7.latestBeganAt) && carriesTime(v, OVERDUE7.expectedAt))) bad.push(`${label}, read well: the line carries when the latest pass began and when the next was expected; got ${show(v)}`);
+  }
+  const none = await overdueOf(null, failedRead(null));
+  const text = sentencesOfLine(none).join(' ');
+  if (!CANNOT_TELL_OVERDUE.test(text) || !STATUS_UNREAD.test(text)) bad.push(`a failed read with no body: cannot tell, because the pass status could not be read (D14); got ${show(none)}`);
+  assert(!bad.length, `overdueView with a good read, and a failed one with no body (${ADR7} D14):\n      - ${bad.join('\n      - ')}`);
 });
 
 // ─── runner ────────────────────────────────────────────────────────────────────────────────────────────────────

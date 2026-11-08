@@ -214,6 +214,25 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B145 — focus: the Confirm prompt.                                                                        [AC-6; D15]
  *   B146 — the opening line names confirming held removals, for the owner.                                   [AC-7; D16]
  *   B147 — the request pin: only GETs on a held list until Confirm is pressed, then exactly its POST.       [Test tasks; § Seams]
+ *   Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, blocking 1, requested
+ *   2, 5 and 10; ADR 0007 § "Fix-round notes", D14 and D15). Fixtures: F.SCENE7_R1. Red until the fix, each for the
+ *   reason its last message names: B148 (focus falls to the page), B149 (focus moves to Cancel, then the held heading),
+ *   B150 (focus stays on the button now reading "Turn on") and B154 (the kept verdict is judged). Green on purpose, to
+ *   pin AC-6's "however it closes" on the closing paths no case ran (requested 2): B151, B152 and B153. B129 is revised,
+ *   not replaced: its withdraw-failed case now stages the read after the answer, both ways (the confirmation stands; that
+ *   pass took it up), so its title holds (requested 10); it stays green.
+ *   B148 — focus on Confirm's answer line ("lined up"; the waiting pass takes it up) stays on that same line while the
+ *          next reads show the pass running, then ended.                                          [AC-6; D15 note]
+ *   B149 — the prompt open, focus elsewhere: a read from the held list to none closes it and moves no focus — never to
+ *          Cancel, never to the held section's heading.                                            [AC-6; D15, D15 note]
+ *   B150 — "Turn off" focused (after Cancel, or by the owner) and a read shows the path off: focus to the path
+ *          section's heading, never on "Turn on", by text or as the same button; a keypress sends nothing. [AC-6; D15 note]
+ *   B151 — Confirm with no answer in 15 s: focus on the line that says the outcome is unknown, kept there as the next
+ *          read lands.                                                                              [AC-6; D11, D15]
+ *   B152 — Turn off refused (403), and Turn off with no answer in 15 s: focus on the line that says so.     [AC-6; D15]
+ *   B153 — Stop refused (a lapsed session's 401): focus on the line that says so.                           [AC-6; D15]
+ *   B154 — a status read that fails after a good one (on time; overdue): the backstop section cannot tell, because the
+ *          pass status could not be read, and never shows the kept verdict; a good read brings it back.   [AC-5; D14 note]
  *
  * ── A story that changes a Relays sub-tab runs B39 ───────────────────────────────────────────────────────────────
  * B39 is the only check that the other Relays sub-tabs (Router Management, Negentropy Sync, Relay Configuration,
@@ -3932,10 +3951,27 @@ test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007
         answer: F.CONFIRM_ANSWER.PASS_STARTED,
         says: (t) => PASS_STARTED_MEANWHILE.test(t) && WITHDRAWN.test(t) && linedUpClaimsOf(t).length === 0,
       },
+      // Story 7's review, round 1, requested 10: the read after a withdraw-failed answer is staged, both ways, so the
+      // panel is seen to show from that read whether that pass took the confirmation up (the title's last clause).
       {
-        what: 'the server cannot tell whether the confirmation stands (500 withdraw-failed)',
-        answer: F.CONFIRM_ANSWER.WITHDRAW_FAILED,
+        what: 'the server cannot tell whether the confirmation stands (500 withdraw-failed), and its next read shows it stands',
+        answer: () => { m.set(F.SCENE7_R1.WITHDRAW_FAILED_STANDS); return F.CONFIRM_ANSWER.WITHDRAW_FAILED; },
         says: (t) => CANNOT_TELL_STANDS.test(t) && NEXT_READ.test(t) && !STATE_UNCHANGED.test(t) && !NOTHING_CONFIRMED.test(t),
+        then: async (what) => {
+          await untilText(page, 'tp-held', PENDING_STRICT, `${what}: from that read the panel shows the confirmation pending, so no pass has taken it up yet`, 10000);
+          expect(await heldLines(page), `${what}: the confirmation made at 12:00, pending until 24 hours on`).toMatch(clockRe(F.plusTtl(F.NOW)));
+          await expect(confirmButton(page), `${what}: and no Confirm while it is pending`).toHaveCount(0);
+        },
+      },
+      {
+        what: 'the server cannot tell whether the confirmation stands (500 withdraw-failed), and its next read shows that pass took it up',
+        answer: () => { m.set(F.SCENE7_R1.WITHDRAW_FAILED_TOOK_UP); return F.CONFIRM_ANSWER.WITHDRAW_FAILED; },
+        says: (t) => CANNOT_TELL_STANDS.test(t) && NEXT_READ.test(t) && !STATE_UNCHANGED.test(t) && !NOTHING_CONFIRMED.test(t),
+        then: async (what) => {
+          await untilShows(page, 'tp-pass', [TOOK_UP_CONFIRMATION, clockRe(F.NOW)], [], `${what}: from that read the panel shows the latest pass took up the owner's confirmation, made at 12:00 (D12)`, 10000);
+          await expect(section(page, 'tp-held'), `${what}: and that pass held nothing`).toHaveAttribute('data-state', 'empty');
+          expect(await heldLines(page), `${what}: nothing is pending`).not.toMatch(PENDING_STRICT);
+        },
       },
     ];
     for (const c of CASES) {
@@ -3943,8 +3979,9 @@ test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007
       p = await openConfirmPrompt(page);
       await confirmedVia(page, p);
       await expect.poll(async () => c.says(await heldLines(page)), { message: `${c.what}: the answer says so (D11)`, timeout: 10000 }).toBe(true);
+      if (c.then) await c.then(c.what);
     }
-    expect(m.log.nonGet, 'one confirmation each, never retried').toEqual(Array(5).fill(CONFIRM_POST));
+    expect(m.log.nonGet, 'one confirmation each, never retried').toEqual(Array(6).fill(CONFIRM_POST));
   });
 
   test('B130: a prompt that is out of date — a newer pass held another list after it opened — is refused plainly and changes nothing: nothing was confirmed, the panel then shows the new pass\'s held list, and Confirm can be pressed again, its prompt naming the new pass; the other out-of-date refusals (nothing held, the held run running, the held list changed) say the same [AC-2 "Only what the prompt showed. If the latest pass is no longer the one the prompt named, the confirmation is refused plainly and changes nothing. The panel then shows the new state, so the owner can press Confirm again"; ADR 0007 D4 409 not-the-latest-report, nothing-held, running, held-list-changed; D11 "out of date … nothing was confirmed; the panel now shows the latest state"]', async ({ page }) => {
@@ -4513,6 +4550,223 @@ test.describe('Confirming held removals on the panel (tagging-edges #7, ADR 0007
     expect(m.log.nonGet.filter((l) => !ALLOWED_POSTS.includes(l)), 'every non-GET is one of the four POSTs the panel may send').toEqual([]);
     expect(JSON.parse(m.log.sent[0].body || 'null'), 'its body is {"runId"}').toEqual({ runId: RUN });
     expect(m.log.sent[0].contentType || '', 'as JSON').toMatch(/^application\/json\b/i);
+  });
+
+  /* ── Story 7's review, round 1: blocking 1, requested 2, 5 and 10 (ADR 0007 § Fix-round notes, D14, D15) ─────── */
+
+  const R1 = F.SCENE7_R1;
+  /** Mark the element that has focus now, so a later check can tell whether focus is still on that same element. */
+  const markFocused = (page) => page.evaluate(() => {
+    window.__tpMarked = document.activeElement;
+    return !!window.__tpMarked && window.__tpMarked !== document.body && window.__tpMarked !== document.documentElement;
+  });
+  /** Is focus still on the marked element, and is that element still in the page? */
+  const onMarked = (page) => page.evaluate(() => ({
+    same: !!window.__tpMarked && document.activeElement === window.__tpMarked,
+    connected: !!window.__tpMarked && window.__tpMarked.isConnected,
+  }));
+  /** From now on, note every element focus moves to (focusin), as "<tag> in <section>: text". */
+  const logFocusMoves = (page) => page.evaluate((ids) => {
+    window.__tpFocusMoves = [];
+    if (window.__tpFocusLogging) return;
+    window.__tpFocusLogging = true;
+    document.addEventListener('focusin', (e) => {
+      const el = e.target;
+      const sec = el && el.closest ? el.closest(ids.map((id) => `[data-testid="${id}"]`).join(',')) : null;
+      const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      window.__tpFocusMoves.push(`<${String(el.tagName).toLowerCase()}> in ${sec ? sec.getAttribute('data-testid') : 'no panel section'}: "${text}"`);
+    }, true);
+  }, SECTIONS);
+  const focusMoves = (page) => page.evaluate(() => window.__tpFocusMoves || []);
+  /** Focus still satisfies `ok` (a short wait for the render to settle, not for focus to come back), and is not lost. */
+  const stillFocused = async (page, ok, what) => {
+    await expect.poll(async () => { const f = await focusAt(page); return ok(f) ? 'there' : focusSummary(f); }, { message: what, timeout: 2000 }).toBe('there');
+    expectNotLost(await focusAt(page), what);
+  };
+  /** The reason ADR 0007's D14 note gives when the status read has failed: the pass status could not be read. */
+  const STATUS_UNREAD = /\bstatus\b[^.]*\b(?:could not|couldn't|cannot|can't) be read\b|\b(?:could not|couldn't|cannot|can't) read\b[^.]*\bstatus\b/i;
+
+  test('B148: focus on the line that says what a confirmation did stays on that same line while the next reads move the held section between its branches — after "a pass was lined up", through the read that shows the pass running and the read that shows it ended; and the same after "the pass already waiting takes it up" — the line still shown each time, focus never on the page itself [AC-6 "Never lost. Focus never falls to the page itself"; ADR 0007 D15 "Each outcome line (… Confirm\'s in HeldSection) is a <p tabIndex={-1}> with a ref", § Fix-round notes D15 "The Confirm prompt and its answer line keep one element identity across the held section\'s branches … A read that changes the branch never remounts them, so focus on them survives it"; D11 "The outcome shows in the held section until the next Confirm is sent"; review round 1, blocking 1; ledger 2026-10-28-panel-prompts-return-no-focus]', async ({ page }) => {
+    test.setTimeout(120000);
+    const CASES = [
+      { what: 'a pass was lined up', scene: S.HELD_NONE, line: /\blined up\b/i },
+      { what: 'the pass already waiting takes it up', scene: S.WAITING, line: /\bwaiting\b[^.]*\btakes?\b[^.]*\bup\b/i },
+    ];
+    const STEPS = [
+      ['the next read shows the pass running', S.RUNNING, /\bpass is running\b/i],
+      ['the read after it shows the pass ended, holding nothing', S.TOOK_UP, /\bheld no removals\b/i],
+    ];
+    const m = await mock(page, CASES[0].scene);
+    for (const [i, c] of CASES.entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, c.scene);
+      const p = await openConfirmPrompt(page);
+      await confirmedVia(page, p);
+      await untilFocus(page, onOutcomeLine('tp-held', c.line), `${c.what}: setup — after the answer, focus is on the line that says so (D15; B145)`);
+      expect(await markFocused(page), `${c.what}: setup — that line is marked`).toBe(true);
+      await pauseClock(page);
+      for (const [step, scene, landed] of STEPS) {
+        m.set(scene);
+        await page.clock.runFor(POLL_MS);
+        await untilText(page, 'tp-held', landed, `${c.what}, ${step}: the read has landed in the held section`, 5000);
+        expect(await heldLines(page), `${c.what}, ${step}: the line still says what the confirmation did (D11)`).toMatch(c.line);
+        await stillFocused(page, onOutcomeLine('tp-held', c.line), `${c.what}, ${step}: focus stays on that line (AC-6 "Never lost"; ADR 0007 § Fix-round notes D15) — today the held section's branch change remounts the line and focus falls to the page`);
+        expect(await onMarked(page), `${c.what}, ${step}: and it is the same element, never remounted (D15 note "one element identity")`).toEqual({ same: true, connected: true });
+      }
+    }
+    expect(m.log.nonGet, 'one confirmation each').toEqual([CONFIRM_POST, CONFIRM_POST]);
+  });
+
+  test('B149: with the Confirm prompt open and not under way, and focus moved out of it to another section\'s control, a read that takes the held section from its held list to none — a newer pass ran and ended between two polls, holding nothing — closes the prompt by itself and moves no focus: never to the prompt\'s Cancel, never to the held section\'s heading; focus stays where the owner put it, and nothing is sent [AC-6; ADR 0007 D10 "It closes by itself when a read makes offer false or changes runId", D15 "It does nothing when wasInside is false, so a prompt that closes by itself never takes focus from elsewhere", § Fix-round notes D15 "A read that changes the branch never remounts them"; review round 1, blocking 1 (the panel lane\'s UI-2)]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    const recount = section(page, 'tp-drift').getByRole('button', { name: 'Recount', exact: true });
+    await recount.focus();
+    await expect(recount, 'setup: focus is outside the prompt, on Recount').toBeFocused();
+    await logFocusMoves(page);
+    await pauseClock(page);
+    m.set(R1.ENDED_CLEAN);
+    await page.clock.runFor(POLL_MS);
+    await expect(heldHeading(page, p.heading), 'a read showing a newer pass that held nothing closes the prompt by itself (D10)').toHaveCount(0, { timeout: 10000 });
+    await expect(section(page, 'tp-held'), 'the held section has no held list now').toHaveAttribute('data-state', 'empty');
+    await wait(500);
+    expect(await focusMoves(page), 'focus never moved — not to the prompt\'s Cancel, not to the held section\'s heading (D15 "never takes focus from elsewhere") — today the read remounts the prompt, which focuses its Cancel, and its closing then sends focus to the heading').toEqual([]);
+    await expect(recount, 'focus stays on Recount').toBeFocused();
+    expect(m.log.nonGet, 'a prompt that closes by itself sends nothing').toEqual([]);
+  });
+
+  test('B150: when "Turn off" has focus — put back there by Cancel, or moved there by the owner — and a read shows the path off, focus moves to the path section\'s heading: it is never on "Turn on", neither by its text nor as the same button relabelled, so a keypress then sends nothing and the path stays off [AC-6 "Never on Turn on"; ADR 0007 D15 "Never on Turn on or Run a pass now", § Fix-round notes D15 "A focused opener that a read replaces in place by a control D15 rules out hands focus to its section\'s heading. Turn off becoming Turn on is the case. Never on Turn on covers a button node React reuses"; review round 1, requested 2]', async ({ page }) => {
+    test.setTimeout(90000);
+    const m = await mock(page);
+    for (const [i, how] of ['after Cancel', 'the owner moved focus to it'].entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, { realtime: F.REALTIME.ON_LIVE, record: undefined });
+      if (how === 'after Cancel') {
+        const p = await openPrompt(page);
+        await p.cancel.click();
+        await untilFocus(page, (f) => f.button && f.section === 'tp-path' && f.text === 'Turn off', `${how}: setup — focus is on "Turn off" (D15; B143)`);
+      } else {
+        await control(page, 'Turn off').focus();
+        await expect(control(page, 'Turn off'), `${how}: setup — focus is on "Turn off"`).toBeFocused();
+      }
+      expect(await markFocused(page), `${how}: setup — "Turn off" is marked`).toBe(true);
+      await pauseClock(page);
+      m.set({ realtime: F.REALTIME.OFF_WITH_FIGURES, record: F.RECORD.OFF_BY_ADMIN });
+      await page.clock.runFor(POLL_MS);
+      await expect(control(page, 'Turn on'), `${how}: the read has landed: the path shows off, its control "Turn on"`).toBeVisible({ timeout: 5000 });
+      await wait(300);
+      const f = await focusAt(page);
+      expect(f.button && /^Turn on$/.test(f.text), `${how}: focus is never on "Turn on", which turns the path on at a keypress (AC-6; D15) — it is on ${focusSummary(f)}`).toBe(false);
+      expect((await onMarked(page)).same && f.button, `${how}: nor on the button that read "Turn off", relabelled in place (D15 note "a button node React reuses") — it is on ${focusSummary(f)}`).toBe(false);
+      await untilFocus(page, onSectionHeading('tp-path'), `${how}: focus moves to the path section's heading (ADR 0007 § Fix-round notes D15)`);
+      await page.keyboard.press('Enter');
+      await page.keyboard.press(' ');
+      await wait(500);
+      expect(m.log.nonGet, `${how}: a keypress then sends nothing: the path is not turned on`).toEqual([]);
+      await expect(control(page, 'Turn on'), `${how}: the path stays off`).toBeVisible();
+    }
+  });
+
+  test('B151: green on purpose — when a confirmation gets no answer within 15 s, the prompt closes and focus goes from its heading to the line that says the outcome is unknown, never to the page itself, and stays on that line when the next read lands [AC-6 "This covers each of the panel\'s prompts (Turn off, Stop and Confirm), however it closes (… gets no answer in time …)"; ADR 0007 D11 "On unknown, clear at once and fire the re-reads", D15 "otherwise … the outcome line when shown"; review round 1, requested 2: B144 runs this for Stop, B145 did not run it for Confirm]', async ({ page }) => {
+    const m = await mock(page, S.HELD_NONE);
+    await openAndSettle(page);
+    const p = await openConfirmPrompt(page);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({
+      confirm: async () => { await gate; return F.CONFIRM_ANSWER.linedUp(F.OTHER_TAB_JOB_KEY); },
+      status: async () => { await gate; return S.HISTORY.status; },
+      passRecord: async () => { await gate; return S.HISTORY.passRecord; },
+    });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the confirmation is sent' }).toEqual([CONFIRM_POST]);
+      await untilFocus(page, onHeadingNamed('tp-held', p.heading), 'while under way, focus is on the prompt\'s own heading (D15)');
+      await page.clock.runFor(15000);
+      await expect(heldHeading(page, p.heading), 'no answer in 15 s: the prompt closes (D11)').toHaveCount(0, { timeout: 5000 });
+      await untilFocus(page, onOutcomeLine('tp-held', OUTCOME_UNKNOWN), 'focus goes to the line that says the outcome is unknown (D15)');
+    } finally {
+      release();
+    }
+    await untilText(page, 'tp-held', PENDING_STRICT, 'the next read lands: the confirmation shows pending', 10000);
+    await stillFocused(page, onOutcomeLine('tp-held', OUTCOME_UNKNOWN), 'and focus stays on the line that says the outcome is unknown');
+    expect(m.log.nonGet, 'sent once and never retried').toEqual([CONFIRM_POST]);
+  });
+
+  test('B152: green on purpose — the Turn off prompt closes at once on confirm, and when the change is refused (403) or gets no answer within 15 s, focus goes from the path section\'s heading to the line that says so — that it was refused, sign in again, or that the outcome is unknown — never to "Turn on" or the page itself, and it stays on that line when the next read shows the path off [AC-6 "however it closes (confirmed, refused, gets no answer in time …)"; ADR 0007 D15 "Turn off closes at once on confirm: focus goes to the path section\'s heading. When its outcome line then appears while focus is still on that heading, focus moves to the line"; review round 1, requested 2]', async ({ page }) => {
+    const m = await mock(page, { switch: F.SWITCH_ANSWER.REFUSED_403 });
+    await openAndSettle(page);
+    let p = await openPrompt(page);
+    await p.confirm.click();
+    await untilFocus(page, onOutcomeLine('tp-path', SIGN_IN_AGAIN), 'refused (403): focus goes to the line that says so, and to sign in again (D15)');
+    await expect(control(page, 'Turn off'), 'refused: the path is still on').toBeVisible();
+
+    await reload(page, m, { realtime: F.REALTIME.ON_LIVE, record: undefined, switch: undefined });
+    p = await openPrompt(page);
+    await pauseClock(page);
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    m.set({
+      switch: async () => { await gate; return F.SWITCH_ANSWER.OFF; },
+      realtime: async () => { await gate; return F.REALTIME.OFF_WITH_FIGURES; },
+      record: async () => { await gate; return F.RECORD.OFF_BY_OWNER; },
+    });
+    try {
+      await p.confirm.click();
+      await expect.poll(() => m.log.nonGet, { message: 'the off is sent' }).toEqual([SWITCH_POST, SWITCH_POST]);
+      await untilFocus(page, onSectionHeading('tp-path'), 'under way: focus on the path section\'s heading (D15)');
+      await page.clock.runFor(15000);
+      await untilFocus(page, onOutcomeLine('tp-path', OUTCOME_UNKNOWN), 'no answer in 15 s: focus goes to the line that says the outcome is unknown (D15)');
+    } finally {
+      release();
+    }
+    await expect(control(page, 'Turn on'), 'the next read lands: the path shows off').toBeVisible({ timeout: 10000 });
+    await stillFocused(page, onOutcomeLine('tp-path', OUTCOME_UNKNOWN), 'and focus stays on the line, never moving to "Turn on"');
+    expect(m.log.nonGet, 'one POST each, nothing retried').toEqual([SWITCH_POST, SWITCH_POST]);
+  });
+
+  test('B153: green on purpose — the Stop prompt, refused (a lapsed session\'s 401), closes once its re-reads settle and focus goes from its heading to the line that says it was refused and to sign in again — never to "Run a pass now" or the page itself [AC-6 "however it closes (… refused …)"; ADR 0007 D15 "otherwise, or when the opener is gone: the outcome line when shown"; review round 1, requested 2]', async ({ page }) => {
+    const m = await mock(page, { ...F.SCENE.WAITING_ASKED, stop: F.STOP_ANSWER.REFUSED_401 });
+    await openAndSettle(page);
+    const p = await openStopPrompt(page);
+    await p.confirm.click();
+    await untilFocus(page, onOutcomeLine('tp-pass', SIGN_IN_AGAIN), 'refused (401): focus goes to the line that says so, and to sign in again (D15)');
+    await expect(passHeading(page, p.heading), 'the prompt has closed').toHaveCount(0);
+    expect(m.log.nonGet, 'one stop sent, nothing retried').toEqual([STOP_POST]);
+  });
+
+  test('B154: an open panel whose status read fails after a good one says in the backstop section that it cannot tell whether the pass is overdue, because the pass status could not be read — after an on-time read, where it showed no line, and after an overdue one, whose warning and times it no longer shows — and the next good read brings the verdict back [story 7 AC-5 "A missing warning never stands for on time", "When the pass report … cannot be read, the backstop section says it cannot tell whether the pass is overdue"; ADR 0007 § Fix-round notes, D14 "This holds whether or not a body is kept from an earlier read. A kept verdict is never shown while the latest read has failed"; review round 1, requested 5]', async ({ page }) => {
+    test.setTimeout(90000);
+    const O = F.OVERDUE.OVERDUE;
+    const OVERDUE_SAID = [OVERDUE_WORD, clockRe(O.latestBeganAt), clockRe(O.expectedAt)];
+    const m = await mock(page, S.HELD_NONE);
+    for (const [i, [what, scene]] of [['on time', S.HELD_NONE], ['overdue', S.OVERDUE]].entries()) {
+      if (i === 0) await openAndSettle(page);
+      else await reload(page, m, scene);
+      if (what === 'on time') expect(await textOf(page, 'tp-schedule'), `${what}: setup — no overdue line (B138)`).not.toMatch(OVERDUE_WORD);
+      else await untilShows(page, 'tp-schedule', OVERDUE_SAID, [OVERDUE_CANNOT_TELL], `${what}: setup — the overdue warning (B138)`);
+      await pauseClock(page);
+      m.set({ status: fail(500) });
+      await page.clock.runFor(POLL_MS);
+      await expect(section(page, 'tp-pass'), `${what}, then a failed read: the pass section shows the failure, its earlier figures kept (B46)`).toHaveAttribute('data-state', 'error', { timeout: 10000 });
+      await untilText(page, 'tp-schedule', OVERDUE_CANNOT_TELL, `${what}, then a failed read: the backstop section says it cannot tell whether the pass is overdue (ADR 0007 § Fix-round notes D14) — today it judges the answer kept from the good read`, 5000);
+      const text = await textOf(page, 'tp-schedule');
+      const at = text.search(OVERDUE_CANNOT_TELL);
+      expect(text.slice(at, at + 300), `${what}, then a failed read: because the pass status could not be read`).toMatch(STATUS_UNREAD);
+      expect(overdueClaims(text), `${what}, then a failed read: never that the pass is overdue`).toEqual([]);
+      expect(text, `${what}, then a failed read: no time of the kept verdict`).not.toMatch(clockRe(O.latestBeganAt));
+      m.set({ status: scene.status });
+      await page.clock.runFor(POLL_MS);
+      await expect(section(page, 'tp-pass'), `${what}: the next read is good`).toHaveAttribute('data-state', 'ready', { timeout: 10000 });
+      if (what === 'on time') {
+        await expect.poll(async () => OVERDUE_WORD.test(await textOf(page, 'tp-schedule')), { message: `${what}: the good read shows no overdue line again`, timeout: 5000 }).toBe(false);
+      } else {
+        await untilShows(page, 'tp-schedule', OVERDUE_SAID, [OVERDUE_CANNOT_TELL], `${what}: the good read brings the warning back`);
+      }
+    }
+    expect(m.log.nonGet, 'it is only a warning: it sends nothing').toEqual([]);
   });
 });
 

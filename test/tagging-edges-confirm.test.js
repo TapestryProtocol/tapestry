@@ -46,6 +46,19 @@
  *              confirm); and, after the owner's confirmation, signed-out reads of the status, the held list, the path
  *              status and the Task Explorer's data carry no who on a pending, an expired or an unreadable-expiry
  *              confirmation, nor does anything logged (story 6's PX38 is the model).
+ *   CH30–CH32  added at story 7's fix round (2026-11-07; its review, round 1, requested 8 and 9; ADR 0007 § Fix-round
+ *              notes, D6 and D2 step 7):
+ *              CH30  the public status over a hand-edited confirmation.json whose members are not their type (a runId
+ *                    that is an object carrying mintedBy and the nonce; an expiresAt of {"toString": null}) answers 200,
+ *                    leaves those members out and carries no who. Red until the fix: today an object expiresAt makes
+ *                    the status answer 500, and an object runId is served whole. (CL15 to CL18 pin publicConfirmation.)
+ *              CH31  a step-7 re-read of report.json that throws, or reads no report, after confirmation.json was
+ *                    written: the confirmation is withdrawn, the record taken back, and the answer is 500 error with
+ *                    its cause, not 409 pass-started. Red until the fix.
+ *              CH32  the re-read paths the fix keeps: the re-read throws but a pass had already claimed the
+ *                    confirmation (200 taken-up, claimedBy null, only the confirm line kept); the re-read throws and so
+ *                    does the withdraw (500 withdraw-failed). Green on purpose. 409 pass-started for a re-read that
+ *                    names another run stays pinned by CH15 and CH18.
  *
  * Hermetic: every controller is an instance built by createController(deps) over the shared fakes (makeWorld: a
  * BullMQ-faithful fake queue, an in-memory record, a fake process table, a fixed fake clock, and story 7's held-file,
@@ -82,6 +95,13 @@
  *   - Signed-out reads' who (CH29): either case of the owner's pubkey, its 8-character key, a member named "who" or
  *     "mintedBy", or the kind "owner" as JSON or as console prints it. Each read must also show what it is about (the
  *     pending confirmation's run, the held list's run), so a missing who is not an empty answer.
+ *   - Fix round, CH30: the status is handleStatus in this process, with readFile serving report.json and
+ *     confirmation.json from memory and the schedule reader, snapshot and clock injected. It is not CH29's child, since
+ *     the point is the answer's status code. A member left out is absent.
+ *   - Fix round, CH31: "the re-read fails" is the first report.json read after confirmation.json's write, failed
+ *     through the world's failNext from a writeConfirmation hook. "Reads nothing" sets the world's report to null at
+ *     the same moment. Each checks that the re-read was reached after the write. The cause of a re-read that reads
+ *     nothing has no error code: it is read as any string allowErrorCode keeps.
  *
  * Hand-rolled in the project's existing test style — no new framework. Works on Node 16 and 22.
  */
@@ -1368,6 +1388,143 @@ test('CH29: after the owner\'s confirmation, a signed-out reader gets no who —
   const line = g && g.body && Array.isArray(g.body.history) ? g.body.history.find((l) => l && l.action === 'confirm') : null;
   if (!line || exact(line.who) !== exact(OWNER_REC) || line.runId !== w.runId) p.push(`the owner's gated record read should hold the confirm line with { kind: 'owner', key: ${OWNER_KEY} } for ${w.runId} (${adr7('D5')}); it answered ${clip(g && g.body)}`);
   report(p);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CH30–CH32 — added at story 7's fix round (2026-11-07; its review, round 1, requested 8 and 9)
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const fix7 = (d) => adr7(`§ Fix-round notes (2026-11-07), ${d}`);
+const PUBLIC_MEMBERS = ['version', 'runId', 'heldDigest', 'heldCount', 'mintedAt', 'expiresAt'];
+
+test('CH30 (story 7 fix round; review requested 8; red until the fix): the public status, signed out, over a hand-edited confirmation.json answers 200 with the report — whose runId is an object carrying mintedBy and the nonce and whose expiresAt is {"toString": null}, and again with only the runId edited and with only the expiresAt — and its confirmationPending leaves out each member that is not its type (no runId; no expiresAt, with expired false), still serves those that have their type, and no mintedBy, nonce or owner key appears anywhere in the body [ADR 0007 § Fix-round notes, D6 "each member with its type … Any other value is left out. expired is derived only from a string expiresAt … A hand-edited file can neither pass an object through nor fail the status"; D6 "So mintedBy and the nonce never reach a signed-out reader … or edited by hand"; story AC-4 "No public read names who confirmed"; review requested 8 "An object expiresAt makes Date.parse throw … and the public status answers 500"]', async () => {
+  const { handleStatus } = loadRoutes();
+  const world = H.makeWorld();
+  try {
+    const held = world.holdRemovals();
+    const nonce = H.nonceOf('ch30-hand-edited');
+    const good = { version: 1, runId: held.runId, heldDigest: held.digest, heldCount: 60, nonce, mintedAt: iso(T0 - HOUR), expiresAt: iso(T0 + 23 * HOUR) };
+    const objectRunId = { mintedBy: OWNER_KEY, nonce, runId: held.runId };
+    const objectExpiry = { toString: null }; // JSON text {"toString":null}, as a hand edit leaves it
+    const STATE = '/ch30-state';
+    const reportText = JSON.stringify(world.report);
+    assert(![OWNER, OWNER_KEY, nonce, '"mintedBy"'].some((n) => reportText.includes(n)), 'setup: the report itself names no owner, nonce or mintedBy');
+    await cases([
+      { name: 'runId an object carrying mintedBy and the nonce, and expiresAt {"toString": null}', file: { ...good, runId: objectRunId, expiresAt: objectExpiry }, out: ['runId', 'expiresAt'] },
+      { name: 'only runId an object carrying mintedBy and the nonce', file: { ...good, runId: objectRunId }, out: ['runId'] },
+      { name: 'only expiresAt {"toString": null}', file: { ...good, expiresAt: objectExpiry }, out: ['expiresAt'] },
+    ], async (c) => {
+      const files = { 'report.json': reportText, 'confirmation.json': JSON.stringify(c.file) };
+      const deps = {
+        stateDir: () => STATE,
+        readFile: async (p) => {
+          const f = String(p);
+          if (path.dirname(f) === STATE && files[path.basename(f)] != null) return files[path.basename(f)];
+          throw Object.assign(new Error(`ENOENT ${f}`), { code: 'ENOENT' });
+        },
+        isAlive: async () => false,
+        snapshot: async () => ({ queue: 'ok', items: [], gaveUp: null }),
+        now: () => T0,
+        readScheduleEntries: async () => [],
+      };
+      const r = await H.callHandler(handleStatus, H.passReq('signed-out', { method: 'GET', path: PATHS.status }), deps);
+      if (r.status !== 200) report([`the public status should answer 200 over this file, never fail for it; it answered ${r.status} ${show(r.body)}`], fix7('D6'));
+      const b = r.body || {};
+      const p = [];
+      if (!(b.latest && b.latest.runId === held.runId)) p.push(`the report should be served; latest is ${show(b.latest)}`);
+      const cp = b.confirmationPending;
+      if (!cp || typeof cp !== 'object') p.push(`confirmationPending should still be served as an object; it is ${show(cp)}`);
+      else {
+        for (const k of c.out) if (has(cp, k)) p.push(`confirmationPending.${k} is not its type and should be left out; it is served as ${show(cp[k])}`);
+        for (const k of PUBLIC_MEMBERS.filter((x) => !c.out.includes(x))) if (cp[k] !== c.file[k]) p.push(`confirmationPending.${k} has its type and should still be served as ${show(c.file[k])}; it is ${show(cp[k])}`);
+        if (cp.expired !== false) p.push(`confirmationPending.expired should be false (unexpired, or no string expiresAt to derive it from); it is ${show(cp.expired)}`);
+      }
+      const text = JSON.stringify(b);
+      const leaks = [['a "mintedBy" member', '"mintedBy"'], ['a "nonce" member', '"nonce"'], ['the nonce', nonce], ['the owner\'s short key', OWNER_KEY], ['the owner\'s pubkey', OWNER]]
+        .filter(([, n]) => text.includes(n)).map(([l]) => l);
+      if (leaks.length) p.push(`the signed-out status carries ${leaks.join(', ')}: confirmationPending is ${show(cp)}`);
+      report(p, fix7('D6'));
+    });
+  } finally {
+    world.cleanup();
+  }
+});
+
+/**
+ * The step-7 re-read fails (ADR 0007 § Fix-round notes, D2 step 7). The first report.json read after confirmation.json's
+ * write throws `code` (the world's failNext), or, with code null, finds no report. With claim, a pass first records
+ * itself and claims the confirmation, so the withdraw finds nothing. → { reached(): the re-read happened after the
+ * write, claimedBy(): the claiming pass's run id }.
+ */
+function reReadFailsAfterWrite(ctx, { code = 'EIO', claim = false, jobId = null } = {}) {
+  let wroteSeq = null;
+  let claimedBy = null;
+  ctx.world.onCall('writeConfirmation', () => {
+    const w = ctx.world.callsOf('writeConfirmation');
+    wroteSeq = w.length ? w[w.length - 1].seq : null;
+    if (claim) {
+      const rec = ctx.world.startPass({ jobId });
+      claimedBy = rec.runId;
+      ctx.world.claim(rec.runId);
+    }
+    if (code) ctx.world.failNext('readReport', code); else ctx.world.report = null;
+  });
+  return {
+    reached: () => wroteSeq !== null && ctx.world.callsOf('readReport').some((x) => x.seq > wroteSeq),
+    claimedBy: () => claimedBy,
+  };
+}
+
+test('CH31 (story 7 fix round; review requested 9; red until the fix): a step-7 re-read of report.json that fails after the confirmation was written cannot rule a pass out, so the confirmation is withdrawn (nothing pending), the record is taken back to what it was (no confirm line, no start), nothing is added, and the answer is 500 { success: false, code: \'error\', cause, error } with its cause through allowErrorCode — never 409 pass-started, since no pass is known to have started — for the line-up plan with a re-read that throws EIO, a waiting pass with one that throws EACCES, and the line-up plan with a re-read that finds no report [ADR 0007 § Fix-round notes, D2 step 7 "A re-read of report.json that throws, or reads nothing, cannot rule out a pass, so the confirmation is withdrawn as before. The answer no longer claims that a pass started: renamed: take the record back to prior → 500 {code: \'error\', cause}, cause through allowErrorCode. Nothing is pending"; story AC-1 "the answer says plainly which of these happened"; review requested 9]', async () => {
+  await cases([
+    { name: 'the line-up plan, the re-read throws EIO', code: 'EIO' },
+    { name: 'a waiting pass, the re-read throws EACCES', code: 'EACCES', set: async (ctx) => runKey(ctx) },
+    { name: 'the line-up plan, the re-read finds no report', code: null },
+  ], (c) => withCtl(async (ctx) => {
+    const k = c.set ? await c.set(ctx) : null;
+    const before = stateOf(ctx);
+    const reRead = reReadFailsAfterWrite(ctx, { code: c.code });
+    const a = await confirm(ctx);
+    const p = refusedProblems(a, 500, 'error', '§ Fix-round notes (2026-11-07), D2 step 7');
+    if (c.code && a.body.cause !== c.code) p.push(`the cause should be ${c.code}, through allowErrorCode; it is ${show(a.body.cause)}`);
+    if (!c.code && !(typeof a.body.cause === 'string' && allowErrorCode(a.body.cause) === a.body.cause)) p.push(`the cause should be a code allowErrorCode keeps; it is ${show(a.body.cause)}`);
+    if (!reRead.reached()) p.push('setup: the step\'s re-read of report.json was never reached after confirmation.json was written');
+    const w = ctx.world.withdrawn;
+    if (ctx.world.confirmation !== null || w.length !== 1 || !w[0] || w[0].runId !== ctx.held.runId) p.push(`the confirmation should be withdrawn, so nothing is pending; confirmation.json is ${show(ctx.world.confirmation)} and the withdrawn are ${show(w)}`);
+    p.push(...recordAsBeforeProblems(ctx, before, 'the record taken back to prior'));
+    if (confirmLines(ctx).length) p.push(`no confirm line may stay; the history is ${show(historyOf(ctx))}`);
+    p.push(...noNewStartProblems(ctx, k ? [k] : [], c.name));
+    if (addsOf(ctx).length !== before.adds) p.push(`a job was added: ${show(ctx.q.jobs().map((j) => j.id))}`);
+    report(p, fix7('D2 step 7'));
+  }));
+});
+
+test('CH32 (story 7 fix round; review requested 9; green on purpose — the re-read paths the fix keeps): when the step-7 re-read throws but a pass had already claimed the confirmation, the withdraw finds nothing and the answer is 200 { outcome: \'taken-up\', enqueued: false, claimedBy: null, expiresAt } — the server cannot name the pass — with only the confirm line kept, any start taken back and nothing added (for the line-up plan and a waiting pass); when the re-read throws and so does the withdraw, the answer is 500 { code: \'withdraw-failed\', cause: the withdraw\'s }, the confirm line stays and confirmation.json is left as written. A re-read that names another run still answers 409 pass-started: CH15 and CH18 pin it [ADR 0007 § Fix-round notes, D2 step 7 "already gone, or the rename threw: as step 7 says above (taken-up with claimedBy: null, or withdraw-failed)"; "409 pass-started stays only for a re-read that names another run"; D2 step 7]', async () => {
+  await cases([
+    { name: 'claimed first, the line-up plan', claim: true },
+    { name: 'claimed first, a waiting pass', claim: true, set: async (ctx) => runKey(ctx) },
+    { name: 'the withdraw throws too', withdrawError: 'EIO' },
+  ], (c) => withCtl(async (ctx) => {
+    const k = c.set ? await c.set(ctx) : null;
+    const adds = addsOf(ctx).length;
+    const at = nowIso(ctx);
+    const reRead = reReadFailsAfterWrite(ctx, { code: 'EACCES', claim: !!c.claim, jobId: k });
+    if (c.withdrawError) ctx.world.withdrawError = c.withdrawError;
+    const a = await confirm(ctx);
+    const p = [];
+    if (!reRead.reached()) p.push('setup: the step\'s re-read of report.json was never reached after confirmation.json was written');
+    if (c.claim) {
+      p.push(...acceptedProblems(ctx, a, 'taken-up', { enqueued: false, claimedBy: null }));
+      if (![...ctx.world.claimed].some((n) => n.startsWith(`${reRead.claimedBy()}-`))) p.push('setup: the pass never claimed it');
+    } else {
+      p.push(...refusedProblems(a, 500, 'withdraw-failed', 'D2 step 7'));
+      if (a.body.code === 'withdraw-failed' && a.body.cause !== c.withdrawError) p.push(`the cause should be the withdraw's, ${c.withdrawError}; it is ${show(a.body.cause)}`);
+      if (!ctx.world.confirmation || ctx.world.confirmation.runId !== ctx.held.runId) p.push(`confirmation.json should be left as written; it is ${show(ctx.world.confirmation)}`);
+    }
+    p.push(...confirmLineProblems(ctx, ctx.held.runId, at, c.name), ...noNewStartProblems(ctx, k ? [k] : [], c.name));
+    if (addsOf(ctx).length !== adds) p.push(`a job was added: ${show(ctx.q.jobs().map((j) => j.id))}`);
+    report(p, fix7('D2 step 7'));
+  }));
 });
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
