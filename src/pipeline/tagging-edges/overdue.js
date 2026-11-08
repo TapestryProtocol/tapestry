@@ -4,7 +4,8 @@
  *   overdueVerdict({ entries, latest, nowMs, periodOf }) → { state, reason?, latestBeganAt?, expectedAt?, periodMs? }
  *     state  'no-entry'     no enabled Scheduled Tasks entry runs the pass
  *            'no-schedule'  enabled entries, none with a runnable rule (no positive interval, no cron that parses)
- *            'cannot-tell'  reason 'rule' (no counted rule could be judged) or 'report' (the latest start is unreadable)
+ *            'cannot-tell'  reason 'rule' (no counted rule could be judged, a pattern too long to judge, or more than 32
+ *                           distinct patterns) or 'report' (the latest start is unreadable)
  *            'no-pass'      no pass on record
  *            'overdue'      the latest pass began longer ago than the most frequent entry's period plus one hour
  *            'on-time'
@@ -26,7 +27,10 @@ const MINUTE_MS = 60 * 1000;
 const HORIZON_MS = 400 * 24 * 60 * 60 * 1000;
 const MAX_RUNS = 1000;
 const CACHE_MAX = 32;
-/** A cron pattern longer than this is not judged: its period cannot be told (ADR 0007 § Fix-round notes, D8). */
+/**
+ * A cron pattern longer than this is not judged, and the verdict cannot tell: it may be the most frequent rule, so no other
+ * entry's period may stand for it (ADR 0007 § Fix-round notes, round 2, D8).
+ */
 const MAX_PATTERN_LENGTH = 256;
 
 /** pattern → { parses, periodMs }, at most CACHE_MAX, the oldest dropped first. */
@@ -71,15 +75,16 @@ function overdueVerdict({ entries, latest, nowMs, periodOf } = {}) {
   if (!enabled.length) return { state: 'no-entry' };
   const periodOfCron = typeof periodOf === 'function' ? periodOf : cronPeriod;
   const cronOf = (e) => (e.cron ? String(e.cron).trim() : '');
-  // The bound (ADR 0007 § Fix-round notes, D8): more distinct patterns than the cache holds are not judged at all, so a
-  // status read never recomputes them all.
-  if (new Set(enabled.map(cronOf).filter(Boolean)).size > CACHE_MAX) return { state: 'cannot-tell', reason: 'rule' };
+  // The bounds (ADR 0007 § Fix-round notes, D8, and round 2): more distinct patterns than the cache holds, or one too long
+  // to judge, and none is judged. A pattern not judged may be the most frequent, so no other entry's period may stand
+  // for it.
+  const crons = enabled.map(cronOf).filter(Boolean);
+  if (new Set(crons).size > CACHE_MAX || crons.some((c) => c.length > MAX_PATTERN_LENGTH)) return { state: 'cannot-tell', reason: 'rule' };
   let counted = 0;
   const periods = [];
   for (const e of enabled) {
     const cron = cronOf(e);
     if (cron) {
-      if (cron.length > MAX_PATTERN_LENGTH) { counted += 1; continue; } // not judged: its period cannot be told
       if (!judge(cron, nowMs).parses) continue; // the scheduler cannot run it
       counted += 1;
       const p = periodOfCron(cron, nowMs);

@@ -57,19 +57,18 @@ function pendingFor(record, latest, nowMs) {
 /** A read error's code as the status names it: an E-code or 'error', and 'error' for anything else in its place. */
 const CODE_RE = /^(E[A-Z0-9_]+|error)$/;
 
-/**
- * Pure. The public status's confirmationPending (D6): null for none; a read that threw ({ unreadable: <code> }) as that
- * code alone, with today's expired: false; an object record as only PUBLIC_MEMBERS, each when present with its type,
- * plus the derived expired (true from its expiry on, false when either time does not parse or the expiry is not a
- * string); anything else null. So mintedBy,
- * the nonce and any member added by hand never reach a signed-out reader.
- */
 /** Each public member only with its type (ADR 0007 § Fix-round notes, D6): strings, or non-negative integers. */
 const COUNT_MEMBERS = Object.freeze(['version', 'heldCount']);
 function typedMember(k, v) {
   return COUNT_MEMBERS.includes(k) ? Number.isInteger(v) && v >= 0 : typeof v === 'string';
 }
 
+/**
+ * Pure. The public status's confirmationPending (D6): null for none; a read that threw ({ unreadable: <code> }) as that
+ * code alone, with today's expired: false; an object record as only PUBLIC_MEMBERS, each when present with its type,
+ * plus the derived expired (true from its expiry on, false when either time does not parse or the expiry is not a
+ * string); anything else null. So mintedBy, the nonce and any member added by hand never reach a signed-out reader.
+ */
 function publicConfirmation(record, nowMs) {
   if (!isObject(record)) return null;
   if (own(record, 'unreadable')) {
