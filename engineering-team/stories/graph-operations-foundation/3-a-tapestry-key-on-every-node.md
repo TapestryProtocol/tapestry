@@ -88,7 +88,7 @@ For Architecture, not this gate:
 - **Telling add-subset's sets from the import's placeholders.** Both have an event-form address and no event id. A placeholder that lost `NostrEvent` would be missed when its event arrived, and the import would make a second node for it.
 - **Production's size.** How long the backup before migrate keeps a production-sized graph offline, how to give 3 million nodes keys while the stream writes, and what the extra property and the uniqueness rule's index cost. Measure on a scratch instance loaded to that size, never on a shared one.
 - **Keys on writes the pipeline repeats.** The stream touches the same `NostrUser` nodes over and over. Healing a node with no key on every touch (AC5) shouldn't add a write each time.
-- **The queries that match `:NostrEvent`.** 360 lines in 26 files under `src/` today (D7 counted 223 in 15). Each needs to say whether it means a node from an event, or any node.
+- **The queries that match `:NostrEvent`.** 223 lines in 15 files under `src/` that something runs, as D7 counted, and 111 more in the Cypher 28 UI files send (a first count of 360 also took in `:NostrEventTag`; ADR 0003, Context 7). Each needs to say whether it means a node from an event, or any node.
 
 ## Linked artifacts
 
@@ -97,6 +97,6 @@ For Architecture, not this gate:
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D6, D7, D11, D15, §7); catalog §8
 - Story 1, whose `lifecycle status` this fills in: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md)
 - Story 2, whose backup this takes first: [2-lifecycle-backup-and-restore.md](2-lifecycle-backup-and-restore.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md](../../decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
