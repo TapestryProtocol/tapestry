@@ -1,6 +1,6 @@
 # ADR 0003: A tapestryKey on every node — one shared label, `lifecycle migrate` as a job, and the key set by every path that makes a node
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-08
 **Story:** `engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`
 **Amends:** ADR `graph-operations-foundation/0002`, Decision 4 step 2's key counting (Decision 10 below).
