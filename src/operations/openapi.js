@@ -100,11 +100,12 @@ function listEntryDoc() {
     summary: 'The operations you may call, with what each takes and returns',
     description: [
       'Every declared operation the caller may call: its group, name, route, method, command, who may call it, its inputs (each with its JSON Schema), its result (with its JSON Schema) and its refusals — the facts this document shows, for a program to read. An admin is not shown the owner-only operations. `problems` names any declaration left out, and why.',
+      '`caller` says who asked: `{ role, pubkey }`, where `role` is `owner`, `admin` or `local` (a direct-local caller, whose `pubkey` is null), so a client can tell the owner from an admin (ADR graph-operations-foundation/0006).',
       '**Who may call:** the owner and admins, and direct-local callers; 401 when not signed in, 403 for anyone else.',
     ].join('\n\n'),
     operationId: 'tapestry-operations',
     responses: {
-      200: { description: '{ success: true, data: { operations, problems } }', content: { 'application/json': { schema: { type: 'object' } } } },
+      200: { description: '{ success: true, data: { caller, operations, problems } }', content: { 'application/json': { schema: { type: 'object' } } } },
       401: refusalResponse('`sign-in-required`: Not signed in'),
       403: refusalResponse('`not-allowed`: Signed in, but not the owner or an admin'),
     },

@@ -3,8 +3,8 @@
 **Id:** 2026-10-28-panel-prompts-return-no-focus
 **Type:** bug
 **Opened:** 2026-10-28 (tagging-edges #6 review, round 1, Harness friction 6; first seen in story 5's review)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-08 — for the prompts only. Tagging-edges story 7 (ADR `tagging-edges/0007` D15, with its fix-round notes) returns focus from all three prompts: Turn off, Stop and Confirm. After Cancel, focus goes to the control that opened the prompt. When a prompt closes by itself, focus goes to the section's heading, then to the outcome line once it shows; never to "Turn on", and never to the page. B143–B145, B150, B155, PS42 and PS43 pin it. On production since 2026-11-08 (nousclawds4/tapestry#40). A focused control that a later read removes outright, with no prompt open, still drops focus to the page. That case is ledger `2026-11-08-focused-control-removed-drops-focus`.
 
 **What was seen.**
 - **Story 5's off prompt.** `OffPrompt` (`ui/src/pages/settings/taggingPipeline/PathSwitch.jsx:51-55`) focuses Cancel in
@@ -25,5 +25,5 @@
   a prompt.
 - **Add a browser test for each prompt,** next to the specs that already check focus on open.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/5-real-time-path-switch.md:207-211` (non-blocking 1);
-`engineering-team/reviews/tagging-edges/6-pass-run-and-stop.md` § Harness friction 6.
+**Pointer:** `engineering-team/reviews/done/tagging-edges/5-real-time-path-switch.md:207-211` (non-blocking 1);
+`engineering-team/reviews/done/tagging-edges/6-pass-run-and-stop.md` § Harness friction 6.

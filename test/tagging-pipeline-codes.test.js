@@ -2,11 +2,11 @@
 /**
  * Tests for Story 4 (epic tagging-edges) — the Tagging pipeline panel: the code guard.
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md — "Explanations" (each outcome, reason
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md — "Explanations" (each outcome, reason
  *        code, path state and setup-problem code the status can carry today is shown as the code plus a sentence that
  *        is not the code itself; an unknown code reads "not recognised"), AC-3 (the eight path states, named) and AC-5
  *        (every state has its own text; no emoji, no exclamation marks).
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md — § Implementation notes → UI
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md — § Implementation notes → UI
  *        (EXPLANATIONS, FAMILIES, explain), § Seams for Test Design ("The guard test"), and § Clarifications T3
  *        (setupProblemKey is 'identity:<problem>' or 'schema:<rule>:<problem>') and T6 (explain).
  *
@@ -38,8 +38,8 @@
  *               ServiceUnavailable/SessionExpired families under failureCode; PC48 a Security code read as credentials;
  *               PC49 pins that countCode holds none of the pass-only codes (passes now). PC46–PC48 fail now: there is no
  *               failureCode kind.
- *   PC50–PC54 — story 5's carry-forwards from story 4's review, round 2 (engineering-team/stories/tagging-edges/
- *               5-real-time-path-switch.md § Carry-forwards; ADR engineering-team/decisions/tagging-edges/
+ *   PC50–PC54 — story 5's carry-forwards from story 4's review, round 2 (engineering-team/stories/done/tagging-edges/
+ *               5-real-time-path-switch.md § Carry-forwards; ADR engineering-team/decisions/done/tagging-edges/
  *               0005-real-time-path-switch.md § Seams "R2-1 pins", "R2-11 pins", and § Amendments → ADR 0004 :789-796).
  *               PC50–PC51 (R2-1): the Neo4j driver's own 'N/A' and 'ProtocolError' have exact entries under failureCode
  *               and countCode, floors named here because no producer in this repo mints either literally (the driver's

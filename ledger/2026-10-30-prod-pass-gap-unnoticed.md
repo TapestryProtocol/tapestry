@@ -45,5 +45,12 @@ version revoked in the same batch (ADR `tagging-edges/0003` A1). It did not run 
 3. Record the off-time pass's reading on the missed-fire row once that row is settled.
 
 **Pointer:** production's `GET /api/tagging-edges/status` (`latest` and `previous`) and
-`GET /api/tagging-edges/realtime/status`; `engineering-team/stories/tagging-edges/6-pass-run-and-stop.md` § Evidence,
+`GET /api/tagging-edges/realtime/status`; `engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md` § Evidence,
 "Production".
+
+**2026-11-08: fix shape 2 is done; 1 and 3 stay open.** Tagging-edges story 7 (ADR `tagging-edges/0007` D8 and D14)
+flags an overdue pass. The public status gains `overdue`, and the panel's backstop section warns every viewer when the
+latest pass began longer ago than the most frequent enabled entry's interval plus one hour. It reads "cannot tell"
+when it cannot judge, never "on time". On production since 2026-11-08 (nousclawds4/tapestry#40), where it read
+`on-time` after the deploy. The cause of the October gap (fix shape 1, the droplet's logs) and the missed-fire reading
+(fix shape 3) are still open.

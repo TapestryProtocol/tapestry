@@ -122,7 +122,11 @@ function listHandler(opts) {
     if (refused) return res.status(refused.status).json(refused.body);
     const { operations, problems } = loadOperations(opts);
     const visible = operations.filter((op) => caller.role !== 'admin' || op.access === 'owner-and-admins');
-    return res.json({ success: true, data: { operations: visible.map(listEntry), problems: problems.map(({ file, problem }) => ({ file, problem })) } });
+    // `caller` lets a client (the external CLI, ADR graph-operations-foundation/0006 Decision 7) tell the owner from an admin.
+    return res.json({
+      success: true,
+      data: { caller: { role: caller.role, pubkey: caller.pubkey }, operations: visible.map(listEntry), problems: problems.map(({ file, problem }) => ({ file, problem })) },
+    });
   };
 }
 

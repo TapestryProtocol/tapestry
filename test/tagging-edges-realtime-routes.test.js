@@ -2,13 +2,13 @@
 /**
  * Tests for Story 3 (epic tagging-edges) — the real-time path's durable store and its two routes.
  *
- * Story: engineering-team/stories/tagging-edges/3-real-time-path.md — AC-4 (the record of where the path left off; a
+ * Story: engineering-team/stories/done/tagging-edges/3-real-time-path.md — AC-4 (the record of where the path left off; a
  *        lost record is never a first start), AC-5 (off by default; the owner-only switch; "any session that is not
  *        the owner's is refused and changes nothing"; the choice survives restarts; off within the ADR's bound), AC-6
  *        (the owner reads the status on the instance, at most a minute stale, never a credential or an address;
  *        separate from the pass's report), and "For Test Design → The switch and status" and "Bypass probing" (AC-5's
  *        switch).
- * ADR:   engineering-team/decisions/tagging-edges/0003-real-time-path.md — § "Knowing what changed while it was away"
+ * ADR:   engineering-team/decisions/done/tagging-edges/0003-real-time-path.md — § "Knowing what changed while it was away"
  *        (the state-file table and the journal rules), § "Status and switch (D8-A)", Implementation notes (store.js;
  *        src/api/tagging-edges/realtime.js; "Tests the Tester owns → The routes"), and the Test Design
  *        clarifications T21 and T26 (the store), T22 and T27 (the routes module), T25 (the record's shapes), T29
@@ -87,8 +87,8 @@
  *   - An answer "carries" a leak when its JSON holds an absolute path that starts a word, a URI, the full owner
  *     pubkey (either case), the state directory, or one of the address needles below.
  *
- * Story 5 (engineering-team/stories/tagging-edges/5-real-time-path-switch.md — AC-3, AC-4, AC-5) and ADR
- * engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md (D1, D4, D5, D7, D11, and D2 where an answer
+ * Story 5 (engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md — AC-3, AC-4, AC-5) and ADR
+ * engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md (D1, D4, D5, D7, D11, and D2 where an answer
  * depends on it; "Seams for Test Design": the store, computeRealtimeStatus, the handler's dependencies) extend this
  * suite:
  *   - RS25–RS31, with RS2, RS19, RS21 and RS22 extended: switch.json version 2 ({ version, on, changedAt, changedBy,

@@ -7,8 +7,8 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
 /**
  * tagging-edges #4: the tagging pipeline panel — the browser class.
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md
  *        (§ UI, § Seams for Test Design "The browser spec", § Clarifications T9 and T10)
  * Answers: test/helpers/taggingPipelineFixtures.js. Node halves: the view, fetch, codes, drift-route and countStrict
  * suites under test/.
@@ -59,7 +59,7 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B40 — the held list of a run that is no longer the latest: re-read the status, restart, no error.   [AC-2; ADR § UI "The held list"]
  *   B39 — the five existing sub-tabs send the requests of the baseline (T10).                          [AC-6]
  *
- *   Story 4 review round 1 (engineering-team/reviews/tagging-edges/4-tagging-pipeline-panel.md):
+ *   Story 4 review round 1 (engineering-team/reviews/done/tagging-edges/4-tagging-pipeline-panel.md):
  *   B41 — drift while a pass runs says a pass is running, never that the latest pass did not finish.     [AC-4; NB1]
  *   B42 — a failed pass shows its failure code with its failureCode explanation under where it failed (ENOSPC); a
  *         schema refusal for an unreachable Neo4j names Neo4j, not only the Dashboard fix.                [AC-2; Blocking 1, NB2]
@@ -73,8 +73,8 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B49 — a pass-minted failure code (plan-error, on a plan failure) shows its own failureCode sentence under
  *         where it failed, never "not recognised".                                                         [AC-2, AC-5; Blocking 1, T12]
  *
- *   Story 5, the real-time path's switch (engineering-team/stories/tagging-edges/5-real-time-path-switch.md; ADR
- *   engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md, § Seams "Browser mocks", "Browser
+ *   Story 5, the real-time path's switch (engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md; ADR
+ *   engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md, § Seams "Browser mocks", "Browser
  *   fixtures", "The 15 s cases"). B38 is revised: its allowed reads gain the switch's record, re-read with the status.
  *   Story 4 review round 2 carry-forwards:
  *   B50 — R2-10: a held list restart whose status re-read is overtaken by a failing poll does not stay loading. [AC-2]
@@ -117,8 +117,8 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   Story 5's review carry-forward C5-4 (story 6; ADR 0006 D20):
  *   B113 — during a Retry after a failed schedule read, the open off prompt says still being checked.      [C5-4; D20]
  *
- *   Story 6, running and stopping the pass (engineering-team/stories/tagging-edges/6-pass-run-and-stop.md; ADR
- *   engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D15–D19, § Seams "Request pins"). Revised, not
+ *   Story 6, running and stopping the pass (engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md; ADR
+ *   engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md D15–D19, § Seams "Request pins"). Revised, not
  *   deleted: B9 (the empty-state line names Run, D19), B10 (its message names story 7 for Confirm), B38 (the allowed
  *   reads and counts gain the pass record; still no non-GET for a viewer who never presses). Fixtures: F.SCENE,
  *   F.STOP_CASES, F.WHO_EACH, F.HISTORY6, F.RUN_ANSWER, F.STOP_ANSWER; the mock's Run and Stop act as the server would
@@ -167,8 +167,8 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B117 — focus inside the pass controls (Cancel, "Stop the pass", "Run a pass now") survives the switch from an
  *         empty report to a ready one.                                                                       [D17]
  *
- *   Story 7, confirming held removals (engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
- *   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md D4–D16, § Seams "Revised pins"). The class
+ *   Story 7, confirming held removals (engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md; ADR
+ *   engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md D4–D16, § Seams "Revised pins"). The class
  *   is titled "tagging-edges #7", so -g "tagging-edges #7" selects it. Revised, not deleted: B9, B10 and B94 (the
  *   no-Confirm pins now allow exactly "Confirm held removals" and the prompt's "Confirm the removals", in the held
  *   section; every other button still refuses /confirm/i), B11 (the expired line's wording, D13), B38 (the request pin:
@@ -214,7 +214,7 @@ const F = require('../../test/helpers/taggingPipelineFixtures');
  *   B145 — focus: the Confirm prompt.                                                                        [AC-6; D15]
  *   B146 — the opening line names confirming held removals, for the owner.                                   [AC-7; D16]
  *   B147 — the request pin: only GETs on a held list until Confirm is pressed, then exactly its POST.       [Test tasks; § Seams]
- *   Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, blocking 1, requested
+ *   Story 7's review, round 1 (engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md, blocking 1, requested
  *   2, 5 and 10; ADR 0007 § "Fix-round notes", D14 and D15). Fixtures: F.SCENE7_R1. Red until the fix, each for the
  *   reason its last message names: B148 (focus falls to the page), B149 (focus moves to Cancel, then the held heading),
  *   B150 (focus stays on the button now reading "Turn on") and B154 (the kept verdict is judged). Green on purpose, to

@@ -3,12 +3,12 @@
  * Tests for Story 7 (epic tagging-edges) — the pure confirmation module: may the owner confirm this held report, is a
  * confirmation already pending for it, and what of a confirmation the public status may show.
  *
- * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md — AC-1 ("A second confirmation while one is
+ * Story: engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md — AC-1 ("A second confirmation while one is
  *        pending is refused"; "A confirmation that cannot be relied on … still offers Confirm. Confirming replaces
  *        it"; "When the confirmation expires unused … offers Confirm again"), AC-4 ("The owner's shortened key goes from
  *        every confirmation the public status shows: pending, expired, or with an expiry that cannot be read"; "The
  *        public status keeps saying that a confirmation is pending or has expired, of which pass, and until when").
- * ADR:   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md — D3 (src/lib/tagging-edges/
+ * ADR:   engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md — D3 (src/lib/tagging-edges/
  *        confirmation.js: validateConfirmation moved unchanged, pendingFor, publicConfirmation; plain CommonJS, no
  *        I/O) and D6 (confirmationPending is an allowlist).
  *

@@ -28,5 +28,5 @@ template gains an "Evidence" section, and evidence runs are taken on the committ
 The review's "Before shipping" list asked for both. Nothing required the record, so the close cannot tell whether the
 second check ran. The follow-up is ledger `2026-10-11-instance-scripts-live-check-unrecorded`.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § Harness friction 1–2;
+**Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § Harness friction 1–2;
 `test/tagging-edges-live.test.js`; `engineering-team/workflows/4-implementation.md`.

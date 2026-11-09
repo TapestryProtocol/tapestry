@@ -4,14 +4,14 @@
  * server from the schedule's entries, the latest pass's start and the server's own clock, and served on the public
  * status.
  *
- * Story: engineering-team/stories/tagging-edges/7-confirm-held-removals.md — AC-5 (When: an enabled entry's interval
+ * Story: engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md — AC-5 (When: an enabled entry's interval
  *        plus one hour, 25 hours for the daily entry; a calendar rule by the longest time between two runs in a row,
  *        03:00 every day = 24 hours; the most frequent of several; a refused or failed pass counts as begun; a waiting
  *        or given-up pass has not begun. No warning with no enabled entry, or no pass on record. "When it cannot
  *        tell" … "A missing warning never stands for on time". "The same for every viewer", whatever their clock. "It
  *        clears within 10 seconds of a new pass beginning". "It is only a warning"), and § Test tasks "Server or view
  *        cases for AC-5".
- * ADR:   engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md — D8 (src/lib/tagging-edges/
+ * ADR:   engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md — D8 (src/lib/tagging-edges/
  *        overdue.js overdueVerdict; the cron period; readConfigStrict; handleStatus's `overdue` member), D6 (`overdue`
  *        is a new status member, computed per request from server time), R12, R13.
  *

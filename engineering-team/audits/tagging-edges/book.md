@@ -1,9 +1,9 @@
 # Book of Work: Tagging edges — NostrUser→NostrUser relationships that reflect Taggings
 
 **Slug:** tagging-edges
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-09-26
-**Closed:** —
+**Closed:** 2026-11-08 (all seven stories on staging and production; the close lands on staging, and rides the next promotion)
 
 ## Intent anchor
 
@@ -32,16 +32,16 @@ authorized and taken the same day (numbers in story 1's Background).
 
 ### Acceptance frame
 
-- [ ] **The relationship exists and is documented.** For each tagging (a kind-39999 `nostr-user-tag`
+- [x] **The relationship exists and is documented.** For each tagging (a kind-39999 `nostr-user-tag`
       assertion) in this instance's relay, Neo4j can hold exactly one relationship from the tagger's NostrUser to
       the tagged person's NostrUser, carrying the tagging's stance and which tag it applies; BIBLE's Neo4j data
       model describes it alongside FOLLOWS / MUTES / REPORTS.
-- [ ] **Retroactive fill.** A gap-filling pass brings Neo4j into agreement with the relay for every tagging —
+- [x] **Retroactive fill.** A gap-filling pass brings Neo4j into agreement with the relay for every tagging —
       including history that arrives late (relay sync, router backfill) and revokes that were missed — and never
       mass-deletes relationships on a failed or empty relay read.
-- [ ] **Real time.** New taggings, changed stances and revokes show up in Neo4j within seconds to minutes,
+- [x] **Real time.** New taggings, changed stances and revokes show up in Neo4j within seconds to minutes,
       without operator action, from every path an event can reach the relay.
-- [ ] **Front-end controls.** The owner can see and manage the tagging pipeline from the control panel — its
+- [x] **Front-end controls.** The owner can see and manage the tagging pipeline from the control panel — its
       status, counts, the drift between relay and graph, start / stop, and a gap-fill run on demand — in the
       style of the existing Streaming ETL controls. *(Amended 2026-09-30 at story 4's Planning, the owner: admins
       may also see the panel, turn the real-time path on and off, run a pass and stop one; confirming held removals
@@ -49,8 +49,10 @@ authorized and taken the same day (numbers in story 1's Background).
       5's Planning, the owner: the controls are split by what they act on. Story 5 is the real-time path's switch,
       and story 6 is the pass's run, stop and confirm.)* *(Amended 2026-10-02 at
       story 6's Planning, the owner: the pass's controls are split again. Story 6 is running and stopping a pass,
-      and story 7 is confirming held removals.)*
-- [ ] **Nothing else moves.** Follows / mutes / reports ingestion is unchanged; no trust, point-of-view or
+      and story 7 is confirming held removals.)* *(Amended 2026-10-30 at story 7's Planning, the owner: story 7 also
+      carries a warning to every viewer when the daily pass is overdue, and focus returned from the panel's prompts.
+      Confirm, the overdue warning and the focus fix reached production on 2026-11-08.)*
+- [x] **Nothing else moves.** Follows / mutes / reports ingestion is unchanged; no trust, point-of-view or
       count is stored on the new relationships (principles 1–3); nothing locally authored in Neo4j is destroyed
       (principle 4, BIBLE §30).
 
@@ -62,7 +64,9 @@ authorized and taken the same day (numbers in story 1's Background).
 ## Provenance
 
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high for what was built: every frame bullet traces to a story, all seven passed review,
+  each was evidenced on staging and checked on production, and the book's code is identical on both (audit §3).
+  The "every path" of the real-time bullet holds only with the daily pass as its backstop (audit §4 #2).
 - **Orientation:** a read-only mapping pass on 2026-09-25 (seven area readers, an adversarial fact-check of
   115 load-bearing claims — 98 confirmed, 15 corrected, 2 unverifiable — and a completeness critique) plus the
   2026-09-26 three-host census; findings carried into the epic's "Key facts / guardrails".

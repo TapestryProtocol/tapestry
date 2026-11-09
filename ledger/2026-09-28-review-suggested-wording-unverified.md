@@ -16,5 +16,5 @@ file) — one round late, after the text had spread to as many as five documents
 **Fix shape.** In `engineering-team/workflows/5-review.md` (or the review template), a review's verify pass checks each
 asked sentence and each suggested regex as a claim before the review is saved; step 10 stays as the backstop.
 
-**Pointer:** `engineering-team/reviews/tagging-edges/2-gap-filling-pass-and-backfill.md` § "Re-review" → Harness
+**Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § "Re-review" → Harness
 friction 1; `engineering-team/roles/reviewer.md` step 10.

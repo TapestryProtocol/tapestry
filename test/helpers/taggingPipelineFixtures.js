@@ -2,10 +2,10 @@
  * tagging-edges #4 — the tagging pipeline panel: realistic answers for the five reads the panel makes.
  * tagging-edges #5 — the real-time path's switch on the panel: the switch's record (GET) and its change (POST).
  *
- * Story: engineering-team/stories/tagging-edges/4-tagging-pipeline-panel.md
- * ADR:   engineering-team/decisions/tagging-edges/0004-tagging-pipeline-panel.md (§ Seams, T1–T10)
- * Story: engineering-team/stories/tagging-edges/5-real-time-path-switch.md
- * ADR:   engineering-team/decisions/tagging-edges/0005-real-time-path-switch.md (D3, D6, D7, D11; § Seams "Browser
+ * Story: engineering-team/stories/done/tagging-edges/4-tagging-pipeline-panel.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0004-tagging-pipeline-panel.md (§ Seams, T1–T10)
+ * Story: engineering-team/stories/done/tagging-edges/5-real-time-path-switch.md
+ * ADR:   engineering-team/decisions/done/tagging-edges/0005-real-time-path-switch.md (D3, D6, D7, D11; § Seams "Browser
  *        fixtures")
  *
  * Each body has the shape its route answers today (read at 88af7df3):
@@ -23,8 +23,8 @@
  *     takesEffectWithinSeconds }, or a refusal / failure body with `code`.
  *   - The realtime status gains `inStartWindow` (ADR 0005 D7), false unless a fixture says otherwise.
  *
- * tagging-edges #6 — running and stopping the pass (story engineering-team/stories/tagging-edges/6-pass-run-and-stop.md;
- * ADR engineering-team/decisions/tagging-edges/0006-pass-run-and-stop.md D5, D6, D9–D13; § Seams "Request pins"):
+ * tagging-edges #6 — running and stopping the pass (story engineering-team/stories/done/tagging-edges/6-pass-run-and-stop.md;
+ * ADR engineering-team/decisions/done/tagging-edges/0006-pass-run-and-stop.md D5, D6, D9–D13; § Seams "Request pins"):
  *   - GET /api/tagging-edges/status           gains `control: { queue, busy, gaveUp }` (D12), each busy item
  *     { key, jobId, state, since, behind, runId, stopAskedAt, startRecorded, confirmation }, times ISO strings. The
  *     story 4 and 5 bodies above have no `control` (a server before story 6: D16 reads it as "not known").
@@ -1462,8 +1462,8 @@ function applyStop({ status, passRecord, viewer, body }) {
 /* ── Story 7: confirming held removals on the panel (ADR 0007 D2, D4–D8, D12) ───────────────────────────────── */
 
 /*
- * tagging-edges #7 (story engineering-team/stories/tagging-edges/7-confirm-held-removals.md; ADR
- * engineering-team/decisions/tagging-edges/0007-confirm-held-removals.md). Additive: nothing above changes, so the
+ * tagging-edges #7 (story engineering-team/stories/done/tagging-edges/7-confirm-held-removals.md; ADR
+ * engineering-team/decisions/done/tagging-edges/0007-confirm-held-removals.md). Additive: nothing above changes, so the
  * story 4–6 bodies stay a server from before story 7 (no `overdue` member, the old confirmation shape).
  *   - POST /api/tagging-edges/confirm-held-removals  body {"runId"} (D1, D4): 200 { success, confirmed, outcome,
  *     enqueued, …, expiresAt } for lined-up | waiting-pass | starting-pass | taken-up | not-lined-up; 409
@@ -1860,7 +1860,7 @@ const SCENE7 = deepFreeze({
   NOT_HONOURED7_RECORD, USED_UP_FAILED7_RECORD, USED_UP_STOPPED7_RECORD, CONFIRM_TIMES].forEach(deepFreeze);
 
 /*
- * Story 7's review, round 1 (engineering-team/reviews/tagging-edges/7-confirm-held-removals.md, blocking 1 and
+ * Story 7's review, round 1 (engineering-team/reviews/done/tagging-edges/7-confirm-held-removals.md, blocking 1 and
  * requested 10; ADR 0007 § "Fix-round notes", D15): a read that moves the held section from its held list to none while
  * the Confirm prompt is open, and the reads that follow a withdraw-failed answer. Added beside SCENE7; nothing above
  * changes. Each scene is { status, passRecord }, as SCENE7's.
