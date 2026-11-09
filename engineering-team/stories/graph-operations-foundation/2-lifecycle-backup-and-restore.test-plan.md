@@ -146,7 +146,7 @@ Added by the Tester, failing first, in their own commit:
 
 The harness's in-process job now goes through `_jobs.js`'s `runJob` once it exists, as the worker does, and writes the record into the run's file. R21 reads that record.
 
-J10 writes its own conf because the config reader takes `NEO4J_URI` from the conf file only and never from the environment. Without a file it falls back to `bolt://localhost:7687`, and on the Mac Studio that is a private instance.
+J10 writes its own conf because, with no conf file, the config reader never reads the environment and falls back to `bolt://localhost:7687`. On the Mac Studio that is a private instance. (It reads the environment only through its `source` step, when a conf file exists: OPEN.md row `2026-11-08-suite-runner-not-in-repo`.)
 
 Red before green: 5 failed and 129 passed.
 

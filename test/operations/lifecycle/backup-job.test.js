@@ -332,8 +332,8 @@ test('J10: the worker runs nothing when the lock is no longer its run\'s — it 
   const log = path.join(j.dir, 'stub.log');
   const keys = path.join(j.dir, 'secure-keys'); // empty: a job that ran anyway would fail on the key, not on the lock
   fs.mkdirSync(keys);
-  // Dead endpoints, in a conf of its own: the config reader takes NEO4J_URI from the conf file only, never from the
-  // environment, and without a file it falls back to bolt://localhost:7687 — wherever a worker that ran anyway would go.
+  // Dead endpoints, in a conf of its own: with no conf file the config reader never reads the environment and falls
+  // back to bolt://localhost:7687, where a worker that ran anyway would go (OPEN.md row `2026-11-08-suite-runner-not-in-repo`).
   const conf = path.join(j.dir, 'brainstorm.conf');
   fs.writeFileSync(conf, ['export NEO4J_URI="bolt://127.0.0.1:9"', 'export NEO4J_USER="neo4j"', 'export NEO4J_PASSWORD="none"',
     'export REDIS_HOST="127.0.0.1"', 'export REDIS_PORT="9"', ''].join(NL));
