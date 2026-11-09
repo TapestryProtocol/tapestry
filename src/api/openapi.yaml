@@ -1659,6 +1659,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
 
+  /api/normalize/set-b-tag:
+    post:
+      tags: [Normalize]
+      summary: Set or remove a b tag on a node
+      description: >-
+        Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
+        other signed-in person. Each (event, target) pair has at most one b tag: setting it again replaces it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid, target]
+              properties:
+                uuid:
+                  type: string
+                  description: The node that carries the b tag
+                target:
+                  type: string
+                  description: The node it points at
+                marker:
+                  type: string
+                  description: pointer (the default) or inherit; never b-tag-deferred
+                note:
+                  type: string
+                  description: Stored in the tag's fourth position, capped at 500 characters
+                remove:
+                  type: boolean
+                  description: Delete the b tag for this target
+      responses:
+        '401':
+          description: Not signed in
+        '403':
+          description: Signed in, but not the owner or an admin
+        '200':
+          description: b tag set or removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
   /api/normalize/prune-superset-edges:
     post:
       tags: [Normalize]
