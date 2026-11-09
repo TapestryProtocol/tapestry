@@ -28,16 +28,20 @@ function whoMayCall(op) {
   return op.access === 'owner-only' ? 'the owner only' : 'the owner and admins';
 }
 
+const BINARY = Object.freeze({ type: 'string', format: 'binary' });
+
 function responsesFor(op) {
   const responses = {
-    200: {
-      description: op.result.description || 'The answer',
-      content: {
-        'application/json': {
-          schema: { type: 'object', properties: { success: { type: 'boolean', enum: [true] }, data: op.result.schema } },
+    200: op.result.file
+      ? { description: op.result.description || 'The file', content: { [op.result.file.contentType]: { schema: { ...BINARY } } } }
+      : {
+        description: op.result.description || 'The answer',
+        content: {
+          'application/json': {
+            schema: { type: 'object', properties: { success: { type: 'boolean', enum: [true] }, data: op.result.schema } },
+          },
         },
       },
-    },
   };
   // Refusals by status: the built-in ones this operation can return, then its own.
   const byStatus = new Map();
@@ -65,16 +69,23 @@ function entryFor(op) {
     operationId: `tapestry-${op.group}-${op.name}`,
   };
   const inputs = Object.entries(op.inputs);
+  const queryParameters = () => inputs.map(([name, input]) => ({
+    name,
+    in: 'query',
+    required: !!input.required,
+    description: input.description || '',
+    schema: input.schema,
+  }));
   if (op.method === 'GET') {
-    if (inputs.length) {
-      entry.parameters = inputs.map(([name, input]) => ({
-        name,
-        in: 'query',
-        required: !!input.required,
-        description: input.description || '',
-        schema: input.schema,
-      }));
-    }
+    if (inputs.length) entry.parameters = queryParameters();
+  } else if (op.body) {
+    // A file body (ADR graph-operations-foundation/0002 Decision 10): the body is the file, the inputs are the query's.
+    if (inputs.length) entry.parameters = queryParameters();
+    entry.requestBody = {
+      required: true,
+      description: `The file, at most ${op.body.file.maxBytes} bytes.`,
+      content: Object.fromEntries(op.body.file.contentTypes.map((t) => [t, { schema: { ...BINARY } }])),
+    };
   } else {
     const schema = inputsSchema(op.inputs);
     entry.requestBody = { required: !!schema.required, content: { 'application/json': { schema } } };

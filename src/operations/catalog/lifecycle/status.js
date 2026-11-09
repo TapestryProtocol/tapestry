@@ -5,8 +5,9 @@
  *
  * Each part has its own reader on `parts`. run() calls them through that object, all at once, and a part whose reader
  * fails answers { known: false, problem } while the rest still answer, so status says what it can when Neo4j is down.
- * It writes nothing and carries no timestamp: asking twice with nothing changed gives the same answer. Backup and
- * migrations have nothing to read yet; lifecycle backup (Loom A10.2) and lifecycle migrate (A10.3) fill them in.
+ * It writes nothing and carries no timestamp: asking twice with nothing changed gives the same answer. The backup part
+ * reads the backups folder (story graph-operations-foundation #2, ADR 0002 Decision 11); migrations has nothing to
+ * read until lifecycle migrate (Loom A10.3) fills it in.
  *
  * The readers require what they read lazily, so loading this declaration opens nothing (Decision 10).
  */
@@ -33,8 +34,44 @@ const RESULT_SCHEMA = {
   required: PARTS,
   additionalProperties: false,
   properties: {
-    backup: part('The last backup of the graph.', {
-      last: { description: 'The last backup recorded, or null while none is' },
+    backup: part('The backups of the instance (graph-operations-foundation #2).', {
+      last: {
+        type: 'object',
+        nullable: true,
+        description: 'The most recent backup the instance holds, or null while it holds none',
+        properties: {
+          id: { type: 'string' },
+          takenAt: { type: 'string' },
+          note: { type: 'string', nullable: true },
+          size: count('The sum of its files, in bytes'),
+          origin: { type: 'string', enum: ['taken', 'uploaded'] },
+          reason: { type: 'string', enum: ['requested', 'before-restore'] },
+        },
+      },
+      count: count('How many backups the instance holds'),
+      lastRun: {
+        type: 'object',
+        nullable: true,
+        description: 'The most recent backup or restore run to finish, or null',
+        properties: {
+          runId: { type: 'string' },
+          op: { type: 'string', nullable: true },
+          outcome: { type: 'string', enum: ['done', 'failed', 'interrupted'] },
+          finishedAt: { type: 'string' },
+          backup: { type: 'string', nullable: true },
+        },
+      },
+      interrupted: {
+        type: 'object',
+        nullable: true,
+        description: 'A backup or restore that stopped before it finished, until the next one tidies up after it, or null',
+        properties: {
+          runId: { type: 'string', nullable: true },
+          op: { type: 'string' },
+          startedAt: { type: 'string', nullable: true },
+          safety: { type: 'string', nullable: true, description: "An interrupted restore's safety backup, the graph as it was before it" },
+        },
+      },
       note: { type: 'string', description: 'What this part knows, in words' },
     }),
     firmware: part('The firmware this instance carries, and how much of it is in the graph.', {
@@ -66,7 +103,7 @@ const status = {
   access: 'owner-and-admins',
   summary: 'The last backup, the firmware version, the migrations applied, and how fresh the cache is',
   description: [
-    'Four parts, each saying plainly what it knows. **backup**: the last backup of the graph (none is recorded until lifecycle backup is built). **firmware**: the version the instance carries, and whether all, some or none of its concepts are in the graph. **migrations**: the migrations applied (none is recorded until lifecycle migrate is built). **cache**: how many nodes have a cached Tapestry JSON, and how many do not.',
+    'Four parts, each saying plainly what it knows. **backup**: the most recent backup the instance holds, how many it holds, the last backup or restore run, and one that was interrupted. **firmware**: the version the instance carries, and whether all, some or none of its concepts are in the graph. **migrations**: the migrations applied (none is recorded until lifecycle migrate is built). **cache**: how many nodes have a cached Tapestry JSON, and how many do not.',
     'A part that cannot be read answers `known: false` with its `problem`, and the others still answer. Status changes nothing.',
   ].join('\n\n'),
   inputs: {},
@@ -75,11 +112,21 @@ const status = {
 
   parts: {
     async backup() {
-      return {
-        known: true,
-        last: null,
-        note: 'No backup of the graph has been recorded: lifecycle backup is not built yet (bin/backup.js copies configuration, keys and logs, not the graph).',
-      };
+      const store = require('./_store');
+      const latest = store.latest();
+      const last = latest
+        ? { id: latest.id, takenAt: latest.takenAt, note: latest.note, size: latest.size, origin: latest.origin, reason: latest.reason }
+        : null;
+      const lock = store.inspectLock();
+      const interrupted = lock && lock.stale
+        ? { runId: lock.runId || null, op: lock.op, startedAt: lock.startedAt || null, safety: store.isId(lock.safety) ? lock.safety : null }
+        : null;
+      const words = [last ? `The most recent backup is ${last.id}, taken ${last.takenAt}.` : 'No backup has been taken yet.'];
+      if (interrupted) {
+        const safety = interrupted.safety ? ` Its safety backup, the graph as it was, is ${interrupted.safety}.` : '';
+        words.push(`A ${interrupted.op} was interrupted (it began ${interrupted.startedAt}); the next backup, restore or upload tidies up after it.${safety}`);
+      }
+      return { known: true, last, count: store.count(), lastRun: store.lastRun(), interrupted, note: words.join(' ') };
     },
     async firmware() {
       const { readInstallState } = require('../../../api/firmware');

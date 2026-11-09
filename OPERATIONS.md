@@ -24,6 +24,7 @@
 13. [Task scheduling — generalized scheduler (story #22 / ADR 0019)](#13-task-scheduling--generalized-scheduler-story-22--adr-0019)
 14. [Local dev loop (inside-container source edits)](#14-local-dev-loop-inside-container-source-edits)
 15. [CI test gate (PRs to staging/main)](#15-ci-test-gate-prs-to-stagingmain)
+16. [Backups — lifecycle backup and restore (graph-operations-foundation #2 / ADR graph-operations-foundation/0002)](#16-backups--lifecycle-backup-and-restore-graph-operations-foundation-2--adr-graph-operations-foundation0002)
 
 ---
 
@@ -1036,3 +1037,52 @@ Both tracked as candidates; bandwidth-permitting.
 **First-flake waiver pattern.** If a stack-free suite ever *does* flake, the response is not a retry but a **cited quarantine entry**, mirroring `scripts/harness-lint-waivers.txt`: a tab-separated `<suite>  <citation>` file where every row cites an OPEN.md row explaining the known flake. That file **does not exist today** — deliberately. Its very creation is the surfaced-flake signal: the first entry means a real flake was found, tracked, and is visible on every run, rather than silently retried away. Do not pre-seed it (the excluded live suites are excluded by class, not waived).
 
 **Required-check status — an operator decision, not taken here.** This check is **advisory** on both branches as shipped: `main` requires PRs but enforces no required status checks, and `staging` permits direct pushes. Making `test / stack-free` a **required** check in the GitHub branch rulesets (§4) is a deliberate, separate operator decision that this story does **not** take — flip it once the gate has proven stable across real PRs. Note that a required check on `staging` would also require closing the direct-push path there.
+
+---
+
+## 16. Backups — lifecycle backup and restore (graph-operations-foundation #2 / ADR graph-operations-foundation/0002)
+
+A **backup** holds the whole Neo4j graph (a `neo4j-admin` dump), the instance assistant's key with the master key it is encrypted under, and the admin list. It does not hold the relay's events (strfry), the LMDB cache, the owner (the container's `OWNER_PUBKEY` names it at every start), the session secret, the router's configuration, customers' keys or the logs. Backups live in `/var/lib/brainstorm/backups/<id>/`, on the `tapestry-data` volume, so they outlive a recreated container but not a deleted volume: keep a copy off the box.
+
+**The graph is offline while a backup or restore runs**, since Neo4j Community can only be dumped or loaded stopped: about 20 s for a backup and 25 s for a restore on a small graph, longer where the heap is big. `stream-consumer` and `tagging-edges-realtime` are paused meanwhile and catch up. Each runs as a job of its own (`/var/lib/brainstorm/backups/.runs/<runId>.json` and `.log`), so it finishes, and Neo4j comes back, even if its caller goes away. A job killed outright leaves a stale `.lock`; the next backup, restore or upload tidies up after it, and `tapestry lifecycle status` reports it until then.
+
+**From the host** (the `tapestry` command needs an image built from this change):
+
+```
+docker exec tapestry tapestry lifecycle backup --note "before migrate"
+docker exec tapestry tapestry lifecycle list-backups
+docker exec tapestry tapestry lifecycle download-backup --backup <id> > backup.tar
+docker exec -i tapestry tapestry lifecycle upload-backup < backup.tar
+docker exec tapestry tapestry lifecycle restore --backup <id>
+```
+
+The same operations are routes for the owner and admins: `POST /api/tapestry/lifecycle/backup`, `GET …/list-backups`, `GET …/download-backup?backup=<id>`, `POST …/upload-backup` (the tar as the body, `application/x-tar`), `POST …/restore`. **A downloaded backup is a key**: anyone with the file can sign as the instance's assistant. Admins may download it and restore a key and an admin list too (the owner's ruling, 2026-11-08, amending ADR `security-auth-exposure/0005` for these operations).
+
+**A restore** checks the backup first (its files' sha256s, `neo4j-admin database load --info`, its key, its Neo4j version, free space) and changes nothing if it refuses. Then it dumps the graph as it is into a **safety backup**, loads the backup, checks the loaded store's transaction, and rolls back from the safety backup if anything went wrong. It puts the backup's assistant key in place under this instance's own master key (rewriting the conf's `BRAINSTORM_RELAY_PUBKEY` and `BRAINSTORM_RELAY_NPUB` lines) and its admins in `settings.json`. Once the answer is out, or once the caller has gone (a client that gave up, a command ended by Ctrl-C), the job itself restarts the control panel so it takes the restored assistant (ADR `graph-operations-foundation/0002` Amendment 1). A backup from another instance therefore makes this one the same instance, except for the owner, which the report names when it differs. The cache is not rebuilt.
+
+**The droplets' host nginx** sits in front of the container's (§5), with nginx's defaults: 1 MB bodies and 60 s reads. Until an operator adds blocks like these to the site's config and reloads nginx, uploads over 1 MB through the public name are refused (413), and a backup or restore that takes over 60 s loses its answer, though the job still finishes:
+
+```
+location /api/tapestry/lifecycle/ {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 900s;
+    proxy_send_timeout 900s;
+}
+location = /api/tapestry/lifecycle/upload-backup {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 9g;
+    proxy_request_buffering off;
+    proxy_buffering off;
+    proxy_read_timeout 900s;
+    proxy_send_timeout 900s;
+}
+```
+
+Copy the site's existing `location /` block twice, keeping its headers (above all `X-Forwarded-For`, which stops the app trusting the request as the local operator). Add the buffering and timeout lines to both, and the two body lines to the upload's alone, so only the upload takes a backup-sized body. The container's own nginx has the same two blocks (`docker/nginx.conf`). There is no deletion or rotation yet: remove an old backup with `docker exec tapestry rm -rf /var/lib/brainstorm/backups/<id>`.

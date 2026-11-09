@@ -27,11 +27,14 @@ its own, with nothing shared to edit.
 1. `stories/graph-operations-foundation/1-operation-declaration-and-lifecycle-status.md` — each operation declared once,
    reached as a route under `/api/tapestry/`, a command inside the instance and a `/docs` entry, and listed for agents,
    proved with `lifecycle status` (Loom A10.1).
+2. `stories/graph-operations-foundation/2-lifecycle-backup-and-restore.md` — a full backup of the instance (its graph,
+   its assistant's key and its admin list), restored on this instance or a fresh one, and moved between instances by
+   download and upload (Loom A10.2).
 
 6. `stories/graph-operations-foundation/6-external-cli-and-agent-skill.md` — the external CLI, which signs in with an
    admin agent's own key and calls every operation the instance lists, and the agent's skill (Loom A10.6).
 
-Later stories follow the Loom tasks A10.2–A10.5, each planned when it is taken. The foundation's stories, and each story's first
+Later stories follow the Loom tasks A10.3–A10.5, each planned when it is taken. The foundation's stories, and each story's first
 ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in
 different sessions.
 

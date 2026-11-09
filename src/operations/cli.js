@@ -13,11 +13,16 @@
  * It prints, on stdout, the JSON body the route would send, success or refusal, and nothing else: while it runs,
  * console.log, info and debug go to stderr. Exit codes: 0 answered, 1 refused, 2 usage (an unknown group or operation,
  * or a stray word), 3 failed.
+ *
+ * An operation that answers with a file writes the file's bytes to stdout instead, and one whose body is a file reads
+ * it from stdin (ADR graph-operations-foundation/0002 Decision 10); either refuses a terminal, with usage. Work the
+ * operation left for after its answer runs before the command exits.
  */
 
 const util = require('util');
-const { loadOperations, callOperation } = require('./index');
+const { loadOperations, callOperation, runAfterAnswer } = require('./index');
 const { GROUPS } = require('./groups');
+const { hasFileBody, limitStream, writeTo } = require('./files');
 
 const LOCAL = Object.freeze({ role: 'local', pubkey: null });
 const HELP = new Set(['help', '--help', '-h']);
@@ -80,7 +85,7 @@ function parseFlags(args) {
   return { inputs: Object.fromEntries(values), help };
 }
 
-async function run(argv, out, err, opts) {
+async function run(argv, out, err, opts, io = {}) {
   const { operations, problems } = loadOperations(opts);
   const problemLines = () => { for (const p of problems) err(`Left out ${p.file}: ${p.problem}\n`); };
   const [group, name, ...rest] = argv;
@@ -109,28 +114,55 @@ async function run(argv, out, err, opts) {
   if (flags.usage) { err(`${flags.usage}\nRun \`tapestry ${group} ${name} --help\` for its inputs.\n`); return 2; }
   if (flags.help) { out(helpFor(op)); return 0; }
 
-  const { status, body } = await callOperation(op, flags.inputs, { via: 'cli', caller: LOCAL }, { source: 'cli' });
-  let text;
-  try {
-    text = JSON.stringify(body, null, 2);
-  } catch (e) {
-    // A result that can't be sent as JSON is this operation's failure, answered as the route answers it.
-    out(`${JSON.stringify({ success: false, error: `${op.group} ${op.name} failed: ${e.message}`, code: 'failed' }, null, 2)}\n`);
-    return 3;
+  const words = ['tapestry', ...argv].join(' ');
+  if (op.result.file && io.stdout && io.stdout.isTTY) {
+    err(`${op.group} ${op.name} answers with a file, which isn't written to a terminal. Send it to a file:\n  ${words} > <file>\n`);
+    return 2;
   }
-  out(`${text}\n`);
-  if (status === 200) return 0;
-  return status >= 500 ? 3 : 1;
+  let body;
+  if (hasFileBody(op.declaration)) {
+    if (!io.stdin || io.stdin.isTTY) {
+      err(`${op.group} ${op.name} reads a file on standard input, not from a terminal. Send the file in:\n  ${words} < <file>\n`);
+      return 2;
+    }
+    body = limitStream(io.stdin, op.declaration.body.file.maxBytes, 'The file on standard input');
+  }
+
+  const answer = await callOperation(op, flags.inputs, { via: 'cli', caller: LOCAL, body }, { source: 'cli' });
+  try {
+    if (answer.file) {
+      try {
+        await writeTo(answer.file.open(), io.stdout);
+      } catch (e) {
+        err(`${op.group} ${op.name} failed while writing its file: ${e.message}\n`);
+        return 3;
+      }
+      return 0;
+    }
+    let text;
+    try {
+      text = JSON.stringify(answer.body, null, 2);
+    } catch (e) {
+      // A result that can't be sent as JSON is this operation's failure, answered as the route answers it.
+      out(`${JSON.stringify({ success: false, error: `${op.group} ${op.name} failed: ${e.message}`, code: 'failed' }, null, 2)}\n`);
+      return 3;
+    }
+    out(`${text}\n`);
+    if (answer.status === 200) return 0;
+    return answer.status >= 500 ? 3 : 1;
+  } finally {
+    await runAfterAnswer(answer.after, op);
+  }
 }
 
 /**
  * Run the command.
  * @param {string[]} argv     the words after `tapestry`
- * @param {{ stdout: { write: Function }, stderr: { write: Function } }} [io]
+ * @param {{ stdin?: import('stream').Readable, stdout: { write: Function, isTTY?: boolean }, stderr: { write: Function } }} [io]
  * @param {{ dir?: string }} [opts]  the catalog (src/operations/catalog by default)
  * @returns {Promise<number>} the exit code
  */
-async function main(argv, io = { stdout: process.stdout, stderr: process.stderr }, opts = {}) {
+async function main(argv, io = { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr }, opts = {}) {
   const out = (s) => io.stdout.write(s);
   const err = (s) => io.stderr.write(s);
   const saved = {};
@@ -139,7 +171,7 @@ async function main(argv, io = { stdout: process.stdout, stderr: process.stderr 
     console[k] = (...a) => err(`${util.format(...a)}\n`);
   }
   try {
-    return await run(argv || [], out, err, { dir: opts.dir });
+    return await run(argv || [], out, err, { dir: opts.dir }, io);
   } finally {
     for (const k of Object.keys(saved)) console[k] = saved[k];
   }

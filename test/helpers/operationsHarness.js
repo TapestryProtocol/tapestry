@@ -14,11 +14,20 @@
  *     each request is made as one caller: owner, admin, stranger (signed in, neither), visitor (no session) or local
  *     (loopback with no forwarding header — the direct-local caller). The others carry X-Forwarded-For, as nginx
  *     traffic does;
- *   - run the command in-process: cli.main(argv, io, opts), with opts { dir } for the fixture catalog.
+ *   - run the command in-process: cli.main(argv, io, opts), with opts { dir } for the fixture catalog;
+ *   - (story graph-operations-foundation #2, ADR graph-operations-foundation/0002) install the lifecycle fakes:
+ *     lifecycleFake: { stateFile } replaces the methods of src/operations/catalog/lifecycle/_system.js with
+ *     test/helpers/lifecycleFakes.js's fakeSystem(stateFile), and _jobs.js's runDetached with one that runs the job
+ *     in this process with that system (ADR Decision 8): through _jobs.js's runJob, as the worker does, once it has
+ *     one (ADR 0002 Amendment 1, A4). It writes the record into the run's file, as the worker does, and resolves it.
  *
- * It writes { error, scenarios: [{ requests: [{ id, status, body }], cli: [{ id, code, stdout, stderr, leaked }] }],
- * runs } to <out.json>. `runs` is globalThis.__opsRuns, which fixture operations count their runs in. A missing module
- * is reported as `error`, so the parent's assertions fail with the reason.
+ * A request may also carry rawBase64 (a binary body), contentType and extra headers; every answer records its headers
+ * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
+ * stdoutBase64 beside stdout. pauseMs waits after each request, for work a route does after it has answered.
+ *
+ * It writes { error, scenarios: [{ requests: [{ id, status, headers, body, bodyBase64 }], cli: [{ id, code, stdout,
+ * stdoutBase64, stderr, leaked }] }], runs } to <out.json>. `runs` is globalThis.__opsRuns, which fixture operations
+ * count their runs in. A missing module is reported as `error`, so the parent's assertions fail with the reason.
  *
  * The parent sets BRAINSTORM_CONF_PATH (the owner, and dead Neo4j and Redis endpoints) and TAPESTRY_SETTINGS_PATH (the
  * admin list). Nothing here reaches a live instance.
@@ -89,32 +98,53 @@ function send(port, r) {
   return new Promise((resolve) => {
     const caller = r.caller || 'visitor';
     const session = (SESSIONS[caller] || SESSIONS.visitor)();
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { 'Content-Type': r.contentType || 'application/json' };
     if (caller !== 'local') headers['X-Forwarded-For'] = '203.0.113.9';
     if (session) headers['X-Test-Session'] = JSON.stringify(session);
+    Object.assign(headers, r.headers || {});
     let payload;
-    if (typeof r.rawBody === 'string') payload = r.rawBody;
+    if (typeof r.rawBase64 === 'string') payload = Buffer.from(r.rawBase64, 'base64');
+    else if (typeof r.rawBody === 'string') payload = r.rawBody;
     else if (r.body !== undefined) payload = JSON.stringify(r.body);
-    const req = http.request({ host: '127.0.0.1', port, path: r.url, method: r.method, headers }, (res) => {
-      let text = '';
-      res.on('data', (c) => { text += c; });
+    let settled = false;
+    const done = (x) => { if (!settled) { settled = true; resolve(x); } };
+    // agent: false — a fresh connection each time, so a request that declares a body it never sends (declaredOnly)
+    // can't leave a half-read socket for the next request to be parsed into.
+    const req = http.request({ host: '127.0.0.1', port, path: r.url, method: r.method, headers, agent: false }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => { chunks.push(Buffer.from(c)); });
       res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        const text = buf.toString('utf8');
         let body = text;
         try { body = JSON.parse(text); } catch { /* keep the text */ }
-        resolve({ id: r.id, status: res.statusCode, body });
+        done({ id: r.id, status: res.statusCode, headers: res.headers, body, bodyBase64: buf.toString('base64'), at: Date.now() });
       });
+      res.on('error', (e) => done({ id: r.id, status: res.statusCode, headers: res.headers, body: `response error: ${e.message}`, bodyBase64: '' }));
     });
-    req.on('error', (e) => resolve({ id: r.id, status: 0, body: `request error: ${e.message}` }));
-    req.end(payload);
+    req.on('error', (e) => done({ id: r.id, status: 0, body: `request error: ${e.message}`, aborted: !!r.abortAfterMs, at: Date.now() }));
+    if (r.declaredOnly) req.end(); // headers only (a Content-Length given in r.headers is never sent)
+    else req.end(payload);
+    // abortAfterMs: the client gives up and closes the connection before the answer (graph-operations-foundation #2,
+    // review round 1).
+    if (r.abortAfterMs) setTimeout(() => { req.destroy(); done({ id: r.id, status: 0, aborted: true, at: Date.now() }); }, r.abortAfterMs);
   });
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function runCli(scn) {
   const cli = need('src/operations/cli.js');
+  const { Readable } = require('stream');
   let stdout = '', stderr = '', leaked = '';
+  const outChunks = [];
+  const stdin = scn.stdinIsTTY
+    ? Object.assign(Readable.from([]), { isTTY: true })
+    : Object.assign(Readable.from(scn.stdinBase64 ? [Buffer.from(scn.stdinBase64, 'base64')] : []), { isTTY: false });
   const io = {
-    stdout: { write: (s) => { stdout += String(s); return true; } },
-    stderr: { write: (s) => { stderr += String(s); return true; } },
+    stdin,
+    stdout: { isTTY: !!scn.stdoutIsTTY, write: (s, ...rest) => { const b = Buffer.isBuffer(s) ? s : Buffer.from(String(s)); outChunks.push(b); stdout += b.toString('utf8'); const cb = rest.find((x) => typeof x === 'function'); if (cb) cb(); return true; } },
+    stderr: { isTTY: false, write: (s, ...rest) => { stderr += String(s); const cb = rest.find((x) => typeof x === 'function'); if (cb) cb(); return true; } },
   };
   // The command runs with the real console, so a console.log that reaches the process's own stdout (rather than the
   // command keeping it off stdout, ADR Decision 7) is recorded as `leaked`.
@@ -131,7 +161,48 @@ async function runCli(scn) {
     process.stdout.write = realWrite;
     for (const k of QUIETED) console[k] = quiet[k];
   }
-  return { id: scn.id, code, stdout, stderr, leaked };
+  return { id: scn.id, code, stdout, stdoutBase64: Buffer.concat(outChunks).toString('base64'), stderr, leaked, endedAt: Date.now() };
+}
+
+/** ADR graph-operations-foundation/0002 Decision 8: the fake system in, and the jobs run in this process with it. */
+let lifecycleFakeInstalled = null;
+function installLifecycleFake(cfg) {
+  if (!cfg) return;
+  if (lifecycleFakeInstalled) {
+    if (lifecycleFakeInstalled !== cfg.stateFile) throw new Error('one harness run installs one lifecycle fake');
+    return;
+  }
+  const sys = need('src/operations/catalog/lifecycle/_system.js');
+  const jobs = need('src/operations/catalog/lifecycle/_jobs.js');
+  const fake = require(path.join(__dirname, 'lifecycleFakes.js')).fakeSystem(cfg.stateFile);
+  for (const k of Object.keys(fake)) sys[k] = fake[k];
+  for (const k of ['runBackupJob', 'runRestoreJob']) {
+    if (typeof jobs[k] !== 'function') throw new Error(`_jobs.js must export ${k}(request, system) (ADR graph-operations-foundation/0002 Decision 8)`);
+  }
+  // As _worker.js does: the job's record (from _jobs.js's runJob, once it has one, so the worker's way of making it is
+  // the one tested), written into the run's file over what the caller put there; then what runDetached resolves.
+  const store = need('src/operations/catalog/lifecycle/_store.js');
+  jobs.runDetached = async (request) => {
+    let record;
+    if (typeof jobs.runJob === 'function') {
+      record = await jobs.runJob(request, sys);
+    } else {
+      const job = request && request.op === 'restore' ? jobs.runRestoreJob : jobs.runBackupJob;
+      try {
+        record = { ...request, outcome: 'done', result: await job(request, sys), finishedAt: new Date().toISOString() };
+      } catch (e) {
+        record = { ...request, outcome: 'failed', error: (e && e.message) || String(e), finishedAt: new Date().toISOString() };
+      }
+    }
+    if (request && store.isId(request.runId)) {
+      const file = store.runFile(request.runId);
+      store.writeJson(file, { ...(store.readJson(file) || {}), ...record });
+    }
+    return record.outcome === 'done'
+      ? { outcome: 'done', result: record.result, finishedAt: record.finishedAt }
+      : { outcome: record.outcome, error: record.error, finishedAt: record.finishedAt };
+  };
+  lifecycleFakeInstalled = cfg.stateFile;
 }
 
 function applyStubs(stubs) {
@@ -159,11 +230,13 @@ for (const k of QUIETED) ORIGINAL_CONSOLE[k] = console[k];
   try {
     for (const scenario of spec.scenarios || []) {
       applyStubs(scenario.statusStubs);
+      installLifecycleFake(scenario.lifecycleFake);
       const out = { requests: [], cli: [] };
       for (const r of scenario.requests || []) {
         const which = r.app || 'real';
         if (!apps[which]) apps[which] = await startApp(which === 'fixture' ? spec.fixtureDir : null);
         out.requests.push(await send(apps[which].port, r));
+        if (scenario.pauseMs) await sleep(scenario.pauseMs);
       }
       for (const scn of scenario.cli || []) out.cli.push(await runCli(scn));
       result.scenarios.push(out);
