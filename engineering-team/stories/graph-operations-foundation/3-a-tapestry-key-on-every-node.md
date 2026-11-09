@@ -1,6 +1,6 @@
 # Story 3: A tapestryKey on every node — `lifecycle migrate`, one shared label and a uniqueness constraint
 
-**Status:** Draft
+**Status:** Approved
 **Created:** 2026-11-08
 **Type:** Feature
 **Loom:** A10.3 — https://loom.brainstorm.world/t/A10.3
