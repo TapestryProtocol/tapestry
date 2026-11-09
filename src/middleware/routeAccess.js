@@ -322,6 +322,7 @@ const ROUTE_ACCESS = Object.freeze({
   'POST /api/normalize/restore-brain': OWNER_ACTION,
   'POST /api/normalize/save-element-json': OWNER_ACTION,
   'POST /api/normalize/save-schema': OWNER_ACTION,
+  'POST /api/normalize/set-b-tag': OWNER_ACTION,
   'POST /api/normalize/set-json-tag': OWNER_ACTION,
   'POST /api/normalize/set-slug': OWNER_ACTION,
   'POST /api/normalize/skeleton': OWNER_ACTION,
