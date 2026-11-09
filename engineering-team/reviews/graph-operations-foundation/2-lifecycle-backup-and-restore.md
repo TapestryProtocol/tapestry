@@ -265,3 +265,39 @@ None.
 ### Round 2 verdict
 
 **PASS**
+
+## Round 3
+
+**Date:** 2026-11-08
+**Diff:** `git diff 3296f9d3e..159e8e9e8`: the test plan's correction (`078f49558`), the Tester's failing tests (`f3f8b99f0`), the fix (`7f0227ded`) and the evidence (`159e8e9e8`, story only). I checked each of round 2's four points as a fresh claim, and looked for anything the change broke.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] `npm test`: not run, by the same rule as before. There is still no `gate:status` record.
+- [x] **At HEAD** (`159e8e9e8`, whose code is `7f0227ded`'s), through the runner.
+  - **`test/operations.test.js`: 139/0/0.** That is the module's 47 and the 92 under `test/operations/`: backup 21, restore 23, list-backups 6, download-backup 7, upload-backup 10, the job and the system 17, status 8. It is the story's count.
+  - Round 2's twelve gate and adjacent suites pass with the same counts as in round 2, and harness-lint exits 0.
+  - The added test lines match nothing in the screen.
+- [x] **Red before green:** `f3f8b99f0` gives 136/3, with B21, R22 and R23 failing and J12 passing, as the test plan says.
+
+### Round 2's points, checked again
+
+| Round 2 | Now | Evidence |
+|---|---|---|
+| R2-1: the start right after the load was outside the error that names the safety backup | **Fixed** | The start and the wait now open the `try` (`_jobs.js:276–281`), under the step "starting the graph database on the loaded backup". R22 passes, and it failed first. My round-2 experiment, unchanged, now gets "Backup …'s graph is in place, but starting the graph database on the loaded backup failed: … The graph as it was is in the safety backup …". The server is back, and no lock is left. |
+| R2-2: the lock's stage was written after the stop | **Fixed** | Both jobs write `stage: 'offline'` before they call the stop (`_jobs.js:159–161`, `:229–231`). B21 and R23 read the lock at the moment of the stop call, and both failed first. B12 already shows that a recovery starts the server for such a lock. |
+| R2-3: nothing tested that `runDetached` resolves on the record | **Fixed** | J12 drives the real `runDetached` with a stand-in worker that stays on 6 s after writing its record. With the polling removed, J12 fails alone ("it took 6082 ms, and the worker was gone"), and the other 138 tests pass. |
+| R2-4: the J11 red line didn't say which tree it ran on | **Fixed** | The test plan now says that tree held A4's other fixes but not J11's, which no commit holds, and it cites the mutation. |
+
+### What the change could have broken
+
+Nothing that I found.
+
+- **The success path** runs the same calls in the same order: the start, the wait, the lock set back to `online`, the counts, the key, the admins and the writers. `offlineMs` is still set before the report reads it.
+- **Writing the stage before the stop costs nothing if the stop then fails.** The `finally` may then start a server that is still running, and `_system.js` treats that as harmless ("already started").
+- **The fake's new `startFails` and per-call `lockStage`** only add to what it records, and every earlier test still passes.
+- **No new live check is needed.** The live checks ran on `28c4f6e65`, and this change moves one write and one `try` boundary, on paths the suites now drive.
+
+### Round 3 verdict
+
+**PASS**
