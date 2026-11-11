@@ -98,12 +98,21 @@ These are the **deploy** workflows (push-triggered). The one non-deploy workflow
 
 ---
 
-## 4. Branch protection ruleset
+## 4. Branch protection rulesets
 
-The `restrict-deletions` ruleset (Settings → Rules → Rulesets) targets `main`, `staging`, `feature-magic-carpet`, `feature-relay-discovery`, and `feature-tapestry-discovery` with two rules:
+Two rulesets (Settings → Rules → Rulesets) protect the long-lived branches. GitHub keeps them in the repository's settings, not in its files, so a move to a new owner can leave them behind: this repo has had none since the move of 2026-10-23 (see [ledger/2026-10-28-repo-move-follow-ups.md](./ledger/2026-10-28-repo-move-follow-ups.md)). Their definitions are kept in [`.github/rulesets/`](./.github/rulesets/), with the commands to recreate them. **Read the live settings, not this section, for what is enforced today.**
+
+**`restrict-deletions`** targets `main`, `staging`, `feature-magic-carpet` and `feat/tags` with two rules:
 
 - **Restrict deletions** — prevents the auto-delete-head-branches setting from removing long-lived branches when they're the *head* of a promotion PR. (See gotcha #1 below.)
 - **Block force pushes** — prevents history rewrites that would lose collaborator work and invalidate CI/CD's record of which SHA was deployed.
+
+**`main-requires-pr-before-merging`** targets the default branch, `main`, with two rules and no bypass actors:
+
+- **Pull request before merging**, with 0 approving reviews.
+- **Required status checks:** `stack-free` (the `Test` workflow) and `main-source-guard` ([`guard-main-source.yml`](./.github/workflows/guard-main-source.yml): only `staging`, `promote/*` and `hotfix/*` may open a PR into `main`). While either is missing or failing, the merge state is `BLOCKED` (OPEN.md rows 155 and 256).
+
+`staging` has neither a PR rule nor required checks: it permits direct pushes, and `/cycle-staging` merges on the deploy-safety check, not on the PR's CI. Making `stack-free` required there is a separate operator decision. The "Required-check status" note further down this file predates `stack-free` becoming required on `main`.
 
 Short-lived feature branches (`feat/*`, `fix/*`, `chore/*`) are NOT protected; they're auto-deleted by GitHub on merge — desired behavior for keeping the branch list tidy.
 

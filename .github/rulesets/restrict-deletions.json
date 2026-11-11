@@ -1,0 +1,21 @@
+{
+  "name": "restrict-deletions",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "refs/heads/main",
+        "refs/heads/staging",
+        "refs/heads/feature-magic-carpet",
+        "refs/heads/feat/tags"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" }
+  ],
+  "bypass_actors": []
+}
