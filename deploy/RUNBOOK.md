@@ -34,8 +34,8 @@ The launcher does nothing you cannot do by hand. On any box with Docker, in an e
    ```
    SLUG=mine
    IMAGE_TAG=dogfood
-   TAPESTRY_IMAGE=ghcr.io/nousclawds4/tapestry
-   SEARCH_IMAGE=ghcr.io/nousclawds4/tapestry-nostr-search
+   TAPESTRY_IMAGE=ghcr.io/tapestryprotocol/tapestry
+   SEARCH_IMAGE=ghcr.io/tapestryprotocol/tapestry-nostr-search
    OWNER_PUBKEY=<your hex pubkey>
    ADMIN_PUBKEYS=<your hex pubkey>
    NEO4J_PASSWORD=<32 random hex characters>
@@ -102,7 +102,7 @@ Four handovers, in order. Each person can follow theirs with no other context.
    No nginx or certbot on this box. Caddy does TLS.
 5. Clone the repo, and turn on log rotation so brains' logs cannot fill the disk.
    ```bash
-   git clone https://github.com/nousclawds4/tapestry.git /opt/tapestry
+   git clone https://github.com/TapestryProtocol/tapestry.git /opt/tapestry
    cd /opt/tapestry && git checkout feat/brains-launcher   # or main, once it is merged
    cp deploy/host/daemon.json /etc/docker/daemon.json
    systemctl restart docker
@@ -122,7 +122,7 @@ Four handovers, in order. Each person can follow theirs with no other context.
    JSON
    chmod 600 /opt/launcher/config/*.json
    ```
-7. Add the deploy key and the GitHub secrets. Adding secrets needs admin on `nousclawds4/tapestry`, so someone with admin
+7. Add the deploy key and the GitHub secrets. Adding secrets needs admin on `TapestryProtocol/tapestry`, so someone with admin
    does this on their own machine, and the private key never leaves it.
    ```bash
    ssh-keygen -t ed25519 -f ./tapestry_ninja -N ""
@@ -159,12 +159,12 @@ systemctl daemon-reload && systemctl enable --now launcher-reap.timer
 ```
 
 Check that `https://tapestry.ninja` loads with a valid certificate. Then run the publish workflow so the images land on
-GHCR, and check that `docker pull ghcr.io/nousclawds4/tapestry:dogfood` works from the droplet.
+GHCR, and check that `docker pull ghcr.io/tapestryprotocol/tapestry:dogfood` works from the droplet.
 
 The first run's last step fails at the pull if the packages are still private, and running the job again after the
 change below is all it needs.
 
-New packages on GHCR start private, and changing that is for the owner of the `nousclawds4` account: on each of
+New packages on GHCR start private, and changing that is for an owner of the `TapestryProtocol` organization: on each of
 `tapestry` and `tapestry-nostr-search`, Package settings, Change visibility, Public. If they must stay private, log the
 launcher in with a read-only token after each time it is rebuilt:
 `docker exec -i edge-launcher docker login ghcr.io -u <user> --password-stdin < /opt/launcher/config/ghcr.token`.

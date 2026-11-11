@@ -45,5 +45,20 @@ every `gh` command. These items remain:
   - Staging's first (run `40434357530`, 2026-10-27) logged the same repo.
   - Tags and magic-carpet have not deployed from it yet, so theirs is still unverified.
 
+**Seen again on 2026-11-11** (the repo moved to `TapestryProtocol/tapestry`; GitHub redirects `nousclawds4/tapestry`):
+- **Moved with it:** all four deploy branches, and the 15 `DEPLOY_*` secrets the workflows name (names read; not
+  whether the keys still log in, which the first run of each deploy shows).
+- **Did not move:** the GHCR images stay under `ghcr.io/nousclawds4/`. The publish workflow and the launcher now name
+  `ghcr.io/tapestryprotocol/`. New packages start private, so an org owner makes both Public after the first publish
+  and reruns the job (`deploy/RUNBOOK.md`, Handover 3).
+- **Still open:**
+  - Item 1 holds: the new repo has no rulesets, and an org owner has to create them (admin).
+  - The droplets' `origin` still names the old address, which redirects. Set it to the new one when convenient.
+  - Loom's `config/repos.json` and the roadmap's `repo:` lines still name the old repo.
+  - Item 3 holds: the public pointers still name the old repo.
+  - OPERATIONS §9.1 describes a remote layout that a checkout cloned from ngit does not have (there GitHub is the
+    `github` remote, and `origin` is ngit).
+  - Never create a new `nousclawds4/tapestry`: it would end the redirect.
+
 **Pointer:** `.claude/skills/cycle-staging/SKILL.md` ("The old repo"); OPERATIONS §9.1;
 `engineering-team/reviews/harness-self-improvement/skills-repo-nousclawds4-2026-10-28.md`.

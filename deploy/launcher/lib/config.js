@@ -4,8 +4,8 @@ const path = require('node:path');
 
 const DEFAULTS = Object.freeze({
   baseDomain: 'tapestry.ninja',
-  image: 'ghcr.io/nousclawds4/tapestry',
-  searchImage: 'ghcr.io/nousclawds4/tapestry-nostr-search',
+  image: 'ghcr.io/tapestryprotocol/tapestry',
+  searchImage: 'ghcr.io/tapestryprotocol/tapestry-nostr-search',
   imageTag: 'dogfood',
   maxBrainsPerOwner: 3,
   maxBrainsTotal: 3,
