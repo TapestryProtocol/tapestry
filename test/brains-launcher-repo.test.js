@@ -276,7 +276,7 @@ test('W1c: every top-level path either rolls the brains or is listed as one they
 
 test('W2: both images are pushed as dogfood and by commit, with layer caching', () => {
   const wf = publishWorkflow();
-  for (const image of ['ghcr.io/nousclawds4/tapestry', 'ghcr.io/nousclawds4/tapestry-nostr-search']) {
+  for (const image of ['ghcr.io/tapestryprotocol/tapestry', 'ghcr.io/tapestryprotocol/tapestry-nostr-search']) {
     assert(wf.includes(image), `${image} is missing`);
   }
   assert((wf.match(/:dogfood/g) || []).length >= 2, 'both images need the dogfood tag');

@@ -224,7 +224,7 @@ End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. Th
 
 4. **Clone and check out the target branch.**
    ```bash
-   git clone https://github.com/nousclawds4/tapestry.git /opt/tapestry
+   git clone https://github.com/TapestryProtocol/tapestry.git /opt/tapestry
    cd /opt/tapestry
    git checkout <branch>
    ```
@@ -312,23 +312,23 @@ The app publishes signed events to public relays by default. A per-deployment op
 ### 9.1. `gh` CLI defaults to the upstream fork
 
 A checkout may carry these remotes:
-- `origin` → `nousclawds4/tapestry` (our fork, and what we actually push to, since the move of 2026-10-23)
+- `origin` → `TapestryProtocol/tapestry` (what we actually push to; it moved there from `nousclawds4/tapestry`, whose address GitHub redirects. A checkout cloned from ngit names this remote `github` and keeps `origin` for ngit)
 - `upstream` → `Pretty-Good-Freedom-Tech/brainstorm` (the original project)
 
 Some checkouts also carry the pre-move repo as a remote, `nous-clawds4` → `nous-clawds4/tapestry`.
-- **It is not the deploy target.** The droplets are meant to follow `nousclawds4/tapestry`.
+- **It is not the deploy target.** The droplets are meant to follow `TapestryProtocol/tapestry`.
 - **It keeps its GitHub Actions and its deploy secrets.** Its deploy workflows fire on pushes to the long-lived deploy
   branches in `scripts/long-lived-branches.txt`, the archived `feat/communities` and `feat/curate` included, so never push
   those branches to it. Feature branches may be mirrored there.
-- **PR and issue numbers restarted at #1** on `nousclawds4/tapestry`. Earlier PR and issue references in this file,
+- **PR and issue numbers restarted at #1** on `nousclawds4/tapestry`, and the move to `TapestryProtocol/tapestry` kept them. Earlier PR and issue references in this file,
   links and bare `#N` alike, are the old repo's, where they live.
 - **`gh repo set-default`** is stored per checkout, against a remote name. A checkout moved with `git remote set-url
   origin …` follows to the new repo. One where the old repo kept the `origin` name still names it. Re-running
-  `gh repo set-default nousclawds4/tapestry` is safe either way.
+  `gh repo set-default TapestryProtocol/tapestry` is safe either way.
 
 `gh repo view --json nameWithOwner` returns the upstream, so `gh pr create`, `gh pr list`, `gh issue ...` all silently target the wrong repo and either fail or return empty.
 
-**Fix:** always pass `--repo nousclawds4/tapestry` to every `gh` command, or run `gh repo set-default nousclawds4/tapestry` once to fix it permanently.
+**Fix:** always pass `--repo TapestryProtocol/tapestry` to every `gh` command, or run `gh repo set-default TapestryProtocol/tapestry` once to fix it permanently.
 
 ### 9.2. 2026-04-24: auto-delete-head-branches deleted `staging`
 

@@ -20,8 +20,8 @@ test('reads the allowlist and fills in defaults', () => {
   assert.deepEqual(c.allowlist, [{ pubkey: A, label: 'Ana' }]);
   assert.equal(c.baseDomain, 'tapestry.ninja');
   assert.equal(c.imageTag, 'dogfood');
-  assert.equal(c.image, 'ghcr.io/nousclawds4/tapestry');
-  assert.equal(c.searchImage, 'ghcr.io/nousclawds4/tapestry-nostr-search');
+  assert.equal(c.image, 'ghcr.io/tapestryprotocol/tapestry');
+  assert.equal(c.searchImage, 'ghcr.io/tapestryprotocol/tapestry-nostr-search');
   assert.equal(c.maxBrainsPerOwner, 3);
   assert.equal(c.maxBrainsTotal, 3);
   assert.equal(c.minFreeDiskGb, 10);

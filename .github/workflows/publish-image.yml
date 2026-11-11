@@ -79,8 +79,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/nousclawds4/tapestry:dogfood
-            ghcr.io/nousclawds4/tapestry:sha-${{ steps.commit.outputs.short }}
+            ghcr.io/tapestryprotocol/tapestry:dogfood
+            ghcr.io/tapestryprotocol/tapestry:sha-${{ steps.commit.outputs.short }}
           cache-from: type=gha,scope=tapestry
           cache-to: type=gha,mode=max,scope=tapestry
 
@@ -90,8 +90,8 @@ jobs:
           context: ./nostr-search
           push: true
           tags: |
-            ghcr.io/nousclawds4/tapestry-nostr-search:dogfood
-            ghcr.io/nousclawds4/tapestry-nostr-search:sha-${{ steps.commit.outputs.short }}
+            ghcr.io/tapestryprotocol/tapestry-nostr-search:dogfood
+            ghcr.io/tapestryprotocol/tapestry-nostr-search:sha-${{ steps.commit.outputs.short }}
           cache-from: type=gha,scope=tapestry-nostr-search
           cache-to: type=gha,mode=max,scope=tapestry-nostr-search
 
