@@ -52,7 +52,7 @@ every `gh` command. These items remain:
   `ghcr.io/tapestryprotocol/`. New packages start private, so an org owner makes both Public after the first publish
   and reruns the job (`deploy/RUNBOOK.md`, Handover 3).
 - **Still open:**
-  - Item 1 holds: the new repo has no rulesets, and an org owner has to create them (admin).
+  - Item 1 holds: the new repo has no rulesets, and an org owner has to create them (admin). Their definitions are now in `.github/rulesets/` (OPERATIONS §4), with the commands.
   - The droplets' `origin` still names the old address, which redirects. Set it to the new one when convenient.
   - Loom's `config/repos.json` and the roadmap's `repo:` lines still name the old repo.
   - Item 3 holds: the public pointers still name the old repo.
