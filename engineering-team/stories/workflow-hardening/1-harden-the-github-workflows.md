@@ -90,5 +90,5 @@ None open. Settled at intake on 2026-11-13:
 
 ## Linked artifacts
 - ADR: none (Architecture skipped at intake, 2026-11-13)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/workflow-hardening/1-harden-the-github-workflows.test-plan.md`
 - Review: (filled in after Review phase)
