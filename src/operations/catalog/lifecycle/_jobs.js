@@ -23,7 +23,6 @@ const store = require('./_store');
 const identity = require('./_identity');
 
 const GRAPH_WAIT_MS = 300000;
-const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const tail = (s) => String(s || '').trim().split('\n').slice(-3).join(' ').slice(0, 400);
 
 /** Wait until the graph database answers, polling every second. */
@@ -81,11 +80,23 @@ async function walkKeys(system) {
   return { tapestryKeys: count, distinctTapestryKeys: distinct, tapestryKeyDigest: `sha256:${hash.digest('hex')}` };
 }
 
-/** Every key at once, as ADR 0002 counted them: while the rule isn't online, the graph holds no more keys than then. */
+/**
+ * Every key, while the rule isn't online: one read, streamed, keeping only the key strings, then sorted and hashed one
+ * at a time — the same counts and digest as ADR 0002's read, without the driver's records or a joined string. From the
+ * deploy on, keyNode keys every node the pipeline touches, so this may be millions of keys (ADR 0003 Amendment 2).
+ */
 async function readAllKeys(system) {
-  const keys = (await system.cypher('MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k')).map((row) => String(row.k));
+  const keys = [];
+  await system.cypherEach('MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k', {}, (row) => { keys.push(String(row.k)); });
   keys.sort();
-  return { tapestryKeys: keys.length, distinctTapestryKeys: new Set(keys).size, tapestryKeyDigest: `sha256:${sha256(keys.join('\n'))}` };
+  const hash = crypto.createHash('sha256');
+  let distinct = 0;
+  for (let i = 0; i < keys.length; i++) {
+    if (i) hash.update('\n');
+    hash.update(keys[i]);
+    if (i === 0 || keys[i] !== keys[i - 1]) distinct++;
+  }
+  return { tapestryKeys: keys.length, distinctTapestryKeys: distinct, tapestryKeyDigest: `sha256:${hash.digest('hex')}` };
 }
 
 /** Decision 4 step 2's counts, each its own query; the keys by the walk when the rule tapestry_key is online. */

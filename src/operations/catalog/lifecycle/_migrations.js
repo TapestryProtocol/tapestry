@@ -213,10 +213,17 @@ function describeKeys(report) {
   const words = [`Gave ${report.keysGiven} node${report.keysGiven === 1 ? '' : 's'} a tapestryKey and ${report.labelsGiven} the label ${LABEL}, in ${report.passes} pass${report.passes === 1 ? '' : 'es'}.`];
   if (report.placeholdersReplaced) words.push(`${report.placeholdersReplaced} of those keys replaced the '{}' placeholder.`);
   if (report.after.withoutKey) words.push(`${report.after.withoutKey} node${report.after.withoutKey === 1 ? ' still has' : 's still have'} no key (made while it ran); running it again keys them.`);
-  if (report.failedBatches) words.push(`${report.failedBatches} batch${report.failedBatches === 1 ? '' : 'es'} failed and ${report.failedBatches === 1 ? 'was' : 'were'} picked up by a later pass.`);
+  if (report.failedBatches) {
+    const n = report.failedBatches;
+    words.push(`${n} batch${n === 1 ? '' : 'es'} failed${report.after.withoutKey ? '' : ` and ${n === 1 ? 'was' : 'were'} picked up by a later pass`}.`);
+  }
   if (report.sharedKeys.length) {
     const list = report.sharedKeys.slice(0, 5).map((s) => `${s.key} (${s.count} nodes: ${s.nodes.join(', ')})`).join('; ');
-    words.push(`Some keys are held by more than one node, so none of them was changed and the uniqueness rule ${KEY_RULE} and the index ${UUID_INDEX} were left out, for the owner to decide: ${list}${report.sharedKeys.length > 5 ? `; and ${report.sharedKeys.length - 5} more` : ''}.`);
+    const more = report.sharedKeys.length > 5 ? `; and ${report.sharedKeys.length - 5} more` : '';
+    const rule = report.rule === 'already-there'
+      ? `the uniqueness rule ${KEY_RULE} was already in place, so those nodes were left without the label ${LABEL}`
+      : `the uniqueness rule ${KEY_RULE} and the index ${UUID_INDEX} were left out`;
+    words.push(`Some keys are held by more than one node, so none of them was changed and ${rule}, for the owner to decide: ${list}${more}.`);
   } else {
     const said = { added: 'added', 'already-there': 'already there' };
     words.push(`The uniqueness rule ${KEY_RULE} is ${said[report.rule] || report.rule} and the index ${UUID_INDEX} ${said[report.index] || report.index}, both online.`);

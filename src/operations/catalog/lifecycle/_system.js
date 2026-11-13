@@ -11,6 +11,7 @@
  *                                      captured as text unless a stream is given to write it to
  *   cypher(query, params, { write })   a query through the shared driver (src/lib/neo4j-driver.js): a read, or with
  *                                      write: true a write (lifecycle migrate's passes and schema, ADR 0003 Decision 4)
+ *   cypherEach(query, params, onRow)   a read whose rows go to onRow one at a time, keeping none (ADR 0003 Amendment 2)
  *   version()                          the graph database's version, from `neo4j-admin --version`
  *   freeBytes(path)                    free bytes on the filesystem holding `path` (or its nearest existing parent)
  *   sleep(ms)
@@ -89,6 +90,11 @@ const system = {
   async cypher(query, params, { write = false } = {}) {
     const { runCypher, writeCypher } = require('../../../lib/neo4j-driver');
     return write ? writeCypher(query, params || {}) : runCypher(query, params || {});
+  },
+
+  async cypherEach(query, params, onRow) {
+    const { streamCypher } = require('../../../lib/neo4j-driver');
+    return streamCypher(query, params || {}, onRow);
   },
 
   async version() {
