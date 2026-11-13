@@ -4,7 +4,7 @@
 **Date:** 2026-11-08
 **Story:** `engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`
 **Amends:** ADR `graph-operations-foundation/0002`, Decision 4 step 2's key counting (Decision 10 below).
-**Amended:** 2026-11-13, at Implementation, by the owner's ruling — the index `tapestry_node_uuid` is also made at control-panel start (Amendment 1, at the end).
+**Amended:** 2026-11-13, at Implementation, by the owner's ruling — the index `tapestry_node_uuid` is also made at control-panel start (Amendment 1, at the end). 2026-11-13, at Review round 1, by the owner's ruling — before the rule is online, backup reads the keys as a stream, and OPERATIONS.md says to run `tapestry-keys` soon after the deploy (Amendment 2).
 
 ## Context
 
@@ -216,7 +216,7 @@ The paths, from Context 3:
 **10. Backup counts keys by walking the index.** This amends ADR 0002 Decision 4 step 2 for the key counts only; the manifest's fields and the digest's value don't change.
 
 - **When `tapestry_key` is online:** `countGraph` reads the labeled keys in pages of 50,000, in key order from the rule's index (`MATCH (n:TapestryNode) WHERE n.tapestryKey > $after RETURN n.tapestryKey AS k ORDER BY k LIMIT 50000`). It also reads the keys of unlabeled nodes, normally none (`MATCH (n) WHERE NOT n:TapestryNode AND n.tapestryKey IS NOT NULL RETURN n.tapestryKey`), sorted in memory. It merges the two streams in order into an incremental sha256, counting keys, and distinct keys by comparing neighbours.
-- **When the rule isn't online,** it counts as today, since the graph then holds no more keys than today's.
+- **When the rule isn't online,** it counts as today, since the graph then holds no more keys than today's. *(Amended: that premise doesn't hold once Decision 8 ships; the keys are read as a stream. Amendment 2.)*
 
 The digest is the same string's hash either way (the sorted keys joined by `\n`), so a backup taken before this change still compares exactly on restore. Memory stays at one page.
 
@@ -309,4 +309,16 @@ The digest is the same string's hash either way (the sorted keys joined by `\n`)
 - `tapestry-keys` is unchanged. On an instance that has restarted since this deploy, its report says `index: 'already-there'`.
 
 **Tests.** `tapestry-key-paths.test.js` gains G14–G17: the hook makes the index with Decision 1's statement, and nothing else, when it is missing; it leaves an index that is there alone; it stops on a name held by another definition; it retries while the graph doesn't answer and never rejects; and the control panel calls it at start.
+
+## Amendment 2 (2026-11-13, at Review round 1) — before the rule is online, backup reads the keys as a stream
+
+**Why.** Decision 10 kept the one-query read of every key for a graph with no rule, "since the graph then holds no more keys than today's". Decision 8 makes that untrue. From the deploy on, keyNode gives a key to every node the pipeline touches, and the stream touches each follow list's author and everyone they follow. By the first run of `tapestry-keys` a production graph may hold millions of keys, and the backup that run takes first reads them twice, with the writers paused. Read through `runCypher`, the driver holds every record, and a worker that runs out of memory there leaves the writers paused until the next lifecycle operation recovers its lock. Found in review round 1, Blocking 1. The owner chose (2026-11-13) to stream the read and to say in OPERATIONS.md when to run the migration.
+
+**The change.**
+- `src/lib/neo4j-driver.js` gains `streamCypher(cypher, params, onRecord)`. It runs a read whose records go to `onRecord` one at a time, through `result.subscribe`, so the driver keeps none of them. `_system.js` gains `cypherEach(query, params, onRow)` over it, which hands each row on as a plain object, as `cypher` returns them.
+- `countGraph`, while the rule isn't online, reads `MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k` through `cypherEach`. It keeps only the key strings, sorts them as before, and hashes them one at a time, with no joined string. The counts and the digest are the same as before, so backups taken either way still compare exactly. Memory is the strings themselves, about 200 MB at three million keys, against the gigabyte or more the driver's records took.
+- With the rule online, the walk is unchanged.
+- OPERATIONS.md §17 says to run `tapestry-keys` soon after the deploy that brings this change. It also says what a backup taken before then costs: one streamed read of every key, twice, while the writers wait.
+
+**Tests.** `migrate-job.test.js` K5 checks that with no rule the keys are read through `cypherEach`, never through `cypher`, and that the counts and digest are as before. The fake system gains `cypherEach`, which logs its read as `cypher` does, marked streamed, so story 2's traces (`count:keys`) are unchanged. The live check's measurement 5 adds the time and the worker's peak memory of `countGraph`, before migrate, on a scratch graph keyed to production's size.
 
