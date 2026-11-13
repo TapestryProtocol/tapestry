@@ -166,3 +166,72 @@ Still not independent: this session wrote the code being reviewed. The live chec
 **CHANGES_REQUESTED**
 
 Round 1's two blocking findings are resolved, and the live check shows the migration doing what the story asks, at production's size, on Neo4j. It also shows that the `set` concept's Elements tab loses event-less sets, a page AC6 says must keep finding them. That comes from 104 `:NostrEvent` lines Decision 9 required classifying and Implementation didn't. Separately, status calls `event-less-nodes` applied before it can be. Back to `/design-tests`, then `/implement-feature`, for Blocking 1 and 2 and the four non-blocking items.
+
+# Round 3
+
+**Date:** 2026-11-13
+**Diff:** `git diff 6c57ec1f...1006b59c`. Since round 2:
+- the Tester's Amendment 3 (`b536be1d`, `375f45ea`);
+- the Mac session's summary of the live check in the story's Evidence (`3bcd4452`, no code);
+- implementation part 4 (`1006b59c`).
+
+This round changes 14 source files.
+
+Still not independent: this session wrote the code under review.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [x] `npm test`, cloud workspace: `20261113T192455Z-10143-3da4 [a10.3-review-3] started 2026-11-13T19:24:55.020Z on 1006b59c — FAIL, exit 1, 7057 passed, 1 failed, 598 skipped, 338/338 suites; failed: setup-alert-polish`. That is the S2 failure on `staging` (OPEN.md row `2026-11-07-reading-writeverbs-raw-publish`).
+- [x] **Red before green.** At `b536be1d` these failed: G18 (96 lines unclassified), G19 (21 lines), M11, M24, M25, M26 and M27. Each passes now. Since round 2, M11 is sharper: the fake used to ignore the `TapestryNode` condition, so M11 passed on wrong code.
+- [ ] **Neo4j.** This round's code hasn't run on a database. It swaps labels, almost all to the form `(v:NostrEvent|ListItem)` in node patterns, which the live check ran (as `NostrEvent|TapestryNode`) with no error. Non-blocking 3 names the one form it didn't run.
+
+## Round 2's findings, each re-derived as a fresh claim
+
+- **Blocking 1 (Decision 9's classification): resolved.**
+  - **The guard now covers every line.** G18 reads every line of `src/` (G5's live files) and `ui/src/` that names `:NostrEvent` with no disjunction, and finds none outside the kept list. G19 finds no walk over `HAS_ELEMENT` or `IS_A_SUPERSET_OF`, and no z-tag scan, that ends on `:NostrEvent` alone. Both ran on the source at `1006b59c`, inside the gate.
+  - **43 lines now name `NostrEvent|ListItem`.** That is the rule: a scan or walk that should reach sets names a label they share with events.
+    - Today every event-less set still carries `NostrEvent`. Once `event-less-nodes` has run, those sets are `ListItem:Set` and nothing else is `ListItem` without `NostrEvent`. So after migration `NostrEvent|ListItem` finds exactly the nodes `NostrEvent` finds today.
+    - Each rewrite therefore keeps today's results, which is what AC6 asks. It still leaves out `NostrUser` nodes, tag nodes and the metrics-card sets (`Set` without `ListItem`).
+    - Among them are the `set` concept's Elements tab (`ConceptElements.jsx:70`, `:81`), the concept list and `conceptCounts.js`, the brain's and the concept graph's element reads, and the class-thread routes in `normalize/index.js`. So are firmware install's and the wiring route's z-tag scans, the node and export pickers, and the Reading views.
+  - **`concept-graph/index.js:42` and `conceptCounts.js:49` changed alike,** so `summaries-element-count`'s L2 equality still holds.
+  - **`io.js:120`,** a lookup by a list of addresses that G11's one-line pattern couldn't see (its `WHERE` is on the next line), names `NostrEvent|TapestryNode`.
+  - **33 lines are kept, each with why.** Each is a header scan, a lookup or `MERGE` by `id`, an event count, a read of authorship, or the label's own write in the adoption and in `event-less-nodes`. I read each reason against its line, and each one holds.
+  - **One test from an earlier story changed.** `concept-count-canonical`'s live derivation now counts with the canonical rule's labels. That change is recorded in the plan's Amendment 3.
+- **Blocking 2 (status before `tapestry-keys`): resolved.**
+  - `planEventLess` (`_migrations.js:250–254`) reads applied over all of Decision 5's nodes, and the pass still takes only those with `TapestryNode`. So a graph with an event-less set that has no label reads as not applied (M24, M11).
+  - Once `tapestry-keys` is applied, every such node has the label, so the two counts agree.
+- **Non-blocking 1 (the shared-keys sentence): resolved.** The note words the rule and the index separately (M27).
+- **Non-blocking 2 (retries): resolved.** APOC's `retries` is yielded and summed into `report.retries` (M26).
+- **Non-blocking 3 (`placeholdersReplaced`): resolved.** It is one count of `'{}'` keys, read on its own (M25).
+- **Non-blocking 4 (the 400 MB): resolved.**
+  - OPERATIONS.md §17 now gives the measured figure.
+  - ADR Amendment 2 keeps its estimate, with the measurement noted beside it.
+  - BIBLE §6 states the scan rule.
+
+## Findings
+
+### Blocking
+
+None.
+
+### Non-blocking
+
+1. **`_migrations.js` `describeKeys`** — "APOC retried N batches (a lock held by a writer, most often)" says why without having checked. APOC retries a batch after any failure in it. Optional: say "after an error in the batch", or show the first error message.
+2. **The Author dropdowns, `AddNodeAsElement.jsx:34` and `nodes/Index.jsx:41`,** are kept as "about authorship". They list only people who signed events, while the lists beside them now include event-less sets, which carry a `pubkey`. Once migrated, someone who made only event-less sets has sets in the list but no entry in the dropdown. Optional: name `NostrEvent|ListItem` there too, so the dropdown matches its list.
+3. **`normalize/index.js:1027` and `:3892`** are the one new form the live check didn't run: `WHERE s:Superset OR s:NostrEvent|ListItem`, a label expression inside a `WHERE`. Neo4j 5 allows label expressions there, but nothing here has run it. The routes are `normalize-json` and add-node-as-element. Run each once in the deploy chain's local smoke test (`/cycle-local`), before staging.
+4. **The kept list is keyed by a line's text.** One entry, `MATCH (h:NostrEvent)` in `normalize/index.js`, covers its 17 header scans and would also excuse an 18th line of the same text that isn't one. This is round 1's Non-blocking 5 again, with more at stake. Optional: a later story could give G18 the line after each match.
+
+### Harness friction
+
+None new. Round 1's row (`2026-11-13-test-design-misses-other-suites`) already holds this round's cause, and it took this round's addition.
+
+## On PASS (same commit)
+
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection: the book `graph-operations-first-slice` is open, and its frame's rebuild, ledger and race items are not done. So it isn't complete, and there is no close to offer.
+
+## Verdict (round 3)
+
+**PASS**
+
+Round 2's two blocking findings are resolved and re-derived. Every line that names `NostrEvent` alone is now classified, and the guards that prove it fail on any new line. Status reads `event-less-nodes` from all of its nodes. The four smaller items are done. The live check from round 2 stands for everything except this round's label swaps. Those are mechanical, they keep today's results by construction, and Non-blocking 3 names the one form left for the local smoke test. Ready for the deploy chain (`cycle-local`, then `cycle-staging`) once the PR is open.

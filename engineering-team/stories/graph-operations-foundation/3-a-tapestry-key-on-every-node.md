@@ -1,6 +1,6 @@
 # Story 3: A tapestryKey on every node — `lifecycle migrate`, one shared label and a uniqueness constraint
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-08
 **Type:** Feature
 **Loom:** A10.3 — https://loom.brainstorm.world/t/A10.3
@@ -150,4 +150,4 @@ The live check covers AC1, AC2 and AC6, with AC4's status and AC5's new nodes al
 - Story 2, whose backup this takes first: [2-lifecycle-backup-and-restore.md](2-lifecycle-backup-and-restore.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md](../../decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md)
 - Test plan: [3-a-tapestry-key-on-every-node.test-plan.md](3-a-tapestry-key-on-every-node.test-plan.md)
-- Review: [engineering-team/reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md](../../reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md) (round 1, 2026-11-13)
+- Review: [engineering-team/reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md](../../reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md) (rounds 1–3, 2026-11-13)
