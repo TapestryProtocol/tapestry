@@ -94,8 +94,3 @@
 **CHANGES_REQUESTED**
 
 The code follows the ADR and every criterion has a passing test, but two things stand between this and a PASS. First, a backup taken before the rule exists can hold every key the stream has given since the deploy in one worker's memory, with the writers paused (Blocking 1). Second, none of this Cypher has yet run on Neo4j (Blocking 2). Back to `/implement-feature` with both: (1) after an owner ruling on its ADR note, and (2) as the live check the owner already scheduled alongside this review.
-
-## On PASS (same commit)
-
-- [ ] Story `**Status:**` flipped to `Done` in place. *(Not this round.)*
-- [ ] Completion detection. *(Not this round.)*
