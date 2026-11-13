@@ -3,7 +3,7 @@
 > **Audience:** the active team running this fork at `tapestry.brainstorm.world`.
 > **Prerequisite reading:** [BIBLE.md](./BIBLE.md) — what tapestry *is* and how it works. This file documents the specifics of *our* deployment that aren't useful to other operators forking the codebase.
 
-**Last updated:** 2026-11-08
+**Last updated:** 2026-11-13
 
 ---
 
@@ -25,6 +25,7 @@
 14. [Local dev loop (inside-container source edits)](#14-local-dev-loop-inside-container-source-edits)
 15. [CI test gate (PRs to staging/main)](#15-ci-test-gate-prs-to-stagingmain)
 16. [Backups — lifecycle backup and restore (graph-operations-foundation #2 / ADR graph-operations-foundation/0002)](#16-backups--lifecycle-backup-and-restore-graph-operations-foundation-2--adr-graph-operations-foundation0002)
+17. [Workflow rules: pinned actions, token permissions, deploy environments](#17-workflow-rules-pinned-actions-token-permissions-deploy-environments)
 
 ---
 
@@ -41,7 +42,7 @@ Four long-lived branches, four Digital Ocean droplets, four CI/CD workflows:
 
 > **Decommissioned September 2026:** the `feat/communities` (`communities.brainstorm.world`) and `feat/curate` (`curate.brainstorm.world`) sandboxes were retired — their Digital Ocean droplets were deleted (expensive to maintain, unused). The **branches are retained as archives** (Avi's communities work; the Curate app) — see [§2 Retired branches](#2-branches). `deploy-communities.yml` is removed (`deploy-curate.yml` was never merged past its own branch), and the `DEPLOY_*_COMMUNITIES` / `DEPLOY_*_CURATE` repo secrets are removed.
 
-Each workflow uses repo secrets named `DEPLOY_HOST_<NAME>`, `DEPLOY_USER_<NAME>`, `DEPLOY_SSH_KEY_<NAME>` where `<NAME>` is `TAPESTRY`, `STAGING`, `MAGIC_CARPET`, or `TAGS`. (The `TAPESTRY` secrets superseded `BRAINSTORM` in the 2026-07-10 cutover; they carry the same `159.203.150.156` host/user/key.)
+Each workflow reads secrets named `DEPLOY_HOST_<NAME>`, `DEPLOY_USER_<NAME>`, `DEPLOY_SSH_KEY_<NAME>` where `<NAME>` is `TAPESTRY`, `STAGING`, `MAGIC_CARPET`, or `TAGS`. Each deploy job names its target's GitHub environment, which is where the three belong ([§17.3](#173-deploy-environments)). (The `TAPESTRY` secrets superseded `BRAINSTORM` in the 2026-07-10 cutover; they carry the same `159.203.150.156` host/user/key.)
 
 ### Standard branch promotion flow
 
@@ -95,6 +96,8 @@ GitHub Actions workflows in `.github/workflows/`. All four follow the same SSH-a
 The first deploy to a new droplet takes 5–15 minutes (the strfry C++ Redis patch builds from scratch). Subsequent deploys take ~80 seconds on a warm Docker layer cache.
 
 These are the **deploy** workflows (push-triggered). The one non-deploy workflow is the pull-request **test gate** — see [§15](#15-ci-test-gate-prs-to-stagingmain).
+
+Every workflow follows three rules that `npm test` holds: actions pinned to a commit, declared token permissions, and a named environment on each deploy job. See [§17](#17-workflow-rules-pinned-actions-token-permissions-deploy-environments).
 
 ---
 
@@ -182,8 +185,8 @@ End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. Th
 
 ### 6.2. GitHub setup
 
-1. **Workflow file** — add `.github/workflows/deploy-<name>.yml` on the target branch. Mirror `deploy-tags.yml` and substitute the branch name, secret suffix, and droplet-name comment. Do **not** push yet — pushing triggers the first deploy, which fails until secrets are set and the droplet is ready.
-2. **Repo secrets** — prepare three placeholders in Settings → Secrets (values filled in from the droplet in §6.3 step 2):
+1. **Workflow file** — add `.github/workflows/deploy-<name>.yml` on the target branch. Mirror `deploy-tags.yml` and substitute the branch name, secret suffix, environment name, and droplet-name comment. The deploy job names the target's environment with an `environment: <name>` line, the secret suffix in lower case with hyphens for underscores ([§17.3](#173-deploy-environments)); `npm test` fails without it. Do **not** push yet — pushing triggers the first deploy, which fails until secrets are set and the droplet is ready.
+2. **Environment and its secrets** — in Settings → Environments, create the environment `<name>` and limit its deployment branches to the target branch (Deployment branches and tags → Selected branches). Then prepare three placeholders as secrets of that environment, not of the repository (values filled in from the droplet in §6.3 step 3):
    - `DEPLOY_HOST_<NAME>` — droplet IP or hostname
    - `DEPLOY_USER_<NAME>` — typically `root`
    - `DEPLOY_SSH_KEY_<NAME>` — the **private** key generated on the droplet
@@ -229,7 +232,7 @@ End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. Th
    cat ~/.ssh/tapestry_<name>.pub >> ~/.ssh/authorized_keys
    cat ~/.ssh/tapestry_<name>       # paste into DEPLOY_SSH_KEY_<NAME>
    ```
-   Now fill in the three `DEPLOY_*_<NAME>` secrets in GitHub.
+   Now fill in the three `DEPLOY_*_<NAME>` secrets in the target's environment in GitHub.
 
 4. **Clone and check out the target branch.**
    ```bash
@@ -1095,3 +1098,65 @@ location = /api/tapestry/lifecycle/upload-backup {
 ```
 
 Copy the site's existing `location /` block twice, keeping its headers (above all `X-Forwarded-For`, which stops the app trusting the request as the local operator). Add the buffering and timeout lines to both, and the two body lines to the upload's alone, so only the upload takes a backup-sized body. The container's own nginx has the same two blocks (`docker/nginx.conf`). There is no deletion or rotation yet: remove an old backup with `docker exec tapestry rm -rf /var/lib/brainstorm/backups/<id>`.
+
+---
+
+## 17. Workflow rules: pinned actions, token permissions, deploy environments
+
+Every file in `.github/workflows/` follows three rules. `test/workflow-hardening.test.js` reads the folder on every `npm test` and fails, naming the file and the rule, when one is broken. That includes a workflow added later (story `workflow-hardening` #1).
+
+### 17.1. Pinned actions
+
+A workflow calls an action by its full commit id, with the release that commit is in a comment:
+
+```yaml
+uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+```
+
+Whoever controls an action's repository can move a tag such as `@v1` to different code. A commit id can't be moved. The pin fixes the action's own files, not everything it fetches when it runs: `appleboy/ssh-action` downloads its SSH client from a release at run time.
+
+**To move a pin to a newer release,** read the release's notes, resolve the release to its commit, and change both the commit id and the comment in every workflow that calls the action:
+
+```bash
+git ls-remote --tags https://github.com/appleboy/ssh-action 'v1.2.6' 'v1.2.6^{}'
+```
+
+The line ending in `^{}` is the commit, when there is one; otherwise the plain line is. `test/ci-test-job.test.js` holds the test gate's two actions at `v5`, so a move to another major version changes that test in the same pull request.
+
+### 17.2. Token permissions
+
+Each workflow declares what its `GITHUB_TOKEN` may do, in one `permissions:` block at the top of the file. Without one, a repository setting decides, and settings don't travel with the repo: [§4](#4-branch-protection-rulesets) tells how the rulesets were lost in a move.
+
+- The four deploy workflows give the token nothing (`permissions: {}`). The job only opens an SSH session.
+- The test gate and the main-source guard read the repository (`contents: read`).
+- The image-publishing workflow also writes packages, to push the brain images.
+
+No workflow may write to the repository's contents. Any other write scope is listed for its file in `WRITE_SCOPES` in the test, in the same pull request that adds it.
+
+### 17.3. Deploy environments
+
+Each job that reads a deploy secret names a GitHub environment, with an `environment:` line. The name is the deploy secrets' suffix in lower case, with hyphens for underscores:
+
+| Environment | Secrets | Workflow | Deploy branch |
+|---|---|---|---|
+| `tapestry` | `DEPLOY_*_TAPESTRY` | `deploy-tapestry.yml` | `main` |
+| `staging` | `DEPLOY_*_STAGING` | `deploy-staging.yml` | `staging` |
+| `tags` | `DEPLOY_*_TAGS` | `deploy-tags.yml` | `feat/tags` |
+| `magic-carpet` | `DEPLOY_*_MAGIC_CARPET` | `deploy-magic-carpet.yml` | `feature-magic-carpet` |
+| `ninja` | `DEPLOY_*_NINJA` | `publish-image.yml` | `staging`, and `main` when run by hand |
+
+**A deploy target's `DEPLOY_` secrets belong in its environment, limited to its deploy branch.** GitHub gives a repository-level secret to any workflow that names it, on any branch. It gives an environment's secrets only to a job that names the environment, and only from the branches the environment allows (Settings → Environments → the environment → Deployment branches and tags → Selected branches). An environment can also ask for an approval before each run (Required reviewers), which suits `tapestry`.
+
+GitHub creates an environment the first time a job names it, empty and with no rules. Until its secrets are added, the job reads the repository-level secrets of the same names. So a workflow can carry the `environment:` line before the environment is set up.
+
+**Moving an existing target's secrets.** Each long-lived deploy branch runs its own copy of its workflow. So move one target at a time, and only after that target's own deploy branch carries the `environment:` line:
+
+1. Check the branch: `git show origin/<branch>:.github/workflows/<workflow> | grep environment:`.
+2. In Settings → Environments, open the target's environment and limit its deployment branches to the branch in the table.
+3. Add the three `DEPLOY_` secrets to the environment. GitHub can't copy a secret's value, so they are entered again. This is a good moment to give the server a new key pair (§6.3 step 3) and take the old public key out of its `authorized_keys`.
+4. Push to the branch, or re-run its last deploy, and see the run succeed.
+5. Delete the three repository-level secrets of the same names.
+
+A target whose repository-level secrets are deleted before its branch has the line fails its next deploy: the job names no environment and finds no secret.
+
+A new target is set up this way from the start: [§6.2](#62-github-setup).

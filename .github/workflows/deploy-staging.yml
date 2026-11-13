@@ -12,13 +12,18 @@ concurrency:
   group: deploy-staging
   cancel-in-progress: false
 
+# The job only opens an SSH session, so its token is given nothing (OPERATIONS.md §17).
+permissions: {}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Where this server's deploy secrets belong (OPERATIONS.md §17).
+    environment: staging
     timeout-minutes: 60
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         timeout-minutes: 60
         with:
           host: ${{ secrets.DEPLOY_HOST_STAGING }}

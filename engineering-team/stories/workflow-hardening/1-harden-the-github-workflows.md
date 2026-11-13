@@ -88,6 +88,18 @@ None open. Settled at intake on 2026-11-13:
 - **Environment names** follow the deploy secrets' suffixes: `tapestry`, `staging`, `tags`, `magic-carpet`, `ninja`.
 - **No ADR.** Architecture was skipped as obvious for a Bug. The convention is recorded in OPERATIONS.md.
 
+## Deviations
+
+- **The deploy workflows give their token nothing** (`permissions: {}`), where AC-2 would also have allowed
+  `contents: read`. Their jobs check nothing out; the action they call needs no token.
+- **Each added line carries a one-line comment** pointing at OPERATIONS.md §17. The test plan's diff check lets
+  comment lines through.
+- **OPERATIONS.md §6.2 pointed at "§6.3 step 2" for the deploy key.** The key is made in step 3, so the sentence, which
+  this story rewrites, now says step 3.
+- **The full gate was not run on the development machine.** There it writes to a stack that answers as `tapestry`
+  (OPEN.md row `2026-11-13-live-suites-have-no-off-switch`). The story's suites were run one at a time, and the full
+  gate's result is the pull request's `Test` run, as the test plan says.
+
 ## Linked artifacts
 - ADR: none (Architecture skipped at intake, 2026-11-13)
 - Test plan: `engineering-team/stories/workflow-hardening/1-harden-the-github-workflows.test-plan.md`
