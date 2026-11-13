@@ -245,3 +245,159 @@ Not applicable. The book has an acceptance frame and no PRD, and there is no UI.
 ## Verdict
 
 **CHANGES_REQUESTED**
+
+---
+
+# Round 2
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-13
+**Diff:** `git diff 0af83004..28d402fe`, commit by commit:
+- `0b5c3b71`: round 1 of this review, committed as written.
+- `cc61d30f`: the Tester's round. The guard's two ENV patterns with four new cases in S11 and S13, one comment in `test/honest-publish-reporting-ci-guard.test.js`, and the test plan. It touches no workflow and no operator doc.
+- `2ce462c2`: the fix. `deploy/RUNBOOK.md`, OPERATIONS.md, the book and the epic. It touches no `test/` and no workflow.
+- `28d402fe`: records. Two new ledger rows, a dated note on two existing rows, and an intake entry.
+
+**In short.** Both of round 1's blockers are answered, and every non-blocking item was taken or queued. Each fix holds when re-derived, with small leftovers listed below. One new thing blocks, and it comes from outside the branch: `staging` moved while this was in review. Its new tip adds its own section 17 to OPERATIONS.md at the same two places as this branch's. So the branch no longer merges, and its section number is taken (R2-B1).
+
+On the question put to this round: the amended test plan answers B2, and a verdict does not have to wait for the owner's OK. The reasons are under "B2" below.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`: not run,** for round 1's reason. There is still no full-gate result for this code, and no `gate:status` line to quote.
+- [x] **The same three suites, one at a time,** at `28d402fe`, on Node 24.18.0, with the same three variables pointed at nothing. They ran on this branch's tree, not on a merge with `staging`'s new tip (R2-B1).
+
+  | Suite | Passed / failed / skipped |
+  |---|---|
+  | `workflow-hardening` | 26 / 0 |
+  | `ci-test-job` | 14 / 0 |
+  | `brains-launcher-repo` | 31 / 0 / 0 |
+
+- [x] **`bash scripts/harness-lint.sh`:** clean, 0 violations, before this round was written and after.
+- [x] **Lanes.** `git show --name-only` for `2ce462c2` and for `28d402fe` lists nothing under `test/`. No workflow file has changed since `0af83004`, so V1 and round 1's parsed comparison stand.
+- [x] **V2's two commands, as the plan now gives them** (`:146`, `:154`). The first prints nothing. The second pairs every action: `actions/checkout` 2 and 2, `actions/setup-node` 1 and 1, `appleboy/ssh-action` 5 and 5, `docker/build-push-action` 2 and 2, `docker/login-action` 1 and 1, `docker/setup-buildx-action` 1 and 1.
+- [x] **Probes,** in a throwaway `node -e`, with nothing written: the amended checkers on made-up workflows, and on the text of the two extra workflow files of `feature-magic-carpet`.
+- [x] **The repo's own readers, by hand.** `intake_entries` reads the new intake entry as open, and `collect_meta` exits 0 and lists this story's three rows. Both only read files (`scripts/lib/collect-intake.sh`, `scripts/lib/collect-meta.sh`).
+- [x] **GitHub, read only: four requests,** one at a time.
+  - `git ls-remote origin` for three refs: `feature-magic-carpet`, `staging`, and pull request 51's.
+  - The compare of this branch's base with `staging`'s tip, as a diff. I printed its file list, and the hunks of the files this branch also changes.
+  - `ui/src/pages/reading/writeVerbs.js` at `staging`'s tip, for the lines that name the publish route.
+  - The pin command, exactly as `OPERATIONS.md:1121` prints it.
+- [ ] `npm run test:playwright`: not applicable (no UI).
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+## Round 1's findings, each re-derived as a fresh claim
+
+| Finding | Re-derived by | Result |
+|---|---|---|
+| B1, the runbook | `deploy/RUNBOOK.md:130-135` sends the three secrets to the `ninja` environment, "not to the repository's own secrets", and points at §17.3. `OPERATIONS.md:1169` points back, and "step 7 of Handover 1" is right (`deploy/RUNBOOK.md:59`, `:125`). Both links resolve. The case round 1 blocked on can no longer come from following the text: after the move the environment exists and is limited (`OPERATIONS.md:1162`), so a new key lands in a limited environment. | Fixed. One wording gap (non-blocking 1). |
+| B2, the run named as the gate | Test plan `:109-115` and `:159-160`, checked against `staging`'s tip. | Answered. See "B2" below. |
+| Non-blocking 1, the object filter | `test/workflow-hardening.test.js:209`, `:212`; S11 `:432-433`; S13 `:447-452`. In a probe, all four forms round 1 reported are caught: `join(secrets.*, …)`, `toJSON(secrets.*)`, the same beside a rightly named environment, and spaces round the dot. The plan puts the rest of the class under "Not covered" (`:81-82`). | Fixed for what was reported. Two leftovers (non-blocking 2 and 3). |
+| Non-blocking 2, what PIN reads | Test plan `:78-80` names both under "Not covered", and the intake entry queues the choice. It is still true that nothing uses either. | Recorded, as round 1 offered. |
+| Non-blocking 3, a pin's truth | `OPERATIONS.md:1124` asks whoever reviews a pin change to run the command and compare. | Fixed. |
+| Non-blocking 4, one workflow per target | `OPERATIONS.md:1154-1161`, the book `:35-38`, the epic `:41-42`. The claim table below has the detail. | Fixed. |
+| Non-blocking 5, wording | The label at `:189` and `:1148`; the example at `:1121`; the sentence on branch rules at `:1148`; the contents line at `:15`, which now resolves. | Fixed. One new phrase overstates §4 (non-blocking 4). |
+| Non-blocking 6, V2 | Test plan `:149-157`. Both commands run as written (above). | Fixed. |
+| Non-blocking 7, the run-time download | `engineering-team/stories/_intake.md:3007-3035`. It matches the action's source as read in round 1. Its added item holds too: the action has a `fingerprint` input, and no workflow sets one. | Queued. |
+| Non-blocking 8, a stale line number | `test/honest-publish-reporting-ci-guard.test.js:13` names the step. It is a comment, and that suite does not read its own source. The two records keep their line numbers, as records. | Fixed. |
+| Friction 1 | No note was added to OPEN.md row 294. The story's own row covers this machine. | Not taken. Optional. |
+| Friction 2 | `ledger/2026-10-07-on-pass-heading-reads-as-verdict.md:38-40`. "Seven" follows the six before it. | Filed; accurate. |
+| Friction 3 | `ledger/2026-10-29-h2-0-baseline-predates-github-flow.md:71-73`. The comment is on both branches, by my local refs. | Filed. One number unchecked (non-blocking 5). |
+| Friction 4 | `ledger/2026-11-13-plan-names-ci-gate-already-red.md`. The lint and `collect_meta` read it. | Filed. One clause is off (non-blocking 6). |
+| Friction 5 | `ledger/2026-11-13-story-counts-files-from-one-branch.md`. | Filed; its claims hold. |
+
+## B2: is it answered, and does a verdict wait for the owner's OK?
+
+**The amendment** (test plan `:109-115`, and V3 at `:159-160`). It names the red suite and its row, and gives two readings. If the fix for S2 is on `staging` when the pull request's run starts, the run must be green. If not, the run counts when every step before `npm test` succeeds on the pinned actions and S2 is the only failure, and "Shipping on that reading needs the owner's OK, recorded in the review".
+
+**It is accurate, checked against `staging` as it is now** (it has moved: R2-B1):
+
+- `test/setup-alert-polish.test.js` is not among the 92 files `staging` gained, so its allow-list is unchanged there.
+- `ui/src/pages/reading/writeVerbs.js` at `staging`'s tip still posts to `/api/strfry/publish` by hand (`:278`).
+
+So S2 is still red on `staging`, and the fix has not landed. "When this pull request's run starts" is the right test. A pull request's run is made from a merge with `staging` at that moment, and re-running the same run later reuses that merge. So a fix that lands afterwards needs a new push, not a re-run. That last part is GitHub's behaviour as I know it.
+
+**The pull request that holds the fix (51).** No committed file names it, so nothing in the diff rests on it. Its head and merge refs exist on the remote. I did not read its content.
+
+**Does a verdict wait for the owner's OK? No.** Round 1 asked for the OK to be "recorded" as part of the fix. Re-derived, that asked for it too early, and I withdraw that part:
+
+- A verdict needs the plan to be true, and it needs nothing to ship on a red run on a review's say-so. The amended plan gives both.
+- The OK is about one run's result, and that run exists only once the pull request does. The last book that met this red took it in that order: the run came back with S2 as its one failure, and then "The owner chose to ship with it" (`engineering-team/audits/openapi-coverage/audit.md:86-88`).
+- So a pass in a later round is not that OK, and must not be read as one. If the run is red, the OK goes into this file before the merge: which run, that S2 was its only failure, that every step before `npm test` succeeded, and the owner's words and date. Put it above the last verdict, or keep verdict words off its bold and heading lines, so the lint still reads the right one.
+
+## The new sentences, claim by claim
+
+| Claim | Where | Checked against | Result |
+|---|---|---|---|
+| The `ninja` secrets go in the `ninja` environment, limited to `staging` and `main`, and the publish workflow names it | `deploy/RUNBOOK.md:130-135` | `publish-image.yml:58`, `:61`; `OPERATIONS.md:1146` | Holds. The limit is written for the case where the environment has to be created (non-blocking 1). |
+| GitHub's label, "Selected branches and tags" | `OPERATIONS.md:189`, `:1148`; `deploy/RUNBOOK.md:131` | Round 1's read of the documentation (`manage-environments.md:75`) | Holds for the option. The section's own name I can't see from here; the documentation's step calls the dropdown "Deployment branches". |
+| For `v1.2.5` the command prints the pin shown above | `OPERATIONS.md:1121`, `:1124` | Run as printed. One line: `0ff4204d59e8e51228ff73bce53f80d53301dee2`, `refs/tags/v1.2.5`. | Holds |
+| The test checks a pin's form, not that it is the release its comment names | `:1124` | `test/workflow-hardening.test.js:97-99`; round 1's probe | Holds |
+| Whoever may push to the allowed branch can change the workflow that runs there | `:1148` | A push's run uses the workflow file of the pushed commit | Holds |
+| §4 records what protects each branch | `:1148` | §4 itself (`:106`) | Overstated (non-blocking 4) |
+| A run waits for a required approval, and the two cycle skills wait with it | `:1148` | The skills find the run by its commit, with no filter on its state, then call `gh run watch` with no bound (`.claude/skills/cycle-staging/SKILL.md:120-127`, `.claude/skills/cycle-prod/SKILL.md:113-120`). That `gh run watch` keeps watching a waiting run is as I know it; not run. | Holds, as far as the files show |
+| Step 1's two commands | `:1154-1159` | Run as written on local refs. For `MAGIC_CARPET` on `feature-magic-carpet` the first lists `configure-prod.yml` and `deploy-magic-carpet.yml`. For the other targets on their own branches it lists one file each. The second lists no line on today's branches, and five on this one. | Holds |
+| On 2026-11-13 `feature-magic-carpet` held two workflows that `staging` doesn't; both name deploy secrets, call their action by a tag, and declare no permissions or environment; the test fails on them | `:1161`; the book `:35-38`; the epic `:41-42` | The remote's tip today is `08376328`, the ref I read. In the files: `DEPLOY_*_MAGIC_CARPET` and `DEPLOY_*_BRAINSTORM`; `@v1.2.2` and `@v1`; no `permissions:` or `environment:` at any depth. The guard's checkers give each file three findings: PIN, TOKEN and ENV. | Holds, both claims |
+| The `ninja` box's setup is step 7 of Handover 1 | `:1169` | `deploy/RUNBOOK.md:59`, `:125` | Holds |
+| The object filter and spaces round the dot are caught; the rest of that class is not | test plan `:60-63`, `:81-82` | The suite and the probes | Holds, with two leftovers (non-blocking 2 and 3) |
+| How the pull request's run is read | test plan `:109-115` | "B2", above | Holds |
+| V2's two blind spots, and the pairing command | test plan `:149-157` | Run as written | Holds |
+
+## Findings
+
+### Blocking
+
+1. **R2-B1. `OPERATIONS.md:28` and `:1104`: `staging` moved while this was in review, and its new tip takes section 17 at the same two places.**
+   - **What I read.** One `git ls-remote origin` at 18:08 on 2026-11-13 gives `staging` as `e62a5f92`. This branch, round 1 and this round's commands all rest on the local ref, `6c57ec1f`, last fetched at 14:54.
+   - **What landed.** The compare of the two, read once from GitHub: 92 files, the work of `graph-operations-foundation` #3. One of them is also changed here: OPERATIONS.md. There `staging` now adds a contents line "17. [Migrations — lifecycle migrate …]" after line 27, and a section "## 17. Migrations — lifecycle migrate (graph-operations-foundation #3 / ADR graph-operations-foundation/0003)" at the end of the file. Those are the two places where this branch adds its own (`:28`, `:1104`), from the same base file.
+   - **Why it blocks.**
+     - The branch no longer merges into `staging`. Two different insertions at one place are a conflict, and there are two such places. I reasoned this from the two diffs; I did not fetch to try it.
+     - GitHub does not run a pull request's workflows while it has a conflict. So V3's run cannot start. This is GitHub's documented behaviour as I know it, not re-read today.
+     - Section 17 is taken, so this branch's section has to become 18. That changes lines this review has read: ten comment lines in six workflow files, the contents line, four headings and three links in OPERATIONS.md, the runbook's link, the story's Deviation, the CHANGELOG row and the intake entry.
+     - The three suites and the lint ran on this branch's tree, not on a merge with the new tip.
+   - **It is not a fault in the change,** which was right when written. Nothing else that `staging` gained touches this story's files: no workflow, not `test/registry.js`, not the CHANGELOG, not the runbook, and its two new ledger rows have other names.
+   - **Asked change.**
+     - Fetch, and merge `staging` into the branch or rebase onto it. In OPERATIONS.md, Migrations stays 17 and this section becomes 18, with 18.1 to 18.3.
+     - Change every reference. On this branch today they are: `.github/workflows/deploy-magic-carpet.yml:7,13`, `deploy-staging.yml:15,21`, `deploy-tags.yml:7,13`, `deploy-tapestry.yml:12,18`, `publish-image.yml:60`, `test.yml:19`; `OPERATIONS.md:28,45,100,188,1104,1108,1126,1136`; `deploy/RUNBOOK.md:134`; `engineering-team/CHANGELOG.md:118`; `engineering-team/stories/_intake.md:3022`; and the story `:95`.
+     - Optional: have the workflow comments and the runbook name the section by its title, not its number. A number is the second citation in this story to go stale; a line number was the first (round 1, non-blocking 8).
+     - Then run V2's two commands again, since the workflow files change, and the three suites and the lint, all on the merged tree. The next round re-derives the changed lines.
+
+### Non-blocking
+
+1. **`deploy/RUNBOOK.md:130-131`: the branch limit is written only for the case where the environment has to be created.** "If it isn't there, create it, and under Deployment branches and tags choose …" After this change GitHub will have made `ninja` itself, empty and with no rules (`OPERATIONS.md:1150`). So the likelier case is the one the sentence skips. Suggested: "open the `ninja` environment, or create it. Either way, see that Deployment branches and tags is set to Selected branches and tags, with `staging` and `main`, before adding the secrets."
+
+2. **`test/workflow-hardening.test.js:216` and `:222`: a line break or a tab round the dot still passes.**
+   - The two patterns (`:209`, `:212`) run on the job as JSON text. There a line break inside a script is the two characters `\n`, which `\s*` does not match.
+   - In a probe, `secrets`, a line break, then `.DEPLOY_SSH_KEY_STAGING` inside a `run: |` block passed, and so did the same with `.*`. The same break in a plain value was caught, because YAML folds it into a space.
+   - Whether GitHub accepts a line break there, I couldn't test. The plan's "with spaces round the dot" (`:63`) is true as worded.
+   - Suggested: match on the strings themselves, or add this beside the plan's `:81-82`.
+
+3. **`test/workflow-hardening.test.js:212`: the new pattern also fires on ordinary script text.** In a probe, `rm -f config/secrets.*` and a `grep` for `secrets.*key` were each reported as reading every secret. It is a false alarm, not a hole, and no workflow here trips it. The guard has always read script text (S10's third case). Suggested: one line in the test plan's edge cases, so whoever meets it knows why.
+
+4. **`OPERATIONS.md:1148`: "§4 records what protects each branch" says more than §4 does.** §4 gives the rulesets' definitions, says none has been in force since the move, and ends "Read the live settings, not this section, for what is enforced today" (`:106`). Suggested: "§4 says what is meant to protect each branch, and where to read what does."
+
+5. **`ledger/2026-10-29-h2-0-baseline-predates-github-flow.md:72`: "They ran 143 times between 2026-10-27 and 2026-11-13" is a number I could not check.** It needs GitHub's list of runs, which I did not read. Suggested: say how it was counted, or drop the number. The sentence stands without it.
+
+6. **`ledger/2026-11-13-plan-names-ci-gate-already-red.md:15`: "the Reviewer caught it by reading the ledger" is not quite how it went.** The Test Design baseline's own run record showed `setup-alert-polish` at 16 passed, 1 failed (round 1, Quality gates), and the ledger row then explained it. That bears on the fix shape: the Tester's own baseline already showed this red, as one of eighteen failing suites on a machine with a live stack. Suggested: say so, and consider a third fix shape, that a plan accounts for each failure in its baseline.
+
+7. **The story `:91-101`: the Deviations don't mention the runbook,** a file the story never named, changed in `2ce462c2`. One line would keep the story's own record whole for the book's close (`engineering-team/roles/implementer.md:47`).
+
+### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+1. **Review has no check of where the target branch is now.**
+   - Workflows 1 and 2 start with an origin-drift preflight (`engineering-team/workflows/1-planning.md:16`, `2-architecture.md:16`). Workflow 5 has none, and this story skipped Architecture.
+   - Round 1 compared against the local ref and did not ask the remote. I should have, with one of the reads I had. Whether `staging` had already moved by then, I can't tell.
+   - It is close to `ledger/2026-10-14-session-start-stale-clone-unflagged.md`, whose fix shape is to run the preflight earlier. This is the case for running it later too. The clash itself is the kind `ledger/2026-11-08-parallel-stories-clash-in-shared-files.md` records: two branches each took the next section number of one shared file on the same day.
+   - Candidate: workflow 5 reads the target's tip (`git ls-remote`, which writes nothing) and names it in the review's Diff line. A note on the first of those rows, or a new row.
+
+## On PASS (same commit)
+
+- [ ] Not applicable: the round-2 verdict is CHANGES_REQUESTED.
+  - The story's `**Status:**` stays `Approved`, and no completion detection was run.
+  - Round 3: the branch takes in `staging`, the section becomes 18 and its references follow (R2-B1). Non-blocking 1 to 7 are small and can ride along. Then this review reads the target's tip again, re-derives the changed lines, and re-runs V2's two commands, the three suites and the lint on the merged tree.
+  - The owner's OK for a red run is not part of round 3 (see "B2").
+  - This session commits nothing.
+
+## Verdict (round 2)
+
+**CHANGES_REQUESTED**
