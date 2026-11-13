@@ -39,6 +39,10 @@ Only what AC-6 authorizes: `W3`, `W4` and `W9` in `test/ci-test-job.test.js` nam
 nothing after the commit id (W9). Their names and every other assertion are unchanged. The new suite is registered in
 `test/registry.js`.
 
+Round 2, after the first review: the guard also catches the object filter `secrets.*` and a secret named with spaces
+round the dot (`S13`, `S11`). The header comment of `test/honest-publish-reporting-ci-guard.test.js` cited a line
+number of `test.yml` that this story's change had moved; it now names the step.
+
 ### Guard suite
 
 `test/workflow-hardening.test.js` is written in this phase and is the judge of Phase 4. Phase 4 changes the workflow
@@ -53,10 +57,10 @@ Not derivable from the acceptance criteria, and covered:
       never mistaken for a key.
 - [x] A reusable workflow called by a job, and a `docker://` image, are held to the PIN rule (`S4`, `S1`, `S2`).
 - [x] A pin whose comment names the moving tag (`# v5`) is caught: the comment must name a release (`S3`).
-- [x] A job that reads secrets without naming them, by `toJSON(secrets)`, `secrets[…]` or `secrets: inherit`, is
-      caught, because no one environment covers every server (`S13`).
+- [x] A job that reads secrets without naming them, by `toJSON(secrets)`, the object filter `secrets.*`, `secrets[…]`
+      or `secrets: inherit`, is caught, because no one environment covers every server (`S13`).
 - [x] A deploy secret read outside any job, a `DEPLOY_` secret of an unknown kind, and a deploy secret named in lower
-      case (`S13`, `S11`).
+      case or with spaces round the dot (`S13`, `S11`).
 - [x] A job that widens its own token, `contents: write` even when a list names it, and a stale entry in the list of
       write scopes (`S7`, `R3`).
 - [x] An environment given as `name:` and `url:`, and one whose name is computed (`S9`, `S11`).
@@ -71,6 +75,11 @@ Not covered, with the reason:
 - What a pinned action itself calls. An action pinned by commit can call another by tag inside its own repository;
   this repo's files cannot see that.
 - Matrix-built job names and `workflow_call` inputs. No workflow here uses them.
+- A local action's own `action.yml`, and a job's `container:` or `services:` image named by a tag. The PIN rule reads
+  the `uses:` lines of workflow files. No workflow here has either, and no `action.yml` is tracked (review round 1,
+  non-blocking 2).
+- Every other expression that could yield a secret without naming it. The guard knows the four above. It is a
+  tripwire; the control is each environment's branch limit in GitHub.
 
 ## Test infrastructure
 - Test framework: Node built-in runner (`node test/test.js`), through `test/registry.js`. A run's result is read per
@@ -96,6 +105,14 @@ node -e "require('./test/workflow-hardening.test.js').run().then((r) => console.
 from a machine whose `tapestry` container is anything but a scratch stack: about forty suites run live tests through
 `docker exec` on that container and on port 7778, some of them writing, and `BRAINSTORM_BASE_URL` does not turn those
 off. This story's suites need no stack and can be run one at a time, as above.
+
+**How that run is read.** One suite on `staging` is red for a reason outside this story: `setup-alert-polish` S2
+(OPEN.md row `2026-11-07-reading-writeverbs-raw-publish`). While that row is open, every pull request into `staging`
+fails on that one test.
+
+- If the fix for S2 is on `staging` when this pull request's run starts, the run must be green.
+- If it is not, the run counts for this story when every step before `npm test` succeeds on the pinned actions and
+  S2 is the run's only failure. Shipping on that reading needs the owner's OK, recorded in the review.
 
 ## Verification
 
@@ -129,11 +146,21 @@ off. This story's suites need no stack and can be run one at a time, as above.
   git diff origin/staging -- .github/workflows | grep -E '^[+-][^+-]' | grep -v -E '^[+-][[:space:]]*(-[[:space:]]+)?uses: |^\+permissions:|^\+  [a-z-]+: (read|none)$|^\+[[:space:]]+environment: |^\+[[:space:]]*#'
   ```
 
+  The command is a quick screen with two blind spots: it skips a changed line whose own text starts with `-` or `+`,
+  and it lets any changed `uses:` line through, whatever it now names. So also pair the removed and added `uses:`
+  lines by action name, where each name must show the same count on both sides:
+
+  ```
+  git diff origin/staging -- .github/workflows | grep -E '^[+-][[:space:]]*(-[[:space:]]+)?uses: ' | sed -E 's/^([+-])[[:space:]]*(-[[:space:]]+)?uses: ([^@[:space:]]+).*/\1 \3/' | sort | uniq -c
+  ```
+
+  And compare each workflow, parsed, before and after, as review round 1 did.
+
 - **`V3` (AC-6), on the pull request and after the merge.** The pull request's own `Test` run is the first run of
-  the test gate with pinned actions, and must be green. After the merge, the first `Deploy to Staging` run must
-  succeed. The merge also changes the image-publishing workflow, which is in its own `paths` list, so it rolls the
-  brains: that run must succeed too. `main`, `feat/tags` and `feature-magic-carpet` run their own copies, which
-  change when the change reaches them.
+  the test gate with pinned actions. It is read as "How that run is read" says, above. After the merge, the first
+  `Deploy to Staging` run must succeed. The merge also changes the image-publishing workflow, which is in its own
+  `paths` list, so it rolls the brains: that run must succeed too. `main`, `feat/tags` and `feature-magic-carpet`
+  run their own copies, which change when the change reaches them.
 
 ### The new tests fail with the current code
 

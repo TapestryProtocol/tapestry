@@ -206,9 +206,10 @@ function checkToken(wf, allowed = WRITE_SCOPES) {
 // ENV: each job that reads a deploy secret names that server's environment
 // ===========================================================================
 
-const DEPLOY_SECRET = /secrets\.(DEPLOY_[A-Z0-9_]+)/gi;
+const DEPLOY_SECRET = /secrets\s*\.\s*(DEPLOY_[A-Z0-9_]+)/gi;
 const DEPLOY_SECRET_KIND = /^DEPLOY_(?:HOST|USER|SSH_KEY)_([A-Z0-9_]+)$/;
-const EVERY_SECRET = /toJSON\(\s*secrets\s*\)|secrets\s*\[/i;
+// All at once (toJSON(secrets)), by a computed name (secrets[...]), or through the object filter (secrets.*).
+const EVERY_SECRET = /toJSON\(\s*secrets\s*\)|secrets\s*\[|secrets\s*\.\s*\*/i;
 
 /** The deploy secrets a job (or any part of a workflow) names, upper-cased, once each. */
 function deploySecretsIn(part) {
@@ -239,7 +240,7 @@ function checkEnvironments(wf) {
     if (!isMap(job)) continue;
     if (readsEverySecret(job) || job.secrets === 'inherit') {
       found.push(finding(wf, 'ENV',
-        `job ${jobId} reads every secret at once (toJSON(secrets), secrets[...] or secrets: inherit); a job reads one server's deploy secrets, by name`));
+        `job ${jobId} reads every secret at once (toJSON(secrets), secrets.*, secrets[...] or secrets: inherit); a job reads one server's deploy secrets, by name`));
       continue;
     }
     const names = deploySecretsIn(job);
@@ -428,6 +429,8 @@ test('S11 (AC-3, AC-4): ENV catches a deploy job with no environment, or with an
     /it must be "example"/, 'an environment name that is computed');
   caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          HOST: ${{ secrets.deploy_host_example }}'] })),
     /reads EXAMPLE's deploy secrets but names no environment/, 'a deploy secret named in lower case');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          HOST: ${{ secrets . DEPLOY_HOST_EXAMPLE }}'] })),
+    /reads EXAMPLE's deploy secrets but names no environment/, 'a deploy secret named with spaces round the dot');
 });
 
 test('S12 (AC-3, AC-4): ENV catches a job that reads more than one server\'s deploy secrets', () => {
@@ -441,6 +444,12 @@ test('S13 (AC-3, AC-4): ENV catches a job that reads secrets without naming them
   caught(checkEnvironments(made({ job: ['    environment: example'],
     steps: ['      - run: echo', '        env:', "          HOST: ${{ secrets[format('DEPLOY_HOST_{0}', matrix.server)] }}"] })),
   /reads every secret at once/, 'a secret read by a computed name');
+  caught(checkEnvironments(made({ job: ['    environment: example'],
+    steps: ['      - run: echo', '        env:', "          ALL: ${{ join(secrets.*, ',') }}"] })), /reads every secret at once/, 'join(secrets.*)');
+  caught(checkEnvironments(made({ job: ['    environment: example'],
+    steps: ['      - run: echo', '        env:', '          ALL: ${{ toJSON(secrets.*) }}'] })), /reads every secret at once/, 'toJSON(secrets.*)');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          ALL: ${{ toJSON( secrets . * ) }}'] })),
+    /reads every secret at once/, 'the object filter with spaces, in a job with no environment');
   const inherits = readWorkflow('example.yml', ['name: Example', 'on: push', 'permissions: {}', 'jobs:', '  shared:',
     `    uses: octo-org/shared/.github/workflows/deploy.yml@${SHA} # v1.0.0`, '    secrets: inherit'].join(NL) + NL);
   caught(checkEnvironments(inherits), /job shared reads every secret at once/, 'secrets: inherit');
