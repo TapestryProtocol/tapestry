@@ -271,7 +271,11 @@ Then the worktree moved to `9b4bdfb7` and the Node programs were restarted (`bra
    - Decision 5's nodes: 2 (A and B).
    - `NostrEvent` nodes with no `id`: 3 (A, B and the placeholder). The firmware graph alone had 0.
    - Addresses held by more than one node: 0.
-   - On staging, these wait for the owner's OK, since the third query is a full scan.
+   - **On staging**, with the owner's OK: 2026-11-13 at 18:39 UTC, the same three queries through staging's public read path (`https://staging.brainstorm.world/api/neo4j/query`, from the Mac Studio). The times are curl's, round trip included.
+     - Decision 5's nodes: 0, in 0.4 s.
+     - `NostrEvent` nodes with no `id`: 2, in 0.1 s. Both are placeholders.
+     - Addresses held by more than one node: 0. The full scan took 5.9 s.
+     - So on staging today, `event-less-nodes` would relabel nothing, and no node would drop out of the `set` concept's Elements tab at migrate. Finding 1 still holds for the sets add-subset makes after the deploy.
 6. **Measurement 5 (Amendment 2), the key read before migrate.** This ran on instance B after measurement 2, with the rule dropped (`DROP CONSTRAINT tapestry_key`). That leaves a graph keyed to production's size with no rule, as it will be between the deploy and migrate: 3,008,029 nodes, every one keyed and labelled, with the index still there.
    - `countGraph` alone, through `cypherEach`, took 5.9–6.0 s. It peaked at 373–380 MB RSS (68–69 MB before it ran) and 287 MB of heap, and gave the same counts and digest as the walk (`sha256:ae215bce…`).
    - In a backup (`20261113T171843Z-51888c2f`, counts exact), it took 44.3 s in all: 6.6 s before the offline window, 23.4 s offline and 14.0 s after. **The worker's peak (VmHWM) was 412 MB.**
