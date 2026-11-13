@@ -98,5 +98,5 @@ For Architecture, not this gate:
 - Story 1, whose `lifecycle status` this fills in: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md)
 - Story 2, whose backup this takes first: [2-lifecycle-backup-and-restore.md](2-lifecycle-backup-and-restore.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md](../../decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [3-a-tapestry-key-on-every-node.test-plan.md](3-a-tapestry-key-on-every-node.test-plan.md)
 - Review: (filled in after Review phase)

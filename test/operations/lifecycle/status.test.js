@@ -11,7 +11,8 @@
  *
  *   P1  backup says plainly when no backup has been taken (graph-operations-foundation #2, ADR 0002 Decision 11)
  *   P1b backup shows the most recent backup, the count, the last run and an interrupted run, and changes nothing
- *   P2  migrations says plainly that none is recorded
+ *   P2  migrations counts keys across the whole graph and lists each migration and its last run (A10.3, ADR 0003 D7)
+ *   P2b with the graph not answering, migrations says it can't know
  *   P3  firmware reports the version the instance carries and all, some or none of its concepts in the graph
  *   P4  cache reports how many nodes have a cached Tapestry JSON, and how many don't
  *   P5  run answers exactly the four parts; a part that fails is { known: false, problem } and the rest stand
@@ -55,6 +56,12 @@ async function withParts(replacements, fn) {
 const CONTEXT = { via: 'cli', caller: { role: 'local', pubkey: null } };
 const FIRMWARE = { known: true, version: '1.0.0', installed: 'all', conceptsInGraph: 39, concepts: 39, missing: [] };
 const CACHE = { known: true, nodes: 4, withTapestryKey: 3, withoutTapestryKey: 1, cached: 1, cachedEmpty: 1, notCached: 1 };
+// The migrations part reads the graph since A10.3, so the tests of run() replace it as they replace cache and firmware.
+const MIGRATIONS = {
+  known: true, keys: { nodes: 4, withLabel: 4, withoutKey: 0, rule: true, index: true },
+  migrations: [{ name: 'tapestry-keys', summary: 's', applied: true, requires: [], lastRun: null }, { name: 'event-less-nodes', summary: 's', applied: false, requires: ['tapestry-keys'], lastRun: null }],
+  note: 'tapestry-keys is applied; event-less-nodes can run.',
+};
 
 /** Run a script in a child process with a temp HOME and dead endpoints; it prints one RESULT: line of JSON. */
 function child(script) {
@@ -149,10 +156,60 @@ test('P1b: backup shows the most recent backup, how many there are, the last run
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('P2: migrations says plainly that none is recorded', async () => {
-  const m = await status().parts.migrations();
-  assert(m && m.known === true && Array.isArray(m.applied) && m.applied.length === 0 && typeof m.note === 'string' && m.note.trim().length > 0,
-    `migrations must be { known: true, applied: [], note }; got ${show(m)}`);
+// graph-operations-foundation #3 (ADR graph-operations-foundation/0003 Decision 7): migrations reads the graph through
+// _system.js and the run files, so it runs in a child with the lifecycle fake in _system's place and a temporary
+// backups folder. (Before A10.3 this test pinned { known: true, applied: [], note }.)
+function migrationsPart({ graph, runs = [], down = false }) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-status-migrations-'));
+  try {
+    const backups = path.join(dir, 'backups');
+    fs.mkdirSync(path.join(backups, '.runs'), { recursive: true, mode: 0o700 });
+    for (const r of runs) fs.writeFileSync(path.join(backups, '.runs', `${r.runId}.json`), JSON.stringify(r));
+    const state = path.join(dir, 'graph.json');
+    const F = require(path.join(ROOT, 'test/helpers/lifecycleFakes.js'));
+    F.newFakeState(state, { graph, failures: { cypherDown: down } });
+    return child(wrap([
+      `process.env.TAPESTRY_BACKUPS_DIR = ${show(backups)};`,
+      `const sys = require(${show(path.join(ROOT, 'src/operations/catalog/lifecycle/_system.js'))});`,
+      `const fake = require(${show(path.join(ROOT, 'test/helpers/lifecycleFakes.js'))}).fakeSystem(${show(state)});`,
+      `for (const k of Object.keys(fake)) sys[k] = fake[k];`,
+      `const s = require(${show(STATUS_FILE)});`,
+      `let out; try { out = await s.parts.migrations(); } catch (e) { out = { threw: e.message }; }`,
+      `process.stdout.write('RESULT:' + JSON.stringify(out) + '\\n');`,
+    ].join(NL)));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('P2: migrations counts keys across the whole graph and lists each migration: applied or not, what it requires, and its last run (graph-operations-foundation #3, ADR 0003 Decision 7)', () => {
+  status();
+  const F = require(path.join(ROOT, 'test/helpers/lifecycleFakes.js'));
+  const graph = F.nodeGraph({ nodes: [
+    { labels: ['NostrEvent', 'TapestryNode'], key: 'k-1', id: 'e1', uuid: 'e1', tags: 1 },
+    { labels: ['NostrUser'], key: null }, { labels: ['NostrUser', 'TapestryNode'], key: '{}' },
+  ] });
+  const runs = [{ op: 'migrate', runId: '20261108T120000Z-0000aaaa', migration: 'tapestry-keys', by: 'aa'.repeat(32), startedAt: '2026-11-08T12:00:00.000Z',
+    outcome: 'failed', error: 'The backup before migration tapestry-keys failed: no space; nothing was changed.', finishedAt: '2026-11-08T12:00:05.000Z' }];
+  const m = migrationsPart({ graph, runs });
+  assert(m && m.known === true && m.keys && m.keys.nodes === 3 && m.keys.withLabel === 2 && m.keys.withoutKey === 2 && m.keys.rule === false && m.keys.index === false,
+    `keys is { nodes: 3, withLabel: 2, withoutKey: 2 ('{}' counts as none), rule: false, index: false }; got ${show(m)}`);
+  const names = (m.migrations || []).map((x) => x.name);
+  assert(same(names, ['tapestry-keys', 'event-less-nodes']), `migrations lists tapestry-keys, then event-less-nodes; got ${show(names)}`);
+  const k = m.migrations[0];
+  assert(k.applied === false && same(k.requires, []) && k.lastRun && k.lastRun.runId === runs[0].runId && k.lastRun.outcome === 'failed' && k.lastRun.by === runs[0].by && /no space/.test(k.lastRun.error),
+    `tapestry-keys: not applied, and its last run from the run file, failed, with its error; got ${show(k)}`);
+  assert(m.migrations[1].lastRun === null && same(m.migrations[1].requires, ['tapestry-keys']), `event-less-nodes: never run, requires tapestry-keys; got ${show(m.migrations[1])}`);
+  assert(typeof m.note === 'string' && /tapestry-keys/.test(m.note), `the note says, in words, what is applied and what can run; got ${show(m.note)}`);
+});
+
+test('P2b: with the graph not answering, migrations says it can\'t know — it never reports zeros as if they were counted (ADR 0003 Decision 7)', () => {
+  status();
+  const F = require(path.join(ROOT, 'test/helpers/lifecycleFakes.js'));
+  const m = migrationsPart({ graph: F.nodeGraph({ nodes: [{ labels: ['NostrUser'], key: null }] }), down: true });
+  assert(m && (m.threw || m.known === false), `the part throws (so run() answers { known: false, problem }) or answers known: false; got ${show(m)}`);
+  const ok = migrationsPart({ graph: F.nodeGraph({ nodes: [{ labels: ['NostrUser'], key: null }] }) });
+  assert(ok && ok.known === true && ok.keys && ok.keys.withoutKey === 1, `and with the graph answering it counts (so this isn't passing on a part that always fails); got ${show(ok)}`);
 });
 
 test('P3: firmware reports the version the instance carries and whether all, some or none of its concepts are in the graph', () => {
@@ -187,10 +244,10 @@ test('P4: cache reports how many nodes have a cached Tapestry JSON, how many hav
 });
 
 test('P5: run answers exactly the four parts, and a part that fails is { known: false, problem } while the rest stand', async () => {
-  const all = await withParts({ firmware: async () => FIRMWARE, cache: async () => CACHE }, (s) => s.run({}, CONTEXT));
+  const all = await withParts({ firmware: async () => FIRMWARE, cache: async () => CACHE, migrations: async () => MIGRATIONS }, (s) => s.run({}, CONTEXT));
   assert(same(Object.keys(all || {}).sort(), ['backup', 'cache', 'firmware', 'migrations']), `exactly four parts; got ${show(Object.keys(all || {}))}`);
   assert(same(all.firmware, FIRMWARE) && same(all.cache, CACHE), `each part is what its reader returned; got ${show(all)}`);
-  const broken = await withParts({ firmware: async () => { throw new Error('graph down'); }, cache: async () => CACHE }, (s) => s.run({}, CONTEXT));
+  const broken = await withParts({ firmware: async () => { throw new Error('graph down'); }, cache: async () => CACHE, migrations: async () => MIGRATIONS }, (s) => s.run({}, CONTEXT));
   assert(broken.firmware && broken.firmware.known === false && /graph down/.test(String(broken.firmware.problem)),
     `a failing part must answer { known: false, problem }; got ${show(broken.firmware)}`);
   assert(same(broken.cache, CACHE) && broken.backup.known === true && broken.migrations.known === true, `the other parts stand; got ${show(broken)}`);
@@ -200,9 +257,9 @@ test('P6: every answer, known or not, matches the declaration\'s own result sche
   const s = status();
   const Ajv = require('ajv');
   const validate = new Ajv({ allErrors: true, strict: false }).compile(s.result.schema);
-  const known = await withParts({ firmware: async () => FIRMWARE, cache: async () => CACHE }, (x) => x.run({}, CONTEXT));
+  const known = await withParts({ firmware: async () => FIRMWARE, cache: async () => CACHE, migrations: async () => MIGRATIONS }, (x) => x.run({}, CONTEXT));
   assert(validate(known), `a fully known answer must match the result schema: ${show(validate.errors)}`);
-  const unknown = await withParts({ firmware: async () => { throw new Error('x'); }, cache: async () => { throw new Error('y'); } }, (x) => x.run({}, CONTEXT));
+  const unknown = await withParts({ firmware: async () => { throw new Error('x'); }, cache: async () => { throw new Error('y'); }, migrations: async () => { throw new Error('z'); } }, (x) => x.run({}, CONTEXT));
   assert(validate(unknown), `an answer whose parts failed must match the result schema too: ${show(validate.errors)}`);
 });
 

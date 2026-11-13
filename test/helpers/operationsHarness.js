@@ -20,6 +20,9 @@
  *     test/helpers/lifecycleFakes.js's fakeSystem(stateFile), and _jobs.js's runDetached with one that runs the job
  *     in this process with that system (ADR Decision 8): through _jobs.js's runJob, as the worker does, once it has
  *     one (ADR 0002 Amendment 1, A4). It writes the record into the run's file, as the worker does, and resolves it.
+ *     (Story graph-operations-foundation #3, ADR 0003 Sub-decision 3) It logs { call: 'runDetached', op, runId,
+ *     waitMs } in the fake's state file, and with lifecycleFake.detachedOutcome 'running' it resolves
+ *     { outcome: 'running' } after the job, as the real one does when the job outlasts waitMs.
  *
  * A request may also carry rawBase64 (a binary body), contentType and extra headers; every answer records its headers
  * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
@@ -182,7 +185,12 @@ function installLifecycleFake(cfg) {
   // As _worker.js does: the job's record (from _jobs.js's runJob, once it has one, so the worker's way of making it is
   // the one tested), written into the run's file over what the caller put there; then what runDetached resolves.
   const store = need('src/operations/catalog/lifecycle/_store.js');
-  jobs.runDetached = async (request) => {
+  const F = require(path.join(__dirname, 'lifecycleFakes.js'));
+  jobs.runDetached = async (request, opts = {}) => {
+    // ADR graph-operations-foundation/0003 Sub-decision 3: what the caller asked runDetached to wait, in the fake's log.
+    const st = F.readState(cfg.stateFile);
+    st.log.push({ call: 'runDetached', op: request && request.op, runId: request && request.runId, waitMs: opts && opts.waitMs !== undefined ? opts.waitMs : null });
+    F.writeState(cfg.stateFile, st);
     let record;
     if (typeof jobs.runJob === 'function') {
       record = await jobs.runJob(request, sys);
@@ -198,6 +206,9 @@ function installLifecycleFake(cfg) {
       const file = store.runFile(request.runId);
       store.writeJson(file, { ...(store.readJson(file) || {}), ...record });
     }
+    // lifecycleFake.detachedOutcome 'running': answer as runDetached does when the job outlasts its waitMs. The job
+    // has run to its end here, so status afterwards shows how it went.
+    if (cfg.detachedOutcome === 'running') return { outcome: 'running' };
     return record.outcome === 'done'
       ? { outcome: 'done', result: record.result, finishedAt: record.finishedAt }
       : { outcome: record.outcome, error: record.error, finishedAt: record.finishedAt };
