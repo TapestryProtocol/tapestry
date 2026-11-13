@@ -36,6 +36,9 @@ its own, with nothing shared to edit.
 
 6. `stories/graph-operations-foundation/6-external-cli-and-agent-skill.md` — the external CLI, which signs in with an
    admin agent's own key and calls every operation the instance lists, and the agent's skill (Loom A10.6).
+7. `stories/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.md` — a bug from story 3: the
+   cache counts in `lifecycle status` and on the Dashboard cover only the nodes with an address, and asking for them no
+   longer reads every node's key. It has no Loom task of its own; story 3's run on staging found it.
 
 Later stories follow the Loom tasks A10.4–A10.5, each planned when it is taken. The foundation's stories, and each story's first
 ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in

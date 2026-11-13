@@ -1,6 +1,6 @@
 # Story 7: The cache counts cover only the nodes they count
 
-**Status:** Draft
+**Status:** Approved
 **Created:** 2026-11-13
 **Type:** Bug
 
