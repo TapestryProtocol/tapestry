@@ -357,6 +357,15 @@ app.use(authMiddleware);
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
+  // The index on TapestryNode.uuid, so lookups by address have one from the deploy on, before lifecycle migrate runs
+  // (graph-operations-foundation ADR 0003 Amendment 1). Not awaited, and it never rejects; it makes no rule and no data.
+  require('../src/lib/tapestry-node-index').ensureUuidIndexOnBoot({
+    runWrite: (cypher, params) => require('../src/lib/neo4j-driver').writeCypher(cypher, params),
+    runRead: (cypher, params) => require('../src/lib/neo4j-driver').runCypher(cypher, params),
+    log: (line) => console.log(line),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+
   // Reconcile recurring schedules into BullMQ Job Schedulers (story #22 / ADR 0019).
   // Replaces the in-process setInterval scheduler. Requires the queue, so it is
   // gated on TASK_QUEUE_ENABLED and runs after initTaskQueue + api.register.

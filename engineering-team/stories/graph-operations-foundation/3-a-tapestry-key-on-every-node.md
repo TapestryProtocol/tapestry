@@ -1,6 +1,6 @@
 # Story 3: A tapestryKey on every node — `lifecycle migrate`, one shared label and a uniqueness constraint
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-08
 **Type:** Feature
 **Loom:** A10.3 — https://loom.brainstorm.world/t/A10.3
@@ -90,6 +90,57 @@ For Architecture, not this gate:
 - **Keys on writes the pipeline repeats.** The stream touches the same `NostrUser` nodes over and over. Healing a node with no key on every touch (AC5) shouldn't add a write each time.
 - **The queries that match `:NostrEvent`.** 223 lines in 15 files under `src/` that something runs, as D7 counted, and 111 more in the Cypher 28 UI files send (a first count of 360 also took in `:NostrEventTag`; ADR 0003, Context 7). Each needs to say whether it means a node from an event, or any node.
 
+## Evidence
+
+### The live check and the measurements (Implementation, 2026-11-13, on `9b4bdfb7`)
+
+These ran on the Mac Studio on two throwaway instances from `scripts/scratch-stack.sh`, one after the other, never a shared or private one. This is the summary by criterion. Every step, number and backup id is in the test plan's Verification, under "The live check and the measurements".
+
+- **The instances.** Both ran image `agent-memory-tapestry`, since the default image has no `cron-parser`. `src/` was mounted from a worktree, and `bin/tapestry.js` and `bin/control-panel.js` were copied in. Neo4j 5.26.10 ran at the script's sizes. Neither instance published a port, nothing had to be paused, and both were removed afterwards.
+  - Each ran the setup task's indexes first (`POST /api/neo4j-setup-constraints-and-indexes`), since a fresh instance has none and production's graphs have them.
+  - **Instance A** had a fixture built with this branch's base, `f3aab4d4`, before the switch to `9b4bdfb7`. It held sets A and B from add-subset, B under A, each a `NostrEvent` with no `id`; an event whose `a` tag made a placeholder; one key of `'{}'`; and three `NostrUser` nodes from the stream. That made 3,166 nodes, 634 of them without a key.
+  - **Instance B** was fresh, for AC2. It was then loaded with 3,000,000 `NostrUser` nodes for measurements 2 and 5.
+- **No Cypher failed on Neo4j,** and no code was changed.
+
+The live check covers AC1, AC2 and AC6, with AC4's status and AC5's new nodes along the way. AC3 and AC7 aren't in it.
+
+- **AC1, migrate after a backup: passes.**
+  - On instance A, `tapestry lifecycle migrate --migration tapestry-keys` took 29.2 s. The backup came first (`20261113T170208Z-36087224`), with the graph offline 19.3 s and the counts exact.
+  - The report: 634 keys given, 3,166 labels given, the `'{}'` replaced, one pass, no failed batch, the rule added and the index already there.
+  - All 2,532 real keys are unchanged, and no key is held twice.
+  - **At production's size** (measurement 2, on instance B). Before the run, 2,997,500 nodes had no key. After it, none had, and all 3,007,677 had the label. It took 58.7 s, in one pass of 17.4 s with no failed batch, and the same statement run directly had 0 retries. The backup kept the graph offline 24.1 s, and the rule came online 5.1 s after it was made.
+  - **The pipeline kept writing.** Throughout the run, a loop put 5 follow lists a second on the stream consumer's queue. The backup paused the consumer for about 33 s, and it drained the 124 lists queued meanwhile within 20 s. It logged no errors, Neo4j logged no deadlock, and the nodes it made during the run came out with a key and the label.
+- **AC2, keys already shared: passes.** On instance B, two firmware nodes were given the same key by Cypher. `tapestry-keys` changed no key, left the rule out, and named the shared key with both nodes. Nothing else needed a key, so it answered in 0.5 s with no backup. Its note's wording about the index is wrong (finding 3).
+- **AC4, status.** After both runs, both migrations show as applied, each with its last run and its backup. The keys part reads 3,166 nodes, 3,166 with the label and 0 without a key, with the rule and the index in place. Before any run the counts were right, but the note called `event-less-nodes` applied (finding 2). At 3 million nodes a whole status took 1.2–1.4 s and its scan 0.42–0.63 s, so status keeps scanning on every call (M11 stands).
+- **AC5, new nodes: passes for the paths exercised.** With no migrate run in between, these had the label and a key as soon as they existed:
+  - a new event through the event route, with its 5 tag nodes, its author, and its placeholders by address and by `id`. Its `a` tag to set C made no second node at C's address, and gave C no `NostrEvent`;
+  - set C, from add-subset;
+  - new `NostrUser` nodes from the stream consumer. The existing user it touched kept its key.
+
+  The other paths AC5 names weren't exercised live.
+- **AC6, `NostrEvent` off the nodes with no event: fails on one surface.**
+  - Run before `tapestry-keys`, `event-less-nodes` was refused (409 `run-tapestry-keys-first`, exit 1), and no backup was taken.
+  - Run after it, it took 27.5 s after its backup (`20261113T170352Z-c368852c`, offline 17.9 s) and relabelled 2. Only A and B lost `NostrEvent`, no key changed, and the placeholder kept the label.
+  - **Still working:** Set Detail, and `readVerbs.js`'s `group` and `node`, for A and B; the `tag` concept's Elements tab; the concept-graph API; add-subset under B, whose set C has no `NostrEvent`; a backup and a restore, with `match: true` and every node as it was. An event imported at A's address, and one at B's through `importEventDirect`, each landed on the same node, which got `NostrEvent` back and kept its key.
+  - **Fails:** the `set` concept's Elements tab. After the migration, A and B drop out of it (100 rows to 98), and C never appears there (finding 1).
+- **Measurement 1, the disjunction: passes.** `MATCH (n:NostrEvent|TapestryNode {uuid: $u})` plans as seeks of both `nostrEvent_uuid` and `tapestry_node_uuid`, with no label or all-nodes scan, before migrate, after it, and at 3 million nodes.
+  - **Amendment 1's index: passes.** `tapestry_node_uuid` wasn't there before the control panel's restart, and was ONLINE after it, with no migrate run and no rule.
+- **Measurement 2, production's size.** Its run, the offline window, the passes and the rule are under AC1, and Decision 4's scan is under AC4. Also:
+  - Decision 10's walk, in a later backup: `countGraph` took 4.9–5.0 s at 195–203 MB. The backup took 41.1 s, 22.7 s of it offline, and its worker peaked at 241 MB.
+  - The store: `databases/neo4j` went from 1,011,096,160 bytes to 1,313,361,920 (30% more), and the transaction logs from 820,336,321 to 1,360,979,567.
+  - This graph had 12,475 relationships, where production has the follow graph's millions, and a small Neo4j. So production's offline window will be longer than 24 s.
+- **Measurement 3, the fragment: passes.** On a node with no key, `keyNode` gave `labelsAdded: 1, propertiesSet: 1`, then 0 and 0. A `'{}'` key was replaced by a new v4 UUID. Where the `MERGE` made the node itself: `nodesCreated: 1, labelsAdded: 2, propertiesSet: 2`, then 0 and 0.
+- **Measurement 4, today's graphs.** On instance A before any migration: 2 of Decision 5's nodes, 3 `NostrEvent` nodes with no `id`, and 0 addresses held by more than one node. On staging, with the owner's OK (2026-11-13, 18:39 UTC): 0, 2 (both placeholders) and 0, with the full scan taking 5.9 s. So on staging today `event-less-nodes` would relabel nothing.
+- **Measurement 5 (Amendment 2), the key read before migrate.** With the rule dropped on instance B's 3,008,029 keyed nodes, `countGraph`'s stream took 5.9–6.0 s at 373–380 MB, with the same digest as the walk. A backup's worker peaked at 412 MB, where A10.2's one-query read peaked at 1,662 MB. Amendment 2's "about 200 MB" is low.
+
+**Findings for the Implementer and the Reviewer,** given in full in the test plan:
+
+1. AC6's failure: `ConceptElements.jsx:70` and `:81` end on `(e:NostrEvent)`, and no test reads them. `readVerbs.js:508` and `:572–573` have the same shape, and weren't exercised.
+2. Before `tapestry-keys`, status calls `event-less-nodes` applied.
+3. The shared-keys note says the index "were left out" when the report says it was already there.
+4. Migrate's report has no count of retried batches.
+5. `placeholdersReplaced` read 132 where there were none, because other writers keyed nodes between its two scans.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet)
@@ -98,5 +149,5 @@ For Architecture, not this gate:
 - Story 1, whose `lifecycle status` this fills in: [1-operation-declaration-and-lifecycle-status.md](1-operation-declaration-and-lifecycle-status.md)
 - Story 2, whose backup this takes first: [2-lifecycle-backup-and-restore.md](2-lifecycle-backup-and-restore.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md](../../decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [3-a-tapestry-key-on-every-node.test-plan.md](3-a-tapestry-key-on-every-node.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md](../../reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md) (rounds 1–3, 2026-11-13)

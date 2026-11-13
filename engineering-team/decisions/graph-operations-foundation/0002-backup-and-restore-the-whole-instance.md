@@ -4,6 +4,7 @@
 **Date:** 2026-11-08
 **Story:** `engineering-team/stories/graph-operations-foundation/2-lifecycle-backup-and-restore.md`
 **Amends, for these five operations only:** ADR `security-auth-exposure/0005`, item 3 of the owner's decisions at its gate (Decision 12 below).
+**Amended by:** `graph-operations-foundation/0003` (2026-11-13) — Decision 10: once the rule `tapestry_key` is online, Decision 4 step 2 counts the keys by walking its index 50,000 at a time; the manifest's fields and the digest's value are unchanged, so older backups still compare exactly. Decision 6: `lifecycle migrate` runs as a third op under this ADR's lock and job (`runDetached` gains a wait, and the backup's body becomes `takeBackup`, which a migration calls under its own lock).
 
 ## Context
 

@@ -25,7 +25,8 @@
 14. [Local dev loop (inside-container source edits)](#14-local-dev-loop-inside-container-source-edits)
 15. [CI test gate (PRs to staging/main)](#15-ci-test-gate-prs-to-stagingmain)
 16. [Backups — lifecycle backup and restore (graph-operations-foundation #2 / ADR graph-operations-foundation/0002)](#16-backups--lifecycle-backup-and-restore-graph-operations-foundation-2--adr-graph-operations-foundation0002)
-17. [Workflow rules: pinned actions, token permissions, deploy environments](#17-workflow-rules-pinned-actions-token-permissions-deploy-environments)
+17. [Migrations — lifecycle migrate (graph-operations-foundation #3 / ADR graph-operations-foundation/0003)](#17-migrations--lifecycle-migrate-graph-operations-foundation-3--adr-graph-operations-foundation0003)
+18. [Workflow rules: pinned actions, token permissions, deploy environments](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments)
 
 ---
 
@@ -42,7 +43,7 @@ Four long-lived branches, four Digital Ocean droplets, four CI/CD workflows:
 
 > **Decommissioned September 2026:** the `feat/communities` (`communities.brainstorm.world`) and `feat/curate` (`curate.brainstorm.world`) sandboxes were retired — their Digital Ocean droplets were deleted (expensive to maintain, unused). The **branches are retained as archives** (Avi's communities work; the Curate app) — see [§2 Retired branches](#2-branches). `deploy-communities.yml` is removed (`deploy-curate.yml` was never merged past its own branch), and the `DEPLOY_*_COMMUNITIES` / `DEPLOY_*_CURATE` repo secrets are removed.
 
-Each workflow reads secrets named `DEPLOY_HOST_<NAME>`, `DEPLOY_USER_<NAME>`, `DEPLOY_SSH_KEY_<NAME>` where `<NAME>` is `TAPESTRY`, `STAGING`, `MAGIC_CARPET`, or `TAGS`. Each deploy job names its target's GitHub environment, which is where the three belong ([§17.3](#173-deploy-environments)). (The `TAPESTRY` secrets superseded `BRAINSTORM` in the 2026-07-10 cutover; they carry the same `159.203.150.156` host/user/key.)
+Each workflow reads secrets named `DEPLOY_HOST_<NAME>`, `DEPLOY_USER_<NAME>`, `DEPLOY_SSH_KEY_<NAME>` where `<NAME>` is `TAPESTRY`, `STAGING`, `MAGIC_CARPET`, or `TAGS`. Each deploy job names its target's GitHub environment, which is where the three belong ([§18.3](#183-deploy-environments)). (The `TAPESTRY` secrets superseded `BRAINSTORM` in the 2026-07-10 cutover; they carry the same `159.203.150.156` host/user/key.)
 
 ### Standard branch promotion flow
 
@@ -97,7 +98,7 @@ The first deploy to a new droplet takes 5–15 minutes (the strfry C++ Redis pat
 
 These are the **deploy** workflows (push-triggered). The one non-deploy workflow is the pull-request **test gate** — see [§15](#15-ci-test-gate-prs-to-stagingmain).
 
-Every workflow follows three rules that `npm test` holds: actions pinned to a commit, declared token permissions, and a named environment on each deploy job. See [§17](#17-workflow-rules-pinned-actions-token-permissions-deploy-environments).
+Every workflow follows three rules that `npm test` holds: actions pinned to a commit, declared token permissions, and a named environment on each deploy job. See [§18](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments).
 
 ---
 
@@ -185,7 +186,7 @@ End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. Th
 
 ### 6.2. GitHub setup
 
-1. **Workflow file** — add `.github/workflows/deploy-<name>.yml` on the target branch. Mirror `deploy-tags.yml` and substitute the branch name, secret suffix, environment name, and droplet-name comment. The deploy job names the target's environment with an `environment: <name>` line, the secret suffix in lower case with hyphens for underscores ([§17.3](#173-deploy-environments)); `npm test` fails without it. Do **not** push yet — pushing triggers the first deploy, which fails until secrets are set and the droplet is ready.
+1. **Workflow file** — add `.github/workflows/deploy-<name>.yml` on the target branch. Mirror `deploy-tags.yml` and substitute the branch name, secret suffix, environment name, and droplet-name comment. The deploy job names the target's environment with an `environment: <name>` line, the secret suffix in lower case with hyphens for underscores ([§18.3](#183-deploy-environments)); `npm test` fails without it. Do **not** push yet — pushing triggers the first deploy, which fails until secrets are set and the droplet is ready.
 2. **Environment and its secrets** — in Settings → Environments, create the environment `<name>` and limit its deployment branches to the target branch (Deployment branches and tags → Selected branches and tags). Then prepare three placeholders as secrets of that environment, not of the repository (values filled in from the droplet in §6.3 step 3):
    - `DEPLOY_HOST_<NAME>` — droplet IP or hostname
    - `DEPLOY_USER_<NAME>` — typically `root`
@@ -1099,13 +1100,32 @@ location = /api/tapestry/lifecycle/upload-backup {
 
 Copy the site's existing `location /` block twice, keeping its headers (above all `X-Forwarded-For`, which stops the app trusting the request as the local operator). Add the buffering and timeout lines to both, and the two body lines to the upload's alone, so only the upload takes a backup-sized body. The container's own nginx has the same two blocks (`docker/nginx.conf`). There is no deletion or rotation yet: remove an old backup with `docker exec tapestry rm -rf /var/lib/brainstorm/backups/<id>`.
 
+## 17. Migrations — lifecycle migrate (graph-operations-foundation #3 / ADR graph-operations-foundation/0003)
+
+**Every node carries a tapestryKey and the label `TapestryNode`** (BIBLE §29). Since this change, every path that makes a node — the import, the signing routes, add-subset, the brain write, the trust pipeline's stream, batch and reconciliation loaders, the tagging-edges pass, and each customer's metrics cards — gives it both in the statement that makes it (`keyNode`, `src/lib/tapestry-key-cypher.js`). Nodes made before it ship get theirs from a migration, **once per instance, after the deploy that brings this change**:
+
+```
+docker exec tapestry tapestry lifecycle migrate --migration tapestry-keys
+docker exec tapestry tapestry lifecycle migrate --migration event-less-nodes
+docker exec tapestry tapestry lifecycle status
+```
+
+- **`tapestry-keys`** takes a backup first (the graph is offline for it, as in §16), then, with the graph online and the pipeline writing, gives every node without one a key and the label in passes of 10,000, keeping every key a node already has (the `'{}'` placeholder gives way to a real key). Then it adds the uniqueness rule `tapestry_key`, and the index `tapestry_node_uuid` if it isn't there, and waits until both are online. (The control panel makes `tapestry_node_uuid` itself when it starts, so lookups by address have it from the deploy on; it logs `[tapestry-keys] index tapestry_node_uuid created` the first time, and `not created: <code>` if it can't. ADR 0003 Amendment 1.) If some key is already held by more than one node, it changes none of them and leaves the rule and the index out; its answer names each such key and the nodes holding it, for the owner to decide.
+- **`event-less-nodes`** (after `tapestry-keys`) takes a backup, then takes `NostrEvent` off the sets made with no event (add-subset's), which keep their key and other labels. Queries now find nodes by address as `(:NostrEvent|TapestryNode {uuid: …})`, so they still find these. An event published later for such a set gives the label back.
+
+**Run `tapestry-keys` soon after the deploy.** From the deploy on, every node the pipeline touches gets a key, so the number of keys can grow quickly: the stream touches each follow list's author and everyone they follow. Until the rule exists, every backup counts the keys by reading them all, twice, while `stream-consumer` and `tagging-edges-realtime` wait. That includes the backup `tapestry-keys` takes first. The read is a stream that keeps only the keys, so the worker peaks at about 400 MB at three million keys (measured; a quarter of what reading them all at once took), but it takes longer the more keys there are. Once the rule is online, backups walk its index instead (below).
+
+Either is safe to repeat: with nothing left to change it answers `already-applied` and takes no backup. A fresh instance's nodes have keys from the start, so `tapestry-keys` there only adds the rule and the index, with no backup. Each runs as a job of its own under the backup lock, so no backup, restore or other migration runs meanwhile. The command waits to the end (`--wait <s>` to answer sooner); `POST /api/tapestry/lifecycle/migrate` (owner and admins, body `{ "migration": "tapestry-keys" }`) waits 50 s, or `wait` seconds, then answers `running` with its run id. **`tapestry lifecycle status`** shows, in its migrations part, the whole graph's key counts, whether the rule is in place, and each migration: applied or not (read from the graph, so a restored older graph reads as not migrated), and its last run, by whom, and the backup taken before it.
+
+Once `tapestry_key` is online, backups count keys by walking its index 50,000 at a time instead of reading them all at once; the digest is the same, so older backups still restore with matching counts (ADR `graph-operations-foundation/0003` Decision 10, amending ADR 0002 Decision 4).
+
 ---
 
-## 17. Workflow rules: pinned actions, token permissions, deploy environments
+## 18. Workflow rules: pinned actions, token permissions, deploy environments
 
 Every file in `.github/workflows/` follows three rules. `test/workflow-hardening.test.js` reads the folder on every `npm test` and fails, naming the file and the rule, when one is broken. That includes a workflow added later (story `workflow-hardening` #1).
 
-### 17.1. Pinned actions
+### 18.1. Pinned actions
 
 A workflow calls an action by its full commit id, with the release that commit is in a comment:
 
@@ -1123,7 +1143,7 @@ git ls-remote --tags https://github.com/appleboy/ssh-action 'v1.2.5' 'v1.2.5^{}'
 
 The line ending in `^{}` is the commit, when there is one; otherwise the plain line is. For `v1.2.5` the command prints the pin shown above. Whoever reviews a pin change runs the same command and compares: the test checks a pin's form, not that it is the release its comment names. `test/ci-test-job.test.js` holds the test gate's two actions at `v5`, so a move to another major version changes that test in the same pull request.
 
-### 17.2. Token permissions
+### 18.2. Token permissions
 
 Each workflow declares what its `GITHUB_TOKEN` may do, in one `permissions:` block at the top of the file. Without one, a repository setting decides, and settings don't travel with the repo: [§4](#4-branch-protection-rulesets) tells how the rulesets were lost in a move.
 
@@ -1133,7 +1153,7 @@ Each workflow declares what its `GITHUB_TOKEN` may do, in one `permissions:` blo
 
 No workflow may write to the repository's contents. Any other write scope is listed for its file in `WRITE_SCOPES` in the test, in the same pull request that adds it.
 
-### 17.3. Deploy environments
+### 18.3. Deploy environments
 
 Each job that reads a deploy secret names a GitHub environment, with an `environment:` line. The name is the deploy secrets' suffix in lower case, with hyphens for underscores:
 

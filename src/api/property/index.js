@@ -151,7 +151,7 @@ async function handleGenerateJsonSchema(req, res) {
 
     // Read existing word wrapper or build one
     const existingJsonRows = await runCypher(`
-      MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
       RETURN t.value AS json
     `, { uuid: schemaUuid });
 

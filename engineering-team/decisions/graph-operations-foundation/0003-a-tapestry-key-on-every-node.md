@@ -4,6 +4,7 @@
 **Date:** 2026-11-08
 **Story:** `engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`
 **Amends:** ADR `graph-operations-foundation/0002`, Decision 4 step 2's key counting (Decision 10 below).
+**Amended:** 2026-11-13, at Implementation, by the owner's ruling — the index `tapestry_node_uuid` is also made at control-panel start (Amendment 1, at the end). 2026-11-13, at Review round 1, by the owner's ruling — before the rule is online, backup reads the keys as a stream, and OPERATIONS.md says to run `tapestry-keys` soon after the deploy (Amendment 2).
 
 ## Context
 
@@ -76,7 +77,7 @@ We chose **Option A**, with the four sub-decisions as marked. Option B leaves no
 - The label is **`TapestryNode`**. It says nothing about a node beyond being one, and doesn't collide with the `tapestry` concept (BIBLE §6) or any label in use (none matches in the repository).
 - The rule: `CREATE CONSTRAINT tapestry_key IF NOT EXISTS FOR (n:TapestryNode) REQUIRE n.tapestryKey IS UNIQUE`. It owns an index, which lookups by key and Decision 10's ordered walk use.
 - The index: `CREATE INDEX tapestry_node_uuid IF NOT EXISTS FOR (n:TapestryNode) ON (n.uuid)`, for Decision 9's lookups by address.
-- Both are made by `tapestry-keys` (Decision 4), not by `setup/neo4jConstraintsAndIndexes.sh`, so AC2 can leave the rule out. They stay out of `src/api/status/queries/expectedNeo4jSchema.js`, which lists what firmware install waits for: firmware doesn't need them.
+- Both are made by `tapestry-keys` (Decision 4), not by `setup/neo4jConstraintsAndIndexes.sh`, so AC2 can leave the rule out. They stay out of `src/api/status/queries/expectedNeo4jSchema.js`, which lists what firmware install waits for: firmware doesn't need them. *(Amended: the index is also made at control-panel start; Amendment 1.)*
 
 **2. The operation.** `src/operations/catalog/lifecycle/migrate.js`, `kind: 'write'`, `access: 'owner-and-admins'`.
 
@@ -215,7 +216,7 @@ The paths, from Context 3:
 **10. Backup counts keys by walking the index.** This amends ADR 0002 Decision 4 step 2 for the key counts only; the manifest's fields and the digest's value don't change.
 
 - **When `tapestry_key` is online:** `countGraph` reads the labeled keys in pages of 50,000, in key order from the rule's index (`MATCH (n:TapestryNode) WHERE n.tapestryKey > $after RETURN n.tapestryKey AS k ORDER BY k LIMIT 50000`). It also reads the keys of unlabeled nodes, normally none (`MATCH (n) WHERE NOT n:TapestryNode AND n.tapestryKey IS NOT NULL RETURN n.tapestryKey`), sorted in memory. It merges the two streams in order into an incremental sha256, counting keys, and distinct keys by comparing neighbours.
-- **When the rule isn't online,** it counts as today, since the graph then holds no more keys than today's.
+- **When the rule isn't online,** it counts as today, since the graph then holds no more keys than today's. *(Amended: that premise doesn't hold once Decision 8 ships; the keys are read as a stream. Amendment 2.)*
 
 The digest is the same string's hash either way (the sorted keys joined by `\n`), so a backup taken before this change still compares exactly on restore. Memory stays at one page.
 
@@ -297,3 +298,27 @@ The digest is the same string's hash either way (the sorted keys joined by `\n`)
 - Copying `name` into `tapestryValue` (D11), `migrate-primary-property-ztags`, and retiring `/api/tapestry-key/*` (D15).
 - Running `tapestry-keys` from setup on new instances.
 - Nodes made by raw Cypher or outside tools, beyond what a run of migrate finds (AC3).
+
+## Amendment 1 (2026-11-13, at Implementation) — the index `tapestry_node_uuid` is made at control-panel start too
+
+**Why.** Sub-decision 4 counted on an index on `uuid` for both labels, but Decision 1 left `tapestry_node_uuid` to `tapestry-keys`. Between the deploy and the first run of migrate, `keyNode` labels every `NostrUser` node the stream touches, so `TapestryNode` soon holds most of the graph's three million nodes, and every lookup by `(:NostrEvent|TapestryNode {uuid})` would scan them. Found at Implementation; the owner chose to close the window at startup (2026-11-13), over adding it to the setup script, which runs only as a task, or leaving it to migrate.
+
+**The change.**
+- `src/lib/tapestry-node-index.js` exports `ensureUuidIndexOnBoot({ runWrite, runRead, log, sleep, windowMs })`, called from `bin/control-panel.js` beside tagging-edges' `ensureTagsConstraintOnBoot`, not awaited. It reads `SHOW INDEXES` for `tapestry_node_uuid`. When it is missing, it runs Decision 1's `CREATE INDEX tapestry_node_uuid IF NOT EXISTS FOR (n:TapestryNode) ON (n.uuid)` in its own auto-commit statement, and doesn't wait for it to come online. When the name is held by another definition, it logs `not created: name-taken` and stops. It retries while the graph starts, with the tagging-edges hook's retry rule, for up to 30 minutes, and never rejects.
+- It makes nothing else: the uniqueness rule `tapestry_key` stays migrate's (AC2), and no data changes. `expectedNeo4jSchema.js` still lists neither.
+- `tapestry-keys` is unchanged. On an instance that has restarted since this deploy, its report says `index: 'already-there'`.
+
+**Tests.** `tapestry-key-paths.test.js` gains G14–G17: the hook makes the index with Decision 1's statement, and nothing else, when it is missing; it leaves an index that is there alone; it stops on a name held by another definition; it retries while the graph doesn't answer and never rejects; and the control panel calls it at start.
+
+## Amendment 2 (2026-11-13, at Review round 1) — before the rule is online, backup reads the keys as a stream
+
+**Why.** Decision 10 kept the one-query read of every key for a graph with no rule, "since the graph then holds no more keys than today's". Decision 8 makes that untrue. From the deploy on, keyNode gives a key to every node the pipeline touches, and the stream touches each follow list's author and everyone they follow. By the first run of `tapestry-keys` a production graph may hold millions of keys, and the backup that run takes first reads them twice, with the writers paused. Read through `runCypher`, the driver holds every record, and a worker that runs out of memory there leaves the writers paused until the next lifecycle operation recovers its lock. Found in review round 1, Blocking 1. The owner chose (2026-11-13) to stream the read and to say in OPERATIONS.md when to run the migration.
+
+**The change.**
+- `src/lib/neo4j-driver.js` gains `streamCypher(cypher, params, onRecord)`. It runs a read whose records go to `onRecord` one at a time, through `result.subscribe`, so the driver keeps none of them. `_system.js` gains `cypherEach(query, params, onRow)` over it, which hands each row on as a plain object, as `cypher` returns them.
+- `countGraph`, while the rule isn't online, reads `MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k` through `cypherEach`. It keeps only the key strings, sorts them as before, and hashes them one at a time, with no joined string. The counts and the digest are the same as before, so backups taken either way still compare exactly. Memory is the strings themselves, about 200 MB at three million keys, against the gigabyte or more the driver's records took. *(Measured at the live check: the worker peaks at 412 MB, the strings, the array, the sort and the driver together, against 1,662 MB for the one-query read.)*
+- With the rule online, the walk is unchanged.
+- OPERATIONS.md §17 says to run `tapestry-keys` soon after the deploy that brings this change. It also says what a backup taken before then costs: one streamed read of every key, twice, while the writers wait.
+
+**Tests.** `migrate-job.test.js` K5 checks that with no rule the keys are read through `cypherEach`, never through `cypher`, and that the counts and digest are as before. The fake system gains `cypherEach`, which logs its read as `cypher` does, marked streamed, so story 2's traces (`count:keys`) are unchanged. The live check's measurement 5 adds the time and the worker's peak memory of `countGraph`, before migrate, on a scratch graph keyed to production's size.
+

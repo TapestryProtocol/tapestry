@@ -236,11 +236,12 @@ function inspectLock() {
   return { ...lock, stale };
 }
 /** Take the lock for a new run, or null when it is held. */
-function acquireLock({ op, backup = null }) {
+function acquireLock({ op, backup = null, migration = null }) {
   ensureDir();
   const lock = {
     runId: newId(), op, host: os.hostname(), holders: [{ pid: process.pid, startTime: startTimeOf(process.pid) }],
     stage: 'online', backup, paused: [], startedAt: new Date().toISOString(),
+    ...(migration ? { migration } : {}),
   };
   // Written whole to a file of its own, then linked into place: the link fails when a lock exists, as `wx` did, and a
   // reader never finds the lock empty, which inspectLock would judge stale (ADR 0002 Amendment 1, A4).
@@ -274,9 +275,11 @@ function releaseLock(runId) {
   const lock = readJson(lockPath());
   if (lock && lock.runId === runId) fs.rmSync(lockPath(), { force: true });
 }
-/** A busy refusal's words for a live lock. */
+/** A busy refusal's words for a live lock: the op it names, and for a migration, which (ADR 0003 Decision 2). */
 function busyMessage(lock) {
-  const what = lock && lock.op ? `A ${lock.op}` : 'Another backup or restore';
+  const what = !lock || !lock.op || lock.op === 'unknown' ? 'A backup, restore or migration'
+    : lock.op === 'migrate' ? `A migration${lock.migration ? ` (${lock.migration})` : ''}`
+      : `A ${lock.op}`;
   return `${what} is running${lock && lock.startedAt ? ` (since ${lock.startedAt})` : ''}; try again when it has finished.`;
 }
 
@@ -313,16 +316,28 @@ async function recoverIfStale(system, waitForGraph) {
 
 // ── Runs ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The most recent finished run: { runId, op, outcome, finishedAt, backup }, or null. */
-function lastRun() {
+/** Every run file, read: [{ …record, runId }]. */
+function runs() {
   const dir = runsDir();
-  if (!fs.existsSync(dir)) return null;
-  let best = null;
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
   for (const f of fs.readdirSync(dir)) {
     if (!f.endsWith('.json')) continue;
     const r = readJson(path.join(dir, f));
-    if (!r || !r.outcome || !r.finishedAt) continue;
-    if (!best || String(r.finishedAt) > String(best.finishedAt)) best = { ...r, runId: r.runId || f.slice(0, -5) };
+    if (r) out.push({ ...r, runId: r.runId || f.slice(0, -5) });
+  }
+  return out;
+}
+
+/**
+ * The most recent finished backup or restore run: { runId, op, outcome, finishedAt, backup }, or null. A migration's
+ * run isn't one: the migrations part shows it (ADR graph-operations-foundation/0003, the plan's gap 2).
+ */
+function lastRun() {
+  let best = null;
+  for (const r of runs()) {
+    if (r.op === 'migrate' || !r.outcome || !r.finishedAt) continue;
+    if (!best || String(r.finishedAt) > String(best.finishedAt)) best = r;
   }
   if (!best) return null;
   const result = best.result || {};
@@ -330,10 +345,37 @@ function lastRun() {
   return { runId: best.runId, op: best.op || null, outcome: best.outcome, finishedAt: best.finishedAt, backup };
 }
 
+/**
+ * A migration's most recent run (ADR 0003 Decision 7): { runId, startedAt, finishedAt, outcome, by, backup, error },
+ * or null. A run that holds the lock is `running`; one whose file has no outcome and holds no lock is `interrupted`.
+ */
+function lastMigrateRun(name) {
+  const lock = inspectLock();
+  let best = null;
+  for (const r of runs()) {
+    if (r.op !== 'migrate' || r.migration !== name) continue;
+    const at = String(r.startedAt || r.finishedAt || '');
+    if (!best || at > String(best.startedAt || best.finishedAt || '')) best = r;
+  }
+  if (!best) return null;
+  const live = lock && !lock.stale && lock.runId === best.runId;
+  const outcome = best.outcome || (live ? 'running' : 'interrupted');
+  const result = best.result || {};
+  return {
+    runId: best.runId,
+    startedAt: best.startedAt || null,
+    finishedAt: best.finishedAt || null,
+    outcome,
+    by: best.by || null,
+    backup: result.backup || best.backup || null,
+    error: best.error || null,
+  };
+}
+
 module.exports = {
   DEFAULT_DIR, ID_PATTERN, ID_RE, MEMBERS, PAYLOAD, WRITERS, MANIFEST_SCHEMA,
   backupsDir, ensureDir, runsDir, runFile, runLog, newId, isId, folderOf, writeJson, readJson, hashFile,
   manifestProblem, readManifest, ids, summaryOf, listBackups, latest, count, heldIds,
   lockPath, startTimeOf, pidAlive, inspectLock, acquireLock, updateLock, addHolder, releaseLock, busyMessage, recoverIfStale,
-  lastRun,
+  runs, lastRun, lastMigrateRun,
 };

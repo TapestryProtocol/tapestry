@@ -65,7 +65,7 @@ export default function AddNodeAsElement() {
 
   // Fetch existing elements of this concept (to mark duplicates)
   const { data: existingElements } = useCypher(`
-    MATCH (h:NostrEvent {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup)-[:HAS_ELEMENT]->(elem)
+    MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup)-[:HAS_ELEMENT]->(elem)
     RETURN elem.uuid AS uuid
   `);
   const existingUuids = useMemo(
@@ -97,7 +97,7 @@ export default function AddNodeAsElement() {
       : '';
 
     return `
-      MATCH (n:NostrEvent)
+      MATCH (n:NostrEvent|ListItem)
       ${where}
       WITH n, labels(n) AS lbls
       WHERE NONE(l IN lbls WHERE l = 'NostrEventTag')

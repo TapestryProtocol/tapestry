@@ -48,6 +48,9 @@ WHERE NOT (s) -[:SPECIFIC_INSTANCE]-> (:NostrUserWotMetricsCard {customer_id: $C
 LIMIT $CYPHER_LIMIT
 MERGE (s) -[:SPECIFIC_INSTANCE]-> (c:NostrUserWotMetricsCard {observer_pubkey: '$CUSTOMER_PUBKEY', customer_id: $CUSTOMER_ID})
 SET c.observee_pubkey = s.observee_pubkey
+FOREACH (_ IN CASE WHEN NOT c:TapestryNode OR c.tapestryKey IS NULL OR c.tapestryKey = '{}' THEN [1] ELSE [] END |
+  SET c:TapestryNode,
+      c.tapestryKey = CASE WHEN c.tapestryKey IS NULL OR c.tapestryKey = '{}' THEN randomUUID() ELSE c.tapestryKey END)
 RETURN count(c) as numCrds"
 
 echo "$(date): Starting addMetricsCards for customer_id $CUSTOMER_ID with customer_pubkey $CUSTOMER_PUBKEY"

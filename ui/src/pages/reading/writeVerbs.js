@@ -68,7 +68,7 @@ function flat(j) {
 }
 
 async function nodeFacts(id) {
-  const r = (await R("MATCH (n:NostrEvent {uuid:$u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
+  const r = (await R("MATCH (n:NostrEvent|TapestryNode {uuid:$u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
     + "OPTIONAL MATCH (n)-[:HAS_TAG]->(d:NostrEventTag {type:'description'}) "
     + 'RETURN n.name AS name, labels(n) AS labels, n.pubkey AS pk, collect(DISTINCT j.value) AS js, head(collect(d.value)) AS d', { u: id }))[0];
   if (!r) return null;
@@ -96,14 +96,14 @@ function textPlace(f) {
  *  the kind its members mostly are, as long as that kind sits at or under the Set's own kind. */
 async function kindOfHolder(id, role) {
   if (role === 'concept') {
-    const r = await R('MATCH (h:NostrEvent {uuid:$u}) RETURN h.name AS n', { u: id });
+    const r = await R('MATCH (h:NostrEvent|TapestryNode {uuid:$u}) RETURN h.name AS n', { u: id });
     return [id, r[0] ? r[0].n : ''];
   }
-  const r = await R('MATCH p = (h:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*1..8]->(s:NostrEvent {uuid:$u}) '
+  const r = await R('MATCH p = (h:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*1..8]->(s:NostrEvent|TapestryNode {uuid:$u}) '
     + 'RETURN h.uuid AS h, h.name AS n ORDER BY length(p) LIMIT 1', { u: id });
   if (!r.length) return [null, null];
-  const m = await R('MATCH (:NostrEvent {uuid:$s})-[:HAS_ELEMENT]->(e)<-[:HAS_ELEMENT]-(sup:Superset)<-[:IS_THE_CONCEPT_FOR]-(h:ConceptHeader) '
-    + 'MATCH (:NostrEvent {uuid:$k})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->(sup) '
+  const m = await R('MATCH (:NostrEvent|TapestryNode {uuid:$s})-[:HAS_ELEMENT]->(e)<-[:HAS_ELEMENT]-(sup:Superset)<-[:IS_THE_CONCEPT_FOR]-(h:ConceptHeader) '
+    + 'MATCH (:NostrEvent|TapestryNode {uuid:$k})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->(sup) '
     + 'RETURN h.uuid AS h, h.name AS n, count(DISTINCT e) AS c ORDER BY c DESC, n LIMIT 1', { s: id, k: r[0].h });
   return m.length ? [m[0].h, m[0].n] : [r[0].h, r[0].n];
 }
@@ -130,7 +130,7 @@ async function fieldSlots(kindH, holder, role) {
       else s[k] = v;
     }
   };
-  const sj = ((await R('MATCH (s)-[:IS_THE_JSON_SCHEMA_FOR]->(k:NostrEvent {uuid:$u}) '
+  const sj = ((await R('MATCH (s)-[:IS_THE_JSON_SCHEMA_FOR]->(k:NostrEvent|TapestryNode {uuid:$u}) '
     + "OPTIONAL MATCH (s)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) RETURN head(collect(j.value)) AS sj", { u: kindH }))[0] || {}).sj;
   const types = {}, schema = {};
   try {
@@ -142,7 +142,7 @@ async function fieldSlots(kindH, holder, role) {
   } catch { /* a schema that does not parse offers no fields */ }
   const listy = new Set(Object.keys(types).filter((f) => types[f] === 'array' || types[f] === 'object'));   // lists and links: later
   Object.entries(schema).forEach(([f, m]) => { if (!listy.has(f)) slot(f, { hint: m, rank: 3 }); });
-  for (const r of await R("MATCH (h:NostrEvent {uuid:$u})-[:HAS_TAG]->(t:NostrEventTag) WHERE t.type IN ['required','recommended','optional','field-type'] "
+  for (const r of await R("MATCH (h:NostrEvent|TapestryNode {uuid:$u})-[:HAS_TAG]->(t:NostrEventTag) WHERE t.type IN ['required','recommended','optional','field-type'] "
     + 'RETURN t.type AS ty, t.value AS f, t.value1 AS v1', { u: kindH })) {
     const f = r.f || '';
     if (f.length < 2) continue;   // a one-letter value names a Nostr tag the item carries, not a field
@@ -150,8 +150,8 @@ async function fieldSlots(kindH, holder, role) {
     slot(f, { label: r.v1 || f, rank: { required: 0, recommended: 1, optional: 2 }[r.ty], ...(r.ty === 'required' ? { required: true } : {}) });
   }
   const rows = role === 'set'
-    ? await R("MATCH (:NostrEvent {uuid:$u})-[:HAS_ELEMENT]->(e) OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) RETURN j.value AS j LIMIT 300", { u: holder })
-    : await R('MATCH (:NostrEvent {uuid:$u})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->()-[:HAS_ELEMENT]->(e) '
+    ? await R("MATCH (:NostrEvent|TapestryNode {uuid:$u})-[:HAS_ELEMENT]->(e) OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) RETURN j.value AS j LIMIT 300", { u: holder })
+    : await R('MATCH (:NostrEvent|TapestryNode {uuid:$u})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->()-[:HAS_ELEMENT]->(e) '
       + "WHERE NOT 'ConceptHeader' IN labels(e) OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) RETURN DISTINCT e.uuid AS e, j.value AS j LIMIT 300", { u: holder });
   const skipped = new Set(), lens = {};
   for (const r of rows) {
@@ -220,7 +220,7 @@ export async function can(id, cfg) {
     } else if (!kh) Object.assign(c, { ok: false, why: 'No kind holds this Set here, so a new item would have no kind.' });
     else if (kpk !== ta) {
       const [st, , copy] = await whose(kh, ta);
-      const cn = copy ? ((await R('MATCH (h:NostrEvent {uuid:$u}) RETURN h.name AS n', { u: copy }))[0] || {}).n : null;
+      const cn = copy ? ((await R('MATCH (h:NostrEvent|TapestryNode {uuid:$u}) RETURN h.name AS n', { u: copy }))[0] || {}).n : null;
       Object.assign(c, { ok: false, copy: copy || undefined, why: st === 'dict' && copy
         ? `The kind “${kn}” is ${short(kpk)}’s. An item we make names our own kind as its parent (Tapestry’s stamping rule), so it goes in our copy of this kind in My Dictionary (“${cn}”), not here.`
         : `The kind “${kn}” is ${short(kpk)}’s. An item we make names our own kind as its parent (Tapestry’s stamping rule), and we have no copy of this one: add it to My Dictionary first, then add items to the copy.` });
@@ -314,14 +314,14 @@ async function create(body, cfg) {
   data.recorded = today();
   if (await serverPick(c.kind_name) !== c.kind) return { ok: false, why: `create-element would now pick another kind called “${c.kind_name}”; nothing was made.` };
   const addr = `39999:${cfg.taPubkey}:${slug(name)}-${(await sha256hex(c.kind)).slice(0, 8)}`;
-  const clash = await R('MATCH (n:NostrEvent {uuid:$u}) RETURN n.name AS n', { u: addr });
+  const clash = await R('MATCH (n:NostrEvent|TapestryNode {uuid:$u}) RETURN n.name AS n', { u: addr });
   if (clash.length) {
     return { ok: false, why: `“${c.kind_name}” already holds “${clash[0].n}”, which a new item with this title would overwrite `
       + '(titles that differ only in case or punctuation share an address). Pick another title.' };
   }
   // in a Set: add-to-set finds the Set and the item by name, first match; make sure each name means one node
   if (c.role === 'set') {
-    const sets = await R("MATCH (s:NostrEvent)-[:HAS_TAG]->(n:NostrEventTag {type: 'name'}) WHERE 'Set' IN labels(s) AND toLower(n.value) = toLower($n) RETURN DISTINCT s.uuid AS u", { n: c.holder_name });
+    const sets = await R("MATCH (s:NostrEvent|ListItem)-[:HAS_TAG]->(n:NostrEventTag {type: 'name'}) WHERE 'Set' IN labels(s) AND toLower(n.value) = toLower($n) RETURN DISTINCT s.uuid AS u", { n: c.holder_name });
     if (sets.length !== 1 || sets[0].u !== holder) {
       return { ok: false, why: `${sets.length} Sets here are called “${c.holder_name}”, and Tapestry’s add-to-set finds a Set by name: it could put the item in the wrong one. Nothing was made.` };
     }
@@ -338,7 +338,7 @@ async function create(body, cfg) {
   const id = (made.element || {}).uuid;
   wrote(addr);
   if (!id) return { ok: false, why: 'Not made: the instance did not say what it made.' };
-  const z = (await R("MATCH (:NostrEvent {uuid:$u})-[:HAS_TAG]->(t:NostrEventTag {type:'z'}) RETURN t.value AS z", { u: id })).map((r) => r.z);
+  const z = (await R("MATCH (:NostrEvent|TapestryNode {uuid:$u})-[:HAS_TAG]->(t:NostrEventTag {type:'z'}) RETURN t.value AS z", { u: id })).map((r) => r.z);
   if (!z.includes(c.kind)) return { ok: false, id, why: `Made, but in another kind than “${c.kind_name}” (its z: ${z.join(', ')}). Tell the owner.` };
   if (c.role === 'set') {
     await settle(id);
@@ -348,7 +348,7 @@ async function create(body, cfg) {
       return { ok: false, id, why: `Made as a ${c.kind_name}, but not put in “${c.holder_name}”: ${err.message || err}` };
     }
     wrote(id);
-    const inSet = await R('MATCH (:NostrEvent {uuid:$s})-[:HAS_ELEMENT]->(:NostrEvent {uuid:$e}) RETURN 1 AS x', { s: holder, e: id });
+    const inSet = await R('MATCH (:NostrEvent|TapestryNode {uuid:$s})-[:HAS_ELEMENT]->(:NostrEvent|TapestryNode {uuid:$e}) RETURN 1 AS x', { s: holder, e: id });
     if (!inSet.length) return { ok: false, id, why: `Made as a ${c.kind_name}, but the graph does not show it in “${c.holder_name}” yet.` };
   }
   return { ok: true, id };

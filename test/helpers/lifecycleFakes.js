@@ -4,7 +4,7 @@
  * graph-operations-foundation/0002. Test-only; nothing here reaches a live instance.
  *
  *   fakeSystem(stateFile)   a stand-in for src/operations/catalog/lifecycle/_system.js (ADR Decision 8): supervisor,
- *                           programStatus, neo4jAdmin, cypher, version, freeBytes and sleep, over a graph kept in a
+ *                           programStatus, neo4jAdmin, cypher, cypherEach, version, freeBytes and sleep, over a graph kept in a
  *                           JSON state file, so the parent test can read what happened after the child exits.
  *   makeInstance(...)       a temporary instance: its secure-keys folder with a real encrypted assistant key (made with
  *                           the instance's own SecureKeyStorage), its conf, its settings, its backups folder, its fake
@@ -20,6 +20,34 @@
  * count(...) / count(DISTINCT ...) of them), a relationship pattern with count(...) (relationships), any other
  * count(...) (nodes), and RETURN 1 (is it answering?). A row's column is the query's last `AS <alias>`. While the
  * server is stopped, every query throws.
+ *
+ * A node-level graph (story graph-operations-foundation #3, Loom A10.3, ADR graph-operations-foundation/0003):
+ * nodeGraph({ nodes }) holds each node's labels, tapestryKey, event id, address (uuid) and how many tag nodes it has,
+ * and the schema (rules and indexes). The coarse graph above is kept as it is for the backup suites. On a node-level
+ * graph the fake also answers, by what each query names (first match wins, in this order):
+ *   SHOW CONSTRAINTS / SHOW INDEXES          the schema's rows; a WHERE name = '…' or name IN [...] is honoured. Each
+ *                                            SHOW INDEXES advances a populating index, which is ONLINE after
+ *                                            failures.indexPolls of them (default 1).
+ *   CREATE CONSTRAINT <name> … / CREATE INDEX <name> …   ADR Decision 1's rule and index. The rule is refused, as
+ *                                            Neo4j refuses it, while two TapestryNode nodes hold one key.
+ *   apoc.periodic.iterate naming TapestryNode and tapestryKey   Decision 4's keys pass: the label on each node without
+ *                                            it, and randomUUID() for each key that is null or '{}'. It must call
+ *                                            randomUUID(). With the rule in place, a node whose key another labelled
+ *                                            node holds fails, as its batch would.
+ *   apoc.periodic.iterate with REMOVE <v>:NostrEvent   Decision 5's pass: off every NostrEvent node with no id and a tag.
+ *   tapestryKey, collect( and > 1            shared keys: rows { k, c, ids } of real keys held by more than one node.
+ *   TapestryNode, tapestryKey > $… and LIMIT  Decision 10's walk: the labelled keys after $after, sorted, one page.
+ *   NOT <v>:TapestryNode and tapestryKey IS NOT NULL   the keys of nodes without the label, as rows.
+ *   .id IS NULL and HAS_TAG                  the event-less nodes: count(...) of them, or rows of their uuid; with
+ *                                            AND <v>:TapestryNode, only those that carry the label.
+ *   count(...) and tapestryKey = '{}'        nodes whose key is the '{}' placeholder (with no IS NULL).
+ *   count(...) and tapestryKey IS NULL       nodes whose key is null (and '{}', when the query names '{}').
+ *   count(...) and NOT <v>:TapestryNode      nodes without the label.
+ *   count(...) and (<v>:TapestryNode)        nodes with the label.
+ * then the queries above. failures.keysPassFailsOnce fails half of the next keys pass's nodes, as a deadlock would;
+ * failures.writesBetweenPasses ([n, …]) has the "pipeline" make n nodes with no key and no label after each keys pass;
+ * failures.keysPassRetries ([n, …]) has each keys pass in turn report n retried batches.
+ * Every cypher call is logged with the lock's stage at that moment (null when no lock is held).
  */
 
 const fs = require('fs');
@@ -44,13 +72,63 @@ function defaultGraph(over = {}) {
   return { tx: 18, keys: ['k-0001', 'k-0002', 'k-0003'], nodesWithoutKey: 2, relationships: 4, offloaded: 0, ...over };
 }
 
+// ── The node-level graph (ADR graph-operations-foundation/0003) ──────────────────────────────────────────────────
+
+const isNodeGraph = (g) => !!g && Array.isArray(g.nodes);
+const realKey = (k) => typeof k === 'string' && k !== '{}';
+/**
+ * One node: its labels, tapestryKey (null, '{}' or a key), event id, address and number of tag nodes. Other fields
+ * (pubkey, name, …) ride along, so a test can see they are kept.
+ */
+function gnode({ labels = ['NostrEvent'], key = null, id = null, uuid = null, tags = 0, ...rest } = {}) {
+  return { labels: [...labels], key, id, uuid, tags, ...rest };
+}
+/** A node-level graph. Each node gets an element id, n0, n1, …, unless it has one. */
+function nodeGraph({ nodes = [], schema = {}, relationships = 0, tx = 18, offloaded = 0 } = {}) {
+  const list = nodes.map((n, i) => ({ eid: `4:fake:${i}`, ...gnode(n), ...(n.eid ? { eid: n.eid } : {}) }));
+  return { tx, nodes: list, nextEid: list.length, schema: { constraints: [], indexes: [], ...JSON.parse(JSON.stringify(schema)) }, relationships, offloaded };
+}
+/** The schema an instance has once tapestry-keys has run: the rule and both indexes, online. */
+function migratedSchema() {
+  return {
+    constraints: [{ name: 'tapestry_key', label: 'TapestryNode', property: 'tapestryKey', ownedIndex: 'tapestry_key' }],
+    indexes: [
+      { name: 'tapestry_key', label: 'TapestryNode', property: 'tapestryKey', state: 'ONLINE', pollsLeft: 0, owningConstraint: 'tapestry_key' },
+      { name: 'tapestry_node_uuid', label: 'TapestryNode', property: 'uuid', state: 'ONLINE', pollsLeft: 0, owningConstraint: null },
+    ],
+  };
+}
+/** Every tapestryKey the graph holds that isn't null ('{}' included), as backup has always counted them. */
+function keysOf(g) {
+  return isNodeGraph(g) ? g.nodes.filter((n) => n.key !== null && n.key !== undefined).map((n) => String(n.key)) : g.keys;
+}
+function addNode(g, fields) {
+  const n = { eid: `4:fake:${g.nextEid++}`, ...gnode(fields) };
+  g.nodes.push(n);
+  return n;
+}
+/** The rows apoc.periodic.iterate answers. */
+function iterateRow({ total, committed, failed = 0, failedBatches = 0, retries = 0, errors = {}, stats = {} }) {
+  return [{
+    batches: Math.max(1, failedBatches), total, timeTaken: 0, committedOperations: committed, failedOperations: failed,
+    failedBatches, retries, errorMessages: errors, batch: { total: Math.max(1, failedBatches), committed: failedBatches ? 0 : 1, failed: failedBatches, errors },
+    operations: { total, committed, failed, errors }, wasTerminated: false, failedParams: {}, updateStatistics: stats,
+  }];
+}
+/** The names a SHOW … WHERE name = '…' / name IN [...] asks for, or null for all. */
+function namesAskedFor(q) {
+  const w = String(q).match(/\bWHERE\b([\s\S]*)$/i);
+  if (!w || !/\bname\b/.test(w[1])) return null;
+  return [...w[1].matchAll(/'([^']+)'|"([^"]+)"/g)].map((m) => m[1] || m[2]);
+}
+
 /** A fresh state file: the server online, both writers running, nothing failing. */
 function newFakeState(file, over = {}) {
   const state = {
     online: true,
     version: '5.26.10',
     freeBytes: 1e12,
-    graph: defaultGraph(over.graph || {}),
+    graph: isNodeGraph(over.graph) ? JSON.parse(JSON.stringify(over.graph)) : defaultGraph(over.graph || {}),
     programs: { 'stream-consumer': 'RUNNING', 'tagging-edges-realtime': 'RUNNING', ...(over.programs || {}) },
     confPath: over.confPath || null,
     failures: {
@@ -62,6 +140,10 @@ function newFakeState(file, over = {}) {
       txOffsetOnce: 0, // the next successful load comes up at a different transaction
       writeAfterStart: 0, // this many starts are followed by a write (a new key) before anything else can count
       startFails: 0, // this many `start neo4j` calls fail, leaving the server stopped, before starts succeed again
+      indexPolls: 1, // node-level graph: SHOW INDEXES calls before a new index is ONLINE
+      keysPassFailsOnce: 0, // node-level graph: this many keys passes fail half their nodes, as a deadlock would
+      writesBetweenPasses: [], // node-level graph: after each keys pass, the "pipeline" makes this many keyless nodes
+      keysPassRetries: [], // node-level graph: each keys pass in turn reports this many retried batches (APOC's retries)
       ...(over.failures || {}),
     },
     log: [],
@@ -71,10 +153,12 @@ function newFakeState(file, over = {}) {
 }
 const readState = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 const writeState = (file, s) => fs.writeFileSync(file, JSON.stringify(s));
-const nodeCount = (g) => g.keys.length + g.nodesWithoutKey;
+const nodeCount = (g) => (isNodeGraph(g) ? g.nodes.length : g.keys.length + g.nodesWithoutKey);
 
 function fakeDumpBytes(graph) {
-  const g = { tx: graph.tx, keys: graph.keys, nodesWithoutKey: graph.nodesWithoutKey, relationships: graph.relationships, offloaded: graph.offloaded };
+  const g = isNodeGraph(graph)
+    ? { tx: graph.tx, nodes: graph.nodes, nextEid: graph.nextEid, schema: graph.schema, relationships: graph.relationships, offloaded: graph.offloaded }
+    : { tx: graph.tx, keys: graph.keys, nodesWithoutKey: graph.nodesWithoutKey, relationships: graph.relationships, offloaded: graph.offloaded };
   if (graph.uncompressedBytes) g.uncompressedBytes = graph.uncompressedBytes;
   return Buffer.from(DUMP_MAGIC + JSON.stringify(g));
 }
@@ -148,7 +232,9 @@ function fakeSystem(stateFile) {
             s.online = true;
             if (s.failures.writeAfterStart > 0) {
               s.failures.writeAfterStart--;
-              s.graph.keys.push(`k-written-while-backing-up-${s.log.length}`);
+              const k = `k-written-while-backing-up-${s.log.length}`;
+              if (isNodeGraph(s.graph)) addNode(s.graph, { labels: ['NostrEvent'], key: k });
+              else s.graph.keys.push(k);
             }
           }
         } else if (WRITERS.includes(p)) {
@@ -212,7 +298,9 @@ function fakeSystem(stateFile) {
           result = { code: 1, stderr: 'It is not possible to replace a database that is mounted in a running Neo4j server.' };
         } else if (s.failures.loadFailures > 0) {
           s.failures.loadFailures--;
-          s.graph = { ...s.graph, keys: ['k-broken-by-a-failed-load'], nodesWithoutKey: 0, relationships: 0 };
+          s.graph = isNodeGraph(s.graph)
+            ? nodeGraph({ tx: s.graph.tx, nodes: [{ labels: ['NostrEvent'], key: 'k-broken-by-a-failed-load' }] })
+            : { ...s.graph, keys: ['k-broken-by-a-failed-load'], nodesWithoutKey: 0, relationships: 0 };
           result = { code: 1, stderr: 'Load failed (fake): Truncated source' };
         } else {
           const g = parseFakeDump(buf);
@@ -221,7 +309,9 @@ function fakeSystem(stateFile) {
           } else {
             const offset = s.failures.txOffsetOnce || 0;
             s.failures.txOffsetOnce = 0;
-            s.graph = { tx: g.tx + offset, keys: g.keys, nodesWithoutKey: g.nodesWithoutKey, relationships: g.relationships, offloaded: g.offloaded || 0 };
+            s.graph = isNodeGraph(g)
+              ? { tx: g.tx + offset, nodes: g.nodes, nextEid: g.nextEid, schema: g.schema, relationships: g.relationships, offloaded: g.offloaded || 0 }
+              : { tx: g.tx + offset, keys: g.keys, nodesWithoutKey: g.nodesWithoutKey, relationships: g.relationships, offloaded: g.offloaded || 0 };
             entry.loaded = parseFakeDump(fakeDumpBytes(s.graph));
             result = { code: 0, stdout: 'Done: 37 files, 258.1MiB processed in 0.155 seconds.' };
           }
@@ -234,10 +324,10 @@ function fakeSystem(stateFile) {
       save(s);
       return { code: result.code, stdout: result.stdout || '', stderr: result.stderr || '' };
     },
-    async cypher(query) {
+    async cypher(query, params = {}) {
       const s = load();
       const q = String(query);
-      const note = (what) => { s.log.push({ call: 'cypher', what, online: s.online }); save(s); };
+      const note = (what, extra = {}) => { s.log.push({ call: 'cypher', what, online: s.online, lockStage: lockStageNow(), ...extra }); save(s); };
       if (!s.online || s.failures.cypherDown) {
         note('refused');
         throw new Error('ServiceUnavailable: the fake graph database is not answering');
@@ -245,19 +335,180 @@ function fakeSystem(stateFile) {
       const alias = aliasOf(q);
       const one = (v, fallback) => [{ [alias || fallback]: v }];
       const g = s.graph;
+      const schema = (isNodeGraph(g) && g.schema) || { constraints: [], indexes: [] };
+      const isCount = /count\s*\(/i.test(q);
+      const limitOf = () => { const m = q.match(/\bLIMIT\s+(\d+)/i); return m ? Number(m[1]) : (params.limit === undefined ? Infinity : Number(params.limit)); };
+
+      // ── The schema (ADR 0003 Decision 1) ──
+      if (/^\s*SHOW\s+CONSTRAINTS\b/i.test(q)) {
+        const want = namesAskedFor(q);
+        note('show-constraints');
+        return schema.constraints.filter((c) => !want || want.includes(c.name)).map((c) => ({
+          name: c.name, type: 'UNIQUENESS', entityType: 'NODE', labelsOrTypes: [c.label], properties: [c.property], ownedIndex: c.ownedIndex,
+        }));
+      }
+      if (/^\s*SHOW\s+INDEXES\b/i.test(q)) {
+        for (const ix of schema.indexes) {
+          if (ix.state === 'POPULATING') { ix.pollsLeft = (ix.pollsLeft || 0) - 1; if (ix.pollsLeft <= 0) ix.state = 'ONLINE'; }
+        }
+        const want = namesAskedFor(q);
+        note('show-indexes');
+        return schema.indexes.filter((ix) => !want || want.includes(ix.name)).map((ix) => ({
+          name: ix.name, state: ix.state, populationPercent: ix.state === 'ONLINE' ? 100 : 40, type: 'RANGE', entityType: 'NODE',
+          labelsOrTypes: [ix.label], properties: [ix.property], owningConstraint: ix.owningConstraint || null,
+        }));
+      }
+      if (/\bCREATE\s+CONSTRAINT\b/i.test(q)) {
+        if (!isNodeGraph(g)) { note('unknown'); throw new Error('the fake makes rules only on a node-level graph'); }
+        const name = (q.match(/CREATE\s+CONSTRAINT\s+`?([A-Za-z_][A-Za-z0-9_]*)`?/i) || [])[1];
+        const m = q.match(/FOR\s*\(\s*([A-Za-z_]\w*)\s*:\s*TapestryNode\s*\)\s*REQUIRE\s*\1\s*\.\s*tapestryKey\s+IS\s+UNIQUE/i);
+        if (name !== 'tapestry_key' || !m) { note('unknown'); throw new Error(`the fake knows only ADR 0003's rule (CREATE CONSTRAINT tapestry_key IF NOT EXISTS FOR (n:TapestryNode) REQUIRE n.tapestryKey IS UNIQUE): ${q}`); }
+        if (schema.constraints.some((c) => c.name === name)) { note('create-rule', { existed: true }); return []; }
+        const held = new Map();
+        for (const n of g.nodes) {
+          if (!n.labels.includes('TapestryNode') || n.key === null || n.key === undefined) continue;
+          if (held.has(n.key)) {
+            note('create-rule', { refused: true });
+            throw new Error(`Neo.DatabaseError.Schema.ConstraintCreationFailed: Unable to create Constraint( name='tapestry_key', type='UNIQUENESS', schema=(:TapestryNode {tapestryKey}) ): Both Node(${held.get(n.key)}) and Node(${n.eid}) have the label \`TapestryNode\` and property \`tapestryKey\` = '${n.key}'`);
+          }
+          held.set(n.key, n.eid);
+        }
+        schema.constraints.push({ name, label: 'TapestryNode', property: 'tapestryKey', ownedIndex: name });
+        schema.indexes.push({ name, label: 'TapestryNode', property: 'tapestryKey', state: 'POPULATING', pollsLeft: s.failures.indexPolls, owningConstraint: name });
+        g.schema = schema;
+        note('create-rule');
+        return [];
+      }
+      if (/\bCREATE\s+INDEX\b/i.test(q)) {
+        if (!isNodeGraph(g)) { note('unknown'); throw new Error('the fake makes indexes only on a node-level graph'); }
+        const name = (q.match(/CREATE\s+INDEX\s+`?([A-Za-z_][A-Za-z0-9_]*)`?/i) || [])[1];
+        const m = q.match(/FOR\s*\(\s*([A-Za-z_]\w*)\s*:\s*([A-Za-z_]\w*)\s*\)\s*ON\s*\(\s*\1\s*\.\s*([A-Za-z_]\w*)\s*\)/i);
+        if (!name || !m) { note('unknown'); throw new Error(`the fake can't read this index: ${q}`); }
+        if (schema.indexes.some((ix) => ix.name === name)) { note('create-index', { existed: true }); return []; }
+        schema.indexes.push({ name, label: m[2], property: m[3], state: 'POPULATING', pollsLeft: s.failures.indexPolls, owningConstraint: null });
+        g.schema = schema;
+        note('create-index');
+        return [];
+      }
+
+      // ── The passes (ADR 0003 Decisions 4 and 5) ──
+      if (/apoc\.periodic\.iterate/i.test(q)) {
+        if (!isNodeGraph(g)) { note('unknown'); throw new Error('the fake runs passes only on a node-level graph'); }
+        if (/\bREMOVE\s+[A-Za-z_]\w*\s*:\s*NostrEvent\b/.test(q)) {
+          const labelled = /\bAND\s+[A-Za-z_]\w*\s*:\s*TapestryNode\b/.test(q);
+          const targets = g.nodes.filter((n) => n.labels.includes('NostrEvent') && (n.id === null || n.id === undefined) && n.tags > 0
+            && (!labelled || n.labels.includes('TapestryNode')));
+          for (const n of targets) n.labels = n.labels.filter((l) => l !== 'NostrEvent');
+          note('relabel-pass', { nodes: targets.length });
+          return iterateRow({ total: targets.length, committed: targets.length, stats: { labelsRemoved: targets.length } });
+        }
+        if (/TapestryNode/.test(q) && /tapestryKey/.test(q)) {
+          if (!/randomUUID\s*\(\s*\)/.test(q)) { note('unknown'); throw new Error(`the keys pass must give keys with Cypher's randomUUID(): ${q}`); }
+          let targets = g.nodes.filter((n) => !n.labels.includes('TapestryNode') || n.key === null || n.key === undefined || n.key === '{}');
+          let failed = 0;
+          const errors = {};
+          if (s.failures.keysPassFailsOnce > 0) {
+            s.failures.keysPassFailsOnce--;
+            const keep = Math.ceil(targets.length / 2);
+            failed = targets.length - keep;
+            if (failed) errors['ForsetiClient[transactionId=7] can\'t acquire ExclusiveLock (fake): DeadlockDetected'] = 1;
+            targets = targets.slice(0, keep);
+          }
+          const ruled = schema.constraints.some((c) => c.name === 'tapestry_key');
+          const labelledKeys = new Set(g.nodes.filter((n) => n.labels.includes('TapestryNode') && n.key !== null && n.key !== undefined).map((n) => n.key));
+          let labelsAdded = 0, propertiesSet = 0, applied = 0;
+          for (const n of targets) {
+            const key = n.key === null || n.key === undefined || n.key === '{}' ? crypto.randomUUID() : n.key;
+            const labelling = !n.labels.includes('TapestryNode');
+            if (ruled && labelling && labelledKeys.has(key)) {
+              failed++;
+              errors[`Node(${n.eid}) already exists with label \`TapestryNode\` and property \`tapestryKey\` = '${key}'`] = 1;
+              continue;
+            }
+            if (labelling) { n.labels.push('TapestryNode'); labelsAdded++; labelledKeys.add(key); }
+            if (key !== n.key) { if (n.key === '{}') n.tapestryJsonUpdatedAt = null; n.key = key; propertiesSet++; }
+            applied++;
+          }
+          const later = Array.isArray(s.failures.writesBetweenPasses) ? (s.failures.writesBetweenPasses.shift() || 0) : 0;
+          for (let i = 0; i < later; i++) addNode(g, { labels: ['NostrUser'], key: null, pubkey: `late-${g.nextEid}` });
+          const retries = Array.isArray(s.failures.keysPassRetries) ? (s.failures.keysPassRetries.shift() || 0) : 0;
+          note('keys-pass', { nodes: targets.length, failed, madeAfter: later, retries });
+          return iterateRow({ total: applied + failed, committed: applied, failed, failedBatches: failed ? 1 : 0, retries, errors, stats: { labelsAdded, propertiesSet } });
+        }
+        note('unknown');
+        throw new Error(`the fake doesn't know this pass: ${q}`);
+      }
+
       if (/dbms\.components/i.test(q)) { note('version'); return [{ name: 'Neo4j Kernel', versions: [s.version], edition: 'community' }]; }
       if (/lmdb:/.test(q)) { note('offloaded'); return one(g.offloaded, 'count'); }
+
+      // ── Node-level reads (ADR 0003 Decisions 4, 5, 7 and 10) ──
+      if (isNodeGraph(g)) {
+        if (/tapestryKey/.test(q) && /collect\s*\(/i.test(q) && />\s*1\b/.test(q)) {
+          const by = new Map();
+          for (const n of g.nodes) if (realKey(n.key)) by.set(n.key, [...(by.get(n.key) || []), n.eid]);
+          const rows = [...by.entries()].filter(([, ids]) => ids.length > 1).map(([k, ids]) => ({ k, c: ids.length, ids: ids.slice(0, 10) }));
+          note('shared-keys');
+          return rows.slice(0, limitOf());
+        }
+        if (/TapestryNode/.test(q) && /tapestryKey\s*>\s*\$/.test(q) && /\bLIMIT\b/i.test(q)) {
+          const size = limitOf();
+          const after = params.after === undefined || params.after === null ? '' : String(params.after);
+          const page = g.nodes.filter((n) => n.labels.includes('TapestryNode') && n.key !== null && n.key !== undefined)
+            .map((n) => String(n.key)).sort().filter((k) => k > after).slice(0, size);
+          note('walk-page', { size, after, rows: page.length });
+          return page.map((k) => ({ [alias || 'k']: k }));
+        }
+        if (/NOT\s+[A-Za-z_]\w*\s*:\s*TapestryNode/.test(q) && /tapestryKey\s+IS\s+NOT\s+NULL/i.test(q) && !isCount) {
+          note('unlabelled-keys');
+          return g.nodes.filter((n) => !n.labels.includes('TapestryNode') && n.key !== null && n.key !== undefined).map((n) => ({ [alias || 'k']: String(n.key) }));
+        }
+        if (/\.\s*id\s+IS\s+NULL/i.test(q) && /HAS_TAG/.test(q)) {
+          // A query that also asks `AND <v>:TapestryNode` counts only the event-less nodes that carry the label.
+          const labelled = /\bAND\s+[A-Za-z_]\w*\s*:\s*TapestryNode\b/.test(q);
+          const eventLess = g.nodes.filter((n) => n.labels.includes('NostrEvent') && (n.id === null || n.id === undefined) && n.tags > 0
+            && (!labelled || n.labels.includes('TapestryNode')));
+          if (isCount) { note('event-less-count'); return one(eventLess.length, 'count'); }
+          note('event-less-rows');
+          return eventLess.slice(0, limitOf()).map((n) => ({ [alias || 'uuid']: n.uuid }));
+        }
+        if (isCount && /tapestryKey\s*=\s*'\{\}'/.test(q) && !/IS\s+NULL/i.test(q)) {
+          note('placeholders');
+          return one(g.nodes.filter((n) => n.key === '{}').length, 'count');
+        }
+        if (isCount && /tapestryKey\s+IS\s+NULL/i.test(q)) {
+          const braces = /'\{\}'|"\{\}"/.test(q);
+          note('without-key');
+          return one(g.nodes.filter((n) => n.key === null || n.key === undefined || (braces && n.key === '{}')).length, 'count');
+        }
+        if (isCount && /NOT\s+[A-Za-z_]\w*\s*:\s*TapestryNode/.test(q)) { note('without-label'); return one(g.nodes.filter((n) => !n.labels.includes('TapestryNode')).length, 'count'); }
+        if (isCount && /\(\s*[A-Za-z_]?\w*\s*:\s*TapestryNode\s*\)/.test(q)) { note('with-label'); return one(g.nodes.filter((n) => n.labels.includes('TapestryNode')).length, 'count'); }
+      }
+
+      const keys = keysOf(g);
       if (/tapestryKey/.test(q)) {
-        if (/count\s*\(\s*DISTINCT/i.test(q)) { note('distinct-keys'); return one(new Set(g.keys).size, 'count'); }
-        if (/count\s*\(/i.test(q)) { note('key-count'); return one(g.keys.length, 'count'); }
+        if (/count\s*\(\s*DISTINCT/i.test(q)) { note('distinct-keys'); return one(new Set(keys).size, 'count'); }
+        if (/count\s*\(/i.test(q)) { note('key-count'); return one(keys.length, 'count'); }
         note('keys');
-        return g.keys.map((k) => ({ [alias || 'tapestryKey']: k }));
+        return keys.map((k) => ({ [alias || 'tapestryKey']: k }));
       }
       if (/-\s*\[/.test(q) && /count\s*\(/i.test(q)) { note('relationships'); return one(g.relationships, 'count'); }
       if (/count\s*\(/i.test(q)) { note('nodes'); return one(nodeCount(g), 'count'); }
       if (/RETURN\s+1\b/i.test(q)) { note('ping'); return one(1, '1'); }
       note('unknown');
       throw new Error(`the fake graph database doesn't know this query: ${q}`);
+    },
+    /**
+     * ADR graph-operations-foundation/0003 Amendment 2: a read whose rows go to onRow one at a time. It answers what
+     * cypher would, and its log entry is cypher's, marked streamed: true, so traces read the same either way.
+     */
+    async cypherEach(query, params = {}, onRow) {
+      const rows = await this.cypher(query, params);
+      const s = load();
+      const last = s.log[s.log.length - 1];
+      if (last && last.call === 'cypher') last.streamed = true;
+      save(s);
+      for (const row of rows) onRow(row);
     },
     async version() { return load().version; },
     async freeBytes(p) {
@@ -276,9 +527,10 @@ function keyDigest(keys) {
 }
 /** What a backup of `graph` records as its counts. */
 function countsOf(graph) {
+  const keys = keysOf(graph);
   return {
-    nodes: nodeCount(graph), relationships: graph.relationships, tapestryKeys: graph.keys.length,
-    distinctTapestryKeys: new Set(graph.keys).size, tapestryKeyDigest: keyDigest(graph.keys),
+    nodes: nodeCount(graph), relationships: graph.relationships, tapestryKeys: keys.length,
+    distinctTapestryKeys: new Set(keys).size, tapestryKeyDigest: keyDigest(keys),
   };
 }
 
@@ -339,7 +591,7 @@ const MEMBER_ORDER = ['manifest.json', 'admins.json', 'identity/tapestry-assista
  *   o.manifest (fields replacing the computed ones; graph: {...} is merged), o.received ({ receivedAt, by })
  */
 function writeBackup(backupsDir, o) {
-  const graph = defaultGraph(o.graph || {});
+  const graph = isNodeGraph(o.graph) ? o.graph : defaultGraph(o.graph || {});
   const takenAt = o.takenAt || new Date().toISOString();
   const id = o.id || newId(new Date(takenAt));
   const folder = path.join(backupsDir, id);
@@ -692,6 +944,7 @@ module.exports = {
   suite, assert, modeOf,
   inOrder,
   ROOT, DEAD, OWNER, ADMIN, STRANGER, ID_RE, MEMBER_ORDER, WRITERS, DUMP_MAGIC,
+  isNodeGraph, realKey, gnode, nodeGraph, migratedSchema, keysOf, lockStageNow,
   sha256, show, defaultGraph, newFakeState, readState, writeState, fakeSystem, fakeDumpBytes, parseFakeDump, keyDigest,
   countsOf, confPubkey, makeIdentity, addAccountKey, readKey, newId, writeBackup, folderFiles, backupMembers, tarWrite,
   tarRead, tarHeader, makeInstance, backupIds, leftovers, startTimeOf, deadPid, writeLock, runHarness, pick, calls, trace,

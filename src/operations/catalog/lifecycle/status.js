@@ -6,8 +6,9 @@
  * Each part has its own reader on `parts`. run() calls them through that object, all at once, and a part whose reader
  * fails answers { known: false, problem } while the rest still answer, so status says what it can when Neo4j is down.
  * It writes nothing and carries no timestamp: asking twice with nothing changed gives the same answer. The backup part
- * reads the backups folder (story graph-operations-foundation #2, ADR 0002 Decision 11); migrations has nothing to
- * read until lifecycle migrate (Loom A10.3) fills it in.
+ * reads the backups folder (story graph-operations-foundation #2, ADR 0002 Decision 11). The migrations part reads the
+ * graph — whether each migration is applied comes from its own plan, never a record — and its runs from the run files
+ * (story graph-operations-foundation #3, ADR 0003 Decision 7).
  *
  * The readers require what they read lazily, so loading this declaration opens nothing (Decision 10).
  */
@@ -81,8 +82,45 @@ const RESULT_SCHEMA = {
       concepts: count('How many concepts the firmware has'),
       missing: { type: 'array', items: { type: 'string' }, description: "The slugs of the firmware's concepts not in the graph" },
     }),
-    migrations: part('The one-time changes to existing data that have been applied.', {
-      applied: { type: 'array', items: {}, description: 'The migrations recorded as applied' },
+    migrations: part('The one-time changes to existing data (lifecycle migrate): each one, whether the graph has it, and its last run.', {
+      keys: {
+        type: 'object',
+        description: "The whole graph's tapestryKeys, NostrUser nodes included (the cache part counts only nodes with a uuid or an id)",
+        properties: {
+          nodes: count('Nodes in the graph'),
+          withLabel: count('Nodes with the label TapestryNode'),
+          withoutKey: count("Nodes with no tapestryKey ('{}' counts as none)"),
+          rule: { type: 'boolean', description: 'Whether the uniqueness rule tapestry_key is in place and online' },
+          index: { type: 'boolean', description: 'Whether the index tapestry_node_uuid is in place and online' },
+        },
+      },
+      migrations: {
+        type: 'array',
+        description: 'Each migration, in the order to run them',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            summary: { type: 'string' },
+            applied: { type: 'boolean', description: 'Whether the graph has it now, read from the graph (a restored older graph reads as not applied)' },
+            requires: { type: 'array', items: { type: 'string' }, description: 'The migrations it needs applied first' },
+            lastRun: {
+              type: 'object',
+              nullable: true,
+              description: 'Its most recent run, or null when it has never run',
+              properties: {
+                runId: { type: 'string' },
+                startedAt: { type: 'string', nullable: true },
+                finishedAt: { type: 'string', nullable: true },
+                outcome: { type: 'string', enum: ['done', 'failed', 'running', 'interrupted'] },
+                by: { type: 'string', nullable: true, description: "Who ran it: a pubkey, or 'local' for the command" },
+                backup: { type: 'string', nullable: true, description: 'The backup taken before it' },
+                error: { type: 'string', nullable: true },
+              },
+            },
+          },
+        },
+      },
       note: { type: 'string', description: 'What this part knows, in words' },
     }),
     cache: part("How much of the cache built from the graph (each node's Tapestry JSON, in the LMDB) is there. It counts the nodes with a uuid or an id, as GET /api/tapestry-key/status does.", {
@@ -103,7 +141,7 @@ const status = {
   access: 'owner-and-admins',
   summary: 'The last backup, the firmware version, the migrations applied, and how fresh the cache is',
   description: [
-    'Four parts, each saying plainly what it knows. **backup**: the most recent backup the instance holds, how many it holds, the last backup or restore run, and one that was interrupted. **firmware**: the version the instance carries, and whether all, some or none of its concepts are in the graph. **migrations**: the migrations applied (none is recorded until lifecycle migrate is built). **cache**: how many nodes have a cached Tapestry JSON, and how many do not.',
+    'Four parts, each saying plainly what it knows. **backup**: the most recent backup the instance holds, how many it holds, the last backup or restore run, and one that was interrupted. **firmware**: the version the instance carries, and whether all, some or none of its concepts are in the graph. **migrations**: the whole graph\'s tapestryKeys and whether the uniqueness rule is in place, then each migration lifecycle migrate can run, whether the graph has it, and its last run — who ran it, when, and the backup taken before it. **cache**: how many nodes have a cached Tapestry JSON, and how many do not.',
     'A part that cannot be read answers `known: false` with its `problem`, and the others still answer. Status changes nothing.',
   ].join('\n\n'),
   inputs: {},
@@ -142,7 +180,30 @@ const status = {
       };
     },
     async migrations() {
-      return { known: true, applied: [], note: 'No migration has been recorded: lifecycle migrate is not built yet.' };
+      const migrations = require('./_migrations');
+      const store = require('./_store');
+      const system = require('./_system');
+      const list = [];
+      let keys = null;
+      for (const m of migrations.MIGRATIONS) {
+        const plan = await m.plan(system);
+        if (m.name === 'tapestry-keys') keys = migrations.keyCountsOf(plan);
+        list.push({ name: m.name, summary: m.summary, applied: plan.applied, requires: [...m.requires], lastRun: store.lastMigrateRun(m.name) });
+      }
+      const ran = list.filter((x) => x.lastRun);
+      const applied = list.filter((x) => x.applied).map((x) => x.name);
+      const ready = list.filter((x) => !x.applied && x.requires.every((r) => applied.includes(r))).map((x) => x.name);
+      const waiting = list.filter((x) => !x.applied && !ready.includes(x.name));
+      const running = list.filter((x) => x.lastRun && x.lastRun.outcome === 'running').map((x) => x.name);
+      const words = [];
+      if (!ran.length) words.push('No migration has run yet.');
+      if (applied.length) words.push(`Applied: ${applied.join(', ')}.`);
+      if (running.length) words.push(`Running now: ${running.join(', ')}.`);
+      if (ready.length) words.push(`Can run now: ${ready.join(', ')} (\`tapestry lifecycle migrate --migration <name>\`).`);
+      for (const w of waiting) words.push(`${w.name} needs ${w.requires.filter((r) => !applied.includes(r)).join(', ')} first.`);
+      const failed = list.filter((x) => x.lastRun && ['failed', 'interrupted'].includes(x.lastRun.outcome));
+      for (const f of failed) words.push(`The last run of ${f.name} ${f.lastRun.outcome === 'failed' ? 'failed' : 'was interrupted'}${f.lastRun.error ? `: ${f.lastRun.error}` : '.'}`);
+      return { known: true, keys, migrations: list, note: words.join(' ') };
     },
     async cache() {
       const { readTapestryKeyCounts } = require('../../../api/tapestry-key');

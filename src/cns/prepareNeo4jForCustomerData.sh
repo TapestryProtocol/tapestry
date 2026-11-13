@@ -94,8 +94,14 @@ emit_task_event "PROGRESS" "prepareNeo4jForCustomerData" "$CUSTOMER_PUBKEY" "$oM
 # anyone (hops=999) would never get scored because addSetsOfMetricsCards.sh filters on hops<100.
 cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USER" -p "$NEO4J_PASSWORD" "
 MERGE (n:NostrUser {pubkey: '$CUSTOMER_PUBKEY'})
+FOREACH (_ IN CASE WHEN NOT n:TapestryNode OR n.tapestryKey IS NULL OR n.tapestryKey = '{}' THEN [1] ELSE [] END |
+  SET n:TapestryNode,
+      n.tapestryKey = CASE WHEN n.tapestryKey IS NULL OR n.tapestryKey = '{}' THEN randomUUID() ELSE n.tapestryKey END)
 MERGE (n)-[:WOT_METRICS_CARDS]->(s:Set:SetOfNostrUserWotMetricsCards)
 SET s.observee_pubkey = n.pubkey
+FOREACH (_ IN CASE WHEN NOT s:TapestryNode OR s.tapestryKey IS NULL OR s.tapestryKey = '{}' THEN [1] ELSE [] END |
+  SET s:TapestryNode,
+      s.tapestryKey = CASE WHEN s.tapestryKey IS NULL OR s.tapestryKey = '{}' THEN randomUUID() ELSE s.tapestryKey END)
 RETURN count(s) AS created
 "
 echo "$(date): Ensured observer $CUSTOMER_PUBKEY has SetOfNostrUserWotMetricsCards"
