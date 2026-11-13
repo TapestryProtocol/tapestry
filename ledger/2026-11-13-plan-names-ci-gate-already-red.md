@@ -12,7 +12,8 @@
 - **The ledger.** OPEN.md row `2026-11-07-reading-writeverbs-raw-publish` had said for six days that every pull request
   into `staging` is red on one test.
 - **The gap.** Nothing in Test Design asks whether a registered suite is already red. So the plan promised a result
-  the branch could not give, and the Reviewer caught it by reading the ledger.
+  the branch could not give. The Tester's own baseline run had shown that suite red, and the Tester took it for the
+  machine's doing. The Reviewer read it from that run's record, then found the ledger row.
 
 **Fix shape.**
 - **In workflow 3,** when a plan takes its gate from CI, the Tester reads the OPEN `bug` rows that name a failing

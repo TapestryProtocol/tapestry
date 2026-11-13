@@ -69,5 +69,5 @@ again, and again chose a GitHub merge by the session, as the OK the baseline ask
 alone, cherry-picked onto `promote/tagging-edges-7` (ledger `2026-11-08-selective-promotion-diverges-main`).
 
 **Seen again, 2026-11-13 (`workflow-hardening` #1, review round 1).** `scripts/harness-def-paths.txt:16-18` says the
-workflows are retired and "no workflow runs". They ran 143 times between 2026-10-27 and 2026-11-13, and the story
-exists because they run. The comment is on `staging` as well as `main`.
+workflows are retired and "no workflow runs". GitHub's list of Actions runs for the repository, read on 2026-11-13,
+held 143 runs from 2026-10-27 on, and the story exists because they run. The comment is on `staging` as well as `main`.
