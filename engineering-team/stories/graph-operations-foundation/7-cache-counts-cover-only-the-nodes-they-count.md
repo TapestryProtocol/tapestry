@@ -50,6 +50,7 @@ None. Every criterion can be observed from outside: through `lifecycle status`, 
 ## Linked artifacts
 
 - ADR: none. Under Standard, a bug skips Architecture when the fix is obvious. The owner chose the Standard bug path on 2026-11-13.
+- Loom: A10.3.a, a subtask of A10.3 (https://loom.brainstorm.world/t/A10.3.a). The pull request names it.
 - Found by: story 3's run on staging, 2026-11-13 (`engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`).
 - Test plan: `engineering-team/stories/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.test-plan.md`
 - Review: `engineering-team/reviews/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.md`
