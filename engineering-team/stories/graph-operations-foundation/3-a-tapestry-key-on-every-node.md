@@ -99,4 +99,4 @@ For Architecture, not this gate:
 - Story 2, whose backup this takes first: [2-lifecycle-backup-and-restore.md](2-lifecycle-backup-and-restore.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md](../../decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md)
 - Test plan: [3-a-tapestry-key-on-every-node.test-plan.md](3-a-tapestry-key-on-every-node.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md](../../reviews/graph-operations-foundation/3-a-tapestry-key-on-every-node.md) (round 1, 2026-11-13: CHANGES_REQUESTED)
