@@ -40,7 +40,9 @@ nothing after the commit id (W9). Their names and every other assertion are unch
 `test/registry.js`.
 
 Round 2, after the first review: the guard also catches the object filter `secrets.*` and a secret named with spaces
-round the dot (`S13`, `S11`). The header comment of `test/honest-publish-reporting-ci-guard.test.js` cited a line
+round the dot (`S13`, `S11`). After the second: it looks for "every secret" only inside expressions (`${{ … }}` and
+`if:`), so a shell glob such as `config/secrets.*` is not a finding (`S10`), and it reads each string as written, so a
+line break round the dot is still seen (`S13`). The header comment of `test/honest-publish-reporting-ci-guard.test.js` cited a line
 number of `test.yml` that this story's change had moved; it now names the step.
 
 ### Guard suite
@@ -110,7 +112,9 @@ off. This story's suites need no stack and can be run one at a time, as above.
 (OPEN.md row `2026-11-07-reading-writeverbs-raw-publish`). While that row is open, every pull request into `staging`
 fails on that one test.
 
-- If the fix for S2 is on `staging` when this pull request's run starts, the run must be green.
+- If the fix for S2 is on `staging` when this pull request's run starts, the run must be green. A re-run of an older
+  run does not count: it tests the same merge of branch and base as the first time, so it takes a new push to pick
+  the fix up.
 - If it is not, the run counts for this story when every step before `npm test` succeeds on the pinned actions and
   S2 is the run's only failure. Shipping on that reading needs the owner's OK, recorded in the review.
 

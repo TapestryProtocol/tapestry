@@ -211,15 +211,40 @@ const DEPLOY_SECRET_KIND = /^DEPLOY_(?:HOST|USER|SSH_KEY)_([A-Z0-9_]+)$/;
 // All at once (toJSON(secrets)), by a computed name (secrets[...]), or through the object filter (secrets.*).
 const EVERY_SECRET = /toJSON\(\s*secrets\s*\)|secrets\s*\[|secrets\s*\.\s*\*/i;
 
-/** The deploy secrets a job (or any part of a workflow) names, upper-cased, once each. */
+/** Every string in a part of a workflow, with the key it sits under. */
+function stringsIn(part, key = '', out = []) {
+  if (typeof part === 'string') out.push({ key, text: part });
+  else if (Array.isArray(part)) for (const item of part) stringsIn(item, key, out);
+  else if (isMap(part)) for (const [k, v] of Object.entries(part)) stringsIn(v, k, out);
+  return out;
+}
+
+/**
+ * The deploy secrets a job (or any part of a workflow) names, upper-cased, once each. Read from
+ * the strings themselves, so a line break round the dot is still seen.
+ */
 function deploySecretsIn(part) {
-  const text = JSON.stringify(part === undefined ? null : part);
-  return [...new Set([...text.matchAll(DEPLOY_SECRET)].map((m) => m[1].toUpperCase()))];
+  const names = stringsIn(part).flatMap(({ text }) => [...text.matchAll(DEPLOY_SECRET)].map((m) => m[1].toUpperCase()));
+  return [...new Set(names)];
+}
+
+/**
+ * The expressions in a part: whatever sits inside ${{ … }}, and the whole of an `if:`, which
+ * GitHub evaluates without the braces. Script text outside them is not an expression, so a shell
+ * glob such as `config/secrets.*` is left alone.
+ */
+function expressionsIn(part) {
+  const out = [];
+  for (const { key, text } of stringsIn(part)) {
+    for (const m of text.matchAll(/\$\{\{([\s\S]*?)\}\}/g)) out.push(m[1]);
+    if (key === 'if') out.push(text);
+  }
+  return out;
 }
 
 /** Whether a part reads secrets without naming them: all at once, or by a computed name. */
 function readsEverySecret(part) {
-  return EVERY_SECRET.test(JSON.stringify(part === undefined ? null : part));
+  return expressionsIn(part).some((expression) => EVERY_SECRET.test(expression));
 }
 
 function environmentOf(job) {
@@ -416,6 +441,8 @@ test('S10 (AC-3, AC-4): ENV asks nothing of a job that reads no deploy secret', 
     'a job that reads another secret');
   clean(checkEnvironments(made({ steps: ['      - run: echo "secrets.DEPLOY_HOST_EXAMPLE is kept in the environment"'],
     job: ['    environment: example'] })), 'a deploy job whose script also names the secret');
+  clean(checkEnvironments(made({ steps: ['      - run: rm -f config/secrets.* && grep -c "toJSON(secrets)" notes.txt'] })),
+    'script text that only looks like reading every secret');
 });
 
 test('S11 (AC-3, AC-4): ENV catches a deploy job with no environment, or with another server\'s', () => {
@@ -450,6 +477,13 @@ test('S13 (AC-3, AC-4): ENV catches a job that reads secrets without naming them
     steps: ['      - run: echo', '        env:', '          ALL: ${{ toJSON(secrets.*) }}'] })), /reads every secret at once/, 'toJSON(secrets.*)');
   caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          ALL: ${{ toJSON( secrets . * ) }}'] })),
     /reads every secret at once/, 'the object filter with spaces, in a job with no environment');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          ALL: |', '            ${{ toJSON(secrets',
+    '            .*) }}'] })), /reads every secret at once/, 'the object filter with a line break before the dot');
+  caught(checkEnvironments(made({ job: ["    if: contains(toJSON(secrets), 'x')"] })), /reads every secret at once/,
+    'every secret read in an if: written without braces');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          HOST: |', '            ${{ secrets',
+    '            .DEPLOY_HOST_EXAMPLE }}'] })), /reads EXAMPLE's deploy secrets but names no environment/,
+    'a deploy secret named with a line break before the dot');
   const inherits = readWorkflow('example.yml', ['name: Example', 'on: push', 'permissions: {}', 'jobs:', '  shared:',
     `    uses: octo-org/shared/.github/workflows/deploy.yml@${SHA} # v1.0.0`, '    secrets: inherit'].join(NL) + NL);
   caught(checkEnvironments(inherits), /job shared reads every secret at once/, 'secrets: inherit');
