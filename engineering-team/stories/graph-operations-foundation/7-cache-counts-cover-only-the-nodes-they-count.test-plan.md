@@ -116,3 +116,13 @@ operations: the cache counts: 2 passed, 5 failed, 0 skipped
 | (c) a streamed read (`streamCypher`, `WITH … WHERE`, `getDb().get`) | all pass | pass |
 | (d) the precedence slip, `uuid IS NOT NULL OR id IS NOT NULL AND <key test>` | C4, C5 and C6 fail | — |
 | (e) only `TapestryNode` nodes, `MATCH (n:TapestryNode)` | C5 fails | — |
+
+### After the fix (Implementation, 2026-11-13, on `0e697046`)
+
+The fix is candidate (a), in `src/api/tapestry-key/index.js`: the key read now has the count's own address filter, `(n.uuid IS NOT NULL OR n.id IS NOT NULL)`. `cache-counts.test.js` passes 7 of 7, and `status.test.js` passes 9 of 9. In the full gate, run in the cloud workspace with no Docker and no Neo4j, so every live suite is skipped:
+
+```
+20261113T220303Z-16998-080e [story7-impl] started 2026-11-13T22:03:03.789Z on 0e697046 — FAIL, exit 1, 7064 passed, 1 failed, 598 skipped, 338/338 suites; failed: setup-alert-polish
+```
+
+The operations gate passes 201 of 201, the earlier 196 and these five. The one failure is `setup-alert-polish` S2, which fails on `staging` without this change. `ui/src/pages/reading/writeVerbs.js` posts to `/api/strfry/publish` by hand (ledger row `2026-11-07-reading-writeverbs-raw-publish`), and each of story 3's review runs saw the same failure.
