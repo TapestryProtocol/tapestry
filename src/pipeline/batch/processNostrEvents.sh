@@ -36,14 +36,20 @@ process_event_kind() {
 // First create all nodes in a separate transaction
 CALL apoc.periodic.iterate(
     "CALL apoc.load.json('file:///${RELATIONSHIP_TYPE}ToAddToNeo4j.json') YIELD value AS line RETURN DISTINCT line.pk_author AS pubkey",
-    "MERGE (u:NostrUser {pubkey: pubkey})",
+    "MERGE (u:NostrUser {pubkey: pubkey})
+    FOREACH (_ IN CASE WHEN NOT u:TapestryNode OR u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN [1] ELSE [] END |
+      SET u:TapestryNode,
+          u.tapestryKey = CASE WHEN u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN randomUUID() ELSE u.tapestryKey END)",
     {batchSize:500, parallel:false, retries:3}
 );
 
 // Then create all target nodes in a separate transaction
 CALL apoc.periodic.iterate(
     "CALL apoc.load.json('file:///${RELATIONSHIP_TYPE}ToAddToNeo4j.json') YIELD value AS line RETURN DISTINCT line.pk_target AS pubkey",
-    "MERGE (u:NostrUser {pubkey: pubkey})",
+    "MERGE (u:NostrUser {pubkey: pubkey})
+    FOREACH (_ IN CASE WHEN NOT u:TapestryNode OR u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN [1] ELSE [] END |
+      SET u:TapestryNode,
+          u.tapestryKey = CASE WHEN u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN randomUUID() ELSE u.tapestryKey END)",
     {batchSize:500, parallel:false, retries:3}
 );
 
@@ -65,6 +71,9 @@ CALL apoc.periodic.iterate(
     "
     MERGE (u:NostrUser {pubkey:event.pubkey})
     SET u.kind${EVENT_KIND}CreatedAt=event.created_at, u.kind${EVENT_KIND}EventId=event.id
+    FOREACH (_ IN CASE WHEN NOT u:TapestryNode OR u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN [1] ELSE [] END |
+      SET u:TapestryNode,
+          u.tapestryKey = CASE WHEN u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN randomUUID() ELSE u.tapestryKey END)
     ",
     { batchSize:1000, parallel:true}
 );

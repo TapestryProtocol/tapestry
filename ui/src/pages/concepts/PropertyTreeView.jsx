@@ -43,7 +43,7 @@ export default function PropertyTreeView({ uuid, conceptName }) {
 
   const { data: treeData, loading, error } = useCypher(
     uuid ? `
-      MATCH (h:NostrEvent {uuid: '${uuid}'})
+      MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})
       OPTIONAL MATCH (js)-[:IS_THE_JSON_SCHEMA_FOR]->(h)
       OPTIONAL MATCH (pp)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(h)
       WITH h, js, pp

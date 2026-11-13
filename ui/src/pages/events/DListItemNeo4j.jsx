@@ -272,7 +272,7 @@ export default function DListItemNeo4j({ eventOverride } = {}) {
 
       // 1-hop: all neighbours
       const q1 = `
-        MATCH (center:NostrEvent {uuid: '${esc(uuid)}'})
+        MATCH (center:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'})
         OPTIONAL MATCH (center)-[r]-(neighbour)
         RETURN
           id(center)       AS centerId,
@@ -353,7 +353,7 @@ export default function DListItemNeo4j({ eventOverride } = {}) {
         if (ref.tagType === 'p') {
           q2 = `MATCH (n:NostrUser {pubkey: '${esc(ref.tagValue)}'}) RETURN id(n) AS nId, labels(n) AS nLabels, n.name AS nName, n.uuid AS nUuid, n.pubkey AS nPubkey LIMIT 1`;
         } else {
-          q2 = `MATCH (n:NostrEvent) WHERE n.uuid = '${esc(ref.tagValue)}' OR n.id = '${esc(ref.tagValue)}' RETURN id(n) AS nId, labels(n) AS nLabels, n.name AS nName, n.uuid AS nUuid, n.pubkey AS nPubkey LIMIT 1`;
+          q2 = `MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid = '${esc(ref.tagValue)}' OR n.id = '${esc(ref.tagValue)}' RETURN id(n) AS nId, labels(n) AS nLabels, n.name AS nName, n.uuid AS nUuid, n.pubkey AS nPubkey LIMIT 1`;
         }
         try {
           const rows2 = await cypher(q2);

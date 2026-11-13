@@ -527,7 +527,7 @@ async function handleImportExecute(req, res) {
           try {
             // Add HAS_ELEMENT relationship from superset to this node
             await executeCypher([
-              `MATCH (s:NostrEvent {uuid: '${esc(concept.supersetUuid)}'}), (e:NostrEvent {uuid: '${esc(uuid)}'}) ` +
+              `MATCH (s:NostrEvent|TapestryNode {uuid: '${esc(concept.supersetUuid)}'}), (e:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) ` +
               `MERGE (s)-[:HAS_ELEMENT]->(e)`
             ]);
             conceptsWired++;
@@ -535,7 +535,7 @@ async function handleImportExecute(req, res) {
             // Apply node label if nodeLabelRequired is true
             if (concept.nodeLabelRequired && concept.nodeLabel) {
               await executeCypher([
-                `MATCH (e:NostrEvent {uuid: '${esc(uuid)}'}) SET e:${concept.nodeLabel}`
+                `MATCH (e:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) SET e:${concept.nodeLabel}`
               ]);
               labelsApplied++;
             }
@@ -591,7 +591,7 @@ async function handleImportExecute(req, res) {
 
           try {
             await executeCypher([
-              `MATCH (a:NostrEvent {uuid: '${esc(fromUuid)}'}), (b:NostrEvent {uuid: '${esc(toUuid)}'}) ` +
+              `MATCH (a:NostrEvent|TapestryNode {uuid: '${esc(fromUuid)}'}), (b:NostrEvent|TapestryNode {uuid: '${esc(toUuid)}'}) ` +
               `MERGE (a)-[:${relType}]->(b)`
             ]);
             graphRelsCreated++;

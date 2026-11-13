@@ -66,7 +66,7 @@ export default function ConceptElements() {
   // Explicit elements: scoped to the active set (direct + indirect via IS_A_SUPERSET_OF)
   const { data: explicit, loading: l1, error: e1 } = useCypher(
     activeSetUuid ? `
-      MATCH (s:NostrEvent {uuid: '${activeSetUuid}'})
+      MATCH (s:NostrEvent|TapestryNode {uuid: '${activeSetUuid}'})
         -[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json

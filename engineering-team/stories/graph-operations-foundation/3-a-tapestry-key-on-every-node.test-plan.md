@@ -22,7 +22,7 @@ Every suite is stack-free. The routes and commands run in a child process (`test
 
 ## Gaps the ADR left, closed here
 
-The tests below pin four answers the ADR doesn't give. The owner is asked to confirm them at this gate.
+The tests below pin four answers the ADR doesn't give. The owner confirmed all four at this gate (2026-11-13), with the test plan.
 
 1. **The direct importers adopt too** (G9). Decision 9 makes `buildImportCypher` adopt an event-less node at an event's address. The signing routes don't import through it, though: they use `importEventDirect` in `src/api/normalize/helpers.js:75` and in `src/api/normalize/index.js:144`. Both `MERGE (e:NostrEvent {uuid: $uuid})` too. Once `event-less-nodes` has run, an event signed at an event-less set's address would get a second node beside the set. G9 requires every `MERGE` of a `NostrEvent` by its address to adopt first, the same way.
 2. **The backup part's last run stays a backup or a restore** (M12). Without a filter, `store.lastRun()` would report a migrate run as status's last backup run. The backup part's description says "the most recent backup or restore run". The migrate's backup still shows as the backup part's `last`.

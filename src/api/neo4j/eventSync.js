@@ -10,6 +10,7 @@
 const { exec } = require('child_process');
 const { getConfigFromFile } = require('../../utils/config');
 const { classifyBValue } = require('../../lib/bValueForms');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 
 const NEO4J_USER = getConfigFromFile('NEO4J_USER', 'neo4j');
 const NEO4J_PASSWORD = getConfigFromFile('NEO4J_PASSWORD', '');
@@ -92,7 +93,7 @@ async function handleEventCheck(req, res) {
 
     // Check Neo4j
     const rows = await runCypher(
-      `MATCH (e:NostrEvent {uuid: '${esc(uuid)}'}) RETURN e.id AS id, e.created_at AS created_at, e.uuid AS uuid, e.name AS name LIMIT 1`
+      `MATCH (e:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) RETURN e.id AS id, e.created_at AS created_at, e.uuid AS uuid, e.name AS name LIMIT 1`
     );
     const neo4jNode = rows.length > 0 ? rows[0] : null;
 
@@ -172,7 +173,28 @@ function kindToLabel(kind) {
  *     (created as a "naked" node if not already present, with id and uuid only)
  *   - NostrEventTags with type "a" get a REFERENCES relationship to the referenced NostrEvent
  *     (created as a "naked" node if not already present, with uuid, kind, and pubkey only)
+ *
+ * Every node a statement makes gets the label TapestryNode and a tapestryKey in that statement (keyNode, ADR
+ * graph-operations-foundation/0003 Decision 8). An event with an address first adopts an event-less node there,
+ * giving it NostrEvent back, so the event lands on it; and an a or b tag's target is found by NostrEvent|TapestryNode,
+ * with a placeholder made only when no node holds the address (Decision 9).
  */
+/**
+ * The middle of a reference statement, after the clause that binds `from`: a placeholder NostrEvent at `address` only
+ * when no node holds it (an event-less set has TapestryNode and no NostrEvent, and the placeholder must never be a
+ * second node at its address, or give it NostrEvent back), then the target bound as `to` by NostrEvent|TapestryNode
+ * (ADR graph-operations-foundation/0003 Decision 9). `onCreate` is the placeholder's own ON CREATE SET, if any.
+ */
+function placeholderUnlessHeld(from, to, address, onCreate = '') {
+  const at = esc(address);
+  return `OPTIONAL MATCH (held:NostrEvent|TapestryNode {uuid: '${at}'}) ` +
+    `WITH ${from}, count(held) AS holders ` +
+    `FOREACH (absent IN CASE WHEN holders = 0 THEN [1] ELSE [] END | ` +
+    `MERGE (${to}:NostrEvent {uuid: '${at}'}) ${onCreate ? `${onCreate} ` : ''}${keyNode(to)}) ` +
+    `WITH ${from} ` +
+    `MATCH (${to}:NostrEvent|TapestryNode {uuid: '${at}'}) `;
+}
+
 function buildImportCypher(event) {
   const statements = [];
   const isReplaceable = event.kind >= 30000;
@@ -180,6 +202,11 @@ function buildImportCypher(event) {
   const uuid = isReplaceable ? `${event.kind}:${event.pubkey}:${dTag}` : event.id;
   const aTag = isReplaceable ? uuid : null;
   const extraLabel = kindToLabel(event.kind);
+
+  // An event-less node at this address takes the event: it gets NostrEvent back, so the MERGE below lands on it.
+  if (isReplaceable) {
+    statements.push(`MATCH (x:TapestryNode {uuid: '${esc(uuid)}'}) WHERE NOT x:NostrEvent SET x:NostrEvent`);
+  }
 
   // Create/update event node
   const parts = [];
@@ -202,8 +229,10 @@ function buildImportCypher(event) {
     || event.tags.find(t => t[0] === 'title')?.[1];
   if (bestName) parts.push(`SET e.name = '${esc(bestName)}'`);
 
+  parts.push(keyNode('e'));
   parts.push(`WITH e`);
   parts.push(`MERGE (u:NostrUser {pubkey: '${event.pubkey}'})`);
+  parts.push(keyNode('u'));
   parts.push(`MERGE (u)-[:AUTHORS]->(e)`);
   statements.push(parts.join(' '));
 
@@ -227,6 +256,7 @@ function buildImportCypher(event) {
     }
     tagParts.push(`MERGE (t${i}:NostrEventTag {uuid: '${esc(tagUuid)}'})`);
     tagParts.push(setClause);
+    tagParts.push(keyNode(`t${i}`));
     tagParts.push(`MERGE (e)-[:HAS_TAG]->(t${i})`);
 
     // Build REFERENCES relationships for "e" and "a" tags
@@ -237,6 +267,7 @@ function buildImportCypher(event) {
         `MATCH (t:NostrEventTag {uuid: '${esc(tagUuid)}'}) ` +
         `MERGE (ref:NostrEvent {id: '${esc(refId)}'}) ` +
         `ON CREATE SET ref.uuid = '${esc(refId)}' ` +
+        `${keyNode('ref')} ` +
         `MERGE (t)-[:REFERENCES]->(ref)`
       );
     } else if (tag[0] === 'a' && tag[1]) {
@@ -251,8 +282,7 @@ function buildImportCypher(event) {
         const refUuid = aVal;
         refStatements.push(
           `MATCH (t:NostrEventTag {uuid: '${esc(tagUuid)}'}) ` +
-          `MERGE (ref:NostrEvent {uuid: '${esc(refUuid)}'}) ` +
-          `ON CREATE SET ref.kind = ${refKind}, ref.pubkey = '${esc(refPubkey)}' ` +
+          placeholderUnlessHeld('t', 'ref', refUuid, `ON CREATE SET ref.kind = ${refKind}, ref.pubkey = '${esc(refPubkey)}'`) +
           `MERGE (t)-[:REFERENCES]->(ref)`
         );
       }
@@ -271,14 +301,14 @@ function buildImportCypher(event) {
       const isInherit = tag[2] === 'inherit';
       if (isInherit) {
         refStatements.push(
-          `MATCH (child:NostrEvent {uuid: '${esc(uuid)}'}) ` +
-          `MERGE (parent:NostrEvent {uuid: '${esc(targetUuid)}'}) ` +
+          `MATCH (child:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) ` +
+          placeholderUnlessHeld('child', 'parent', targetUuid) +
           `MERGE (child)-[:INHERITS_FROM]->(parent)`
         );
       } else {
         refStatements.push(
-          `MATCH (child:NostrEvent {uuid: '${esc(uuid)}'}) ` +
-          `MERGE (target:NostrEvent {uuid: '${esc(targetUuid)}'}) ` +
+          `MATCH (child:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) ` +
+          placeholderUnlessHeld('child', 'target', targetUuid) +
           `MERGE (child)-[r:REFERENCES]->(target) SET r.source = 'b-tag'`
         );
       }
@@ -328,7 +358,7 @@ async function handleEventUpdate(req, res) {
 
     // Check current Neo4j state
     const rows = await runCypher(
-      `MATCH (e:NostrEvent {uuid: '${esc(uuid)}'}) RETURN e.id AS id, e.created_at AS created_at LIMIT 1`
+      `MATCH (e:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) RETURN e.id AS id, e.created_at AS created_at LIMIT 1`
     );
     const neo4jNode = rows.length > 0 ? rows[0] : null;
 
@@ -336,7 +366,7 @@ async function handleEventUpdate(req, res) {
     if (neo4jNode) {
       console.log(`Deleting old tags for ${uuid}`);
       await executeCypher([
-        `MATCH (e:NostrEvent {uuid: '${esc(uuid)}'})-[r:HAS_TAG]->(t:NostrEventTag) DETACH DELETE t`
+        `MATCH (e:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'})-[r:HAS_TAG]->(t:NostrEventTag) DETACH DELETE t`
       ]);
     }
 

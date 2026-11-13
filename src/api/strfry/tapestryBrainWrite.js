@@ -19,7 +19,7 @@
  * letter is already accepted by strfry and cannot be unsent, so a brain-write
  * error must not turn a successful publish into a failed response.
  */
-const crypto = require('crypto');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 const { runCypher, writeCypher } = require('../../lib/neo4j-driver');
 const { importEventDirect } = require('../normalize/helpers');
 const { deriveByKey } = require('../../lib/tapestry-derive');
@@ -71,9 +71,9 @@ async function maybeBrainWriteTapestry(signedEvent) {
     } catch { /* unparseable json → label without a slug */ }
     const slug = (parsed && (parsed.word?.slug || parsed.tapestry?.slug)) || null;
     if (slug) {
-      await writeCypher('MATCH (e:NostrEvent {uuid: $uuid}) SET e:ListItem, e.slug = $slug', { uuid, slug });
+      await writeCypher('MATCH (e:NostrEvent|TapestryNode {uuid: $uuid}) SET e:ListItem, e.slug = $slug', { uuid, slug });
     } else {
-      await writeCypher('MATCH (e:NostrEvent {uuid: $uuid}) SET e:ListItem', { uuid });
+      await writeCypher('MATCH (e:NostrEvent|TapestryNode {uuid: $uuid}) SET e:ListItem', { uuid });
     }
 
     // 3. Explicit placement under the tapestry concept's superset (idempotent).
@@ -82,16 +82,14 @@ async function maybeBrainWriteTapestry(signedEvent) {
     //    no subsets.
     await writeCypher(`
       MATCH (h:ListHeader {uuid: $handle})-[:IS_THE_CONCEPT_FOR]->(sup)
-      MATCH (e:NostrEvent {uuid: $uuid})
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})
       MERGE (sup)-[:HAS_ELEMENT]->(e)
     `, { handle: `39998:${taPubkey}:tapestry`, uuid });
 
-    // 4. tapestryKey — assigned once, never changed (BIBLE §29).
-    await writeCypher(
-      'MATCH (e:NostrEvent {uuid: $uuid}) SET e.tapestryKey = coalesce(e.tapestryKey, $fresh)',
-      { uuid, fresh: crypto.randomUUID() }
-    );
-    const keyRows = await runCypher('MATCH (e:NostrEvent {uuid: $uuid}) RETURN e.tapestryKey AS key', { uuid });
+    // 4. tapestryKey — assigned once, never changed (BIBLE §29). The import above already gave the node its key and
+    //    the label (ADR graph-operations-foundation/0003 Decision 8); this writes nothing on a node that has both.
+    await writeCypher(`MATCH (e:NostrEvent|TapestryNode {uuid: $uuid}) ${keyNode('e')}`, { uuid });
+    const keyRows = await runCypher('MATCH (e:NostrEvent|TapestryNode {uuid: $uuid}) RETURN e.tapestryKey AS key', { uuid });
     const tapestryKey = (keyRows[0] && keyRows[0].key) || null;
     if (!tapestryKey) throw new Error('tapestryKey did not stick on the element node');
 

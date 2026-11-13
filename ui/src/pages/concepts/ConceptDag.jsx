@@ -25,7 +25,7 @@ export default function ConceptDag() {
   // totalCount = elements reachable through this set + all its subsets
   const { data, loading, error, refetch } = useCypher(
     uuid ? `
-      MATCH (h:NostrEvent {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
       OPTIONAL MATCH path = (sup)-[:IS_A_SUPERSET_OF*0..10]->(s)
       WITH sup, s, length(path) AS depth
       OPTIONAL MATCH (s)-[:HAS_ELEMENT]->(directElem)

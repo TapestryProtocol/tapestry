@@ -1,0 +1,30 @@
+{
+  "about": "Lookups by address that keep naming only NostrEvent, each with why (ADR graph-operations-foundation/0003 Decision 9). Every other lookup by address names NostrEvent|TapestryNode. tapestry-key-paths.test.js G11 checks this list against the source.",
+  "kept": [
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "`MERGE (${to}:NostrEvent {uuid: '${at}'}) ${onCreate ? `${onCreate} ` : ''}${keyNode(to)}) ` +",
+      "reason": "A MERGE, which can't take a label disjunction: the placeholder for an a or b tag's target, made only when the OPTIONAL MATCH by NostrEvent|TapestryNode before it found no node at the address. It stands for an event, so it is a NostrEvent."
+    },
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "parts.push(`MERGE (e:NostrEvent {uuid: '${esc(uuid)}'})`);",
+      "reason": "A MERGE, which can't take a label disjunction: the imported event itself, at its address. The statement before it adopts an event-less node there (gives it NostrEvent back), so the MERGE lands on that node."
+    },
+    {
+      "file": "src/api/normalize/helpers.js",
+      "text": "MERGE (e:NostrEvent {uuid: $uuid})",
+      "reason": "A MERGE, which can't take a label disjunction: the event the signing routes import, at its address. The call before it adopts an event-less node there (gives it NostrEvent back), so the MERGE lands on that node."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "MERGE (e:NostrEvent {uuid: $uuid})",
+      "reason": "A MERGE, which can't take a label disjunction: the event importEventDirect imports, at its address. The call before it adopts an event-less node there (gives it NostrEvent back), so the MERGE lands on that node."
+    },
+    {
+      "file": "src/api/firmware/index.js",
+      "text": "`MATCH (h:NostrEvent {uuid: $uuid}) RETURN h.uuid AS uuid LIMIT 1`,",
+      "reason": "About the event: whether a firmware concept is installed is whether its header event, which firmware install imports from a signed event, is in the graph. A concept header is never event-less."
+    }
+  ]
+}

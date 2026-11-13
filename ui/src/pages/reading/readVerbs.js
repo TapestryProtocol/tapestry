@@ -217,7 +217,7 @@ async function provenances(hs, ta) {
     const sfx = CORE_SUFFIX.find((s) => d.endsWith('-' + s));
     heads[h] = k === '39998' ? [h] : sfx ? [`39998:${pk}:${d.slice(0, -sfx.length - 1)}`] : [];
   }
-  for (const r of await batched("UNWIND $u AS u MATCH (n:NostrEvent {uuid:u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(z:NostrEventTag {type:'z'}) "
+  for (const r of await batched("UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(z:NostrEventTag {type:'z'}) "
     + 'RETURN u, collect(z.value) AS zs', ask)) {
     heads[r.u].push(...(r.zs || []).filter((z) => String(z).startsWith('39998:')));
   }
@@ -253,7 +253,7 @@ export async function scopes() {
   const pairs = Object.entries(subs).flatMap(([top, sub]) => sub.map((c) => ({ t: top, c })));
   const got = {};
   if (pairs.length) {
-    for (const r of await R('UNWIND $p AS x MATCH (:NostrEvent {uuid:x.c})-[:IS_THE_CONCEPT_FOR]->(:Superset)'
+    for (const r of await R('UNWIND $p AS x MATCH (:NostrEvent|TapestryNode {uuid:x.c})-[:IS_THE_CONCEPT_FOR]->(:Superset)'
       + '-[:IS_A_SUPERSET_OF*0..8]->()-[:HAS_ELEMENT]->(e) RETURN x.t AS t, count(DISTINCT e) AS n', { p: pairs })) got[r.t] = r.n;
   }
   for (const top of t.tops) {
@@ -273,9 +273,9 @@ async function scopeMembers(key, limit) {
     lead = [h];
   } else if (kind === 'concept') {
     const sub = (await tree()).subtree(h);
-    rows = await R('UNWIND $u AS c MATCH (:NostrEvent {uuid:c})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->(g)'
+    rows = await R('UNWIND $u AS c MATCH (:NostrEvent|TapestryNode {uuid:c})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->(g)'
       + '-[:HAS_ELEMENT]->(e) RETURN DISTINCT e.uuid AS u, e.created_at AS t', { u: sub });
-    const sets = await R('UNWIND $u AS c MATCH (:NostrEvent {uuid:c})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*1..8]->(s) '
+    const sets = await R('UNWIND $u AS c MATCH (:NostrEvent|TapestryNode {uuid:c})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*1..8]->(s) '
       + "WHERE 'Set' IN labels(s) AND NOT 'Superset' IN labels(s) RETURN DISTINCT s.uuid AS u", { u: sub });
     lead = [...sub, ...sets.map((r) => r.u)];
   } else {
@@ -288,7 +288,7 @@ async function scopeMembers(key, limit) {
 
 /** A Set's elements, or a kind's elements down its whole subtree, newest first. */
 async function members(gid) {
-  const rows = await R('MATCH (g:NostrEvent {uuid:$g}) OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e1) '
+  const rows = await R('MATCH (g:NostrEvent|TapestryNode {uuid:$g}) OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e1) '
     + 'OPTIONAL MATCH (g)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->()-[:HAS_ELEMENT]->(e2) '
     + 'WITH collect(DISTINCT e1) + collect(DISTINCT e2) AS es UNWIND es AS e RETURN DISTINCT e.uuid AS u, e.created_at AS t', { g: gid });
   rows.sort((a, b) => (b.t || 0) - (a.t || 0));
@@ -301,7 +301,7 @@ async function members(gid) {
 async function build(part, ta) {
   const chosen = Object.keys(part).filter(Boolean);
   const kindOf = {}, setsOf = {};
-  for (const r of await batched('UNWIND $u AS u MATCH (e:NostrEvent {uuid:u}) OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e) '
+  for (const r of await batched('UNWIND $u AS u MATCH (e:NostrEvent|TapestryNode {uuid:u}) OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e) '
     + 'OPTIONAL MATCH (k:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(sup:Superset)-[:IS_A_SUPERSET_OF*0..6]->(g) '
     + "RETURN u, g.uuid AS g, 'Set' IN labels(g) AND NOT 'Superset' IN labels(g) AS isSet, collect(DISTINCT k.uuid) AS ks", chosen, 200)) {
     if (!r.g) continue;
@@ -323,7 +323,7 @@ async function build(part, ta) {
   Object.values(parents).flat().forEach((p) => context.add(p));
   const setParent = {};
   const setlike = [...new Set([...context, ...chosen])].filter((x) => x.startsWith('39999:'));
-  for (const r of await batched("UNWIND $u AS u MATCH (s:NostrEvent {uuid:u}) WHERE 'Set' IN labels(s) AND NOT 'Superset' IN labels(s) "
+  for (const r of await batched("UNWIND $u AS u MATCH (s:NostrEvent|TapestryNode {uuid:u}) WHERE 'Set' IN labels(s) AND NOT 'Superset' IN labels(s) "
     + 'MATCH (p)-[:IS_A_SUPERSET_OF]->(s) OPTIONAL MATCH (k:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(p) RETURN u, coalesce(k.uuid, p.uuid) AS p', setlike)) {
     addTo(setParent, r.u, r.p);
   }
@@ -332,7 +332,7 @@ async function build(part, ta) {
   const ids = Object.keys(part).filter(Boolean).sort();
 
   const info = {};
-  for (const r of await batched('UNWIND $u AS u MATCH (n:NostrEvent {uuid:u}) '
+  for (const r of await batched('UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u}) '
     + "OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
     + "OPTIONAL MATCH (n)-[:HAS_TAG]->(d:NostrEventTag {type:'description'}) "
     + 'RETURN u, n.name AS name, labels(n) AS labels, n.created_at AS t, head(collect(j.value)) AS j, head(collect(d.value)) AS d', ids, 200)) {
@@ -385,7 +385,7 @@ async function build(part, ta) {
 
   const lt = await linkTypes(), types = await drawnTypes();
   const links = [];
-  for (const r of await batched(`UNWIND $u AS u MATCH (a:NostrEvent {uuid:u})-[e:${types.join('|')}]->(c:NostrEvent) WHERE c.uuid IN $all `
+  for (const r of await batched(`UNWIND $u AS u MATCH (a:NostrEvent|TapestryNode {uuid:u})-[e:${types.join('|')}]->(c:NostrEvent|TapestryNode) WHERE c.uuid IN $all `
     + 'RETURN a.uuid AS a, c.uuid AS c, type(e) AS ty, properties(e) AS p', ids, 300, { all: ids })) {
     const pr = {};
     Object.entries(r.p || {}).forEach(([k, v]) => { if (['polarity', 'reliability', 'how', 'reason', 'source', 'note'].includes(k)) pr[k] = v; });
@@ -459,7 +459,7 @@ function answers(nodes, links) {
  *  kinds through one OPTIONAL MATCH chain multiplies rows). */
 async function wholeGraphCounts(nodes) {
   const ids = nodes.map((n) => n.id), byid = Object.fromEntries(nodes.map((n) => [n.id, n]));
-  for (const r of await batched('UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})<-[b:BEARS_ON]-() '
+  for (const r of await batched('UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})<-[b:BEARS_ON]-() '
     + 'RETURN u, sum(CASE WHEN coalesce(b.polarity,0) > 0 THEN 1 ELSE 0 END) AS f, '
     + 'sum(CASE WHEN coalesce(b.polarity,0) < 0 THEN 1 ELSE 0 END) AS a, sum(coalesce(b.polarity,0)) AS net', ids)) {
     const A = byid[r.u].answers;
@@ -467,19 +467,19 @@ async function wholeGraphCounts(nodes) {
     if (r.a) A.evidence_against = r.a;
     A.evidence_net = Math.round(Number(r.net || 0) * 100) / 100;
   }
-  for (const r of await batched('UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[:SUPERCEDES*1..20]-(m) '
+  for (const r of await batched('UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[:SUPERCEDES*1..20]-(m) '
     + 'RETURN u, count(DISTINCT m) + 1 AS h, size([(n)<-[:SUPERCEDES]-() | 1]) AS newer', ids)) {
     const A = byid[r.u].answers;
     A.history = r.h;
     if (r.newer) A.replaced = true;
   }
-  const answered = new Set((await batched('UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})<-[:ANSWERS]-() RETURN DISTINCT u', ids)).map((r) => r.u));
+  const answered = new Set((await batched('UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})<-[:ANSWERS]-() RETURN DISTINCT u', ids)).map((r) => r.u));
   const kindNames = Object.fromEntries(nodes.filter((n) => n.role === 'concept').map((n) => [n.id, n.name]));
   nodes.forEach((n) => {
     if (n.kinds.map((k) => kindNames[k] || '').join(' ').toLowerCase().includes('question')) n.answers.settled = answered.has(n.id);
   });
   const groups = nodes.filter((n) => n.role !== 'element').map((n) => n.id);
-  for (const r of await batched('UNWIND $u AS u MATCH (g:NostrEvent {uuid:u}) OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e1) '
+  for (const r of await batched('UNWIND $u AS u MATCH (g:NostrEvent|TapestryNode {uuid:u}) OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e1) '
     + 'OPTIONAL MATCH (g)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..8]->()-[:HAS_ELEMENT]->(e2) '
     + 'WITH u, collect(DISTINCT e1) + collect(DISTINCT e2) AS es RETURN u, size(es) AS n', groups, 100)) {
     if (r.n) byid[r.u].answers.holds = r.n;
@@ -505,7 +505,7 @@ export async function node({ id, depth = 1 }, ta) {
   const near = new Set([id]);
   let frontier = [id];
   for (let d = 0; d < Math.max(1, Math.min(Number(depth), 2)); d++) {
-    const rows = await batched(`UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[:${(await drawnTypes()).join('|')}]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m`, [...frontier].sort());
+    const rows = await batched(`UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[:${(await drawnTypes()).join('|')}]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m`, [...frontier].sort());
     const nxt = [...new Set(rows.map((r) => r.m).filter((m) => m && !near.has(m)))].sort().slice(0, d === 0 ? 40 : 60);
     nxt.forEach((m) => near.add(m));
     frontier = nxt;
@@ -515,7 +515,7 @@ export async function node({ id, depth = 1 }, ta) {
   const t = await tree();
   const under = [...(t.kids[id] || [])];
   if (id in t.names) {
-    under.push(...(await R('MATCH (:NostrEvent {uuid:$u})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF]->(s) '
+    under.push(...(await R('MATCH (:NostrEvent|TapestryNode {uuid:$u})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF]->(s) '
       + "WHERE 'Set' IN labels(s) AND NOT 'Superset' IN labels(s) RETURN s.uuid AS u", { u: id })).map((r) => r.u));
   }
   const all = [...new Set([...near, ...ms, ...under.slice(0, 40)])].sort();
@@ -553,7 +553,7 @@ export async function plan({ id, scope: scopeKey }, ta) {
   const ms = await members(id);
   const states = async (hs) => {
     const out = {};
-    for (const r of await batched("UNWIND $u AS u MATCH (n:NostrEvent {uuid:u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
+    for (const r of await batched("UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u}) OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
       + 'RETURN u, n.name AS n, head(collect(j.value)) AS j, exists { MATCH ()-[:ANSWERS]->(n) } AS answered, '
       + '[(d)-[:SETS_ASIDE]->(n) WHERE NOT exists { MATCH ()-[:SUPERCEDES]->(d) } | d.name] AS aside, '
       + '[(n)-[:BLOCKED_BY]->(b) | b.uuid] AS blockers, [(n)-[:ASSIGNED_TO]->(p) | p.name] AS who', hs)) {
@@ -569,8 +569,8 @@ export async function plan({ id, scope: scopeKey }, ta) {
     return out;
   };
   const ws = await states(ms);
-  const outIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent {uuid:u})-[:BLOCKED_BY|ASSIGNED_TO]->(m:NostrEvent) RETURN DISTINCT m.uuid AS m', ms)).map((r) => r.m);
-  const inIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent {uuid:u})<-[:SETS_ASIDE|ANSWERS]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m', [...ms, ...outIds])).map((r) => r.m);
+  const outIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent|TapestryNode {uuid:u})-[:BLOCKED_BY|ASSIGNED_TO]->(m:NostrEvent) RETURN DISTINCT m.uuid AS m', ms)).map((r) => r.m);
+  const inIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent|TapestryNode {uuid:u})<-[:SETS_ASIDE|ANSWERS]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m', [...ms, ...outIds])).map((r) => r.m);
   const extra = [...new Set([...outIds, ...inIds])].filter((u) => !(u in ws)).sort();
   const wx = await states(extra);
   const all = { ...wx, ...ws };
@@ -585,7 +585,7 @@ export async function plan({ id, scope: scopeKey }, ta) {
   const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0];
   const items = Object.entries(ws).map(([u, v]) => ({ id: u, rank: v.rank, state: v.state, label: label(v), why: v.why, who: v.who, branch: v.branch }))
     .sort((a, b) => (a.rank === null) - (b.rank === null) || (a.rank || 0) - (b.rank || 0) || String(ws[a.id].n).localeCompare(String(ws[b.id].n)));
-  const name = ((await R('MATCH (s:NostrEvent {uuid:$u}) RETURN s.name AS n', { u: id }))[0] || {}).n;
+  const name = ((await R('MATCH (s:NostrEvent|TapestryNode {uuid:$u}) RETURN s.name AS n', { u: id }))[0] || {}).n;
   const doc = await build(Object.fromEntries([id, ...ms, ...extra].map((u) => [u, null])), ta);
   doc.plan = { id, name, project: best ? pj[best[0]] : null, git: false, items,
     states: Object.fromEntries(Object.entries(wx).map(([u, v]) => [u, label(v)])) };
@@ -629,12 +629,12 @@ function plumbing() {
 /** One step out from each id: [from, to, how, type]. mode 0 = typed links; 1 = also Sets; 2 = also kinds. */
 async function steps(ids, mode) {
   const out = [], skip = await plumbing(), lt = await linkTypes();
-  for (const r of await batched(`UNWIND $u AS u MATCH (n:NostrEvent {uuid:u})-[e:${(await drawnTypes()).join('|')}]-(m:NostrEvent) `
+  for (const r of await batched(`UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[e:${(await drawnTypes()).join('|')}]-(m:NostrEvent) `
     + 'RETURN u, m.uuid AS m, type(e) AS t, startNode(e).uuid = u AS fwd', ids)) {
     out.push([r.u, r.m, (lt[r.t] || {})[r.fwd ? 'reads' : 'reverse'] || r.t.toLowerCase(), r.t]);
   }
   if (mode >= 1) {
-    for (const r of await batched('UNWIND $u AS u MATCH (g)-[:HAS_ELEMENT]->(:NostrEvent {uuid:u}) '
+    for (const r of await batched('UNWIND $u AS u MATCH (g)-[:HAS_ELEMENT]->(:NostrEvent|TapestryNode {uuid:u}) '
       + 'OPTIONAL MATCH q = (k:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..6]->(g) '
       + 'WHERE ALL(x IN nodes(q)[2..] WHERE NOT x:Superset) '
       + "RETURN u, CASE WHEN 'Set' IN labels(g) AND NOT 'Superset' IN labels(g) THEN g.uuid END AS s, collect(DISTINCT k.uuid) AS ks", ids)) {
@@ -643,7 +643,7 @@ async function steps(ids, mode) {
     }
     const groups = ids.filter((u) => u.startsWith('39999:') || u.startsWith('39998:'));
     if (groups.length) {
-      for (const r of await batched("UNWIND $u AS u MATCH (g:NostrEvent {uuid:u}) WHERE ('Set' IN labels(g) AND NOT 'Superset' IN labels(g)) "
+      for (const r of await batched("UNWIND $u AS u MATCH (g:NostrEvent|TapestryNode {uuid:u}) WHERE ('Set' IN labels(g) AND NOT 'Superset' IN labels(g)) "
         + (mode >= 2 ? 'OR g:ConceptHeader ' : '')
         + 'OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e1) '
         + 'OPTIONAL MATCH q = (g)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..6]->(h)-[:HAS_ELEMENT]->(e2) '

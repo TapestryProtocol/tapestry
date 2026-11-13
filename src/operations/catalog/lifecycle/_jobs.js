@@ -1,16 +1,18 @@
 'use strict';
 /**
- * The backup and restore jobs — ADR graph-operations-foundation/0002 Decisions 4, 5, 6 and 8. A helper of the
- * lifecycle operations.
+ * The backup, restore and migrate jobs — ADR graph-operations-foundation/0002 Decisions 4, 5, 6 and 8, and ADR
+ * graph-operations-foundation/0003 Decisions 6 and 10. A helper of the lifecycle operations.
  *
  *   runBackupJob(request, system)   Decision 4's steps; resolves the backup's answer, or throws
  *   runRestoreJob(request, system)  Decision 5's steps, in one offline window; resolves the report, or throws
+ *   runMigrateJob(request, system)  a backup first when data will change, then the migration (ADR 0003 Decision 6)
  *   runDetached(request, opts)      runs one of them in a process of its own (_worker.js), so the graph database
  *                                   comes back whatever happens to the caller; resolves the run's record,
- *                                   { outcome: 'done', result } or { outcome: 'failed', error }
+ *                                   { outcome: 'done', result } or { outcome: 'failed', error } — or, given
+ *                                   opts.waitMs and outlasting it, { outcome: 'running' }, the job going on
  *
- * A request is { op: 'backup' | 'restore', runId, … }. The jobs remove their run's lock when they finish, and always
- * start the graph database and the paused writers again if they stopped them.
+ * A request is { op: 'backup' | 'restore' | 'migrate', runId, … }. The jobs remove their run's lock when they finish,
+ * and always start the graph database and the paused writers again if they stopped them.
  */
 
 const fs = require('fs');
@@ -43,18 +45,58 @@ async function graphAnswers(system, ms = 5000) {
   } catch { return false; } finally { clearTimeout(timer); }
 }
 
-/** Decision 4 step 2's counts, each its own query. */
+const WALK_PAGE = 50000;
+
+/**
+ * The keys' counts and digest by walking the rule's index (ADR 0003 Decision 10): the labelled keys in key order, a
+ * page at a time, merged with the unlabelled nodes' keys (normally none), sorted here, into one incremental sha256 of
+ * the same string as before — every key, sorted, joined by a newline. Memory holds one page.
+ */
+async function walkKeys(system) {
+  const { LABEL } = require('../../../lib/tapestry-key-cypher');
+  const unlabelled = (await system.cypher(`MATCH (n) WHERE NOT n:${LABEL} AND n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k`)).map((row) => String(row.k)).sort();
+  const hash = crypto.createHash('sha256');
+  let count = 0;
+  let distinct = 0;
+  let prev = null;
+  const emit = (k) => {
+    if (count) hash.update('\n');
+    hash.update(k);
+    if (k !== prev) distinct++;
+    prev = k;
+    count++;
+  };
+  let u = 0;
+  let after = '';
+  for (;;) {
+    const page = (await system.cypher(`MATCH (n:${LABEL}) WHERE n.tapestryKey > $after RETURN n.tapestryKey AS k ORDER BY k LIMIT ${WALK_PAGE}`, { after })).map((row) => String(row.k));
+    for (const k of page) {
+      while (u < unlabelled.length && unlabelled[u] <= k) emit(unlabelled[u++]);
+      emit(k);
+    }
+    if (page.length < WALK_PAGE) break;
+    after = page[page.length - 1];
+  }
+  while (u < unlabelled.length) emit(unlabelled[u++]);
+  return { tapestryKeys: count, distinctTapestryKeys: distinct, tapestryKeyDigest: `sha256:${hash.digest('hex')}` };
+}
+
+/** Every key at once, as ADR 0002 counted them: while the rule isn't online, the graph holds no more keys than then. */
+async function readAllKeys(system) {
+  const keys = (await system.cypher('MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k')).map((row) => String(row.k));
+  keys.sort();
+  return { tapestryKeys: keys.length, distinctTapestryKeys: new Set(keys).size, tapestryKeyDigest: `sha256:${sha256(keys.join('\n'))}` };
+}
+
+/** Decision 4 step 2's counts, each its own query; the keys by the walk when the rule tapestry_key is online. */
 async function countGraph(system) {
   const one = async (q, key) => Number(((await system.cypher(q))[0] || {})[key]);
   const nodes = await one('MATCH (n) RETURN count(n) AS nodes', 'nodes');
   const relationships = await one('MATCH ()-[r]->() RETURN count(r) AS relationships', 'relationships');
-  const keys = (await system.cypher('MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k')).map((row) => String(row.k));
+  const { rule } = await require('./_migrations').readSchema(system);
+  const keys = rule ? await walkKeys(system) : await readAllKeys(system);
   const offloadedJsonTags = await one("MATCH (t:NostrEventTag) WHERE t.value STARTS WITH 'lmdb:' RETURN count(t) AS offloaded", 'offloaded');
-  keys.sort();
-  return {
-    nodes, relationships, tapestryKeys: keys.length, distinctTapestryKeys: new Set(keys).size,
-    tapestryKeyDigest: `sha256:${sha256(keys.join('\n'))}`, offloadedJsonTags,
-  };
+  return { nodes, relationships, ...keys, offloadedJsonTags };
 }
 const COUNT_FIELDS = ['nodes', 'relationships', 'tapestryKeys', 'distinctTapestryKeys', 'tapestryKeyDigest'];
 const sameCounts = (a, b) => COUNT_FIELDS.every((k) => a[k] === b[k]);
@@ -134,8 +176,11 @@ function writeManifest(folder, manifest) {
 
 const OFFLOADED_WARNING = (n) => `${n} json tag${n === 1 ? ' is' : 's are'} offloaded to the cache store (the LMDB), which a backup doesn't carry: their content is not in this backup.`;
 
-async function runBackupJob(request, system) {
-  const { runId } = request;
+/**
+ * Decision 4's backup, under run `runId`'s lock, which it leaves held: runBackupJob releases it, and runMigrateJob
+ * holds it on through the migration (ADR 0003 Decision 6). Resolves the backup's answer, or throws.
+ */
+async function takeBackup(runId, note, system) {
   let paused = [];
   let stopped = false;
   let folder = null;
@@ -177,7 +222,7 @@ async function runBackupJob(request, system) {
     if (before.offloadedJsonTags > 0) warnings.push(OFFLOADED_WARNING(before.offloadedJsonTags));
     const manifest = {
       format: 'tapestry-backup', version: 1, id, takenAt: new Date(offlineFrom).toISOString(),
-      note: request.note || null, reason: 'requested', restoring: null,
+      note: note || null, reason: 'requested', restoring: null,
       instance: { assistantPubkey: ident.assistantPubkey, ownerPubkey: identity.ownerPubkey() },
       admins,
       graph: { neo4jVersion, storeFormat: info.storeFormat, lastCommittedTransaction: info.lastCommittedTransaction, ...pick(before), countsExact, offloadedJsonTags: before.offloadedJsonTags },
@@ -199,6 +244,46 @@ async function runBackupJob(request, system) {
       try { await system.supervisor('start', paused); } catch (err) { console.error(`[lifecycle backup] starting ${paused.join(', ')} again failed: ${err.message}`); }
     }
     if (!kept && folder) fs.rmSync(folder, { recursive: true, force: true });
+  }
+}
+
+async function runBackupJob(request, system) {
+  try {
+    return await takeBackup(request.runId, request.note, system);
+  } finally {
+    store.releaseLock(request.runId);
+  }
+}
+
+/**
+ * ADR 0003 Decision 6: plan; when data will change, a backup first, under the same lock, then plan again, since the
+ * graph may have changed meanwhile; then apply, writing its stage into the run's file. A backup that fails ends the
+ * run there, with nothing changed. Resolves { migration, by, backup, report, note }.
+ */
+async function runMigrateJob(request, system) {
+  const { runId, migration: name } = request;
+  try {
+    const m = require('./_migrations').byName(name);
+    if (!m) throw new Error(`there is no migration ${name}`);
+    const progress = (fields) => updateRun(runId, { progress: { ...fields, at: new Date().toISOString() } });
+    progress({ stage: 'planning' });
+    let plan = await m.plan(system);
+    let backup = null;
+    if (plan.needsBackup) {
+      progress({ stage: 'backup' });
+      try {
+        backup = (await takeBackup(runId, `Before lifecycle migrate ${name}`, system)).backup.id;
+      } catch (err) {
+        throw new Error(`The backup before migration ${name} failed: ${(err && err.message) || err}; nothing was changed.`);
+      }
+      updateRun(runId, { backup });
+    }
+    progress({ stage: 'planning' });
+    plan = await m.plan(system, { full: true });
+    const report = await m.apply(plan, system, progress);
+    progress({ stage: 'done' });
+    return { migration: name, by: request.by || null, backup, report, note: m.describe(report) };
+  } finally {
     store.releaseLock(runId);
   }
 }
@@ -349,7 +434,8 @@ async function runRestoreJob(request, system) {
  * in before a later step failed — keeps its `restarting` in the record, for afterJob (ADR 0002 Amendment 1, A4).
  */
 async function runJob(request, system) {
-  const job = request && request.op === 'restore' ? runRestoreJob : runBackupJob;
+  const op = request && request.op;
+  const job = op === 'restore' ? runRestoreJob : op === 'migrate' ? runMigrateJob : runBackupJob;
   try {
     const result = await job(request, system);
     return { ...request, outcome: 'done', result, finishedAt: new Date().toISOString() };
@@ -363,10 +449,12 @@ async function runJob(request, system) {
 /**
  * Run a job in a process of its own: write the request to .runs/<runId>.json, start `node <workerPath> <runId>` in
  * a session of its own (so Ctrl-C to the caller's terminal or a restart of the control panel doesn't reach it), wait
- * for it, and read back its record.
+ * for it, and read back its record. Given opts.waitMs, it waits that long at most: past it, it resolves
+ * { outcome: 'running' } and leaves the job to finish, write its record and release its lock (ADR 0003 Sub-decision 3).
  */
 async function runDetached(request, opts = {}) {
   const workerPath = opts.workerPath || path.join(__dirname, '_worker.js');
+  const waitMs = Number.isFinite(opts.waitMs) && opts.waitMs >= 0 ? opts.waitMs : null;
   const file = store.runFile(request.runId);
   let log;
   try {
@@ -379,20 +467,28 @@ async function runDetached(request, opts = {}) {
     return { outcome: 'failed', error: `the ${request.op} job couldn't be started: ${err.message}`, finishedAt: new Date().toISOString() };
   }
   let exit = 'still running';
+  let waited = false;
   try {
     const child = spawn(process.execPath, [workerPath, request.runId], { detached: true, stdio: ['ignore', log, log], env: process.env });
     // Resolve on the job's record, not on the worker's exit: after a restore the worker stays on to restart the
     // control panel once this caller has answered (afterJob), so waiting for its exit would wait on ourselves.
     await new Promise((resolve) => {
       let settled = false;
-      const finish = () => { if (!settled) { settled = true; clearInterval(timer); resolve(); } };
+      let waitTimer = null;
+      const finish = () => { if (!settled) { settled = true; clearInterval(timer); clearTimeout(waitTimer); resolve(); } };
       const timer = setInterval(() => { const r = store.readJson(file); if (r && r.outcome) finish(); }, 250);
-      child.on('error', (err) => { exit = `could not start (${err.message})`; finish(); });
-      child.on('exit', (code, signal) => { exit = code === null ? `signal ${signal}` : `exit ${code}`; finish(); });
+      if (waitMs !== null) waitTimer = setTimeout(() => { waited = true; finish(); }, waitMs);
+      child.on('error', (err) => { exit = `could not start (${err.message})`; waited = false; finish(); });
+      child.on('exit', (code, signal) => { exit = code === null ? `signal ${signal}` : `exit ${code}`; waited = false; finish(); });
     });
     child.unref();
   } finally {
     fs.closeSync(log);
+  }
+  if (waited) {
+    const now = store.readJson(file);
+    // Still going: the job holds its lock and writes its own record; status shows how it went.
+    if (!now || !now.outcome) return { outcome: 'running' };
   }
   const record = store.readJson(file);
   if (!record || !record.outcome) {
@@ -446,4 +542,4 @@ async function afterJob(record, system, { pollMs = 500, timeoutMs = 120000 } = {
   return { restarted: true, why };
 }
 
-module.exports = { runBackupJob, runRestoreJob, runJob, runDetached, afterJob, markAnswered, waitForGraph, graphAnswers, countGraph };
+module.exports = { runBackupJob, runRestoreJob, runMigrateJob, takeBackup, runJob, runDetached, afterJob, markAnswered, waitForGraph, graphAnswers, countGraph };

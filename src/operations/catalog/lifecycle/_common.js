@@ -60,27 +60,28 @@ const SUMMARY = {
 };
 const WARNINGS = { type: 'array', items: { type: 'string' }, description: 'What to know about it, in words' };
 
-const BUSY = { code: 'busy', status: 409, when: 'Another backup or restore is running' };
+const BUSY = { code: 'busy', status: 409, when: 'Another backup, restore or migration is running' };
 const GRAPH_UNAVAILABLE = { code: 'graph-unavailable', status: 409, when: "The graph database isn't answering" };
 const UNKNOWN = { code: 'unknown-backup', status: 404, when: "The instance holds no backup with that id (the refusal names the ones it holds)" };
 
 const idInput = (description) => ({ schema: { type: 'string', pattern: ID_PATTERN }, required: true, description });
 
 /**
- * The checks a backup or restore makes first: recover a stale lock (before anything else), take the lock, and see the
- * graph answer. Resolves the lock; refuses busy or graph-unavailable, holding nothing.
+ * The checks a backup, restore or migration makes first: recover a stale lock (before anything else), take the lock,
+ * and see the graph answer. Resolves the lock; refuses busy or graph-unavailable, holding nothing.
  */
-async function begin(op, { backup = null } = {}) {
+async function begin(op, { backup = null, migration = null } = {}) {
   const system = require('./_system');
   const store = require('./_store');
   const jobs = require('./_jobs');
   const live = await store.recoverIfStale(system, jobs.waitForGraph);
   if (live) throw refusal('busy', store.busyMessage(live));
-  const lock = store.acquireLock({ op, backup });
+  const lock = store.acquireLock({ op, backup, migration });
   if (!lock) throw refusal('busy', store.busyMessage(store.inspectLock()));
   if (!(await jobs.graphAnswers(system))) {
     store.releaseLock(lock.runId);
-    throw refusal('graph-unavailable', `The graph database isn't answering, so nothing can be ${op === 'restore' ? 'restored' : 'backed up'} now. See \`supervisorctl status neo4j\`.`);
+    const what = op === 'restore' ? 'restored' : op === 'migrate' ? 'migrated' : 'backed up';
+    throw refusal('graph-unavailable', `The graph database isn't answering, so nothing can be ${what} now. See \`supervisorctl status neo4j\`.`);
   }
   return lock;
 }

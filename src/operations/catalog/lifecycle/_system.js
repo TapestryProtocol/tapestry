@@ -9,7 +9,8 @@
  *   programStatus(names)               { name: 'RUNNING' | 'STOPPED' | … } from `supervisorctl status`
  *   neo4jAdmin(args, { stdin, stdout }) runuser -u neo4j -- neo4j-admin <args…> → { code, stdout, stderr }; stdout is
  *                                      captured as text unless a stream is given to write it to
- *   cypher(query, params)              a read through the shared driver (src/lib/neo4j-driver.js)
+ *   cypher(query, params, { write })   a query through the shared driver (src/lib/neo4j-driver.js): a read, or with
+ *                                      write: true a write (lifecycle migrate's passes and schema, ADR 0003 Decision 4)
  *   version()                          the graph database's version, from `neo4j-admin --version`
  *   freeBytes(path)                    free bytes on the filesystem holding `path` (or its nearest existing parent)
  *   sleep(ms)
@@ -85,9 +86,9 @@ const system = {
     return runCommand('runuser', ['-u', 'neo4j', '--', 'neo4j-admin', ...[].concat(args || [])], opts);
   },
 
-  async cypher(query, params) {
-    const { runCypher } = require('../../../lib/neo4j-driver');
-    return runCypher(query, params || {});
+  async cypher(query, params, { write = false } = {}) {
+    const { runCypher, writeCypher } = require('../../../lib/neo4j-driver');
+    return write ? writeCypher(query, params || {}) : runCypher(query, params || {});
   },
 
   async version() {

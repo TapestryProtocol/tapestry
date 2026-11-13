@@ -25,6 +25,7 @@
 14. [Local dev loop (inside-container source edits)](#14-local-dev-loop-inside-container-source-edits)
 15. [CI test gate (PRs to staging/main)](#15-ci-test-gate-prs-to-stagingmain)
 16. [Backups — lifecycle backup and restore (graph-operations-foundation #2 / ADR graph-operations-foundation/0002)](#16-backups--lifecycle-backup-and-restore-graph-operations-foundation-2--adr-graph-operations-foundation0002)
+17. [Migrations — lifecycle migrate (graph-operations-foundation #3 / ADR graph-operations-foundation/0003)](#17-migrations--lifecycle-migrate-graph-operations-foundation-3--adr-graph-operations-foundation0003)
 
 ---
 
@@ -1095,3 +1096,20 @@ location = /api/tapestry/lifecycle/upload-backup {
 ```
 
 Copy the site's existing `location /` block twice, keeping its headers (above all `X-Forwarded-For`, which stops the app trusting the request as the local operator). Add the buffering and timeout lines to both, and the two body lines to the upload's alone, so only the upload takes a backup-sized body. The container's own nginx has the same two blocks (`docker/nginx.conf`). There is no deletion or rotation yet: remove an old backup with `docker exec tapestry rm -rf /var/lib/brainstorm/backups/<id>`.
+
+## 17. Migrations — lifecycle migrate (graph-operations-foundation #3 / ADR graph-operations-foundation/0003)
+
+**Every node carries a tapestryKey and the label `TapestryNode`** (BIBLE §29). Since this change, every path that makes a node — the import, the signing routes, add-subset, the brain write, the trust pipeline's stream, batch and reconciliation loaders, the tagging-edges pass, and each customer's metrics cards — gives it both in the statement that makes it (`keyNode`, `src/lib/tapestry-key-cypher.js`). Nodes made before it ship get theirs from a migration, **once per instance, after the deploy that brings this change**:
+
+```
+docker exec tapestry tapestry lifecycle migrate --migration tapestry-keys
+docker exec tapestry tapestry lifecycle migrate --migration event-less-nodes
+docker exec tapestry tapestry lifecycle status
+```
+
+- **`tapestry-keys`** takes a backup first (the graph is offline for it, as in §16), then, with the graph online and the pipeline writing, gives every node without one a key and the label in passes of 10,000, keeping every key a node already has (the `'{}'` placeholder gives way to a real key). Then it adds the uniqueness rule `tapestry_key` and the index `tapestry_node_uuid`, and waits until both are online. If some key is already held by more than one node, it changes none of them and leaves the rule and the index out; its answer names each such key and the nodes holding it, for the owner to decide.
+- **`event-less-nodes`** (after `tapestry-keys`) takes a backup, then takes `NostrEvent` off the sets made with no event (add-subset's), which keep their key and other labels. Queries now find nodes by address as `(:NostrEvent|TapestryNode {uuid: …})`, so they still find these. An event published later for such a set gives the label back.
+
+Either is safe to repeat: with nothing left to change it answers `already-applied` and takes no backup. A fresh instance's nodes have keys from the start, so `tapestry-keys` there only adds the rule and the index, with no backup. Each runs as a job of its own under the backup lock, so no backup, restore or other migration runs meanwhile. The command waits to the end (`--wait <s>` to answer sooner); `POST /api/tapestry/lifecycle/migrate` (owner and admins, body `{ "migration": "tapestry-keys" }`) waits 50 s, or `wait` seconds, then answers `running` with its run id. **`tapestry lifecycle status`** shows, in its migrations part, the whole graph's key counts, whether the rule is in place, and each migration: applied or not (read from the graph, so a restored older graph reads as not migrated), and its last run, by whom, and the backup taken before it.
+
+Once `tapestry_key` is online, backups count keys by walking its index 50,000 at a time instead of reading them all at once; the digest is the same, so older backups still restore with matching counts (ADR `graph-operations-foundation/0003` Decision 10, amending ADR 0002 Decision 4).
