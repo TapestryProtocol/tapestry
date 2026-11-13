@@ -34,3 +34,7 @@ row was filed: its "On PASS (same commit)" heading tripped harness-lint L1, and 
 CHANGES_REQUESTED review to the template, and harness-lint L1 flagged the story as a missing Done flip. The reviewer kept
 the On PASS items, unchecked, and moved `## Verdict` below them, which made the lint clean. That makes six known
 occurrences; the template is still unchanged.
+
+**Another occurrence, 2026-11-13 (book `workflow-hardening`, story 1's review round 1).** A reviewer agent wrote a
+CHANGES_REQUESTED review to the template and moved the On PASS section above `## Verdict` by hand to keep the lint
+clean. That makes seven known occurrences.

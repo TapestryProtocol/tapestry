@@ -3003,3 +3003,33 @@ should also refuse unquoted values that contain spaces.
 
 **Classification:** bug (security), Standard; all phases. The entrypoint check is a design choice, so Architecture
 applies.
+
+## 2026-11-13 — The SSH step of every deploy runs a program fetched at run time, and the workflow guard reads only `uses:` lines (security follow-ups)
+
+**Raw request:** none; found at the Review of `workflow-hardening` #1 (round 1, non-blocking 2 and 7) and queued, not
+built. That story froze what the workflows run today and changed nothing else.
+
+**What was found.**
+
+- **The SSH step.** All five deploy jobs call `appleboy/ssh-action`, now pinned to a commit. At that commit the action
+  downloads its SSH client (`drone-ssh` 1.8.2) from a release of another repository when it runs, with no checksum.
+  The pin fixes the action's own files, not that download. This is the step that is handed the server's key.
+- **No host key is named.** The deploy steps don't say which host key to expect from the server. The action has an
+  input for it (`fingerprint:`).
+- **What the guard doesn't read.** `test/workflow-hardening.test.js` holds the `uses:` lines of workflow files. It
+  doesn't read a local action's own `action.yml`, or a job's `container:` or `services:` image named by a tag. Nothing
+  in the repo has either today.
+- **Pins age.** Nothing moves a pin when an action ships a fix. OPERATIONS.md §17.1 says how to move one by hand.
+
+**Likely shape.**
+
+- **Replace the action with a plain `ssh` step on the runner:** the key from the environment, written to a file for
+  that step, and the server's host key pinned in `known_hosts`. That removes the action and the download, and adds the
+  host key check. The four deploy workflows and the roll step share one pattern, so one change covers all five.
+- **Extend the PIN rule** to local actions and to `container:` and `services:` images, or decide they stay out and say
+  so in the test.
+- **Decide how pins are moved:** by hand, or by an automatic updater. An updater opens pull requests whose workflows
+  run, so it is a decision, not a default.
+
+**Classification:** bug (security hardening), Standard. The SSH change touches every deploy, so Architecture applies:
+an ADR, and a rehearsal on a sandbox before `main`.
