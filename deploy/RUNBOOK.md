@@ -127,9 +127,12 @@ Four handovers, in order. Each person can follow theirs with no other context.
    ```bash
    ssh-keygen -t ed25519 -f ./tapestry_ninja -N ""
    ```
-   In the repo's Settings, Secrets and variables, Actions, add `DEPLOY_HOST_NINJA` (the IP), `DEPLOY_USER_NINJA` (`root`)
-   and `DEPLOY_SSH_KEY_NINJA` (the whole of `./tapestry_ninja`). Delete `./tapestry_ninja`, and pass on what is in
-   `./tapestry_ninja.pub`, which is safe to send. Then, on the droplet:
+   In the repo's Settings, Environments, open the `ninja` environment. If it isn't there, create it, and under
+   Deployment branches and tags choose Selected branches and tags, with `staging` and `main`. Add the three secrets to
+   that environment, not to the repository's own secrets: `DEPLOY_HOST_NINJA` (the IP), `DEPLOY_USER_NINJA` (`root`)
+   and `DEPLOY_SSH_KEY_NINJA` (the whole of `./tapestry_ninja`). The publish workflow names that environment, and
+   [OPERATIONS.md §17.3](../OPERATIONS.md#173-deploy-environments) says why the secrets go there. Delete
+   `./tapestry_ninja`, and pass on what is in `./tapestry_ninja.pub`, which is safe to send. Then, on the droplet:
    ```bash
    echo '<the public key>' >> ~/.ssh/authorized_keys
    ```

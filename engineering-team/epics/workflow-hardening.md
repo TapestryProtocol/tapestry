@@ -38,7 +38,8 @@ recorded in OPERATIONS.md.
   upgraded.
 - **Each long-lived deploy branch runs its own copy of its workflow.** The change lands on `staging` and reaches
   `main`, `feat/tags` and `feature-magic-carpet` by the usual promotion and sync. A target's secrets move into its
-  environment only after its own branch carries the change.
+  environment only after its own branch carries the change. `feature-magic-carpet` also holds two workflows that
+  `staging` doesn't, and both name deploy secrets (book, "What stays open").
 - **Settings stay the owner's.** Creating and limiting environments, moving secrets and making new keys happen in
   GitHub settings and on the servers, outside this epic.
 - **`.github/workflows` is a harness-definition path.** The commit that changes it also adds a row to

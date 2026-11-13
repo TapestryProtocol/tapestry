@@ -32,6 +32,11 @@ Known at opening, and outside this book:
 - The owner's settings work: creating and limiting the environments, moving each target's secrets in, and removing
   the repository-level copies.
 - Items 2 and 3 of [the repo-move ledger row](../../../ledger/2026-10-28-repo-move-follow-ups.md).
+- `feature-magic-carpet` holds two workflows that `staging` doesn't, `configure-prod.yml` and `deploy-brainstorm.yml`.
+  Both name deploy secrets, call their action by a tag, and declare no permissions or environment. They are that
+  branch's to bring in line when this change reaches it, and the test will fail there until they are (review round 1,
+  non-blocking 4).
+- The follow-ups queued in `engineering-team/stories/_intake.md`, entry of 2026-11-13.
 
 ## Epics in this book
 - `workflow-hardening` — story 1.

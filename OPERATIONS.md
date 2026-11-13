@@ -12,7 +12,7 @@
 1. [Deploy targets](#1-deploy-targets)
 2. [Branches](#2-branches)
 3. [CI/CD workflows](#3-cicd-workflows)
-4. [Branch protection ruleset](#4-branch-protection-ruleset)
+4. [Branch protection rulesets](#4-branch-protection-rulesets)
 5. [Droplets and empirical measurements](#5-droplets-and-empirical-measurements)
 6. [Spinning up a new sandbox droplet](#6-spinning-up-a-new-sandbox-droplet)
 7. [Active team and branch ownership](#7-active-team-and-branch-ownership)
@@ -186,7 +186,7 @@ End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. Th
 ### 6.2. GitHub setup
 
 1. **Workflow file** — add `.github/workflows/deploy-<name>.yml` on the target branch. Mirror `deploy-tags.yml` and substitute the branch name, secret suffix, environment name, and droplet-name comment. The deploy job names the target's environment with an `environment: <name>` line, the secret suffix in lower case with hyphens for underscores ([§17.3](#173-deploy-environments)); `npm test` fails without it. Do **not** push yet — pushing triggers the first deploy, which fails until secrets are set and the droplet is ready.
-2. **Environment and its secrets** — in Settings → Environments, create the environment `<name>` and limit its deployment branches to the target branch (Deployment branches and tags → Selected branches). Then prepare three placeholders as secrets of that environment, not of the repository (values filled in from the droplet in §6.3 step 3):
+2. **Environment and its secrets** — in Settings → Environments, create the environment `<name>` and limit its deployment branches to the target branch (Deployment branches and tags → Selected branches and tags). Then prepare three placeholders as secrets of that environment, not of the repository (values filled in from the droplet in §6.3 step 3):
    - `DEPLOY_HOST_<NAME>` — droplet IP or hostname
    - `DEPLOY_USER_<NAME>` — typically `root`
    - `DEPLOY_SSH_KEY_<NAME>` — the **private** key generated on the droplet
@@ -1118,10 +1118,10 @@ Whoever controls an action's repository can move a tag such as `@v1` to differen
 **To move a pin to a newer release,** read the release's notes, resolve the release to its commit, and change both the commit id and the comment in every workflow that calls the action:
 
 ```bash
-git ls-remote --tags https://github.com/appleboy/ssh-action 'v1.2.6' 'v1.2.6^{}'
+git ls-remote --tags https://github.com/appleboy/ssh-action 'v1.2.5' 'v1.2.5^{}'
 ```
 
-The line ending in `^{}` is the commit, when there is one; otherwise the plain line is. `test/ci-test-job.test.js` holds the test gate's two actions at `v5`, so a move to another major version changes that test in the same pull request.
+The line ending in `^{}` is the commit, when there is one; otherwise the plain line is. For `v1.2.5` the command prints the pin shown above. Whoever reviews a pin change runs the same command and compares: the test checks a pin's form, not that it is the release its comment names. `test/ci-test-job.test.js` holds the test gate's two actions at `v5`, so a move to another major version changes that test in the same pull request.
 
 ### 17.2. Token permissions
 
@@ -1145,13 +1145,20 @@ Each job that reads a deploy secret names a GitHub environment, with an `environ
 | `magic-carpet` | `DEPLOY_*_MAGIC_CARPET` | `deploy-magic-carpet.yml` | `feature-magic-carpet` |
 | `ninja` | `DEPLOY_*_NINJA` | `publish-image.yml` | `staging`, and `main` when run by hand |
 
-**A deploy target's `DEPLOY_` secrets belong in its environment, limited to its deploy branch.** GitHub gives a repository-level secret to any workflow that names it, on any branch. It gives an environment's secrets only to a job that names the environment, and only from the branches the environment allows (Settings → Environments → the environment → Deployment branches and tags → Selected branches). An environment can also ask for an approval before each run (Required reviewers), which suits `tapestry`.
+**A deploy target's `DEPLOY_` secrets belong in its environment, limited to its deploy branch.** GitHub gives a repository-level secret to any workflow that names it, on any branch. It gives an environment's secrets only to a job that names the environment, and only from the branches the environment allows (Settings → Environments → the environment → Deployment branches and tags → Selected branches and tags). A branch limit is as strong as the rules on the branch it allows: whoever may push to that branch can change the workflow that runs there, and [§4](#4-branch-protection-rulesets) records what protects each branch. An environment can also ask for an approval before each run (Required reviewers), which suits `tapestry`. A run then waits for that approval, and `/cycle-staging` and `/cycle-prod` wait with it.
 
 GitHub creates an environment the first time a job names it, empty and with no rules. Until its secrets are added, the job reads the repository-level secrets of the same names. So a workflow can carry the `environment:` line before the environment is set up.
 
 **Moving an existing target's secrets.** Each long-lived deploy branch runs its own copy of its workflow. So move one target at a time, and only after that target's own deploy branch carries the `environment:` line:
 
-1. Check the branch: `git show origin/<branch>:.github/workflows/<workflow> | grep environment:`.
+1. Check the branch. List every workflow on it that names the target's secrets, and see that each of those files carries the line:
+
+   ```bash
+   git grep -n 'DEPLOY_[A-Z_]*_<NAME>' origin/<branch> -- .github/workflows
+   git grep -n 'environment:' origin/<branch> -- .github/workflows
+   ```
+
+   A long-lived branch can hold a workflow that `staging` doesn't. On 2026-11-13 `feature-magic-carpet` held two, `configure-prod.yml` and `deploy-brainstorm.yml`, and both name deploy secrets. The test fails on such a file once this change reaches the branch.
 2. In Settings → Environments, open the target's environment and limit its deployment branches to the branch in the table.
 3. Add the three `DEPLOY_` secrets to the environment. GitHub can't copy a secret's value, so they are entered again. This is a good moment to give the server a new key pair (§6.3 step 3) and take the old public key out of its `authorized_keys`.
 4. Push to the branch, or re-run its last deploy, and see the run succeed.
@@ -1159,4 +1166,4 @@ GitHub creates an environment the first time a job names it, empty and with no r
 
 A target whose repository-level secrets are deleted before its branch has the line fails its next deploy: the job names no environment and finds no secret.
 
-A new target is set up this way from the start: [§6.2](#62-github-setup).
+A new target is set up this way from the start: [§6.2](#62-github-setup). The `ninja` box's own setup is step 7 of Handover 1 in [deploy/RUNBOOK.md](./deploy/RUNBOOK.md).
