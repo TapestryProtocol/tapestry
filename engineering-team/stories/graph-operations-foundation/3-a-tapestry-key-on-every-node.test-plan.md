@@ -331,3 +331,5 @@ Round 2 found two blocking problems. First, Decision 9's classification stopped 
 - **M25** (new): `placeholdersReplaced` comes from a count of the `'{}'` keys of its own. The fake gains that read.
 - **M26** (new): the report gives `retries`, the batches APOC retried, beside `failedBatches`. The fake gains `failures.keysPassRetries`.
 - **M27** (new): with keys shared, the index already there and no rule, the note says only the rule was left out.
+
+**Amendment 3, at Implementation.** One test from an earlier story counted the old way. `concept-count-canonical`'s live derivation (story concept-counts #3) counted elements as `(c:NostrEvent)-[:HAS_ELEMENT]->(e:NostrEvent)`. On a live graph holding event-less sets, that would disagree with the canonical rule, which now names `NostrEvent|ListItem`. It now counts `(c:NostrEvent|TapestryNode)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)`. `summaries-element-count` R2 still holds as written, because `:NostrEvent|ListItem` contains `:NostrEvent`. This review's harness friction applies here too: the sweep of `test/` for the shapes this round changes found these two.
