@@ -401,3 +401,124 @@ So S2 is still red on `staging`, and the fix has not landed. "When this pull req
 ## Verdict (round 2)
 
 **CHANGES_REQUESTED**
+
+---
+
+# Round 3
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-13
+**Target:** `staging` on the remote is `e62a5f92`, read with one `git ls-remote origin refs/heads/staging` at 18:25. The local ref is the same commit, and it is an ancestor of HEAD.
+**Diff:** `git diff 28d402fe..2d638684`, commit by commit:
+- `3336b8f4`: round 2 of this review, committed as written.
+- `99acd2e3`: the merge of `staging` at `e62a5f92`. One file was resolved by hand, OPERATIONS.md.
+- `44fbcc52`: the Tester's round. The guard's ENV reader, one new case in S10 and three in S13, and the test plan. It touches no workflow and no operator doc.
+- `e596b6de`: the fix. Ten comment lines in six workflow files, one sentence of OPERATIONS.md, the runbook, the CHANGELOG row, the intake entry and the story. It touches no `test/`.
+- `2d638684`: records. One new ledger row, and two rows corrected.
+
+**In short.** R2-B1 is fixed. The branch holds `staging`'s tip, the merge lost nothing of either side, and this story's section is 18 wherever it is named. All seven of round 2's non-blocking items were taken, and each holds when re-derived. Nothing blocks. The guard's rewrite opened two small gaps, of the kind the earlier rounds did not block on (non-blocking 1 and 2).
+
+Two things this verdict is not. It is not a full-gate result: that comes from the pull request's `Test` run. And it is not the owner's OK for a red run (round 2, "B2").
+
+## Quality gates (run by reviewer, not trusted)
+
+- [ ] **`npm test`: not run,** for round 1's reason. There is still no full-gate result for this code, and no `gate:status` line to quote. The pull request's `Test` run will be the first, read as the test plan says (`:111-119`).
+- [x] **The same three suites, one at a time,** on the merged tree at `2d638684`, on Node 24.18.0, with the same three variables pointed at nothing.
+
+  | Suite | Passed / failed / skipped |
+  |---|---|
+  | `workflow-hardening` | 26 / 0 |
+  | `ci-test-job` | 14 / 0 |
+  | `brains-launcher-repo` | 31 / 0 / 0 |
+
+- [x] **`bash scripts/harness-lint.sh`:** clean, 0 violations, before this round was written and after.
+- [x] **Lanes.** `e596b6de` and `2d638684` touch nothing under `test/`. `44fbcc52` touches only `test/workflow-hardening.test.js` and the test plan.
+- [x] **V2's two commands against `origin/staging`,** now `e62a5f92` (test plan `:150`, `:158`). The first prints nothing, with 45 changed lines going in. The second pairs every action, with round 2's counts.
+- [x] **The workflows, parsed.** All seven are equal to `staging`'s apart from the three permitted kinds of change. Since round 2 only comments changed: 20 changed lines, each a comment, and each parsed document is identical to round 2's.
+- [x] **The harness-definition rule.** `e596b6de` changes the workflow files and the CHANGELOG row together.
+- [x] **Probes,** in a throwaway `node -e`, with nothing written: the rewritten ENV reader on made-up workflows.
+- [x] **Other suites that read a changed file: read, not run.** Besides the guard and `ci-test-job`, nine suites open OPERATIONS.md on the merged tree. Each checks that words of its own section are present, and this branch changes none of those sections (see the corrections below).
+- [x] **GitHub, read only: three requests,** one at a time.
+  - `git ls-remote origin refs/heads/staging`.
+  - The runner's copy of the workflow schema (`actions/runner`, `src/Sdk/DTPipelines/workflow-v1.0.json`), for values that are expressions without braces. It carries no such marker, so it settled nothing.
+  - GitHub's template reader (`actions/runner`, `src/Sdk/DTObjectTemplating/ObjectTemplating/TemplateReader.cs`), for how it finds the end of an expression and how it treats one used as a mapping key.
+- [ ] `npm run test:playwright`: not applicable (no UI).
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+## Two corrections to earlier rounds (my own)
+
+- **Round 1 said seven more suites open OPERATIONS.md. There were eight.** My search read `test/*.test.js` and missed a subfolder. `test/operations/lifecycle/backup-job.test.js` was already on the old base. Its K3 (`:539-547`) checks that the Backups section's own words are present, so round 1's conclusion stands. The merged tree has a ninth, `test/operations/lifecycle/tapestry-key-paths.test.js` G13 (`:425-427`), which checks that `staging`'s section 17 names its two migrations. It does: that section is untouched.
+- **Round 2 could not tell whether `staging` had already moved during round 1. It had.** Its tip was committed at 15:46, and round 1 began after 17:00. So round 1 read a branch that could not merge, as the new ledger row says.
+
+## The merge, `99acd2e3`
+
+- **Its parents** are `3336b8f4`, this branch, and `e62a5f92`, `staging`. OPERATIONS.md is the only file that differs from both.
+- **Everything else came across whole.** The other 91 files `staging` had changed are byte-identical to `staging`'s. The other 23 files this branch had changed are byte-identical to the branch's.
+- **OPERATIONS.md, `staging`'s side.** Its section 17 (`:1103-1120`) is byte for byte `staging`'s, and so is its contents line (`:28`). No line that `staging` added is missing. Six lines of `staging`'s file are not in the merge, and all six are lines of the old base that this branch had itself rewritten: the date, the contents line for §4, the sentence in §1, two steps of §6.2 and one line of §6.3.
+- **OPERATIONS.md, this branch's side.** Eight lines of the branch's file are not in the merge: the eight that carried the number 17. The merge has eight lines that neither parent has: the same eight with 18 (`:29`, `:46`, `:101`, `:189`, `:1124`, `:1128`, `:1146`, `:1156`).
+- **Links.** Every relative link on a line this branch adds resolves: 15 of them, across 15 Markdown files. That includes the in-page links to `#18-workflow-rules-…`, `#183-deploy-environments`, `#62-github-setup` and `#4-branch-protection-rulesets`, and the runbook's link into OPERATIONS.md (`deploy/RUNBOOK.md:135`). No heading in OPERATIONS.md repeats another's anchor, and the contents entries 16 to 18 resolve.
+- **No reference to this section as 17 is left,** outside this review's earlier rounds. Two files still say "OPERATIONS.md §17": `BIBLE.md:1940` and `engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md:321`. Both are `staging`'s own, both mean Migrations, and both are right because Migrations kept its number.
+
+## Round 2's findings, each re-derived as a fresh claim
+
+| Finding | Re-derived by | Result |
+|---|---|---|
+| R2-B1, `staging` moved | "The merge", above. The references round 2 listed all follow: the ten workflow comments now name the section by its title, and the runbook (`deploy/RUNBOOK.md:135`), the CHANGELOG row (`engineering-team/CHANGELOG.md:118`) and the intake entry (`engineering-team/stories/_intake.md:3022`) say 18. | Fixed. |
+| Non-blocking 1, the runbook's branch limit | `deploy/RUNBOOK.md:130-132`: "open the `ninja` environment, or create it if it isn't there", then "Either way, under Deployment branches and tags choose Selected branches and tags, with `staging` and `main`." Its added sentence, that GitHub makes the environment empty with no rules on the first run, matches the documentation round 1 read. | Fixed. |
+| Non-blocking 2, a line break or a tab round the dot | The reader now walks the parsed strings themselves (`test/workflow-hardening.test.js:215-229`). In a probe, a line break before the dot is caught for a named secret and for `.*`, and so is a tab. S13 holds the two line breaks (`:480-481`, `:484-486`). | Fixed. |
+| Non-blocking 3, false alarms on script text | "Every secret" is looked for only inside `${{ … }}` and in `if:` (`:236-248`). In a probe, the `rm` and the `grep` are no longer findings, and S10 holds it (`:444-445`). What should still be caught is: an expression inside a script, a step's `if:`, a called workflow's `secrets:` map, a top-level `env:`, and the second of two expressions in one string. | Fixed. The rewrite opened two gaps (non-blocking 1 and 2). |
+| Non-blocking 4, what §4 records | `OPERATIONS.md:1168`: "§4 describes the rulesets, and the live settings are what count." That is what §4 says of itself (`:107`). | Fixed. |
+| Non-blocking 5, "143 runs" | `ledger/2026-10-29-h2-0-baseline-predates-github-flow.md:72-73` now says where the figure was read, and when. | Answered. The number itself I still can't check. |
+| Non-blocking 6, how the red suite was caught | `ledger/2026-11-13-plan-names-ci-gate-already-red.md:15-16`. | Fixed. It matches what happened. |
+| Non-blocking 7, the Deviations | The story `:104-108` names the runbook change and the merge, and `:95-97` says why the comments now name the section. | Fixed. |
+| Friction, no check of the target | `ledger/2026-11-13-review-has-no-origin-drift-check.md`. Its 19 commits are right (`6c57ec1f..e62a5f92`). It calls the local ref "four hours old"; by the fetch log it was about three. Immaterial. | Filed; its claims hold. |
+
+One sentence is new in the test plan and rests on my own round-2 words: "A re-run of an older run does not count: it tests the same merge of branch and base as the first time" (`:115-117`). It is GitHub's behaviour as I know it. I did not read it from a source this round, and nothing in the repo records it. If it were wrong, following it would cost one needless push.
+
+## Does reading only expressions open a hole?
+
+**Where GitHub evaluates an expression.** Inside `${{ … }}`, wherever that stands, and in `if:` without the braces. I know of no other place in a workflow file. That is GitHub's documented behaviour as I know it, and the one source I tried for it this round settled nothing. As I know it, `secrets` is not available to an `if:` at all, so reading `if:` errs on the safe side.
+
+**What the scoping cannot hide.** A named deploy secret is still looked for in every string, not only inside expressions (`:226-229`). So a secret named in any value is seen, whatever surrounds it.
+
+**What it does open.** Two things, both inside `${{ … }}`, and both checked against GitHub's own reader (non-blocking 1 and 2).
+
+## Findings
+
+### Blocking
+
+None.
+
+### Non-blocking
+
+1. **`test/workflow-hardening.test.js:239`: the guard ends an expression at the first `}}`, and GitHub does not when that `}}` is inside a quoted string.**
+   - GitHub's reader skips quoted strings as it looks for the end (`TemplateReader.cs:511-527`: it tracks `inString`).
+   - In a probe, `${{ format('}}{0}', toJSON(secrets)) }}` passed, and so did the same shape with `join(secrets.*, …)`. The guard took ` format('` as the whole expression. Round 2's code caught both.
+   - A named deploy secret after such a `}}` is still caught, because that check reads the whole string.
+
+2. **`test/workflow-hardening.test.js:215-220`: mapping keys are no longer read.**
+   - `stringsIn` collects values. Round 2's code searched the job as JSON text, which holds the keys too.
+   - GitHub's reader accepts an expression as a key wherever the mapping may use a context (`TemplateReader.cs:187-195`, `:314-322`). I read the reader, not what the evaluator then does with such a key.
+   - In a probe, an `env:` whose key is `${{ toJSON(secrets) }}` passed, and so did one whose key is `${{ secrets.DEPLOY_SSH_KEY_STAGING }}`.
+
+   Why neither blocks: as in rounds 1 and 2, nobody writes these by accident, and the guard is a tripwire, not the control. Suggested (Tester), for both: have `stringsIn` yield each key as well, and look for the closing `}}` the way GitHub does, outside quoted strings. Failing that, name both under the test plan's "Not covered" (`:83-84`): its "The guard knows the four above" is not the whole truth for `toJSON(secrets)` in those two places.
+
+3. **The story `:113`: "Review: (filled in after Review phase)" is still a placeholder.** I changed the status line only, as asked. Whoever commits this can fill it in.
+
+### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+1. **New, and small: a later round is added to a file the Reviewer can only write whole.** The Reviewer has Write and no Edit, by design. So each round re-emits the earlier rounds, and the story's status line was changed by rewriting the story. I checked both with `git diff --numstat`: no line of rounds 1 and 2 changed, and the story's diff is its status line. Candidate: workflow 5 asks for that check whenever a round is added, or a later round goes in a file of its own.
+
+## On PASS (same commit)
+
+- [x] Story `**Status:**` flipped to `Done` in place. Line 3 only.
+- [x] Completion detection performed. Its result is in the chat, not in this file.
+- What this leaves open, for whoever opens the pull request:
+  - V3: the pull request's `Test` run, read as the test plan says (`:111-119`); then the first `Deploy to Staging` run, and the brains' roll.
+  - The owner's OK, recorded in this file above the last verdict, if that run is red on `setup-alert-polish` S2 alone (round 2, "B2").
+  - `staging`'s tip, read once more before the pull request is opened. It was `e62a5f92` at 18:25.
+- The optional independent check (workflow 5) is the launching session's to apply before it commits this file. This session commits nothing.
+
+## Verdict (round 3)
+
+**PASS**

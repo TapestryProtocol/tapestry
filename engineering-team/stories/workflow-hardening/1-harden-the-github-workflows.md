@@ -1,6 +1,6 @@
 # Story 1: The GitHub workflows pin what they run, limit their token, and name a deploy environment
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-13
 **Type:** Bug (security / what a workflow can reach)
 **Epic:** `workflow-hardening`
