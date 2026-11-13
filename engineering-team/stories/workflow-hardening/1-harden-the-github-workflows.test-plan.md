@@ -20,7 +20,7 @@ so a workflow added later is checked without the suite being edited. Its three r
 | AC-2 | `R3: WRITE_SCOPES lists no file that is gone, and no scope its workflow no longer asks for` | `test/workflow-hardening.test.js` | source contract |
 | AC-2 | `S5`–`S8`: the TOKEN checker passes read-only and empty declarations, and catches a missing or empty one, `contents: write` at either level, `write-all`, and an unlisted write scope | `test/workflow-hardening.test.js` | unit |
 | AC-3 | `R4: every job that reads a deploy secret names that server's environment` | `test/workflow-hardening.test.js` | source contract |
-| AC-3 | `S9`–`S13`: the ENV checker passes the right environment in either form, asks nothing of a job with no deploy secret, and catches a missing, wrong or computed name, two servers in one job, and secrets read without being named | `test/workflow-hardening.test.js` | unit |
+| AC-3 | `S9`–`S13b`: the ENV checker passes the right environment in either form, asks nothing of a job with no deploy secret, and catches a missing, wrong or computed name, two servers in one job, and secrets read without being named | `test/workflow-hardening.test.js` | unit |
 | AC-4 | `S14`–`S16`: an unreadable file is a finding; every finding starts with its file and rule; a file added to the folder later is read, `.yml` or `.yaml` | `test/workflow-hardening.test.js` | unit |
 | AC-4 | `M1: each real workflow, broken in memory one rule at a time, is caught` | `test/workflow-hardening.test.js` | source contract |
 | AC-4 | `R0: the guard reads every workflow file in .github/workflows/, and there is at least one` | `test/workflow-hardening.test.js` | source contract |
@@ -30,7 +30,7 @@ so a workflow added later is checked without the suite being edited. Its three r
 | AC-6 | `V3`: the changed workflows run green (procedural, below) | — | on the PR, then on staging |
 
 AC to handles: AC-1 → R1, S1, S2, S3, S4, W3, W4, W9, V1. AC-2 → R2, R3, S5, S6, S7, S8. AC-3 → R4, S9, S10, S11, S12,
-S13. AC-4 → R0, M1, S14, S15, S16. AC-5 → D1, D2, D3, D4. AC-6 → the existing W-handles, V2, V3.
+S13, S13b. AC-4 → R0, M1, S14, S15, S16. AC-5 → D1, D2, D3, D4. AC-6 → the existing W-handles, V2, V3.
 
 ### What this phase changed in existing tests
 
@@ -42,7 +42,12 @@ nothing after the commit id (W9). Their names and every other assertion are unch
 Round 2, after the first review: the guard also catches the object filter `secrets.*` and a secret named with spaces
 round the dot (`S13`, `S11`). After the second: it looks for "every secret" only inside expressions (`${{ … }}` and
 `if:`), so a shell glob such as `config/secrets.*` is not a finding (`S10`), and it reads each string as written, so a
-line break round the dot is still seen (`S13`). The header comment of `test/honest-publish-reporting-ci-guard.test.js` cited a line
+line break round the dot is still seen (`S13`).
+
+After the third review, which passed: that round found the change above had let two things through that the code
+before it caught, and they are closed in one commit that no round reviewed. A mapping's keys are read as well as its
+values, and an expression's end is looked for outside quoted text, as GitHub looks for it (`S11`, `S13`, `S13b`).
+Both changes only widen what the guard reads, so it catches everything the reviewed code caught. The header comment of `test/honest-publish-reporting-ci-guard.test.js` cited a line
 number of `test.yml` that this story's change had moved; it now names the step.
 
 ### Guard suite

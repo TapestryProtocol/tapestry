@@ -211,11 +211,16 @@ const DEPLOY_SECRET_KIND = /^DEPLOY_(?:HOST|USER|SSH_KEY)_([A-Z0-9_]+)$/;
 // All at once (toJSON(secrets)), by a computed name (secrets[...]), or through the object filter (secrets.*).
 const EVERY_SECRET = /toJSON\(\s*secrets\s*\)|secrets\s*\[|secrets\s*\.\s*\*/i;
 
-/** Every string in a part of a workflow, with the key it sits under. */
+/** Every string in a part of a workflow, with the key it sits under. A mapping's keys are strings too. */
 function stringsIn(part, key = '', out = []) {
   if (typeof part === 'string') out.push({ key, text: part });
   else if (Array.isArray(part)) for (const item of part) stringsIn(item, key, out);
-  else if (isMap(part)) for (const [k, v] of Object.entries(part)) stringsIn(v, k, out);
+  else if (isMap(part)) {
+    for (const [k, v] of Object.entries(part)) {
+      out.push({ key: '', text: k });
+      stringsIn(v, k, out);
+    }
+  }
   return out;
 }
 
@@ -236,10 +241,32 @@ function deploySecretsIn(part) {
 function expressionsIn(part) {
   const out = [];
   for (const { key, text } of stringsIn(part)) {
-    for (const m of text.matchAll(/\$\{\{([\s\S]*?)\}\}/g)) out.push(m[1]);
+    out.push(...expressionBodies(text));
     if (key === 'if') out.push(text);
   }
   return out;
+}
+
+/**
+ * What sits inside each ${{ … }} of a string. The closing braces are looked for outside quoted
+ * text, as GitHub does, so a quoted "}}" does not end the expression early. An expression left
+ * open runs to the end of the string.
+ */
+function expressionBodies(text) {
+  const out = [];
+  let from = 0;
+  for (;;) {
+    const start = text.indexOf('${{', from);
+    if (start === -1) return out;
+    let end = start + 3;
+    let quoted = false;
+    for (; end < text.length; end += 1) {
+      if (text[end] === "'") quoted = !quoted;
+      else if (!quoted && text[end] === '}' && text[end + 1] === '}') break;
+    }
+    out.push(text.slice(start + 3, end));
+    from = end + 2;
+  }
 }
 
 /** Whether a part reads secrets without naming them: all at once, or by a computed name. */
@@ -458,6 +485,8 @@ test('S11 (AC-3, AC-4): ENV catches a deploy job with no environment, or with an
     /reads EXAMPLE's deploy secrets but names no environment/, 'a deploy secret named in lower case');
   caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          HOST: ${{ secrets . DEPLOY_HOST_EXAMPLE }}'] })),
     /reads EXAMPLE's deploy secrets but names no environment/, 'a deploy secret named with spaces round the dot');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          ${{ secrets.DEPLOY_SSH_KEY_EXAMPLE }}: x'] })),
+    /reads EXAMPLE's deploy secrets but names no environment/, 'a deploy secret named in a key');
 });
 
 test('S12 (AC-3, AC-4): ENV catches a job that reads more than one server\'s deploy secrets', () => {
@@ -481,6 +510,12 @@ test('S13 (AC-3, AC-4): ENV catches a job that reads secrets without naming them
     '            .*) }}'] })), /reads every secret at once/, 'the object filter with a line break before the dot');
   caught(checkEnvironments(made({ job: ["    if: contains(toJSON(secrets), 'x')"] })), /reads every secret at once/,
     'every secret read in an if: written without braces');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', "          ALL: ${{ format('}}{0}', toJSON(secrets)) }}"] })),
+    /reads every secret at once/, 'every secret read after a quoted }}');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', "          ALL: ${{ format('it''s }}{0}', join(secrets.*, ',')) }}"] })),
+    /reads every secret at once/, 'the object filter after a quoted }} and a doubled quote');
+  caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          ${{ toJSON(secrets) }}: x'] })),
+    /reads every secret at once/, 'every secret read in a key');
   caught(checkEnvironments(made({ steps: ['      - run: echo', '        env:', '          HOST: |', '            ${{ secrets',
     '            .DEPLOY_HOST_EXAMPLE }}'] })), /reads EXAMPLE's deploy secrets but names no environment/,
     'a deploy secret named with a line break before the dot');
@@ -492,6 +527,18 @@ test('S13 (AC-3, AC-4): ENV catches a job that reads secrets without naming them
   caught(checkEnvironments(made({ job: ['    environment: example'],
     steps: ['      - run: echo', '        env:', '          PORT: ${{ secrets.DEPLOY_PORT_EXAMPLE }}'] })),
   /reads DEPLOY_PORT_EXAMPLE, which is not a DEPLOY_HOST_, DEPLOY_USER_ or DEPLOY_SSH_KEY_ secret/, 'a deploy secret of an unknown kind');
+});
+
+test('S13b (AC-3, AC-4): an expression ends at the first }} outside quoted text, and one left open runs to the end', () => {
+  const same = (text, expected) => {
+    const got = expressionBodies(text);
+    assert(JSON.stringify(got) === JSON.stringify(expected), `${text} must read as ${JSON.stringify(expected)}; got ${JSON.stringify(got)}`);
+  };
+  same('a ${{ one }} b ${{ two }} c', [' one ', ' two ']);
+  same("${{ format('}}{0}', x) }}", [" format('}}{0}', x) "]);
+  same("${{ format('it''s }}', x) }} tail", [" format('it''s }}', x) "]);
+  same('${{ never closed', [' never closed']);
+  same('no expression here, only config/secrets.*', []);
 });
 
 test('S14 (AC-4): a file the guard cannot read as a workflow is a finding, not a silent pass', () => {

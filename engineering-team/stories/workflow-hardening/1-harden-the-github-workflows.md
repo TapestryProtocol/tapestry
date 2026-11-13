@@ -107,7 +107,11 @@ None open. Settled at intake on 2026-11-13:
 - **`staging` was merged into the branch** (review round 2). It had gained a section 17 in OPERATIONS.md, so this
   story's section is 18.
 
+- **One test-only commit follows the passing review.** Round 3 named two forms the guard had stopped catching after
+  round 2's change: a secret read in a mapping's key, and one read after a quoted `}}`. The commit closes both and
+  only widens what the guard reads. No round reviewed it.
+
 ## Linked artifacts
 - ADR: none (Architecture skipped at intake, 2026-11-13)
 - Test plan: `engineering-team/stories/workflow-hardening/1-harden-the-github-workflows.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/workflow-hardening/1-harden-the-github-workflows.md`
