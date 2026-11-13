@@ -9,13 +9,13 @@ on:
   push:
     branches: [main]
 
-# The job only opens an SSH session, so its token is given nothing (OPERATIONS.md §17).
+# The job only opens an SSH session, so its token is given nothing (OPERATIONS.md, "Workflow rules").
 permissions: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Where this server's deploy secrets belong (OPERATIONS.md §17).
+    # Where this server's deploy secrets belong (OPERATIONS.md, "Workflow rules").
     environment: tapestry
     timeout-minutes: 60
     steps:

@@ -3019,7 +3019,7 @@ built. That story froze what the workflows run today and changed nothing else.
 - **What the guard doesn't read.** `test/workflow-hardening.test.js` holds the `uses:` lines of workflow files. It
   doesn't read a local action's own `action.yml`, or a job's `container:` or `services:` image named by a tag. Nothing
   in the repo has either today.
-- **Pins age.** Nothing moves a pin when an action ships a fix. OPERATIONS.md §17.1 says how to move one by hand.
+- **Pins age.** Nothing moves a pin when an action ships a fix. OPERATIONS.md §18.1 says how to move one by hand.
 
 **Likely shape.**
 

@@ -57,7 +57,7 @@ jobs:
   publish:
     if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    # Where the ninja server's deploy secrets belong, which the last step reads (OPERATIONS.md §17).
+    # Where the ninja server's deploy secrets belong, which the last step reads (OPERATIONS.md, "Workflow rules").
     environment: ninja
     timeout-minutes: 90
     steps:

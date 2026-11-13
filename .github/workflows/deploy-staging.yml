@@ -12,13 +12,13 @@ concurrency:
   group: deploy-staging
   cancel-in-progress: false
 
-# The job only opens an SSH session, so its token is given nothing (OPERATIONS.md §17).
+# The job only opens an SSH session, so its token is given nothing (OPERATIONS.md, "Workflow rules").
 permissions: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Where this server's deploy secrets belong (OPERATIONS.md §17).
+    # Where this server's deploy secrets belong (OPERATIONS.md, "Workflow rules").
     environment: staging
     timeout-minutes: 60
     steps:

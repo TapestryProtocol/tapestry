@@ -92,13 +92,20 @@ None open. Settled at intake on 2026-11-13:
 
 - **The deploy workflows give their token nothing** (`permissions: {}`), where AC-2 would also have allowed
   `contents: read`. Their jobs check nothing out; the action they call needs no token.
-- **Each added line carries a one-line comment** pointing at OPERATIONS.md §17. The test plan's diff check lets
-  comment lines through.
+- **Each added line carries a one-line comment** pointing at OPERATIONS.md's "Workflow rules" section, by name. The
+  test plan's diff check lets comment lines through. The comments first named the section by number; `staging` then
+  gained a section with that number, and a number would have sent the next renumbering back into six workflow files.
 - **OPERATIONS.md §6.2 pointed at "§6.3 step 2" for the deploy key.** The key is made in step 3, so the sentence, which
   this story rewrites, now says step 3.
 - **The full gate was not run on the development machine.** There it writes to a stack that answers as `tapestry`
   (OPEN.md row `2026-11-13-live-suites-have-no-off-switch`). The story's suites were run one at a time, and the full
   gate's result is the pull request's `Test` run, as the test plan says.
+
+- **`deploy/RUNBOOK.md` changed too** (review round 1, B1). Its step 7 set up the `ninja` box's secrets at repository
+  level, which the new section says not to do. AC-5 names OPERATIONS.md only; the runbook is where that box's setup
+  lives.
+- **`staging` was merged into the branch** (review round 2). It had gained a section 17 in OPERATIONS.md, so this
+  story's section is 18.
 
 ## Linked artifacts
 - ADR: none (Architecture skipped at intake, 2026-11-13)

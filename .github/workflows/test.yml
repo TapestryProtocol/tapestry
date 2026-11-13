@@ -16,7 +16,7 @@ concurrency:
   group: test-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
-# The gate only reads the repository (OPERATIONS.md §17).
+# The gate only reads the repository (OPERATIONS.md, "Workflow rules").
 permissions:
   contents: read
 
