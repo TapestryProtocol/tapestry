@@ -178,3 +178,23 @@ The new tests fail with the current code, for the reasons they should. The run w
 ```
 
 The backup, restore, list, download, upload and job suites, story 2's 141 tests, pass unchanged on the extended fake and harness. The whole run takes about a minute here, K3–K4's 100,003-key graph included.
+
+## Amendment 1 (2026-11-13, at Implementation, approved by the owner)
+
+Implementation found four tests that contradicted the approved ADR. An Implementer may not change tests, so they came back here. The owner approved each change as drafted. With them, every suite passes except `setup-alert-polish` S2, which already fails on `staging` (`ui/src/pages/reading/writeVerbs.js` posts to `/api/strfry/publish` by hand; it isn't this story's).
+
+| Test | Was | Now | Why |
+|---|---|---|---|
+| G8 (this plan) | checked every statement that held a reference's address | checks only the statements that look the address up (`{uuid: '<ref>'}`) | the statement that makes the tag nodes holds the address as the tag's value, which isn't a lookup |
+| H1 (`test/operations.test.js`, story 1) | expected the migrations part's old shape, `{ known: true, applied: [], note }` | stubs the migrations part, as it stubs firmware and cache | the part reads the graph since Decision 7; its shape is P2's and migrate.test.js's to check |
+| SWR15 (`test/tagging-edges-wiring.test.js`, tagging-edges #2) | no `SET` on a node in the pass | takes out the exact `keyNode(x)` for each merged person before reading the clauses; anything else still fails | Decision 8 keys the people the pass adds (`MOVE`, `CREATE_IF_ABSENT`) |
+| `event-less-create-set` S1 and its live checks (node-primitives #1) | `nodes.js` required exactly five modules; a new set carried `NostrEvent`; the suite found sets by `:NostrEvent {uuid}` | allows `lib/tapestry-key-cypher`, which builds Cypher text and requires nothing; expects `TapestryNode`, `ListItem` and `Set` and no `NostrEvent`; finds nodes by `NostrEvent\|TapestryNode` | Decision 9: add-subset makes its sets as `TapestryNode`, without `NostrEvent` |
+
+**New tests, for ADR 0003 Amendment 1** (the index `tapestry_node_uuid` at control-panel start, the owner's ruling), in `tapestry-key-paths.test.js`, stack-free with an injected runner:
+
+- **G14** — a missing index is made with Decision 1's statement in a call of its own; no rule and no data are written.
+- **G15** — an index already there is left alone; a name held by another definition is never replaced, and is logged `not created: name-taken`.
+- **G16** — while the graph isn't answering it retries, waiting no less each time, then makes the index once; past its window it answers `gave-up` with one line; an error that isn't the graph starting stops it with no retry; it never rejects.
+- **G17** — `bin/control-panel.js` calls `ensureUuidIndexOnBoot` once the routes are registered, without awaiting it.
+
+Live check, added to step 1: after a restart of the scratch stack on this branch, `SHOW INDEXES WHERE name = 'tapestry_node_uuid'` lists it before migrate has run, and `EXPLAIN` of a disjunction lookup seeks both indexes.

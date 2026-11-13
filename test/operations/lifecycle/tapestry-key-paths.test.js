@@ -2,7 +2,8 @@
 /**
  * Every path that makes a node sets its key and the label — its own suite, run by test/operations.test.js.
  *   Story: engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md (AC5, AC6)
- *   ADR:   engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md (Decisions 1, 8, 9)
+ *   ADR:   engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md (Decisions 1, 8, 9,
+ *          Amendment 1)
  *   Plan:  engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.test-plan.md
  *
  * Stack-free: the source is read (test/helpers/cypherSites.js), and the Cypher the importers build is built and read.
@@ -22,6 +23,10 @@
  *   G11  every lookup of a node by address names NostrEvent|TapestryNode, or is listed as about the event, with why
  *   G12  firmware install doesn't wait for the rule or the index (they are migrate's)
  *   G13  the docs say how keys arrive now, and how to run the migrations
+ *   G14  at control-panel start, a missing tapestry_node_uuid is made, and nothing else (Amendment 1)
+ *   G15  an index already there is left alone; a name held by another definition is never replaced
+ *   G16  it retries while the graph starts, gives up past its window, and never rejects
+ *   G17  the control panel calls it at start, without waiting on it
  */
 
 const fs = require('fs');
@@ -236,7 +241,8 @@ test('G8: an a or b tag\'s target is looked up by NostrEvent|TapestryNode before
   const bad = [];
   for (const ref of [A_REF, B_PARENT, B_TARGET, B_EVENT]) {
     const lit = `'${reEsc(ref)}'`;
-    const mine = stmts.filter((s) => s.includes(`'${ref}'`));
+    // The statements that find a node at the address ({uuid: '<ref>'}); the tag statement also holds it, as a value.
+    const mine = stmts.filter((s) => new RegExp(`\\{\\s*uuid\\s*:\\s*${lit}`).test(s));
     if (!mine.length) { bad.push(`${ref}: no statement names it`); continue; }
     for (const s of mine) {
       const look = s.search(new RegExp(`:\\s*${DISJ}\\s*\\{\\s*uuid\\s*:\\s*${lit}`));
@@ -363,6 +369,81 @@ test('G13: the docs say how keys arrive now, and how to run the migrations: OPER
   assert(/TapestryNode/.test(bible), 'BIBLE.md says every node carries TapestryNode and a key from the moment it is made (§29)');
   const adr2 = read('engineering-team/decisions/graph-operations-foundation/0002-backup-and-restore-the-whole-instance.md');
   assert(/Amended by[^\n]*0003/i.test(adr2), 'ADR 0002 notes it is amended by graph-operations-foundation/0003 (Decision 10)');
+});
+
+// ── The index at control-panel start (ADR 0003 Amendment 1) ──────────────────────────────────────────────────────
+
+const BOOT = path.join(ROOT, 'src/lib/tapestry-node-index.js');
+const INDEX_STATEMENT = 'CREATE INDEX tapestry_node_uuid IF NOT EXISTS FOR (n:TapestryNode) ON (n.uuid)';
+function bootHook() {
+  if (!fs.existsSync(BOOT)) throw new Error('src/lib/tapestry-node-index.js does not exist yet (ADR graph-operations-foundation/0003 Amendment 1)');
+  const m = require(BOOT);
+  assert(typeof m.ensureUuidIndexOnBoot === 'function', 'src/lib/tapestry-node-index.js exports ensureUuidIndexOnBoot({ runWrite, runRead, log, sleep, windowMs })');
+  return m.ensureUuidIndexOnBoot;
+}
+/** A schema in memory: `indexes` are SHOW INDEXES rows. `failFirst` reads fail with `failCode` before one answers. */
+function bootRun({ indexes = [], failFirst = 0, failCode = 'ServiceUnavailable', windowMs } = {}) {
+  const ensure = bootHook();
+  const writes = [];
+  const lines = [];
+  const sleeps = [];
+  let fails = failFirst;
+  const err = (code) => Object.assign(new Error(`fake: ${code}`), { code });
+  const runRead = async (q) => {
+    if (fails > 0) { fails--; throw err(failCode); }
+    if (!/^\s*SHOW\s+INDEXES\b/i.test(q)) throw new Error(`the hook reads only SHOW INDEXES; it read: ${q}`);
+    return indexes.map((x) => ({ ...x }));
+  };
+  const runWrite = async (q) => {
+    writes.push(norm(q));
+    if (fails > 0) { fails--; throw err(failCode); }
+    if (norm(q) === INDEX_STATEMENT) indexes.push({ name: 'tapestry_node_uuid', state: 'POPULATING', type: 'RANGE', entityType: 'NODE', labelsOrTypes: ['TapestryNode'], properties: ['uuid'], owningConstraint: null });
+    return [];
+  };
+  let p;
+  try {
+    p = ensure({ runWrite, runRead, log: (l) => lines.push(String(l)), sleep: async (ms) => { sleeps.push(ms); }, ...(windowMs ? { windowMs } : {}) });
+  } catch (e) {
+    throw new Error(`ensureUuidIndexOnBoot threw synchronously; it must never throw: ${e.message}`);
+  }
+  assert(p && typeof p.then === 'function', 'ensureUuidIndexOnBoot returns a promise');
+  return p.then((out) => ({ out, writes, lines, sleeps }), (e) => { throw new Error(`ensureUuidIndexOnBoot rejected; it must never reject: ${e.message}`); });
+}
+
+test('G14: at control-panel start, a missing tapestry_node_uuid is made with Decision 1\'s statement, in a call of its own, and nothing else is made or written (ADR 0003 Amendment 1)', async () => {
+  const { out, writes, lines } = await bootRun();
+  assert(writes.length === 1 && writes[0] === INDEX_STATEMENT, `exactly one write, ${INDEX_STATEMENT}; got ${show(writes)}`);
+  assert(!writes.some((w) => /CONSTRAINT|tapestryKey|SET\b|MERGE\b|CREATE\s*\(/i.test(w)), `no rule, and no data, is written: the rule stays migrate's (AC2); got ${show(writes)}`);
+  assert(out && out.outcome === 'created', `it answers { outcome: 'created' }; got ${show(out)}`);
+  assert(lines.some((l) => /tapestry_node_uuid/.test(l) && /created/i.test(l)), `it logs one line saying it made the index; got ${show(lines)}`);
+});
+
+test('G15: an index already there is left alone; a name held by another definition is never replaced, and is logged as not created: name-taken (ADR 0003 Amendment 1)', async () => {
+  const there = await bootRun({ indexes: [{ name: 'tapestry_node_uuid', state: 'ONLINE', type: 'RANGE', entityType: 'NODE', labelsOrTypes: ['TapestryNode'], properties: ['uuid'], owningConstraint: null }] });
+  assert(there.writes.length === 0 && there.out.outcome === 'present', `with the index there, nothing is written and it answers present; got ${show(there)}`);
+  const taken = await bootRun({ indexes: [{ name: 'tapestry_node_uuid', state: 'ONLINE', type: 'RANGE', entityType: 'NODE', labelsOrTypes: ['NostrEvent'], properties: ['uuid'], owningConstraint: null }] });
+  assert(taken.writes.length === 0, `a name held by another definition is never dropped or replaced; got ${show(taken.writes)}`);
+  assert(taken.out.outcome === 'not-created' && taken.out.code === 'name-taken' && taken.lines.some((l) => /not created: name-taken/.test(l)), `it answers and logs not created: name-taken; got ${show(taken)}`);
+});
+
+test('G16: while the graph doesn\'t answer yet it retries, waiting longer each time, then makes the index; past its window it gives up with one line; it never rejects (ADR 0003 Amendment 1)', async () => {
+  const later = await bootRun({ failFirst: 3 });
+  assert(later.out.outcome === 'created' && later.writes.filter((w) => w === INDEX_STATEMENT).length === 1, `after three refusals it makes the index once; got ${show(later)}`);
+  assert(later.sleeps.length === 3 && later.sleeps.every((ms, i) => i === 0 || ms >= later.sleeps[i - 1]), `it waits between tries, never less than the time before; got ${show(later.sleeps)}`);
+  const never = await bootRun({ failFirst: 1000, windowMs: 60000 });
+  assert(never.out.outcome === 'gave-up' && never.lines.filter((l) => /tapestry_node_uuid/.test(l)).length === 1, `past its window it answers gave-up and logs one line; got ${show({ out: never.out, lines: never.lines })}`);
+  const other = await bootRun({ failFirst: 1, failCode: 'Neo.ClientError.Statement.SyntaxError' });
+  assert(other.out.outcome === 'not-created' && other.sleeps.length === 0, `an error that isn't the graph starting stops it at once, with no retry; got ${show(other)}`);
+});
+
+test('G17: the control panel calls ensureUuidIndexOnBoot when it starts, without waiting on it, as it does tagging-edges\' rule (ADR 0003 Amendment 1)', () => {
+  const src = read('bin/control-panel.js');
+  const at = src.search(/require\(\s*['"]\.\.\/src\/lib\/tapestry-node-index['"]\s*\)\s*\.\s*ensureUuidIndexOnBoot\s*\(/);
+  assert(at >= 0, 'bin/control-panel.js calls require(\'../src/lib/tapestry-node-index\').ensureUuidIndexOnBoot({ … })');
+  const before = src.slice(Math.max(0, at - 200), at);
+  assert(!/await\s*$/.test(before.trimEnd()), 'the call is not awaited: startup never waits on the graph');
+  const regs = src.search(/await\s+api\.register\(\s*app\s*\)/);
+  assert(regs >= 0 && regs < at, 'it is called once the routes are registered, beside ensureTagsConstraintOnBoot');
 });
 
 async function run() {
