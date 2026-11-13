@@ -94,3 +94,75 @@
 **CHANGES_REQUESTED**
 
 The code follows the ADR and every criterion has a passing test, but two things stand between this and a PASS. First, a backup taken before the rule exists can hold every key the stream has given since the deploy in one worker's memory, with the writers paused (Blocking 1). Second, none of this Cypher has yet run on Neo4j (Blocking 2). Back to `/implement-feature` with both: (1) after an owner ruling on its ADR note, and (2) as the live check the owner already scheduled alongside this review.
+
+# Round 2
+
+**Date:** 2026-11-13
+**Diff:** `git diff 6c57ec1f...e2cb2c66`. Since round 1: ADR Amendment 2 (`32e7e2c0`), the Tester's Amendment 2 (`580aeb38`), implementation part 3 (`9b4bdfb7`), and the live check's evidence from the Mac session (`23e66dec`, `e2cb2c66`, test plan § "The live check and the measurements", and ledger row `2026-11-13-scratch-stack-indexes-and-volume`).
+
+Still not independent: this session wrote the code being reviewed. The live check was run by a separate session on the Mac, which changed no code.
+
+## Quality gates (run by reviewer, not trusted)
+
+- [x] `npm test`, cloud workspace: `20261113T185334Z-392-536f [a10.3-review-2] started 2026-11-13T18:53:34.831Z on e2cb2c66 — FAIL, exit 1, 7051 passed, 1 failed, 598 skipped, 338/338 suites; failed: setup-alert-polish`. That one is the failure that is also on `staging` (OPEN.md row `2026-11-07-reading-writeverbs-raw-publish`). K5 and K6 failed at `580aeb38` and pass now.
+- [x] **Neo4j 5.26.10, on two throwaway instances (test plan § "The live check and the measurements").** The Mac session ran these on `9b4bdfb7`, the code at this round's head; its two later commits change only the test plan and a ledger row. No Cypher failed.
+
+## Round 1's findings, each re-derived as a fresh claim
+
+- **Blocking 1 (the key read before the rule): resolved.**
+  - `_jobs.js` `readAllKeys` reads through `system.cypherEach`, which calls `streamCypher`. That function subscribes to the result and never awaits it whole, so the driver keeps no records. The test plan's K6 checks this against a stand-in driver.
+  - Measurement 5, on 3,008,029 keyed nodes with no rule: the worker peaked at 412 MB in a backup, against 1,662 MB for A10.2's read on the same graph. The counts and the digest were the same.
+  - OPERATIONS.md §17 says to run `tapestry-keys` soon after the deploy.
+  - **New detail:** Amendment 2 and OPERATIONS.md say "about 200 MB", and the measured peak is about 400 MB (Non-blocking 4 below).
+- **Blocking 2 (the live check): done.** Measurements 1 to 5 all ran, and their numbers are in the test plan:
+  1. The disjunction seeks both indexes, before migrate and at 3 million nodes.
+  2. keyNode writes nothing on a node that has both its label and its key.
+  3. One pass gave keys to 3 million nodes while the stream wrote, with 0 failed batches and 0 retries. The backup's offline window was 24.1 s, and the rule came online in 5.1 s.
+  4. Decision 4's scan took about 0.5 s, so status keeps scanning on each call (round 1's Non-blocking 3 is settled).
+  5. On staging, `event-less-nodes` would relabel nothing today.
+  - The live check found what the gate couldn't, and those findings follow.
+- **Non-blocking 1 (the shared-keys sentence): only half fixed.** The note now handles a rule already in place. But with the rule left out and the index already there, it still says both "were left out". Since Amendment 1, that is every instance that has restarted once (live check, finding 3).
+- **Non-blocking 2 (the "later pass" sentence): resolved.**
+- **Non-blocking 4 (tagging-edges/0002's amendment line): resolved.**
+
+## Findings
+
+### Blocking
+
+1. **Decision 9's classification wasn't finished. Only the lookups by address were done, and the AC6 surfaces this breaks are proven by the live check.**
+   - Decision 9 says every query that names `:NostrEvent` follows its rule, and that each line is classified. That includes "a scan or a walk that should include event-less sets", which names `:ListItem` or `:Set`, or drops the label from the far end of a relationship. Implementation converted every lookup by `{uuid}` but five, which it kept with their reasons, and G11 checks only those.
+   - **104 lines in `src/` and `ui/src/` still name `:NostrEvent` alone, and none was classified.**
+   - **Shown on Neo4j:** after `event-less-nodes`, the `set` concept's Elements tab drops the migrated sets (100 rows to 98). Sets made by this branch's add-subset never reach it at all. The tab's two queries are `ui/src/pages/concepts/ConceptElements.jsx:70` (`-[:HAS_ELEMENT]->(e:NostrEvent)`) and `:81` (`MATCH (e:NostrEvent)-[:HAS_TAG]->(zt … {type: 'z'})`). The set concept's implicit elements are found by their z tag, and add-subset's sets have one.
+   - **The same shapes, read in the source:**
+     - `ConceptList.jsx:24` and `:40`, and `ui/src/utils/conceptCounts.js:49`: the concept list's element counts.
+     - `src/api/brain/index.js:77`, `:86`, `:536` and `:545`, and `src/api/concept-graph/index.js:42`: the brain's and the concept graph's element reads.
+     - `ui/src/pages/reading/readVerbs.js`, lines 173, 508, 547, 572–573, 598, 620 and 632: the Reading views' walks, their name search and their hubs.
+     - `ui/src/pages/reading/writeVerbs.js:324`: a set found by name, which also tests `'Set' IN labels(s)` on a `NostrEvent`.
+   - **Others are about the event and stay `:NostrEvent`:**
+     - the Dashboard's and the audit's event counts;
+     - the lookups by `id` in `DListRatings.jsx:139` and `DListItemRatings.jsx:82`;
+     - the `kind` and `pubkey` scans in `writeVerbs.js:184` and `:214`;
+     - and the import's own statements.
+   - **Asked change:** Tester first, then Implementer.
+     - (a) The Tester widens G11 to every line in `src/` (as G5 scopes it) and `ui/src/` that names `:NostrEvent` without `|TapestryNode`. Each such line is in the kept list with its reason, or it fails. The guard needs one test per surface the live check found broken, as far as stack-free tests can: at least the ConceptElements queries and the concept list's counts, by their text.
+     - (b) The Implementer classifies all 104 lines by Decision 9's rule and lists them in the PR.
+2. **Before `tapestry-keys` has run, status calls `event-less-nodes` applied** (AC4; live check, finding 2).
+   - `planEventLess` (`_migrations.js:229`) counts only nodes that also carry `TapestryNode`. That is the guard round 1 accepted as Deviation 1. Before `tapestry-keys`, no node has the label, so the count is 0. The note then reads "Applied: event-less-nodes" while two sets still carry `NostrEvent`. Migrate itself refuses correctly, because it checks `requires` first, but status's answer is wrong.
+   - **Asked change:** plan counts Decision 5's own nodes, with no `TapestryNode` condition, so a graph that still has event-less `NostrEvent` nodes is never applied. Apply keeps the guard. The Tester adds a status check for a graph that isn't keyed and holds event-less sets: `event-less-nodes` must read as not applied.
+
+### Non-blocking
+
+1. **`_migrations.js` `describeKeys`:** word the shared-keys sentence by `report.rule` and `report.index` each. With the rule left out and the index already there, say that only the rule was left out (live check, finding 3).
+2. **`runKeysPass`:** yield APOC's `retries` and report it with `failedBatches`, so a run shows its retried batches without the hand-run measurement 2 needed (finding 4).
+3. **`placeholdersReplaced`** is `withoutKey − nullKeys`, read by two scans at different moments. With the stream keying nodes between them, it said 132 on an instance with no `'{}'` at all (finding 5). Count `'{}'` in a read of its own: the fake needs a rule for that query, so this goes to the Tester first.
+4. **ADR Amendment 2, OPERATIONS.md §17 and the `readAllKeys` comment** say about 200 MB at three million keys. Measurement 5's peak was 412 MB in a worker, and 373–380 MB for `countGraph` alone. Change them to about 400 MB.
+
+### Harness friction
+
+1. **G11 was written to the narrow half of the rule it guards.** Decision 9 has three kinds of line: lookups by address, scans and walks, and lines about the event. The test plan made a guard for the first kind only. Nothing then pushed Implementation to classify the other two, and the live check, run last, was the first to see them. This is the same cause as round 1's friction row (`2026-11-13-test-design-misses-other-suites`): Test Design checks for what the ADR mentions first, not for everything it requires. Added to that row, with no new one.
+
+## Verdict (round 2)
+
+**CHANGES_REQUESTED**
+
+Round 1's two blocking findings are resolved, and the live check shows the migration doing what the story asks, at production's size, on Neo4j. It also shows that the `set` concept's Elements tab loses event-less sets, a page AC6 says must keep finding them. That comes from 104 `:NostrEvent` lines Decision 9 required classifying and Implementation didn't. Separately, status calls `event-less-nodes` applied before it can be. Back to `/design-tests`, then `/implement-feature`, for Blocking 1 and 2 and the four non-blocking items.
