@@ -38,12 +38,15 @@
  *   tapestryKey, collect( and > 1            shared keys: rows { k, c, ids } of real keys held by more than one node.
  *   TapestryNode, tapestryKey > $… and LIMIT  Decision 10's walk: the labelled keys after $after, sorted, one page.
  *   NOT <v>:TapestryNode and tapestryKey IS NOT NULL   the keys of nodes without the label, as rows.
- *   .id IS NULL and HAS_TAG                  the event-less nodes: count(...) of them, or rows of their uuid.
+ *   .id IS NULL and HAS_TAG                  the event-less nodes: count(...) of them, or rows of their uuid; with
+ *                                            AND <v>:TapestryNode, only those that carry the label.
+ *   count(...) and tapestryKey = '{}'        nodes whose key is the '{}' placeholder (with no IS NULL).
  *   count(...) and tapestryKey IS NULL       nodes whose key is null (and '{}', when the query names '{}').
  *   count(...) and NOT <v>:TapestryNode      nodes without the label.
  *   count(...) and (<v>:TapestryNode)        nodes with the label.
  * then the queries above. failures.keysPassFailsOnce fails half of the next keys pass's nodes, as a deadlock would;
- * failures.writesBetweenPasses ([n, …]) has the "pipeline" make n nodes with no key and no label after each keys pass.
+ * failures.writesBetweenPasses ([n, …]) has the "pipeline" make n nodes with no key and no label after each keys pass;
+ * failures.keysPassRetries ([n, …]) has each keys pass in turn report n retried batches.
  * Every cypher call is logged with the lock's stage at that moment (null when no lock is held).
  */
 
@@ -105,10 +108,10 @@ function addNode(g, fields) {
   return n;
 }
 /** The rows apoc.periodic.iterate answers. */
-function iterateRow({ total, committed, failed = 0, failedBatches = 0, errors = {}, stats = {} }) {
+function iterateRow({ total, committed, failed = 0, failedBatches = 0, retries = 0, errors = {}, stats = {} }) {
   return [{
     batches: Math.max(1, failedBatches), total, timeTaken: 0, committedOperations: committed, failedOperations: failed,
-    failedBatches, retries: 0, errorMessages: errors, batch: { total: Math.max(1, failedBatches), committed: failedBatches ? 0 : 1, failed: failedBatches, errors },
+    failedBatches, retries, errorMessages: errors, batch: { total: Math.max(1, failedBatches), committed: failedBatches ? 0 : 1, failed: failedBatches, errors },
     operations: { total, committed, failed, errors }, wasTerminated: false, failedParams: {}, updateStatistics: stats,
   }];
 }
@@ -140,6 +143,7 @@ function newFakeState(file, over = {}) {
       indexPolls: 1, // node-level graph: SHOW INDEXES calls before a new index is ONLINE
       keysPassFailsOnce: 0, // node-level graph: this many keys passes fail half their nodes, as a deadlock would
       writesBetweenPasses: [], // node-level graph: after each keys pass, the "pipeline" makes this many keyless nodes
+      keysPassRetries: [], // node-level graph: each keys pass in turn reports this many retried batches (APOC's retries)
       ...(over.failures || {}),
     },
     log: [],
@@ -391,7 +395,9 @@ function fakeSystem(stateFile) {
       if (/apoc\.periodic\.iterate/i.test(q)) {
         if (!isNodeGraph(g)) { note('unknown'); throw new Error('the fake runs passes only on a node-level graph'); }
         if (/\bREMOVE\s+[A-Za-z_]\w*\s*:\s*NostrEvent\b/.test(q)) {
-          const targets = g.nodes.filter((n) => n.labels.includes('NostrEvent') && (n.id === null || n.id === undefined) && n.tags > 0);
+          const labelled = /\bAND\s+[A-Za-z_]\w*\s*:\s*TapestryNode\b/.test(q);
+          const targets = g.nodes.filter((n) => n.labels.includes('NostrEvent') && (n.id === null || n.id === undefined) && n.tags > 0
+            && (!labelled || n.labels.includes('TapestryNode')));
           for (const n of targets) n.labels = n.labels.filter((l) => l !== 'NostrEvent');
           note('relabel-pass', { nodes: targets.length });
           return iterateRow({ total: targets.length, committed: targets.length, stats: { labelsRemoved: targets.length } });
@@ -425,8 +431,9 @@ function fakeSystem(stateFile) {
           }
           const later = Array.isArray(s.failures.writesBetweenPasses) ? (s.failures.writesBetweenPasses.shift() || 0) : 0;
           for (let i = 0; i < later; i++) addNode(g, { labels: ['NostrUser'], key: null, pubkey: `late-${g.nextEid}` });
-          note('keys-pass', { nodes: targets.length, failed, madeAfter: later });
-          return iterateRow({ total: applied + failed, committed: applied, failed, failedBatches: failed ? 1 : 0, errors, stats: { labelsAdded, propertiesSet } });
+          const retries = Array.isArray(s.failures.keysPassRetries) ? (s.failures.keysPassRetries.shift() || 0) : 0;
+          note('keys-pass', { nodes: targets.length, failed, madeAfter: later, retries });
+          return iterateRow({ total: applied + failed, committed: applied, failed, failedBatches: failed ? 1 : 0, retries, errors, stats: { labelsAdded, propertiesSet } });
         }
         note('unknown');
         throw new Error(`the fake doesn't know this pass: ${q}`);
@@ -457,10 +464,17 @@ function fakeSystem(stateFile) {
           return g.nodes.filter((n) => !n.labels.includes('TapestryNode') && n.key !== null && n.key !== undefined).map((n) => ({ [alias || 'k']: String(n.key) }));
         }
         if (/\.\s*id\s+IS\s+NULL/i.test(q) && /HAS_TAG/.test(q)) {
-          const eventLess = g.nodes.filter((n) => n.labels.includes('NostrEvent') && (n.id === null || n.id === undefined) && n.tags > 0);
+          // A query that also asks `AND <v>:TapestryNode` counts only the event-less nodes that carry the label.
+          const labelled = /\bAND\s+[A-Za-z_]\w*\s*:\s*TapestryNode\b/.test(q);
+          const eventLess = g.nodes.filter((n) => n.labels.includes('NostrEvent') && (n.id === null || n.id === undefined) && n.tags > 0
+            && (!labelled || n.labels.includes('TapestryNode')));
           if (isCount) { note('event-less-count'); return one(eventLess.length, 'count'); }
           note('event-less-rows');
           return eventLess.slice(0, limitOf()).map((n) => ({ [alias || 'uuid']: n.uuid }));
+        }
+        if (isCount && /tapestryKey\s*=\s*'\{\}'/.test(q) && !/IS\s+NULL/i.test(q)) {
+          note('placeholders');
+          return one(g.nodes.filter((n) => n.key === '{}').length, 'count');
         }
         if (isCount && /tapestryKey\s+IS\s+NULL/i.test(q)) {
           const braces = /'\{\}'|"\{\}"/.test(q);

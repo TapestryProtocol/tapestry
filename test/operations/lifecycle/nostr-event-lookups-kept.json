@@ -1,5 +1,5 @@
 {
-  "about": "Lookups by address that keep naming only NostrEvent, each with why (ADR graph-operations-foundation/0003 Decision 9). Every other lookup by address names NostrEvent|TapestryNode. tapestry-key-paths.test.js G11 checks this list against the source.",
+  "about": "Lines in src/ and ui/src/ that keep naming only NostrEvent, each with why (ADR graph-operations-foundation/0003 Decision 9): a MERGE or a label write, which can't take a disjunction, or a query about the event itself. Every other lookup by address names NostrEvent|TapestryNode, and every other scan or walk names a label event-less sets share (:Set, :ListItem, NostrEvent|Set) or none at its far end. tapestry-key-paths.test.js G11 and G18 check this list against the source; G19's shapes can't be kept.",
   "kept": [
     {
       "file": "src/api/neo4j/eventSync.js",

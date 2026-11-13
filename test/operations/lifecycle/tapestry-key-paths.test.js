@@ -27,6 +27,8 @@
  *   G15  an index already there is left alone; a name held by another definition is never replaced
  *   G16  it retries while the graph starts, gives up past its window, and never rejects
  *   G17  the control panel calls it at start, without waiting on it
+ *   G18  every line naming :NostrEvent alone is classified: kept with why, or written with a label sets share (round 2)
+ *   G19  no walk to elements or subsets, and no z-tag scan, ends on :NostrEvent alone (round 2; live check, finding 1)
  */
 
 const fs = require('fs');
@@ -352,6 +354,64 @@ test('G11: every lookup of a node by its address names NostrEvent|TapestryNode, 
   const ok = new Set(kept.map((k) => `${k.file}\u0000${k.text}`));
   const left = lookups().filter((l) => !ok.has(`${l.file}\u0000${l.text}`));
   assert(left.length === 0, `${left.length} lookups by address name only NostrEvent, so they miss an event-less set once event-less-nodes has run. Write each as (:NostrEvent|TapestryNode {uuid: …}), or, when it is about the event itself, list it in ${rel(KEPT_FILE)} with why:${NL}          ${left.slice(0, 40).map((l) => `${l.file}:${l.line}  ${l.text.slice(0, 100)}`).join(`${NL}          `)}${left.length > 40 ? `${NL}          … and ${left.length - 40} more` : ''}`);
+});
+
+// ── Every line that names NostrEvent alone (Decision 9; review round 2, Blocking 1) ───────────────────────────────
+
+/** `:NostrEvent` with no disjunction on either side, not NostrEventTag. */
+const ALONE = /:\s*NostrEvent\b(?!Tag)(?!\s*\|)/;
+const COMMENT = /^\s*(\/\/|\*|\/\*|#)/;
+function aloneLines() {
+  const files = [...liveFiles(), ...walk(path.join(ROOT, 'ui/src')).map(rel).filter((r) => /\.(js|jsx)$/.test(r))];
+  const out = [];
+  for (const r of files) {
+    read(r).split(NL).forEach((line, i) => { if (!COMMENT.test(line) && ALONE.test(line)) out.push({ file: r, line: i + 1, text: line.trim() }); });
+  }
+  return out;
+}
+function keptEntries() {
+  if (!fs.existsSync(KEPT_FILE)) return [];
+  const doc = JSON.parse(fs.readFileSync(KEPT_FILE, 'utf8'));
+  return Array.isArray(doc.kept) ? doc.kept : [];
+}
+
+test('G18: every line that names :NostrEvent alone — a scan, a walk or a lookup — is listed in nostr-event-lookups-kept.json with why it is about the event; every other line names a label an event-less set also has (AC6, ADR Decision 9; review round 2, Blocking 1)', () => {
+  for (const sample of ['MATCH (e:NostrEvent) WHERE e.kind = 1', '-[:HAS_ELEMENT]->(e:NostrEvent)', 'MATCH (n:NostrEvent:ListHeader)', 'SET x:NostrEvent']) assert(ALONE.test(sample), `the guard catches ${sample}`);
+  for (const sample of ['(e:NostrEvent|TapestryNode {uuid: $u})', '(n:TapestryNode|NostrEvent)', '(n:NostrEvent|Set)', '(t:NostrEventTag {type: \'z\'})', "WHERE 'NostrEvent' IN labels(n)"]) {
+    assert(!ALONE.test(sample), `the guard lets ${sample} through`);
+  }
+  const ok = new Set(keptEntries().map((k) => `${k.file}\u0000${k.text}`));
+  const left = aloneLines().filter((l) => !ok.has(`${l.file}\u0000${l.text}`));
+  assert(left.length === 0, `${left.length} lines name only NostrEvent. Once event-less-nodes has run, a scan or walk among them that should find sets misses event-less ones: name :Set or :ListItem, use NostrEvent|Set, or drop the far end's label. A line about the event itself goes in ${rel(KEPT_FILE)}, with why:${NL}          ${left.slice(0, 60).map((l) => `${l.file}:${l.line}  ${l.text.slice(0, 110)}`).join(`${NL}          `)}${left.length > 60 ? `${NL}          … and ${left.length - 60} more` : ''}`);
+});
+
+/** Shapes that always reach sets, so no kept entry excuses them. */
+const SET_REACHING = [
+  { what: 'a HAS_ELEMENT walk ending on :NostrEvent alone', re: /HAS_ELEMENT[^\]]*\]\s*->\s*\(\s*\w*\s*:\s*NostrEvent\b(?!Tag)(?!\s*\|)/ },
+  { what: 'an IS_A_SUPERSET_OF walk ending on :NostrEvent alone', re: /IS_A_SUPERSET_OF[^\]]*\]\s*->\s*\(\s*\w*\s*:\s*NostrEvent\b(?!Tag)(?!\s*\|)/ },
+  { what: 'a z-tag scan from :NostrEvent alone', re: /\(\s*\w*\s*:\s*NostrEvent\s*\)\s*-\s*\[\s*:\s*HAS_TAG\s*\]\s*->\s*\(\s*\w*\s*:\s*NostrEventTag\s*\{\s*type\s*:\s*'z'/ },
+];
+
+test('G19: no walk to a concept\'s elements or subsets, and no scan of z tags, ends on :NostrEvent alone — the set concept\'s Elements tab and the concept counts among them (AC6, ADR Decision 9; live check, finding 1)', () => {
+  const samples = [
+    ['-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)', 0],
+    ['"-[:IS_A_SUPERSET_OF|HAS_ELEMENT*1..4]->(e:NostrEvent)-[:HAS_TAG]->', 0],
+    ['MATCH (e:NostrEvent)-[:HAS_TAG]->(zt:NostrEventTag {type: \'z\', value: x})', 2],
+  ];
+  for (const [t, k] of samples) assert(SET_REACHING[k].re.test(t), `the guard catches ${t}`);
+  assert(!SET_REACHING.some((x) => x.re.test('-[:HAS_ELEMENT]->(e)')) && !SET_REACHING.some((x) => x.re.test('MATCH (e)-[:HAS_TAG]->(zt:NostrEventTag {type: \'z\'})')), 'the guard lets a far end with no label through');
+  const files = [...liveFiles(), ...walk(path.join(ROOT, 'ui/src')).map(rel).filter((r) => /\.(js|jsx)$/.test(r))];
+  const bad = [];
+  for (const r of files) {
+    read(r).split(NL).forEach((line, i) => {
+      if (COMMENT.test(line)) return;
+      for (const x of SET_REACHING) if (x.re.test(line)) bad.push(`${r}:${i + 1}  ${x.what}: ${line.trim().slice(0, 110)}`);
+    });
+  }
+  for (const r of ['ui/src/pages/concepts/ConceptElements.jsx', 'ui/src/utils/conceptCounts.js', 'ui/src/pages/concepts/ConceptList.jsx']) {
+    assert(fs.existsSync(path.join(ROOT, r)), `${r} exists`);
+  }
+  assert(bad.length === 0, `${bad.length} walks or scans that reach sets end on :NostrEvent alone, so event-less sets drop out (the set concept's Elements tab lost 100 → 98 on Neo4j). Drop the far end's label, or name NostrEvent|Set:${NL}          ${bad.join(`${NL}          `)}`);
 });
 
 // ── Firmware and the docs ────────────────────────────────────────────────────────────────────────────────────────

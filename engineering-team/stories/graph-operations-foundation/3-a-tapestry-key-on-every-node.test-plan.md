@@ -320,3 +320,14 @@ Review round 1 (Blocking 1) found that a backup taken before the rule exists rea
 - **K6**, new: `_system.cypherEach` reads through `lib/neo4j-driver`'s `streamCypher`. Run in a child process with the `neo4j-driver` package replaced, each record reaches `onRow` as a plain object, in order. The result is subscribed to, never awaited whole, and the read session is closed once.
 
 Measurement 5 adds: on a scratch graph keyed to production's size, before migrate, the time and the worker's peak memory of `countGraph`, which a backup runs twice.
+
+## Amendment 3 (2026-11-13, at Review round 2)
+
+Round 2 found two blocking problems. First, Decision 9's classification stopped at lookups by address, and G11 guarded only those. The live check then showed the `set` concept's Elements tab losing event-less sets. Second, status called `event-less-nodes` applied before `tapestry-keys` had run. The owner approved the kick-back. Tests:
+
+- **G18** (new): every line in `src/` (G5's live files) and `ui/src/` that names `:NostrEvent` with no disjunction is listed in `nostr-event-lookups-kept.json` with why it is about the event. Comment lines don't count. Such a line is a `MERGE` or a write of the label, a lookup by `id`, a count of events, or a read of `created_at`, `content` or authorship. Any other line fails. On the source at `2c7b7643` it lists 96.
+- **G19** (new): no line in the same files has a shape that always reaches sets with `:NostrEvent` alone at the far end. The shapes are a walk over `HAS_ELEMENT` or `IS_A_SUPERSET_OF`, and a scan of z tags (`(v:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z'…})`). No kept entry excuses these. On the same source it lists 21 lines, among them `ConceptElements.jsx:70` and `:81` (the tab the live check found broken), `ConceptList.jsx:24` and `:40`, `conceptCounts.js:49`, and the brain's and concept graph's element reads.
+- **M24** (new), with **M11** now sharper: on a graph not yet keyed that holds an event-less set, status reads `event-less-nodes` as not applied. The fake's event-less count used to ignore an `AND <v>:TapestryNode` condition, so M11 passed though the code was wrong. The fake now honors that condition in its count and in its relabel pass, and both M11 and M24 fail on the code at `2c7b7643`.
+- **M25** (new): `placeholdersReplaced` comes from a count of the `'{}'` keys of its own. The fake gains that read.
+- **M26** (new): the report gives `retries`, the batches APOC retried, beside `failedBatches`. The fake gains `failures.keysPassRetries`.
+- **M27** (new): with keys shared, the index already there and no rule, the note says only the rule was left out.

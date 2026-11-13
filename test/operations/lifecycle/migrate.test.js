@@ -34,6 +34,10 @@
  *   M21  the command: no sign-in, the route's answer, the job's note on stderr, 'local' as who ran it (AC7)
  *   M22  how long the caller waits: 50 s over HTTP by default, `wait` when given, the command to the end (Sub-decision 3)
  *   M23  a run that outlasts its wait answers running with its id, and status shows how it went (Sub-decision 3)
+ *   M24  on a graph not yet keyed with an event-less set, status reads event-less-nodes as not applied (review round 2)
+ *   M25  placeholdersReplaced is a count of '{}' keys of its own (review round 2)
+ *   M26  the report gives APOC's retried batches (review round 2)
+ *   M27  shared keys with the index already there: the answer says only the rule was left out (review round 2)
  */
 
 const fs = require('fs');
@@ -529,6 +533,56 @@ test('M22: the route waits 50 s by default and `wait` seconds when given; the co
   assert(show(http) === show([50000, 5000]), `over HTTP, runDetached is asked to wait 50000 ms by default and 5000 ms for wait: 5; got ${show(http)}`);
   const cli = seen(cliRun);
   assert(show(cli) === show([null, 7000]), `from the command, it waits to the end (no waitMs), or 7000 ms for --wait 7; got ${show(cli)}`);
+});
+
+test('M24: on a graph not yet keyed that holds an event-less set, status reads event-less-nodes as not applied — and tapestry-keys as not applied (AC4; review round 2, Blocking 2)', async () => {
+  const { run } = await S.setup('event-less-before-keys', {
+    mustExist: MUST,
+    instance: { graph: UNMIGRATED() },
+    scenario: () => ({ requests: [getStatus('status')] }),
+  });
+  const d = S.okData(run, 'status');
+  const keys = migrationOf(d, 'tapestry-keys');
+  const eventLess = migrationOf(d, 'event-less-nodes');
+  assert(keys.applied === false, `tapestry-keys isn't applied on a graph with no keys; got ${show(keys)}`);
+  assert(eventLess.applied === false, `event-less-nodes isn't applied while an event-less set still carries NostrEvent, whatever the labels say; got ${show(eventLess)}`);
+  assert(!/Applied:[^.]*event-less-nodes/.test(String(d.migrations.note)), `the note doesn't call event-less-nodes applied; got ${show(d.migrations.note)}`);
+});
+
+test('M25: placeholdersReplaced is a count of the \'{}\' keys, read by itself, not the difference of two counts taken at different moments (review round 2, Non-blocking 3)', async () => {
+  const { inst, run } = await S.setup('placeholders', {
+    mustExist: MUST,
+    instance: { graph: UNMIGRATED() },
+    scenario: () => ({ requests: [keysRun('owner')] }),
+  });
+  const d = S.okData(run, 'owner');
+  assert(d.report.placeholdersReplaced === 1, `one node had '{}'; got ${show(d.report.placeholdersReplaced)}`);
+  assert(cypherTrace(inst).includes('placeholders'), `the '{}' keys are counted by a read of their own (MATCH (n) WHERE n.tapestryKey = '{}' RETURN count(n)); the fake saw ${show([...new Set(cypherTrace(inst))])}`);
+});
+
+test('M26: the report gives the batches APOC retried, beside the ones that failed (review round 2, Non-blocking 2)', async () => {
+  const { run } = await S.setup('retries', {
+    mustExist: MUST,
+    instance: { graph: UNMIGRATED(), failures: { keysPassRetries: [2] } },
+    scenario: () => ({ requests: [keysRun('owner')] }),
+  });
+  const d = S.okData(run, 'owner');
+  assert(d.report.retries === 2 && d.report.failedBatches === 0, `report.retries is the passes' retries (2) and failedBatches 0; got ${show({ retries: d.report.retries, failedBatches: d.report.failedBatches })}`);
+});
+
+test('M27: keys shared, with the index already there and no rule: the answer says only the rule was left out (review round 2, Non-blocking 1; live check, finding 3)', async () => {
+  const nodes = [...unmigratedNodes(), { labels: ['NostrEvent'], key: 'k-dup', id: 'e-d1', uuid: 'e-d1', tags: 1 }, { labels: ['NostrUser'], key: 'k-dup', pubkey: 's'.repeat(64) }];
+  const schema = { constraints: [], indexes: F.migratedSchema().indexes.filter((x) => x.name === 'tapestry_node_uuid') };
+  const { run } = await S.setup('shared-index-there', {
+    mustExist: MUST,
+    instance: { graph: F.nodeGraph({ nodes, schema }) },
+    scenario: () => ({ requests: [keysRun('owner')] }),
+  });
+  const d = S.okData(run, 'owner');
+  assert(d.report.rule === 'left-out' && d.report.index === 'already-there', `the report says the rule was left out and the index already there; got ${show({ rule: d.report.rule, index: d.report.index })}`);
+  const note = String(d.note);
+  assert(/tapestry_key/.test(note) && /left out/.test(note) && /k-dup/.test(note), `the note says the rule was left out and names the shared key; got ${show(note)}`);
+  assert(!/index tapestry_node_uuid were left out|and the index tapestry_node_uuid were left out/.test(note), `the note doesn't say the index was left out; got ${show(note)}`);
 });
 
 test('M23: a run that outlasts its wait answers state running with its run id and no report; status then shows how it went (Sub-decision 3)', async () => {
