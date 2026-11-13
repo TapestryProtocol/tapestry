@@ -613,7 +613,7 @@ async function pass1_bootstrap(opts = {}) {
 
     // Find all nodes with a z-tag pointing to this concept (excluding the concept's own superset)
     const elemRes = await runCypherApi(
-      `MATCH (n:NostrEvent)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'})
+      `MATCH (n:NostrEvent|ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'})
        WHERE z.value = $headerUuid
          AND n.uuid <> $supersetUuid
        RETURN n.uuid AS uuid`,

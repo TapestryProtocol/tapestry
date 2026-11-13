@@ -1024,7 +1024,7 @@ async function handleNormalizeJson(req, res) {
       const setRows = await runCypher(`
         MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
         OPTIONAL MATCH (sup)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(s)
-        WHERE s:Superset OR s:NostrEvent
+        WHERE s:Superset OR s:NostrEvent|ListItem
         RETURN DISTINCT s.uuid AS uuid, s.name AS name
       `, { headerUuid: h.headerUuid });
 
@@ -1805,7 +1805,7 @@ async function handleCreateElement(req, res) {
 
     // Check for duplicate element name under same superset
     const dupes = await runCypher(`
-      MATCH (sup:Superset {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}*0..5]->(s)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (sup:Superset {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}*0..5]->(s)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.name = $name
       RETURN e.uuid AS uuid
       LIMIT 1
@@ -2167,14 +2167,14 @@ async function fetchGoalRecords(headerUuid) {
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
       MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -2477,14 +2477,14 @@ async function fetchResourceRecords(headerUuid) {
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
       MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -2775,14 +2775,14 @@ async function fetchWorkRecords(headerUuid) {
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
       MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -3103,14 +3103,14 @@ async function fetchProposals(headerUuid) {
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
       MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -3444,7 +3444,7 @@ async function handleCreateProperty(req, res) {
 
     // Check for duplicate property name under the same target
     const dupes = await runCypher(`
-      MATCH (p:NostrEvent)-[:${REL.PROPERTY_MEMBERSHIP}]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
+      MATCH (p:NostrEvent|ListItem)-[:${REL.PROPERTY_MEMBERSHIP}]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
       WHERE p.name = $name
       RETURN p.uuid AS uuid
       LIMIT 1
@@ -3889,7 +3889,7 @@ async function handleAddNodeAsElement(req, res) {
       const setRows = await runCypher(`
         MATCH (h:NostrEvent|TapestryNode {uuid: $conceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
         OPTIONAL MATCH (sup)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(s)
-        WHERE s:Superset OR s:NostrEvent
+        WHERE s:Superset OR s:NostrEvent|ListItem
         RETURN DISTINCT s.uuid AS uuid, s.name AS name
       `, { conceptUuid });
 
@@ -5042,14 +5042,14 @@ async function fetchFamilyRecords(headerUuid, parseRow) {
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
       MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -5809,7 +5809,7 @@ async function handleWireImplicitElements(req, res) {
 
       // Find all nodes with a z-tag pointing to this concept header
       const implicitNodes = await runCypher(`
-        MATCH (n:NostrEvent)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: $headerUuid})
+        MATCH (n:NostrEvent|ListItem)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: $headerUuid})
         RETURN n.uuid AS uuid, n.name AS name
         ORDER BY n.name
       `, { headerUuid });

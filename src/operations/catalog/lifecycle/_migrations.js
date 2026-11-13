@@ -105,7 +105,9 @@ async function planKeys(system, { full = false } = {}) {
   const counts = await countKeys(system);
   const schema = await readSchema(system);
   const shared = full || schema.rule ? await sharedKeys(system, schema.rule) : null;
-  const nullKeys = full ? num(await read(system, 'MATCH (n) WHERE n.tapestryKey IS NULL RETURN count(n) AS nullKeys'), 'nullKeys') : null;
+  // The '{}' keys, counted by themselves: a difference of two counts taken moments apart counts the keys the
+  // pipeline gives in between (live check, finding 5).
+  const placeholders = full ? num(await read(system, "MATCH (n) WHERE n.tapestryKey = '{}' RETURN count(n) AS placeholders"), 'placeholders') : null;
   const withoutLabel = counts.nodes - counts.withLabel;
   const applied = counts.withoutKey === 0 && withoutLabel === 0 && schema.rule && schema.index && !!shared && shared.length === 0;
   return {
@@ -114,7 +116,7 @@ async function planKeys(system, { full = false } = {}) {
     changes: {
       keys: counts.withoutKey,
       labels: withoutLabel,
-      placeholders: nullKeys === null ? null : Math.max(0, counts.withoutKey - nullKeys),
+      placeholders,
       rule: !schema.rule,
       index: !schema.index,
     },
@@ -134,11 +136,12 @@ async function runKeysPass(system, skip) {
      FOREACH (_ IN CASE WHEN n.tapestryKey = '{}' THEN [1] ELSE [] END | REMOVE n.tapestryJsonUpdatedAt)
      FOREACH (_ IN CASE WHEN n.tapestryKey IS NULL OR n.tapestryKey = '{}' THEN [1] ELSE [] END | SET n.tapestryKey = randomUUID())",
     {batchSize: ${KEYS_BATCH}, parallel: false, retries: 3, params: {skip: $skip}})
-    YIELD batches, total, committedOperations, failedOperations, failedBatches, errorMessages
-    RETURN batches, total, committedOperations, failedOperations, failedBatches, errorMessages`, { skip });
+    YIELD batches, total, committedOperations, failedOperations, failedBatches, retries, errorMessages
+    RETURN batches, total, committedOperations, failedOperations, failedBatches, retries, errorMessages`, { skip });
   const r = (rows && rows[0]) || {};
   return {
     failedBatches: Number(r.failedBatches) || 0,
+    retries: Number(r.retries) || 0,
     failedOperations: Number(r.failedOperations) || 0,
     errors: Object.keys(r.errorMessages || {}).slice(0, 3),
   };
@@ -171,12 +174,14 @@ async function applyKeys(plan, system, progress) {
   const start = left;
   let passes = 0;
   let failedBatches = 0;
+  let retries = 0;
   const errors = [];
   while ((left.withoutKey > 0 || left.withoutLabel > 0) && passes < MAX_PASSES) {
     passes++;
     progress({ stage: 'keys', pass: passes, withoutKey: left.withoutKey, withoutLabel: left.withoutLabel });
     const r = await runKeysPass(system, skip);
     failedBatches += r.failedBatches;
+    retries += r.retries;
     for (const e of r.errors) if (errors.length < 3 && !errors.includes(e)) errors.push(e);
     left = await leftToDo(system, skip);
   }
@@ -200,6 +205,7 @@ async function applyKeys(plan, system, progress) {
     placeholdersReplaced: plan.changes.placeholders,
     passes,
     failedBatches,
+    retries,
     rule,
     index,
     sharedKeys: shared,
@@ -217,12 +223,15 @@ function describeKeys(report) {
     const n = report.failedBatches;
     words.push(`${n} batch${n === 1 ? '' : 'es'} failed${report.after.withoutKey ? '' : ` and ${n === 1 ? 'was' : 'were'} picked up by a later pass`}.`);
   }
+  if (report.retries) words.push(`APOC retried ${report.retries} batch${report.retries === 1 ? '' : 'es'} (a lock held by a writer, most often).`);
   if (report.sharedKeys.length) {
     const list = report.sharedKeys.slice(0, 5).map((s) => `${s.key} (${s.count} nodes: ${s.nodes.join(', ')})`).join('; ');
     const more = report.sharedKeys.length > 5 ? `; and ${report.sharedKeys.length - 5} more` : '';
     const rule = report.rule === 'already-there'
       ? `the uniqueness rule ${KEY_RULE} was already in place, so those nodes were left without the label ${LABEL}`
-      : `the uniqueness rule ${KEY_RULE} and the index ${UUID_INDEX} were left out`;
+      : report.index === 'already-there'
+        ? `the uniqueness rule ${KEY_RULE} was left out (the index ${UUID_INDEX} is already there)`
+        : `the uniqueness rule ${KEY_RULE} and the index ${UUID_INDEX} were left out`;
     words.push(`Some keys are held by more than one node, so none of them was changed and ${rule}, for the owner to decide: ${list}${more}.`);
   } else {
     const said = { added: 'added', 'already-there': 'already there' };
@@ -233,11 +242,15 @@ function describeKeys(report) {
 
 // ── event-less-nodes (Decision 5) ────────────────────────────────────────────────────────────────────────────────
 
+// Decision 5's nodes. Applied is read over all of them; the pass takes only those that also carry TapestryNode, so no
+// node is left with neither label (round 1, deviation 1). Before tapestry-keys, then, some remain and it isn't applied.
+const EVENT_LESS_ALL = 'MATCH (n:NostrEvent) WHERE n.id IS NULL AND (n)-[:HAS_TAG]->()';
 const EVENT_LESS = `MATCH (n:NostrEvent) WHERE n.id IS NULL AND n:${LABEL} AND (n)-[:HAS_TAG]->()`;
 
 async function planEventLess(system) {
-  const count = num(await read(system, `${EVENT_LESS} RETURN count(n) AS eventLess`), 'eventLess');
-  return { applied: count === 0, needsBackup: count > 0, changes: { relabel: count }, details: { count } };
+  const all = num(await read(system, `${EVENT_LESS_ALL} RETURN count(n) AS eventLess`), 'eventLess');
+  const count = all ? num(await read(system, `${EVENT_LESS} RETURN count(n) AS eventLess`), 'eventLess') : 0;
+  return { applied: all === 0, needsBackup: count > 0, changes: { relabel: count, withoutLabel: all - count }, details: { count } };
 }
 
 async function applyEventLess(plan, system, progress) {

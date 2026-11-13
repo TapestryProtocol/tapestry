@@ -321,7 +321,7 @@ async function create(body, cfg) {
   }
   // in a Set: add-to-set finds the Set and the item by name, first match; make sure each name means one node
   if (c.role === 'set') {
-    const sets = await R("MATCH (s:NostrEvent)-[:HAS_TAG]->(n:NostrEventTag {type: 'name'}) WHERE 'Set' IN labels(s) AND toLower(n.value) = toLower($n) RETURN DISTINCT s.uuid AS u", { n: c.holder_name });
+    const sets = await R("MATCH (s:NostrEvent|ListItem)-[:HAS_TAG]->(n:NostrEventTag {type: 'name'}) WHERE 'Set' IN labels(s) AND toLower(n.value) = toLower($n) RETURN DISTINCT s.uuid AS u", { n: c.holder_name });
     if (sets.length !== 1 || sets[0].u !== holder) {
       return { ok: false, why: `${sets.length} Sets here are called “${c.holder_name}”, and Tapestry’s add-to-set finds a Set by name: it could put the item in the wrong one. Nothing was made.` };
     }

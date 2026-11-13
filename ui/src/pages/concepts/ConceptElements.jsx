@@ -67,7 +67,7 @@ export default function ConceptElements() {
   const { data: explicit, loading: l1, error: e1 } = useCypher(
     activeSetUuid ? `
       MATCH (s:NostrEvent|TapestryNode {uuid: '${activeSetUuid}'})
-        -[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
+        -[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.pubkey AS author, json
@@ -78,7 +78,7 @@ export default function ConceptElements() {
   const isSuperset = !setFilter || setFilter === supersetUuid;
   const { data: implicit, loading: l2, error: e2 } = useCypher(
     isSuperset ? `
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: '${uuid}'})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: '${uuid}'})
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.pubkey AS author, json

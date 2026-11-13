@@ -97,7 +97,7 @@ export default function AddNodeAsElement() {
       : '';
 
     return `
-      MATCH (n:NostrEvent)
+      MATCH (n:NostrEvent|ListItem)
       ${where}
       WITH n, labels(n) AS lbls
       WHERE NONE(l IN lbls WHERE l = 'NostrEventTag')

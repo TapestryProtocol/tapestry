@@ -25,6 +25,171 @@
       "file": "src/api/firmware/index.js",
       "text": "`MATCH (h:NostrEvent {uuid: $uuid}) RETURN h.uuid AS uuid LIMIT 1`,",
       "reason": "About the event: whether a firmware concept is installed is whether its header event, which firmware install imports from a signed event, is in the graph. A concept header is never event-less."
+    },
+    {
+      "file": "src/api/adoption/index.js",
+      "text": "`MATCH (h:NostrEvent)",
+      "reason": "A scan for the Tapestry Assistant's concept headers (ListHeader, ClassThreadHeader or ConceptHeader at a 39998 address): a header is always an event, never an event-less set."
+    },
+    {
+      "file": "src/api/audit/index.js",
+      "text": "runCypher(`MATCH (n:NostrEvent) RETURN substring(n.pubkey, 0, 16) + '...' AS signer, count(n) AS events ORDER BY events DESC`),",
+      "reason": "Counts events by signer: about the events themselves (authorship)."
+    },
+    {
+      "file": "src/api/audit/index.js",
+      "text": "runCypher(`MATCH (n:NostrEvent) OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'}) WITH CASE WHEN n:ListHeader THEN 'ListHeader' WHEN n:Superset THEN 'Superset' WHEN n:JSONSchema THEN 'JSONSchema' WHEN n:Property THEN 'Property' WHEN n:Relationship THEN 'Relationship' WHEN n:ListItem THEN 'ListItem (other)' ELSE 'Other' END AS nodeType, count(n) AS total, count(j) AS withJson RETURN nodeType, total, withJson, total - withJson AS missing ORDER BY total DESC`),",
+      "reason": "Counts events by kind of node, for the audit of the event graph: about the events themselves."
+    },
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "statements.push(`MATCH (x:TapestryNode {uuid: '${esc(uuid)}'}) WHERE NOT x:NostrEvent SET x:NostrEvent`);",
+      "reason": "The import's adoption of an event-less node: it tests for the label and gives it back, so it names NostrEvent itself (Decision 9)."
+    },
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "parts.push(`MERGE (e:NostrEvent {id: '${event.id}'})`);",
+      "reason": "A MERGE by id, which can't take a label disjunction: the imported event itself, by its id (a kind with no address)."
+    },
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "tagParts.push(`MATCH (e:NostrEvent {id: '${event.id}'})`);",
+      "reason": "A match by id: the event the statement before made, to hang its tags on."
+    },
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "`MERGE (ref:NostrEvent {id: '${esc(refId)}'}) ` +",
+      "reason": "A MERGE by id, which can't take a label disjunction: the placeholder for an e tag's event, which is an event by definition."
+    },
+    {
+      "file": "src/api/neo4j/eventSync.js",
+      "text": "const rows = await runCypher('MATCH (n:NostrEvent) RETURN n.uuid AS uuid');",
+      "reason": "The event-uuids route: the addresses of the events in the graph, to compare with strfry's. About the events themselves."
+    },
+    {
+      "file": "src/api/normalize/helpers.js",
+      "text": "MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent",
+      "reason": "The signing routes' adoption of an event-less node: it tests for the label (Decision 9)."
+    },
+    {
+      "file": "src/api/normalize/helpers.js",
+      "text": "SET x:NostrEvent",
+      "reason": "The signing routes' adoption of an event-less node: it gives the label back (Decision 9)."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent",
+      "reason": "importEventDirect's adoption of an event-less node: it tests for the label (Decision 9)."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "SET x:NostrEvent",
+      "reason": "importEventDirect's adoption of an event-less node: it gives the label back (Decision 9)."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "MATCH (h:NostrEvent)",
+      "reason": "A scan for concept headers (each followed by WHERE (h:ListHeader …) AND h.kind IN [9998, 39998], or by kind 39998): a header is always an event, never an event-less set."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "MATCH (js)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h:NostrEvent)",
+      "reason": "The concept header a JSON Schema is for: a header is always an event, never an event-less set."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "OPTIONAL MATCH (pg:NostrEvent)-[:${REL.CORE_NODE_PROPERTY_TREE_GRAPH}]->(h)",
+      "reason": "The property tree graph node for a header: a firmware-shaped node published as an event, never an event-less set."
+    },
+    {
+      "file": "src/api/normalize/index.js",
+      "text": "MATCH (rt:NostrEvent) WHERE rt.name = 'is a property of' OR rt.name = '${REL.PROPERTY_MEMBERSHIP}'",
+      "reason": "The relationship-type node 'is a property of', found by name: a firmware element, always an event."
+    },
+    {
+      "file": "src/api/property/index.js",
+      "text": "MATCH (h:NostrEvent)",
+      "reason": "A scan for concept headers (each followed by WHERE (h:ListHeader …) AND h.kind IN [9998, 39998], or by kind 39998): a header is always an event, never an event-less set."
+    },
+    {
+      "file": "src/firmware/install.js",
+      "text": "`MATCH (n:NostrEvent) WHERE n.slug = $slug OR n.name = $name RETURN n.uuid AS uuid LIMIT 1`,",
+      "reason": "Firmware install finds its own nodes by slug or name to wire its edges: every one is an event it imported."
+    },
+    {
+      "file": "src/operations/catalog/lifecycle/_migrations.js",
+      "text": "const EVENT_LESS_ALL = 'MATCH (n:NostrEvent) WHERE n.id IS NULL AND (n)-[:HAS_TAG]->()';",
+      "reason": "event-less-nodes' own count of Decision 5's nodes, which still carry NostrEvent: it names the label it removes."
+    },
+    {
+      "file": "src/operations/catalog/lifecycle/_migrations.js",
+      "text": "const EVENT_LESS = `MATCH (n:NostrEvent) WHERE n.id IS NULL AND n:${LABEL} AND (n)-[:HAS_TAG]->()`;",
+      "reason": "event-less-nodes' own selection of Decision 5's nodes that carry TapestryNode: it names the label it removes."
+    },
+    {
+      "file": "src/operations/catalog/lifecycle/_migrations.js",
+      "text": "\"REMOVE n:NostrEvent\",",
+      "reason": "event-less-nodes' pass: it removes the label."
+    },
+    {
+      "file": "ui/src/pages/Dashboard.jsx",
+      "text": "MATCH (n:NostrEvent:ListHeader)-[:IS_THE_CONCEPT_FOR]->()",
+      "reason": "The Dashboard's count of concepts, by their headers: a header is always an event."
+    },
+    {
+      "file": "ui/src/pages/Dashboard.jsx",
+      "text": "MATCH (n:NostrEvent)",
+      "reason": "The Dashboard's event count (Decision 9's own example) and its recent activity, by created_at: about the events themselves."
+    },
+    {
+      "file": "ui/src/pages/concepts/AddNodeAsElement.jsx",
+      "text": "MATCH (n:NostrEvent)",
+      "reason": "The Author dropdown: the distinct pubkeys that signed events. About authorship."
+    },
+    {
+      "file": "ui/src/pages/concepts/ConceptList.jsx",
+      "text": "MATCH (h:NostrEvent)",
+      "reason": "A scan for concept headers (each followed by WHERE (h:ListHeader …) AND h.kind IN [9998, 39998], or by kind 39998): a header is always an event, never an event-less set."
+    },
+    {
+      "file": "ui/src/pages/events/DListItemRatings.jsx",
+      "text": "cypher: `MATCH (e:NostrEvent) WHERE e.id IN [${idList}] RETURN e.id AS id`,",
+      "reason": "A lookup by event id: about the event itself."
+    },
+    {
+      "file": "ui/src/pages/lists/DListRatings.jsx",
+      "text": "cypher: `MATCH (e:NostrEvent) WHERE e.id IN [${idList}] RETURN e.id AS id`,",
+      "reason": "A lookup by event id: about the event itself."
+    },
+    {
+      "file": "ui/src/pages/nodes/Index.jsx",
+      "text": "MATCH (n:NostrEvent)",
+      "reason": "The Author dropdown: the distinct pubkeys that signed events. About authorship."
+    },
+    {
+      "file": "ui/src/pages/reading/readVerbs.js",
+      "text": "for (const r of await R('MATCH (h:NostrEvent) WHERE h.kind = 39998 AND h.pubkey = $ta '",
+      "reason": "The Tapestry Assistant's concept headers (kind 39998 by its pubkey): a header is always an event."
+    },
+    {
+      "file": "ui/src/pages/reading/writeVerbs.js",
+      "text": "const r = await R('MATCH (h:NostrEvent) WHERE (h:ListHeader OR h:ClassThreadHeader) AND h.kind IN [9998, 39998] AND h.name = $concept '",
+      "reason": "The server's own header pick (handleCreateElement's query): a header is always an event."
+    },
+    {
+      "file": "ui/src/pages/reading/writeVerbs.js",
+      "text": "const copies = await R('MATCH (h:NostrEvent) WHERE h.kind = 39998 AND h.pubkey = $ta '",
+      "reason": "The Tapestry Assistant's concept headers (kind 39998 by its pubkey): a header is always an event."
+    },
+    {
+      "file": "ui/src/pages/reading/writeVerbs.js",
+      "text": "const same = await R('MATCH (h:NostrEvent) WHERE h.kind IN [9998, 39998] AND h.name = $n RETURN h.uuid AS u', { n: kn || '' });",
+      "reason": "Concept headers by name (kind 9998 or 39998): a header is always an event."
+    },
+    {
+      "file": "ui/src/pages/shared-concepts/SharedByMe.jsx",
+      "text": "MATCH (h:NostrEvent)",
+      "reason": "A scan for concept headers (each followed by WHERE (h:ListHeader …) AND h.kind IN [9998, 39998], or by kind 39998): a header is always an event, never an event-less set."
     }
   ]
 }

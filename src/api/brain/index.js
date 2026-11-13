@@ -74,7 +74,7 @@ const HYGIENE_CONCEPTS = [
 // superset is itself an element of the set/superset concepts) never match.
 const EXPLICIT_CYPHER = `
   MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(s:Superset)
-  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
+  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   WITH DISTINCT e, head(collect(j.value)) AS json
@@ -83,7 +83,7 @@ const EXPLICIT_CYPHER = `
 // Implicit members: elements z-tagged to the concept header whose HAS_ELEMENT
 // edge may be missing (reinstall re-derives such wiring from the same z tag).
 const IMPLICIT_CYPHER = `
-  MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+  MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   WITH DISTINCT e, head(collect(j.value)) AS json
@@ -533,7 +533,7 @@ const HEADER_EDGES_CYPHER = `
 // shape), each annotated with whether its z-tag declaration is present.
 const ELEMENTS_WITH_EDGE_CYPHER = `
   MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(s:Superset)
-  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
+  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   OPTIONAL MATCH (e)-[:HAS_TAG]->(z:NostrEventTag {type: 'z', value: $headerUuid})
@@ -542,7 +542,7 @@ const ELEMENTS_WITH_EDGE_CYPHER = `
 
 // Implicit members: z-tag declarations (the 0001 IMPLICIT_CYPHER shape).
 const ELEMENTS_WITH_ZTAG_CYPHER = `
-  MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+  MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   WITH DISTINCT e, head(collect(j.value)) AS json

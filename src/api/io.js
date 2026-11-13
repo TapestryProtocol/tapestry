@@ -117,7 +117,7 @@ async function handleCreateExport(req, res) {
       const batch = uuidList.slice(i, i + 50);
       const quotedUuids = batch.map(u => `'${u.replace(/'/g, "\\'")}'`).join(',');
       const rows = await runCypher(`
-        MATCH (e:NostrEvent)
+        MATCH (e:NostrEvent|TapestryNode)
         WHERE e.uuid IN [${quotedUuids}]
         OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
         RETURN e.uuid AS uuid, e.name AS name, head(collect(j.value)) AS json

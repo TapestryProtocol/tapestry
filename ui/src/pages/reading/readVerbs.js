@@ -148,7 +148,7 @@ function projects() {
     (await R("MATCH (h:ConceptHeader {name:'projects'})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:HAS_ELEMENT]->(p) "
       + 'RETURN DISTINCT p.uuid AS u, p.name AS n')).forEach((r) => { out[r.u] = r.n; });
     const named = new Set();
-    for (const r of await R("MATCH (:NostrEvent)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) WHERE j.value CONTAINS '\"scope\"' RETURN j.value AS j")) {
+    for (const r of await R("MATCH (:NostrEvent|ListItem)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) WHERE j.value CONTAINS '\"scope\"' RETURN j.value AS j")) {
       let d; try { d = JSON.parse(r.j); } catch { continue; }
       if (!d || typeof d !== 'object' || Array.isArray(d)) continue;
       for (const sc of [d.scope, ...Object.values(d).map((v) => (v && typeof v === 'object' ? v.scope : null))]) {
@@ -170,7 +170,7 @@ function linkTypes() {
     let rows = [];
     try {
       rows = await R('MATCH (h:ConceptHeader {name:$k})-[:IS_THE_CONCEPT_FOR]->(:Superset)'
-        + "-[:IS_A_SUPERSET_OF|HAS_ELEMENT*1..4]->(e:NostrEvent)-[:HAS_TAG]->(t:NostrEventTag {type:'json'}) "
+        + "-[:IS_A_SUPERSET_OF|HAS_ELEMENT*1..4]->(e:NostrEvent|ListItem)-[:HAS_TAG]->(t:NostrEventTag {type:'json'}) "
         + "WHERE NOT e:Superset AND NOT 'Set' IN labels(e) RETURN DISTINCT e.uuid AS u, t.value AS j", { k: LINK_TYPE_KIND });
     } catch { rows = []; }
     for (const r of rows) {
@@ -243,7 +243,7 @@ export async function scopes() {
   const t = await tree(), pj = await projects(), out = [];
   const keys = Object.keys(pj);
   if (keys.length) {
-    for (const r of await R("UNWIND $u AS h MATCH (n:NostrEvent)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
+    for (const r of await R("UNWIND $u AS h MATCH (n:NostrEvent|ListItem)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
       + 'WHERE j.value CONTAINS h RETURN h, count(DISTINCT n) AS n', { u: keys })) {
       if (r.n) out.push({ key: 'project:' + r.h, label: pj[r.h], kind: 'project', count: r.n });
     }
@@ -268,7 +268,7 @@ async function scopeMembers(key, limit) {
   const i = key.indexOf(':'), kind = key.slice(0, i), h = key.slice(i + 1);
   let rows, lead;
   if (kind === 'project') {
-    rows = await R("MATCH (n:NostrEvent)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) WHERE j.value CONTAINS $h "
+    rows = await R("MATCH (n:NostrEvent|ListItem)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) WHERE j.value CONTAINS $h "
       + 'RETURN DISTINCT n.uuid AS u, n.created_at AS t', { h });
     lead = [h];
   } else if (kind === 'concept') {
@@ -505,7 +505,7 @@ export async function node({ id, depth = 1 }, ta) {
   const near = new Set([id]);
   let frontier = [id];
   for (let d = 0; d < Math.max(1, Math.min(Number(depth), 2)); d++) {
-    const rows = await batched(`UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[:${(await drawnTypes()).join('|')}]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m`, [...frontier].sort());
+    const rows = await batched(`UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[:${(await drawnTypes()).join('|')}]-(m:NostrEvent|ListItem) RETURN DISTINCT m.uuid AS m`, [...frontier].sort());
     const nxt = [...new Set(rows.map((r) => r.m).filter((m) => m && !near.has(m)))].sort().slice(0, d === 0 ? 40 : 60);
     nxt.forEach((m) => near.add(m));
     frontier = nxt;
@@ -544,7 +544,7 @@ export async function group({ id, offset = 0, limit = 150 }, ta) {
 export async function plan({ id, scope: scopeKey }, ta) {
   if (!id) {
     const h = scopeKey && scopeKey.startsWith('project:') ? scopeKey.slice('project:'.length) : null;
-    const rows = await R("MATCH (s:NostrEvent)-[:HAS_ELEMENT]->(e:NostrEvent)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
+    const rows = await R("MATCH (s:NostrEvent|ListItem)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)-[:HAS_TAG]->(j:NostrEventTag {type:'json'}) "
       + "WHERE 'Set' IN labels(s) AND NOT 'Superset' IN labels(s) "
       + "AND (j.value CONTAINS '\"rank\"' OR j.value CONTAINS '\"branch\"') AND ($h IS NULL OR j.value CONTAINS $h) "
       + 'RETURN s.uuid AS u, s.name AS n, count(DISTINCT e) AS c ORDER BY c DESC, n', { h });
@@ -569,8 +569,8 @@ export async function plan({ id, scope: scopeKey }, ta) {
     return out;
   };
   const ws = await states(ms);
-  const outIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent|TapestryNode {uuid:u})-[:BLOCKED_BY|ASSIGNED_TO]->(m:NostrEvent) RETURN DISTINCT m.uuid AS m', ms)).map((r) => r.m);
-  const inIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent|TapestryNode {uuid:u})<-[:SETS_ASIDE|ANSWERS]-(m:NostrEvent) RETURN DISTINCT m.uuid AS m', [...ms, ...outIds])).map((r) => r.m);
+  const outIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent|TapestryNode {uuid:u})-[:BLOCKED_BY|ASSIGNED_TO]->(m:NostrEvent|ListItem) RETURN DISTINCT m.uuid AS m', ms)).map((r) => r.m);
+  const inIds = (await batched('UNWIND $u AS u MATCH (:NostrEvent|TapestryNode {uuid:u})<-[:SETS_ASIDE|ANSWERS]-(m:NostrEvent|ListItem) RETURN DISTINCT m.uuid AS m', [...ms, ...outIds])).map((r) => r.m);
   const extra = [...new Set([...outIds, ...inIds])].filter((u) => !(u in ws)).sort();
   const wx = await states(extra);
   const all = { ...wx, ...ws };
@@ -595,7 +595,7 @@ export async function plan({ id, scope: scopeKey }, ta) {
 export async function search({ q, limit = 14 }, ta) {
   const ws = String(q || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!ws.length) return { link_types: [], nodes: [], links: [], results: [] };
-  const rows = await R('MATCH (n:NostrEvent) WHERE n.name IS NOT NULL AND ALL(w IN $w WHERE toLower(n.name) CONTAINS w) '
+  const rows = await R('MATCH (n:NostrEvent|ListItem) WHERE n.name IS NOT NULL AND ALL(w IN $w WHERE toLower(n.name) CONTAINS w) '
     + 'RETURN n.uuid AS u, n.name AS n, labels(n) AS l LIMIT 400', { w: ws });
   const core = ['Superset', 'JSONSchema', 'Property'];
   const score = (r) => {
@@ -617,7 +617,7 @@ function plumbing() {
     const t = await tree();
     const hs = [...t.system];
     const sup = (await R('MATCH (h:ConceptHeader)-[:IS_THE_CONCEPT_FOR]->(s) WHERE h.uuid IN $h RETURN s.uuid AS s', { h: hs })).map((r) => r.s);
-    const hubs = (await R("MATCH (g:NostrEvent) WHERE g:ConceptHeader OR ('Set' IN labels(g) AND NOT 'Superset' IN labels(g)) "
+    const hubs = (await R("MATCH (g:NostrEvent|ListItem) WHERE g:ConceptHeader OR ('Set' IN labels(g) AND NOT 'Superset' IN labels(g)) "
       + 'OPTIONAL MATCH (g)-[:HAS_ELEMENT]->(e1) '
       + 'OPTIONAL MATCH q = (g)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..6]->(h)-[:HAS_ELEMENT]->(e2) '
       + 'WHERE ALL(x IN nodes(q)[2..-1] WHERE NOT x:Superset) '
@@ -629,7 +629,7 @@ function plumbing() {
 /** One step out from each id: [from, to, how, type]. mode 0 = typed links; 1 = also Sets; 2 = also kinds. */
 async function steps(ids, mode) {
   const out = [], skip = await plumbing(), lt = await linkTypes();
-  for (const r of await batched(`UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[e:${(await drawnTypes()).join('|')}]-(m:NostrEvent) `
+  for (const r of await batched(`UNWIND $u AS u MATCH (n:NostrEvent|TapestryNode {uuid:u})-[e:${(await drawnTypes()).join('|')}]-(m:NostrEvent|ListItem) `
     + 'RETURN u, m.uuid AS m, type(e) AS t, startNode(e).uuid = u AS fwd', ids)) {
     out.push([r.u, r.m, (lt[r.t] || {})[r.fwd ? 'reads' : 'reverse'] || r.t.toLowerCase(), r.t]);
   }
@@ -835,7 +835,7 @@ export async function community(_, ta, config = {}) {
   });
 
   // elements filed under someone else's concept
-  const crossings = (await R("MATCH (e:NostrEvent)-[:HAS_TAG]->(z:NostrEventTag {type:'z'}) WHERE z.value STARTS WITH '39998:' "
+  const crossings = (await R("MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(z:NostrEventTag {type:'z'}) WHERE z.value STARTS WITH '39998:' "
     + "AND split(z.value, ':')[1] <> e.pubkey RETURN z.value AS concept, e.pubkey AS author, count(DISTINCT e) AS n")).map((r) => {
     pks.add(r.author); pks.add(r.concept.split(':')[1]);
     return { concept: r.concept, concept_author: r.concept.split(':')[1], element_author: r.author, count: r.n };
