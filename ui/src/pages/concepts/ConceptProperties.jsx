@@ -19,7 +19,7 @@ export default function ConceptProperties() {
   const isOwner = user?.classification === 'owner' || user?.classification === 'admin';
 
   const { data, loading, error } = useCypher(`
-    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent {uuid: '${uuid}'})
+    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent|TapestryNode {uuid: '${uuid}'})
     MATCH (p:Property)-[:IS_A_PROPERTY_OF *1..]->(js)
     OPTIONAL MATCH (p)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
     OPTIONAL MATCH (p)-[:IS_A_PROPERTY_OF]->(parent)

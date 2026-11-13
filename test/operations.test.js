@@ -200,6 +200,13 @@ function runHarness(spec) {
 
 const FIRMWARE_STUB = { known: true, version: '1.0.0', installed: 'some', conceptsInGraph: 37, concepts: 39, missing: ['concept-one', 'concept-two'] };
 const CACHE_STUB = { known: true, nodes: 120, withTapestryKey: 118, withoutTapestryKey: 2, cached: 100, cachedEmpty: 3, notCached: 15 };
+// The migrations part reads the graph since graph-operations-foundation #3 (ADR 0003 Decision 7), so H1 replaces it as it
+// replaces firmware and cache; its own shape is checked in test/operations/lifecycle/status.test.js (P2) and migrate.test.js.
+const MIGRATIONS_STUB = {
+  known: true, keys: { nodes: 120, withLabel: 0, withoutKey: 2, rule: false, index: false },
+  migrations: [{ name: 'tapestry-keys', summary: 's', applied: false, requires: [], lastRun: null }, { name: 'event-less-nodes', summary: 's', applied: false, requires: ['tapestry-keys'], lastRun: null }],
+  note: 'No migration has run yet.',
+};
 const STATUS = '/api/tapestry/lifecycle/status';
 const LIST = '/api/tapestry/operations';
 const ECHO = '/api/tapestry/graph/echo-inputs';
@@ -214,7 +221,7 @@ function mainSpec() {
     fixtureDir: fixtureDir(),
     scenarios: [
       {
-        statusStubs: { firmware: { value: FIRMWARE_STUB }, cache: { value: CACHE_STUB } },
+        statusStubs: { firmware: { value: FIRMWARE_STUB }, cache: { value: CACHE_STUB }, migrations: { value: MIGRATIONS_STUB } },
         requests: [
           real('h1-owner', 'owner'), real('h1-owner-again', 'owner'), real('h1-admin', 'admin'),
           real('h5-visitor', 'visitor'), real('h5-stranger', 'stranger'),
@@ -467,8 +474,7 @@ function assertStatusBody(r, who) {
   assert(same(Object.keys(d).sort(), ['backup', 'cache', 'firmware', 'migrations']), `${who}: data must have exactly the four parts; got ${show(Object.keys(d))}`);
   assert(d.backup.known === true && d.backup.last === null && typeof d.backup.note === 'string' && d.backup.note.trim(),
     `${who}: backup must say plainly that none is recorded ({ known: true, last: null, note }); got ${show(d.backup)}`);
-  assert(d.migrations.known === true && Array.isArray(d.migrations.applied) && d.migrations.applied.length === 0 && typeof d.migrations.note === 'string' && d.migrations.note.trim(),
-    `${who}: migrations must say plainly that none is recorded ({ known: true, applied: [], note }); got ${show(d.migrations)}`);
+  assert(same(d.migrations, MIGRATIONS_STUB), `${who}: migrations must be what its part read; got ${show(d.migrations)}`);
   assert(same(d.firmware, FIRMWARE_STUB), `${who}: firmware must be what its part read; got ${show(d.firmware)}`);
   assert(same(d.cache, CACHE_STUB), `${who}: cache must be what its part read; got ${show(d.cache)}`);
 }

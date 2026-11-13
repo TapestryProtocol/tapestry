@@ -25,6 +25,9 @@ AND (n.hops < 100 OR n.verifiedMuterCount > 0 OR n.verifiedReporterCount > 0)
 LIMIT 100000
 MERGE (n) -[:WOT_METRICS_CARDS]-> (s:Set:SetOfNostrUserWotMetricsCards)
 SET s.observee_pubkey = n.pubkey
+FOREACH (_ IN CASE WHEN NOT s:TapestryNode OR s.tapestryKey IS NULL OR s.tapestryKey = '{}' THEN [1] ELSE [] END |
+  SET s:TapestryNode,
+      s.tapestryKey = CASE WHEN s.tapestryKey IS NULL OR s.tapestryKey = '{}' THEN randomUUID() ELSE s.tapestryKey END)
 RETURN count(s) as numSets"
 
 echo "$(date): Starting addSetsOfMetricsCards"

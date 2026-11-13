@@ -55,7 +55,7 @@ function defaultDeps() {
     // Does this instance's graph hold a node for the header? Read only; an edit never creates one.
     graphHas: async (uuid) => {
       const rows = await require('../../lib/neo4j-driver').runCypher(
-        'MATCH (e:NostrEvent {uuid: $uuid}) RETURN count(e) > 0 AS has', { uuid },
+        'MATCH (e:NostrEvent|TapestryNode {uuid: $uuid}) RETURN count(e) > 0 AS has', { uuid },
       );
       return Boolean(rows && rows[0] && rows[0].has);
     },

@@ -9,10 +9,13 @@
  * write lock (`SET r.address = r.address` locks without writing), re-read it with the snapshot's
  * projection, compare fingerprints in JS, and act only on the rows that still match. A create
  * proceeds only while no `TAGS` relationship holds the address, which the uniqueness rule
- * `tags_address` makes atomic. The only node clause is a bare keyed MERGE of a NostrUser.
+ * `tags_address` makes atomic. The only node clause is a bare keyed MERGE of a NostrUser, followed by keyNode — the
+ * label TapestryNode and a tapestryKey where either is missing, which writes nothing on a node that has both (ADR
+ * graph-operations-foundation/0003 Decision 8, amending tagging-edges/0002 D6-B).
  */
 
 const { TAGS_PROPERTY_KEYS, fingerprint } = require('../../lib/tagging-edges/sweep');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 
 const SCALAR_TYPES = Object.freeze(['INTEGER NOT NULL', 'FLOAT NOT NULL', 'STRING NOT NULL', 'BOOLEAN NOT NULL']);
 const MAX_BATCH = 250;
@@ -38,12 +41,16 @@ ${PROJECTION}`,
   UPDATE: 'UNWIND $rows AS row MATCH ()-[r:TAGS {address: row.address}]->() SET r = row.props RETURN count(r) AS n',
   MOVE: `UNWIND $rows AS row MATCH ()-[r:TAGS {address: row.address}]->() DELETE r
 WITH row MERGE (a:NostrUser {pubkey: row.from}) MERGE (b:NostrUser {pubkey: row.to})
+${keyNode('a')}
+${keyNode('b')}
 CREATE (a)-[n:TAGS]->(b) SET n = row.props RETURN count(n) AS n`,
   REMOVE: 'UNWIND $addresses AS a MATCH ()-[r:TAGS {address: a}]->() DELETE r RETURN count(*) AS n',
   CREATE_IF_ABSENT: `UNWIND $rows AS row
 OPTIONAL MATCH ()-[x:TAGS {address: row.address}]->()
 WITH row, x WHERE x IS NULL
 MERGE (a:NostrUser {pubkey: row.from}) MERGE (b:NostrUser {pubkey: row.to})
+${keyNode('a')}
+${keyNode('b')}
 CREATE (a)-[n:TAGS]->(b) SET n = row.props
 RETURN row.address AS address`,
   CREATE_TAGS_CONSTRAINT: 'CREATE CONSTRAINT tags_address IF NOT EXISTS FOR ()-[r:TAGS]-() REQUIRE r.address IS UNIQUE',

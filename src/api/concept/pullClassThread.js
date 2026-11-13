@@ -281,7 +281,7 @@ async function handlePullCommunityClassThread(req, res) {
             if (isSet) {
               try {
                 await writeCypher(
-                  `MATCH (n:NostrEvent {uuid:$u}) SET n:Set`,
+                  `MATCH (n:NostrEvent|TapestryNode {uuid:$u}) SET n:Set`,
                   { u: memberUuid }
                 );
               } catch (err) {

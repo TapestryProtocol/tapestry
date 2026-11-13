@@ -39,7 +39,7 @@ async function handleSummaries(req, res) {
       // ADR 0004 rejected a cross-tree CJS/ESM import and pinned the two together
       // with an equality test instead. If you change one, test/summaries-element-count.test.js
       // L2 will tell you the other no longer matches. Change both.
-      OPTIONAL MATCH (n)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..5]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
+      OPTIONAL MATCH (n)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..5]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
       OPTIONAL MATCH (n)-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..5]->(s)
       WITH n, count(distinct e) AS elementCount, count(distinct s) AS setCount
       OPTIONAL MATCH (p:Property)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(n)

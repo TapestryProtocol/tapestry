@@ -21,7 +21,7 @@ export default function AddNodeReview() {
   // Fetch the target node details
   const { data: nodeData, loading: nodeLoading } = useCypher(
     nodeUuid
-      ? `MATCH (n:NostrEvent {uuid: '${nodeUuid}'})
+      ? `MATCH (n:NostrEvent|TapestryNode {uuid: '${nodeUuid}'})
          RETURN n.name AS name, n.uuid AS uuid, n.pubkey AS author, labels(n) AS labels`
       : null
   );
@@ -29,7 +29,7 @@ export default function AddNodeReview() {
 
   // Fetch concept's superset and concept graph info
   const { data: conceptData, loading: conceptLoading } = useCypher(`
-    MATCH (h:NostrEvent {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+    MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
     OPTIONAL MATCH (ctg)-[:IS_THE_CONCEPT_GRAPH_FOR]->(h)
     RETURN sup.uuid AS supersetUuid, sup.name AS supersetName,
            ctg.uuid AS classGraphUuid, ctg.name AS classGraphName
@@ -39,7 +39,7 @@ export default function AddNodeReview() {
   // Check if already an element
   const { data: existingData } = useCypher(
     conceptInfo?.supersetUuid && nodeUuid
-      ? `MATCH (sup:NostrEvent {uuid: '${conceptInfo.supersetUuid}'})-[:HAS_ELEMENT]->(n:NostrEvent {uuid: '${nodeUuid}'})
+      ? `MATCH (sup:NostrEvent|TapestryNode {uuid: '${conceptInfo.supersetUuid}'})-[:HAS_ELEMENT]->(n:NostrEvent|TapestryNode {uuid: '${nodeUuid}'})
          RETURN count(*) AS cnt`
       : null
   );

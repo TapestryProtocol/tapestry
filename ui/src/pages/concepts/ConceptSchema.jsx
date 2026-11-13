@@ -18,7 +18,7 @@ export default function ConceptSchema() {
   const isOwner = user?.classification === 'owner' || user?.classification === 'admin';
 
   const { data, loading, error, refetch } = useCypher(`
-    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent {uuid: '${uuid}'})
+    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent|TapestryNode {uuid: '${uuid}'})
     OPTIONAL MATCH (js)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
     WITH js, head(collect(j.value)) AS json
     RETURN js.uuid AS uuid, js.name AS name, js.pubkey AS author, json

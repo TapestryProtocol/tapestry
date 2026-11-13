@@ -43,6 +43,7 @@
 
 const crypto = require('crypto');
 const { runCypher, writeCypher } = require('../../lib/neo4j-driver');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 const firmware = require('./firmware');
 const { isOwner } = require('../../middleware/auth');
 const { childDTag } = require('../../lib/dtag');
@@ -138,7 +139,7 @@ async function handleAddSubset(req, res) {
 
   try {
     const supRows = await runCypher(
-      `MATCH (:NostrEvent {uuid: $h})-[:${REL.INITIATION}]->(s:Superset) RETURN s.uuid AS uuid LIMIT 1`,
+      `MATCH (:NostrEvent|TapestryNode {uuid: $h})-[:${REL.INITIATION}]->(s:Superset) RETURN s.uuid AS uuid LIMIT 1`,
       { h: setConceptUuid }
     );
     if (supRows.length === 0) {
@@ -148,7 +149,7 @@ async function handleAddSubset(req, res) {
 
     // (4) The parent must exist and be a Superset or a Set.
     const parentRows = await runCypher(
-      'MATCH (p:NostrEvent {uuid: $u}) RETURN labels(p) AS labels LIMIT 1',
+      'MATCH (p:NostrEvent|TapestryNode {uuid: $u}) RETURN labels(p) AS labels LIMIT 1',
       { u: parentUuid }
     );
     if (parentRows.length === 0) {
@@ -167,11 +168,11 @@ async function handleAddSubset(req, res) {
 
     // (6a) A set of this name already under this parent — lettered or not.
     const same = await runCypher(
-      `MATCH (:NostrEvent {uuid: $p})-[:${REL.PROPAGATION}]->(s:Set)
+      `MATCH (:NostrEvent|TapestryNode {uuid: $p})-[:${REL.PROPAGATION}]->(s:Set)
        WHERE toLower(trim(s.name)) = toLower($name)
        OPTIONAL MATCH (s)-[:HAS_TAG]->(dt:NostrEventTag {type: 'description'})
        RETURN s.uuid AS uuid, s.name AS name, labels(s) AS labels, s.id IS NOT NULL AS hasEvent,
-              exists { (:NostrEvent {uuid: $setSup})-[:${REL.TERMINATION}]->(s) } AS registered,
+              exists { (:NostrEvent|TapestryNode {uuid: $setSup})-[:${REL.TERMINATION}]->(s) } AS registered,
               head(collect(dt.value)) AS description
        LIMIT 1`,
       { p: parentUuid, name: setName, setSup: setSupersetUuid }
@@ -182,7 +183,7 @@ async function handleAddSubset(req, res) {
 
     // (6b) The address is held by something else: loud, never re-linked.
     const held = await runCypher(
-      'MATCH (n:NostrEvent {uuid: $u}) RETURN labels(n) AS labels LIMIT 1',
+      'MATCH (n:NostrEvent|TapestryNode {uuid: $u}) RETURN labels(n) AS labels LIMIT 1',
       { u: uuid }
     );
     if (held.length > 0) {
@@ -198,11 +199,12 @@ async function handleAddSubset(req, res) {
     // this same-name set, so an interloper is never adopted (zero rows → 500).
     const tags = buildSubsetTags(uuid, setName, parentUuid, setConceptUuid, description);
     const rows = await writeCypher(
-      `MATCH (p:NostrEvent {uuid: $parentUuid})
-       MATCH (setSup:NostrEvent {uuid: $setSupersetUuid})
-       MERGE (s:NostrEvent {uuid: $uuid})
+      `MATCH (p:NostrEvent|TapestryNode {uuid: $parentUuid})
+       MATCH (setSup:NostrEvent|TapestryNode {uuid: $setSupersetUuid})
+       MERGE (s:TapestryNode {uuid: $uuid})
          ON CREATE SET s:ListItem:Set, s.name = $name, s.kind = $kind,
                        s.pubkey = $pubkey, s.created_at = $createdAt, s.addSubsetCreated = true
+       ${keyNode('s')}
        WITH p, setSup, s, s.addSubsetCreated IS NOT NULL AS created
        REMOVE s.addSubsetCreated
        WITH p, setSup, s, created
@@ -210,6 +212,7 @@ async function handleAddSubset(req, res) {
        FOREACH (t IN CASE WHEN created THEN $tags ELSE [] END |
          MERGE (tn:NostrEventTag {uuid: t.uuid})
            ON CREATE SET tn.type = t.type, tn.value = t.value
+         ${keyNode('tn')}
          MERGE (s)-[:HAS_TAG]->(tn))
        MERGE (p)-[:${REL.PROPAGATION}]->(s)
        MERGE (setSup)-[:${REL.TERMINATION}]->(s)
