@@ -198,3 +198,12 @@ Implementation found four tests that contradicted the approved ADR. An Implement
 - **G17** — `bin/control-panel.js` calls `ensureUuidIndexOnBoot` once the routes are registered, without awaiting it.
 
 Live check, added to step 1: after a restart of the scratch stack on this branch, `SHOW INDEXES WHERE name = 'tapestry_node_uuid'` lists it before migrate has run, and `EXPLAIN` of a disjunction lookup seeks both indexes.
+
+## Amendment 2 (2026-11-13, at Review round 1, for ADR 0003 Amendment 2)
+
+Review round 1 (Blocking 1) found that a backup taken before the rule exists reads every key in one query, and that keyNode makes that millions of keys on production. The owner ruled that the read becomes a stream. Tests:
+
+- **K5**, sharpened: with no rule, each read of every key goes through `system.cypherEach` (the fake's log entry is marked `streamed`), never through `cypher`, and the counts and digest are as before. The fake system gains `cypherEach`, which answers and logs as `cypher` does, so story 2's traces (`count:keys`) are unchanged.
+- **K6**, new: `_system.cypherEach` reads through `lib/neo4j-driver`'s `streamCypher`. Run in a child process with the `neo4j-driver` package replaced, each record reaches `onRow` as a plain object, in order. The result is subscribed to, never awaited whole, and the read session is closed once.
+
+Measurement 5 adds: on a scratch graph keyed to production's size, before migrate, the time and the worker's peak memory of `countGraph`, which a backup runs twice.

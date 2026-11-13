@@ -3,7 +3,7 @@
  * lifecycle migrate's job, and backup's key walk — its own suite, run by test/operations.test.js.
  *   Story: engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md (AC1)
  *   ADR:   engineering-team/decisions/graph-operations-foundation/0003-a-tapestry-key-on-every-node.md
- *          (Sub-decision 3, Decisions 6 and 10)
+ *          (Sub-decision 3, Decisions 6 and 10, Amendment 2)
  *   Plan:  engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.test-plan.md
  *
  * Stack-free. runDetached is driven with a stand-in worker, as in backup-job.test.js; the key walk through the
@@ -13,7 +13,8 @@
  *   K2  runDetached with waitMs answers the record when the job finishes within the wait
  *   K3  with the rule online, backup counts keys by walking the index, 50,000 at a time, and the digest is unchanged
  *   K4  a restore compares by the walk too: a backup written the old way restores with match: true
- *   K5  with no rule, backup counts keys as it always has
+ *   K5  with no rule, backup reads every key in one streamed read, with the same counts and digest (Amendment 2)
+ *   K6  _system.cypherEach streams through lib/neo4j-driver's streamCypher, which keeps no records (Amendment 2)
  */
 
 const fs = require('fs');
@@ -149,7 +150,7 @@ test('K4: a restore counts by the walk too, so a backup written the A10.2 way re
   assert(pages.length >= 9, `the restore's counts walk the index too (backup's 2 counts, then the safety backup's and the restore's); got ${pages.length} pages`);
 });
 
-test('K5: with no rule online, backup counts keys as it always has, in one read (ADR Decision 10)', async () => {
+test('K5: with no rule online, backup reads every key in one streamed read — through cypherEach, never one array — and records the same counts and digest as before (ADR Decision 10, Amendment 2)', async () => {
   const nodes = [{ labels: ['NostrEvent'], key: 'k-a', id: 'a', uuid: 'a', tags: 1 }, { labels: ['NostrUser'], key: null }, { labels: ['NostrUser'], key: 'k-b' }];
   const { inst, run } = await S.setup('no-rule', {
     instance: { graph: F.nodeGraph({ nodes }) },
@@ -161,6 +162,49 @@ test('K5: with no rule online, backup counts keys as it always has, in one read 
   const log = F.calls(inst.state, 'cypher');
   assert(log.some((e) => e.what === 'show-indexes' || e.what === 'show-constraints'), 'backup asks whether the rule is online');
   assert(log.some((e) => e.what === 'keys') && !log.some((e) => e.what === 'walk-page'), `with no rule it reads the keys as before, without the walk; the fake saw ${show([...new Set(log.map((e) => e.what))])}`);
+  const reads = log.filter((e) => e.what === 'keys');
+  assert(reads.length >= 2 && reads.every((e) => e.streamed === true),
+    `each read of every key (before and after the offline window) goes through cypherEach, so the driver keeps no records (Amendment 2); got ${show(reads.map((e) => ({ streamed: !!e.streamed })))}`);
+});
+
+test('K6: _system.cypherEach hands each row on as a plain object as the driver delivers it — lib/neo4j-driver\'s streamCypher subscribes to the result, keeps no records, and closes its read session (ADR Amendment 2)', () => {
+  const SYSTEM = path.join(ROOT, 'src/operations/catalog/lifecycle/_system.js');
+  const DRIVER = path.join(ROOT, 'src/lib/neo4j-driver.js');
+  const dir = fs.mkdtempSync(path.join(S.base(), 'k6-'));
+  const script = path.join(dir, 'child.js');
+  fs.writeFileSync(script, [
+    `'use strict';`,
+    `for (const k of ['log', 'info', 'debug', 'warn']) console[k] = () => {};`,
+    `const seen = { sessions: [], closed: 0, awaited: false };`,
+    `const record = (k) => ({ keys: ['k'], get: (x) => (x === 'k' ? k : undefined) });`,
+    `const fake = {`,
+    `  auth: { basic: () => ({}) }, session: { READ: 'READ', WRITE: 'WRITE' }, isInt: () => false,`,
+    `  driver: () => ({ session: (opts) => { seen.sessions.push(opts && opts.defaultAccessMode); return {`,
+    `    run: () => ({`,
+    `      subscribe: (o) => { setTimeout(() => { for (const k of ['k-a', 'k-b', 'k-c']) o.onNext(record(k)); o.onCompleted({}); }, 5); },`,
+    `      then: (res) => { seen.awaited = true; res({ records: [] }); },`,
+    `    }),`,
+    `    close: async () => { seen.closed++; },`,
+    `  }; } }),`,
+    `};`,
+    `const npm = require.resolve('neo4j-driver', { paths: [${show(path.dirname(DRIVER))}] });`,
+    `require.cache[npm] = { id: npm, filename: npm, loaded: true, exports: fake };`,
+    `const lib = require(${show(DRIVER)});`,
+    `const sys = require(${show(SYSTEM)});`,
+    `const rows = [];`,
+    `(async () => {`,
+    `  if (typeof lib.streamCypher !== 'function' || typeof sys.cypherEach !== 'function') { process.stdout.write('RESULT:' + JSON.stringify({ missing: { streamCypher: typeof lib.streamCypher, cypherEach: typeof sys.cypherEach } }) + '\\n'); return; }`,
+    `  await sys.cypherEach('MATCH (n) WHERE n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k', {}, (row) => rows.push(row));`,
+    `  process.stdout.write('RESULT:' + JSON.stringify({ rows, seen }) + '\\n');`,
+    `})().catch((e) => process.stdout.write('RESULT:' + JSON.stringify({ threw: e.message }) + '\\n'));`,
+  ].join(NL));
+  const r = spawnSync(process.execPath, [script], { cwd: ROOT, encoding: 'utf8', timeout: 30000, env: { ...process.env, HOME: dir } });
+  const line = String(r.stdout || '').split(NL).find((l) => l.startsWith('RESULT:'));
+  const out = line ? JSON.parse(line.slice(7)) : null;
+  assert(out && !out.missing && !out.threw, `src/lib/neo4j-driver.js exports streamCypher and _system.js cypherEach; got ${show(out)} ${String(r.stderr).slice(-300)}`);
+  assert(show(out.rows) === show([{ k: 'k-a' }, { k: 'k-b' }, { k: 'k-c' }]), `each record reaches onRow as a plain object, in order; got ${show(out.rows)}`);
+  assert(out.seen.awaited === false, 'the result is subscribed to, never awaited as a whole (which would keep every record)');
+  assert(show(out.seen.sessions) === show(['READ']) && out.seen.closed === 1, `one read session, closed at the end; got ${show(out.seen)}`);
 });
 
 module.exports = { run: () => S.run() };

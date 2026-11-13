@@ -4,7 +4,7 @@
  * graph-operations-foundation/0002. Test-only; nothing here reaches a live instance.
  *
  *   fakeSystem(stateFile)   a stand-in for src/operations/catalog/lifecycle/_system.js (ADR Decision 8): supervisor,
- *                           programStatus, neo4jAdmin, cypher, version, freeBytes and sleep, over a graph kept in a
+ *                           programStatus, neo4jAdmin, cypher, cypherEach, version, freeBytes and sleep, over a graph kept in a
  *                           JSON state file, so the parent test can read what happened after the child exits.
  *   makeInstance(...)       a temporary instance: its secure-keys folder with a real encrypted assistant key (made with
  *                           the instance's own SecureKeyStorage), its conf, its settings, its backups folder, its fake
@@ -483,6 +483,18 @@ function fakeSystem(stateFile) {
       if (/RETURN\s+1\b/i.test(q)) { note('ping'); return one(1, '1'); }
       note('unknown');
       throw new Error(`the fake graph database doesn't know this query: ${q}`);
+    },
+    /**
+     * ADR graph-operations-foundation/0003 Amendment 2: a read whose rows go to onRow one at a time. It answers what
+     * cypher would, and its log entry is cypher's, marked streamed: true, so traces read the same either way.
+     */
+    async cypherEach(query, params = {}, onRow) {
+      const rows = await this.cypher(query, params);
+      const s = load();
+      const last = s.log[s.log.length - 1];
+      if (last && last.call === 'cypher') last.streamed = true;
+      save(s);
+      for (const row of rows) onRow(row);
     },
     async version() { return load().version; },
     async freeBytes(p) {
