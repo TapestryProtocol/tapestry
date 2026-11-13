@@ -3,6 +3,7 @@
 **Story:** `engineering-team/stories/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.md`
 **ADR:** none. This is a bug on the Standard bug path; the owner chose to skip Architecture on 2026-11-13.
 **Date:** 2026-11-13
+**Approved:** by the owner, 2026-11-13, with the amendment to `status.test.js` P7.
 
 Every test is stack-free. Each test graph runs in a child process, with two modules replaced:
 
