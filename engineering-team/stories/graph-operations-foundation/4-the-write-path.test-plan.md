@@ -132,3 +132,57 @@ Why each fails:
 - **The fake graph's own suite passes** (F1–F7), so the suites above fail for the graph's reasons, not the fake's.
 
 The helpers' other users still pass: `node test/external-cli.test.js` gives 53 passed and 0 failed, after `externalCliServer.js`'s change. The lifecycle suites above pass after the harness's and `nodeCypherFake.js`'s.
+
+### After Implementation: the suites (2026-11-14)
+
+On the implementation commit `e84018c9` plus the reserved-type message's rewording:
+- `node test/operations.test.js`: 263 passed, 0 failed. That covers every new suite (the fake graph's now at 8 with F4b) and every lifecycle suite, with the tapestry keys' G4 among them.
+- `node test/external-cli.test.js`: 53 passed, 0 failed.
+- The access sweeps, `admin-action-sweep`, `admin-action-sweep-access` and `close-unauth-write-surface`: 9, 13 and 14 passed.
+
+The full gate (`npm test`) runs in CI on the pull request, since on the Mac Studio it writes to the local instance.
+
+### The live check and the measurements (Implementation, 2026-11-14, on `e84018c9`)
+
+Run on the Mac Studio, on one throwaway instance from `scripts/scratch-stack.sh`. It booted from image `agent-memory-tapestry`, as story 3's did, with this branch's `src/` mounted and its `bin/control-panel.js` copied in. It had firmware 1.0.0 and no published ports, and was removed afterwards. Every call went through `docker exec` to `127.0.0.1:7778`, a direct-local caller recorded as `local`, except step 9's, which went through the instance's own nginx.
+
+1. **A type declared through today's route.**
+   - `POST /api/normalize/create-element` made `cites`, an element of the relationship type concept with alias CITES.
+   - That signing route added one relay event, 449 to 450, which is the baseline for every graph write below.
+2. **Add, repeat, two at once, remove.** All on Neo4j 5.26:
+   - Adding CITES from A to B answered `added` with its entry. The same call again answered `already-there`, with no entry.
+   - Two adds of A to C at once answered one `added` and one `already-there`. That left one CITES from A to C and one entry: `MERGE` held its lock.
+   - Entries carry `GraphChange` and `TapestryNode`.
+   - Removing A to B answered `removed`, with `count: 1` in its entry; again, `already-gone`.
+3. **The refusals:**
+   - `HAS_ELEMENT` on a superset's own class-thread edge: 409 `reserved-type`, and the edge was still there.
+   - `MENTIONS`: 409 `undeclared-type`.
+   - `FOLLOWS`: 409 `reserved-type`.
+   - A change entry's key as `to`: 404 `unknown-node`, input `to`.
+   - A text/plain body: 415 `wrong-content-type`.
+4. **A failure between the change and its entry.** A script in the instance ran a write through `write.js`'s real path. Its `apply` MERGEd a CITES from B to C (the counters said created 1), then answered a change holding a BigInt, so the entry's write failed ("Do not know how to serialize a BigInt"). Afterwards there was no CITES from B to C and still 3 entries: the transaction kept neither.
+5. **The indexes.** `graph_change_at` and `graph_change_by` weren't there after boot with the image's control panel. After this branch's control panel was restarted, both were ONLINE, on `GraphChange(at)` and `GraphChange(byPubkey)`.
+6. **History at 100,000 entries.** Loading 100,000 entries with Cypher took 2 s, which made 100,003. Each time below is curl's own, inside the instance, warm, on the second call:
+
+   | Filter | Time |
+   |---|---|
+   | none | 5.4 ms |
+   | by A, in 1 entry of 10 | 6.2 ms |
+   | by a rare node, in 10 of 100,000 | 47.6 ms |
+   | `by=local` | 4.2 ms |
+   | `since` | 5.0 ms |
+   | A and local | 4.7 ms |
+
+   PROFILE shows a NodeIndexScan of `graph_change_at` feeding a PartialTop. That is 105 database accesses for an unfiltered page, and 200,017 for the rare node, which reads every entry's keys (ADR 0004, debt 2).
+7. **Backup and restore.**
+   - `lifecycle backup` took the graph offline for 19.4 s. It held 103,153 nodes, the 100,003 entries included.
+   - An add after it brought the entries to 100,004.
+   - `lifecycle restore` of that backup took a safety backup, and the graph was offline for 25.5 s. Afterwards there were 100,003 entries, no CITES from B to C, and history's newest real entry was the removal from before the backup. Both indexes were ONLINE.
+8. **A firmware reinstall** took 109 s. It left the CITES relationship and the `cites` declaration in place, and `add-relationship` took CITES afterwards.
+9. **An admin agent through the external CLI.**
+   - The instance had a throwaway admin key made for this check, deleted after it.
+   - `clients/cli` was copied into the instance and pointed at its nginx (`http://127.0.0.1:80`), so the instance didn't trust it as local and it signed in with the instance's challenge.
+   - It added and removed a CITES from C to B, and `graph history --node C` read both entries back, newest first. Each was recorded as `admin` with the agent's pubkey. It was refused an undeclared type.
+10. **The relay.** The relay held 450 events after every graph write above, the same as the baseline. No graph write signed or sent anything.
+
+**Not checked live:** the graph database not answering. The path then fails with 500 `failed`, which W8 shows over the fake.

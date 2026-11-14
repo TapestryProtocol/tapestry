@@ -97,6 +97,29 @@ For Architecture, not this gate:
 - **How `by` names who made a change** (a hex pubkey, an npub), and history's cap and cursor.
 - **A firmware install and relationships it doesn't make.** Today's install can prune relationships the normalize primitives added (`src/api/normalize/relationships.js`'s hazard note). Check whether it can remove one of a type firmware doesn't declare.
 
+## Evidence
+
+### The live check (Implementation, 2026-11-14, on `e84018c9`)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every step and number is in the test plan's Verification. By criterion:
+
+- **AC1: passes.**
+  - An add answers `added` with its entry, and a repeat `already-there` with none.
+  - Two adds at once make one relationship and one entry.
+- **AC2: passes.**
+  - Reserved types (`HAS_ELEMENT` on a real class-thread edge, `FOLLOWS`) are refused 409 `reserved-type`, and the edge stays.
+  - An undeclared type is refused 409 `undeclared-type`.
+  - A change entry named as a node is refused 404 `unknown-node`.
+- **AC3: passes.** A removal is recorded with its count, and a repeat answers `already-gone`.
+- **AC4: passes.** A write whose entry couldn't be written kept neither the change nor an entry, on Neo4j's own transaction.
+- **AC5: passes.**
+  - History answers newest first, through the `graph_change_at` index. At 100,000 entries a page takes about 5 ms, and a node in 10 of them 48 ms, since it reads every entry (ADR debt 2).
+  - Both indexes are made at start.
+  - A restore brings back exactly the history of the graph it restores.
+- **AC6: passes.** A text/plain body is refused 415. The relay held 450 events before the first graph write and after the last.
+- **AC7: passes.** An admin agent with its own key, through the external CLI and the instance's nginx, added, removed and read back both entries, recorded as its own.
+- **Also,** a firmware reinstall leaves a relationship of a declared type, and its declaration, alone (Open questions, for Architecture).
+
 ## Deviations
 
 - **The rule "every graph write applies" moved from the loader to a gate test** over the shipped catalog (ADR 0004 Amendment 2, the owner's ruling at Implementation, 2026-11-14). Story 1's and story 6's fixture catalogs keep generic `graph` writes with `run`. W1 changed to match, in a Tester commit of its own.

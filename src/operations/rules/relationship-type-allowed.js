@@ -145,7 +145,7 @@ module.exports = {
       const type = item && typeof item.type === 'string' ? item.type : '';
       const maker = reservedBy(type);
       if (maker) {
-        out.push({ item, code: 'reserved-type', message: `${type} is reserved: ${maker} makes it, with the checks it needs. graph add-relationship and remove-relationship take only a relationship type an owner or admin declares.` });
+        out.push({ item, code: 'reserved-type', message: `${type} is reserved: it is made by ${maker}, with the checks it needs. graph add-relationship and remove-relationship take only a relationship type an owner or admin declares.` });
         continue;
       }
       if (!declared) { handle = conceptHandle(); declared = await declaredTypes(read, handle); }
