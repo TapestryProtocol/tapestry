@@ -10,7 +10,8 @@
  *   - express.json() and a real express-session (its MemoryStore, so the CLI's cookie is a real one);
  *   - the REAL central auth middleware (src/middleware/auth.js);
  *   - the REAL sign-in handlers: POST /api/auth/verify-user, /api/auth/login-user and /api/auth/logout;
- *   - registerOperationRoutes over the fixture catalog at spec.catalogDir.
+ *   - registerOperationRoutes over the fixture catalog at spec.catalogDir (or the real one), over the graph kept in
+ *     spec.graphFakeState when it is given (story graph-operations-foundation #4).
  * Every request carries X-Forwarded-For before the central check sees it, as nginx traffic does, so no request is
  * trusted as a direct-local caller: the CLI has to sign in, as it does on a real instance.
  *
@@ -82,6 +83,15 @@ async function main() {
     app.post('/api/auth/verify-user', handleAuthVerifyUser);
     app.post('/api/auth/login-user', handleAuthLoginUser);
     app.post('/api/auth/logout', handleAuthLogout);
+    // spec.graphFakeState (story graph-operations-foundation #4, ADR graph-operations-foundation/0004 Decision 9): the
+    // graph operations read and write the graph kept in that file, through test/helpers/graphFake.js.
+    if (spec.graphFakeState) {
+      const seamFile = path.join(ROOT, 'src/operations/graph.js');
+      if (!fs.existsSync(seamFile)) throw new Error('src/operations/graph.js does not exist yet (ADR graph-operations-foundation/0004 Decision 9)');
+      const seam = require(seamFile);
+      const fake = require(path.join(__dirname, 'graphFake.js')).fakeGraph(spec.graphFakeState);
+      for (const k of ['writeTransaction', 'read']) seam[k] = fake[k];
+    }
     registerOperationRoutes(app, { dir: spec.catalogDir });
   }
 

@@ -107,5 +107,5 @@ For Architecture, not this gate:
 - Story 3, whose keys name the nodes: [3-a-tapestry-key-on-every-node.md](3-a-tapestry-key-on-every-node.md)
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0004-the-write-path.md](../../decisions/graph-operations-foundation/0004-the-write-path.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [4-the-write-path.test-plan.md](4-the-write-path.test-plan.md)
 - Review: (filled in after Review phase)

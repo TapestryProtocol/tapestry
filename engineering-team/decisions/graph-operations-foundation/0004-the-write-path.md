@@ -300,3 +300,7 @@ Design §7 points to the document.
 - Read visibility beyond sign-in (catalog §10, question 1).
 - Publishing an edge as a letter (A10.34).
 - Shipping to staging or production, which waits for the owner's OK.
+
+## Amendment 1 (2026-11-14, at Test Design) — `SERVES` is reserved too
+
+The Tester's scan of every relationship type `src/` names in Cypher found one that Context 4 missed: `SERVES`, the second brain's goal tree, which its Rationale page walks (`src/api/brain/index.js:791–802`). Decision 6's constant gains it, attributed to "the second brain's goals". The test that guards the list (Consequences, debt 4) is the one that found it. It fails on any type the code names that the list doesn't hold, so the next one is caught the same way.
