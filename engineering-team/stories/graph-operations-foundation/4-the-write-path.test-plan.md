@@ -119,7 +119,7 @@ operations: 208 passed, 54 failed, 0 skipped
 Why each fails:
 
 - **Against today's code**, which runs and is wrong:
-  - W1–W3: the loader accepts a graph write with `run`, and refuses `apply` as "it has no run function".
+  - W1–W3: the loader refuses `apply` as "it has no run function". The shipped catalog has no graph write yet, and W1 holds that every one of them applies (ADR 0004 Amendment 2, the owner's ruling at Implementation).
   - W11: a `run` write sent as text/plain answers 200.
   - W11b: a body-less POST to lifecycle backup takes a real backup: "got 200 … backup 20261114T161310Z-…".
   - W12: route "graph cant-serialize failed: it will not serialize", command "graph cant-serialize failed: undefined".

@@ -304,3 +304,12 @@ Design §7 points to the document.
 ## Amendment 1 (2026-11-14, at Test Design) — `SERVES` is reserved too
 
 The Tester's scan of every relationship type `src/` names in Cypher found one that Context 4 missed: `SERVES`, the second brain's goal tree, which its Rationale page walks (`src/api/brain/index.js:791–802`). Decision 6's constant gains it, attributed to "the second brain's goals". The test that guards the list (Consequences, debt 4) is the one that found it. It fails on any type the code names that the list doesn't hold, so the next one is caught the same way.
+
+## Amendment 2 (2026-11-14, at Implementation; the owner's ruling) — a test over the shipped catalog holds "every graph write applies"
+
+Decision 1 had the loader refuse a `graph` write that declares `run`. The loader, though, serves any catalog it is pointed at. Story 1's and story 6's suites point it at fixture catalogs whose generic `graph` writes declare `run` (`graph/write-thing` and `graph/needs-approval`), so a loader rule would leave those fixtures out and break both suites. The owner ruled (2026-11-14) that the rule moves to a test:
+
+- **The loader** still refuses `apply` on a read, and a declaration with both `run` and `apply` (Decision 1). It refuses nothing more of a graph write.
+- **The gate holds "every graph write applies"** with a test over the shipped catalog. Every write in `src/operations/catalog/graph/` declares `apply` and no `run`. A graph write added with `run` fails in CI, rather than going quietly missing from an instance.
+
+The write path's suite (W1) checks both. Story 1's and story 6's suites are unchanged.

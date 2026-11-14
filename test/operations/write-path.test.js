@@ -8,8 +8,10 @@
  * relationship and can refuse or fail after it has written, and the declarations the loader must leave out. The
  * graph is test/helpers/graphFake.js's, kept in a file the test reads afterwards.
  *
- *   W1  a graph write that declares run, a read that declares apply, and a write that declares both are left out;
- *       a lifecycle write that declares run still loads
+ *   W1  a read that declares apply, and a write that declares both run and apply, are left out; a lifecycle write
+ *       with run still loads; and every write in the shipped catalog's graph group declares apply and no run (ADR
+ *       0004 Amendment 2: the gate, not the loader, holds that rule, since other suites' fixture catalogs keep
+ *       graph writes with run)
  *   W2  an apply write with no repeatKey, an empty one, one naming an input it doesn't declare, a guard naming a rule
  *       there isn't, or a result that doesn't declare `change`, is left out
  *   W3  a write through the path lists its guards and repeatKey, its refusals include its guard's, and /docs says both
@@ -178,16 +180,34 @@ const leftOutBecause = (list) => {
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-test('W1: a graph write that declares run, a read that declares apply, and a write that declares both are left out; a lifecycle write with run still loads', () => {
+test('W1: a read with apply, and a write with run and apply, are left out; every graph write in the shipped catalog applies', () => {
   const { req } = S.answered(main().r);
   const list = req('list');
   assert(list.status === 200, `the list must answer 200; got ${list.status} ${show(list.body)}`);
-  for (const f of ['graph/write-with-run.js', 'graph/read-with-apply.js', 'graph/both.js']) {
+  for (const f of ['graph/read-with-apply.js', 'graph/both.js']) {
     const p = problemFor(list, f);
     assert(p && /apply/.test(p.problem), `${f} must be left out with a problem naming apply (ADR 0004 Decision 1); its problem: ${show(p || null)}`);
   }
   assert(!problemFor(list, 'lifecycle/keeps-run.js'), `a lifecycle write keeps run and still loads; got ${show(problemFor(list, 'lifecycle/keeps-run.js'))}`);
   assert(((list.body.data.operations || []).some((o) => o.group === 'lifecycle' && o.name === 'keeps-run')), 'lifecycle keeps-run must be listed');
+  // The shipped catalog (ADR 0004 Amendment 2): every graph write declares apply and no run. It holds the story's two
+  // writes, so the check is never true of an empty group.
+  const child = spawnSync(process.execPath, ['-e', `
+    const { loadOperations } = require(${JSON.stringify(path.join(ROOT, 'src/operations/index.js'))});
+    const { operations, problems } = loadOperations();
+    const writes = operations.filter((o) => o.group === 'graph' && o.kind === 'write')
+      .map((o) => ({ name: o.name, apply: typeof o.declaration.apply === 'function', run: typeof o.declaration.run === 'function' }));
+    const graphProblems = problems.filter((p) => p.file.startsWith('graph/'));
+    process.stdout.write('RESULT:' + JSON.stringify({ writes, graphProblems }));
+  `], { cwd: ROOT, encoding: 'utf8', env: S.childEnv(tmp('write-path-catalog-check-')) });
+  const line = (child.stdout || '').split('RESULT:')[1];
+  assert(line, `the shipped catalog's check must run: ${(child.stderr || '').slice(-400)}`);
+  const { writes, graphProblems } = JSON.parse(line);
+  assert(!graphProblems.length, `the shipped catalog's graph group loads with no problems; got ${show(graphProblems)}`);
+  const names = writes.map((w) => w.name).sort();
+  for (const n of ['add-relationship', 'remove-relationship']) assert(names.includes(n), `the shipped catalog declares graph ${n} as a write; its graph writes: ${show(names)}`);
+  const runs = writes.filter((w) => !w.apply || w.run);
+  assert(!runs.length, `every graph write in the shipped catalog declares apply and no run (ADR 0004 Amendment 2); these don't: ${show(runs)}`);
 });
 
 test('W2: an apply write with no repeatKey, an empty one, a stray one, an unknown guard, or no `change` in its result is left out', () => {
