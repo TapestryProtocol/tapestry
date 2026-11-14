@@ -158,6 +158,7 @@ const suites = [
   { file: 'rollup-scanners.test.js' },
   { file: 'stack-free-npm-test.test.js' },
   { file: 'ci-test-job.test.js' },
+  { file: 'workflow-hardening.test.js' },
   { file: 'sync-panel-tag-filters.test.js' },
   { file: 'router-stream-tag-filters.test.js' },
   { file: 'deploy-safety-status.test.js', skipNote: 'preconditions not met' },
