@@ -106,6 +106,6 @@ For Architecture, not this gate:
 - Story 2, whose backup carries the entries: [2-lifecycle-backup-and-restore.md](2-lifecycle-backup-and-restore.md)
 - Story 3, whose keys name the nodes: [3-a-tapestry-key-on-every-node.md](3-a-tapestry-key-on-every-node.md)
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-foundation/0004-the-write-path.md](../../decisions/graph-operations-foundation/0004-the-write-path.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
