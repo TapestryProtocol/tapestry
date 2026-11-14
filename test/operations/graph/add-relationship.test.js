@@ -173,8 +173,9 @@ test('AR9: a visitor is refused 401 and a stranger 403, and neither changes anyt
   const { a, k } = main();
   const v = a.req('ar9-visitor');
   const s = a.req('ar9-stranger');
-  assert(v.status === 401 && v.body.code === 'sign-in-required', `a visitor: 401 sign-in-required; got ${v.status} ${show(v.body)}`);
-  assert(s.status === 403 && s.body.code === 'not-allowed', `a stranger: 403 not-allowed; got ${s.status} ${show(s.body)}`);
+  // The central check answers first, in its own words (ADR 0001 Decision 3), as story 1's H5 reads it.
+  assert(v.status === 401 && v.body.success === false && /owner/i.test(String(v.body.error)), `a visitor: 401, told who may call; got ${v.status} ${show(v.body)}`);
+  assert(s.status === 403 && s.body.success === false && /owner/i.test(String(s.body.error)), `a stranger: 403, told who may call; got ${s.status} ${show(s.body)}`);
   assert(between('CITES', k.B, k.U).length === 0, 'neither added anything');
 });
 
