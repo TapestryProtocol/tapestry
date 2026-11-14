@@ -265,21 +265,30 @@ test('P6: every answer, known or not, matches the declaration\'s own result sche
 
 test('P7: readInstallState and readTapestryKeyCounts are exported, and GET /api/tapestry-key/status answers exactly as before', () => {
   const out = child(wrap([
-    `const keyRows = [{ tk: 'k1' }, { tk: 'k2' }, { tk: 'k3' }];`,
-    `const countRows = [{ initialized: true, count: 3 }, { initialized: false, count: 1 }];`,
+    // Three keyed nodes with an address (k1 cached, k2 empty, k3 not cached) and one with an address and no key. The
+    // tapestry-key reads run over them through test/helpers/nodeCypherFake.js, so how the counts are read is free
+    // (story graph-operations-foundation #7; before it, this stub answered the two queries of the time by their text).
+    `const graph = [`,
+    `  { labels: ['NostrEvent', 'TapestryNode'], props: { uuid: 'n1', id: 'e1', tapestryKey: 'k1' } },`,
+    `  { labels: ['NostrEvent', 'TapestryNode'], props: { uuid: 'n2', id: 'e2', tapestryKey: 'k2' } },`,
+    `  { labels: ['ListItem', 'TapestryNode'], props: { uuid: 'n3', tapestryKey: 'k3' } },`,
+    `  { labels: ['NostrEvent'], props: { id: 'e4' } },`,
+    `];`,
+    `const graphDb = require(${show(path.join(ROOT, 'test/helpers/nodeCypherFake.js'))}).driverStub(graph);`,
     `let present = new Set();`,
     // The stubs go in before anything that might require the real modules.
     stub('src/lib/neo4j-driver.js', `{
       runCypher: async (cypher, params) => {
         if (/h:NostrEvent \\{uuid: \\$uuid\\}/.test(cypher)) return present.has(String(params.uuid).split(':').pop()) ? [{ uuid: params.uuid }] : [];
-        if (/AS tk/.test(cypher)) return keyRows;
-        return countRows;
+        return graphDb.runCypher(cypher, params);
       },
+      streamCypher: graphDb.streamCypher,
       writeCypher: async () => [], explainCypher: async () => [], getDriver: () => null, closeDriver: async () => {}, toJS: (v) => v,
     }`),
+    `const cacheGet = (k) => ({ k1: { data: { a: 1 } }, k2: { data: {} } })[k] || null;`,
     stub('src/lib/tapestry-store.js', `{
-      get: (k) => ({ k1: { data: { a: 1 } }, k2: { data: {} } })[k] || null,
-      put: async () => ({}), remove: async () => {}, stats: () => ({ count: 2 }), listKeys: () => [], close: () => {}, getDb: () => null,
+      get: cacheGet, getDb: () => ({ get: cacheGet, getMany: (ks) => ks.map(cacheGet) }),
+      put: async () => ({}), remove: async () => {}, stats: () => ({ count: 2 }), listKeys: () => [], close: () => {},
     }`),
     `const manifest = require(${show(path.join(ROOT, 'src/api/normalize/firmware.js'))}).getManifest();`,
     `present = new Set(manifest.concepts.slice(0, 2).map((c) => c.slug));`,

@@ -29,9 +29,11 @@ function uuidv4() {
 // ── Status ──
 
 /**
- * Counts of the nodes with and without a tapestryKey, and of what the LMDB holds for each keyed node: derived (a
- * Tapestry JSON with data), empty, or missing. The answer of GET /api/tapestry-key/status, and lifecycle status's
- * cache part (ADR graph-operations-foundation/0001 Decision 11).
+ * Counts of the nodes with an address (a uuid or an id), with and without a tapestryKey, and of what the LMDB holds for
+ * each of those keyed nodes: derived (a Tapestry JSON with data), empty, or missing. The answer of
+ * GET /api/tapestry-key/status, and lifecycle status's cache part (ADR graph-operations-foundation/0001 Decision 11).
+ * Only the addressed nodes' keys are read and looked up, so the LMDB figures add up to `initialized`; since
+ * tapestry-keys, every NostrUser and tag node has a key too (story graph-operations-foundation #7).
  * @returns {Promise<{ initialized: number, uninitialized: number, total: number, lmdb: { derived: number, empty: number, missing: number } }>}
  */
 async function readTapestryKeyCounts() {
@@ -53,12 +55,13 @@ async function readTapestryKeyCounts() {
   }
   result.total = result.initialized + result.uninitialized;
 
-  // For each initialized node, check its LMDB status
+  // For each initialized node counted above (the same address filter), check its LMDB status
   let lmdbDerived = 0, lmdbEmpty = 0, lmdbMissing = 0;
   if (result.initialized > 0) {
     const keyRows = await runCypher(`
       MATCH (n)
-      WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
+      WHERE (n.uuid IS NOT NULL OR n.id IS NOT NULL)
+        AND n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
       RETURN n.tapestryKey AS tk
     `);
     for (const row of keyRows) {
