@@ -49,6 +49,10 @@ const RAW_PUBLISH_ALLOWED = [
   'pages/tapestries/useCreateTapestry.js',
   'pages/tapestries/AddConceptToTapestry.jsx',
   'pages/tapestries/RemoveConceptFromTapestry.jsx',
+  // Republishes one addressable event (kind:pubkey:d) at its own address, only when the instance's Tapestry
+  // Assistant authored it, and signs it as the assistant (signAs: 'assistant'): the viewer's kind 3 and
+  // kind 10040 are signed by the viewer, so they never pass through here.
+  'pages/reading/writeVerbs.js',
 ];
 
 const tests = [];
