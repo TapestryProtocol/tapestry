@@ -171,6 +171,16 @@ fails on that one test.
   `paths` list, so it rolls the brains: that run must succeed too. `main`, `feat/tags` and `feature-magic-carpet`
   run their own copies, which change when the change reaches them.
 
+### `V3`, as it ran
+
+- **First run, before the fix for S2 was on `staging`** (run `43529310291`, head `7f5245a0`, 2026-11-13). Checkout
+  and Node setup ran from their pinned commits, `npm ci` succeeded, and `npm test` ended 7,089 passed, 1 failed, 593
+  skipped across 339 suites. The one failure was `setup-alert-polish`, the known red. That is the second reading
+  under "How that run is read".
+- **The fix then landed** (TapestryProtocol/tapestry#51, 2026-11-14), on the owner's choice to merge it first, and
+  `staging` was merged into the branch again so that a new run tests against it. That run's result is on the pull
+  request; a result that is not green is a finding.
+
 ### The new tests fail with the current code
 
 Confirmed on 2026-11-13 at commit `1dc1ca44`, with this phase's test changes in the working tree and no workflow or
