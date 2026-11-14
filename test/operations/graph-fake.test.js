@@ -9,6 +9,7 @@
  *   F2 MERGE between two nodes found by tapestryKey makes one relationship, and says so in its counters, once
  *   F3 a MATCH and DELETE removes every such relationship and counts them; a count answers one row even when none
  *   F4 the CREATE of a GraphChange node keeps its map, its randomUUID() and its SET, and a null SET leaves it out
+ *   F4b with keyNode(c) after it (ADR 0003 Decision 8), the node gets the shared label and a key
  *   F5 the declared types' read walks the concept's class thread to each element's json tag
  *   F6 a transaction that throws keeps nothing; one that resolves keeps everything; a read refuses to write
  *   F7 a statement it doesn't run says so, naming it
@@ -74,6 +75,18 @@ test('F4: the CREATE of a GraphChange node keeps its map, its randomUUID() and i
   assert(/^[0-9a-f-]{36}$/.test(c.tapestryKey) && c.at === p.at && c.byRole === 'local' && show(c.keys) === show([s.keys.A]), `the node holds its map; got ${show(c)}`);
   assert(!('byPubkey' in c), `a null SET leaves the property out; got ${show(c)}`);
   assert(show(c._labels) === show(['GraphChange', 'TapestryNode']) && out.counters.nodesCreated === 1, 'it carries both labels, and its counters say a node was made');
+});
+
+test('F4b: with keyNode(c) after the CREATE (ADR 0003 Decision 8), the node gets the shared label and a key', async () => {
+  const s = fresh();
+  const fake = G.fakeGraph(s.path);
+  const { keyNode } = require('../../src/lib/tapestry-key-cypher');
+  const q = `CREATE (c:GraphChange {at: $at, byRole: $role}) ${keyNode('c')} SET c.byPubkey = $pubkey RETURN c.tapestryKey AS id`;
+  const out = await fake.writeTransaction((tx) => tx.run(q, { at: '2026-11-14T00:00:00.000Z', role: 'admin', pubkey: 'bb'.repeat(32) }));
+  const id = out.rows[0].id;
+  const kept = S.readState(s.path).nodes.find((n) => n.props.tapestryKey === id);
+  assert(/^[0-9a-f-]{36}$/.test(id) && kept, `the node has a key, and the RETURN reads it; got ${show(out)}`);
+  assert(show(kept.labels) === show(['GraphChange', 'TapestryNode']) && kept.props.byPubkey === 'bb'.repeat(32) && kept.props.at === '2026-11-14T00:00:00.000Z', `it carries the shared label, its map and its SET; got ${show(kept)}`);
 });
 
 test('F5: the declared types\' read walks the concept\'s class thread to each element\'s json tag', async () => {

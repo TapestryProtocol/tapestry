@@ -23,7 +23,9 @@
  *     `….name`;
  *   - MERGE of a relationship, `MERGE (a)-[r:TYPE]->(b)`, between two nodes the statement finds by tapestryKey;
  *   - a MATCH of a relationship between two such nodes, then DELETE of it;
- *   - CREATE of a GraphChange node with a property map, then SET of its properties (Decision 5).
+ *   - CREATE of a GraphChange node with a property map, then SET of its properties (Decision 5), with or without
+ *     src/lib/tapestry-key-cypher.js's keyNode(v) fragment after it, which gives the node the shared label and a key
+ *     where it lacks either (ADR 0003 Decision 8, the one rule for every node a statement makes).
  * A node is found by tapestryKey through `(v… {tapestryKey: $p})` or `v.tapestryKey = $p`, must carry every label the
  * pattern names for it, and is left out when the statement says `NOT v:GraphChange` and it is an entry. An aggregate
  * RETURN (count) answers one row even when nothing matched, as Cypher's does.
@@ -36,6 +38,7 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const { runQuery } = require('./nodeCypherFake');
+const { keyNode } = require('../../src/lib/tapestry-key-cypher');
 
 const oneLine = (q) => String(q).replace(/\s+/g, ' ').trim();
 function cantRun(why, q) {
@@ -189,8 +192,16 @@ function readDeclared(s, q, params) {
   });
 }
 
-function createEntry(s, q, params) {
+function createEntry(s, query, params) {
   if (s.failures && s.failures.entry) throw new Error('the fake graph failed while writing the change entry (failures.entry)');
+  // keyNode(v) after the CREATE: read as "the label and a key where either is missing", then set aside.
+  let q = query;
+  let keyed = false;
+  const made = String(query).match(/\bCREATE\s*\(\s*(\w+)/);
+  if (made) {
+    const fragment = oneLine(keyNode(made[1]));
+    if (oneLine(query).includes(fragment)) { q = oneLine(query).replace(fragment, ' '); keyed = true; }
+  }
   const m = q.match(/\bCREATE\s*\(\s*(\w+)\s*((?::\s*[A-Za-z_]\w*\s*)+)(\{[\s\S]*?\})?\s*\)/);
   if (!m) throw cantRun('a CREATE it can\'t read', q);
   const v = m[1];
@@ -210,6 +221,11 @@ function createEntry(s, q, params) {
       if (val === null) delete props[am[1]]; else { props[am[1]] = val; propertiesSet++; }
     }
   }
+  let labelsAdded = labels.length;
+  if (keyed) {
+    if (!labels.includes('TapestryNode')) { labels.push('TapestryNode'); labelsAdded++; }
+    if (props.tapestryKey === undefined || props.tapestryKey === null || props.tapestryKey === '{}') { props.tapestryKey = crypto.randomUUID(); propertiesSet++; }
+  }
   const n = { eid: s.nextEid++, labels, props };
   s.nodes.push(n);
   const rows = returnItems(q).length ? [Object.fromEntries(returnItems(q).map(({ expr, alias }) => {
@@ -218,7 +234,7 @@ function createEntry(s, q, params) {
     if (pm) return [alias, props[pm[1]] === undefined ? null : props[pm[1]]];
     throw cantRun(`a RETURN item it can't read after the CREATE (${expr})`, q);
   }))] : [];
-  return { rows, counters: { ...zero(), nodesCreated: 1, labelsAdded: labels.length, propertiesSet } };
+  return { rows, counters: { ...zero(), nodesCreated: 1, labelsAdded, propertiesSet } };
 }
 
 const REL_TYPE = '`?([A-Za-z][A-Za-z0-9_]*)`?';
