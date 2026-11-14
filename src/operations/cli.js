@@ -20,7 +20,7 @@
  */
 
 const util = require('util');
-const { loadOperations, callOperation, runAfterAnswer } = require('./index');
+const { loadOperations, callOperation, runAfterAnswer, failureMessage } = require('./index');
 const { GROUPS } = require('./groups');
 const { hasFileBody, limitStream, writeTo } = require('./files');
 
@@ -144,7 +144,7 @@ async function run(argv, out, err, opts, io = {}) {
       text = JSON.stringify(answer.body, null, 2);
     } catch (e) {
       // A result that can't be sent as JSON is this operation's failure, answered as the route answers it.
-      out(`${JSON.stringify({ success: false, error: `${op.group} ${op.name} failed: ${e.message}`, code: 'failed' }, null, 2)}\n`);
+      out(`${JSON.stringify({ success: false, error: `${op.group} ${op.name} failed: ${failureMessage(e)}`, code: 'failed' }, null, 2)}\n`);
       return 3;
     }
     out(`${text}\n`);

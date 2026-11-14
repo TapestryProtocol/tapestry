@@ -1,6 +1,6 @@
 # Graph Operations — a Neo4j-First Operations Stack — Design Handoff
 
-**Status:** 🔴 OPEN: scoping in progress. Fifteen decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, the Tapestry Graph Conjecture is in §9, and the first book, open since 2026-11-07, has its acceptance frame in §8. Built so far, each with its story and ADR under `engineering-team/` (epic `graph-operations-foundation`): the operation declaration with `lifecycle status` (Loom A10.1, ADR 0001), backup and restore (A10.2, ADR 0002), and a tapestryKey on every node under the shared label `TapestryNode`, with `lifecycle migrate` for today's nodes (A10.3, ADR 0003; D6, §7's first rule and the frame's Foundation item in part). BIBLE §6 and §29 describe the label and the keys; no other BIBLE text exists yet.
+**Status:** 🔴 OPEN: scoping in progress. Fifteen decisions are settled (§3); the open questions are in §5, in the order planned. The owner's draft core rules for the rulebook are in §7, the Tapestry Graph Conjecture is in §9, and the first book, open since 2026-11-07, has its acceptance frame in §8. Built so far, each with its story and ADR under `engineering-team/` (epic `graph-operations-foundation`): the operation declaration with `lifecycle status` (Loom A10.1, ADR 0001), backup and restore (A10.2, ADR 0002), a tapestryKey on every node under the shared label `TapestryNode`, with `lifecycle migrate` for today's nodes (A10.3, ADR 0003; D6, §7's first rule and the frame's Foundation item in part), and the write path, proved with `graph add-relationship`, `remove-relationship` and `history` (A10.4, ADR 0004: guards, one transaction per write with its change entry, and no signing). BIBLE §6 and §29 describe the label and the keys; no other BIBLE text exists yet.
 **Created:** 2026-11-07
 **Provenance:** Scoped in direct conversation with the owner on 2026-11-07 (his Claude Code session `1a32c5d2` on the Mac Studio; part of it in advisory mode, `/discuss` with the Product Expert lens). This is the **Capture** step of the Protocol-Spec Workflow ([engineering-team/workflows/protocol-spec-workflow.md](../engineering-team/workflows/protocol-spec-workflow.md)): settled decisions and open questions, recorded so nothing lives only in the transcript. Every decision in §3 says where it came from. Every quotation credited to the owner is his own typing, with only typography tidied (the rules in [design-philosophies/README.md](../design-philosophies/README.md)); everything not credited to him is drafting. Check his quotes against the session transcript, not against this file.
 **Reviewed by the owner:** not yet.
@@ -153,6 +153,8 @@ The full draft list, with each operation's inputs, results, refusals and today's
 About 30 operations in all.
 
 ## 7. The rules document (to write)
+
+**The rules document is [GRAPH_RULES.md](GRAPH_RULES.md),** started with the rules that are built: A10.3's tapestryKey rule and A10.4's `relationship-type-allowed`. Each rule is written there as its guard or check is built (§8, step 3).
 
 **The rulebook's structure (owner, 2026-11-07; rules he is contemplating, not yet decided).** Three rules that every node and relationship meets:
 

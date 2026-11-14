@@ -97,6 +97,16 @@ For Architecture, not this gate:
 - **How `by` names who made a change** (a hex pubkey, an npub), and history's cap and cursor.
 - **A firmware install and relationships it doesn't make.** Today's install can prune relationships the normalize primitives added (`src/api/normalize/relationships.js`'s hazard note). Check whether it can remove one of a type firmware doesn't declare.
 
+## Deviations
+
+- **The rule "every graph write applies" moved from the loader to a gate test** over the shipped catalog (ADR 0004 Amendment 2, the owner's ruling at Implementation, 2026-11-14). Story 1's and story 6's fixture catalogs keep generic `graph` writes with `run`. W1 changed to match, in a Tester commit of its own.
+- **The entry's CREATE carries `keyNode('c')`** in place of writing `tapestryKey: randomUUID()` and the label itself. The outcome is the same: the shared label and a random v4 key. ADR 0003 Decision 8 holds every Cypher that makes a node to that one fragment, and story 3's guard G4 checks it. The fake graph learned to read it, in a Tester commit with its own test (F4b).
+- **History's `LIMIT` is written into the query**, as a whole number the inputs' schema has already checked. The Neo4j driver sends a numeric parameter as a float, which `LIMIT` refuses.
+- **The guard reads the concept's header once on its own** before reading its elements, so that with no concept in the graph its refusal says so (R6).
+- **`since` is held to a real calendar time** (months 01–12, days to 31, hours to 23) by its pattern. A time `new Date()` can't read would otherwise fail with a 500.
+- **The JSON-only refusal tells the caller what to send:** `Content-Type: application/json`, and `{}` when the write takes no inputs.
+- **AR9 reads the central check's own 401 and 403,** as story 1's H5 does. On a POST, the central check answers first, with no code (ADR 0001 Decision 3), and AC7 names only the statuses. This was a Tester commit of its own.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet)

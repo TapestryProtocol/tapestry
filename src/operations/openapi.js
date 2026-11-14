@@ -57,8 +57,16 @@ function responsesFor(op) {
 }
 
 function entryFor(op) {
+  // A write through the write path (ADR graph-operations-foundation/0004 Decision 2): the rules it checks before it
+  // writes, and the inputs that make a call the same write.
+  const and = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  const path = op.guards ? [
+    op.guards.length ? `**Guards:** it checks ${and(op.guards.map((g) => `\`${g}\``))} before it writes, and refuses a write that breaks one (docs/GRAPH_RULES.md).` : '',
+    `**Safe to repeat by** ${and(op.repeatKey.map((k) => `\`${k}\``))}: calling it again with the same ones changes nothing and records nothing. Every change it makes is recorded as a change entry, which \`graph history\` reads back, and nothing is signed.`,
+  ] : [];
   const description = [
     op.description,
+    ...path,
     `**Who may call:** ${whoMayCall(op)}, and direct-local callers; 401 when not signed in, 403 for anyone else.`,
     `**Command:** \`${op.command}\`, in a shell inside the instance, with no sign-in.`,
   ].filter(Boolean).join('\n\n');

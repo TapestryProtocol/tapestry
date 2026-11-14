@@ -23,6 +23,7 @@ const { validateDeclaration, builtInRefusalsFor, METHODS } = require('./declarat
 const { checkInputs } = require('./inputs');
 const { isRefusal } = require('./refusal');
 const { hasFileResult } = require('./files');
+const { findRule } = require('./rules');
 
 const DEFAULT_DIR = path.join(__dirname, 'catalog');
 const PREFIX = '/api/tapestry';
@@ -30,6 +31,21 @@ const LIST_ROUTE = `${PREFIX}/operations`;
 const DECLARATION_FILE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.js$/;
 
 const loaded = new Map();
+
+/** How every surface words a failure: the thrown error's message, or the thing thrown (memo #96; ADR 0004 Decision 11). */
+function failureMessage(err) {
+  return (err && err.message) || String(err);
+}
+
+/** A write's guards' refusals, which it can return as its own (ADR graph-operations-foundation/0004 Decision 2). */
+function guardRefusals(decl) {
+  const out = [];
+  for (const g of decl.guards || []) {
+    const rule = findRule(g.rule);
+    for (const r of (rule && rule.refusals) || []) if (!out.some((x) => x.code === r.code)) out.push({ code: r.code, status: r.status, when: r.when });
+  }
+  return out;
+}
 
 /** A loaded operation: the declaration's facts, its route and command, and the declaration itself (for run). */
 function describe(decl, file) {
@@ -48,8 +64,12 @@ function describe(decl, file) {
       ? { description: decl.result.description || '', file: { contentType: decl.result.file.contentType } }
       : { description: decl.result.description || '', schema: decl.result.schema },
     body: decl.body ? { file: { contentTypes: [...decl.body.file.contentTypes], maxBytes: decl.body.file.maxBytes } } : null,
-    refusals: [...builtInRefusalsFor(decl), ...(decl.refusals || []).map(({ code, status, when }) => ({ code, status, when }))],
+    refusals: [...builtInRefusalsFor(decl), ...guardRefusals(decl), ...(decl.refusals || []).map(({ code, status, when }) => ({ code, status, when }))],
     declaredRefusals: decl.refusals || [],
+    // A write through the write path (ADR graph-operations-foundation/0004 Decision 2): its guards' names and its
+    // repeatKey, for the list and /docs; null for every other operation.
+    guards: typeof decl.apply === 'function' ? (decl.guards || []).map((g) => g.rule) : null,
+    repeatKey: typeof decl.apply === 'function' ? [...decl.repeatKey] : null,
     file,
     declaration: decl,
   });
@@ -115,7 +135,10 @@ async function callOperation(op, raw, context, { source = 'query' } = {}) {
   if (!checked.ok) return { status: 400, body: { success: false, ...checked.refusal }, after };
   const ctx = { ...context, afterAnswer: (fn) => { if (typeof fn === 'function') after.push(fn); } };
   try {
-    const data = await op.declaration.run(checked.inputs, ctx);
+    // A write that applies goes through the write path (ADR graph-operations-foundation/0004 Decisions 1 and 3).
+    const data = typeof op.declaration.apply === 'function'
+      ? await require('./write').applyWrite(op, checked.inputs, ctx)
+      : await op.declaration.run(checked.inputs, ctx);
     if (op.result.file) {
       const file = data && data.file;
       if (!file || typeof file.open !== 'function' || !Number.isInteger(file.size) || file.size < 0) {
@@ -131,14 +154,14 @@ async function callOperation(op, raw, context, { source = 'query' } = {}) {
       // Its own declared refusals, and the built-in ones it can get (a file body's `too-large`, which the body's
       // stream ends with, reaches the operation's run and comes back here).
       const declared = op.refusals.find((r) => r.code === err.code);
-      if (declared) return { status: declared.status, body: { success: false, error: err.message, code: err.code }, after };
+      if (declared) return { status: declared.status, body: { success: false, error: err.message, code: err.code, ...(err.extra || {}) }, after };
       return {
         status: 500,
         body: { success: false, error: `${op.group} ${op.name} failed: it refused with '${err.code}', which its declaration doesn't list (${err.message})`, code: 'failed' },
         after,
       };
     }
-    return { status: 500, body: { success: false, error: `${op.group} ${op.name} failed: ${(err && err.message) || String(err)}`, code: 'failed' }, after };
+    return { status: 500, body: { success: false, error: `${op.group} ${op.name} failed: ${failureMessage(err)}`, code: 'failed' }, after };
   }
 }
 
@@ -154,7 +177,8 @@ function listEntry(op) {
   const { group, name, summary, description, kind, access, method, route, command, inputs, result, refusals } = op;
   const entry = { group, name, summary, description, kind, access, method, route, command, inputs, result, refusals };
   if (op.body) entry.body = op.body;
+  if (op.guards) { entry.guards = [...op.guards]; entry.repeatKey = [...op.repeatKey]; }
   return entry;
 }
 
-module.exports = { loadOperations, findOperation, callOperation, runAfterAnswer, listEntry, DEFAULT_DIR, PREFIX, LIST_ROUTE };
+module.exports = { loadOperations, findOperation, callOperation, runAfterAnswer, listEntry, failureMessage, DEFAULT_DIR, PREFIX, LIST_ROUTE };

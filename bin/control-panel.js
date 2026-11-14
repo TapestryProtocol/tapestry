@@ -366,6 +366,15 @@ app.use(authMiddleware);
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
+  // The change entries' indexes, which graph history reads by (graph-operations-foundation ADR 0004 Decision 5). Made
+  // as the one above is: not awaited, never rejecting, and changing no data.
+  require('../src/lib/tapestry-node-index').ensureChangeIndexesOnBoot({
+    runWrite: (cypher, params) => require('../src/lib/neo4j-driver').writeCypher(cypher, params),
+    runRead: (cypher, params) => require('../src/lib/neo4j-driver').runCypher(cypher, params),
+    log: (line) => console.log(line),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+
   // Reconcile recurring schedules into BullMQ Job Schedulers (story #22 / ADR 0019).
   // Replaces the in-process setInterval scheduler. Requires the queue, so it is
   // gated on TASK_QUEUE_ENABLED and runs after initTaskQueue + api.register.

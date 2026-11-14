@@ -17,12 +17,21 @@
  *                 declared inputs come from the query string
  *   refusals      [{ code, status (4xx), when }] — the operation's own, optional
  *   run           async (inputs, context) => data
+ * or, for a write through the write path (story graph-operations-foundation #4, ADR graph-operations-foundation/0004
+ * Decisions 1 and 2), in place of run:
+ *   apply         async (inputs, ctx) => { data, changes }, with ctx.tx the write's transaction (src/operations/write.js)
+ *   guards        [{ rule, items: (inputs) => [...] }] — the rules it checks before it writes (src/operations/rules/)
+ *   repeatKey     the inputs that make two calls the same write, non-empty ("safe to repeat by …")
+ * and its result schema declares `change`, the change entry the path adds. A read has run; a write has run or apply,
+ * never both. That every graph write applies is held by a test over the shipped catalog, not here (ADR 0004
+ * Amendment 2): other suites' fixture catalogs keep graph writes with run.
  * Schemas use the subset OpenAPI 3.0 and ajv share. Other fields are allowed and ignored by the generators.
  */
 
 const Ajv = require('ajv');
 const { GROUPS, REFUSED_GROUPS } = require('./groups');
 const { hasFileBody } = require('./files');
+const { findRule } = require('./rules');
 
 const NAME_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const INPUT_NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
@@ -38,16 +47,20 @@ const BUILT_IN_REFUSALS = Object.freeze([
   { code: 'missing-input', status: 400, when: 'A required input left out', applies: (d) => Object.values(d.inputs || {}).some((i) => i && i.required) },
   { code: 'invalid-input', status: 400, when: 'An input of the wrong type, or out of range', applies: (d) => Object.keys(d.inputs || {}).length > 0 },
   { code: 'invalid-body', status: 400, when: 'A body that is not a JSON object', applies: (d) => d.kind === 'write' && !hasFileBody(d) },
-  { code: 'wrong-content-type', status: 415, when: 'A body of a type the operation does not take', applies: (d) => hasFileBody(d) },
+  // Every write, its JSON body's included (ADR graph-operations-foundation/0004 Decision 8).
+  { code: 'wrong-content-type', status: 415, when: 'A body of a type the operation does not take: application/json, or the file types it declares', applies: (d) => d.kind === 'write' },
   { code: 'too-large', status: 413, when: 'A body larger than the operation takes', applies: (d) => hasFileBody(d) },
   { code: 'sign-in-required', status: 401, when: 'Not signed in', applies: () => true },
   { code: 'not-allowed', status: 403, when: 'Signed in, but not someone the operation is for', applies: () => true },
 ]);
-// The two file-body codes are reserved only where they apply: a read that answers with a file may declare its own
-// `too-large` (ADR graph-operations-foundation/0002 Decision 1). Every other built-in code is reserved everywhere.
-const FILE_BODY_CODES = new Set(['wrong-content-type', 'too-large']);
-const RESERVED_CODES = new Set([...BUILT_IN_REFUSALS.map((r) => r.code).filter((c) => !FILE_BODY_CODES.has(c)), 'failed']);
-const reservedFor = (decl) => new Set([...RESERVED_CODES, ...(hasFileBody(decl) ? FILE_BODY_CODES : [])]);
+// Two codes are reserved only where they apply: a read that answers with a file may declare its own `too-large` (ADR
+// graph-operations-foundation/0002 Decision 1), and `wrong-content-type` is every write's (ADR 0004 Decision 8).
+// Every other built-in code is reserved everywhere.
+const WHERE_THEY_APPLY = new Set(['wrong-content-type', 'too-large']);
+const RESERVED_CODES = new Set([...BUILT_IN_REFUSALS.map((r) => r.code).filter((c) => !WHERE_THEY_APPLY.has(c)), 'failed']);
+const reservedFor = (decl) => new Set([...RESERVED_CODES,
+  ...(decl.kind === 'write' ? ['wrong-content-type'] : []),
+  ...(hasFileBody(decl) ? ['too-large'] : [])]);
 
 // One compiler for checking that a declaration's schemas compile (the meta-schema catches a nonsense type).
 const schemaChecker = new Ajv({ allErrors: true, strict: false });
@@ -92,7 +105,13 @@ function validateDeclaration(decl, where) {
   }
   if (!nonEmpty(decl.summary)) problems.push('it has no summary (one line, for /docs, the list and the command)');
   if (decl.description !== undefined && typeof decl.description !== 'string') problems.push('its description must be text');
-  if (typeof decl.run !== 'function') problems.push('it has no run function');
+  // run or apply (ADR graph-operations-foundation/0004 Decision 1)
+  const runs = typeof decl.run === 'function';
+  const applies = typeof decl.apply === 'function';
+  if (decl.apply !== undefined && !applies) problems.push('its apply must be a function');
+  if (runs && applies) problems.push('it has both run and apply: a write has one, and apply goes through the write path (ADR graph-operations-foundation/0004 Decision 1)');
+  else if (applies && decl.kind !== 'write') problems.push(`only a write has apply, which goes through the write path; its kind is ${JSON.stringify(decl.kind)}, and a read has run (ADR graph-operations-foundation/0004 Decision 1)`);
+  else if (!runs && !applies) problems.push('it has no run function');
 
   // inputs
   if (decl.inputs !== undefined && !isObject(decl.inputs)) {
@@ -134,6 +153,8 @@ function validateDeclaration(decl, where) {
     if (decl.kind !== 'write') problems.push(`only a write takes a file body; its kind is ${JSON.stringify(decl.kind)}`);
   }
 
+  if (applies) problems.push(...writePathProblems(decl));
+
   // refusals
   if (decl.refusals !== undefined && !Array.isArray(decl.refusals)) {
     problems.push('its refusals must be a list of { code, status, when }');
@@ -149,6 +170,30 @@ function validateDeclaration(decl, where) {
       if (!nonEmpty(r.when)) problems.push(`its refusal '${r.code}' must say when it happens (when)`);
     }
   }
+  return problems;
+}
+
+/** What a write through the write path must also declare (ADR graph-operations-foundation/0004 Decision 2). */
+function writePathProblems(decl) {
+  const problems = [];
+  const inputs = isObject(decl.inputs) ? Object.keys(decl.inputs) : [];
+  if (decl.repeatKey === undefined) problems.push('it has no repeatKey: the inputs that make two calls the same write (ADR graph-operations-foundation/0004 Decision 2)');
+  else if (!Array.isArray(decl.repeatKey) || !decl.repeatKey.length) problems.push('its repeatKey must name at least one of its inputs');
+  else {
+    for (const k of decl.repeatKey) if (!inputs.includes(k)) problems.push(`its repeatKey names ${JSON.stringify(k)}, which is not one of its inputs`);
+  }
+  if (decl.guards !== undefined && !Array.isArray(decl.guards)) problems.push('its guards must be a list of { rule, items }');
+  else {
+    for (const g of decl.guards || []) {
+      if (!isObject(g) || typeof g.rule !== 'string' || typeof g.items !== 'function') { problems.push('a guard must be { rule: <a rule\'s name>, items: (inputs) => [...] }'); continue; }
+      if (!findRule(g.rule)) problems.push(`its guard names the rule '${g.rule}', which there isn't (src/operations/rules/)`);
+    }
+  }
+  const schema = isObject(decl.result) ? decl.result.schema : null;
+  if (!isObject(schema) || !isObject(schema.properties) || !isObject(schema.properties.change)) {
+    problems.push('its result schema must declare `change`, the change entry the write path adds to its answer (ADR graph-operations-foundation/0004 Decision 2)');
+  }
+  if (hasFileBody(decl)) problems.push('a write through the write path takes a JSON body, not a file');
   return problems;
 }
 
