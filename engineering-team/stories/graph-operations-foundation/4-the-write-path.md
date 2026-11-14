@@ -1,6 +1,6 @@
 # Story 4: The write path — writes that check the graph's rules, record who changed what, and never sign, proved with `graph add-relationship`, `remove-relationship` and `history`
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-14
 **Type:** Feature
 **Loom:** A10.4 — https://loom.brainstorm.world/t/A10.4, taking in A10.29 (add-relationship and remove-relationship) and A10.15 (history), as the owner chose at the planning gate (2026-11-14)
@@ -141,4 +141,4 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0004-the-write-path.md](../../decisions/graph-operations-foundation/0004-the-write-path.md)
 - Test plan: [4-the-write-path.test-plan.md](4-the-write-path.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-foundation/4-the-write-path.md](../../reviews/graph-operations-foundation/4-the-write-path.md)
