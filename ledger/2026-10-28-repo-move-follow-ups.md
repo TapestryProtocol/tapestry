@@ -60,5 +60,31 @@ every `gh` command. These items remain:
     `github` remote, and `origin` is ngit).
   - Never create a new `nousclawds4/tapestry`: it would end the redirect.
 
+**Seen again on 2026-11-14** (the merge of TapestryProtocol/tapestry#55 into `staging`):
+- **Staging's `origin` still names the old address.** The deploy run for the merge (run `43606611349`) logged
+  "From https://github.com/nousclawds4/tapestry" and "Updating fef86880..66240a92". Staging is the only server whose
+  deploy log has been read since the move.
+- **The old address still leads to this repo.** Read through the API the same day, `nousclawds4/tapestry` answered as
+  `TapestryProtocol/tapestry` (repository id 1430501166).
+- **What GitHub says about a transferred repo's old name** (its docs page "Transferring a repository", read the same
+  day):
+  - A new repository or fork created at the old location deletes the redirect for good. That is the warning that ends
+    the list above.
+  - GitHub retires the old owner and name for good, so that nothing can be created there, when the repo had "more
+    than 100 clones" in the week before the transfer.
+  - It recommends pointing existing clones at the new address, with `git remote set-url`.
+- **The clones GitHub counted for this repo, by day** (traffic API, read 2026-11-14). The API keeps 14 days, so the
+  days before the move are gone from it by 2026-11-25:
+  - Oct 31: 92 · Nov 1: 7 · Nov 2: 85 · Nov 3: 47 · Nov 4: 78 · Nov 5: 78 · Nov 6: 114
+  - Nov 7: 84 · Nov 8: 170 · Nov 9: 103 · Nov 10: 128 · Nov 11: 26 · Nov 12: 31 · Nov 13: 57
+
+  Any seven days in a row before 2026-11-11 hold between 493 and 755 clones.
+- **What the counts show, and what they don't.** By GitHub's rule the old name was retired at the move, so a
+  repository cannot be created there. Nothing reads that state back. The only test is to try to create one, which
+  stays forbidden: if the name were not retired, the try itself would end the redirect.
+- **Still open:** set each server's `origin` to the new address, in `/opt/tapestry`:
+  `git remote set-url origin https://github.com/TapestryProtocol/tapestry.git`. Until then a server follows whatever
+  the old address leads to. **Owner action,** on each of the four servers that deploy by `git pull`.
+
 **Pointer:** `.claude/skills/cycle-staging/SKILL.md` ("The old repo"); OPERATIONS §9.1;
 `engineering-team/reviews/harness-self-improvement/skills-repo-nousclawds4-2026-10-28.md`.
