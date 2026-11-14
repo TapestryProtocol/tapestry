@@ -1,6 +1,6 @@
 # Story 4: The write path — writes that check the graph's rules, record who changed what, and never sign, proved with `graph add-relationship`, `remove-relationship` and `history`
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-14
 **Type:** Feature
 **Loom:** A10.4 — https://loom.brainstorm.world/t/A10.4, taking in A10.29 (add-relationship and remove-relationship) and A10.15 (history), as the owner chose at the planning gate (2026-11-14)
@@ -97,6 +97,39 @@ For Architecture, not this gate:
 - **How `by` names who made a change** (a hex pubkey, an npub), and history's cap and cursor.
 - **A firmware install and relationships it doesn't make.** Today's install can prune relationships the normalize primitives added (`src/api/normalize/relationships.js`'s hazard note). Check whether it can remove one of a type firmware doesn't declare.
 
+## Evidence
+
+### The live check (Implementation, 2026-11-14, on `e84018c9`)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every step and number is in the test plan's Verification. By criterion:
+
+- **AC1: passes.**
+  - An add answers `added` with its entry, and a repeat `already-there` with none.
+  - Two adds at once make one relationship and one entry.
+- **AC2: passes.**
+  - Reserved types (`HAS_ELEMENT` on a real class-thread edge, `FOLLOWS`) are refused 409 `reserved-type`, and the edge stays.
+  - An undeclared type is refused 409 `undeclared-type`.
+  - A change entry named as a node is refused 404 `unknown-node`.
+- **AC3: passes.** A removal is recorded with its count, and a repeat answers `already-gone`.
+- **AC4: passes.** A write whose entry couldn't be written kept neither the change nor an entry, on Neo4j's own transaction.
+- **AC5: passes.**
+  - History answers newest first, through the `graph_change_at` index. At 100,000 entries a page takes about 5 ms, and a node in 10 of them 48 ms, since it reads every entry (ADR debt 2).
+  - Both indexes are made at start.
+  - A restore brings back exactly the history of the graph it restores.
+- **AC6: passes.** A text/plain body is refused 415. The relay held 450 events before the first graph write and after the last.
+- **AC7: passes.** An admin agent with its own key, through the external CLI and the instance's nginx, added, removed and read back both entries, recorded as its own.
+- **Also,** a firmware reinstall leaves a relationship of a declared type, and its declaration, alone (Open questions, for Architecture).
+
+## Deviations
+
+- **The rule "every graph write applies" moved from the loader to a gate test** over the shipped catalog (ADR 0004 Amendment 2, the owner's ruling at Implementation, 2026-11-14). Story 1's and story 6's fixture catalogs keep generic `graph` writes with `run`. W1 changed to match, in a Tester commit of its own.
+- **The entry's CREATE carries `keyNode('c')`** in place of writing `tapestryKey: randomUUID()` and the label itself. The outcome is the same: the shared label and a random v4 key. ADR 0003 Decision 8 holds every Cypher that makes a node to that one fragment, and story 3's guard G4 checks it. The fake graph learned to read it, in a Tester commit with its own test (F4b).
+- **History's `LIMIT` is written into the query**, as a whole number the inputs' schema has already checked. The Neo4j driver sends a numeric parameter as a float, which `LIMIT` refuses.
+- **The guard reads the concept's header once on its own** before reading its elements, so that with no concept in the graph its refusal says so (R6).
+- **`since` is held to a real calendar time** (months 01–12, days to 31, hours to 23) by its pattern. A time `new Date()` can't read would otherwise fail with a 500.
+- **The JSON-only refusal tells the caller what to send:** `Content-Type: application/json`, and `{}` when the write takes no inputs.
+- **AR9 reads the central check's own 401 and 403,** as story 1's H5 does. On a POST, the central check answers first, with no code (ADR 0001 Decision 3), and AC7 names only the statuses. This was a Tester commit of its own.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet)
@@ -107,5 +140,5 @@ For Architecture, not this gate:
 - Story 3, whose keys name the nodes: [3-a-tapestry-key-on-every-node.md](3-a-tapestry-key-on-every-node.md)
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0004-the-write-path.md](../../decisions/graph-operations-foundation/0004-the-write-path.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [4-the-write-path.test-plan.md](4-the-write-path.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-foundation/4-the-write-path.md](../../reviews/graph-operations-foundation/4-the-write-path.md)

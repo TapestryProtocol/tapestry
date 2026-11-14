@@ -8,9 +8,13 @@
  * handlers check the caller again against the declaration, so the module never runs an operation for a caller its
  * declaration doesn't admit, whatever middleware is in front of it. Sign-in is the instance's own signed-challenge
  * handshake (ADR security-auth-exposure/0003); nothing new.
+ *
+ * A write takes JSON only, unless its declared body is a file (ADR graph-operations-foundation/0004 Decision 8): a
+ * write whose Content-Type isn't application/json is refused 415 before its body is read, a body-less one included,
+ * since a cross-site request can send either with the session's cookie. The caller is checked first.
  */
 
-const { loadOperations, callOperation, runAfterAnswer, listEntry, LIST_ROUTE } = require('./index');
+const { loadOperations, callOperation, runAfterAnswer, listEntry, failureMessage, LIST_ROUTE } = require('./index');
 const { getConfigFromFile, getAdminPubkeys } = require('../utils/config');
 const { hasFileBody, mediaType, limitStream, safeFileName } = require('./files');
 
@@ -102,6 +106,9 @@ function operationHandler(op) {
           return res.status(413).json({ success: false, error: `The body is ${declared} bytes; ${op.group} ${op.name} takes at most ${spec.maxBytes}.`, code: 'too-large' });
         }
         body = limitStream(req, spec.maxBytes, 'The body');
+      } else if (op.method === 'POST' && mediaType(req.headers['content-type']) !== 'application/json') {
+        const type = mediaType(req.headers['content-type']);
+        return res.status(415).json({ success: false, error: `${op.group} ${op.name} takes a JSON body, sent with Content-Type: application/json, not ${type || 'no Content-Type'}. Send {} when it takes no inputs.`, code: 'wrong-content-type' });
       }
       const raw = source === 'query' ? req.query : req.body;
       const answer = await callOperation(op, raw, { via: 'http', caller, body }, { source });
@@ -110,7 +117,7 @@ function operationHandler(op) {
       return res.status(answer.status).json(answer.body);
     } catch (err) {
       if (res.headersSent) return undefined;
-      return res.status(500).json({ success: false, error: `${op.group} ${op.name} failed: ${(err && err.message) || String(err)}`, code: 'failed' });
+      return res.status(500).json({ success: false, error: `${op.group} ${op.name} failed: ${failureMessage(err)}`, code: 'failed' });
     }
   };
 }

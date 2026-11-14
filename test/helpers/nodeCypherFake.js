@@ -4,7 +4,8 @@
  * nodes held in memory, as Neo4j would, so a test can say what a read must find without pinning the text of the query.
  * Story graph-operations-foundation #7 (the cache counts) is its first user.
  *
- * It reads one MATCH of one node, `(v)`, `(v:A)`, `(v:A|B)` or `(v:A:B)`, then any number of WHERE and WITH clauses, and
+ * It reads one MATCH of one node, `(v)`, `(v:A)`, `(v:A|B)` or `(v:A:B)`, each with or without a property map
+ * `{p: <expression>, …}` (read as WHERE v.p = <expression> AND …; graph-operations-foundation #4), then any number of WHERE and WITH clauses, and
  * a RETURN, each WITH or RETURN with its own ORDER BY, SKIP and LIMIT. Expressions:
  *   - literals: strings, numbers, true, false, null, lists `[...]`; parameters `$name`
  *   - `v.prop`, a label test `v:A` or `v:A|B`, an alias from a WITH
@@ -170,10 +171,23 @@ function parse(q) {
   const v = name();
   const sets = [];
   while (isOp(':')) { take(); sets.push(labelAlternatives()); }
-  if (isOp('{')) throw cantRead('a property map in the pattern', q);
+  // A property map, (v:A {p: $x, q: 'y'}), reads as WHERE v.p = $x AND v.q = 'y' (graph-operations-foundation #4).
+  const mapped = [];
+  if (isOp('{')) {
+    take();
+    if (!isOp('}')) {
+      do {
+        if (mapped.length) take();
+        const p = name();
+        op(':');
+        mapped.push({ k: 'where', e: { k: 'cmp', o: '=', l: { k: 'prop', v, p }, r: expr() } });
+      } while (isOp(','));
+    }
+    op('}');
+  }
   op(')');
   if (isOp(',') || isOp('-') || isOp('<')) throw cantRead('a pattern of more than one node, or a relationship', q);
-  const stages = [];
+  const stages = [...mapped];
   let ret = null;
   while (p < toks.length) {
     if (isKw('WHERE')) { take(); stages.push({ k: 'where', e: expr() }); continue; }

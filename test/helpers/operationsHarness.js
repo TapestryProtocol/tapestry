@@ -24,7 +24,17 @@
  *     waitMs } in the fake's state file, and with lifecycleFake.detachedOutcome 'running' it resolves
  *     { outcome: 'running' } after the job, as the real one does when the job outlasts waitMs.
  *
- * A request may also carry rawBase64 (a binary body), contentType and extra headers; every answer records its headers
+ *   - (story graph-operations-foundation #4, ADR graph-operations-foundation/0004 Decision 9) install the graph fake:
+ *     graphFake: { stateFile } replaces the methods of src/operations/graph.js with test/helpers/graphFake.js's
+ *     fakeGraph(stateFile), so every graph operation reads and writes the graph kept in that file.
+ *
+ * spec.spy (ADR 0004 Decision 10) records, in the result's `spy`, every call of what signs or reads a key: nostr-tools'
+ * finalizeEvent (from 'nostr-tools' or 'nostr-tools/pure'), src/api/normalize/helpers.js's loadTAKey and
+ * signAndFinalize, any method of src/utils/secureKeyStorage.js's SecureKeyStorage, and any child process whose command
+ * names strfry. Calls go through; the spy only records them. spec.formBodies mounts express.urlencoded beside
+ * express.json, as the control panel does (bin/control-panel.js).
+ *
+ * A request may also carry rawBase64 (a binary body), contentType (noContentType: true sends none) and extra headers; every answer records its headers
  * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
  * stdoutBase64 beside stdout. pauseMs waits after each request, for work a route does after it has answered.
  *
@@ -47,6 +57,7 @@ const result = { error: null, scenarios: [], runs: {} };
 
 function finish(code) {
   result.runs = globalThis.__opsRuns || {};
+  result.spy = globalThis.__signingSpy || null;
   try { fs.writeFileSync(OUT, JSON.stringify(result)); } catch (e) { process.stderr.write(`operationsHarness: cannot write ${OUT}: ${e.message}\n`); code = 2; }
   process.exit(code);
 }
@@ -62,6 +73,57 @@ Module._resolveFilename = function (request, ...rest) {
   if (typeof request === 'string' && request.startsWith(CONTAINER_PREFIX)) request = path.join(ROOT, request.slice(CONTAINER_PREFIX.length));
   return origResolve.call(this, request, ...rest);
 };
+
+/** spec.spy: record every call of what signs or reads a key (ADR graph-operations-foundation/0004 Decision 10). */
+function installSpies() {
+  const calls = [];
+  globalThis.__signingSpy = calls;
+  const proxies = new WeakMap();
+  const recordFns = (exp, names, label) => {
+    if (!exp || (typeof exp !== 'object' && typeof exp !== 'function')) return exp;
+    if (proxies.has(exp)) return proxies.get(exp);
+    const p = new Proxy(exp, {
+      get(target, k, receiver) {
+        const v = Reflect.get(target, k, receiver);
+        if (typeof k === 'string' && names.includes(k) && typeof v === 'function') {
+          return function spied(...args) { calls.push(`${label}.${k}`); return v.apply(this, args); };
+        }
+        return v;
+      },
+    });
+    proxies.set(exp, p);
+    return p;
+  };
+  const wrappedClasses = new WeakSet();
+  const origLoad = Module._load;
+  Module._load = function spyLoad(request, parent, isMain) {
+    const exp = origLoad.apply(this, arguments);
+    if (request === 'nostr-tools' || request === 'nostr-tools/pure') return recordFns(exp, ['finalizeEvent'], request);
+    let file = '';
+    try { file = Module._resolveFilename(request, parent, isMain); } catch { /* a built-in */ }
+    if (file.endsWith(path.join('src', 'api', 'normalize', 'helpers.js'))) return recordFns(exp, ['loadTAKey', 'signAndFinalize'], 'normalize/helpers');
+    if (file.endsWith(path.join('src', 'utils', 'secureKeyStorage.js')) && exp && typeof exp.SecureKeyStorage === 'function' && !wrappedClasses.has(exp.SecureKeyStorage)) {
+      const proto = exp.SecureKeyStorage.prototype;
+      for (const name of Object.getOwnPropertyNames(proto)) {
+        if (name === 'constructor' || typeof proto[name] !== 'function') continue;
+        const orig = proto[name];
+        proto[name] = function spiedKeyStore(...args) { calls.push(`SecureKeyStorage.${name}`); return orig.apply(this, args); };
+      }
+      wrappedClasses.add(exp.SecureKeyStorage);
+    }
+    return exp;
+  };
+  const cp = require('child_process');
+  for (const fn of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync']) {
+    const orig = cp[fn];
+    cp[fn] = function spiedChild(cmd, args) {
+      const line = [cmd].concat(Array.isArray(args) ? args : []).join(' ');
+      if (/strfry/.test(line)) calls.push(`child_process.${fn}: ${line.slice(0, 120)}`);
+      return orig.apply(this, arguments);
+    };
+  }
+}
+if (spec.spy) installSpies();
 
 const timer = setTimeout(() => { result.error = `the harness timed out after ${spec.timeoutMs || 60000} ms`; finish(1); }, spec.timeoutMs || 60000);
 timer.unref();
@@ -86,6 +148,7 @@ async function startApp(dir) {
   const { registerOperationRoutes } = need('src/operations/http.js');
   const app = express();
   app.use(express.json({ limit: '1mb', strict: false }));
+  if (spec.formBodies) app.use(express.urlencoded({ extended: true, limit: '1mb' }));
   app.use((req, res, next) => {
     const s = req.headers['x-test-session'];
     req.session = s ? JSON.parse(s) : {};
@@ -105,6 +168,7 @@ function send(port, r) {
     if (caller !== 'local') headers['X-Forwarded-For'] = '203.0.113.9';
     if (session) headers['X-Test-Session'] = JSON.stringify(session);
     Object.assign(headers, r.headers || {});
+    if (r.noContentType) delete headers['Content-Type'];
     let payload;
     if (typeof r.rawBase64 === 'string') payload = Buffer.from(r.rawBase64, 'base64');
     else if (typeof r.rawBody === 'string') payload = r.rawBody;
@@ -216,6 +280,21 @@ function installLifecycleFake(cfg) {
   lifecycleFakeInstalled = cfg.stateFile;
 }
 
+/** ADR graph-operations-foundation/0004 Decision 9: the graph fake in, over the graph kept in cfg.stateFile. */
+let graphFakeInstalled = null;
+function installGraphFake(cfg) {
+  if (!cfg) return;
+  if (graphFakeInstalled) {
+    if (graphFakeInstalled !== cfg.stateFile) throw new Error('one harness run installs one graph fake');
+    return;
+  }
+  if (!fs.existsSync(path.join(ROOT, 'src/operations/graph.js'))) throw new Error('src/operations/graph.js does not exist yet (ADR graph-operations-foundation/0004 Decision 9)');
+  const seam = need('src/operations/graph.js');
+  const fake = require(path.join(__dirname, 'graphFake.js')).fakeGraph(cfg.stateFile);
+  for (const k of ['writeTransaction', 'read']) seam[k] = fake[k];
+  graphFakeInstalled = cfg.stateFile;
+}
+
 function applyStubs(stubs) {
   if (!stubs) return;
   const status = need('src/operations/catalog/lifecycle/status.js');
@@ -242,6 +321,7 @@ for (const k of QUIETED) ORIGINAL_CONSOLE[k] = console[k];
     for (const scenario of spec.scenarios || []) {
       applyStubs(scenario.statusStubs);
       installLifecycleFake(scenario.lifecycleFake);
+      installGraphFake(scenario.graphFake);
       const out = { requests: [], cli: [] };
       for (const r of scenario.requests || []) {
         const which = r.app || 'real';
