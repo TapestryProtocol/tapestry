@@ -86,5 +86,17 @@ every `gh` command. These items remain:
   `git remote set-url origin https://github.com/TapestryProtocol/tapestry.git`. Until then a server follows whatever
   the old address leads to. **Owner action,** on each of the four servers that deploy by `git pull`.
 
+**Seen again on 2026-11-14, later the same day** (the merges of TapestryProtocol/tapestry#58, #59 and #60 into `main`,
+`feat/tags` and `feature-magic-carpet`):
+- **All four servers pull from the old address.** After staging, the other three each logged
+  "From https://github.com/nousclawds4/tapestry" in the deploy run for its merge:
+  - production, run `43625005407` ("Updating 59d0e7a6..09e4a6c9");
+  - tags, run `43628534280` ("5406f4fe..25d39636  feat/tags");
+  - magic carpet, run `43627352495` ("Updating 08376328..d10f74aa").
+
+  So staging is no longer the only server whose deploy log has been read since the move.
+- **Still open,** as above: set each server's `origin` to the new address. A server's next deploy log shows whether it
+  was done.
+
 **Pointer:** `.claude/skills/cycle-staging/SKILL.md` ("The old repo"); OPERATIONS §9.1;
 `engineering-team/reviews/harness-self-improvement/skills-repo-nousclawds4-2026-10-28.md`.
