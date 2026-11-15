@@ -482,9 +482,10 @@ t('L2b (AC2, live, after L4): after a full Pass 3, every label reads derived = t
 
 t('L5b (AC5, live, one install then a rebuild in this run): Pass 3\'s output — the rebuilt Tapestry JSON, the enumerated schemas and the implicit elements — matches today\'s', () => {
   if (!liveOrSkip()) return 'SKIP';
-  // The baseline is of a container that has run one install. A second install comes out differently by itself: Pass 2's
-  // save-schema finds a concept's header by name, and another author's header with that name can take its place
-  // (ledger row 2026-11-15-save-schema-finds-header-by-name; test plan, amendments 1 and 2).
+  // The baseline is of a container that has run one install. A second install comes out differently by itself, mostly
+  // because Pass 2's save-schema finds a concept's header by name and another author's header with that name can take its
+  // place (ledger row 2026-11-15-save-schema-finds-header-by-name). None of it goes through code story 8 changed
+  // (test plan, amendments 1 and 2).
   const installs = Number(live.sh('grep -c "FIRMWARE INSTALL COMPLETE" /var/log/supervisor/brainstorm.log || true').trim());
   if (installs !== 1) { console.log(`  NOTE  L5b compares a container that has run one firmware install; this one's log shows ${installs}. Boot a fresh scratch stack to run it.`); return 'SKIP'; }
   if (!rebuiltSinceInstall) { console.log('  NOTE  L5b compares the graph after a rebuild of the seven labels that follows the install; neither L1 nor L5a ran one in this run.'); return 'SKIP'; }
