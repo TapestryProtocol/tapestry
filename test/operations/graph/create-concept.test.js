@@ -221,7 +221,10 @@ test('CC3: _fields.js reads it as it reads a lettered concept: its key, its fiel
   const F = require(path.join(ROOT, 'src/operations/catalog/graph/_fields.js'));
   const read = G.readerOver(g);
   const concept = await F.conceptOf(read, d.concept.conceptHeader);
-  assert(concept && concept.oKey === 'coffeeHouse' && concept.wrapped === false, `conceptOf finds the key coffeeHouse in its header's json; got ${show(concept)}`);
+  // Today's route makes a schema whose only top-level key is the concept's key, so conceptOf reads it as wrapped, as it
+  // reads dog, which the seed made with today's route.
+  const dog = await F.conceptOf(read, (await main()).k.dog);
+  assert(concept && concept.oKey === 'coffeeHouse' && concept.wrapped === dog.wrapped && concept.wrapped === true, `conceptOf finds the key coffeeHouse in its header's json, wrapped as today's route's dog is; got ${show(concept)}`);
   assert(show(Object.keys(concept.fields).sort()) === show(['description', 'name', 'slug']), `and its schema node's fields; got ${show(concept.fields)}`);
   assert(show(await F.elementsOf(read, concept, 10)) === show([]), 'and walks its class thread to no elements');
 });
