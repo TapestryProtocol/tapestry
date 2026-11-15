@@ -33,14 +33,19 @@ its own, with nothing shared to edit.
 3. `stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md` — `lifecycle migrate` gives every node a
    tapestryKey and one shared label under a uniqueness rule, after a backup, and every node the instance makes gets
    both when it is made; then `NostrEvent` comes off the nodes with no event (Loom A10.3).
-
+4. `stories/graph-operations-foundation/4-the-write-path.md` — writes that check the graph's rules, record who changed
+   what and never sign, proved with `graph add-relationship`, `remove-relationship` and `history` (Loom A10.4, taking in
+   A10.29 and A10.15).
+5. `stories/graph-operations-foundation/5-field-mapping.md` — a concept's field is carried on its elements' Neo4j nodes
+   once marked, the mark being an edge into a firmware concept for Neo4j properties, with `graph mark-field`,
+   `unmark-field` and `map-fields` (Loom A10.5).
 6. `stories/graph-operations-foundation/6-external-cli-and-agent-skill.md` — the external CLI, which signs in with an
    admin agent's own key and calls every operation the instance lists, and the agent's skill (Loom A10.6).
 7. `stories/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.md` — a bug from story 3: the
    cache counts in `lifecycle status` and on the Dashboard cover only the nodes with an address, and asking for them no
    longer reads every node's key. Story 3's run on staging found it, and Loom tracks it as A10.3.a, a subtask of A10.3.
 
-Later stories follow the Loom tasks A10.4–A10.5, each planned when it is taken. The foundation's stories, and each story's first
+Each story was planned when its task was taken. The foundation's stories, and each story's first
 ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in
 different sessions.
 
