@@ -30,6 +30,22 @@
  * pattern names for it, and is left out when the statement says `NOT v:GraphChange` and it is an entry. An aggregate
  * RETURN (count) answers one row even when nothing matched, as Cypher's does.
  *
+ *
+ * Story graph-operations-foundation #5 (ADR graph-operations-foundation/0005, Implementation notes) adds:
+ *   - S1–S4, the reads over paths: the concept (its header by tapestryKey, its json, its JSON Schema node and that
+ *     node's json), the property node (the primary property, the section node, the field's node), the marks (from the
+ *     first set back to each concept header) and the elements (the class-thread walk, each element's json tag and its
+ *     properties under a prefix, through keys()). Every read that names a relationship and isn't story 4's declared
+ *     types' read (a header found by uuid, with no keys()) is evaluated as Neo4j would by test/helpers/pathCypherFake.js,
+ *     over these relationship types only: HAS_TAG, IS_THE_JSON_SCHEMA_FOR, IS_THE_PRIMARY_PROPERTY_FOR,
+ *     IS_A_PROPERTY_OF, HAS_ELEMENT, IS_THE_CONCEPT_FOR, IS_A_SUPERSET_OF. S5, the first set by uuid, is a read of one
+ *     node, as above;
+ *   - S8, the copies: `UNWIND $rows AS row MATCH (n[:Labels] {tapestryKey: row.key}) [WHERE NOT n:GraphChange]
+ *     SET n += row.props`, the key given in the node's map or as `n.tapestryKey = row.key` in the WHERE, optionally
+ *     with RETURN count(n). A null in props removes that property. As Neo4j does, it refuses a value a property can't
+ *     hold: a map, a list holding a null, a list or a map, or a list of mixed types (a neo4j.int and a float among
+ *     them). A neo4j.int is kept as { $int: '<digits>' }, so a test can tell it from a float, and every read gives it
+ *     back as a number, as toJS does. S6 and S7, the mark's MERGE and DELETE, are the relationship statements above.
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -38,11 +54,12 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const { runQuery } = require('./nodeCypherFake');
+const { runPathQuery, plainProps, isNeoInt } = require('./pathCypherFake');
 const { keyNode } = require('../../src/lib/tapestry-key-cypher');
 
 const oneLine = (q) => String(q).replace(/\s+/g, ' ').trim();
 function cantRun(why, q) {
-  return new Error(`the fake graph can't run this Cypher (${why}); it runs ADR graph-operations-foundation/0004's statements only (test/helpers/graphFake.js): ${oneLine(q).slice(0, 400)}`);
+  return new Error(`the fake graph can't run this Cypher (${why}); it runs ADR graph-operations-foundation/0004's and 0005's statements only (test/helpers/graphFake.js): ${oneLine(q).slice(0, 400)}`);
 }
 const zero = () => ({ nodesCreated: 0, nodesDeleted: 0, relationshipsCreated: 0, relationshipsDeleted: 0, propertiesSet: 0, labelsAdded: 0 });
 const copy = (x) => JSON.parse(JSON.stringify(x));
@@ -56,8 +73,11 @@ function writeState(file, s) { fs.writeFileSync(file, JSON.stringify(s)); }
 
 // ── reading the statement ──
 const stripStrings = (q) => q.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, "''");
-const WRITES = /\b(CREATE|MERGE|SET|DELETE|REMOVE|DETACH|FOREACH)\b/i;
-const HAS_RELATIONSHIP = /-\s*\[|\]\s*-/;
+const WRITE_CLAUSES = /\b(CREATE|MERGE|SET|DELETE|REMOVE|DETACH|FOREACH)\b/i;
+// A label, a property or a parameter may spell a clause's word (a Set node, $set: ADR 0005's S3 and S5): only a
+// clause writes.
+const WRITES = { test: (bare) => WRITE_CLAUSES.test(bare.replace(/\$\w+/g, '$p').replace(/:\s*`?[A-Za-z_]\w*`?(?:\s*\|\s*`?[A-Za-z_]\w*`?)*/g, ':L').replace(/\.\s*[A-Za-z_]\w*/g, '.p')) };
+const HAS_RELATIONSHIP = /-\s*\[|\]\s*-|-->|<--/;
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Split `text` on commas outside brackets, braces, parentheses and strings. */
@@ -158,7 +178,8 @@ const isAggregate = (items) => items.length > 0 && items.every(({ expr }) => /^c
 
 // ── the statements ──
 function readOneNode(s, q, params) {
-  const nodes = s.nodes.map((n) => ({ labels: [...n.labels], props: copy(n.props) }));
+  // A stored integer ({ $int }, from S8) reads as a number, as toJS gives a neo4j Integer.
+  const nodes = s.nodes.map((n) => ({ labels: [...n.labels], props: plainProps(copy(n.props)) }));
   return runQuery(nodes, q, params).map((r) => Object.fromEntries(Object.entries(r).map(([k, x]) => {
     const plain = (y) => (y && typeof y === 'object' && Array.isArray(y.labels) && y.properties ? { ...y.properties, _labels: y.labels } : Array.isArray(y) ? y.map(plain) : y);
     return [k, plain(x)];
@@ -272,6 +293,84 @@ function deleteRel(s, q, params) {
   return { rows, counters: { ...zero(), relationshipsDeleted: gone.length } };
 }
 
+// ── ADR 0005 ──
+/** The relationship types ADR 0005's reads (S1–S4) walk; a read over paths may name these and no others. */
+const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_THE_PRIMARY_PROPERTY_FOR', 'IS_A_PROPERTY_OF', 'HAS_ELEMENT', 'IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF']);
+
+/** Story 4's declared types' read: from a header found by uuid, through IS_THE_CONCEPT_FOR to HAS_ELEMENT, with no keys(). */
+const isDeclaredTypesRead = (bare) => /\bHAS_ELEMENT\b/.test(bare) && /\bIS_THE_CONCEPT_FOR\b/.test(bare)
+  && /\{\s*uuid\s*:\s*\$\w+\s*\}/.test(bare) && !/\bkeys\s*\(/i.test(bare);
+
+/** What a Neo4j property can hold, as the fake keeps it; throws, as Neo4j does, for anything else. */
+function storable(v, prop) {
+  const refuse = (what) => new Error(`Neo4j can't store ${what} in the property ${prop}: property values can only be of primitive types or arrays thereof (the fake graph refuses what Neo4j refuses)`);
+  if (typeof v === 'string' || typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v;
+  if (isNeoInt(v)) return { $int: v.toString() };
+  if (Array.isArray(v)) {
+    const kinds = new Set();
+    const items = v.map((x) => {
+      if (x === null || x === undefined) throw refuse('a list holding a null');
+      if (Array.isArray(x) || (typeof x === 'object' && !isNeoInt(x))) throw refuse('a list holding a list or a map');
+      kinds.add(isNeoInt(x) ? 'integer' : typeof x === 'number' ? 'float' : typeof x);
+      return storable(x, prop);
+    });
+    if (kinds.size > 1) throw refuse(`a list of mixed types (${[...kinds].join(', ')})`);
+    return items;
+  }
+  throw refuse(`a ${v === null ? 'null' : typeof v === 'object' ? 'map' : typeof v}`);
+}
+
+/** S8: UNWIND $rows AS row MATCH (n… {tapestryKey: row.key}) [WHERE NOT n:GraphChange] SET n += row.props. */
+function writeCopies(s, q, params) {
+  const one = oneLine(q);
+  const m = one.match(/^UNWIND\s+\$(\w+)\s+AS\s+(\w+)\s+MATCH\s*\(\s*(\w+)\s*((?::\s*[A-Za-z_]\w*\s*)*)(\{[^}]*\})?\s*\)\s*(?:WHERE\s+([\s\S]*?)\s*)?SET\s+(\w+)\s*\+=\s*(\w+)\.(\w+)\s*(?:RETURN\s+([\s\S]+?))?\s*;?$/i);
+  if (!m) throw cantRun("a write of copies it can't read (S8 is UNWIND $rows AS row MATCH (n:TapestryNode {tapestryKey: row.key}) WHERE NOT n:GraphChange SET n += row.props)", q);
+  const [, listParam, rowVar, nodeVar, labelText, mapText, whereText, setVar, propsVar, propsField, returnText] = m;
+  if (setVar !== nodeVar || propsVar !== rowVar) throw cantRun(`a SET of something other than ${nodeVar} += ${rowVar}.<field>`, q);
+  const labels = (labelText || '').split(':').map((x) => x.trim()).filter(Boolean);
+  let keyField = null;
+  let skipEntries = false;
+  if (mapText) {
+    const km = mapText.match(new RegExp(`^\\{\\s*tapestryKey\\s*:\\s*${esc(rowVar)}\\.(\\w+)\\s*\\}$`));
+    if (!km) throw cantRun(`a node map it can't read in a write of copies (${mapText})`, q);
+    keyField = km[1];
+  }
+  for (const part of whereText ? whereText.split(/\s+AND\s+/i) : []) {
+    let w;
+    if ((w = part.trim().match(new RegExp(`^${esc(nodeVar)}\\.tapestryKey\\s*=\\s*${esc(rowVar)}\\.(\\w+)$`)))) { keyField = w[1]; continue; }
+    if (new RegExp(`^NOT\\s+${esc(nodeVar)}\\s*:\\s*GraphChange$`).test(part.trim())) { skipEntries = true; continue; }
+    throw cantRun(`a WHERE it can't read in a write of copies (${part.trim()})`, q);
+  }
+  if (!keyField) throw cantRun(`a write of copies that doesn't find ${nodeVar} by tapestryKey`, q);
+  let countAlias = null;
+  if (returnText) {
+    const rm = returnText.trim().match(new RegExp(`^count\\s*\\(\\s*(\\*|${esc(nodeVar)})\\s*\\)(?:\\s+AS\\s+([A-Za-z_]\\w*))?$`, 'i'));
+    if (!rm) throw cantRun(`a RETURN after a write of copies that isn't count(${nodeVar}) (${returnText.trim()})`, q);
+    countAlias = rm[2] || `count(${rm[1]})`;
+  }
+  const rows = params[listParam];
+  if (!Array.isArray(rows)) throw new Error(`UNWIND expects a list in $${listParam}; got ${rows === null ? 'null' : typeof rows}`);
+  const byKey = new Map();
+  for (const n of s.nodes) if (typeof n.props.tapestryKey === 'string') { if (!byKey.has(n.props.tapestryKey)) byKey.set(n.props.tapestryKey, []); byKey.get(n.props.tapestryKey).push(n); }
+  let matched = 0, propertiesSet = 0;
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`Type mismatch: each of $${listParam} must be a map; got ${JSON.stringify(row)}`);
+    const found = (byKey.get(row[keyField]) || []).filter((n) => labels.every((l) => n.labels.includes(l)) && !(skipEntries && n.labels.includes('GraphChange')));
+    for (const n of found) {
+      const props = row[propsField];
+      if (!props || typeof props !== 'object' || Array.isArray(props)) throw new Error(`Type mismatch: SET ${nodeVar} += needs a map; ${rowVar}.${propsField} is ${JSON.stringify(props)}`);
+      matched++;
+      for (const [k, v] of Object.entries(props)) {
+        if (v === null || v === undefined) { if (Object.prototype.hasOwnProperty.call(n.props, k)) { delete n.props[k]; propertiesSet++; } continue; }
+        n.props[k] = storable(v, k);
+        propertiesSet++;
+      }
+    }
+  }
+  return { rows: countAlias ? [{ [countAlias]: matched }] : [], counters: { ...zero(), propertiesSet } };
+}
+
 /** Run one statement over state `s` (changed in place); { rows, counters }. */
 function exec(s, cypher, params = {}, { write = false } = {}) {
   const q = String(cypher);
@@ -279,16 +378,19 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   const writes = WRITES.test(bare);
   const hasRel = HAS_RELATIONSHIP.test(bare);
   if (!writes && !hasRel) return { rows: readOneNode(s, q, params), counters: zero() };
-  if (!writes && /\bHAS_ELEMENT\b/.test(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
+  if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
+  if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
   if (writes && !write) throw new Error(`a read must write nothing; it sent: ${oneLine(q).slice(0, 300)}`);
   if (/\bCREATE\s*\(\s*\w+\s*:\s*[A-Za-z_:\s]*\bGraphChange\b/.test(bare)) return createEntry(s, q, params);
   if (/\bMERGE\s*\(\s*\w+\s*\)\s*-\s*\[/.test(bare)) return mergeRel(s, q, params);
   if (/\bDELETE\b/.test(bare) && hasRel) return deleteRel(s, q, params);
+  if (/^\s*UNWIND\b/i.test(bare) && /\bSET\s+\w+\s*\+=/.test(bare) && !hasRel) return writeCopies(s, q, params);
   throw cantRun('not one of the statements it runs', q);
 }
 
 const KIND = (q) => {
   const b = stripStrings(String(q));
+  if (/^\s*UNWIND\b/i.test(b) && /\bSET\b/.test(b)) return 'copies';
   if (/\bCREATE\b/.test(b)) return 'create';
   if (/\bMERGE\b/.test(b)) return 'merge';
   if (/\bDELETE\b/.test(b)) return 'delete';
@@ -333,4 +435,4 @@ function readerOver(state) {
   return async (cypher, params) => exec(state, cypher, params).rows;
 }
 
-module.exports = { fakeGraph, readerOver, emptyState, readState, writeState, exec };
+module.exports = { fakeGraph, readerOver, emptyState, readState, writeState, exec, PATH_READ_TYPES };

@@ -50,7 +50,7 @@ function tokenize(q) {
     if (/[A-Za-z_]/.test(c)) {
       let j = i; while (j < q.length && /\w/.test(q[j])) j++;
       const w = q.slice(i, j);
-      toks.push(KEYWORDS.has(w.toUpperCase()) ? { t: 'kw', v: w.toUpperCase() } : { t: 'id', v: w });
+      toks.push(KEYWORDS.has(w.toUpperCase()) ? { t: 'kw', v: w.toUpperCase(), raw: w } : { t: 'id', v: w });
       i = j; continue;
     }
     const two = q.slice(i, i + 2);
@@ -70,7 +70,9 @@ function parse(q) {
   const take = () => toks[p++];
   const kw = (v) => { if (!isKw(v)) throw cantRead(`expected ${v}, met ${peek() ? peek().v : 'the end'}`, q); return take(); };
   const op = (v) => { if (!isOp(v)) throw cantRead(`expected ${v}, met ${peek() ? peek().v : 'the end'}`, q); return take(); };
-  const name = () => { const t = take(); if (!t || t.t !== 'id') throw cantRead(`expected a name, met ${t ? t.v : 'the end'}`, q); return t.v; };
+  // A label, a property or an alias may spell a keyword, as `:Set` does (graph-operations-foundation #5): where a name
+  // is expected, a keyword is read as the name it spells.
+  const name = () => { const t = take(); if (t && t.t === 'kw' && t.raw) return t.raw; if (!t || t.t !== 'id') throw cantRead(`expected a name, met ${t ? t.v : 'the end'}`, q); return t.v; };
   const labelAlternatives = () => { const alts = [name()]; while (isOp('|')) { take(); alts.push(name()); } return alts; };
 
   // ── expressions ──

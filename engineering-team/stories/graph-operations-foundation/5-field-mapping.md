@@ -174,4 +174,4 @@ For Architecture, not this gate:
 - Story 4, the write path these operations run on: [4-the-write-path.md](4-the-write-path.md)
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0005-field-mapping.md](../../decisions/graph-operations-foundation/0005-field-mapping.md)
-- Test plan: to come, `5-field-mapping.test-plan.md`
+- Test plan: [5-field-mapping.test-plan.md](5-field-mapping.test-plan.md)
