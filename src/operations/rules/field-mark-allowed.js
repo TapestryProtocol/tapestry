@@ -103,7 +103,7 @@ module.exports = {
         out.push({ item, code: 'not-plain', message: `${field} holds ${holds}, and a Neo4j property holds only a string, a number, an integer or a boolean, or a list of one of them. Fields like it wait for nested fields (design §5, question 1).` });
         continue;
       }
-      if (!KEY.test(String(c.oKey)) || !FIELD.test(field)) {
+      if (typeof c.oKey !== 'string' || !KEY.test(c.oKey) || !FIELD.test(field)) {
         out.push({ item, code: 'unusable-name', message: `${of(c)}'s key, ${c.oKey}, isn't letters and digits, so its property ${F.propertyName(c.oKey, field)} couldn't be written in Cypher without quotes. A field of it can't be marked.` });
         continue;
       }
