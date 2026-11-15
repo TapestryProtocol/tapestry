@@ -3,7 +3,7 @@
 **Story:** `engineering-team/stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.md`
 **ADR:** none. This is a bug on the Standard bug path; the owner chose to skip Architecture on 2026-11-15.
 **Date:** 2026-11-15
-**Approved:** by the owner, 2026-11-15.
+**Approved:** by the owner, 2026-11-15; Amendment 1 approved by the owner at the Implementation gate, 2026-11-15.
 
 One suite, `test/pass-3-finishes-in-minutes.test.js`, in two parts.
 
