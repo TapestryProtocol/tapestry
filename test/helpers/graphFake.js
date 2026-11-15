@@ -46,6 +46,18 @@
  *     hold: a map, a list holding a null, a list or a map, or a list of mixed types (a neo4j.int and a float among
  *     them). A neo4j.int is kept as { $int: '<digits>' }, so a test can tell it from a float, and every read gives it
  *     back as a number, as toJS does. S6 and S7, the mark's MERGE and DELETE, are the relationship statements above.
+ *
+ * Story graph-operations-first-slice #16 (ADR graph-operations-first-slice/0016, Implementation notes C1–C11) adds:
+ *   - C1, the lock: `MATCH (n:NostrEvent|TapestryNode {uuid: $p}) SET n.<lock> = true REMOVE n.<lock> RETURN n.tapestryKey AS a`,
+ *     which writes nothing that stays and answers the node's key (no row when no node has the address);
+ *   - C5, a node: the CREATE above, with any labels and a property map, not only a GraphChange's;
+ *   - C6, its tags: `MATCH (n… {tapestryKey: $p}) UNWIND $tags AS t CREATE (n)-[:HAS_TAG]->(tn:NostrEventTag {…: t.…})
+ *     SET tn.x = t.x, … [keyNode('tn')] [RETURN count(tn) AS a]`, one tag node per row, a null SET leaving it out;
+ *   - C11, a removed tag: `MATCH (t:NostrEventTag… {tapestryKey: $p}) DETACH DELETE t`, for a tag node only;
+ *   - the four wiring types its reads (C9) walk: IS_THE_PROPERTIES_SET_FOR, IS_THE_PROPERTY_TREE_GRAPH_FOR,
+ *     IS_THE_CORE_GRAPH_FOR and IS_THE_CONCEPT_GRAPH_FOR; and toLower in both read fakes (C8).
+ * C3, C4, C8 and C9 are reads the two read fakes run; C7 is the MERGE above, and C10 is S8.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -213,8 +225,10 @@ function readDeclared(s, q, params) {
   });
 }
 
+/** The CREATE of one node with labels and a property map: a GraphChange entry's (ADR 0004), or any node's (C5). */
 function createEntry(s, query, params) {
-  if (s.failures && s.failures.entry) throw new Error('the fake graph failed while writing the change entry (failures.entry)');
+  const entry = /\bCREATE\s*\(\s*\w+\s*:[A-Za-z_:\s]*\bGraphChange\b/.test(stripStrings(String(query)));
+  if (entry && s.failures && s.failures.entry) throw new Error('the fake graph failed while writing the change entry (failures.entry)');
   // keyNode(v) after the CREATE: read as "the label and a key where either is missing", then set aside.
   let q = query;
   let keyed = false;
@@ -295,7 +309,9 @@ function deleteRel(s, q, params) {
 
 // ── ADR 0005 ──
 /** The relationship types ADR 0005's reads (S1–S4) walk; a read over paths may name these and no others. */
-const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_THE_PRIMARY_PROPERTY_FOR', 'IS_A_PROPERTY_OF', 'HAS_ELEMENT', 'IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF']);
+const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_THE_PRIMARY_PROPERTY_FOR', 'IS_A_PROPERTY_OF', 'HAS_ELEMENT', 'IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF',
+  // ADR graph-operations-first-slice/0016's C9: a concept's core nodes, by the wiring types today's create-concept makes.
+  'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR']);
 
 /** Story 4's declared types' read: from a header found by uuid, through IS_THE_CONCEPT_FOR to HAS_ELEMENT, with no keys(). */
 const isDeclaredTypesRead = (bare) => /\bHAS_ELEMENT\b/.test(bare) && /\bIS_THE_CONCEPT_FOR\b/.test(bare)
@@ -371,6 +387,94 @@ function writeCopies(s, q, params) {
   return { rows: countAlias ? [{ [countAlias]: matched }] : [], counters: { ...zero(), propertiesSet } };
 }
 
+// ── ADR graph-operations-first-slice/0016 ──
+// Labels as a pattern names them: `:A:B`, each of which may be alternatives, `:A|B` (ADR 0003 Decision 9).
+const LABELS_TEXT = '((?::\\s*[A-Za-z_]\\w*(?:\\s*\\|\\s*[A-Za-z_]\\w*)*\\s*)*)';
+const labelsIn = (text) => (text || '').split(':').map((x) => x.trim()).filter(Boolean).map((alts) => alts.split('|').map((l) => l.trim()));
+const hasLabels = (n, groups) => groups.every((alts) => alts.some((l) => n.labels.includes(l)));
+
+/** C1: MATCH (n:NostrEvent|TapestryNode {uuid: $p}) SET n.<lock> = true REMOVE n.<lock> RETURN n.tapestryKey AS a. */
+function lockNode(s, q, params) {
+  const one = oneLine(q);
+  const m = one.match(new RegExp(`^MATCH\\s*\\(\\s*(\\w+)\\s*${LABELS_TEXT}\\{\\s*uuid\\s*:\\s*\\$(\\w+)\\s*\\}\\s*\\)\\s*SET\\s+(\\w+)\\.(\\w+)\\s*=\\s*true\\s+REMOVE\\s+(\\w+)\\.(\\w+)\\s+RETURN\\s+(\\w+)\\.tapestryKey\\s+AS\\s+(\\w+)\\s*;?$`, 'i'));
+  if (!m) throw cantRun("a lock it can't read (C1 is MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n.tapestryLock = true REMOVE n.tapestryLock RETURN n.tapestryKey AS key)", q);
+  const [, v, labelText, param, setVar, prop, removeVar, removeProp, returnVar, alias] = m;
+  if (setVar !== v || removeVar !== v || returnVar !== v || removeProp !== prop) throw cantRun(`a lock that sets and removes something other than one property of ${v}`, q);
+  const labels = labelsIn(labelText);
+  const found = s.nodes.filter((n) => n.props.uuid === params[param] && hasLabels(n, labels));
+  return { rows: found.map((n) => ({ [alias]: n.props.tapestryKey === undefined ? null : n.props.tapestryKey })), counters: { ...zero(), propertiesSet: found.length * 2 } };
+}
+
+/**
+ * C6: MATCH (n… {tapestryKey: $p}) UNWIND $tags AS t CREATE (n)-[:HAS_TAG]->(tn:NostrEventTag {…: t.…})
+ * [SET tn.x = t.x, …] [keyNode('tn')] [RETURN count(tn) AS a].
+ */
+function createTags(s, query, params) {
+  let one = oneLine(query);
+  const made = one.match(/\bCREATE\s*\(\s*\w+\s*\)\s*-\s*\[\s*:\s*HAS_TAG\s*\]\s*->\s*\(\s*(\w+)/);
+  let keyed = false;
+  if (made) {
+    const fragment = oneLine(keyNode(made[1]));
+    if (one.includes(fragment)) { one = one.replace(fragment, ' ').replace(/\s+/g, ' ').trim(); keyed = true; }
+  }
+  const m = one.match(new RegExp(`^MATCH\\s*\\(\\s*(\\w+)\\s*${LABELS_TEXT}\\{\\s*tapestryKey\\s*:\\s*\\$(\\w+)\\s*\\}\\s*\\)\\s*UNWIND\\s+\\$(\\w+)\\s+AS\\s+(\\w+)\\s+CREATE\\s*\\(\\s*(\\w+)\\s*\\)\\s*-\\s*\\[\\s*:\\s*HAS_TAG\\s*\\]\\s*->\\s*\\(\\s*(\\w+)\\s*:\\s*NostrEventTag\\s*(\\{[^}]*\\})\\s*\\)\\s*(?:SET\\s+(.*?))?\\s*(?:RETURN\\s+count\\s*\\(\\s*(\\w+)\\s*\\)\\s+AS\\s+(\\w+))?\\s*;?$`, 'i'));
+  if (!m) throw cantRun("a CREATE of tags it can't read (C6 is MATCH (n:TapestryNode {tapestryKey: $key}) UNWIND $tags AS t CREATE (n)-[:HAS_TAG]->(tn:NostrEventTag {uuid: t.uuid, type: t.type, value: t.value}) SET tn.value1 = t.value1, tn.value2 = t.value2)", query);
+  const [, nv, labelText, keyParam, listParam, rowVar, fromVar, tagVar, mapText, setText, countVar, countAlias] = m;
+  if (fromVar !== nv) throw cantRun(`a CREATE of tags from ${fromVar}, not the node the MATCH found (${nv})`, query);
+  if (countVar && countVar !== tagVar) throw cantRun(`a RETURN after a CREATE of tags that counts ${countVar}, not ${tagVar}`, query);
+  const fromRow = (expr) => {
+    const e = expr.trim();
+    const rm = e.match(new RegExp(`^${esc(rowVar)}\\.(\\w+)$`));
+    if (rm) return (row) => (row[rm[1]] === undefined ? null : row[rm[1]]);
+    const val = valueOf(e, params, query);
+    return () => val;
+  };
+  const mapped = mapEntries(mapText, query).map(([k, e]) => [k, fromRow(e)]);
+  const sets = setText ? splitTop(setText).map((a) => {
+    const am = a.match(new RegExp(`^${esc(tagVar)}\\.([A-Za-z_]\\w*)\\s*=\\s*([\\s\\S]+)$`));
+    if (!am) throw cantRun(`a SET it can't read in a CREATE of tags (${a})`, query);
+    return [am[1], fromRow(am[2])];
+  }) : [];
+  const rows = params[listParam];
+  if (!Array.isArray(rows)) throw new Error(`UNWIND expects a list in $${listParam}; got ${rows === null ? 'null' : typeof rows}`);
+  const node = s.nodes.find((n) => n.props.tapestryKey === params[keyParam] && hasLabels(n, labelsIn(labelText)) && !n.labels.includes('GraphChange'));
+  const counters = zero();
+  if (!node) return { rows: countAlias ? [{ [countAlias]: 0 }] : [], counters };
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`Type mismatch: each of $${listParam} must be a map; got ${JSON.stringify(row)}`);
+    const props = {};
+    for (const [k, f] of [...mapped, ...sets]) {
+      const v = f(row);
+      if (v === null || v === undefined) { delete props[k]; continue; }
+      props[k] = storable(v, k);
+      counters.propertiesSet++;
+    }
+    const labels = ['NostrEventTag'];
+    if (keyed) { labels.push('TapestryNode'); props.tapestryKey = crypto.randomUUID(); counters.propertiesSet++; }
+    const tag = { eid: s.nextEid++, labels, props };
+    s.nodes.push(tag);
+    s.rels.push({ eid: s.nextEid++, type: 'HAS_TAG', from: node.eid, to: tag.eid, props: {} });
+    counters.nodesCreated++;
+    counters.relationshipsCreated++;
+    counters.labelsAdded += labels.length;
+  }
+  return { rows: countAlias ? [{ [countAlias]: rows.length }] : [], counters };
+}
+
+/** C11: MATCH (t:NostrEventTag… {tapestryKey: $p}) DETACH DELETE t, for a tag node only. */
+function deleteTag(s, q, params) {
+  const m = oneLine(q).match(new RegExp(`^MATCH\\s*\\(\\s*(\\w+)\\s*${LABELS_TEXT}\\{\\s*tapestryKey\\s*:\\s*\\$(\\w+)\\s*\\}\\s*\\)\\s*DETACH\\s+DELETE\\s+(\\w+)\\s*;?$`, 'i'));
+  if (!m || m[4] !== m[1]) throw cantRun("a DETACH DELETE it can't read (C11 is MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t)", q);
+  const labels = labelsIn(m[2]);
+  if (!labels.some((alts) => alts.length === 1 && alts[0] === 'NostrEventTag')) throw cantRun('a DETACH DELETE of something other than a tag node (C11 names :NostrEventTag)', q);
+  const gone = s.nodes.filter((n) => n.props.tapestryKey === params[m[3]] && hasLabels(n, labels));
+  const eids = new Set(gone.map((n) => n.eid));
+  const rels = s.rels.filter((r) => eids.has(r.from) || eids.has(r.to));
+  s.nodes = s.nodes.filter((n) => !eids.has(n.eid));
+  s.rels = s.rels.filter((r) => !rels.includes(r));
+  return { rows: [], counters: { ...zero(), nodesDeleted: gone.length, relationshipsDeleted: rels.length } };
+}
+
 /** Run one statement over state `s` (changed in place); { rows, counters }. */
 function exec(s, cypher, params = {}, { write = false } = {}) {
   const q = String(cypher);
@@ -383,14 +487,21 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   if (writes && !write) throw new Error(`a read must write nothing; it sent: ${oneLine(q).slice(0, 300)}`);
   if (/\bCREATE\s*\(\s*\w+\s*:\s*[A-Za-z_:\s]*\bGraphChange\b/.test(bare)) return createEntry(s, q, params);
   if (/\bMERGE\s*\(\s*\w+\s*\)\s*-\s*\[/.test(bare)) return mergeRel(s, q, params);
+  if (/\bDETACH\s+DELETE\b/.test(bare) && !hasRel) return deleteTag(s, q, params);
   if (/\bDELETE\b/.test(bare) && hasRel) return deleteRel(s, q, params);
   if (/^\s*UNWIND\b/i.test(bare) && /\bSET\s+\w+\s*\+=/.test(bare) && !hasRel) return writeCopies(s, q, params);
+  if (/\bUNWIND\b/.test(bare) && /\bCREATE\b/.test(bare) && /\bHAS_TAG\b/.test(bare)) return createTags(s, q, params);
+  if (/\bCREATE\s*\(\s*\w+\s*:/.test(bare) && !hasRel) return createEntry(s, q, params);
+  if (/\bSET\b/.test(bare) && /\bREMOVE\b/.test(bare) && !hasRel) return lockNode(s, q, params);
   throw cantRun('not one of the statements it runs', q);
 }
 
 const KIND = (q) => {
   const b = stripStrings(String(q));
   if (/^\s*UNWIND\b/i.test(b) && /\bSET\b/.test(b)) return 'copies';
+  if (/\bUNWIND\b/.test(b) && /\bHAS_TAG\b/.test(b) && /\bCREATE\b/.test(b)) return 'tags';
+  if (/\bDETACH\s+DELETE\b/.test(b)) return 'detach';
+  if (/\bSET\b/.test(b) && /\bREMOVE\b/.test(b) && !/\bCREATE\b/.test(b)) return 'lock';
   if (/\bCREATE\b/.test(b)) return 'create';
   if (/\bMERGE\b/.test(b)) return 'merge';
   if (/\bDELETE\b/.test(b)) return 'delete';

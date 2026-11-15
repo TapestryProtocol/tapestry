@@ -29,6 +29,17 @@
  *   F13 S8, the copies: SET n += row.props sets, removes on null, leaves change entries and missing keys alone, keeps
  *       a neo4j.int as an integer and a number as a float, and refuses what Neo4j can't store, keeping nothing
  *   F14 what it still can't run says so: another relationship type, an undirected relationship, UNION, another write
+ *
+ * Story graph-operations-first-slice #16 (ADR graph-operations-first-slice/0016, Implementation notes C1–C11):
+ *   F15 C1, the lock: a node found by uuid answers its key and keeps no property; an address no node has answers no row
+ *   F16 C5, a node: CREATE with any labels and a property map, and keyNode(n), gives the labels, the shared label and a
+ *       key, and answers the key
+ *   F17 C6, its tags: one NostrEventTag per row, each HAS_TAG from the node, a null SET left out, keyed, and counted
+ *   F18 C11, a removed tag: DETACH DELETE of a tag node by key takes its HAS_TAG with it; a node that isn't a tag
+ *       can't be removed this way
+ *   F19 the reads C3, C4, C8 and C9: supersets by IN, held addresses over NostrEvent|TapestryNode, toLower, and a
+ *       concept's core nodes over the wiring types, with type(r)
+ *   F20 failures.entry fails only a GraphChange's CREATE, so a write's nodes are made before its entry fails
  */
 
 const fs = require('fs');
@@ -319,6 +330,122 @@ test('F14: what it still can\'t run says so: another relationship type, an undir
     const err = await refusedWith(fake.writeTransaction((tx) => tx.run(q, { k: s.keys.rover, v: 'x', rows: [] })));
     assert(err && /the fake graph can't run this Cypher/.test(err.message), `it can't run ${q}; got ${err && err.message}`);
   }
+});
+
+// ── ADR graph-operations-first-slice/0016's statements ──
+
+const { keyNode } = require('../../src/lib/tapestry-key-cypher');
+
+/** A small state of its own: a header with two core nodes, wired, and a tag; { path, keys }. */
+function freshConcept() {
+  const s = G.emptyState();
+  const add = (labels, props) => { const n = { eid: s.nextEid++, labels, props }; s.nodes.push(n); return n; };
+  const link = (a, type, b) => s.rels.push({ eid: s.nextEid++, type, from: a.eid, to: b.eid, props: {} });
+  const key = () => require('crypto').randomUUID();
+  const h = add(['NostrEvent', 'ListHeader', 'ConceptHeader', 'TapestryNode'], { uuid: `39998:${TA}:dog`, name: 'Dog', pubkey: TA, tapestryKey: key() });
+  const sup = add(['NostrEvent', 'ListItem', 'Superset', 'TapestryNode'], { uuid: `39999:${TA}:dog-superset`, name: 'superset for the concept of dogs', tapestryKey: key() });
+  const js = add(['NostrEvent', 'ListItem', 'JSONSchema', 'TapestryNode'], { uuid: `39999:${TA}:dog-schema`, name: 'JSON schema for the concept of dogs', tapestryKey: key() });
+  const core = add(['NostrEvent', 'ListItem', 'TapestryNode'], { uuid: `39999:${TA}:dog-core-nodes-graph`, name: 'core nodes graph for the concept of dogs', tapestryKey: key() });
+  const tag = add(['NostrEventTag', 'TapestryNode'], { type: 'names', value: 'dog', value1: 'dogs', tapestryKey: key() });
+  link(h, 'IS_THE_CONCEPT_FOR', sup);
+  link(js, 'IS_THE_JSON_SCHEMA_FOR', h);
+  link(core, 'IS_THE_CORE_GRAPH_FOR', h);
+  link(h, 'HAS_TAG', tag);
+  const file = path.join(tmp('graph-fake-concept-'), 'graph.json');
+  G.writeState(file, s);
+  return { path: file, keys: { h: h.props.tapestryKey, sup: sup.props.tapestryKey, js: js.props.tapestryKey, core: core.props.tapestryKey, tag: tag.props.tapestryKey } };
+}
+const nodeBy = (state, key) => state.nodes.find((n) => n.props.tapestryKey === key);
+
+test('F15: C1, the lock: a node found by uuid answers its key and keeps no property; an address no node has answers no row', async () => {
+  const c = freshConcept();
+  const fake = G.fakeGraph(c.path);
+  const C1 = 'MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n.tapestryLock = true REMOVE n.tapestryLock RETURN n.tapestryKey AS key';
+  const got = await fake.writeTransaction((tx) => tx.run(C1, { uuid: `39998:${TA}:dog` }));
+  assert(show(got.rows) === show([{ key: c.keys.h }]), `the lock answers the node's key; got ${show(got.rows)}`);
+  const after = G.readState(c.path);
+  assert(!('tapestryLock' in nodeBy(after, c.keys.h).props), 'the lock keeps no property on the node');
+  assert(after.log.some((l) => l.kind === 'lock'), `the log names the lock; got ${show(after.log.map((l) => l.kind))}`);
+  const none = await fake.writeTransaction((tx) => tx.run(C1, { uuid: `39998:${TA}:nobody` }));
+  assert(none.rows.length === 0, `an address no node has answers no row; got ${show(none.rows)}`);
+});
+
+test('F16: C5, a node: CREATE with any labels and a map, and keyNode(n), gives the labels, the shared label and a key', async () => {
+  const c = freshConcept();
+  const fake = G.fakeGraph(c.path);
+  const C5 = `CREATE (n:ListItem:Superset {uuid: $uuid, kind: $kind, pubkey: $pubkey, name: $name, tapestryValue: $name, created_at: $at}) ${keyNode('n')} RETURN n.tapestryKey AS key`;
+  const got = await fake.writeTransaction((tx) => tx.run(C5, { uuid: `39999:${TA}:cat-superset`, kind: 39999, pubkey: TA, name: 'superset for the concept of cats', at: 1 }));
+  const key = got.rows[0] && got.rows[0].key;
+  assert(/^[0-9a-f-]{36}$/.test(String(key)) && got.counters.nodesCreated === 1, `it answers the new node's key and counts it; got ${show(got)}`);
+  const n = nodeBy(G.readState(c.path), key);
+  assert(n && show([...n.labels].sort()) === show(['ListItem', 'Superset', 'TapestryNode']), `the node has its labels and the shared label, and no NostrEvent; got ${show(n && n.labels)}`);
+  assert(n.props.name === 'superset for the concept of cats' && n.props.tapestryValue === n.props.name && n.props.kind === 39999 && n.props.uuid === `39999:${TA}:cat-superset`,
+    `it keeps the map, a parameter used twice included; got ${show(n.props)}`);
+});
+
+test('F17: C6, its tags: one NostrEventTag per row, each HAS_TAG from the node, a null SET left out, keyed, and counted', async () => {
+  const c = freshConcept();
+  const fake = G.fakeGraph(c.path);
+  const C6 = `MATCH (n:TapestryNode {tapestryKey: $key}) UNWIND $tags AS t CREATE (n)-[:HAS_TAG]->(tn:NostrEventTag {uuid: t.uuid, type: t.type, value: t.value}) SET tn.value1 = t.value1, tn.value2 = t.value2 ${keyNode('tn')} RETURN count(tn) AS made`;
+  const tags = [{ uuid: 'u1', type: 'd', value: 'dog-superset', value1: null, value2: null }, { uuid: 'u2', type: 'names', value: 'dog', value1: 'dogs', value2: null }];
+  const got = await fake.writeTransaction((tx) => tx.run(C6, { key: c.keys.sup, tags }));
+  assert(show(got.rows) === show([{ made: 2 }]) && got.counters.nodesCreated === 2 && got.counters.relationshipsCreated === 2, `two tags made and counted; got ${show(got)}`);
+  const s = G.readState(c.path);
+  const sup = nodeBy(s, c.keys.sup);
+  const made = s.rels.filter((r) => r.from === sup.eid && r.type === 'HAS_TAG').map((r) => s.nodes.find((n) => n.eid === r.to));
+  assert(made.length === 2 && made.every((t) => t.labels.includes('NostrEventTag') && t.labels.includes('TapestryNode') && /^[0-9a-f-]{36}$/.test(t.props.tapestryKey)), `two keyed tag nodes hang off the superset; got ${show(made)}`);
+  const names = made.find((t) => t.props.type === 'names');
+  const d = made.find((t) => t.props.type === 'd');
+  assert(names.props.value1 === 'dogs' && !('value2' in names.props) && !('value1' in d.props), `a null SET leaves the property out; got ${show(made.map((t) => t.props))}`);
+  const none = await fake.writeTransaction((tx) => tx.run(C6, { key: '00000000-0000-4000-8000-000000000000', tags }));
+  assert(show(none.rows) === show([{ made: 0 }]) && none.counters.nodesCreated === 0, `no node, no tags; got ${show(none)}`);
+});
+
+test('F18: C11, a removed tag: DETACH DELETE of a tag node by key takes its HAS_TAG with it; a node that isn\'t a tag can\'t go this way', async () => {
+  const c = freshConcept();
+  const fake = G.fakeGraph(c.path);
+  const got = await fake.writeTransaction((tx) => tx.run('MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t', { key: c.keys.tag }));
+  assert(got.counters.nodesDeleted === 1 && got.counters.relationshipsDeleted === 1, `one tag and its HAS_TAG removed; got ${show(got.counters)}`);
+  const s = G.readState(c.path);
+  assert(!nodeBy(s, c.keys.tag) && !s.rels.some((r) => r.type === 'HAS_TAG'), 'the tag and its relationship are gone');
+  const err = await refusedWith(fake.writeTransaction((tx) => tx.run('MATCH (t:TapestryNode {tapestryKey: $key}) DETACH DELETE t', { key: c.keys.h })));
+  assert(err && /the fake graph can't run this Cypher/.test(err.message) && /tag node/.test(err.message), `a node that isn't a tag is refused; got ${err && err.message}`);
+  assert(nodeBy(G.readState(c.path), c.keys.h), 'and the header is still there');
+});
+
+test('F19: the reads C3, C4, C8 and C9: supersets by IN, held addresses, toLower, and core nodes over the wiring types', async () => {
+  const c = freshConcept();
+  const fake = G.fakeGraph(c.path);
+  const sup = await fake.read('MATCH (h)-[:IS_THE_CONCEPT_FOR]->(s:Superset) WHERE h.uuid IN $uuids RETURN h.uuid AS concept, s.tapestryKey AS superset', { uuids: [`39998:${TA}:dog`, `39998:${TA}:none`] });
+  assert(show(sup) === show([{ concept: `39998:${TA}:dog`, superset: c.keys.sup }]), `C3 finds the superset of each concept named; got ${show(sup)}`);
+  const held = await fake.read('MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid IN $uuids RETURN n.uuid AS uuid', { uuids: [`39999:${TA}:dog-schema`, `39999:${TA}:free`] });
+  assert(show(held) === show([{ uuid: `39999:${TA}:dog-schema` }]), `C4 answers the addresses held; got ${show(held)}`);
+  const lower = await fake.read(`MATCH (h) WHERE (h:ConceptHeader OR h:ListHeader)
+    OPTIONAL MATCH (h)-[:HAS_TAG]->(t:NostrEventTag) WHERE t.type IN ['names', 'slug']
+    WITH h, t WHERE toLower(h.name) IN $names OR (t.type = 'names' AND toLower(t.value1) IN $names)
+    RETURN DISTINCT h.tapestryKey AS key`, { names: ['dog'] });
+  assert(show(lower) === show([{ key: c.keys.h }]), `C8's toLower compares names without case; got ${show(lower)}`);
+  const roles = await fake.read(`MATCH (h:TapestryNode {tapestryKey: $key}) WHERE h:ConceptHeader OR h:ListHeader
+    OPTIONAL MATCH (h)<-[r:IS_THE_JSON_SCHEMA_FOR|IS_THE_CORE_GRAPH_FOR|IS_THE_PROPERTIES_SET_FOR]-(c)
+    RETURN type(r) AS role, c.tapestryKey AS node ORDER BY role`, { key: c.keys.h });
+  assert(show(roles) === show([{ role: 'IS_THE_CORE_GRAPH_FOR', node: c.keys.core }, { role: 'IS_THE_JSON_SCHEMA_FOR', node: c.keys.js }]), `C9 walks the wiring types in, with type(r); got ${show(roles)}`);
+});
+
+test('F20: failures.entry fails only a GraphChange\'s CREATE, so a write\'s nodes are made before its entry fails', async () => {
+  const c = freshConcept();
+  const s = G.readState(c.path);
+  s.failures = { entry: true };
+  G.writeState(c.path, s);
+  const fake = G.fakeGraph(c.path);
+  const before = G.readState(c.path).nodes.length;
+  let made = null;
+  const err = await refusedWith(fake.writeTransaction(async (tx) => {
+    made = await tx.run(`CREATE (n:ListItem {uuid: $uuid, name: $name}) ${keyNode('n')} RETURN n.tapestryKey AS key`, { uuid: `39999:${TA}:x`, name: 'x' });
+    await tx.run(`CREATE (c:GraphChange {at: $at}) ${keyNode('c')} RETURN c.tapestryKey AS id`, { at: '2026-01-01T00:00:00.000Z' });
+  }));
+  assert(made && made.rows.length === 1, `the node's CREATE ran; got ${show(made)}`);
+  assert(err && /failures\.entry/.test(err.message), `the entry's CREATE failed; got ${err && err.message}`);
+  assert(G.readState(c.path).nodes.length === before, 'and the transaction kept nothing');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

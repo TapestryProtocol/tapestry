@@ -12,7 +12,7 @@
  *   - `=`, `<>`, `<`, `>`, `<=`, `>=`, `IS NULL`, `IS NOT NULL`, `IN`, `STARTS WITH`, `ENDS WITH`, `CONTAINS`
  *   - `NOT`, `AND`, `XOR`, `OR`, with Cypher's precedence (OR binds loosest, then XOR, AND, NOT, then comparisons) and
  *     its three-valued logic: a comparison with null is null, and WHERE keeps a row only when its test is true
- *   - `CASE WHEN … THEN … [ELSE …] END`, `coalesce`, `size`, `toString`, `trim`
+ *   - `CASE WHEN … THEN … [ELSE …] END`, `coalesce`, `size`, `toString`, `trim`, `toLower`
  *   - aggregates `count(x)`, `count(*)`, `count(DISTINCT x)`, `collect(x)`, `sum(x)`, grouped by the other items
  * Anything else (a relationship, a second MATCH, OPTIONAL MATCH, UNWIND, CALL, UNION, a write) throws "the fake graph
  * database can't read this Cypher", naming what it met, so a test that fails on the fake's limits says so.
@@ -127,7 +127,7 @@ function parse(q) {
       op(')');
       if (AGGREGATES.has(fn)) { if (args.length !== 1) throw cantRead(`${fn} with ${args.length} arguments`, q); return { k: 'agg', fn, distinct, e: args[0] }; }
       if (distinct) throw cantRead(`DISTINCT in ${fn}()`, q);
-      if (!['coalesce', 'size', 'tostring', 'trim'].includes(fn)) throw cantRead(`the function ${fn}()`, q);
+      if (!['coalesce', 'size', 'tostring', 'trim', 'tolower'].includes(fn)) throw cantRead(`the function ${fn}()`, q);
       return { k: 'fn', fn, args };
     }
     if (t.t === 'id') {
@@ -256,6 +256,7 @@ function evaluate(e, env, params, q) {
       if (x === null || x === undefined) return null;
       if (e.fn === 'size') return x.length;
       if (e.fn === 'tostring') return String(x);
+      if (e.fn === 'tolower') return String(x).toLowerCase();
       return String(x).trim();
     }
     case 'agg': throw cantRead('an aggregate inside another expression', q);

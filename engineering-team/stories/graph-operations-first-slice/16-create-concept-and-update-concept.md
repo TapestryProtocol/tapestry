@@ -112,5 +112,5 @@ For Architecture, not this gate:
 - The field marks a rename must keep: [stories/graph-operations-foundation/5-field-mapping.md](../graph-operations-foundation/5-field-mapping.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md](../../decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [16-create-concept-and-update-concept.test-plan.md](16-create-concept-and-update-concept.test-plan.md)
 - Review: (filled in after Review phase)
