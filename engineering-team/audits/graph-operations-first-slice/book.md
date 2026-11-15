@@ -24,7 +24,7 @@ The book depends on Avi's build scripts, his race questions with their checked a
 
 ## Epics in this book
 - [graph-operations-foundation](../../epics/graph-operations-foundation.md) (named 2026-11-08, at story 1's planning; Loom A10.1–A10.6) — the operation declaration that generates each route, CLI command and `/docs` entry; a tapestryKey on every node; the write path; the field mapping; backup; the external CLI and the agent's skill.
-- graph-operations-first-slice (proposed; named at planning) — the operations the rebuild needs, built one at a time, then the rebuild and the race.
+- [graph-operations-first-slice](../../epics/graph-operations-first-slice.md) (named 2026-11-15, at story 16's planning; Loom A10.7 onwards) — the operations the rebuild needs, built one at a time, then the rebuild and the race.
 
 ## Provenance
 - **Mode:** Acceptance-frame
