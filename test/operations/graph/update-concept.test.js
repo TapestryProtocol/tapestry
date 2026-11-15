@@ -12,7 +12,7 @@
  *   UC1  a rename of a concept with no event: its names, tapestryValue, titles, core-node names and default
  *        descriptions follow; its slugs, key, labels, address, d-tags and tapestryKeys stay; its entry names each field
  *        changed, was and now, and the core nodes renamed; no letter is out of date
- *   UC2  a rename of a lettered concept (dog): a value edited by hand stays, the rest follows, its elements still read
+ *   UC2  a rename of a lettered concept (beagle): a value edited by hand stays, the rest follows, its elements still read
  *        as its elements, and the answer says its letter is out of date
  *   UC3  a slug: the slug tag changes and oSlugs stays; create-concept then finds the concept by its new slug, refuses
  *        its old name key-in-use while the concept keeps that key, and makes a new concept for a name with the old slug
@@ -78,10 +78,10 @@ function main() {
       create('c-old-name', { name: 'lamp' }),
       post('desc', 'owner', { concept: lamp.conceptHeader, description: 'A thing that gives light.' }),
       post('desc-clear', 'owner', { concept: lamp.conceptHeader, description: '' }),
-      post('slug-in-use', 'owner', { concept: lamp.conceptHeader, slug: 'dog' }),
+      post('slug-in-use', 'owner', { concept: lamp.conceptHeader, slug: 'beagle' }),
       post('slug-bad', 'owner', { concept: lamp.conceptHeader, slug: 'Not Kebab' }),
       post('name-bad', 'owner', { concept: lamp.conceptHeader, name: '   ' }),
-      post('dog', 'owner', { concept: k.dog, name: 'hound', plural: 'hounds' }),
+      post('beagle', 'owner', { concept: k.beagle, name: 'hound', plural: 'hounds' }),
       post('goal-name', 'owner', { concept: k.goal, name: 'owner goal' }),
       post('goal-plural', 'owner', { concept: k.goal, plural: 'tapestry owner aims' }),
       post('unknown', 'owner', { concept: NOBODY, name: 'ghost' }),
@@ -151,18 +151,18 @@ test('UC1: a rename of a concept with no event: names, titles and core-node name
 
 test('UC2: a rename of a lettered concept keeps a hand edit, follows the rest, keeps its elements, and says its letter is out of date', async () => {
   const { k } = await main();
-  const d = await ok('dog');
+  const d = await ok('beagle');
   assert(d.outcome === 'updated' && d.letterOutOfDate === true, `updated, and its letter is out of date (D2); got ${show(d)}`);
   const g = await graph();
-  const sj = C.json(g, k.dogNodes.superset);
-  assert(sj.superset.description === 'All the dogs we know of.' && sj.superset.name === 'hounds' && sj.set.description === 'This is a set of hounds.', `a value edited by hand stays, the defaults follow; got ${show(sj)}`);
-  assert(C.node(g, k.dog).props.uuid === `39998:${TA}:dog` && show(d.concept.nodes) === show(k.dogNodes), 'its address and keys stay');
+  const sj = C.json(g, k.beagleNodes.superset);
+  assert(sj.superset.description === 'All the beagles we know of.' && sj.superset.name === 'hounds' && sj.set.description === 'This is a set of hounds.', `a value edited by hand stays, the defaults follow; got ${show(sj)}`);
+  assert(C.node(g, k.beagle).props.uuid === `39998:${TA}:beagle` && show(d.concept.nodes) === show(k.beagleNodes), 'its address and keys stay');
   process.env.TA_PUBKEY = TA;
   const F = require(path.join(ROOT, 'src/operations/catalog/graph/_fields.js'));
   const read = G.readerOver(g);
-  const concept = await F.conceptOf(read, k.dog);
+  const concept = await F.conceptOf(read, k.beagle);
   const elements = concept ? await F.elementsOf(read, concept, 10) : [];
-  assert(concept && concept.oKey === 'dog' && elements.map((e) => e.key).includes(k.rover), `its key is still dog, and rover still reads as its element; got ${show({ concept, elements })}`);
+  assert(concept && concept.oKey === 'beagle' && elements.map((e) => e.key).includes(k.rover), `its key is still beagle, and rover still reads as its element; got ${show({ concept, elements })}`);
 });
 
 test('UC3: a slug: create-concept finds the concept by it, refuses its old name while the key stays, and other authors\' slugs don\'t count', async () => {
@@ -215,7 +215,7 @@ test('UC6: each refusal, naming what was wrong; nothing changes', async () => {
   assert((await ok('goal-plural')).outcome === 'updated', 'a name-keyed concept\'s plural can change');
   await refused('nothing', 400, 'nothing-to-change');
   const inUse = await refused('slug-in-use', 409, 'slug-in-use');
-  assert(inUse.rule === RULE && String(inUse.error).includes(`39998:${TA}:dog`), `slug-in-use comes from ${RULE} and names the concept that has it; got ${show(inUse)}`);
+  assert(inUse.rule === RULE && String(inUse.error).includes(`39998:${TA}:beagle`), `slug-in-use comes from ${RULE} and names the concept that has it; got ${show(inUse)}`);
   const badSlug = (await main()).a.req('slug-bad');
   assert(badSlug.status === 400 && badSlug.body.code === 'invalid-input' && badSlug.body.input === 'slug', `a slug that isn't kebab-case: 400 invalid-input; got ${badSlug.status} ${show(badSlug.body)}`);
   const badName = await refused('name-bad', 400, 'bad-name');

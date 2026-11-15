@@ -10,15 +10,16 @@
  *     opts.without leaves out the named ones (not-installed).
  *   - lettered concepts, each exactly what today's create-concept makes for its names (test/helpers/todaysCreateConcept.js
  *     runs the route), imported with an id, as the route's import leaves them:
- *       dog/dogs (this instance's own), with an element, rover, and its superset's description edited by hand;
+ *       beagle/beagles (this instance's own; not dog, which is a firmware concept), with an element, rover, and its
+ *       superset's description edited by hand;
  *       cat/cats, own, whose slug set-slug changed to feline (its key is still cat);
  *       bird/birds, own, made as avian/avians and renamed since (its slug and key are avian);
  *       mouse/mice, own; tapestry owner goal/tapestry owner goals, own and name-keyed;
  *       nostr relay/nostr relays, another author's (OTHER); recipe/recipes, the owner's own key's.
  *   - twelve headers named widget, each by another author, header only (more near matches than the cap);
  *   - a node that isn't a concept at 39998:<TA>:held, and 100 at 39998:<TA>:crowded and crowded~1 to crowded~99.
- * keys names each header's tapestryKey (dog, cat, bird, mouse, goal, relay, recipe, word, conceptHeader, …),
- * dogNodes the dog's eight by role, rover, and supersets (each firmware concept's superset by slug).
+ * keys names each header's tapestryKey (beagle, cat, bird, mouse, goal, relay, recipe, word, conceptHeader, …),
+ * beagleNodes the beagle's eight by role, rover, and supersets (each firmware concept's superset by slug).
  *
  * Readers over a state: node(state, key), byUuid(state, uuid), tags(state, key) in the order made, json(state, key),
  * out(state, key, type) and into(state, key, type) (the tapestryKeys at the other end), and nodesAt(state, prefix).
@@ -134,11 +135,11 @@ async function seedConcepts({ without = [] } = {}) {
   const chSup = b.byUuid(`39999:${TA}:concept-header-superset`);
   if (chSup) for (const n of b.s.nodes.filter((x) => x.labels.includes('ConceptHeader'))) b.link(chSup, 'HAS_ELEMENT', n);
 
-  const dog = await concept(b, { name: 'dog', plural: 'dogs', edit: (json, role) => { if (role === 'superset') json.superset.description = 'All the dogs we know of.'; } });
-  keys.dog = dog.header.props.tapestryKey;
-  keys.dogNodes = Object.fromEntries(ROLES.map((r) => [r, dog.nodes[r].props.tapestryKey]));
-  const rover = lettered(b, { uuid: `39999:${TA}:rover`, kind: 39999, tags: [['d', 'rover'], ['name', 'Rover'], ['z', `39998:${TA}:dog`], ['json', JSON.stringify({ word: { slug: 'rover', name: 'Rover', wordTypes: ['word', 'dog'] }, dog: { name: 'Rover', slug: 'rover', description: 'a good dog' } })]], author: TA });
-  b.link(dog.nodes.superset, 'HAS_ELEMENT', rover);
+  const beagle = await concept(b, { name: 'beagle', plural: 'beagles', edit: (json, role) => { if (role === 'superset') json.superset.description = 'All the beagles we know of.'; } });
+  keys.beagle = beagle.header.props.tapestryKey;
+  keys.beagleNodes = Object.fromEntries(ROLES.map((r) => [r, beagle.nodes[r].props.tapestryKey]));
+  const rover = lettered(b, { uuid: `39999:${TA}:rover`, kind: 39999, tags: [['d', 'rover'], ['name', 'Rover'], ['z', `39998:${TA}:beagle`], ['json', JSON.stringify({ word: { slug: 'rover', name: 'Rover', wordTypes: ['word', 'beagle'] }, beagle: { name: 'Rover', slug: 'rover', description: 'a good beagle' } })]], author: TA });
+  b.link(beagle.nodes.superset, 'HAS_ELEMENT', rover);
   keys.rover = rover.props.tapestryKey;
 
   const cat = await concept(b, { name: 'cat', plural: 'cats' });

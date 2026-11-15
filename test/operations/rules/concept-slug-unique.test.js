@@ -34,8 +34,8 @@ const NAME = 'concept-slug-unique';
 
 /**
  * Run the rule in a child over the seed; each case is { items, mutate? } and answers { violations } or { error }.
- * mutate names a change to the seed first: 'dog-slug-feline' (dog's slug tag becomes cat's) or 'mouse-key-dog'
- * (mouse's oKeys.singular becomes dog's key).
+ * mutate names a change to the seed first: 'beagle-slug-feline' (beagle's slug tag becomes cat's) or 'mouse-key-beagle'
+ * (mouse's oKeys.singular becomes beagle's key).
  */
 function runRule(cases) {
   const dir = tmp('rule-csu-');
@@ -58,8 +58,8 @@ const out = { cases: [] };
       const s = seed.state;
       const k = seed.keys;
       const setTag = (key, type, fn) => { const n = C.node(s, key); const t = s.rels.filter((r) => r.from === n.eid && r.type === 'HAS_TAG').map((r) => s.nodes.find((x) => x.eid === r.to)).find((x) => x.props.type === type); fn(t.props); };
-      if (c.mutate === 'dog-slug-feline') setTag(k.dog, 'slug', (p) => { p.value = 'feline'; });
-      if (c.mutate === 'mouse-key-dog') setTag(k.mouse, 'json', (p) => { const j = JSON.parse(p.value); j.conceptHeader.oKeys.singular = 'dog'; p.value = JSON.stringify(j); });
+      if (c.mutate === 'beagle-slug-feline') setTag(k.beagle, 'slug', (p) => { p.value = 'feline'; });
+      if (c.mutate === 'mouse-key-beagle') setTag(k.mouse, 'json', (p) => { const j = JSON.parse(p.value); j.conceptHeader.oKeys.singular = 'beagle'; p.value = JSON.stringify(j); });
       const resolve = (v) => (typeof v === 'string' && v.startsWith('@') ? (v === '@nobody' ? '00000000-0000-4000-8000-0000000000cc' : k[v.slice(1)]) : v);
       const items = c.items === 'every-own' ? null : c.items.map((it) => Object.fromEntries(Object.entries(it).map(([f, v]) => [f, resolve(v)])));
       let list = items;
@@ -71,7 +71,7 @@ const out = { cases: [] };
       try {
         const found = await rule.violations(list, readerOver(s));
         const name = (key) => Object.keys(k).find((x) => k[x] === key) || key;
-        out.cases.push({ violations: found.map((v) => ({ concept: name(v.item && v.item.concept), code: v.code, message: v.message })), keys: { dog: k.dog, cat: k.cat, mouse: k.mouse }, uuids: { dog: C.node(s, k.dog).props.uuid, cat: C.node(s, k.cat).props.uuid, mouse: C.node(s, k.mouse).props.uuid } });
+        out.cases.push({ violations: found.map((v) => ({ concept: name(v.item && v.item.concept), code: v.code, message: v.message })), keys: { beagle: k.beagle, cat: k.cat, mouse: k.mouse }, uuids: { beagle: C.node(s, k.beagle).props.uuid, cat: C.node(s, k.cat).props.uuid, mouse: C.node(s, k.mouse).props.uuid } });
       } catch (e) { out.cases.push({ error: String(e && e.message || e) }); }
     }
   } catch (e) { out.error = String(e && e.message || e); }
@@ -94,18 +94,18 @@ let MAIN = null;
 function main() {
   if (MAIN) return MAIN;
   MAIN = runRule([
-    { items: [{ slug: 'dog', key: 'dog', repeat: true }] },
+    { items: [{ slug: 'beagle', key: 'beagle', repeat: true }] },
     { items: [{ slug: 'lion', key: 'lion', repeat: true }] },
     { items: [{ slug: 'cat', key: 'cat', repeat: true }] },
     { items: [{ slug: 'nostr-relay', key: 'nostrRelay', repeat: true }] },
-    { items: [{ concept: '@dog', slug: 'feline' }] },
+    { items: [{ concept: '@beagle', slug: 'feline' }] },
     { items: [{ concept: '@cat', slug: 'feline' }] },
-    { items: [{ concept: '@relay', slug: 'dog' }] },
-    { items: [{ concept: '@nobody', slug: 'dog' }] },
-    { items: [{ concept: '@dog', slug: 'nostr-relay' }] },
+    { items: [{ concept: '@relay', slug: 'beagle' }] },
+    { items: [{ concept: '@nobody', slug: 'beagle' }] },
+    { items: [{ concept: '@beagle', slug: 'nostr-relay' }] },
     { items: 'every-own' },
-    { items: 'every-own', mutate: 'dog-slug-feline' },
-    { items: 'every-own', mutate: 'mouse-key-dog' },
+    { items: 'every-own', mutate: 'beagle-slug-feline' },
+    { items: 'every-own', mutate: 'mouse-key-beagle' },
   ]);
   return MAIN;
 }
@@ -128,7 +128,7 @@ test('CS1: the rules\' loader finds it: its name, a summary, refuses: true, and 
 });
 
 test('CS2: a create: the same slug is the repeat; a key under another slug is key-in-use, naming it; other authors\' don\'t count', () => {
-  assert(show(caseOf(0).violations) === show([]), `the same slug as dog: the repeat, nothing violated; got ${show(caseOf(0).violations)}`);
+  assert(show(caseOf(0).violations) === show([]), `the same slug as beagle: the repeat, nothing violated; got ${show(caseOf(0).violations)}`);
   assert(show(caseOf(1).violations) === show([]), 'a new slug and key: nothing violated');
   const cat = caseOf(2);
   assert(cat.violations.length === 1 && cat.violations[0].code === 'key-in-use' && cat.violations[0].message.includes(cat.uuids.cat), `cat's key, under its slug feline: key-in-use, naming the concept; got ${show(cat.violations)}`);
@@ -136,20 +136,20 @@ test('CS2: a create: the same slug is the repeat; a key under another slug is ke
 });
 
 test('CS3: an update: another own concept\'s slug is slug-in-use, naming it; its own, another author\'s, and a concept not its own pass', () => {
-  const dog = caseOf(4);
-  assert(dog.violations.length === 1 && dog.violations[0].code === 'slug-in-use' && dog.violations[0].message.includes(dog.uuids.cat), `dog to feline: slug-in-use, naming cat; got ${show(dog.violations)}`);
+  const beagle = caseOf(4);
+  assert(beagle.violations.length === 1 && beagle.violations[0].code === 'slug-in-use' && beagle.violations[0].message.includes(beagle.uuids.cat), `beagle to feline: slug-in-use, naming cat; got ${show(beagle.violations)}`);
   assert(show(caseOf(5).violations) === show([]), 'cat to its own slug: nothing violated');
   assert(show(caseOf(6).violations) === show([]), 'an item for another author\'s concept: nothing (update-concept refuses it itself)');
   assert(show(caseOf(7).violations) === show([]), 'an item for a key nothing has: nothing (update-concept refuses it itself)');
-  assert(show(caseOf(8).violations) === show([]), 'dog to another author\'s slug: nothing violated');
+  assert(show(caseOf(8).violations) === show([]), 'beagle to another author\'s slug: nothing violated');
 });
 
 test('CS4: as a check over every own concept: none in a graph that keeps rule 10; two sharing a slug, or a key, are both named', () => {
   assert(show(caseOf(9).violations) === show([]), `the seed keeps rule 10; got ${show(caseOf(9).violations)}`);
   const slug = caseOf(10);
-  assert(show(slug.violations.map((v) => `${v.concept}:${v.code}`).sort()) === show(['cat:slug-in-use', 'dog:slug-in-use']), `dog and cat both slugged feline: both named; got ${show(slug.violations)}`);
+  assert(show(slug.violations.map((v) => `${v.concept}:${v.code}`).sort()) === show(['beagle:slug-in-use', 'cat:slug-in-use']), `beagle and cat both slugged feline: both named; got ${show(slug.violations)}`);
   const key = caseOf(11);
-  assert(show(key.violations.map((v) => `${v.concept}:${v.code}`).sort()) === show(['dog:key-in-use', 'mouse:key-in-use']), `dog and mouse both keyed dog: both named; got ${show(key.violations)}`);
+  assert(show(key.violations.map((v) => `${v.concept}:${v.code}`).sort()) === show(['beagle:key-in-use', 'mouse:key-in-use']), `beagle and mouse both keyed beagle: both named; got ${show(key.violations)}`);
 });
 
 test('CS5: the rules document holds its entry, §4, with its codes', () => {

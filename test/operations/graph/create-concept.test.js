@@ -88,7 +88,7 @@ function main() {
       post('cc1', 'owner', { name: 'coffee house' }),
       post('again', 'owner', { name: 'coffee house' }),
       post('variant', 'owner', { name: 'Coffee  House ', plural: 'coffee housen', description: 'Somewhere to sit.' }),
-      post('dog', 'owner', { name: 'dog' }),
+      post('beagle', 'owner', { name: 'beagle' }),
       post('set', 'owner', { name: 'set' }),
       post('relay', 'owner', { name: 'nostr relay' }),
       post('bird', 'owner', { name: 'bird' }),
@@ -222,9 +222,9 @@ test('CC3: _fields.js reads it as it reads a lettered concept: its key, its fiel
   const read = G.readerOver(g);
   const concept = await F.conceptOf(read, d.concept.conceptHeader);
   // Today's route makes a schema whose only top-level key is the concept's key, so conceptOf reads it as wrapped, as it
-  // reads dog, which the seed made with today's route.
-  const dog = await F.conceptOf(read, (await main()).k.dog);
-  assert(concept && concept.oKey === 'coffeeHouse' && concept.wrapped === dog.wrapped && concept.wrapped === true, `conceptOf finds the key coffeeHouse in its header's json, wrapped as today's route's dog is; got ${show(concept)}`);
+  // reads beagle, which the seed made with today's route.
+  const beagle = await F.conceptOf(read, (await main()).k.beagle);
+  assert(concept && concept.oKey === 'coffeeHouse' && concept.wrapped === beagle.wrapped && concept.wrapped === true, `conceptOf finds the key coffeeHouse in its header's json, wrapped as today's route's beagle is; got ${show(concept)}`);
   assert(show(Object.keys(concept.fields).sort()) === show(['description', 'name', 'slug']), `and its schema node's fields; got ${show(concept.fields)}`);
   assert(show(await F.elementsOf(read, concept, 10)) === show([]), 'and walks its class thread to no elements');
 });
@@ -266,9 +266,9 @@ test('CC5: the same name, or the same slug in other case and spacing, answers al
 
 test('CC6: a concept today\'s route made, and a firmware concept, are returned the same way, with their keys by role', async () => {
   const { k } = await main();
-  const dog = await ok('dog');
-  assert(dog.outcome === 'already-exists' && dog.change === null && dog.concept.conceptHeader === k.dog && dog.concept.hasLetter === true, `dog: already-exists, the lettered concept, hasLetter; got ${show(dog.concept)}`);
-  assert(show(dog.concept.nodes) === show(k.dogNodes), `dog: its eight nodes by role; got ${show(dog.concept.nodes)}`);
+  const beagle = await ok('beagle');
+  assert(beagle.outcome === 'already-exists' && beagle.change === null && beagle.concept.conceptHeader === k.beagle && beagle.concept.hasLetter === true, `beagle: already-exists, the lettered concept, hasLetter; got ${show(beagle.concept)}`);
+  assert(show(beagle.concept.nodes) === show(k.beagleNodes), `beagle: its eight nodes by role; got ${show(beagle.concept.nodes)}`);
   const set = await ok('set');
   assert(set.outcome === 'already-exists' && set.concept.address === `39998:${TA}:set`, `set: the firmware concept; got ${show(set.concept)}`);
 });
