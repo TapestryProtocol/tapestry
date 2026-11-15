@@ -107,6 +107,6 @@ For Architecture, not this gate:
 - The write path these go through, and the type it keeps for them: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md); [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md) §2
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - The sibling story in this epic: stories/graph-operations-first-slice/16-create-concept-and-update-concept.md (on story 16's branch)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md](../../decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
