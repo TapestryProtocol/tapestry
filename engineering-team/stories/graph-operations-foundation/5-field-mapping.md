@@ -1,6 +1,6 @@
 # Story 5: Field mapping — mark a concept's field so its elements carry it on their Neo4j nodes, with `graph mark-field`, `unmark-field` and `map-fields`
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-14
 **Type:** Feature
 **Loom:** A10.5 — https://loom.brainstorm.world/t/A10.5
@@ -188,3 +188,4 @@ For Architecture, not this gate:
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0005-field-mapping.md](../../decisions/graph-operations-foundation/0005-field-mapping.md)
 - Test plan: [5-field-mapping.test-plan.md](5-field-mapping.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-foundation/5-field-mapping.md](../../reviews/graph-operations-foundation/5-field-mapping.md)
