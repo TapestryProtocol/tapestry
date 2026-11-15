@@ -41,13 +41,45 @@ function firmwareDigest() {
   return sh('cd /usr/local/lib/node_modules/brainstorm/firmware/active && find -L . -type f | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-64').trim();
 }
 
+const hash8 = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 8);
+const ADDRESS = /\b\d+:[0-9a-f]{64}:[^\s"',\]\}]+/g;
+
+/**
+ * A name for each address that is the same on every instance. An address is kind:pubkey:d-tag, and the pubkey is the
+ * instance's TA, which reads as <TA>. A child's d-tag ends in hash8(its parent's address) (src/lib/dtag.js), which
+ * the TA changes too: that suffix reads as #<the parent's own name>, found by hashing every address. A d-tag that is a
+ * hash of something else (the relationship items, "X IS_A_SUPERSET_OF Y") reads as the node's name, which is the same
+ * everywhere.
+ */
+function addressNames(ta, rows) {
+  const byHash = new Map();
+  for (const { u } of rows) byHash.set(hash8(u), u);
+  const nameOf = new Map(rows.map((r) => [r.u, r.name]));
+  const memo = new Map();
+  const canon = (u, depth = 0) => {
+    if (memo.has(u)) return memo.get(u);
+    const [kind, pubkey, ...rest] = u.split(':');
+    const who = pubkey === ta ? '<TA>' : pubkey;
+    const dtag = rest.join(':');
+    const m = dtag.match(/^(.*?)(?:^|-)([0-9a-f]{8})(~\d+)?$/);
+    let out = `${kind}:${who}:${dtag}`;
+    if (m && byHash.has(m[2]) && byHash.get(m[2]) !== u && depth < 20) out = `${kind}:${who}:${m[1]}-#${canon(byHash.get(m[2]), depth + 1)}${m[3] || ''}`;
+    else if (m && !m[1] && nameOf.get(u)) out = `${kind}:${who}:name=${nameOf.get(u)}`;
+    memo.set(u, out);
+    return out;
+  };
+  return canon;
+}
+
 function snapshot() {
   const ta = taPubkey();
-  const keyToUuid = new Map(cypher('MATCH (n) WHERE n.uuid IS NOT NULL AND n.tapestryKey IS NOT NULL RETURN n.tapestryKey AS k, n.uuid AS u')
-    .map((r) => [r.k, r.u]));
-  const text = (s) => s.split(ta).join('<TA>');
+  const addressed = cypher('MATCH (n) WHERE n.uuid IS NOT NULL RETURN n.uuid AS u, n.tapestryKey AS k, n.name AS name');
+  const canon = addressNames(ta, addressed);
+  const keyToUuid = new Map(addressed.filter((r) => r.k != null).map((r) => [r.k, r.u]));
+  const known = new Set(addressed.map((r) => r.u));
+  const text = (s) => s.replace(ADDRESS, (a) => (known.has(a) ? canon(a) : a)).split(ta).join('<TA>');
   const norm = (x) => {
-    if (typeof x === 'string') return keyToUuid.has(x) ? `@${text(keyToUuid.get(x))}` : text(x);
+    if (typeof x === 'string') return keyToUuid.has(x) ? `@${canon(keyToUuid.get(x))}` : text(x);
     if (Array.isArray(x)) {
       const out = x.map(norm);
       // Node references ({ tapestryKey, slug }) and schema entries ({ uuid, tapestryKey, … }) come back in the
@@ -75,7 +107,7 @@ function snapshot() {
   for (const { u, k } of rows) {
     const r = http('GET', `/api/tapestry-key/${encodeURIComponent(k)}`);
     const env = r.status === 200 && r.json && r.json.data ? r.json.data : null;
-    nodes[text(u)] = env ? sha(stable({ rebuiltFrom: env.rebuiltFrom || null, data: norm(env.data) })) : 'not cached';
+    nodes[canon(u)] = env ? sha(stable({ rebuiltFrom: env.rebuiltFrom || null, data: norm(env.data) })) : 'not cached';
   }
 
   const schemas = {};
@@ -83,13 +115,13 @@ function snapshot() {
                                  RETURN js.uuid AS u, t.value AS v ORDER BY u`, { authors })) {
     let value = v;
     try { value = norm(JSON.parse(v)); } catch { value = typeof v === 'string' ? text(v) : v; }
-    schemas[text(u)] = sha(stable(value));
+    schemas[canon(u)] = sha(stable(value));
   }
 
   const implicit = {};
   for (const { s, e } of cypher(`MATCH (sup:Superset)-[:HAS_ELEMENT]->(x) WHERE split(sup.uuid, ':')[1] IN $authors
                                  RETURN sup.uuid AS s, collect(coalesce(x.uuid, 'no address')) AS e ORDER BY s`, { authors })) {
-    implicit[text(s)] = e.map(text).sort();
+    implicit[canon(s)] = e.map((x) => (known.has(x) ? canon(x) : text(x))).sort();
   }
 
   return { firmwareDigest: firmwareDigest(), counts: { nodes: Object.keys(nodes).length, schemas: Object.keys(schemas).length, supersets: Object.keys(implicit).length }, nodes, schemas, implicit };

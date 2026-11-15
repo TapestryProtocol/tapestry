@@ -23,7 +23,7 @@
  *   L3  [staging's shape] one rebuild takes at most 200 ms, by key and inside derive-all                        [AC3]
  *   L4  [staging's shape, PASS3_INSTALL=1] a firmware install's Pass 3 finishes in under 10 minutes             [AC4]
  *   L2b [after L4] every label reads derived = total                                                            [AC2]
- *   L5b [after a full rebuild in this run] Pass 3's output matches today's, from test/fixtures/                 [AC5]
+ *   L5b [one install, then a rebuild in this run] Pass 3's output matches today's, from test/fixtures/          [AC5]
  *
  *   node test/pass-3-finishes-in-minutes.test.js                                   # stack-free only
  *   TAPESTRY_CONTAINER=$(bash scripts/scratch-stack.sh up) node test/pass-3-finishes-in-minutes.test.js     # + small graph
@@ -225,7 +225,9 @@ const isStagingShape = () => shape().all >= STAGING_SHAPE.all && shape().cardSet
 const isSmall = () => shape().all < SMALL_GRAPH;
 const nowSec = () => Math.floor(Date.now() / 1000);
 const runTag = `pass3-${process.pid}-${Date.now()}`;
-let fullRebuildThisRun = false;
+// L5b compares the state one install and then a rebuild of the seven labels leave, as its baseline was taken. An install
+// rebuilds before it wires the implicit elements, so only a derive-all after the last install sets this; L4 clears it.
+let rebuiltSinceInstall = false;
 let installFinished = false;
 
 function deriveAllLabels() {
@@ -235,7 +237,7 @@ function deriveAllLabels() {
     assert(r.status === 200 && r.json && r.json.success, `derive-all ${L} must answer success; got HTTP ${r.status} ${short(r.text)}`);
     answers[L] = r.json.data;
   }
-  fullRebuildThisRun = true;
+  rebuiltSinceInstall = true;
   return answers;
 }
 
@@ -440,7 +442,7 @@ t(`L4 (AC4, live, staging's shape, PASS3_INSTALL=1): a firmware install's Pass 3
   assert(answer && answer.success === true, `the install must answer success; got ${short(body)}`);
   assert(pass3Minutes < PASS3_MINUTES, `Pass 3 must finish in under ${PASS3_MINUTES} minutes; it took ${pass3Minutes.toFixed(1)}`);
   installFinished = true;
-  fullRebuildThisRun = true;
+  rebuiltSinceInstall = false;
 });
 
 t('L2b (AC2, live, after L4): after a full Pass 3, every label reads derived = total', () => {
@@ -451,9 +453,13 @@ t('L2b (AC2, live, after L4): after a full Pass 3, every label reads derived = t
   assert(unequal.length === 0, `every label must read derived = total after a full Pass 3; got ${short(unequal)}`);
 });
 
-t('L5b (AC5, live, after a full rebuild in this run): Pass 3\'s output — the rebuilt Tapestry JSON, the enumerated schemas and the implicit elements — matches today\'s', () => {
+t('L5b (AC5, live, one install then a rebuild in this run): Pass 3\'s output — the rebuilt Tapestry JSON, the enumerated schemas and the implicit elements — matches today\'s', () => {
   if (!liveOrSkip()) return 'SKIP';
-  if (!fullRebuildThisRun) { console.log('  NOTE  L5b compares the graph after a full rebuild; neither L1, L5a nor L4 ran one in this run.'); return 'SKIP'; }
+  // The baseline is of a container that has run one install: a second install moves some HAS_ELEMENT edges between
+  // supersets and rewrites some schemas' json tags itself, on today's code as on the fix (test plan, amendment 1).
+  const installs = Number(live.sh('grep -c "FIRMWARE INSTALL COMPLETE" /var/log/supervisor/brainstorm.log || true').trim());
+  if (installs !== 1) { console.log(`  NOTE  L5b compares a container that has run one firmware install; this one's log shows ${installs}. Boot a fresh scratch stack to run it.`); return 'SKIP'; }
+  if (!rebuiltSinceInstall) { console.log('  NOTE  L5b compares the graph after a rebuild of the seven labels that follows the install; neither L1 nor L5a ran one in this run.'); return 'SKIP'; }
   const { snapshot, firmwareDigest } = require('./helpers/pass3Snapshot');
   const baseline = JSON.parse(fs.readFileSync(SNAPSHOT_FIXTURE, 'utf8'));
   const digest = firmwareDigest();
