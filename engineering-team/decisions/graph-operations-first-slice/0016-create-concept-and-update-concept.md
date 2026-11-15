@@ -72,7 +72,7 @@ Both operations refuse a problem with `bad-name` (400) or `bad-description` (400
 - **Labels:** the header `ListHeader:ConceptHeader`; the superset `ListItem:Superset`; the schema `ListItem:JSONSchema`; the primary property `ListItem:Property`; the other four `ListItem`. These are today's, minus `NostrEvent`.
 - **Tags and JSON:** the tags and word-wrapper JSON today's route signs for the same names, in the same order. Each core node also gets the spec's `["o", "<header address>", "<role>"]` tag after its `z` tags (tapestry-concepts.md: "Publishers SHOULD include it on new core nodes"). The core nodes graph and the concept graph get their final JSON at once, with the core nodes graph's own address and the concept graph's import of it, since every address is known before anything is written. Today's route needs a second signature for that.
 - **Wiring:** the eight edges today's route makes, through `firmware.relAlias`: `CLASS_THREAD_INITIATION` (header to superset), `CORE_NODE_JSON_SCHEMA`, `CORE_NODE_PRIMARY_PROPERTY`, `CORE_NODE_PROPERTIES`, `CORE_NODE_PROPERTY_TREE_GRAPH`, `CORE_NODE_CORE_GRAPH`, `CORE_NODE_CONCEPT_GRAPH`, and `PROPERTY_MEMBERSHIP` (primary property to schema).
-- **Memberships (D9):** a `CLASS_THREAD_TERMINATION` edge from the superset of every concept each node's `z` tags name, `word` included, and from the concept-header concept's superset to the header. These are the edges a reinstall's passes 1d, 1d½ and 3 would add (fact 5), so a reinstall finds nothing to add.
+- **Memberships (D9):** a `CLASS_THREAD_TERMINATION` edge from the superset of every concept each node's `z` tags name, `word` included, and from the concept-header concept's superset to the header. These are the edges a reinstall's passes 1d, 1d½ and 3 would add (fact 5), so a reinstall finds nothing to add. *(Amended: a reinstall also prunes, so the memberships are the table in Amendment 2.)*
 
 **4. This instance's own concepts, their slugs and their keys.** A concept is this instance's own when its header's `pubkey` is the assistant's, with a letter or without one. Headers by the owner's own key, and by anyone else, are other authors' concepts. They are reported, never changed (D4; the assistant can't sign a new version of them). A concept's slug is its header's `slug` tag, else its JSON's `conceptHeader.oSlugs.singular`, else `toSlugName` of its singular name. Its key is `conceptHeader.oKeys.singular`, else `toKeyName` of its singular name. Its singular and plural names are the `names` tag's `value` and `value1`, else `oNames`, else the header's `name`. A concept is a firmware concept when its header's address is `firmware.conceptUuid(<its d>)`.
 
@@ -133,7 +133,7 @@ create-concept's already-exists answer and update-concept's answer use it, and `
 
 **12. What reads it.** `_fields.js` reads a concept made here as it reads a lettered one, with no change: `conceptOf` finds the header's json tag and the schema node's json tag, and `elementsOf` walks its class thread. Its fields can be marked once `graph add-property` (A10.18) gives it property nodes. Until then, mark-field refuses `no-property-node`, as for any concept without them. The concept-graph reads find it by label and address (AC2).
 
-**13. Durability (AC8).** A reinstall adds no edge to these nodes, since Decision 3 made them all. It rebuilds only firmware headers, and update-concept refuses those. Its derive pass writes each node's LMDB entry and its `tapestryJsonUpdatedAt` stamp. "As it was" means the same nodes, labels, properties (the cache's stamp aside), tags and relationships. A backup carries the whole graph, so a restore brings the concept back with its keys (ADR 0002).
+**13. Durability (AC8).** A reinstall adds no edge to these nodes, since Decision 3 made them all *(and, amended, prunes none, since Amendment 2 wires what a reinstall leaves)*. It rebuilds only firmware headers, and update-concept refuses those. Its derive pass writes each node's LMDB entry and its `tapestryJsonUpdatedAt` stamp. "As it was" means the same nodes, labels, properties (the cache's stamp aside), tags and relationships. A backup carries the whole graph, so a restore brings the concept back with its keys (ADR 0002).
 
 **14. The rules document and the catalog.** `docs/GRAPH_RULES.md` gains §4, `concept-slug-unique`, in the form its entries take: what it says, its kind, what it refuses, its check, repair (none yet) and where it is enforced. The catalog's §2 rows for create-concept and update-concept give these refusals and reports.
 
@@ -211,6 +211,31 @@ create-concept's already-exists answer and update-concept's answer use it, and `
    - each `differs` entry is `{ input, given, holds }`, with `given` the cleaned input. The names are compared after `deriveAllNames`, so `Coffee  House` is no different from `coffee house`.
 4. **What the fake graph learns** (Implementation notes; the Tester's commit): C1, C5 for any node, C6 and C11 as write statements of their own; label alternatives in them; `toLower` in both read fakes; and the four wiring types. Each has its own test in `test/operations/graph-fake.test.js` (F15–F20). Nothing it ran before changed.
 5. **AC2's oracle is the route itself.** `test/helpers/todaysCreateConcept.js` runs today's `handleCreateConcept`, read from its source, in a sandbox that records what it would sign and wire. So the comparison can't drift from the route, and fails loudly if the route moves.
+
+## Amendment 2 (2026-11-15, at Implementation; the owner's ruling) — memberships are what a reinstall leaves
+
+Decision 3 wired each node into every concept its `z` tags name, `word` included, on the premise that a reinstall only adds memberships. The live check (L3) found the premise wrong. A reinstall also prunes the memberships its passes judge redundant:
+- Of the 21 the Decision wired, it removed 11: every `word` membership, `graph` on the three graph nodes, and `set` on the properties set.
+- A second reinstall changed nothing, so that is where a reinstall settles.
+- Every concept the `z` tags name still reaches each node through its class thread: `word`, for one, contains every core-node concept.
+
+The owner chose to wire that end state directly (2026-11-15), so a reinstall leaves a new concept as it was, as AC8 says:
+
+| Node | An element of |
+|---|---|
+| header | `concept-header` |
+| superset | `superset`, `set` |
+| JSON schema | `json-schema` |
+| primary property | `primary-property`, `property` |
+| properties set | `properties-set` |
+| property tree graph | `property-tree-graph` |
+| concept graph | `concept-graph` |
+| core nodes graph | `core-nodes-graph` |
+
+- **The `z` tags don't change.** They are the letter's, and they still name every concept the node belongs to, `word` and `graph` among them. The class threads give those memberships.
+- **`not-installed` still asks for all twelve firmware concepts the `z` tags name.**
+- **The table follows firmware 1.0.0's pruning, which isn't fully consistent.** It keeps `set` on the superset but prunes it on the properties set. A firmware that prunes differently would change what a reinstall leaves; the live check is what shows it.
+- **The same check found a bug in today's concepts:** a reinstall takes the superset of a concept today's route made out of the superset concept. That is ledger `2026-11-15-reinstall-drops-a-supersets-own-membership`.
 
 ## Out of scope
 
