@@ -90,3 +90,45 @@ change-entry-fields 3 · change-indexes 3 · rules/field-mark-allowed 14 · rule
 ```
 
 A harness run over the seed answers today's 404 for the route, and "Unknown operation 'graph create-concept'" for the command, so the harness and the seed work before the code exists.
+
+### The live check (Implementation, 2026-11-15)
+
+Run on the Mac Studio, on throwaway instances from `scripts/scratch-stack.sh`, one at a time, booted from image `agent-memory-tapestry` (staging `09dc9b7b`'s firmware and `tapestry` command) with this branch's `src/` mounted. Each had its own assistant key and no published ports, ran `lifecycle migrate --migration tapestry-keys` first, and was removed afterwards. Every call went through `docker exec` to `127.0.0.1:7778`, a direct-local caller, except the agent's, which went through the instance's own nginx.
+
+1. **L1, a concept made each way (AC1, AC2).**
+   - `POST /api/normalize/create-concept` made tea house and signed 8 events: the relay went from 450 to 458.
+   - `graph create-concept` made coffee house.
+   - `summaries` lists coffee house: 0 elements, 1 set, 1 property, labels `TapestryNode`, `ListHeader` and `ConceptHeader`.
+   - `node` gives its tags: `names`, `concept-graph`, `d`, `slug` and `json`.
+   - `neighbors` gives `HAS_ELEMENT` and the seven wiring types.
+   - `core-nodes` for coffee house and tea house: all eight nodes identical once the names are swapped.
+2. **L1, the repeat (AC3).** `graph create-concept` for tea house answered `already-exists`, `hasLetter` true, `change` null.
+3. **L2, two creates at once (AC3).** Two `graph create-concept` calls for moth, sent in parallel:
+   - one answered `created`, with its entry, and one `already-exists`, with the same header key;
+   - the graph then held one header at `39998:<TA>:moth` and one entry.
+4. **Updates on the instance (AC6, AC7).**
+   - lamp renamed light/lights answered `updated` with `name` and `plural` and `core-nodes-renamed`, and `letterOutOfDate` false.
+   - A description on the lettered tea house answered `updated`, `letterOutOfDate` true.
+   - The same calls again answered `unchanged`, and creating lamp again answered `already-exists` with the concept now named light.
+5. **L3, a reinstall (AC8).**
+   - **First run, with Decision 3's wiring.** Every node and tag was unchanged, but 11 of each new concept's 21 memberships were pruned: `word` everywhere, `graph` on the graph nodes, `set` on the properties set. A second reinstall changed nothing more.
+   - **Tea house, made by today's route,** gained `property`, `concept-header` and `set` memberships, and lost `superset-superset → tea-house-superset`. Its superset then isn't reached by the superset concept's class thread, which is ledger `2026-11-15-reinstall-drops-a-supersets-own-membership`.
+   - **Re-check with Amendment 2's wiring** (10 memberships), on a fresh instance. A reinstall (69 s) left coffee house, created, and light, created and then renamed with a description, unchanged: nodes, tags and relationships. Every concept each node's `z` tags name still reached it through its class thread.
+6. **L4, a restore on a fresh instance (AC8).**
+   - `tapestry lifecycle backup` took the graph offline for 18.2 s, and `download-backup` gave a 4.75 MB tar of its five files. The instance was then removed.
+   - On a fresh instance, with its own new assistant, `upload-backup` held it (`sameInstance` false), and `restore` took the graph offline for 21.9 s.
+   - Afterwards the instance answered as the backup's assistant.
+   - The five concepts (coffee house, light, moth, tea house and the agent's desk lamp) had the same tapestryKeys, nodes with their properties, tags and relationships as at the backup.
+   - The backup file, which held the throwaway assistant's key, was deleted.
+7. **L5, an admin agent (AC8).** A throwaway key was made inside the instance and listed in `adminPubkeys`. It drove `clients/cli`, copied in, through `http://127.0.0.1:80`:
+   - create reading lamp, `created`, recorded as `admin` with its pubkey;
+   - create it again, `already-exists`, with no entry;
+   - rename it desk lamp/desk lamps, `updated`, recorded as the agent's;
+   - `graph history --node <it>`: the update, then the create, newest first.
+
+   A visitor through nginx got 401. A text/plain body got 415, telling it to send JSON.
+8. **L6, the relay (AC8).** It held 458 events after today's route, and 458 after every later graph write, the backup included. In the re-check it held 450 before and after. No graph operation sent an event.
+
+### The touched suites (Implementation, 2026-11-15)
+
+`test/operations.test.js`, the whole stack-free operations gate, every suite under `test/operations/` included: **377 passed, 0 failed**. The worktree's `node_modules` is linked to the main checkout's, so that `test/helpers/routeWalk.js` finds express at its absolute path; without the link, W1, X1 and X2 fail on "Cannot find module express", before anything of this story runs.

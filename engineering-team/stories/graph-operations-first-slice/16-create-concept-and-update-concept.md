@@ -103,6 +103,37 @@ For Architecture, not this gate:
 - **What a letter that no longer matches means** when today's import brings the old letter in again, and how the answer says it (open question 3).
 - **The change entries' shape** for a concept made (eight nodes, eleven or so edges) and a concept changed (each field, from and to).
 
+## Evidence
+
+### The live check (Implementation, 2026-11-15)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, booted from image `agent-memory-tapestry` with this branch's `src/` mounted, and never on a shared or private instance. Every step and number is in the test plan's Verification. By criterion:
+
+- **AC1 and AC2: pass.**
+  - Today's create-concept made tea house, and `graph create-concept` made coffee house.
+  - The concept-graph reads show coffee house: `summaries` lists it, `node` gives its labels with no `NostrEvent`, and `neighbors` its wiring.
+  - All eight of `core-nodes`' nodes are identical to tea house's once the names are swapped.
+- **AC3: passes.**
+  - `graph create-concept` asked for tea house answered `already-exists`, `hasLetter` true, with no entry.
+  - Two creates of moth at once made one concept and one entry: the lock held.
+- **AC6 and AC7: pass on the instance too.** A rename of lamp to light, and a description on the lettered tea house (`letterOutOfDate` true), each answered as the suites do. Repeating them answered `already-exists` or `unchanged`.
+- **AC8: passes.**
+  - A backup was restored on a fresh instance. It brought back the assistant, and five concepts with every node, tag, relationship and tapestryKey as they were.
+  - An admin agent, through nginx and the external CLI, created reading lamp, created it again and renamed it. Each change was recorded as the agent's.
+  - The relay held 450 events before the first write, and 458 after the last. All 8 came from today's create-concept, and none from a graph operation.
+  - **A reinstall:** the first live run wired Decision 3's memberships, and a reinstall pruned 11 of them (Amendment 2, below). Re-checked on a fresh instance with Amendment 2's wiring, a reinstall (69 s) left a created concept and a renamed one exactly as they were: nodes, tags and relationships. Every concept each node's `z` tags name still reached it through its class thread.
+
+## Deviations
+
+- **Memberships are what a reinstall leaves** (ADR 0016 Amendment 2, the owner's ruling at Implementation). The live check's first reinstall pruned 11 of the 21 memberships Decision 3 wired: `word` everywhere, `graph` on the graph nodes, and `set` on the properties set. A second reinstall changed nothing. The class threads still reached every node from each concept its `z` tags name. create-concept now wires the 10 memberships a reinstall leaves, and CC2 expects exactly those.
+- **Two Tester corrections at Implementation,** each in a commit of its own, outside the implementation's:
+  - CC3 expects a new concept's schema to read as wrapped. Today's route makes a schema whose only top-level key is the concept's key, which `conceptOf` reads as wrapped, and CC3 had asserted the opposite.
+  - The seed's lettered concept is beagle, not dog. The active firmware has a dog concept at `39998:<TA>:dog`, so a seeded dog sat at a firmware concept's address, and update-concept rightly refused it (UC2).
+- **`differs` compares the plural and the description only when they are given** (AC3: "each input that differs"). A repeat that names only the name never reports the plural it didn't give.
+- **An update entry's `was` and `now` for the description are the description tag's**, null when there is none, not the JSON's default for a concept made without one.
+- **The near-match read takes at most 500 candidates by name or slug before it sorts them** (`LIMIT 500` in C8). `moreSimilar` counts within those. A graph with more than 500 concepts sharing a name with the one asked for would under-count; it caps the read, which an unbounded scan wouldn't.
+- **The rename writes node and tag values through the field mapping's S8 statement**, `_fields.js`'s `writeCopies`, reused rather than repeated: tag nodes carry keys too.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
