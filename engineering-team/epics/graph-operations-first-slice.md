@@ -27,6 +27,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 
 16. `stories/graph-operations-first-slice/16-create-concept-and-update-concept.md` — make a concept with its eight core
     nodes and no event, and change its names, slug or description (Loom A10.16).
+28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's
+    superset, under another parent, refusing a cycle, and take a set out from under one of its parents, refusing its
+    last parent (Loom A10.28).
 
 ## Key facts / guardrails
 
