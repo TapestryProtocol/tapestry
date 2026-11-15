@@ -79,7 +79,7 @@ Both operations refuse a problem with `bad-name` (400) or `bad-description` (400
 **5. The rule `concept-slug-unique`** (`src/operations/rules/concept-slug-unique.js`, new). It says that no two of this instance's own concepts share a slug or a key (BIBLE §10, rule 10, as its full text gives it). It is a graph rule about the owner's and admins' own concepts, and it refuses. Its items are `{ concept?, slug?, key?, repeat? }`:
 - **A create** passes `{ slug, key, repeat: true }`. An own concept with that slug is the repeat, so nothing is violated. Otherwise, an own concept with that key is a violation: `key-in-use` (409), naming it.
 - **An update** passes `{ concept, slug }`. Another own concept with that slug is a violation: `slug-in-use` (409), naming it. An item whose `concept` names no own concept header has no violations, so the operation's own refusals (Decision 9) answer for it.
-- **As a check,** each own concept is an item `{ concept, slug, key }`. Every concept that shares a slug or a key with another is a violation, so `rules check` (A10.31) names both.
+- **As a check,** each own concept is an item `{ concept }` (Amendment 1.2). Every concept that shares a slug or a key with another is a violation, so `rules check` (A10.31) names both.
 
 Its one read lists every own header with its `slug`, `names` and `json` tags.
 
@@ -175,7 +175,7 @@ create-concept's already-exists answer and update-concept's answer use it, and `
 - **`src/operations/changes.js`**: the `CHANGE` fields (Decision 10).
 - **`docs/GRAPH_RULES.md`** §4, and **`docs/GRAPH_OPERATIONS_CATALOG.md`** §2's two rows (Decision 14).
 - **Statements** (the Tester teaches the fake those it doesn't run; the Implementer keeps to them):
-  - **C1, the lock:** `MATCH (n:TapestryNode {uuid: $uuid}) SET n.tapestryLock = true REMOVE n.tapestryLock RETURN n.tapestryKey AS key`.
+  - **C1, the lock:** `MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n.tapestryLock = true REMOVE n.tapestryLock RETURN n.tapestryKey AS key` (Amendment 1.1).
   - **C2, own headers:** `(h:ConceptHeader OR h:ListHeader) AND h.pubkey = $ta`, with their `slug`, `names`, `json` and `description` tags, by `OPTIONAL MATCH (h)-[:HAS_TAG]->(t:NostrEventTag)`, one row per tag, grouped in code.
   - **C3, supersets:** `UNWIND $uuids AS u MATCH (h:NostrEvent|TapestryNode {uuid: u})-[:IS_THE_CONCEPT_FOR]->(s:Superset) RETURN u AS concept, s.tapestryKey AS superset`.
   - **C4, held addresses:** `MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid IN $uuids RETURN n.uuid AS uuid`.
@@ -200,6 +200,17 @@ create-concept's already-exists answer and update-concept's answer use it, and `
   - an admin agent through nginx and the external CLI;
   - the relay's event count, unchanged.
 - **Branches:** staging only, by the usual chain. This isn't a fix that must reach other live branches.
+
+## Amendment 1 (2026-11-15, at Test Design) — what the tests pin that the Decisions left open
+
+1. **The lock names `NostrEvent|TapestryNode`** (Decision 6, C1). It finds a node by its address, and ADR graph-operations-foundation/0003 Decision 9 holds every such lookup to the disjunction until every instance has run both migrations. The key-path guard (G11, `test/operations/lifecycle/tapestry-key-paths.test.js`) checks it.
+2. **The rule's items** (Decision 5). A check's item is `{ concept }`, and the rule reads that concept's own slug and key, as Decision 4 gives them. An update's item, `{ concept, slug }`, checks the slug alone. So a key two concepts already shared, before this rule existed, never blocks an update that doesn't touch it. A create's item stays `{ slug, key, repeat: true }`.
+3. **A concept, as answered** (Decision 11):
+   - `nodes` holds the header too, under `conceptHeader`, as `coreNodesGraph.constituents` does;
+   - `description` is the header's `description` tag, else its JSON's `conceptHeader.description`, else null;
+   - each `differs` entry is `{ input, given, holds }`, with `given` the cleaned input. The names are compared after `deriveAllNames`, so `Coffee  House` is no different from `coffee house`.
+4. **What the fake graph learns** (Implementation notes; the Tester's commit): C1, C5 for any node, C6 and C11 as write statements of their own; label alternatives in them; `toLower` in both read fakes; and the four wiring types. Each has its own test in `test/operations/graph-fake.test.js` (F15–F20). Nothing it ran before changed.
+5. **AC2's oracle is the route itself.** `test/helpers/todaysCreateConcept.js` runs today's `handleCreateConcept`, read from its source, in a sandbox that records what it would sign and wire. So the comparison can't drift from the route, and fails loudly if the route moves.
 
 ## Out of scope
 
