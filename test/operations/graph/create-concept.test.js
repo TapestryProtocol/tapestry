@@ -14,7 +14,7 @@
  *        the answer giving each node's key by role, its entry concept-created naming all eight, and a note on backups
  *   CC2  it is what today's route signs, recorded without signing: each node's address, labels, name, tags (the core
  *        nodes adding the spec's o tag after their z tags), the import's tag uuids and JSON, the route's eight wiring
- *        edges, and memberships of every concept the z tags name, word included, and the header of concept header
+ *        edges, and exactly the memberships a firmware reinstall leaves (ADR 0016 Amendment 2)
  *   CC3  _fields.js reads it as it reads a lettered concept: its key, its fields, and no elements yet
  *   CC4  graph history finds its entry by the header and by a core node
  *   CC5  the same name again, or the same slug in other case and spacing, answers already-exists, changes nothing,
@@ -54,6 +54,11 @@ const RULE = 'concept-slug-unique';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROLE_OF_SUFFIX = { superset: 'superset', schema: 'json-schema', 'primary-property': 'primary-property', properties: 'properties-set', 'property-tree-graph': 'property-tree-graph', 'concept-graph': 'concept-graph', 'core-nodes-graph': 'core-nodes-graph' };
 const KEY_OF_SUFFIX = { superset: 'superset', schema: 'jsonSchema', 'primary-property': 'primaryProperty', properties: 'properties', 'property-tree-graph': 'propertyTreeGraph', 'concept-graph': 'conceptGraph', 'core-nodes-graph': 'coreNodesGraph' };
+/** Each node's memberships, as a firmware reinstall leaves them (ADR 0016 Amendment 2, the owner's ruling). */
+const MEMBERS = Object.freeze({
+  conceptHeader: ['concept-header'], superset: ['superset', 'set'], jsonSchema: ['json-schema'], primaryProperty: ['primary-property', 'property'],
+  properties: ['properties-set'], propertyTreeGraph: ['property-tree-graph'], conceptGraph: ['concept-graph'], coreNodesGraph: ['core-nodes-graph'],
+});
 const canon = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((o, key) => { o[key] = v[key]; return o; }, {}) : v));
 
 function needDecl() {
@@ -199,12 +204,12 @@ test('CC2: it is what today\'s route signs, recorded without signing: addresses,
     assert(n.props.name === nameTag && n.props.kind === e.kind, `${role}'s name and kind are the route's (${nameTag}, ${e.kind}); got ${show(n.props)}`);
     const labels = [e.kind === 39998 ? 'ListHeader' : 'ListItem', ...(today.labels[e.uuid] || []), 'TapestryNode'];
     assert(show([...n.labels].sort()) === show([...new Set(labels)].sort()), `${role}'s labels are the route's, without NostrEvent; got ${show(n.labels)}, want ${show(labels)}`);
-    // D9: an element of every concept its z tags name, word included; the header of concept header.
-    const zs = want.filter((t) => t[0] === 'z').map((t) => t[1].split(':')[2]);
-    const members = e.kind === 39998 ? ['concept-header'] : zs;
-    for (const slug of members) {
-      assert(C.into(g, n.props.tapestryKey, 'HAS_ELEMENT').includes(k.supersets[slug]), `${role} is an element of ${slug}: a HAS_ELEMENT from its superset (D9; what a reinstall would add)`);
-    }
+    // D9, as a firmware reinstall leaves it (ADR 0016 Amendment 2): exactly these memberships, and no other. The z tags
+    // still name word and graph, which the class threads give.
+    const from = C.into(g, n.props.tapestryKey, 'HAS_ELEMENT').sort();
+    const wantFrom = MEMBERS[role].map((s) => k.supersets[s]).sort();
+    const slugOf = (key) => Object.keys(k.supersets).find((s) => k.supersets[s] === key) || key;
+    assert(show(from) === show(wantFrom), `${role} is an element of exactly ${MEMBERS[role].join(' and ')}, what a reinstall leaves (Amendment 2); got HAS_ELEMENT from ${show(from.map(slugOf))}`);
   }
   for (const w of today.wiring) {
     const [from, to] = [C.byUuid(g, w.from), C.byUuid(g, w.to)];
