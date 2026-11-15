@@ -14,6 +14,8 @@
  *   S2a derive-status counts, for each label, only its nodes with a key and an address                            [AC2]
  *   S2b once every node with an address is rebuilt, each label reads derived = total                              [AC2]
  *   S5  a rebuild by key of a node with no address does what it does today                                       [AC5]
+ *   S6  before tapestry-keys, a rebuild by key still finds each node with an address; a missing key, none     [AC1, AC5]
+ *   S7  before tapestry-keys, derive-status still counts each label's nodes with a key and an address         [AC2]
  *
  * Live (only with TAPESTRY_CONTAINER naming a scratch container, tapestry-scratch…; never the shared stack).
  *   L1  [small graph] Pass 3's rebuild passes by keyed card sets and other nodes with no address               [AC1]
@@ -206,6 +208,31 @@ t('S5 (AC5): a rebuild by key of a node with no address does what it does today 
       (out.unread.length ? ` (reads the fake answered with no rows: ${short(out.unread.slice(0, 2), 300)})` : ''));
     assert(r.puts.some((p) => p.key === r.key), `rebuild by key ${r.key} must cache a Tapestry JSON for it; cached ${short(r.puts)}`);
   }
+});
+
+t('S6 (AC1, AC5): before tapestry-keys (no TapestryNode label anywhere), a rebuild by key still finds, rebuilds and stamps each node with an address, an event-less set included; a key no node holds rebuilds nothing', () => {
+  const nodes = beforeGraph();
+  const addressedKeys = nodes.filter((n) => hasKey(n) && hasAddress(n)).map((n) => n.props.tapestryKey);
+  const out = child({ kind: 'deriveByKey', nodes, keys: [...addressedKeys, 'k-no-such-key'] });
+  const problems = [];
+  for (const r of out.results) {
+    if (r.key === 'k-no-such-key') {
+      if (r.answer !== null || r.puts.length || r.writes.length) problems.push(`a key no node holds must rebuild nothing; got ${short({ answer: r.answer, puts: r.puts, writes: r.writes.length })}`);
+      continue;
+    }
+    const node = nodes.find((n) => n.props.tapestryKey === r.key);
+    if (!r.answer || r.answer.tapestryKey !== r.key) problems.push(`${r.key}: no rebuild (answer ${short(r.answer)})`);
+    else if (!r.puts.some((p) => p.key === r.key)) problems.push(`${r.key}: nothing cached`);
+    else if (!stampedBy(r.writes, nodes).includes(node)) problems.push(`${r.key}: not stamped`);
+  }
+  assert(problems.length === 0, `before tapestry-keys, a rebuild by key must still work:\n        ${problems.join('\n        ')}` +
+    (out.unread.length ? `\n        (reads the fake answered with no rows: ${out.unread.length}, e.g. ${short(out.unread[0], 160)})` : ''));
+});
+
+t('S7 (AC2): before tapestry-keys (no TapestryNode label anywhere), derive-status still counts each label\'s nodes with a key and an address', () => {
+  const nodes = beforeGraph();
+  for (const k of ['k-item', 'k-set-one']) nodes.find((n) => n.props.tapestryKey === k).props.tapestryJsonUpdatedAt = 1700000000;
+  compareStatus(deriveStatus(nodes), expectedStatus(nodes));
 });
 
 /* ───────────── live ───────────── */
@@ -455,8 +482,9 @@ t('L2b (AC2, live, after L4): after a full Pass 3, every label reads derived = t
 
 t('L5b (AC5, live, one install then a rebuild in this run): Pass 3\'s output — the rebuilt Tapestry JSON, the enumerated schemas and the implicit elements — matches today\'s', () => {
   if (!liveOrSkip()) return 'SKIP';
-  // The baseline is of a container that has run one install: a second install moves some HAS_ELEMENT edges between
-  // supersets and rewrites some schemas' json tags itself, on today's code as on the fix (test plan, amendment 1).
+  // The baseline is of a container that has run one install. A second install comes out differently by itself: Pass 2's
+  // save-schema finds a concept's header by name, and another author's header with that name can take its place
+  // (ledger row 2026-11-15-save-schema-finds-header-by-name; test plan, amendments 1 and 2).
   const installs = Number(live.sh('grep -c "FIRMWARE INSTALL COMPLETE" /var/log/supervisor/brainstorm.log || true').trim());
   if (installs !== 1) { console.log(`  NOTE  L5b compares a container that has run one firmware install; this one's log shows ${installs}. Boot a fresh scratch stack to run it.`); return 'SKIP'; }
   if (!rebuiltSinceInstall) { console.log('  NOTE  L5b compares the graph after a rebuild of the seven labels that follows the install; neither L1 nor L5a ran one in this run.'); return 'SKIP'; }

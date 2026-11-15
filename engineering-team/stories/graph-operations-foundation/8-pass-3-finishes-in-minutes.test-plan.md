@@ -39,15 +39,15 @@ One suite, `test/pass-3-finishes-in-minutes.test.js`, in two parts.
 
 | Criterion | Test | Level |
 |---|---|---|
-| AC1 — Pass 3 rebuilds only nodes with an address | **S1a** after: `deriveAll` of each of the seven labels, in Pass 3's order, caches and stamps exactly that label's nodes with a key and an address (the event-less set included), never a card set or a stray, and never caches under no key · **S1b** before: every addressed node is still rebuilt on a graph with no `TapestryNode` label · **L1** small graph: 30 keyed card sets and a stray under each other label are added, with an event-less set; after `derive-all` of the seven labels, none of the strays is cached or stamped, and every node with an address was rebuilt by the pass | stack-free (child), live |
-| AC2 — derive-status counts the nodes Pass 3 rebuilds | **S2a** after, part rebuilt (with a card set and a stray stamped, as today's code leaves them): each label's `total`, `derived` and `underived` count only its keyed nodes with an address · **S2b** after, all rebuilt: the same, and every label reads `derived = total` · **L2** any graph: with card sets and strays added, each label's `total` equals the count of its keyed, addressed nodes (on staging's shape, Set: 22, not 370,404) · **L2b** after L4: every label reads `derived = total` | stack-free (child), live |
+| AC1 — Pass 3 rebuilds only nodes with an address | **S1a** after: `deriveAll` of each of the seven labels, in Pass 3's order, caches and stamps exactly that label's nodes with a key and an address (the event-less set included), never a card set or a stray, and never caches under no key · **S1b** before: every addressed node is still rebuilt on a graph with no `TapestryNode` label · **S6** before: a rebuild by key still finds, rebuilds and stamps each addressed node, and a key no node holds rebuilds nothing (Amendment 2) · **L1** small graph: 30 keyed card sets and a stray under each other label are added, with an event-less set; after `derive-all` of the seven labels, none of the strays is cached or stamped, and every node with an address was rebuilt by the pass | stack-free (child), live |
+| AC2 — derive-status counts the nodes Pass 3 rebuilds | **S2a** after, part rebuilt (with a card set and a stray stamped, as today's code leaves them): each label's `total`, `derived` and `underived` count only its keyed nodes with an address · **S2b** after, all rebuilt: the same, and every label reads `derived = total` · **S7** before: derive-status still counts each label's keyed, addressed nodes on a graph with no `TapestryNode` label (Amendment 2) · **L2** any graph: with card sets and strays added, each label's `total` equals the count of its keyed, addressed nodes (on staging's shape, Set: 22, not 370,404) · **L2b** after L4: every label reads `derived = total` | stack-free (child), live |
 | AC3 — a rebuild doesn't read the whole graph | **L3** staging's shape: a rebuild by key of one node of each label (`POST /api/tapestry-key/derive/:key`, the TA's where there is one), median of 3, takes at most 200 ms; and inside `derive-all` of ConceptHeader each node takes at most 200 ms · **M3** (measurement, below): the same times on the small graph, and the ratio | live |
 | AC4 — the whole of Pass 3 finishes in minutes | **L4** staging's shape, `PASS3_INSTALL=1`: a firmware install's Pass 3, from its "── Pass 3:" line to "FIRMWARE INSTALL COMPLETE", takes under 10 minutes, and the install answers success. It prints the time before Pass 3 and the time of each step. On a timeout it restarts the scratch control panel to stop the install · **M1, M2** (measurements, below) | live |
 | AC5 — nothing else changes | **S5** after: a rebuild by key of a card set is still a rebuild (answered, and cached), as is one of an addressed set · **L5c** any graph: `POST /api/tapestry-key/derive/<a card set's key>` answers its rebuild, as today · **L5a** small graph: after `derive-all` of the seven labels, each node with an address holds, as a set, what today's queries find for it: elementOf (direct, indirect); for a set or superset, its elements, child sets and parent sets; its schemas. It also holds its identifiers and the deriver that rebuilt it · **L5b** on a container that has run one firmware install, after a rebuild of the seven labels in the run: the firmware's nodes' rebuilt Tapestry JSON, the JSON schemas' json tags and each superset's HAS_ELEMENT targets match the baseline taken from today's code (precondition amended, Amendment 1) | stack-free (child), live |
 | (the fake) | **S0**: `labels()`, `elementId()` and `id()` read a node as Neo4j would, and `elementId(n) = $e` finds it | unit |
 
-S0, S1b and S5 pass today, and must keep passing:
-- **S1b** fails a fix that reads only `TapestryNode` nodes. Production has none until `tapestry-keys` runs there.
+S0, S1b, S5, S6 and S7 pass today, and must keep passing:
+- **S1b, S6 and S7** guard an instance that hasn't run `tapestry-keys`, as production hasn't, where no node is `TapestryNode`. S1b covers derive-all's choice of nodes, S6 a rebuild by key, and S7 derive-status. Each fails a fix that reads only `TapestryNode` nodes in its own path (Amendment 2).
 - **S5** fails a fix that leaves out nodes with no address inside the derivers. That would change the rebuild by key, which AC5 keeps.
 - **S0** checks the fake.
 
@@ -65,7 +65,7 @@ L5c, L5a and L5b also pass today: they are guards on what the rebuild finds.
 - [x] A keyed node with no address under every label Pass 3 rebuilds, not only `Set`: S1a, S2a and L1.
 - [x] A card set that today's code has already rebuilt, with a `tapestryJsonUpdatedAt` of its own: S2a and S2b. It must not count as derived either.
 - [x] An addressed node with no key is never rebuilt, and nothing is cached under no key. Candidate (d) under Verification shows this catches `key AND uuid OR id`.
-- [x] A graph that hasn't run `tapestry-keys`, with no `TapestryNode` label: S1b.
+- [x] A graph that hasn't run `tapestry-keys`, with no `TapestryNode` label: S1b for derive-all, S6 for a rebuild by key, and S7 for derive-status.
 - [x] A rebuild by key of a node with no address keeps today's behaviour: S5 and L5c.
 - [x] The community headers that firmware install fetches can change upstream, so L5b compares only the firmware's own nodes. Those are the TA's, and the tag concepts under ADR 0015's literal pubkey, read from `LEGACY_Z_TAG_PUBKEY` in `src/api/profile-tags/index.js`.
 - [ ] A `'{}'` key: not covered. Today's rebuild selects it as a key, and this story doesn't change that.
@@ -101,12 +101,34 @@ L5b's comparison is unchanged. It was wrong in two ways that have nothing to do 
 - **It compared states that differ without any change to the code.**
   - Its first run on the fix came after L4's install, a second install on that container. 447 of the 448 firmware nodes differed from the baseline.
   - An install rebuilds (step 3a) before it wires the implicit elements (3c). The baseline was taken after a derive-all that follows the wiring. A derive-all after that install brought the difference to 24.
-  - The 24 left come from the second install itself. It moves `tagging-with-specific-tag-superset` and `tapestry-superset` between the HAS_ELEMENT targets of `set-superset` and `superset-superset`. It also rewrites six schemas' json tags, and the relay items and those supersets rebuild differently as a result. None of these is code the fix changes.
+  - The 24 left come from the second install itself. It moves `tagging-with-specific-tag-superset` and `tapestry-superset` between the HAS_ELEMENT targets of `set-superset` and `superset-superset`. It also rewrites six schemas' json tags, and the relay items and those supersets rebuild differently as a result. *Corrected by Amendment 2:* this sentence first ended "None of these is code the fix changes". The cause is Pass 2's save-schema, which the fix doesn't change.
 
   So L5b now runs only on a container whose log shows one completed install, after a derive-all of the seven labels in the same run (L1 or L5a). An install in the run (L4) clears that.
 - **It named addresses by text that changes with the instance.** Its first pass had compared the container the baseline was taken on with itself. On another stack running today's code, a reinstall and a rebuild differed in 231 entries. Most of those were the same nodes under other addresses: a child's d-tag ends in a hash of its parent's address, which contains the TA. The snapshot now gives each address the instance-independent name above. On a fresh stack 76 of the 98 hashed suffixes resolve to a parent's address. The other 22 are relationship items, which their names identify. No string inside a rebuilt entry carries a bare suffix: 76 entries checked.
 
 The baseline was taken again with these names, on another fresh stack running today's code, after one install and one derive-all. This is the Tester's amendment, to the test's precondition and its fixture, not to what it compares. It is put to the owner at the Implementation gate.
+
+### Amendment 2 (from the review, 2026-11-15): before `tapestry-keys`, and Amendment 1's cause
+
+The review found four things, and this amendment answers them.
+
+- **Two of four wrong fixes passed every stack-free test.** The two that matter:
+  - a rebuild by key with no fallback;
+  - derive-status counting only `TapestryNode` nodes.
+
+  The only check before `tapestry-keys` had been S1b, which runs derive-all. Two tests now cover the rest. Both run on the *before* graph, with no `TapestryNode` label:
+  - **S6:** a rebuild by key of every addressed node, the event-less set included, and of a key no node holds;
+  - **S7:** derive-status.
+
+  Each was tried against its wrong fix in the working tree, and `src/` was put back after:
+  - S6 fails with no fallback (`findByKey` answering only the labelled lookup);
+  - S7 fails with derive-status matching `(n:${label}:TapestryNode)`.
+
+  Both pass on the fix. Line 50's guard list and the edge case for a graph before `tapestry-keys` now say which test covers which path.
+- **Amendment 1 named the wrong cause.** The Reviewer checked the save-schema evidence on the scratch stacks. Every install after the first fails in Pass 2 for some tag concepts: 5 on the seeded stack and 3 on a fresh one, with the same code. And after a second install, the snapshot differed from the baseline in exactly those schemas, while all 448 rebuilds and the 17 supersets' elements matched. So the second install's differences come from `POST /api/normalize/save-schema`. It finds a concept's header by name, and another author's header with the same name takes its place (ledger row `2026-11-15-save-schema-finds-header-by-name`). Amendment 1's sentence and L5b's comment now say so. Neither claims any longer that today's code was measured doing the same.
+- **The dead endpoints didn't reach every suite.** `event-tagging-firmware-seed` calls `localhost` directly (Verification, after the fix).
+
+L5b's precondition, one install and then a rebuild, is unchanged. The Reviewer judged it right.
 
 ## How to run
 
@@ -217,7 +239,7 @@ The fix is in five files:
 - the lookup by key plans as `NodeUniqueIndexSeek` on `tapestry_key`;
 - apply-enumerations' query starts from the concept graph's HAS_ELEMENT edges (about 530), the planner's choice.
 
-**Stack-free** (final code): 6 passed of 6. Story 7's `cache-counts` passes 7 of 7, and the operations gate 337 of 337. These pass too, run one at a time with dead endpoints (`BRAINSTORM_BASE_URL`, `TAPESTRY_PORT` and `MEILI_URL_HOST` at `127.0.0.1:9`, `TAPESTRY_CONTAINER` naming no container): `tapestry-key-put-await` 3 of 3, `community-reference-nostr-relay-stub` 4 of 4, `event-tagging-firmware-seed` 9 of 9 (2 skipped), `header-conceptgraph-tag` 2 of 2, and `stack-free-npm-test` 6 of 6 (1 skipped).
+**Stack-free** (final code): 6 passed of 6. Story 7's `cache-counts` passes 7 of 7, and the operations gate 337 of 337. These pass too, run one at a time with dead endpoints (`BRAINSTORM_BASE_URL`, `TAPESTRY_PORT` and `MEILI_URL_HOST` at `127.0.0.1:9`, `TAPESTRY_CONTAINER` naming no container): `tapestry-key-put-await` 3 of 3, `community-reference-nostr-relay-stub` 4 of 4, `header-conceptgraph-tag` 2 of 2, and `stack-free-npm-test` 6 of 6 (1 skipped). `event-tagging-firmware-seed` passed 9 of 9 (2 skipped), but the dead endpoints didn't reach it. It calls `http://localhost:7778` and `:8877` directly (lines 127, 137, 140, 151), so its run sent the owner's local instance read-only GETs (`/api/assistant/pubkey`, `/api/strfry/scan`, `/api/concept-graph/summaries`). It wrote nothing (Amendment 2; ledger row `2026-11-14-harness-points-tests-at-agent-memory`).
 
 **Live, a small graph: a fresh stack whose first install ran the fix.** Its install log reads "Pass 3: 636 derived, 4 enumerations, 90 implicit elements", as today's code's does. L5b compares it with the baseline taken on another stack, running today's code (Amendment 1).
 
