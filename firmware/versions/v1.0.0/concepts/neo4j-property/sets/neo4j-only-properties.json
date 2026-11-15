@@ -1,0 +1,14 @@
+{
+  "word": {
+    "slug": "the-set-of-neo4j-only-properties",
+    "name": "The set of neo4j-only properties",
+    "title": "The Set of Neo4j-Only Properties",
+    "wordTypes": ["word", "set"]
+  },
+  "set": {
+    "slug": "neo4j-only-properties",
+    "name": "neo4j-only properties",
+    "title": "Neo4j-Only Properties",
+    "description": "Properties a Neo4j node carries that are no field of its concept, such as search strings, or an event's id, kind and created_at. Each will name where its value comes from, so that a fully reduced graph can make it again. It stays empty until a story adds the first one and decides its shape."
+  }
+}

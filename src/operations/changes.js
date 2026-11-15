@@ -24,7 +24,11 @@ const { keyNode } = require('../lib/tapestry-key-cypher');
 const ISO_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$/;
 
-/** One change in an entry: what it did, and the tapestryKeys it touches in node, from or to. */
+/**
+ * One change in an entry: what it did, and the tapestryKeys it touches in node, from, to, concept or nodes. A field
+ * mapping's changes add concept, field, property and nodes (story graph-operations-foundation #5, ADR
+ * graph-operations-foundation/0005 Decision 12).
+ */
 const CHANGE = Object.freeze({
   type: 'object',
   required: ['change'],
@@ -34,7 +38,11 @@ const CHANGE = Object.freeze({
     from: { type: 'string', description: 'The tapestryKey of the node a relationship runs from' },
     to: { type: 'string', description: 'The tapestryKey of the node it runs to' },
     node: { type: 'string', description: 'The tapestryKey of a node the change is about' },
-    count: { type: 'integer', minimum: 1, description: 'How many, when the change removed more than one thing alike' },
+    count: { type: 'integer', minimum: 1, description: 'How many, when the change removed more than one thing alike, or touched the nodes it names' },
+    concept: { type: 'string', description: "The tapestryKey of the concept header a field mapping's change is about" },
+    field: { type: 'string', description: 'The name of the field a mark is for' },
+    property: { type: 'string', description: 'The node property a mark carries, <concept key>_<field>, such as dog_breed' },
+    nodes: { type: 'array', items: { type: 'string' }, description: 'The tapestryKeys of the nodes whose copy the change set or removed' },
   },
 });
 
@@ -62,11 +70,14 @@ const ENTRY = Object.freeze({
 /** The `change` every write through the path answers: its entry, or null when it changed nothing (ADR Decision 2). */
 const CHANGE_ENTRY = Object.freeze({ ...ENTRY, nullable: true, description: 'The change entry this write recorded, or null when it changed nothing (a repeat)' });
 
-/** The distinct tapestryKeys a list of changes names. */
+/** The distinct tapestryKeys a list of changes names: in node, from, to and concept, and every one in nodes. */
 function keysOf(changes) {
+  const seen = new Set();
   const keys = [];
+  const add = (k) => { if (typeof k === 'string' && !seen.has(k)) { seen.add(k); keys.push(k); } };
   for (const c of changes) {
-    for (const f of ['node', 'from', 'to']) if (typeof c[f] === 'string' && !keys.includes(c[f])) keys.push(c[f]);
+    for (const f of ['node', 'from', 'to', 'concept']) add(c[f]);
+    if (Array.isArray(c.nodes)) for (const k of c.nodes) add(k);
   }
   return keys;
 }
