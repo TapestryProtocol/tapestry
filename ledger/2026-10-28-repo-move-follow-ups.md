@@ -128,5 +128,23 @@ history):
   (run `43633449263`) and magic carpet (run `43627352495`, attempt 2). Production and tags have not deployed since.
 - **Limits of the review.** It covers key logins from 2026-10-11 on, read from the servers' own logs.
 
+**Seen again on 2026-11-15** (the fifth server: the `ninja` box, which the image-publishing workflow logs in to):
+- **The `ninja` box pulled from the old address too.** The four servers above are not the only ones that deploy by
+  `git pull`: the workflow's last step pulls on the `ninja` box before it rolls the brains. A re-run of the newest
+  image-publishing run (run `43627357452`, attempt 2) logged "From https://github.com/nousclawds4/tapestry" and
+  "Updating 491158e9..e53e5474". The owner set the box's `origin` to the new address the same day, and the command
+  printed it back. No roll has run since, so no log shows the new address in use yet.
+- **The box's first deploy key is off it.** That key was made when the box was set up, on 2026-11-04, and its private
+  half sat in a repository-level secret until 2026-11-15. The box got a new key pair first, proven by that re-run. The
+  owner then deleted the repository-level secret and removed the old key from the box's `authorized_keys`. A listing
+  before and after shows one line fewer. Of the deploy keys, only the new one is left on the box.
+- **No deploy secret is left at repository level.** Read through the API on 2026-11-15: the repository holds no Actions
+  secret of its own, and the organization shares none with it. All 15 `DEPLOY_*` secrets are in the five environments,
+  three in each, and each environment allows only its deploy branch or branches (OPERATIONS §18.3).
+- **What a later review of that box's logins should expect.** The owner did this from his own machine, logged in with
+  the new deploy key, since the box accepts no other key of his. So the box's log for 2026-11-15 holds deploy-key
+  logins from an address outside GitHub's runner ranges.
+- **Limits.** The box's login history has not been read. The review of 2026-11-14 covered the other four servers only.
+
 **Pointer:** `.claude/skills/cycle-staging/SKILL.md` ("The old repo"); OPERATIONS §9.1;
 `engineering-team/reviews/harness-self-improvement/skills-repo-nousclawds4-2026-10-28.md`.
