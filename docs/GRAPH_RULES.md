@@ -64,3 +64,14 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - **Check:** the same `violations` over every current mark names each mark whose field has changed type, lost its property node, or now collides. `rules check` (A10.31) will run it over the graph.
 - **Repair:** `graph unmark-field` takes a broken mark out, with its copies; `graph map-fields` brings a concept's copies in line with its marks.
 - **Enforced by:** the guard of `graph mark-field`. The rule's code is in `src/operations/rules/field-mark-allowed.js`, and the mapping it guards is in `src/operations/catalog/graph/_fields.js`. Built in story graph-operations-foundation #5 (ADR 0005).
+
+## 4. `concept-slug-unique`
+
+- **Says:** no two of this instance's own concepts share a slug or a key. This is BIBLE §10's rule 10, as its full text gives it (tapestry-cli `docs/NORMALIZATION.md`, 2026-03-23): within one author's graph, because a concept's key, `oKeys.singular`, is what its elements' JSON is filed under (`{"dog": {…}}`). A concept is this instance's own when its header's author is the instance's assistant, with a letter or without one. Another author's concept with the same slug is expected, and isn't a violation: the Grapevine settles which one counts (rule 8). Names aren't part of the rule; no rule makes them unique.
+- **Kind:** a graph rule, about the owner's and the admins' own concepts (D4).
+- **Refuses or reports:** it refuses the write, before anything changes:
+  - `slug-in-use` (409): an update gives a concept a slug another of this instance's concepts has, naming it;
+  - `key-in-use` (409): a create's name gives a key another of this instance's concepts has under another slug, naming it. A concept's key never changes, so after a slug change, the name the concept was made with stays refused. A create whose slug an own concept already has is the repeat, and answers that concept untouched.
+- **Check:** the same `violations` over every own concept, each as `{ concept }`, names each concept that shares a slug or a key with another, both of the pair. `rules check` (A10.31) will run it over the graph.
+- **Repair:** none yet. A slug clash is fixed with `graph update-concept --slug`. A key clash needs a concept moved to another key, which no operation does yet.
+- **Enforced by:** the guards of `graph create-concept` and `graph update-concept`, run again after each takes its lock, so two writes at once can't both pass it. The rule's code is in `src/operations/rules/concept-slug-unique.js`. Built in story graph-operations-first-slice #16 (ADR 0016).
