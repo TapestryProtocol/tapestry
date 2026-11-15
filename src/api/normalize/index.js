@@ -6078,9 +6078,11 @@ async function handleApplyEnumerations(req, res) {
       const enforceConditionals = shouldEnforceWordTypeConditionals(targetConcept, destinationPath);
       log.push(`  enforce-wordType-conditionals: ${enforceConditionals}`);
 
-      // 1. Collect enum values from each element's tapestryJSON
+      // 1. Collect enum values from each element's tapestryJSON. The source is found by its address, as every lookup by
+      // address is (ADR graph-operations-foundation/0003, Decision 9); with no label the match read every node in the
+      // graph (graph-operations-foundation #8).
       const elements = await runCypher(`
-        MATCH (source { uuid: $sourceUuid })-[:IS_A_SUPERSET_OF*0..10]->(s)-[:HAS_ELEMENT]->(e)
+        MATCH (source:NostrEvent|TapestryNode { uuid: $sourceUuid })-[:IS_A_SUPERSET_OF*0..10]->(s)-[:HAS_ELEMENT]->(e)
         RETURN DISTINCT e.tapestryKey AS tapestryKey, e.name AS name
       `, { sourceUuid });
 

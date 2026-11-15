@@ -43,7 +43,7 @@ One suite, `test/pass-3-finishes-in-minutes.test.js`, in two parts.
 | AC2 — derive-status counts the nodes Pass 3 rebuilds | **S2a** after, part rebuilt (with a card set and a stray stamped, as today's code leaves them): each label's `total`, `derived` and `underived` count only its keyed nodes with an address · **S2b** after, all rebuilt: the same, and every label reads `derived = total` · **L2** any graph: with card sets and strays added, each label's `total` equals the count of its keyed, addressed nodes (on staging's shape, Set: 22, not 370,404) · **L2b** after L4: every label reads `derived = total` | stack-free (child), live |
 | AC3 — a rebuild doesn't read the whole graph | **L3** staging's shape: a rebuild by key of one node of each label (`POST /api/tapestry-key/derive/:key`, the TA's where there is one), median of 3, takes at most 200 ms; and inside `derive-all` of ConceptHeader each node takes at most 200 ms · **M3** (measurement, below): the same times on the small graph, and the ratio | live |
 | AC4 — the whole of Pass 3 finishes in minutes | **L4** staging's shape, `PASS3_INSTALL=1`: a firmware install's Pass 3, from its "── Pass 3:" line to "FIRMWARE INSTALL COMPLETE", takes under 10 minutes, and the install answers success. It prints the time before Pass 3 and the time of each step. On a timeout it restarts the scratch control panel to stop the install · **M1, M2** (measurements, below) | live |
-| AC5 — nothing else changes | **S5** after: a rebuild by key of a card set is still a rebuild (answered, and cached), as is one of an addressed set · **L5c** any graph: `POST /api/tapestry-key/derive/<a card set's key>` answers its rebuild, as today · **L5a** small graph: after `derive-all` of the seven labels, each node with an address holds, as a set, what today's queries find for it: elementOf (direct, indirect); for a set or superset, its elements, child sets and parent sets; its schemas. It also holds its identifiers and the deriver that rebuilt it · **L5b** after a full rebuild in the run: the firmware's nodes' rebuilt Tapestry JSON, the JSON schemas' json tags and each superset's HAS_ELEMENT targets match the baseline taken from today's code | stack-free (child), live |
+| AC5 — nothing else changes | **S5** after: a rebuild by key of a card set is still a rebuild (answered, and cached), as is one of an addressed set · **L5c** any graph: `POST /api/tapestry-key/derive/<a card set's key>` answers its rebuild, as today · **L5a** small graph: after `derive-all` of the seven labels, each node with an address holds, as a set, what today's queries find for it: elementOf (direct, indirect); for a set or superset, its elements, child sets and parent sets; its schemas. It also holds its identifiers and the deriver that rebuilt it · **L5b** on a container that has run one firmware install, after a rebuild of the seven labels in the run: the firmware's nodes' rebuilt Tapestry JSON, the JSON schemas' json tags and each superset's HAS_ELEMENT targets match the baseline taken from today's code (precondition amended, Amendment 1) | stack-free (child), live |
 | (the fake) | **S0**: `labels()`, `elementId()` and `id()` read a node as Neo4j would, and `elementId(n) = $e` finds it | unit |
 
 S0, S1b and S5 pass today, and must keep passing:
@@ -84,10 +84,29 @@ L5c, L5a and L5b also pass today: they are guards on what the rebuild finds.
   - each superset's HAS_ELEMENT targets;
   - the digest of the container's `firmware/active`.
 
-  The TA reads as `<TA>`, and a key reads as the address of its node. Times are left out, and so are the slugs inside node references, since those depend on the order of rebuilding. L5b skips, saying so, when the firmware differs from the baseline's.
+  Every address reads by a name that is the same on every instance:
+  - the TA reads as `<TA>`;
+  - a child's d-tag ends in `hash8(parent's address)` (`src/lib/dtag.js`), which the TA changes too, so that suffix reads as `#<the parent's name>`;
+  - a d-tag that is a hash of something else (the relationship items, "X IS_A_SUPERSET_OF Y") reads as the node's name.
+
+  A key reads as the name of its node's address. Times are left out, and so are the slugs inside node references, since those depend on the order of rebuilding. L5b skips, saying so, when the firmware differs from the baseline's.
 
   **How the baseline was taken:** boot a fresh scratch stack on today's code, run `derive-all` of the seven labels once (a rebuild after the install's own wiring, the state every later rebuild leaves), then run `node test/helpers/pass3Snapshot.js`.
 - **Firmware state:** the live checks need firmware installed, which `scripts/scratch-stack.sh up` does. No reinstall is needed for the fix itself.
+
+### Amendment 1 (found at Implementation, 2026-11-15): L5b's precondition and its names for addresses
+
+L5b's comparison is unchanged. It was wrong in two ways that have nothing to do with the fix, and both are corrected here.
+
+- **It compared states that differ without any change to the code.**
+  - Its first run on the fix came after L4's install, a second install on that container. 447 of the 448 firmware nodes differed from the baseline.
+  - An install rebuilds (step 3a) before it wires the implicit elements (3c). The baseline was taken after a derive-all that follows the wiring. A derive-all after that install brought the difference to 24.
+  - The 24 left come from the second install itself. It moves `tagging-with-specific-tag-superset` and `tapestry-superset` between the HAS_ELEMENT targets of `set-superset` and `superset-superset`. It also rewrites six schemas' json tags, and the relay items and those supersets rebuild differently as a result. None of these is code the fix changes.
+
+  So L5b now runs only on a container whose log shows one completed install, after a derive-all of the seven labels in the same run (L1 or L5a). An install in the run (L4) clears that.
+- **It named addresses by text that changes with the instance.** Its first pass had compared the container the baseline was taken on with itself. On another stack running today's code, a reinstall and a rebuild differed in 231 entries. Most of those were the same nodes under other addresses: a child's d-tag ends in a hash of its parent's address, which contains the TA. The snapshot now gives each address the instance-independent name above. On a fresh stack 76 of the 98 hashed suffixes resolve to a parent's address. The other 22 are relationship items, which their names identify. No string inside a rebuilt entry carries a bare suffix: 76 entries checked.
+
+The baseline was taken again with these names, on another fresh stack running today's code, after one install and one derive-all. This is the Tester's amendment, to the test's precondition and its fixture, not to what it compares. It is put to the owner at the Implementation gate.
 
 ## How to run
 
@@ -181,3 +200,66 @@ pass-3-finishes-in-minutes: 6 passed, 5 failed, 3 skipped
 **M2, before Pass 3: 57 s** on the seeded stack (Pass 1, Pass 2 and the community headers). Story 5's install on staging took about 20 minutes to reach Pass 3 (19:09 to 19:30 UTC). Staging also publishes to relays and has more data behind it, so the scratch figure isn't evidence that staging's time comes from the graph's size.
 
 **M3:** recorded after the fix, on both graphs.
+
+### After the fix (Implementation, 2026-11-15)
+
+The fix is in five files:
+
+| File | Change |
+|---|---|
+| `src/lib/tapestry-derive.js` | Derive-all selects the label's nodes with a key and an address, and returns each one's element id. A rebuild finds its node by that id, and stamps its time on it. A rebuild by key looks the key up in the `tapestry_key` index first, falling back to the lookup with no label on an instance that hasn't run `tapestry-keys`. |
+| `src/lib/derivers/word.js`, `set.js` | Every query starts from the node itself: `MATCH (n) WHERE elementId(n) = $elementId`. |
+| `src/api/tapestry-key/index.js` | Derive-status counts the same nodes as derive-all. |
+| `src/api/normalize/index.js` | Apply-enumerations finds its source as `(:NostrEvent|TapestryNode {uuid})`. |
+
+`EXPLAIN` on the seeded stack:
+- the derivers' anchors and the timestamp write plan as `NodeByElementIdSeek`;
+- the lookup by key plans as `NodeUniqueIndexSeek` on `tapestry_key`;
+- apply-enumerations' query starts from the concept graph's HAS_ELEMENT edges (about 530), the planner's choice.
+
+**Stack-free** (final code): 6 passed of 6. Story 7's `cache-counts` passes 7 of 7, and the operations gate 337 of 337. These pass too, run one at a time with dead endpoints (`BRAINSTORM_BASE_URL`, `TAPESTRY_PORT` and `MEILI_URL_HOST` at `127.0.0.1:9`, `TAPESTRY_CONTAINER` naming no container): `tapestry-key-put-await` 3 of 3, `community-reference-nostr-relay-stub` 4 of 4, `event-tagging-firmware-seed` 9 of 9 (2 skipped), `header-conceptgraph-tag` 2 of 2, and `stack-free-npm-test` 6 of 6 (1 skipped).
+
+**Live, a small graph: a fresh stack whose first install ran the fix.** Its install log reads "Pass 3: 636 derived, 4 enumerations, 90 implicit elements", as today's code's does. L5b compares it with the baseline taken on another stack, running today's code (Amendment 1).
+
+```
+  PASS  L1 (AC1, live, small graph)
+  PASS  L2 (AC2, live)
+  PASS  L5c (AC5, live)
+  PASS  L5a (AC5, live, small graph)
+  SKIP  L3, L4, L2b (staging's shape / PASS3_INSTALL)
+  PASS  L5b (AC5, live, one install then a rebuild in this run)
+pass-3-finishes-in-minutes: 11 passed, 0 failed, 3 skipped
+```
+
+**Live, staging's shape** (the same stack, then seeded; `PASS3_INSTALL=1`):
+
+```
+  PASS  L2 (AC2, live)
+  PASS  L5c (AC5, live)
+        rebuild by key, median of 3 (ms): {"ListItem":52,"ListHeader":14,"ConceptHeader":49,"JSONSchema":47,"Property":37,"Set":35,"Superset":44}; inside derive-all ConceptHeader: 30 ms each (40 in 1.2 s)
+  PASS  L3 (AC3, live, staging's shape)
+        before Pass 3 (Pass 1, Pass 2, community headers): 55 s; Pass 3 steps (s): {"ListItem":4,"ListHeader":0,"ConceptHeader":2,"JSONSchema":0,"Property":0,"Set":0,"Superset":0,"enumerations":2,"implicit":6,"complete":0}; Pass 3 in all: 14 s
+  PASS  L4 (AC4, live, staging's shape, PASS3_INSTALL=1)
+  PASS  L2b (AC2, live, after L4)
+  SKIP  L5b (this container's log shows 2 installs)
+pass-3-finishes-in-minutes: 11 passed, 0 failed, 3 skipped
+```
+
+**Pass 3 on staging's shape: 14 s, against an estimated 14 days.** No step took more than 6 s. The install answered success.
+
+**M3: taking away the 3.85 million nodes.** Rebuild by key, median of 5, in ms:
+
+| Label | Small graph (3,232 nodes) | Staging's shape (3,851,244 nodes) |
+|---|---|---|
+| ListItem | 43 | 35 |
+| ListHeader | 8 | 5 |
+| ConceptHeader | 35 | 35 |
+| JSONSchema | 37 | 31 |
+| Property | 34 | 33 |
+| Set | 34 | 31 |
+| Superset | 35 | 33 |
+| inside `derive-all` ConceptHeader, each | 27 | 26 |
+
+The two sets of times are the same within noise, so AC3's second bullet holds. (Story 8 says the time may change "by no more than half". This plan's M3 reads that as staging's time being at most 1.5 times the small graph's, the stricter reading. Every label is under 1.0.)
+
+**The full gate** comes from the pull request's CI. On the Mac Studio it isn't run whole: its live suites default to the shared `tapestry` container.
