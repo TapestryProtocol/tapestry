@@ -42,7 +42,7 @@ Every operations suite is stack-free and lives under `test/operations/`, where `
 - [x] **A node of no concept with a copy's name:** loner is never touched (MF1, UF1, MP2).
 - [x] **Exactly at the cap, and one over:** 10,000 marks, 10,001 is refused (MF8, MP7), and unmarking over 10,001 is refused too (UF12, Amendment 2.4).
 - [x] **A change entry named as a node:** left alone by S8 (F13).
-- [ ] **Two calls of the same mark at once:** the live check, if time allows. The fake runs transactions one at a time.
+- [x] **Two calls of the same mark at once:** the live check, step 9. The fake runs transactions one at a time.
 - [ ] **The graph database not answering:** the path's generic failure, 500 `failed`, shown by story 4's W8.
 
 ## Test infrastructure
@@ -249,3 +249,70 @@ The first reference run, before Amendment 2, found four faults in the tests, all
 - The rule suite's child wrote its answer to a pipe and then exited, which cut it at 64 KB.
 - UF1 read a copy that a later call in the same run removes.
 - map-fields' helper called a default that wasn't a function.
+
+### The live check (Implementation, 2026-11-15, on `2aa3f2bc`)
+
+Run on the Mac Studio, on one throwaway instance from `scripts/scratch-stack.sh`. It booted from image `agent-memory-tapestry`, as story 4's did, with this branch's `src/` mounted.
+- **What was copied in.** The image's firmware has no concept of neo4j properties, so this branch's `firmware/versions/v1.0.0/` and `bin/` were copied in, and the `tapestry` command was linked as the Dockerfile links it. Then the control panel was restarted and the firmware reinstalled.
+- **The instance.** It had its own assistant key and no published ports, and ran Neo4j 5.26.10. It was removed afterwards.
+- **The calls.** Every call went through `docker exec` to `127.0.0.1:7778`, a direct-local caller recorded as `local`. The agent's went through the instance's own nginx.
+
+1. **The concept (AC1).**
+   - The reinstall took 65 s. Afterwards the graph held `39998:<TA>:neo4j-property`, labelled ConceptHeader and ListHeader, with its superset and its JSON Schema node.
+   - Its two sets, `39999:<TA>:the-set-of-neo4j-properties-that-are-also-fields` and `39999:<TA>:the-set-of-neo4j-only-properties`, had no elements.
+   - The header's `description` tag and each set's are the firmware's words.
+   - The superset has no parent, so it is no subset of the property concept's.
+   - The install signed 12 events (448 to 460), as it does for every firmware concept.
+2. **Dogs.** Both routes below sign. Afterwards the relay held 467 events, the baseline for the graph operations.
+   - generate-property-tree made Dog's tree: word, wordTypes, dog, and Dog's fields slug, breed and name under the `dog` node.
+   - create-element made Lady, an irish setter, beside rover.
+3. **Mark and read (AC2, AC6).**
+   - mark-field on Dog's `breed` answered `marked`: carried 2, nothing skipped, with `field-marked` and `copies-set` for the two dogs.
+   - A read through `/api/neo4j/query` of Dog's class thread where `dog_breed = 'goldenRetriever'` found Rover and not Lady. `irishSetter` found Lady.
+   - Neo4j holds the copy as a `STRING`.
+4. **A change (AC5, AC6).**
+   - save-element-json made Lady a golden retriever. Her copy stayed `irishSetter` until map-fields ran, since today's route applies no mapping.
+   - map-fields answered set 1 and unchanged 1, with one `copies-set` for Lady.
+   - The read then found both dogs as golden retrievers and none as irish setters.
+5. **Integers.** These were checked on nostr-kind, a wrapped concept with 41 elements, all in its four sets, once its tree was made.
+   - mark-field on `kind` carried 41, and Neo4j holds all 41 copies as `INTEGER`.
+   - A read `WHERE nostrKind_kind = 1` found kind 1.
+   - map-fields straight after answered unchanged 41, with no entry, so an integer read back compares equal.
+   - Unmarking cleared 41.
+6. **Survival (AC7).** The marks (breed's node, under the `dog` node) and every copy on any node were recorded, then:
+   - a firmware reinstall (62 s) left them the same;
+   - a re-run of generate-property-tree for Dog left them the same, since it landed on the same nodes;
+   - `tapestry lifecycle backup` took the graph offline for 18.0 s. A mark of `name` followed, through the command, so both dogs carried `dog_name`. Then `tapestry lifecycle restore` of that backup took the graph offline for 24.3 s. Its transaction and its tapestryKey digest matched the backup's, and the marks and copies were as at the backup, with the `name` mark and its copies gone.
+7. **The command and the agent (AC8).**
+   - **The command.** `tapestry graph mark-field --concept <dog> --field name`, `map-fields --concept <dog>` and `unmark-field` answered as the routes do, each recorded as `local`. unmark-field again answered `already-unmarked`. `mark-field --field wordTypes` was refused `unknown-field`, naming slug, breed and name.
+   - **The agent.** An admin agent drove the external CLI, `clients/cli` copied in, through the instance's nginx (`http://127.0.0.1:80`). Its throwaway key was made inside the instance and removed with it.
+     - It marked Dog's `slug` (carried 2), mapped Dog (nothing to change, so no entry) and unmarked `slug` (cleared 2). Each write was recorded as `admin`, with the agent's pubkey.
+     - After Lady's breed was changed back through today's route, the agent's map-fields corrected her copy, recorded as the agent's.
+     - `graph history --node <rover>` read the agent's entries back, newest first.
+   - **Callers.** A visitor through nginx got 401, and a text/plain body 415 `wrong-content-type`.
+8. **Unmark (AC4, AC6).**
+   - unmark-field on `breed` cleared 2, with `field-unmarked` and `copies-removed`.
+   - The reads found neither dog, and the graph held no mark and no copy.
+   - Breed's node was still an element of the property concept (D9).
+9. **Two marks at once.** Two mark-field calls on `breed` at once answered one `marked`, with its entry, and one `already-marked`, with none. They left one edge: MERGE held its lock.
+10. **The relay (AC8).** The relay's events were listed by the time they were made, after each step. None came from a graph operation. Each one came from one of today's signing routes, before the operation that followed it: the trees, Lady, and her two JSON changes.
+
+**Not checked live:** the graph database not answering. W8 shows the path's 500 `failed` over the fake.
+
+### The touched suites (Implementation, 2026-11-15, on `2aa3f2bc`)
+
+Each suite was run on its own on the Mac Studio, with every service endpoint dead in the environment, since the local stack publishes Neo4j and Redis on the host:
+
+| Suite | Passed | Failed |
+|---|---|---|
+| operations: its own tests, and every suite under `test/operations/`, the nine new ones among them | 337 | 0 |
+| neo4j-property-firmware | 9 | 0 |
+| b-tag-seeds | 7 | 0 |
+| b-tag-primitive | 16 | 0 |
+| community-reference-nostr-relay-stub | 4 | 0 |
+| external-cli | 53 | 0 |
+| openapi-coverage | 13 | 0 |
+
+**Not run here:**
+- the full `npm test`, which writes to the local instance; its result comes from the pull request's CI;
+- event-tagging-firmware-seed and event-less-create-set, whose live parts reach the local stack at `:7778`.
