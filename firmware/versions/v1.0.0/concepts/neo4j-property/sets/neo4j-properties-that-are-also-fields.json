@@ -1,0 +1,14 @@
+{
+  "word": {
+    "slug": "the-set-of-neo4j-properties-that-are-also-fields",
+    "name": "The set of neo4j properties that are also fields",
+    "title": "The Set of Neo4j Properties That Are Also Fields",
+    "wordTypes": ["word", "set"]
+  },
+  "set": {
+    "slug": "neo4j-properties-that-are-also-fields",
+    "name": "neo4j properties that are also fields",
+    "title": "Neo4j Properties That Are Also Fields",
+    "description": "Fields of a concept that its elements also carry on their Neo4j nodes. Each element is the field's property node, from its concept's property tree. graph mark-field adds one and copies the field's value from each element's JSON to the node property <concept key>_<field>; graph unmark-field takes it out and removes the copies; graph map-fields brings the copies up to date."
+  }
+}

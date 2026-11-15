@@ -418,3 +418,25 @@ Two cases end a mark without an unmark: a field that leaves the schema, and a re
 - **Batching** for concepts of more than 10,000 elements.
 - **A Neo4j index** on a copy, which belongs to the search story, A10.8.
 - **Changing generate-property-tree's unhook** (Decision 14).
+
+## Amendment 1 (2026-11-14, at Test Design) — the firmware descriptions are plain text
+
+The three descriptions that Decisions 1 and 2 quote are stored in the firmware files as plain text. That means the quoted words without the quotes' markdown: no `*` around the set names and no backticks around code names, as every other firmware description is written. The firmware-files suite checks them exactly.
+
+## Amendment 2 (2026-11-15, at Test Design) — what the Tester's readings settle
+
+1. **The sets' descriptions start after their bold names,** which are only the ADR's labels: "Fields of a concept that…" and "Properties a Neo4j node carries…".
+2. **The mapping leaves an element whose JSON can't be read exactly as it is,** copies and strays alike, and lists it under `skipped`. Its JSON can't be read when it has no `json` tag, when the tag is inline JSON that doesn't parse, or when the tag is an LMDB reference whose entry is missing (Context 7). This is about the mapping only. unmark-field still removes the mark's copy from every element, since it needs no JSON to do that (AC4).
+   - **Why:** after the container is recreated, its copies may be the last record of those values, and nothing may destroy it (BIBLE §30).
+   - **Every other row of Decision 10 that gives "no property" still removes an existing copy.** That includes JSON with no `<key>` section.
+3. **map-fields' counts are of elements:**
+   - `set` counts the elements that got at least one copy added or corrected;
+   - `removed` counts those that lost at least one;
+   - `unchanged` counts those it wrote nothing to, skipped ones included.
+
+   One element can count in both `set` and `removed`.
+4. **unmark-field is capped too** (Decision 11). Above 10,000 elements it is refused with `too-many-elements`, and nothing changes.
+5. **`copies-set` and `copies-removed` appear only when they name at least one node.** Unmarking a field that no element carries records `field-unmarked` alone.
+6. **A list under an `integer` item type is sent as integers only when every item is a safe integer.** Otherwise every item goes as a float, so the list stays one type. A single number follows the same rule.
+7. **`mapNodes` returns what it changed and records no entry.** The write that calls it puts those changes in its own entry.
+8. **A known limit.** map-fields compares copies as the driver reads them, and a float that holds a whole number reads like an integer. So a float copy of an integer field stays a float.

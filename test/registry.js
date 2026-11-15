@@ -389,6 +389,9 @@ const suites = [
   // entry, /docs entry, command and list entry made from it (ADR graph-operations-foundation/0001). It also runs every
   // suite under test/operations/, so an operation's own suite needs no line here (ADR Decision 12).
   { file: 'operations.test.js' },
+  // graph-operations-foundation #5: the concept of neo4j properties in firmware, its two sets and its manifest entry
+  // (ADR graph-operations-foundation/0005 Decisions 1 and 2). The story's operation suites live under test/operations/.
+  { file: 'neo4j-property-firmware.test.js' },
 
   // graph-operations-foundation #6: the external CLI in clients/cli/, made from the instance's list of operations, and
   // the agent's skill beside it (ADR graph-operations-foundation/0006). Its instances are loopback children of its own.

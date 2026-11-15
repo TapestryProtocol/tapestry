@@ -1,0 +1,34 @@
+{
+  "word": {
+    "slug": "json-schema-for-the-concept-of-neo4j-properties",
+    "name": "JSON schema for the concept of neo4j properties",
+    "title": "JSON Schema for the Concept of Neo4j Properties",
+    "description": "the json schema for the concept of neo4j properties",
+    "wordTypes": ["word", "jsonSchema"],
+    "coreMemberOf": [
+      {
+        "slug": "concept-header-for-the-concept-of-neo4j-properties",
+        "uuid": "<uuid>"
+      }
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "name": "neo4j property",
+    "title": "Neo4j Property",
+    "description": "JSON Schema for the concept of neo4j properties. Permissive: an element's membership of one of the concept's two sets is the whole fact, so no payload is required.",
+    "required": [],
+    "definitions": {},
+    "properties": {
+      "neo4jProperty": {
+        "type": "object",
+        "name": "neo4j property",
+        "title": "Neo4j Property",
+        "slug": "neo4j-property",
+        "description": "Optional, with no fields yet. The story that fills the set of Neo4j-only properties gives them their fields.",
+        "properties": {}
+      }
+    }
+  }
+}

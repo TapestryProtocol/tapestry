@@ -16,12 +16,12 @@
 - **Who may call** is given for each group, with exceptions in the rows.
 - **The Today column** starts with how much of the job today's routes already do: **New** (nothing does it), **Partial** (a route does part of it), **Exists** (a route does it without signing) or **Signs** (a route does it, but signs a nostr event first). It names each route, and "(not in /docs)" marks a route that works but isn't in the instance's API document yet.
 
-## At a glance (58 operations)
+## At a glance (61 operations)
 
 - **Graph reads (10):** orient, search, resolve, describe-concept, describe-node, list-elements, class-thread-path, list-relationships, walk, history.
-- **Graph writes (22):**
+- **Graph writes (25):**
   - concepts: create-concept, update-concept, delete-concept;
-  - properties and schema: add-property, update-property, remove-property, set-schema, enumerate;
+  - properties and schema: add-property, update-property, remove-property, set-schema, enumerate, mark-field, unmark-field, map-fields;
   - nodes: create-element, update-node, add-to-concept, remove-from-concept, move-element, copy-node, merge-nodes, delete-node;
   - sets: create-set, link-set, unlink-set, delete-set;
   - relationships: add-relationship, remove-relationship.
@@ -67,13 +67,18 @@ Who may call: the owner and admins. Each write checks its guards before writing 
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `add-property` | Add a property, under a parent property for nested objects | `concept`, `name`, `type`, `required?`, `description?`, `parent?`, and whether elements carry it on the node (design doc §5, question 1) → the property's tapestryKey | Refuses a duplicate name; reports elements that stop validating | Signs: `POST /api/normalize/create-property`. |
+| `add-property` | Add a property, under a parent property for nested objects | `concept`, `name`, `type`, `required?`, `description?`, `parent?` → the property's tapestryKey. Whether elements carry it on the node is a mark, made with `mark-field` | Refuses a duplicate name; reports elements that stop validating | Signs: `POST /api/normalize/create-property`. |
 | `update-property` | Change a property's type, required flag or description | `property`, fields → the property | Reports elements that stop validating | Signs: `POST /api/normalize/save-schema` rewrites the whole schema. |
 | `remove-property` | Remove a property | `property` → removed | Reports elements that still carry it | New. |
 | `set-schema` | Make a concept's properties match a given JSON Schema | `concept`, `schema` → the properties added, changed and removed | Reports elements that stop validating | Signs: `POST /api/normalize/save-schema` and `POST /api/normalize/generate-property-tree`. |
 | `enumerate` | Make a property's allowed values the elements of another concept | `concept`, `property`, `source` → the link | Refuses an unknown concept or property | Signs: `POST /api/normalize/enumerate` and `POST /api/normalize/apply-enumerations`. |
+| `mark-field` | Mark a concept's top-level field, so each of its elements carries the field's value from its JSON on its Neo4j node, as `<concept key>_<field>` (`dog_breed`) | `concept`, `field` → the mark, how many elements carry it, and the elements it skipped; safe to repeat by concept and field | Refuses by the rule `field-mark-allowed`: an unknown concept or field, no property node, a field that isn't a plain value or a list of them, an unusable name, a name another mark yields, a name an element already carries; and more than 10,000 elements | New. |
+| `unmark-field` | Take a field's mark out, and its copies off the concept's elements | `concept`, `field` → how many elements it cleared; safe to repeat by concept and field | Refuses an unknown concept or field, and more than 10,000 elements | New. |
+| `map-fields` | Bring a concept's elements in line with its marks: a copy added, corrected or removed to match the JSON, and one no mark yields removed | `concept` → how many elements got a copy, lost one or were left alone; safe to repeat by concept | Refuses when the firmware isn't installed, an unknown concept, and more than 10,000 elements; reports the elements it skipped | New. |
 
 Under D10 a concept's JSON Schema is computed from its property nodes, so there's no write that saves a schema directly: changing the properties changes the schema, and `set-schema` turns a given schema into properties. Today it runs the other way: `save-schema` writes the schema, and `generate-property-tree` builds properties from it.
+
+A mark is a choice about this database's storage, not part of the schema: an edge that makes the field's property node an element of the concept of neo4j properties (`39998:<TA>:neo4j-property`), in its set of neo4j properties that are also fields (ADR graph-operations-foundation/0005). Today's routes and the import apply no mapping, so `map-fields` brings their elements into line.
 
 **Nodes**
 

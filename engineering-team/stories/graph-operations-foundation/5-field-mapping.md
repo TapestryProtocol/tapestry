@@ -1,6 +1,6 @@
 # Story 5: Field mapping — mark a concept's field so its elements carry it on their Neo4j nodes, with `graph mark-field`, `unmark-field` and `map-fields`
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-14
 **Type:** Feature
 **Loom:** A10.5 — https://loom.brainstorm.world/t/A10.5
@@ -164,6 +164,19 @@ For Architecture, not this gate:
 - **Whose marks count.** An imported event could make a property node an element of the new concept. Whether such a mark counts for this instance is a point-of-view question (D4; CLAUDE.md principles 1 and 2).
 - **The check.** Whether a check that the copies match the JSON ships now, ready for `rules check` (A10.31), or ships with it.
 
+## Deviations
+
+- **mapNodes reads each node's concepts with the class-thread walk read backwards,** from the node to each concept header. The ADR's statement list (S1–S8) doesn't name that read, though Decision 6 needs one for mapNodes to group the nodes by concept.
+- **mapConcept takes an `elements` option,** the elements its caller has already read, so mark-field reads them once for both its count check and the mapping. It also answers `marks`, `carried` and `elements` beside the ADR's `set`, `removed` and `skipped`, which mark-field's `carried` and map-fields' three counts come from.
+- **marksOf and elementsOf also answer each node's `uuid`,** which the refusals name beside the tapestryKey. elementsOf also answers `problem`, why an element's JSON can't be read, which is its `skipped` reason.
+- **`skipped` gives an element once for a reason about its whole JSON,** JSON that can't be read or that has no section for the concept, and with `field` for a reason about one field's value. map-fields' answer keeps `field`; mark-field's is `{ node, reason }`, as Decision 7 names it.
+- **unusable-name also holds the field to the input's pattern, and the key to a leading letter.** As a guard, the input's pattern already checks the field. As a check over marks, a mark made outside the guard could name a field such as `my-field`, and a key starting with a digit can't be written unquoted in Cypher either.
+- **not-plain reads a schema type list as one type besides null.** A field with no type, or two types besides null, isn't plain, and the refusal says so.
+- **unmark-field reads the elements only when the field is marked,** so an unmark of a field that isn't marked answers `already-unmarked`, even on a concept of more than 10,000 elements. A marked field there is refused `too-many-elements` (Amendment 2.4).
+- **mark-field's `already-marked` answer** counts `carried` from the copies the elements hold, and gives `skipped: []`, since it maps nothing.
+- **map-fields' copy changes don't name the concept,** as Decision 7's `copies-set` doesn't. So graph history finds a map-fields entry by each element whose copy changed, and not by the concept's header.
+- **The catalog's three rows say "New."** in the Today column, which by the catalog's convention says what today's routes did before the operations.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Foundation bullet)
@@ -174,4 +187,5 @@ For Architecture, not this gate:
 - Story 4, the write path these operations run on: [4-the-write-path.md](4-the-write-path.md)
 - Story 6, the external CLI the agent uses: [6-external-cli-and-agent-skill.md](6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-foundation/0005-field-mapping.md](../../decisions/graph-operations-foundation/0005-field-mapping.md)
-- Test plan: to come, `5-field-mapping.test-plan.md`
+- Test plan: [5-field-mapping.test-plan.md](5-field-mapping.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-foundation/5-field-mapping.md](../../reviews/graph-operations-foundation/5-field-mapping.md)
