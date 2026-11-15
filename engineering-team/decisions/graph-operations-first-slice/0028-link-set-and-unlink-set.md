@@ -46,7 +46,7 @@ Facts from the codebase that the design rests on:
    - **(c) Concept manifests.** Each concept manifest's `IS_A_SUPERSET_OF: [{ nodeFrom, nodeTo }]` names files in that concept's `sets/` or `elements/` (`install.js:493–560`). Each reinstall MERGEs these again.
    - **(d) Community references.** A concept with a `communityReference` gets its superset linked to the curator's superset, `39999:<curatorPk>:<dTag>-superset` (`install.js:1097–1115`).
 
-   After wiring, the **prune** pass runs, for each firmware concept whose folder has a `manifest.json` (35 of the 40 in v1.0.0). It deletes a link from that concept's superset to a direct child that is also reachable through another direct child, within 10 links (`install.js:807–833`). It also deletes a superset's direct `HAS_ELEMENT` to an element reachable through its sets.
+   After wiring, the **prune** pass runs, for each firmware concept whose folder has a `manifest.json` (29 of the 40 in v1.0.0; Amendment 1). It deletes a link from that concept's superset to a direct child that is also reachable through another direct child, within 10 links (`install.js:807–833`). It also deletes a superset's direct `HAS_ELEMENT` to an element reachable through its sets.
 8. **No index on tag values.** `NostrEventTag` has only a uniqueness constraint on `uuid` (`setup/neo4jConstraintsAndIndexes.sh:48`). Any search for an event by a tag's value, such as the relationship events today's link-concepts and create-set sign (`nodeFrom`, `nodeTo`, `relationshipType`), scans every tag node. A read that starts at the set and follows its own `HAS_TAG` stays cheap.
 9. **The fakes are fixed for this story.** The stack-free suites run over `test/helpers/graphFake.js` and `pathCypherFake.js`. Those run:
    - one-node reads;
@@ -354,3 +354,15 @@ The owner then runs a firmware reinstall, and the link from step 1 (re-made for 
 - Making firmware's reinstall keep local class-thread edits (lifecycle seed-firmware, A10.37).
 - `create-set` (A10.27), `delete-set` (A10.17), and the element operations (A10.22, A10.23).
 - Today's link-concepts, add-relationship, delete-relationship, create-set, add-subset and prune-superset-edges routes (D15).
+
+## Amendment 1 (2026-11-15, at Test Design) — what the tests found
+
+1. **The prune's reach.** Context 7 said 35 of v1.0.0's 40 concepts have a `manifest.json`. The count is 29, now corrected in place. Nothing else changes: `firmwareLinks()` reads which concepts have one from the files.
+2. **`unknown-node`'s wording.** `_nodes.js`'s `UNKNOWN_NODE` says "A from or to that names no node…", which would mislabel these two operations' inputs in the list, the command's help and `/docs`. So each declaration declares its own entry, same code and status, as `_sets.js`'s `UNKNOWN_SET_OR_PARENT`: `{ code: 'unknown-node', status: 404, when: 'A set or parent that names no node of the graph (a change entry is not one); the refusal names which' }`. `_nodes.js` is not edited.
+3. **Which refusal answers when two apply.** The write path runs a declaration's guards before its `apply` (ADR graph-operations-foundation/0004 Decision 3). This has two consequences, and nothing changes in either case:
+   - **unlink-set:** a firmware link or a peer's link that is also the set's only parent is refused `last-parent`, not `firmware-link` or `peer-link`. After an install, a firmware set file's link is often its set's only parent.
+   - **link-set:** a repeat of a link already on a cycle is refused `cycle`, not answered `already-linked`. Only the old routes can make such a link.
+
+   The tests pin neither order. Putting the declarations' own checks first would mean taking the rules out of `guards`, so they would no longer be listed with their operations. That isn't worth it for two answers that both refuse.
+4. **The re-check after a write is a live check.** With one writer, the guard always refuses first, so no stack-free graph can reach the re-check (Decision 9). The Implementation notes' suggestion is withdrawn. The tests show that a refusal after the `MERGE` rolls it back through `firmware-prunes` (LS12, LS13). The re-check itself is the live check's step 8: two link-sets at once that would make a two-set cycle, of which exactly one succeeds.
+5. **Possible, unverified: a self-loop on a curator's instance.** On an instance whose TA is a community reference's curator, install's part (d) may MERGE that concept's superset onto itself (`src/firmware/install.js:1295` doesn't compare the two ends). `class-thread-acyclic`'s check would report that cycle, and unlink-set would refuse to take it out as firmware's. Recorded as an OPEN.md row at implementation, for a check against a live graph.
