@@ -1,6 +1,6 @@
 # Story 8: A firmware install's Pass 3 finishes in minutes
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Bug
 
@@ -89,4 +89,4 @@ None. Every criterion can be observed from outside: through derive-status, the r
 - ADR: none. Under Standard, a bug skips Architecture when the fix is obvious. The owner chose the Standard bug path on 2026-11-15. The fix follows story 3's address lookup (ADR `graph-operations-foundation/0003`, Decision 9, measurement 1) and story 7's nodes with an address.
 - Found by: story 5's firmware install on staging, 2026-11-15 (`engineering-team/stories/graph-operations-foundation/5-field-mapping.md`). The cause is story 3's keying of every node (`engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`).
 - Test plan: `engineering-team/stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.test-plan.md`
-- Review: (filled in after Review)
+- Review: `engineering-team/reviews/graph-operations-foundation/8-pass-3-finishes-in-minutes.md`
