@@ -98,5 +98,35 @@ every `gh` command. These items remain:
 - **Still open,** as above: set each server's `origin` to the new address. A server's next deploy log shows whether it
   was done.
 
+**Seen again on 2026-11-14, in the evening** (the owner's work on the four servers, and a review of their login
+history):
+- **The deploy keys the old repo held no longer open any of the four servers.** Item 2 left open whether those keys
+  still log in. On 2026-11-14 the owner removed from each server's `authorized_keys` every deploy key that predated the
+  first move:
+  - Production and tags each lost the key made on the server itself. Each already had a newer deploy key: production's
+    made that day, tags' on 2026-10-23.
+  - Staging and magic carpet each got a new key pair first, proven by a re-run of its deploy (staging run
+    `43639662678`, attempt 2; magic carpet run `43627352495`, attempt 2). Each then lost its April key.
+
+  The old repo's Actions and its secrets are as they were. Disabling and removing them is still item 2's owner action,
+  and its other secrets are untouched by this.
+- **Every key login since 2026-10-11 is accounted for.** The four servers' `auth.log` files go back to that date. They
+  hold 436 accepted key logins, all as root:
+  - 246 came from addresses in GitHub's published runner ranges. Each used a deploy key, and each falls inside the time
+    of a deploy run in this repo or the old one.
+  - 182 came from the owner's own address, with the admin key or a deploy key file. Most are from 2026-10-23, the day
+    of the first move.
+  - 8 used one-time keys from DigitalOcean's addresses, as its web console makes them. Three were the owner's
+    sessions of 2026-11-14. The other five are of the same kind and are not confirmed one by one: three on 2026-10-23,
+    and one each on 2026-11-08 and 2026-11-13.
+
+  None came from anywhere else. No server accepted a login by password in that time, and password login is off on all
+  four (`sshd -T`).
+- **One personal key removed.** Staging held a personal key that no longer belonged there. It had not logged in since
+  2026-10-11, and the owner removed it.
+- **`origin`, set on all four.** The owner set it on 2026-11-14. Deploy logs since then show the new address on staging
+  (run `43633449263`) and magic carpet (run `43627352495`, attempt 2). Production and tags have not deployed since.
+- **Limits of the review.** It covers key logins from 2026-10-11 on, read from the servers' own logs.
+
 **Pointer:** `.claude/skills/cycle-staging/SKILL.md` ("The old repo"); OPERATIONS §9.1;
 `engineering-team/reviews/harness-self-improvement/skills-repo-nousclawds4-2026-10-28.md`.
