@@ -88,6 +88,13 @@ For Architecture, not this gate:
 - **What a page costs** on a large concept, since each page walks the whole class thread. Measure it on a scratch stack at a size past the rebuild's.
 - **Where the conventions live** so the later reads use them, without changing `graph history` or the files story 16's session owns (`src/operations/changes.js` and the test fakes).
 
+## Deviations
+
+- **`trustParams(pov)` sits beside `trust(v)`** in `src/operations/reads.js`. It gives the three parameters the fragment reads, from a resolved point of view, so no read builds them by hand. ADR 0011 Decision 1 names the fragment but not a builder for its parameters.
+- **`resolvePov` reads `scored` as it resolves** (C2), so Decision 2's step 5 happens inside its step 2. From the owner's point of view, the read asks for the scores once, before it reads the node.
+- **The owner's pubkey is trimmed and lowercased** before it is compared with `pov` and with authors. Events carry lowercase hex, and `pov`'s pattern takes only lowercase.
+- **`run` checks its limit again,** as `readHistory` does. A limit that isn't a whole number from 1 fails with a 500, though the input's schema refuses one first.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and "Reads stay behind sign-in" bullets)
