@@ -13,7 +13,7 @@ What the code offers today:
 1. **The write path** (ADR graph-operations-foundation/0004 Decisions 2 and 3). A guard's items come from the inputs alone, `rule.violations(guard.items(inputs), tx.read)`, before `apply` runs. A write whose rule needs what it reads runs the rule again inside `apply` and throws its refusal with `rule` set: create-concept after its lock (`K.recheck`, ADR graph-operations-first-slice/0016 Decision 6), and link-set after its `MERGE` (ADR 0028 Decision 9). A guard's refusals join the operation's own (`guardRefusals`, `src/operations/index.js:41`).
 2. **A node with no event** (ADR 0016 Decision 1). `_eventless.js`'s `makeNode(tx, { uuid, kind, labels, name, tags, pubkey, createdAt })` makes the node the import would make of the letter, with labels from a fixed list that holds `ListItem`, and the import's tag nodes.
 3. **Today's create-element** (`src/api/normalize/index.js:1778`). Its d-tag is `dtag.childDTag(name, <header address>)`, the name's slug and an eight-character hash of the header's address. Its tags are `d`, `name`, a `z` for the header plus one for each shared concept the header's `b` pointers name (`selectPointerTargets`, `src/lib/bValueForms.js:73`), and `json`. It links the superset to the element and checks nothing. For a concept today's create-concept made, the JSON it makes up is `{"<key>": {}}`, which that concept's schema refuses.
-4. **Two places check JSON against a schema today, after the fact.** The derive step (`src/lib/derivers/word.js:136–180`) takes each schema's `jsonSchema` section, drops `$schema`, and validates the node's whole JSON with `new Ajv({ allErrors: true, strict: false })`, against every concept whose class thread reaches the node or whose header a `z` tag names; it keeps the verdict in the cached JSON (`graphContext.parentJsonSchemas`). The Health Audit's core-node check (`src/api/audit/index.js:22`, `:622–725`) does the same with `validateSchema: false`. The installed ajv is 8.18 (`package.json`), whose default class reads draft-07's keywords; today's schemas name draft 2020-12 in `$schema`, and use `type`, `properties`, `required`, `enum`, `definitions`, `allOf` with `if` and `then`, and `contains` (firmware's dog).
+4. **Two places check JSON against a schema today, after the fact.** The derive step (`src/lib/derivers/word.js:136–180`) takes each schema's `jsonSchema` section, drops `$schema`, and validates the node's whole JSON with `new Ajv({ allErrors: true, strict: false })`, against every concept whose class thread reaches the node or whose header a `z` tag names *(corrected by Amendment 1, item 1: it validates its own `base`, not the node's JSON)*; it keeps the verdict in the cached JSON (`graphContext.parentJsonSchemas`). The Health Audit's core-node check (`src/api/audit/index.js:22`, `:622–725`) does the same with `validateSchema: false`. The installed ajv is 8.18 (`package.json`), whose default class reads draft-07's keywords; today's schemas name draft 2020-12 in `$schema`, and use `type`, `properties`, `required`, `enum`, `definitions`, `allOf` with `if` and `then`, and `contains` (firmware's dog).
 5. **What a schema asks.** create-concept's (`src/operations/catalog/graph/_concepts.js:205–239`) asks for `{"<key>": {name, slug, description}}`, each text, `required` at both levels. Firmware's dog (`firmware/versions/v1.0.0/concepts/dog/json-schema.json`) requires `word` and `dog`, and ties `dog.breed` to `word.wordTypes`.
 6. **How firmware's elements name themselves.** 62 of firmware's 82 element files (`firmware/versions/v1.0.0/concepts/*/elements/`) have `word.slug` `<concept slug>--<element slug>` and `word.name` `<concept name>: <element name>`, such as dog's rover, the JSON data types, the nostr kinds and the relay. The other 20, the relationship types and the graph rules A10.41 generates, use their own slug. Every one has a `word.title`, and `wordTypes` of `word` and the key of each concept it belongs to (rover: `["word", "dog", "goldenRetriever"]`).
 7. **Sets and class threads** (`src/operations/catalog/graph/_sets.js`, ADR 0028). `nodeOf`, `kindOf` (a superset or a set is a node so labelled that has an address), `supersetOf`, and `lockNode`, which takes a write lock on one node for the rest of the transaction. `_fields.js`'s `mapNodes` reads every concept header whose class thread reaches a node (`:392–399`).
@@ -125,7 +125,7 @@ Each is matched by its firmware address on this instance (`firmware.conceptUuid(
 
 **10. The link.** One `HAS_ELEMENT` link, from the target to the element, by add-relationship's `MERGE`, which must find both nodes (ADR 0016's `count(r)` check). Nothing else is wired. For an element directly under its superset, a reinstall's passes add nothing and take nothing out. For one in a set, pass 1d adds a direct link from the concept's superset, since its `z` names the concept. Pass 1e takes that link out again for a firmware concept, and wire-implicit-elements may or may not, depending on the run (fact 9). Either way the element belongs to the same concepts and sets as before (Decision 17). Wiring the superset's link here too would make no end state certain.
 
-**11. The shared check** (`src/operations/catalog/graph/_schemas.js`, new). It reads and checks as the derive step does (fact 4), so the operation, `rules check` and the derive step's `parentJsonSchemas` give one verdict:
+**11. The shared check** (`src/operations/catalog/graph/_schemas.js`, new). It reads and checks as the derive step does (fact 4), so the operation, `rules check` and the derive step's `parentJsonSchemas` give one verdict *(narrowed by Amendment 1, item 1: they read a schema alike, but check different documents)*:
 - `schemaOf(read, concept)` → `{ schema }` or `{ problem }`. It reads the concept's JSON schema nodes and their json tags (E1), and resolves an LMDB reference (`F.readJson`'s way). It takes the `jsonSchema` section, else the object itself, and drops `$schema`. The problem says why there is none: no JSON schema node, more than one (rule 11; which one counts isn't guessed), no json tag, JSON that doesn't parse, an LMDB entry that is missing, or something other than an object.
 - `problemsOf(schema, json)` → `{ problems: [{ path, message }] }` or `{ problem }`. It compiles the schema with a new `new Ajv({ allErrors: true, strict: false })` for each schema, so an `$id` never clashes, and reads `problem` when it doesn't compile. Each error becomes a path and words:
   - the path is the JSON pointer as dots, `dog.breed`, or "the element's JSON" at the top;
@@ -170,7 +170,7 @@ Then `node src/firmware/graph-rules.js` writes its element file into firmware's 
 
 **17. Durability (AC8).**
 - **After a reinstall,** an element made here keeps its tags, its JSON and its node properties (a reinstall changes none of them). The class threads reach it from the same supersets and sets, perhaps with a redundant direct link from its concept's superset (Decision 10).
-- **The derive pass** gives it its cached JSON, with a `parentJsonSchemas` verdict that agrees with this check (Decision 11).
+- **The derive pass** gives it its cached JSON, with a `parentJsonSchemas` verdict that agrees with this check (Decision 11; where they agree is Amendment 1, item 1).
 - **A backup** carries the whole graph, so a restore brings the element back with its key (ADR graph-operations-foundation/0002).
 
 **18. The refusals,** each changing nothing and recording no entry:
@@ -190,7 +190,7 @@ Then `node src/firmware/graph-rules.js` writes its element file into firmware's 
 | `invalid-fields` | 400 | The rule's: the element's JSON doesn't fit the concept's schema, every problem listed |
 | `no-schema` | 409 | The rule's: the concept's schema is missing, can't be read, or doesn't compile |
 
-Beyond AC5's list: `made-elsewhere` is this ADR's addition, approved by the owner (Decision 4). `not-installed`, `no-free-address` and the length limit in `bad-fields` are mechanics create-concept has too.
+Beyond AC5's list: `made-elsewhere` is this ADR's addition, approved by the owner (Decision 4), and `reserved-key` is Amendment 1's (item 2). `not-installed`, `no-free-address` and the length limit in `bad-fields` are mechanics create-concept has too.
 
 ## Consequences
 
@@ -259,3 +259,45 @@ Beyond AC5's list: `made-elsewhere` is this ADR's addition, approved by the owne
 - Uniqueness from `x-tapestry.unique` beyond the repeat.
 - Nested objects as node properties (design §5, question 1).
 - Today's create-element and add-to-set routes (D15), and their field mapping (A10.5.a).
+
+## Amendment 1 (2026-11-16, at review round 1; the owner's approval) — what the derive step checks, and the keys an element keeps for itself
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/20-create-element.md`) found two things this ADR got wrong. The session checked both against the code.
+
+1. **The derive step checks another document. This corrects fact 4, Decision 11 and Decision 17.**
+   - **What the derive step validates.** It doesn't validate the node's JSON. It validates its own `base` (`src/lib/derivers/word.js`):
+     - the node's cached Tapestry JSON, when that has a `word` block (`:44`);
+     - else the json tag's JSON, when that has one (`:63`);
+     - else `{}` (`:75`).
+
+     It fills in `word.slug`, `word.name` and `word.wordTypes` where they are missing (`:78–82`), and adds its own `graphContext` (`:122`) before `validate(base)` (`:165`). It judges a node against each `ConceptHeader` whose class thread reaches it within ten links, and each one a `z` tag names. The rule's check form judges a node against the concepts whose class threads reach it (D10).
+   - **What they share.** Both read a schema the same way: the `jsonSchema` section, `$schema` dropped, ajv's default class, which reads draft-07's keywords, with `allErrors` and strict off.
+   - **So the verdicts agree** for an element with a word block, under a schema that neither requires nor forbids `graphContext`, doesn't limit the element's top-level keys, and doesn't lean on the derive step's `word` defaults. Every schema create-concept writes is one, and so is every firmware schema but `word`'s. This is what the live check's L5 saw.
+   - **They split** on firmware's `word` schema, which requires `graphContext`, and on a schema with top-level `additionalProperties: false`. They split also where the two judge different concepts.
+   - **This stands until the derive step calls `_schemas.js`** (Decision 11's "move together"). A ledger row records it for `rules check` (A10.31) and the property operations' reports (A10.18), which are the two that judge elements already made.
+   - **What changes:**
+     - the rulebook's §7 and `_schemas.js`'s header say what holds, in place of "one verdict", and the element file is generated again;
+     - the plan's SC5 is narrowed to what it compares, the reading of a schema;
+     - a new test, SC9, runs the real derive step beside this check on both kinds of schema, with its database, store and resolver stubbed, so it stays stack-free.
+2. **The keys an element's JSON keeps for itself: `word` and `graphContext`.** The owner approved refusing a concept keyed `word`, then this amendment with both keys (2026-11-16).
+   - **Why these two.** An element's JSON has two top-level keys that aren't a concept's section:
+     - `word`, its word block, which names it (Decision 8);
+     - `graphContext`, which the derive step writes into the cached JSON.
+
+     A concept's section filed under `word` would replace the word block, as the review's probe showed: `{"word":{"name":"Lexeme","slug":"lexeme","description":"a word"}}`, with no word block naming it. One filed under `graphContext` would be replaced in the cache.
+   - **The refusal.** So create-element refuses a concept whose key is either, before it builds anything: `reserved-key` (409), in Decision 2's step 3, after `made-elsewhere` and before `no-superset`. The key is the one headerOf gives: `oKeys.singular`, else the key derived from the concept's name. The refusal names the key and says why.
+   - **Firmware's own `word` is one.** Every node is a word through the word block its own write makes. Its schema requires the derived `graphContext`, so no element of it could pass rule 4 when written.
+   - **Who else.** `update-node` (A10.21) and `add-to-concept` (A10.22) refuse the same keys (Decision 16). Decision 18's table gains the row: `reserved-key`, 409, "The concept's key is `word` or `graphContext`, keys an element's JSON keeps for itself".
+3. **Two limits, recorded (the review's non-blocking findings 1 and 3). Neither changes the code.**
+   - **Key order.** Decision 8's order holds for the keys JavaScript keeps in insertion order. Integer-like keys come first, as JavaScript orders them: a field named `"2"`, or a concept keyed `2024`. No reader depends on key order.
+   - **Two creates in two concepts that share a set.** Each takes only its own header's lock (Decision 7). So a create in A made in B's superset, and a create of the same name in B, can both make an element when they run at once, at two addresses. Run one after the other, the second finds the first.
+     - **The fix would be** to lock every header that reaches the target, in one order. It waits for a write that needs it; a ledger row records it.
+   - **Also on the ledger:** the review's non-blocking finding 4, that the C8b statement `headersByKey` matches nodes with no label, so it can't use the `tapestryKey` index. That statement is shared with create-concept.
+4. **What the tests and the code take from this.**
+   - **New tests that fail first:**
+     - firmware's `word` with its real schema, and another author's concept keyed `word` with a schema that takes any object, each refused `reserved-key` with nothing written;
+     - a concept keyed `graphContext`, refused the same way;
+     - SC9.
+   - **CE22's case with no schema node** moves to a concept other than `word`, which `reserved-key` now refuses first.
+   - **The review's non-blocking findings 2 and 5** are code fixes: `canon` copies with `Object.fromEntries`, and `_elements.js`'s index gives `describeElement`'s real signature. Finding 2 gets a test.
+
