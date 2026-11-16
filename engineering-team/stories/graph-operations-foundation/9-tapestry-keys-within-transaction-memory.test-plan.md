@@ -176,3 +176,30 @@ SK4, SK5 and SK8 get past every assertion about what is named and what is left a
 - **LK4's worker** peaked at 274 MB, its own backup counting the keys before the job failed.
 - **LK3 failed only because no run had succeeded.** It also timed status at 3.27 s with no rule. After the run, today's status on the graph migrated by hand took 3.17–3.38 s over four runs, so LK3's bound is 5 s, not story 3's 3 s.
 - **Cleanup.** The finally blocks restored LK2's planted keys. LK4 left the graph in production's shape, which was migrated by hand afterwards for the status timing. The stack was removed at 01:04 UTC.
+
+### Round 2: review round 1's asks (2026-11-16, 02:31–02:45 UTC, at `bf311184`)
+
+One fresh scratch stack, seeded to staging's shape (booting took 98 s and the seed 153 s), then `TAPESTRY_KEYS_LIVE=1 node test/operations/lifecycle/shared-keys.test.js` twice. **Both runs: 13 passed, 0 failed, 0 skipped.** The 13 are the 9 stack-free cases and the 4 live checks. The stack was removed afterwards.
+
+| Check | Run 1 | Run 2 |
+|---|---|---|
+| LK1: staging's shape, rule dropped | `done` in 19.3 s. Neo4j 2 MB. Process 113.3 MB, against a backup's count of 453.8 MB | `done` in 18.2 s. Neo4j 2 MB. Process 113.9 MB, against 445.1 MB |
+| LK2: planted keys, no rule; then the rule in place with a held key | 18.0 s; then 67.7 s with its backup | 17.7 s; then 67.0 s |
+| LK3: status on the migrated graph | 3.25 s | 3.06 s |
+| LK4: production's shape | `done` in 69.1 s; 2,294,385 nodes keyed and labelled. Neo4j 28 MB. Process 290.5 MB, against **286.4 MB** when the backup was done: the check added **4.1 MB** of a 77.7 MB budget | `done` in 66.8 s. Neo4j 28 MB. Process 281.4 MB, against **281.2 MB**: **0.2 MB** added |
+
+The review round's own run (at `12f6ada8`, under the bound since restated) put LK4's job at 298.9 MB. With the restated bound, all three runs agree: once the backup is done, the check adds a few MB at most to the process.
+
+**Each read the check makes, after the fix** (AC4's third bullet; the review's Non-blocking 4). These were timed at the boundary between the migration and Neo4j with the session's instrumented `plan`, in a process of its own inside the container. `SHOW TRANSACTIONS` was sampled beside them. Neo4j's transactions peaked at **2 MB** together in every case.
+
+| | A: staging's shape, no rule, nothing shared (the job's `full` plan) | B: the same, with one key on two nodes | C: the rule in place, an unlabelled node holding a labelled node's key (status's plan) |
+|---|---|---|---|
+| `count(n)`, `:TapestryNode` count (count store) | 114 ms, 8 ms | 108 ms, 3 ms | 115 ms, 7 ms |
+| Decision 4's scan | 1,246 ms | 1,205 ms | 1,226 ms |
+| `SHOW CONSTRAINTS`, `SHOW INDEXES` | 17 ms, 25 ms | 3 ms, 3 ms | 12 ms, 14 ms |
+| **The check's first read** (streamed) | **4,312 ms**: every key; the process 64 → 100 MB | **4,121 ms**: the process 63 → 99 MB | **256 ms**: the unlabelled keys, with `held` |
+| **The check's second read** (streamed) | — (no candidate) | **3,928 ms**: the holders; the process 99 → 107 MB | **3,997 ms**: the holders; the process 63 → 79 MB |
+| The `'{}'` count | 1,143 ms | 1,108 ms | — (not `full`) |
+| The whole `plan` | 7.2 s, peak 100 MB, nothing shared | 10.8 s, peak 107 MB, `r2-pair` named (2) | 5.6 s, peak 79 MB, the held key named (2) |
+
+**`tapestry lifecycle status` on the migrated graph:** 3.05–3.08 s with no key shared, over three runs, and **6.01–6.15 s** while the held key stood. That is the second read, about 4 s here, which ADR 0009 and OPERATIONS.md §17 now give as "about 5 s at four million keys".
