@@ -88,6 +88,60 @@ For Architecture, not this gate:
 - **What a page costs** on a large concept, since each page walks the whole class thread. Measure it on a scratch stack at a size past the rebuild's.
 - **Where the conventions live** so the later reads use them, without changing `graph history` or the files story 16's session owns (`src/operations/changes.js` and the test fakes).
 
+## Evidence
+
+### The live check (Implementation, 2026-11-16, on `c0bcb744`, and the card set on `30274157`)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one.
+- **The instance.** It booted from image `agent-memory-tapestry` with this branch's `src/` mounted. The image's firmware matched the branch's (the same digest), so no reinstall was needed. The branch's `bin/` and `clients/cli` were copied in, and the `tapestry` command linked.
+- **Keys.** The instance had its own assistant key, a throwaway owner key, and a throwaway admin key for the agent, made inside it.
+- **Afterwards** it was removed.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`. The agent's went through the instance's nginx.
+
+The relay held 450 events after the boot's firmware install. Seeding through today's routes signed 20 more, as those routes do.
+
+**The seed:**
+- a concept, live dog, with rex, fido and patch made by `create-element`;
+- an event-less set, live walkers (`add-subset`), and patch put into it with `add-relationship`;
+- a peer's dog, signed by a throwaway key with a `z` tag naming live dog, put on the relay and imported (`event-update`), then wired by `wire-implicit-elements` (wired 1);
+- the owner's dog, made with Cypher;
+- live bulk, with 10,000 elements made with Cypher.
+
+**By criterion:**
+- **AC1: passes.**
+  - live dog lists rex, fido, patch, the owner's dog and the peer's dog, each once: patch is reached through walkers.
+  - walkers lists patch, and the superset given as `set` lists all five.
+  - `direct` lists the four still directly under the superset. `wire-implicit-elements` had taken out the superset's direct link to patch, since walkers reaches it.
+  - The firmware's relationship-type lists 14 elements, the number Cypher's own count of its class thread gives.
+- **AC2: passes.** Each element came with its five facts. The peer's dog came with its author's pubkey and `own: false`.
+- **AC3: passes.**
+  - The 10,000 elements paged through at 200 a page: 50 pages, all 10,000 unique and ascending. A page took 58 ms at the median and 189 ms at most, 3.1 s in all.
+  - At 50 a page: 200 pages, 55 ms at the median and 127 ms at most, 11.2 s in all.
+- **AC4: passes.**
+  - **Before any score existed:** the owner's point of view kept 4 and left the peer's dog out, with `scored: false`.
+  - **The owner's own pubkey as `pov`** answered exactly as the default did.
+  - **The peer's influence set to 0.2:** kept 5, left out 0, `scored: true`.
+  - **Then 0.01:** kept 4, left out 1.
+  - **`everyone`:** kept all 5.
+  - **A stranger's pubkey** was refused `unknown-pov`.
+- **AC5: passes.**
+  - A set given as `concept` got `not-a-concept`, which said to pass it as set.
+  - A header given as `set` got `not-a-set`, which named its superset.
+  - A card set, made as the trust pipeline makes one (labelled `Set`, no address), got `not-a-set` as `set` and `not-a-concept` as `concept` (Amendment 2).
+- **AC6: passes.**
+  - `tapestry graph list-elements` in the container answered byte for byte what the route answered.
+  - The admin agent, through nginx and the external CLI, paged through live dog to its last cursor (2 pages, kept 4 and left out 1). It listed walkers from everyone's point of view and was refused a header given as a set (exit 1, `not-a-set`).
+  - A visitor through nginx got 401.
+  - The relay held 470 events before and after every list-elements call, and the graph held no change entry.
+
+## Deviations
+
+- **`trustParams(pov)` sits beside `trust(v)`** in `src/operations/reads.js`. It gives the three parameters the fragment reads, from a resolved point of view, so no read builds them by hand. ADR 0011 Decision 1 names the fragment but not a builder for its parameters.
+- **`resolvePov` reads `scored` as it resolves** (C2), so Decision 2's step 5 happens inside its step 2. From the owner's point of view, the read asks for the scores once, before it reads the node.
+- **The owner's pubkey is trimmed and lowercased** before it is compared with `pov` and with authors. Events carry lowercase hex, and `pov`'s pattern takes only lowercase.
+- **`run` checks its limit again,** as `readHistory` does. A limit that isn't a whole number from 1 fails with a 500, though the input's schema refuses one first.
+- **A set has an address** (ADR 0011 Amendment 2). Midway through Implementation, ADR 0028's Amendment 3, which the owner approved for story 28, reached this story: its readers count a node as a set or a superset only when it has a uuid. list-elements followed it. LE28 came in a Tester commit of its own and failed first; then the code changed in an Implementer commit.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and "Reads stay behind sign-in" bullets)
@@ -99,5 +153,5 @@ For Architecture, not this gate:
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - The sibling stories in this epic: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md), [28-link-set-and-unlink-set.md](28-link-set-and-unlink-set.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [11-list-elements.test-plan.md](11-list-elements.test-plan.md)
 - Review: (filled in after Review phase)
