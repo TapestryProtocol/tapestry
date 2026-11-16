@@ -58,6 +58,11 @@
  *     IS_THE_CORE_GRAPH_FOR and IS_THE_CONCEPT_GRAPH_FOR; and toLower in both read fakes (C8).
  * C3, C4, C8 and C9 are reads the two read fakes run; C7 is the MERGE above, and C10 is S8.
  *
+ * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9) sends a read with an OPTIONAL
+ * MATCH and no relationship to test/helpers/pathCypherFake.js, not to the one-node reader, which refuses OPTIONAL
+ * MATCH: graph resolve finds nodes by their properties, then tests trust with reads.js's fragment, whose OPTIONAL MATCH
+ * of a NostrUser names no relationship.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -481,7 +486,10 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   const bare = stripStrings(q);
   const writes = WRITES.test(bare);
   const hasRel = HAS_RELATIONSHIP.test(bare);
-  if (!writes && !hasRel) return { rows: readOneNode(s, q, params), counters: zero() };
+  // A read of nodes with an OPTIONAL MATCH and no relationship, as reads.js's trust fragment adds to one, goes to the
+  // path reader: the one-node reader refuses OPTIONAL MATCH (story graph-operations-first-slice #9, ADR 0009 Context 9).
+  const optional = /\bOPTIONAL\s+MATCH\b/i.test(bare);
+  if (!writes && !hasRel && !optional) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
   if (writes && !write) throw new Error(`a read must write nothing; it sent: ${oneLine(q).slice(0, 300)}`);

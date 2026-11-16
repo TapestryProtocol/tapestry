@@ -105,5 +105,5 @@ For Architecture, not this gate:
 - What counts as a set: [ADR graph-operations-first-slice/0028](../../decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md), Amendment 3
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0009-resolve-and-naming-a-node.md](../../decisions/graph-operations-first-slice/0009-resolve-and-naming-a-node.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [9-resolve.test-plan.md](9-resolve.test-plan.md)
 - Review: (filled in after Review phase)

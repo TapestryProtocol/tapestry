@@ -137,6 +137,25 @@ test('CN4: descriptionProblem allows line breaks and tabs, and names any other c
   assert(typeof why === 'string' && why.length > 5, `a NUL is named; got ${show(why)}`);
 });
 
+test('CN5: textProblem finds an empty text and each character that can make it read as another, as nameProblem words them, and nothing else', () => {
+  const L = lib();
+  assert(typeof L.textProblem === 'function', 'conceptNames exports textProblem, nameProblem\'s first four checks (ADR graph-operations-first-slice/0009 Decision 6)');
+  const BEL = String.fromCharCode(0x07);
+  const RLO = String.fromCharCode(0x202e);
+  const ZWSP = String.fromCharCode(0x200b);
+  for (const [bad, point] of [['', null], [`dog${BEL}`, 'U+0007'], [`${RLO}dog`, 'U+202E'], [`do${ZWSP}g`, 'U+200B']]) {
+    const why = L.textProblem(bad);
+    assert(typeof why === 'string' && why.length > 0, `textProblem(${show(bad)}) names a problem; got ${show(why)}`);
+    assert(why === L.nameProblem(bad), `textProblem words ${show(bad)}'s problem as nameProblem does; got ${show(why)} and ${show(L.nameProblem(bad))}`);
+    if (point) assert(why.includes(point), `it names the character, ${point}; got ${show(why)}`);
+  }
+  const gou = String.fromCodePoint(0x72d7);
+  for (const fine of ['dog', 'coffee house', gou, 'x'.repeat(300), '---', 'C++']) {
+    assert(L.textProblem(fine) === null, `textProblem(${show(fine.length > 20 ? `${fine.slice(0, 20)}…` : fine)}) is null: a long name, or one with no slug, is no problem of the text itself; got ${show(L.textProblem(fine))}`);
+  }
+  assert(L.nameProblem('x'.repeat(201)) !== null && L.nameProblem('---') !== null && L.nameProblem(gou) !== null, 'nameProblem still refuses a name over 200 characters and one with no slug');
+});
+
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
 
 module.exports = { run };
