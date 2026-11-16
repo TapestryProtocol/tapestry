@@ -90,7 +90,11 @@ test('K1: runDetached with waitMs answers { outcome: \'running\' } once the wait
     await sleep(50);
   }
   assert(rec && rec.outcome === 'done' && rec.result.echoed === 1, `the job finishes on its own and writes its record; got ${show(rec)}`);
-  assert(!fs.existsSync(path.join(j.backups, '.lock')), 'the job releases its lock when it ends');
+  // WORKER writes its record, then removes its lock, so a poll can land between the two steps.
+  // Give the second step up to 2 s, 40 polls 50 ms apart (ledger 2026-11-16-k1-lock-check-races-worker).
+  const lock = path.join(j.backups, '.lock');
+  for (let i = 0; i < 40 && fs.existsSync(lock); i++) await sleep(50);
+  assert(!fs.existsSync(lock), 'the job releases its lock when it ends, within 2 s of writing its record');
 });
 
 test('K2: runDetached with waitMs answers the job\'s record when the job finishes within the wait (Sub-decision 3)', () => {
