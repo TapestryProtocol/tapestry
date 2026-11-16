@@ -38,6 +38,7 @@ const ESTATE_ATTESTATION = `# --------------------------------------------------
 #   brainstorm.world
 #   brainstorm.nosfabrica.com
 #   brainstorm-staging.nosfabrica.com
+#   brainstorm-staging.relay.tools
 #
 # R&D UI - github.com/nous-clawds4/tapestry
 #   tapestry.brainstorm.world
@@ -61,7 +62,8 @@ const ESTATE_ATTESTATION = `# --------------------------------------------------
 # The brainstorm.world and nosfabrica.com domains are both ours, so any
 # host under either of them is operated by us. The list above is a
 # current inventory, not an exhaustive claim. A site that resembles
-# Brainstorm on any OTHER domain is not affiliated with us.
+# Brainstorm on any OTHER domain is not affiliated with us, unless the
+# list above names it.
 # ---------------------------------------------------------------------`;
 
 const CONTACT_URL = 'https://github.com/nous-clawds4/tapestry/security/advisories/new';
