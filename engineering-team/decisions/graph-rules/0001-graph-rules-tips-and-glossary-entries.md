@@ -1,6 +1,6 @@
 # ADR 0001: What a graph rule, a TIP and a glossary entry each are, and where each rule's wording is written
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-15
 **Story:** none. This ADR answers Loom decision task A7.6, drafted from proposal P-154. Its decider accepts it by merging it.
 
