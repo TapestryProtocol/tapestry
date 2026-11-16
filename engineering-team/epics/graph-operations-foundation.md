@@ -47,6 +47,10 @@ its own, with nothing shared to edit.
 8. `stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.md` — a bug from story 3: a firmware install's
    Pass 3 rebuilds only the nodes with an address, so it passes by the trust pipeline's card sets, and no rebuild reads
    the whole graph. Story 5's firmware install on staging found it on 2026-11-15.
+9. `stories/graph-operations-foundation/9-tapestry-keys-within-transaction-memory.md` — a bug from story 3:
+   `tapestry-keys` finishes on a graph of millions of keyed nodes under any transaction limit, because its check for
+   keys held by more than one node no longer holds every key in Neo4j's memory at once. Story 8's scratch stack found it
+   on 2026-11-15, before the migration's first run on production.
 
 Each story was planned when its task was taken. The foundation's stories, and each story's first
 ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in

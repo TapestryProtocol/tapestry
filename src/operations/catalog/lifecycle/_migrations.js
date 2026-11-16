@@ -1,7 +1,7 @@
 'use strict';
 /**
- * The migrations lifecycle migrate can run — ADR graph-operations-foundation/0003 Decisions 3, 4 and 5. A helper of the
- * lifecycle operations.
+ * The migrations lifecycle migrate can run — ADR graph-operations-foundation/0003 Decisions 3, 4 and 5, with Decision
+ * 4's check for shared keys as ADR graph-operations-foundation/0009 amends it. A helper of the lifecycle operations.
  *
  * Each entry is { name, summary, requires, plan(system), apply(plan, system, progress) }:
  *   plan     only reads; resolves { applied, changes, needsBackup, details }
@@ -21,6 +21,9 @@ const RELABEL_BATCH = 1000;
 const INDEX_POLL_MS = 2000;
 const INDEX_WAIT_MS = 30 * 60 * 1000;
 const SHARED_LIMIT = 100;
+const SHARED_NODES = 10;
+const HASHES_MIN = 1024;      // the smallest the check's array of key hashes starts at (ADR 0009 Decision 1)
+const HASHES_SLACK = 1.01;    // room in it for keys made while the check reads, before it has to grow
 const ADDRESSES_SHOWN = 20;
 
 const num = (rows, key) => {
@@ -71,21 +74,80 @@ async function leftToDo(system, skip) {
   return { withoutKey, withoutLabel };
 }
 
+/** A key as Neo4j compares it: a string is its text, any other value carries its type, so 1 and '1' are two keys. */
+const keyText = (value) => (typeof value === 'string' ? value : `\u0000${typeof value}:${JSON.stringify(value)}`);
+
 /**
- * Keys held by more than one node, at most 100 of them, each with up to ten element ids. With the rule in place, the
- * labelled keys are unique already, so only unlabelled nodes are read, each against the rule's index.
+ * A 53-bit hash of a key, exact in a JavaScript number (ADR 0009 Decision 5): cyrb53 (public domain, bryc), two 32-bit
+ * lanes multiplied in per character and mixed at the end, over the key's keyText.
  */
-async function sharedKeys(system, ruleInPlace) {
-  const rows = ruleInPlace
-    ? await read(system, `MATCH (n) WHERE NOT n:${LABEL} AND n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
-        OPTIONAL MATCH (m:${LABEL} {tapestryKey: n.tapestryKey})
-        WITH n.tapestryKey AS k, collect(DISTINCT elementId(n)) + collect(DISTINCT elementId(m)) AS holders
-        WITH k, holders, size(holders) AS c WHERE c > 1
-        RETURN k, c, holders[..10] AS ids LIMIT ${SHARED_LIMIT}`)
-    : await read(system, `MATCH (n) WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
-        WITH n.tapestryKey AS k, collect(elementId(n))[..10] AS ids, count(*) AS c WHERE c > 1
-        RETURN k, c, ids LIMIT ${SHARED_LIMIT}`);
-  return rows.map((r) => ({ key: String(r.k), count: Number(r.c), nodes: [].concat(r.ids || []).map(String) }));
+function keyHash(value) {
+  const s = keyText(value);
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+/**
+ * Keys held by more than one node, at most 100 of them in key order, each with how many nodes hold it and up to ten of
+ * their element ids (ADR 0009, amending ADR 0003 Decision 4). Nothing is grouped in Cypher, so neither Neo4j nor the
+ * driver ever holds the keys at once: the first read streams the keys in scope through cypherEach, and this process
+ * keeps a 53-bit hash of each, 8 bytes a key, in an array sized from `expected`. Hashes equal to a neighbour once
+ * sorted are candidates. Only when there is a candidate, or a held key, does a second streamed read, of every key
+ * with its node, confirm them by the key itself, dropping two keys that merely hash alike. With the rule in place, the
+ * labelled keys are unique already, so the first read covers only unlabelled nodes, each checked against the rule's
+ * index (`held`). Then status pays for the second read on every call while a key stays shared: a read of every key,
+ * about 5 s at four million (ADR 0009, corrected at Review round 1).
+ */
+async function sharedKeys(system, ruleInPlace, expected = 0) {
+  let hashes = new Float64Array(Math.max(HASHES_MIN, Math.ceil(expected * HASHES_SLACK)));
+  let n = 0;
+  const held = new Set();
+  const first = ruleInPlace
+    ? `MATCH (n) WHERE NOT n:${LABEL} AND n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'
+       RETURN n.tapestryKey AS k, EXISTS { MATCH (m:${LABEL} {tapestryKey: n.tapestryKey}) } AS held`
+    : "MATCH (n) WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}' RETURN n.tapestryKey AS k";
+  await system.cypherEach(first, {}, (row) => {
+    if (n === hashes.length) {
+      const grown = new Float64Array(hashes.length * 2);
+      grown.set(hashes);
+      hashes = grown;
+    }
+    hashes[n++] = keyHash(row.k);
+    if (row.held === true) held.add(keyText(row.k));
+  });
+  const candidates = new Set();
+  {
+    const sorted = hashes.subarray(0, n).sort();
+    for (let i = 1; i < n; i++) if (sorted[i] === sorted[i - 1]) candidates.add(sorted[i]);
+  }
+  hashes = null; // the array can go before the second read
+  if (!candidates.size && !held.size) return [];
+
+  const found = new Map();
+  await system.cypherEach("MATCH (n) WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}' RETURN n.tapestryKey AS k, elementId(n) AS id", {}, (row) => {
+    const text = keyText(row.k);
+    if (!held.has(text) && !(candidates.size && candidates.has(keyHash(row.k)))) return;
+    let entry = found.get(text);
+    if (!entry) {
+      entry = { key: String(row.k), count: 0, nodes: [] };
+      found.set(text, entry);
+    }
+    entry.count++;
+    if (entry.nodes.length < SHARED_NODES) entry.nodes.push(String(row.id));
+  });
+  return [...found.entries()]
+    .filter(([, entry]) => entry.count > 1)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .slice(0, SHARED_LIMIT)
+    .map(([, entry]) => entry);
 }
 
 /** The counts status shows (Decision 7), from a tapestry-keys plan: the whole graph's keys, and the rule and index. */
@@ -99,12 +161,15 @@ function keyCountsOf(plan) {
 /**
  * Reads the counts and the schema. Applied needs the rule, so with no rule the whole-graph search for shared keys
  * can't change the answer: it runs only for `apply` ({ full: true }), once, or when the rule is in place, when it
- * reads only the unlabelled nodes. The '{}' count is apply's too.
+ * reads only the unlabelled nodes, and every key once more while one is shared (sharedKeys). The '{}' count is
+ * apply's too.
  */
 async function planKeys(system, { full = false } = {}) {
   const counts = await countKeys(system);
   const schema = await readSchema(system);
-  const shared = full || schema.rule ? await sharedKeys(system, schema.rule) : null;
+  // How many keys the check's first read will see, to size its array: the unlabelled nodes with the rule, else every key.
+  const expected = schema.rule ? counts.nodes - counts.withLabel : counts.nodes - counts.withoutKey;
+  const shared = full || schema.rule ? await sharedKeys(system, schema.rule, expected) : null;
   // The '{}' keys, counted by themselves: a difference of two counts taken moments apart counts the keys the
   // pipeline gives in between (live check, finding 5).
   const placeholders = full ? num(await read(system, "MATCH (n) WHERE n.tapestryKey = '{}' RETURN count(n) AS placeholders"), 'placeholders') : null;
@@ -299,4 +364,4 @@ const MIGRATIONS = [
 const names = () => MIGRATIONS.map((m) => m.name);
 const byName = (name) => MIGRATIONS.find((m) => m.name === name) || null;
 
-module.exports = { MIGRATIONS, names, byName, keyCountsOf, readSchema };
+module.exports = { MIGRATIONS, names, byName, keyCountsOf, readSchema, keyHash };
