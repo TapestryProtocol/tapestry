@@ -467,6 +467,8 @@ The test plan (`engineering-team/stories/graph-operations-first-slice/9-resolve.
 
 **Note, 2026-11-16 (at Review, round 1, Blocking 3).** Item 7's test is now F24. Commit `78b34637` renumbered it after story 13's F21–F23 (A10.13, `graph list-relationships`), which merge first. No decision changes.
 
+**Note, 2026-11-16 (at the merge with staging, after #93).** Item 7's test is now F25. Story 13's review added an F24 of its own (#93), so commit `fa4ef9b1` moved this test once more. No decision changes.
+
 ## Out of scope
 
 - **Everything the story leaves out:**
