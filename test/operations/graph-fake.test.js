@@ -47,6 +47,7 @@
  *       or with one in backticks, a relationship from the node to itself in both directions; F14's limits stay
  *   F22 elementId() of a relationship is text in Neo4j 5's form, one for each relationship, the same on every read
  *   F23 properties() leaves an integer as the driver leaves one inside a map, while [key, value] pairs give a number
+ *   F24 a one-hop read keeps the repertoire for any later relationship; a later node, as trust() adds, still runs
  */
 
 const fs = require('fs');
@@ -507,6 +508,26 @@ test('F23: properties() leaves an integer as the driver leaves one inside a map,
   const follows = rows.find((row) => row.type === 'FOLLOWS');
   assert(follows && typeof follows.map.timestamp !== 'number' && follows.map.timestamp !== null, `properties(r): the integer timestamp is not a number, as the driver's toJS leaves a map's Integer; got ${show(follows && follows.map)}`);
   assert(show(follows.pairs) === show([['timestamp', Number(RG.FOLLOWED_AT)]]), `[k IN keys(r) | [k, r[k]]]: the pairs give the integer as a number, as toJS converts a list's items; got ${show(follows.pairs)}`);
+});
+
+// Review finding 2 (engineering-team/reviews/graph-operations-first-slice/13-list-relationships.md): the repertoire is
+// lifted for the opening one-hop alone, so a later relationship still fails loudly.
+test('F24: a one-hop read keeps the repertoire for any later relationship; a later node, as trust() adds, still runs', async () => {
+  const seed = RG.seedRelationships();
+  const read = G.readerOver(seed.state);
+  const k = seed.keys;
+  const later = [
+    ['a later OPTIONAL MATCH', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (m)-[:TAGS]->(z) RETURN m.tapestryKey AS key, z.tapestryKey AS z'],
+    ['a later MATCH', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE m.tapestryKey IS NOT NULL MATCH (m)-[:TAGS]->(z) RETURN m.tapestryKey AS key'],
+    ['a pattern in WHERE', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE NOT (m)-[:TAGS]->() RETURN m.tapestryKey AS key'],
+    ['a later relationship with no brackets', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (m)-->(z) RETURN m.tapestryKey AS key'],
+  ];
+  for (const [what, q] of later) {
+    const err = await refusedWith(read(q, { key: k.alice }));
+    assert(err && /the fake graph can't run this Cypher/.test(err.message), `the repertoire still holds for ${what} after the opening one-hop; got ${err ? err.message : 'rows'}`);
+  }
+  const alone = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (u:NostrUser {pubkey: m.pubkey}) RETURN type(r) AS type, u.pubkey AS who', { key: k.alice });
+  assert(alone.length === 4, `a later node, with no relationship, still runs with no repertoire: alice's four; got ${show(alone)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

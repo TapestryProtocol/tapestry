@@ -131,7 +131,7 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
 - **AC6: passes.**
   - `tapestry graph list-relationships` in the instance answered what the route answered, a refusal included (exit 1).
   - **The admin agent,** with its own key, through nginx and the external CLI:
-    - `whoami` answered `admin`;
+    - `whoami` exited 0, which it does only for the owner or an admin, with the agent's own pubkey (`0f45fdfe…`), not the owner's (`2025765f…`);
     - it paged through live widget's header 3 at a time to its last cursor: 4 pages, kept 11, left out 1;
     - it listed the dense hub's 4,000 incoming CITES from everyone's point of view, 200 at a time, in 20 pages;
     - it was refused a key no node has (exit 1, `unknown-node`).
@@ -158,6 +158,15 @@ Each ran on its own on the Mac Studio, never the full `npm test`, with every end
 - **The catalog loads.** A script doing what `test/operations.test.js`'s L1 and L4 check found the repo's catalog loads with no problems (19 operations), and requires no driver, LMDB or Redis module at load.
 - **The fakes' new route catches only this read.** No other statement in `src/` opens with a relationship held in a variable to a bare node, which is what the route catches.
 - **The full gate** runs in the pull request's CI.
+
+### After the review (2026-11-16)
+
+The review passed with nothing blocking ([13-list-relationships.md](../../reviews/graph-operations-first-slice/13-list-relationships.md)). Its first three non-blocking asks were then fixed on this branch:
+1. **The paging convention** in `src/operations/reads.js` (C1) and the catalog's Conventions now names this read's order: out before in, then by type, the other node's tapestryKey and `elementId`.
+2. **The fake's one-hop route** now lifts the repertoire only when no other relationship follows in the statement. A later `MATCH`, `OPTIONAL MATCH` or pattern in `WHERE` keeps it, so the fake still refuses a type it doesn't read. F24 in `test/operations/graph-fake.test.js` failed before the change and passes after it.
+3. **The agent's `whoami` line** above now says what the check saw.
+
+The fourth, the cursor's type check, would change ADR 0013's cursor rule, so it is ledger row `2026-11-16-relationship-cursor-type-narrower`. The nine suites passed again afterwards, `graph-fake.test.js` with 25 of 25.
 
 ## Deviations
 
