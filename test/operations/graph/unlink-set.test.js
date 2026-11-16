@@ -36,6 +36,8 @@
  *   UL16 nothing is signed; a visitor gets 401 and a stranger 403 and neither unlinks anything; the command unlinks that
  *        pair afterwards, recorded as the command's, and its refusal matches the route's
  *   UL17 it is listed for an admin with its guard, repeatKey, inputs and refusals, and has its /docs entry
+ *   UL18 an unlink leaves the set's own properties as they were, unlinked or refused: the lock it takes (ADR 0028
+ *        Amendment 2) leaves nothing behind
  */
 
 const fs = require('fs');
@@ -406,6 +408,24 @@ test('UL17: it is listed for an admin with its guard, repeatKey, inputs and refu
   `], { cwd: ROOT, encoding: 'utf8', env: S.childEnv(tmp('unlink-set-docs-')) });
   const line = (child.stdout || '').split('RESULT:')[1];
   assert(line && same(JSON.parse(line), ['post']), `/docs has POST ${ROUTE}; got ${line} ${(child.stderr || '').slice(-300)}`);
+});
+
+// ADR 0028 Amendment 2: unlink-set locks its set by setting a property and removing it again in its own transaction.
+test('UL18: an unlink leaves the set\'s own properties as they were, unlinked or refused: the lock it takes leaves nothing behind', () => {
+  const { k } = main();
+  const propsOf = (state, key) => {
+    const n = state.nodes.find((x) => x.props && x.props.tapestryKey === key);
+    return n ? n.props : null;
+  };
+  ok('ul1-unlink');
+  refused('ul8-last-parent', 409, 'last-parent');
+  for (const [what, key] of [['Hounds, unlinked (UL1)', k.Hounds], ['Siamese, refused its last parent (UL8)', k.Siamese]]) {
+    const was = propsOf(before(), key);
+    const is = propsOf(graph(), key);
+    assert(was && is, `(the seed holds ${what})`);
+    assert(!Object.prototype.hasOwnProperty.call(is, 'tapestryLock'), `${what}: no lock property is left on the set; got ${show(is)}`);
+    assert(same(is, was), `${what}: the set's properties are as they were; was ${show(was)}, is ${show(is)}`);
+  }
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
