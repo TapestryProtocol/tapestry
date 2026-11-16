@@ -34,7 +34,7 @@ Amendment 1 to the ADR pins the shapes these tests read. It covers the script's 
 | AC5 | GL4 a second install with no change signs nothing new for the items | `test/graph-rule-firmware.test.js` | live (scratch, `GRAPH_RULE_INSTALL=1`) |
 | AC5 | The live check below, steps 3 and 4: a changed entry, and a new one | manual, at Implementation | live (scratch) |
 | AC2, AC3 (review round 1, ADR Amendment 2.2 and 2.3) | GP12 an unindented line after a field is a problem · GP13 a heading with a name in backticks that isn't an entry's · GP14 a field line outside any entry · GP15 a first sentence never ends at e.g. or i.e. | `test/graph-rules-builder.test.js` | unit (fixtures) |
-| AC5 (review round 1, ADR Amendment 2.4) | IS4 to IS9: the real `pass1_bootstrap`, run in a child with its dependencies stubbed (`test/helpers/pass1bChild.js`). It covers create, unchanged, re-sign, another author's, a failed lookup, the header by address, and every other concept as before | `test/firmware-element-sync.test.js` | unit (stubbed install) |
+| AC5 (review rounds 1 and 2, ADR Amendment 2.4) | IS4 to IS10: the real `pass1_bootstrap`, run in a child with its dependencies stubbed (`test/helpers/pass1bChild.js`) and a dead conf. It covers create, unchanged, re-sign, another author's, a failed lookup, the header by address, and every other concept as before. IS10 covers another author's row read first, where the assistant's is the one re-signed | `test/firmware-element-sync.test.js` | unit (stubbed install) |
 | AC6 — it reads like any concept | GB10 the rulebook's preamble · GF13 BIBLE §7 | both | unit (docs) |
 | AC6 | GL1 summaries lists it · GL3 `graph list-elements` gives the six items | `test/graph-rule-firmware.test.js` | live (scratch) |
 
@@ -129,3 +129,8 @@ Added at Review, in a commit of their own before the fixes, for ADR 0041 Amendme
   ```
 
 - **IS4 to IS9 pass** against the round-1 code: they pin install behaviour the review checked by hand, so a regression fails in CI (`firmware-element-sync: 20 passed, 0 failed, 0 skipped`).
+
+### Review round 2's cases (2026-11-16)
+
+- **IS10** was added in a commit of its own. It fails when install re-signs the first row its lookup read rather than the planned element. It passes on the code (`firmware-element-sync: 21 passed, 0 failed, 0 skipped`).
+- **The child now runs with a dead conf** (`BRAINSTORM_CONF_PATH`), as schema-save-finds-the-right-header's child does, so a bypassed stub can't reach `bolt://localhost:7687`.

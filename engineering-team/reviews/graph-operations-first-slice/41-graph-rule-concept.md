@@ -368,3 +368,55 @@ The four non-blocking items are worth doing, and none of them stops the merge:
 - **The story's Status** is the coordinator's to flip, in the review commit. With this section added, harness-lint's L1 check reads this review as passed, and it flags the story's `Approved` status until the flip.
 - **Completion detection** goes to the coordinator, not into this file.
 - **Re-checks:** if the non-blocking wording is changed, the next reader should check the new sentences against `graph-rules.js` and `install.js` as fresh claims, as this round did.
+
+---
+
+## Round 3
+
+**Date:** 2026-11-16
+**Diff:** `git diff 47a9462d..HEAD`, HEAD `a3ebb0a5`. It holds two commits and three files, +37 −12:
+- `e8b00534` (tests): IS10 with its `other-first+own-changed` case, and a dead conf for the child;
+- `a3ebb0a5` (docs): three preamble sentences.
+
+`47a9462d` is round 2's report, along with the story's flip to Done. The owner chose to fix round 2's non-blocking 1–3, and to leave 4 (the dry-run check) as a follow-up.
+
+### What I checked
+
+- [x] **Nothing else changed.** The only files are `docs/GRAPH_RULES.md` (three preamble lines), `test/firmware-element-sync.test.js` and `test/helpers/pass1bChild.js`. No source, firmware, BIBLE, ADR or story file changed, and `node src/firmware/graph-rules.js --check` still exits 0.
+- [x] **The suites the diff touches,** each run on its own, with `TAPESTRY_CONTAINER` unset and a dead conf:
+  - `firmware-element-sync: 21 passed, 0 failed, 0 skipped`;
+  - `graph-rules-builder: 26 passed, 0 failed, 0 skipped`;
+  - `graph-rule-firmware: 13 passed, 0 failed, 4 skipped`;
+  - the five rules suites, which read the rulebook: 10, 5, 10, 14 and 12 passed, none failed.
+- [x] **`bash scripts/harness-lint.sh`:** `harness-lint: clean (0 violations)`. The story is Done.
+
+| Round 2 | Closed? | Evidence |
+|---|---|---|
+| 1, M7 passes every test | Yes | In a scratch copy of HEAD, M7 (re-sign the first row found) fails IS10 alone, and so does a variant that re-signs every row found. Every other round-2 regression still fails its tests, and M10, left as a follow-up, still passes them all. |
+| 2, the child's Neo4j fallback | Yes | In the copy, the child reported what the real config reader resolves, without connecting. The parent ran without my own dead conf, so only the test's own protected it. The child resolved `bolt://127.0.0.1:9` from the test's own `pass1b-dead-<pid>.conf`, which existed during the run. No such file is left in the temp folder afterwards. |
+| 3, three preamble slips | Yes, in the rulebook | Line 23, "has nothing in backticks", matches `graph-rules.js:81–82`. Line 24, "its label and a colon, both in bold", matches `FIELD_LINE`. Line 29 now says an install "puts back an item's JSON when someone has edited it in the graph", which is what `planElement` and `regenerateJson` do. |
+
+### Findings, round 3
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. **Two records still describe the heading rule as narrower than it is.** ADR 0041 Amendment 2.2 says "holds a name in backticks", and the story's Deviations say a heading that "names a rule in backticks". The code and the rulebook refuse anything in backticks. Round 2's finding 3 mentioned both. Optional improvement: align them, or let them stand as the record of what round 1 changed.
+2. **IS10 isn't in the test plan.** The plan's AC5 row, and the story's Deviations, name IS4 to IS9 only. Optional improvement: add IS10 to that row.
+
+### Verdict, round 3
+
+**PASS**
+
+Round 2's non-blocking 1–3 are closed, and nothing else changed:
+- IS10 catches a re-sign that lands on another author's element.
+- The child can no longer fall back to the agent-memory instance's Neo4j, and its conf file is removed after the run.
+- The preamble's three sentences match the code.
+
+The two items above are record-keeping and don't stop the merge.
+
+### Close-out, round 3
+
+- **Story Status:** the story is already Done (`47a9462d`), and lint stays clean with this section added.
+- **Completion detection** goes to the coordinator, not into this file.
