@@ -1960,7 +1960,7 @@ async function findSchemaHeader({ concept, tapestryKey, taPubkey }) {
     `, { tapestryKey }));
     if (headers.length === 0) return { status: 200, error: `No concept header has the tapestryKey ${tapestryKey}` };
     if (headers.length > 1) {
-      return { status: 200, error: `More than one node holds the tapestryKey ${tapestryKey} (${headers.map((h) => h.headerUuid).join(', ')}), so it doesn't say which concept is meant` };
+      return { status: 200, error: `More than one concept header holds the tapestryKey ${tapestryKey} (${headers.map((h) => h.headerUuid).join(', ')}), so it doesn't say which concept is meant` };
     }
     return { header: headers[0] };
   }
@@ -2113,6 +2113,7 @@ async function reconcilePrimaryPropertyForConcept(concept, { headerUuid } = {}) 
     OPTIONAL MATCH (pp)-[:HAS_TAG]->(pt:NostrEventTag {type: 'json'})
     RETURN h.uuid AS headerUuid, js.uuid AS schemaUuid, head(collect(DISTINCT jt.value)) AS schemaJson,
            pp.uuid AS ppUuid, head(collect(DISTINCT pt.value)) AS ppJson
+    ORDER BY schemaUuid, ppUuid
     LIMIT 1
   `, headerUuid ? { headerUuid } : { concept });
 

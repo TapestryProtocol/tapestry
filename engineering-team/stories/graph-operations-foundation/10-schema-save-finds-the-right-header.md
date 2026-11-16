@@ -56,7 +56,7 @@ As the owner, or an admin agent, I want a schema save to reach the concept I mea
   - the primary-property record the save brings up to date in the same call belongs to the same concept as the schema it saved.
 - [ ] **AC4. The concept page saves the schema it shows.**
   - Given the instance's own "tag" concept and another author's header named "tag", when the owner saves a schema on the Schema tab of the instance's own concept page, in the visual editor or in raw mode, then the schema saved is the one the page showed, and the page shows the saved schema after.
-  - A caller can name the concept it means by its header's tapestryKey, which every node has, and the save then reaches that concept and no other. A key no node holds, or one that more than one node holds, changes nothing.
+  - A caller can name the concept it means by its header's tapestryKey, which every node has, and the save then reaches that concept and no other. A key that no concept header holds, or that more than one concept header holds, changes nothing. *(Worded at the review gate, 2026-11-15, with the owner's go-ahead ("Fix first, then PR"). It had said "node". The save counts concept headers, since only a header names a concept, and counting every node would scan the whole graph on an instance before `tapestry-keys`.)*
   - A concept that came from no event, as one `graph create-concept` makes (A10.16), is refused and nothing changes, whether it is named by its key or by its name. The save signs and publishes the schema, and a concept with no event is the instance's own private thought (BIBLE §30). *(Amended at the Test Design gate, 2026-11-15.)*
 - [ ] **AC5. A second install saves what the first one did.**
   - Given a scratch stack after one firmware install, when a second install runs, then its Pass 2 logs 0 errors.
@@ -90,7 +90,7 @@ One more was settled at the Test Design gate, 2026-11-15:
 
 ## Deviations
 
-- **The request names the header by `tapestryKey`**, the owner's choice at the Test Design gate. The field is optional and documented in `src/api/openapi.yaml`. A value that isn't a tapestryKey answers 400. A key no concept header holds, or one that more than one node holds, answers `success: false`, as a name no header has does today.
+- **The request names the header by `tapestryKey`**, the owner's choice at the Test Design gate. The field is optional and documented in `src/api/openapi.yaml`. A value that isn't a tapestryKey answers 400. A key that no concept header holds, or that more than one concept header holds, answers `success: false`, as a name no header has does today.
 - **"The instance's own" header is the one written by the key the route signs with,** the Tapestry Assistant's, found at runtime (`nt().getPublicKey(getPrivkey())`), as create-concept's own check finds it.
 - **The key lookup reads the concept headers by label** (`ListHeader|ClassThreadHeader|ConceptHeader`), not by `:TapestryNode`, which a node lacks until `tapestry-keys` has run on its instance. Headers are few, so the label scan costs little.
 - **A concept with no event is refused when either its header or its schema node lacks `NostrEvent`.** The name lookup never sees such a header, since it reads only `:NostrEvent` headers, so by name such a concept still answers "not found", as today.
@@ -99,7 +99,7 @@ One more was settled at the Test Design gate, 2026-11-15:
 - **Apply-enumerations names its target header by its tapestryKey,** read from the ENUMERATES edge it already walks.
 - **The concept page reads its header's tapestryKey** in its header query (`ConceptDetail.jsx`), and the Schema tab sends it with both saves. The client sends no key when it has none or is given the `{}` placeholder, so the save falls back to the name.
 - **The routes that make the instance's own concepts on first use still save by name.** Each has just made the concept with the Tapestry Assistant's key, so the name rule finds it.
-- **A header with more than one schema node** has its first by address saved, a fixed choice. Today's code took whichever the database gave first.
+- **A header with more than one schema node** has its first by address saved, a fixed choice. Today's code took whichever the database gave first. After the review (its non-blocking finding 5), the fold, Pass 2's lookup and the Schema tab's read order a header's schema nodes the same way. So such a header is saved, reconciled, logged and shown on the same schema node.
 
 ## Linked artifacts
 

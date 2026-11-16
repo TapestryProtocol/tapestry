@@ -23,7 +23,7 @@ A caller names the header it means with **`tapestryKey`**, the header's tapestry
 
 The story left the field to the Implementer (Open questions, no ADR). AC4 can't be tested from outside without naming it, so this plan names it. The draft proposed `conceptUuid`, the header's address, as `add-node-as-element` names a concept. At this gate the owner chose the tapestryKey instead. Every node has one (ADR graph-operations-foundation/0003), while not every concept is guaranteed an address. The graph operations name a concept's header the same way (`graph mark-field`'s `concept`, design D6). The Implementer documents the field in `src/api/openapi.yaml` and records it under the story's Deviations.
 
-A key changes what a save can reach. The name lookup only ever finds headers that came from an event (`(h:NostrEvent)`). A key can name a concept that `graph create-concept` made with no event (A10.16), and the save signs and publishes. So AC4, amended at this gate, refuses a concept with no event (S4f). A key is also unique only once `tapestry-keys` has added its rule, and some nodes on an instance that hasn't run it hold `{}` as a key (ADR 0003, Context 2), so S4g refuses a key that isn't one node's.
+A key changes what a save can reach. The name lookup only ever finds headers that came from an event (`(h:NostrEvent)`). A key can name a concept that `graph create-concept` made with no event (A10.16), and the save signs and publishes. So AC4, amended at this gate, refuses a concept with no event (S4f). A key is also unique only once `tapestry-keys` has added its rule, and some nodes on an instance that hasn't run it hold `{}` as a key (ADR 0003, Context 2), so S4g refuses a key that isn't one concept header's.
 
 ## Coverage map
 
@@ -44,13 +44,18 @@ All in `test/schema-save-finds-the-right-header.test.js`. "Stack-free" runs in e
 | AC3 | **S3e** three headers named "tag", two of them the TA's. In all six orders it is refused, and the error names all three | stack-free |
 | AC3 | **S3f** both "tag" concepts have a primary property that lags the new schema. In both orders the fold reports `reconciled`, the TA's primary property gets the new field, and the other concept gets no write | stack-free |
 | AC3 | **S3g** sentinel: no header has the name. The answer is today's `Concept "…" not found`, and nothing is written | stack-free |
-| AC4 | **S4a** the Schema tab (`ui/src/pages/concepts/ConceptSchema.jsx`) still finds its header through the concept page. The page or the tab reads the header's tapestryKey (`h.tapestryKey`), and both of the tab's saves, the visual editor's and raw mode's, send `tapestryKey` | stack-free (source) |
-| AC4 | **S4b** the client (`ui/src/api/normalize.js`, imported as ESM) sends the `tapestryKey` it is given with `concept` and `schema`, to `/api/normalize/save-schema`. Given none, it sends today's body, `{ concept, schema }` | stack-free (stubbed fetch) |
+| AC3 | **S3h** a header with two schema nodes, laid out in either order, has the first by address saved; the second gets no write | stack-free |
+| AC4 | **S4a** the Schema tab (`ui/src/pages/concepts/ConceptSchema.jsx`) still finds its header through the concept page. The page's header query returns `h.tapestryKey AS tapestryKey`, and both of the tab's saves, the visual editor's and raw mode's, send `tapestryKey: concept.tapestryKey`. The tab's schema read orders by address before its `LIMIT 1`, as the save chooses | stack-free (source) |
+| AC4 | **S4b** the client (`ui/src/api/normalize.js`, imported as ESM) sends the `tapestryKey` it is given with `concept` and `schema`, to `/api/normalize/save-schema`. Given none, `{}` or an empty string, it sends today's body, `{ concept, schema }` | stack-free (stubbed fetch) |
 | AC4 | **S4c** a save naming its header by `tapestryKey` lands on that header's schema: the TA's own while another author's same-named header comes first, and each of two TA headers named "tag", in both orders | stack-free |
 | AC4 | **S4d** a `tapestryKey` that no node has: refused with an error; nothing written, nothing published | stack-free |
 | AC4 | **S4e** `src/api/openapi.yaml` lists `tapestryKey` in save-schema's request body | stack-free (source) |
 | AC4 | **S4f** sentinel: a concept laid out as `graph create-concept` makes one (addresses, no event: no `NostrEvent` label, no `id`) is refused by its key and by its name; nothing written, nothing published. It passes today, since today's lookup can't find such a concept, and it fails a fix that lets the save sign one | stack-free |
 | AC4 | **S4g** a `tapestryKey` two headers hold, and the `{}` placeholder held by two: each refused, nothing written | stack-free |
+| AC4 | **S4h** a value that isn't a tapestryKey answers 400 and writes nothing: one no node holds, and `{}` held by a single header | stack-free |
+| AC4 | **S4i** a header that came from an event, whose schema node didn't: refused by key and by name, nothing written | stack-free |
+| AC4 | **S5a** before `tapestry-keys` (no node has `TapestryNode`, the keys as `initialize` stamps them): a save by key lands on its header while another author's same-named header comes first, in both orders, and the fold reconciles that header | stack-free |
+| AC3 | **S5b** before `tapestry-keys`, with no keys at all: a save by name lands on the instance's own header, in both orders, and the fold reconciles it | stack-free |
 | AC1, AC3 | **L1** on a scratch stack that holds the community's `tag` header, a save by name "tag", and one by the TA's tag header's `tapestryKey`, both answer the TA's own tag schema, and leave the community's header without one. It saves the TA's current schema back, so nothing changes | live |
 | AC5 | **L2** (`SCHEMA_SAVE_INSTALL=1`, on a container whose log shows exactly one install) a second firmware install answers success, and its Pass 2 logs 0 errors. The five tag concepts' own schemas' json tags come out as the first install left them. Every other difference between the two graphs is printed, from story 8's snapshot (`test/helpers/pass3Snapshot.js`), along with whether nostr relay's own schema changed | live |
 
@@ -68,9 +73,11 @@ The draft suggested one cause to check first: the nostr-relay header from `919ba
 - [x] A second header of the TA's own with the same name: a firmware save (S1c), an enumerated save (S2c), a save by name (S3e) and a save by key (S4c).
 - [x] Storage order: every order for AC3, both orders elsewhere.
 - [x] The primary-property fold acting on another concept than the save (S3f).
-- [x] A name no header has (S3g); a key no node has (S4d); a key that isn't one node's (S4g).
-- [x] A concept with no event, by key and by name (S4f).
-- [x] A refused save changes nothing: no write and no published event (S3d, S3e, S4d, S4f, S4g).
+- [x] A name no header has (S3g); a key no node has (S4d); a key that isn't one concept header's (S4g); a value that isn't a key (S4h).
+- [x] A concept with no event, by key and by name (S4f); one whose schema node alone came from no event (S4i).
+- [x] A refused save changes nothing: no write and no published event (S3d, S3e, S4d, S4f, S4g, S4h, S4i). A refusal by name answers the same in every storage order (S3d, S3e).
+- [x] A header with two schema nodes (S3h).
+- [x] An instance before `tapestry-keys`, with keys and with none (S5a, S5b).
 - [x] A read the fake graph can't run fails the test with the fake's message, naming the read.
 - [ ] Concurrent saves: out of scope, as in story 3 of second-brain (ADR second-brain/0003 Consequences).
 
@@ -80,7 +87,8 @@ The draft suggested one cause to check first: the nostr-relay header from `919ba
 - **New helper:** `test/helpers/saveSchemaChild.js`, the child process above. It reuses `test/helpers/pathCypherFake.js` unchanged.
 - **Concept Graph API:** not used by the stack-free tests. The live tests use a scratch container only.
 - **Firmware state:** the stack-free tests read the firmware manifest and the six concepts' `json-schema.json` from `firmware/active`. L2 needs a freshly booted scratch stack (one install in its log) that fetched the community headers in that install.
-- **Fixtures:** none on disk; each test builds its graph. Every fake node carries the shared label and a tapestryKey in keyNode's form (a version 4 UUID, made from the node's address so a graph is the same every run), as on an instance that has run `tapestry-keys`. A node from an event also carries `NostrEvent`.
+- **Fixtures:** none on disk; each test builds its graph. By default every fake node carries the shared label and a tapestryKey in keyNode's form (a version 4 UUID, made from the node's address so a graph is the same every run), as on an instance that has run `tapestry-keys`. A node from an event also carries `NostrEvent`. S5a and S5b lay the graph out as before `tapestry-keys`. Neither has the shared label on any node. S5a's nodes still hold keys, as `POST /api/tapestry-key/initialize` stamps them (`src/api/tapestry-key/index.js:136–141`); S5b's hold none.
+- **Dead endpoints:** the suite's child gets a conf file of its own (`BRAINSTORM_CONF_PATH`) whose Neo4j is a closed port. The database driver reads its address only from the conf (`src/lib/neo4j-driver.js`, `src/utils/config.js`). Without one it falls back to `bolt://localhost:7687`, the agent-memory instance on the owner's Mac. The child stubs the driver; the conf only guards against the stub being bypassed.
 
 ## Suites the Implementer runs again
 

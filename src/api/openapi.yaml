@@ -1243,8 +1243,9 @@ paths:
                 tapestryKey:
                   type: string
                   description: >-
-                    The tapestryKey of the concept's header. Optional; a key that isn't one (400), that no header holds, or
-                    that more than one node holds, is refused and changes nothing.
+                    The tapestryKey of the concept's header. Optional; a value that isn't a tapestryKey (400), or a key
+                    that no concept header holds or that more than one concept header holds, is refused and changes
+                    nothing.
                 schema:
                   type: object
                   description: JSON Schema object

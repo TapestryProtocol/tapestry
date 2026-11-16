@@ -23,13 +23,18 @@
  *   S3e several share the name, two are the instance's own: nothing changes; the error names them                 [AC3]
  *   S3f the primary-property record brought up to date in the same call is the saved concept's                   [AC3]
  *   S3g sentinel: no header has the name — today's answer                                                          [AC3]
+ *   S3h a header with two schema nodes has the first by address saved, in either storage order                   [AC3]
  *   S4a the Schema tab's two saves send the tapestryKey of the header the page shows                               [AC4]
  *   S4b the client sends the tapestryKey it is given, and without one sends today's body                           [AC4]
  *   S4c a save that names its header by tapestryKey lands on that header's schema                                 [AC4]
  *   S4d a tapestryKey that no node has: nothing changes                                                            [AC4]
  *   S4e the route's documentation lists tapestryKey                                                                [AC4]
  *   S4f sentinel: a concept with no event (graph create-concept's) is refused, by key or by name; nothing signed  [AC4]
- *   S4g a tapestryKey two nodes hold, or a "{}" placeholder: nothing changes                                       [AC4]
+ *   S4g a tapestryKey two concept headers hold, or a "{}" placeholder: nothing changes                             [AC4]
+ *   S4h a value that isn't a tapestryKey answers 400 and changes nothing                                           [AC4]
+ *   S4i a header from an event whose schema node came from none is refused, by key or by name                    [AC4]
+ *   S5a before tapestry-keys (no TapestryNode label): a save by key lands on its header; the fold reconciles it   [AC4]
+ *   S5b before tapestry-keys, no keys at all: a save by name lands on the instance's own header                  [AC3]
  *
  * A caller names the header it means by the header's tapestryKey, which every node has (ADR
  * graph-operations-foundation/0003) and the graph operations name nodes by. The owner chose it at the Test Design gate.
@@ -110,17 +115,22 @@ function keyOf(seed) {
  * the shared label (ADR graph-operations-foundation/0003); `key` overrides the header's. An `eventless` concept is laid
  * out as graph create-concept makes one (A10.16): its nodes have addresses but no event, so no NostrEvent label and no id.
  */
-function makeGraph() {
+function makeGraph({ migrated = true, keyed = true } = {}) {
+  // `migrated: false` lays the graph out as on an instance that hasn't run tapestry-keys: no node has the shared label.
+  // Its concept-graph nodes still hold keys, as POST /api/tapestry-key/initialize stamps them without the label; with
+  // `keyed: false` they hold none.
   const nodes = [];
   const rels = [];
   let seq = 0;
   const eid = (p) => `${p}-${seq++}`;
+  const shared = migrated ? ['TapestryNode'] : [];
+  const keyFor = (seed) => (keyed ? { tapestryKey: keyOf(seed) } : {});
   const node = (labels, props, tags) => {
     const e = eid('n');
-    nodes.push({ eid: e, labels: [...labels, 'TapestryNode'], props: { tapestryKey: keyOf(props.uuid || e), ...props } });
+    nodes.push({ eid: e, labels: [...labels, ...shared], props: { ...keyFor(props.uuid || e), ...props } });
     for (const [type, value] of tags) {
       const t = eid('t');
-      nodes.push({ eid: t, labels: ['NostrEventTag', 'TapestryNode'], props: { uuid: `tag-${t}`, tapestryKey: keyOf(`tag-${t}`), type, value } });
+      nodes.push({ eid: t, labels: ['NostrEventTag', ...shared], props: { uuid: `tag-${t}`, ...keyFor(`tag-${t}`), type, value } });
       rels.push({ eid: eid('r'), type: 'HAS_TAG', from: e, to: t, props: {} });
     }
     return e;
@@ -130,22 +140,29 @@ function makeGraph() {
 
   const g = {
     nodes, rels, eidOf: new Map(),
-    concept({ author, dTag, name, list = false, schema, pp, key, eventless = false }) {
-      const lettered = (labels) => (eventless ? labels : ['NostrEvent', ...labels]);
+    concept({ author, dTag, name, list = false, schema, pp, key, eventless = false, eventlessSchema = eventless, twoSchemas }) {
+      // `eventlessSchema`: the schema node came from no event, whatever the header did. `twoSchemas`: the header has a
+      // second schema node, `<dTag>-json-schema-b`, laid out after the first ('in order') or before it ('reversed').
+      const lettered = (labels, none = eventless) => (none ? labels : ['NostrEvent', ...labels]);
       const h = event(39998, author, dTag, eventless);
       const hEid = node(lettered(list ? ['ListHeader'] : ['ListHeader', 'ConceptHeader']), { ...h, name, ...(key !== undefined ? { tapestryKey: key } : {}) },
         [['d', dTag], ['name', name], ['slug', dTag]]);
       g.eidOf.set(h.uuid, hEid);
       const out = { header: h.uuid, key: nodes.find((n) => n.eid === hEid).props.tapestryKey, schema: null, pp: null, all: [h.uuid] };
-      if (schema) {
-        const s = event(39999, author, `${dTag}-json-schema`, eventless);
+      const schemaNode = (suffix) => {
+        const s = event(39999, author, `${dTag}-json-schema${suffix}`, eventlessSchema);
         const wrapper = { word: { slug: `json-schema-for-the-concept-of-${dTag}`, name: `JSON schema for the concept of ${name}`, wordTypes: ['word', 'jsonSchema'], coreMemberOf: [{ slug: `concept-header-for-the-concept-of-${dTag}`, uuid: h.uuid }] }, jsonSchema: schema };
-        const sEid = node(lettered(['ListItem', 'JSONSchema']), { ...s, name: `json schema for the concept of ${name}` },
+        const sEid = node(lettered(['ListItem', 'JSONSchema'], eventlessSchema), { ...s, name: `json schema for the concept of ${name}` },
           [['d', s.uuid.split(':')[2]], ['name', `json schema for the concept of ${name}`], ['json', JSON.stringify(wrapper)]]);
         rel('IS_THE_JSON_SCHEMA_FOR', sEid, hEid);
         g.eidOf.set(s.uuid, sEid);
-        out.schema = s.uuid;
         out.all.push(s.uuid);
+        return s.uuid;
+      };
+      if (schema) {
+        if (twoSchemas === 'reversed') out.secondSchema = schemaNode('-b');
+        out.schema = schemaNode('');
+        if (twoSchemas === 'in order') out.secondSchema = schemaNode('-b');
       }
       if (pp) {
         const p = event(39999, author, `${dTag}-primary-property`, eventless);
@@ -176,8 +193,8 @@ function makeGraph() {
 }
 
 /** Builds one graph from parts given in storage order: each part is (graph) => the concept it made. */
-function build(parts) {
-  const g = makeGraph();
+function build(parts, opts) {
+  const g = makeGraph(opts);
   const made = {};
   for (const [name, part] of parts) made[name] = part(g);
   return { graph: { nodes: g.nodes, rels: g.rels }, made, g };
@@ -185,8 +202,14 @@ function build(parts) {
 
 /* ───────────── the child ───────────── */
 
-// Nothing the child loads may reach a real service: every endpoint it could read points at a closed port.
-const DEAD = { NEO4J_URI: 'bolt://127.0.0.1:9', TAPESTRY_API_BASE: 'http://127.0.0.1:9', BRAINSTORM_BASE_URL: 'http://127.0.0.1:9', TAPESTRY_PORT: '9', MEILI_URL_HOST: 'http://127.0.0.1:9', TAPESTRY_CONTAINER: 'no-such-container' };
+// Nothing the child loads may reach a real service: every endpoint it could read points at a closed port. The child
+// stubs the database driver; were the stub ever bypassed, the driver reads its address only from the conf file
+// (src/lib/neo4j-driver.js, src/utils/config.js), and without one it falls back to bolt://localhost:7687, which on the
+// owner's Mac is the agent-memory instance. So the child gets a conf of its own whose Neo4j is a closed port too.
+const DEAD_CONF = path.join(require('os').tmpdir(), `schema-save-dead-${process.pid}.conf`);
+fs.writeFileSync(DEAD_CONF, 'NEO4J_URI="bolt://127.0.0.1:9"\nNEO4J_USER="none"\nNEO4J_PASSWORD="none"\n');
+process.on('exit', () => { try { fs.unlinkSync(DEAD_CONF); } catch { /* already gone */ } });
+const DEAD = { BRAINSTORM_CONF_PATH: DEAD_CONF, TAPESTRY_API_BASE: 'http://127.0.0.1:9', BRAINSTORM_BASE_URL: 'http://127.0.0.1:9', TAPESTRY_PORT: '9', MEILI_URL_HOST: 'http://127.0.0.1:9', TAPESTRY_CONTAINER: 'no-such-container' };
 
 function child(scenario) {
   const r = spawnSync(process.execPath, [CHILD], {
@@ -368,29 +391,32 @@ function assertRefused(out, addresses, label) {
   const words = addresses.reduce((s, a) => s.split(a).join(' '), error);
   assert(/\btag\b/.test(words), `${label}: the error must say which name is shared, apart from the addresses; it is ${short(error)}`);
   assert(out.writes.length === 0 && out.published.length === 0, `${label}: a refused save changes nothing; it wrote ${out.writes.length} time(s) and published ${out.published.length} event(s)`);
+  return String(answer.body.error);
+}
+
+/** Every storage order of `parts` is refused, naming `names(made)`, with one and the same answer: never the database's choice. */
+function assertRefusedInEveryOrder(parts, names) {
+  const errors = new Set();
+  for (const order of permutations(parts)) {
+    const { graph, made } = build(order);
+    errors.add(assertRefused(byName(graph), names(made), `order ${order.map(([n]) => n).join(', ')}`));
+  }
+  assert(errors.size === 1, `the same request must get the same answer in every storage order; it got ${errors.size}:\n        ${[...errors].join('\n        ')}`);
 }
 
 t('S3d (AC3): when several headers share the name and none is the instance\'s own, nothing changes, and the error names them', () => {
-  const parts = [
+  assertRefusedInEveryOrder([
     ['other', (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER })],
     ['community', (g) => g.concept({ author: TAG.community.author, dTag: 'tag', name: 'tag', list: true, schema: STARTER })],
-  ];
-  for (const order of permutations(parts)) {
-    const { graph, made } = build(order);
-    assertRefused(byName(graph), [made.other.header, made.community.header], `order ${order.map(([n]) => n).join(', ')}`);
-  }
+  ], (made) => [made.other.header, made.community.header]);
 });
 
 t('S3e (AC3): when several headers share the name and two are the instance\'s own, nothing changes, and the error names them', () => {
-  const parts = [
+  assertRefusedInEveryOrder([
     ['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER })],
     ['ownTwin', (g) => g.concept({ author: TA, dTag: 'tag-made-by-hand', name: 'tag', schema: STARTER })],
     ['other', (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER })],
-  ];
-  for (const order of permutations(parts)) {
-    const { graph, made } = build(order);
-    assertRefused(byName(graph), [made.own.header, made.ownTwin.header, made.other.header], `order ${order.map(([n]) => n).join(', ')}`);
-  }
+  ], (made) => [made.own.header, made.ownTwin.header, made.other.header]);
 });
 
 t('S3f (AC3): the primary-property record the save brings up to date in the same call is the saved concept\'s own', () => {
@@ -421,16 +447,29 @@ t('S3g (AC3, sentinel): with no header of that name, a save by name does what it
   assert(out.writes.length === 0, `nothing may be written; ${out.writes.length} write(s)`);
 });
 
+t('S3h (AC3): a header with two schema nodes has the first by address saved, in either storage order', () => {
+  for (const order of ['in order', 'reversed']) {
+    const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, twoSchemas: order })]]);
+    const out = byName(graph);
+    assertSavedOn(out, made.own.schema, `[${order}]`);
+    untouched(out, [made.own.secondSchema], `[${order}] the header's second schema node, ${made.own.secondSchema}`);
+  }
+});
+
 t('S4a (AC4): both of the Schema tab\'s saves, visual and raw, send the tapestryKey of the header the page shows', () => {
   const tab = fs.readFileSync(SCHEMA_TAB, 'utf8');
   const page = fs.readFileSync(CONCEPT_PAGE, 'utf8');
   assert(/const\s*\{[^}]*\buuid\b[^}]*\}\s*=\s*useOutletContext\(\)/.test(tab), 'the Schema tab must still find its header through the concept page (useOutletContext)');
-  assert(/\bh\.tapestryKey\b/.test(page) || /\bh\.tapestryKey\b/.test(tab), 'the concept page or its Schema tab must read the header\'s tapestryKey (h.tapestryKey), to send it with the save');
+  // The page's header query hands the tab its concept: the key travels as concept.tapestryKey, read off the header.
+  assert(/\bh\.tapestryKey\s+AS\s+tapestryKey\b/.test(page), 'the concept page\'s header query must return the header\'s key as `h.tapestryKey AS tapestryKey`, which the tab sends');
   const calls = tab.match(/saveSchema\(\{[^)]*\}\)/g) || [];
   assert(calls.length === 2, `the Schema tab should save in two places (the visual editor and raw mode); found ${calls.length}: ${short(calls)}`);
   for (const call of calls) {
-    assert(/\btapestryKey\b/.test(call), `each save must send the header's tapestryKey; this one doesn't: ${call}`);
+    assert(/\btapestryKey:\s*concept\.tapestryKey\b/.test(call), `each save must send the header's own key, tapestryKey: concept.tapestryKey; this one doesn't: ${call}`);
   }
+  // The tab shows the schema the save writes: of a header's schema nodes, the first by address.
+  const read = tab.slice(tab.indexOf('MATCH (js:JSONSchema)'), tab.indexOf('LIMIT 1', tab.indexOf('MATCH (js:JSONSchema)')));
+  assert(/ORDER BY\s+(js\.)?uuid\b/.test(read), `the tab's schema read must order by address, as the save chooses, before its LIMIT 1; it reads: ${short(read.replace(/\s+/g, ' '), 300)}`);
 });
 
 t('S4b (AC4): the client sends the tapestryKey it is given with the concept and the schema, and without one sends today\'s body', async () => {
@@ -445,14 +484,19 @@ t('S4b (AC4): the client sends the tapestryKey it is given with the concept and 
     const client = await import(pathToFileURL(UI_CLIENT).href);
     await client.saveSchema({ concept: 'tag', tapestryKey: key, schema: NEW_SCHEMA });
     await client.saveSchema({ concept: 'tag', schema: NEW_SCHEMA });
+    // A header that holds the "{}" placeholder, or nothing, has no key to send: the save falls back to the name.
+    await client.saveSchema({ concept: 'tag', tapestryKey: '{}', schema: NEW_SCHEMA });
+    await client.saveSchema({ concept: 'tag', tapestryKey: '', schema: NEW_SCHEMA });
   } finally {
     globalThis.fetch = fetch0;
   }
-  assert(sent.length === 2 && sent.every((s) => /\/api\/normalize\/save-schema$/.test(s.url)), `the client must POST each save to /api/normalize/save-schema; it sent ${short(sent)}`);
-  const [withKey, withoutKey] = sent.map((s) => s.body || {});
+  assert(sent.length === 4 && sent.every((s) => /\/api\/normalize\/save-schema$/.test(s.url)), `the client must POST each save to /api/normalize/save-schema; it sent ${short(sent)}`);
+  const [withKey, withoutKey, placeholder, empty] = sent.map((s) => s.body || {});
   assert(withKey.tapestryKey === key, `the request must carry the tapestryKey it was given; its body is ${short(withKey)}`);
   assert(withKey.concept === 'tag' && same(withKey.schema, NEW_SCHEMA), `the request must still carry the concept and the schema; its body is ${short(withKey)}`);
-  assert(same(withoutKey, { concept: 'tag', schema: NEW_SCHEMA }), `a save given no tapestryKey must send today's body, { concept, schema }; it sent ${short(withoutKey)}`);
+  for (const [label, body] of [['given no tapestryKey', withoutKey], ['given the "{}" placeholder', placeholder], ['given an empty key', empty]]) {
+    assert(same(body, { concept: 'tag', schema: NEW_SCHEMA }), `a save ${label} must send today's body, { concept, schema }; it sent ${short(body)}`);
+  }
 });
 
 t('S4c (AC4): a save that names its header by tapestryKey lands on that header\'s schema', () => {
@@ -508,7 +552,7 @@ t('S4f (AC4, sentinel): a concept with no event is refused, by its tapestryKey o
   assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'recipe', schema: NEW_SCHEMA } }), 'by its name');
 });
 
-t('S4g (AC4): a tapestryKey two nodes hold, or a "{}" placeholder, is refused and changes nothing', () => {
+t('S4g (AC4): a tapestryKey two concept headers hold, or a "{}" placeholder, is refused and changes nothing', () => {
   // Before tapestry-keys adds its uniqueness rule, nothing stops two nodes holding one key, and some nodes hold "{}" as
   // a key (ADR graph-operations-foundation/0003, Context 2).
   const shared = keyOf('held twice');
@@ -518,6 +562,52 @@ t('S4g (AC4): a tapestryKey two nodes hold, or a "{}" placeholder, is refused an
       ['ownTwin', (g) => g.concept({ author: TA, dTag: 'tag-made-by-hand', name: 'tag', schema: STARTER, key })],
     ]);
     assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: key, schema: NEW_SCHEMA } }), label);
+  }
+});
+
+t('S4h (AC4): a value that isn\'t a tapestryKey answers 400 and changes nothing, even when one header holds it', () => {
+  for (const [label, key, holder] of [['a value no node holds', 'not-a-key', undefined], ['the "{}" placeholder, held by one header', '{}', '{}']]) {
+    const { graph } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, key: holder })]]);
+    const out = child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: key, schema: NEW_SCHEMA } });
+    assertNothingChanged(out, label);
+    assert(out.results[0].statusCode === 400, `${label}: a value that isn't a tapestryKey must answer 400; it answered ${out.results[0].statusCode}`);
+  }
+});
+
+t('S4i (AC4): a concept whose header came from an event but whose schema node didn\'t is refused, by key or by name', () => {
+  const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, eventlessSchema: true })]]);
+  assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: made.own.key, schema: NEW_SCHEMA } }), 'by its tapestryKey');
+  assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', schema: NEW_SCHEMA } }), 'by its name');
+});
+
+// Before tapestry-keys: production's state until the migration runs there (story 3). No node has the shared label.
+const LAGGING_PP = { key: 'tag', title: 'tag', type: 'object', required: [], properties: { name: { type: 'string' } } };
+
+t('S5a (AC4, before tapestry-keys): a save by tapestryKey still lands on its header, and the fold reconciles that header', () => {
+  for (const order of ['other first', 'own first']) {
+    const other = (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
+    const own = (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
+    const { graph, made } = build(order === 'other first' ? [['other', other], ['own', own]] : [['own', own], ['other', other]], { migrated: false });
+    assert(graph.nodes.every((n) => !n.labels.includes('TapestryNode')), 'the fixture must have no TapestryNode label anywhere');
+    const out = child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: made.own.key, schema: NEW_SCHEMA } });
+    assertSavedOn(out, made.own.schema, `[${order}]`);
+    const fold = out.results[0].body.primaryProperty;
+    assert(fold && fold.result === 'reconciled', `[${order}] the fold must reconcile the header the save found; it reported ${short(fold)}`);
+    untouched(out, made.other.all, `[${order}] the other author's concept`);
+  }
+});
+
+t('S5b (AC3, before tapestry-keys, no keys at all): a save by name still lands on the instance\'s own header, and the fold reconciles it', () => {
+  for (const order of ['other first', 'own first']) {
+    const other = (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
+    const own = (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
+    const { graph, made } = build(order === 'other first' ? [['other', other], ['own', own]] : [['own', own], ['other', other]], { migrated: false, keyed: false });
+    assert(graph.nodes.every((n) => n.props.tapestryKey === undefined), 'the fixture must have no tapestryKey anywhere');
+    const out = byName(graph);
+    assertSavedOn(out, made.own.schema, `[${order}]`);
+    const fold = out.results[0].body.primaryProperty;
+    assert(fold && fold.result === 'reconciled', `[${order}] the fold must reconcile the instance's own primary property; it reported ${short(fold)}`);
+    untouched(out, made.other.all, `[${order}] the other author's concept`);
   }
 });
 

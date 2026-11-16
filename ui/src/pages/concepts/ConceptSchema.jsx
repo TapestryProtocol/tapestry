@@ -22,6 +22,7 @@ export default function ConceptSchema() {
     OPTIONAL MATCH (js)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
     WITH js, head(collect(j.value)) AS json
     RETURN js.uuid AS uuid, js.name AS name, js.pubkey AS author, json
+    ORDER BY uuid
     LIMIT 1
   `);
 

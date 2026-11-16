@@ -917,6 +917,7 @@ async function pass2_enrich(opts = {}) {
       const queryResult = await runCypherApi(
         `MATCH (s:JSONSchema)-[:${schemaRel}]->(h:NostrEvent|TapestryNode {uuid: $uuid})
          RETURN h.uuid AS headerUuid, s.uuid AS schemaUuid, h.tapestryKey AS headerKey
+         ORDER BY schemaUuid
          LIMIT 1`,
         { uuid: `39998:${firmware.getTAPubkey()}:${slug}` }
       );
