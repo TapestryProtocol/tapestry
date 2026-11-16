@@ -47,6 +47,10 @@ its own, with nothing shared to edit.
 8. `stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.md` — a bug from story 3: a firmware install's
    Pass 3 rebuilds only the nodes with an address, so it passes by the trust pipeline's card sets, and no rebuild reads
    the whole graph. Story 5's firmware install on staging found it on 2026-11-15.
+9. `stories/graph-operations-foundation/9-tapestry-keys-within-transaction-memory.md` — a bug from story 3:
+   `tapestry-keys` finishes on a graph of millions of keyed nodes under any transaction limit, because its check for
+   keys held by more than one node no longer holds every key in Neo4j's memory at once. Story 8's scratch stack found it
+   on 2026-11-15, before the migration's first run on production.
 10. `stories/graph-operations-foundation/10-schema-save-finds-the-right-header.md` — a bug: saving a concept's schema
    finds the header by name, so another author's header with the same name can take its place. The firmware install's
    Pass 2 and apply-enumerations save on the instance's own header, and a save by name is never the database's choice.

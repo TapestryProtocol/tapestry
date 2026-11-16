@@ -38,3 +38,8 @@ occurrences; the template is still unchanged.
 **Another occurrence, 2026-11-13 (book `workflow-hardening`, story 1's review round 1).** A reviewer agent wrote a
 CHANGES_REQUESTED review to the template and moved the On PASS section above `## Verdict` by hand to keep the lint
 clean. That makes seven known occurrences.
+
+**Another occurrence, 2026-11-15 (book `graph-operations-first-slice`, story 16's review round 1, `52ca6e8a`).** A
+reviewer agent wrote a CHANGES_REQUESTED review to the template, and its first lint read it as passed, from the
+template's closing `## On PASS (same commit)` heading. It dropped the heading before committing. That makes eight
+known occurrences; the template is still unchanged.

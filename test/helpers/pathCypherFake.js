@@ -14,7 +14,7 @@
  *             types in `types` (the caller's repertoire); a relationship isn't matched twice in one MATCH
  *   expressions  literals, $params, lists, v.prop, v[expr], v:Label tests, =, <>, <, >, <=, >=, IS [NOT] NULL, IN,
  *             STARTS WITH, ENDS WITH, CONTAINS, NOT/AND/XOR/OR with Cypher's three-valued logic, CASE WHEN, list
- *             comprehensions [x IN list WHERE … | …], and the functions keys, head, size, coalesce, toString, labels,
+ *             comprehensions [x IN list WHERE … | …], and the functions keys, head, size, coalesce, toString, toLower, labels,
  *             type; the aggregates count (with *, DISTINCT) and collect (with DISTINCT), also inside head(…)
  *
  * As Neo4j does, it refuses a SKIP or LIMIT given as a parameter that holds a JavaScript number: the driver sends one
@@ -34,7 +34,7 @@ const KEYWORDS = new Set(['MATCH', 'OPTIONAL', 'WHERE', 'WITH', 'RETURN', 'ORDER
   'DETACH', 'REMOVE', 'FOREACH', 'YIELD', 'LOAD', 'USE', 'SHOW', 'EXPLAIN', 'PROFILE', 'ON']);
 const CLAUSE_WORDS = ['UNION', 'CALL', 'UNWIND', 'MERGE', 'CREATE', 'SET', 'DELETE', 'DETACH', 'REMOVE', 'FOREACH', 'YIELD', 'LOAD', 'USE', 'SHOW', 'EXPLAIN', 'PROFILE'];
 const AGGREGATES = new Set(['count', 'collect']);
-const FUNCTIONS = new Set(['keys', 'head', 'size', 'coalesce', 'tostring', 'labels', 'type']);
+const FUNCTIONS = new Set(['keys', 'head', 'size', 'coalesce', 'tostring', 'tolower', 'labels', 'type']);
 
 const oneLine = (q) => String(q).replace(/\s+/g, ' ').trim();
 function cantRun(why, q) {
@@ -402,6 +402,8 @@ function evaluate(e, env, ctx) {
         case 'head': if (x === null || x === undefined) return null; if (!Array.isArray(x)) throw new Error('Type mismatch: head() of something that is not a list'); return x.length ? x[0] : null;
         case 'size': if (x === null || x === undefined) return null; return x.length;
         case 'tostring': if (x === null || x === undefined) return null; return String(x);
+        // Story graph-operations-first-slice #16 (ADR 0016, C8): a concept's names compared without case.
+        case 'tolower': if (x === null || x === undefined) return null; if (typeof x !== 'string') throw new Error('Type mismatch: toLower() of something that is not a string'); return x.toLowerCase();
         case 'labels': if (x === null || x === undefined) return null; if (!ctx.isNode.has(x)) throw new Error('labels() of something that is not a node'); return [...x.labels];
         case 'type': if (x === null || x === undefined) return null; if (!ctx.isRel.has(x)) throw new Error('type() of something that is not a relationship'); return x.type;
         default: throw cantRun(`the function ${e.fn}()`, ctx.q);

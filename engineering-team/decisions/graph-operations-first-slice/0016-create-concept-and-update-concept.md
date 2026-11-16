@@ -65,21 +65,21 @@ It answers the node's tapestryKey. It never signs, publishes, or reads a key fil
 - `nameProblem(name)`: the reason, or null, for a cleaned name that is empty, whose `dtag.slug` is empty, that has a control character (`\p{Cc}`) or a text-direction control (U+202A–U+202E, U+2066–U+2069), or that is longer than 200 characters.
 - `descriptionProblem(text)`: control characters other than line breaks and tabs. A description is trimmed, and one that is empty once trimmed counts as left out.
 
-Both operations refuse a problem with `bad-name` (400) or `bad-description` (400), naming the input, before they read the graph (AC5).
+Both operations refuse a problem with `bad-name` (400) or `bad-description` (400), naming the input, before they read the graph (AC5). *(Amendment 3.2: the guards check nothing when an input has a problem, so this holds for every input. Amendment 3.3: `nameProblem` also refuses an invisible formatting character, and says which letters a slug keeps. Amendment 4.1: any invisible character no script or emoji draws with where it is. Amendment 5.1: what counts as invisible, and where one draws something.)*
 
 **3. The eight nodes** (`src/operations/catalog/graph/_concepts.js`, new). `conceptNodes({ names, d, ta, description })` builds each node's `{ uuid, kind, labels, name, tags }` from one set of names:
 - **Addresses.** The header is at `39998:<TA>:<d>`. Each core node is at `39999:<TA>:<d>-<suffix>`, with the suffixes `superset`, `schema`, `primary-property`, `properties`, `property-tree-graph`, `concept-graph` and `core-nodes-graph`. `d` is `dtag.slug(name)`. Core nodes take the header's d-tag, not `oSlugs.singular` (fact 3), so the `concept-graph` tag always names its node. When any of the eight addresses is held by a node, of any label, `d` takes the first free versioning nonce, `<d>~1` to `<d>~99` (`dtag.headerDTag(name, n)`). Past that, it refuses `no-free-address` (409).
 - **Labels:** the header `ListHeader:ConceptHeader`; the superset `ListItem:Superset`; the schema `ListItem:JSONSchema`; the primary property `ListItem:Property`; the other four `ListItem`. These are today's, minus `NostrEvent`.
 - **Tags and JSON:** the tags and word-wrapper JSON today's route signs for the same names, in the same order. Each core node also gets the spec's `["o", "<header address>", "<role>"]` tag after its `z` tags (tapestry-concepts.md: "Publishers SHOULD include it on new core nodes"). The core nodes graph and the concept graph get their final JSON at once, with the core nodes graph's own address and the concept graph's import of it, since every address is known before anything is written. Today's route needs a second signature for that.
 - **Wiring:** the eight edges today's route makes, through `firmware.relAlias`: `CLASS_THREAD_INITIATION` (header to superset), `CORE_NODE_JSON_SCHEMA`, `CORE_NODE_PRIMARY_PROPERTY`, `CORE_NODE_PROPERTIES`, `CORE_NODE_PROPERTY_TREE_GRAPH`, `CORE_NODE_CORE_GRAPH`, `CORE_NODE_CONCEPT_GRAPH`, and `PROPERTY_MEMBERSHIP` (primary property to schema).
-- **Memberships (D9):** a `CLASS_THREAD_TERMINATION` edge from the superset of every concept each node's `z` tags name, `word` included, and from the concept-header concept's superset to the header. These are the edges a reinstall's passes 1d, 1d½ and 3 would add (fact 5), so a reinstall finds nothing to add.
+- **Memberships (D9):** a `CLASS_THREAD_TERMINATION` edge from the superset of every concept each node's `z` tags name, `word` included, and from the concept-header concept's superset to the header. These are the edges a reinstall's passes 1d, 1d½ and 3 would add (fact 5), so a reinstall finds nothing to add. *(Amended: a reinstall also prunes, so the memberships are the table in Amendment 2.)*
 
 **4. This instance's own concepts, their slugs and their keys.** A concept is this instance's own when its header's `pubkey` is the assistant's, with a letter or without one. Headers by the owner's own key, and by anyone else, are other authors' concepts. They are reported, never changed (D4; the assistant can't sign a new version of them). A concept's slug is its header's `slug` tag, else its JSON's `conceptHeader.oSlugs.singular`, else `toSlugName` of its singular name. Its key is `conceptHeader.oKeys.singular`, else `toKeyName` of its singular name. Its singular and plural names are the `names` tag's `value` and `value1`, else `oNames`, else the header's `name`. A concept is a firmware concept when its header's address is `firmware.conceptUuid(<its d>)`.
 
 **5. The rule `concept-slug-unique`** (`src/operations/rules/concept-slug-unique.js`, new). It says that no two of this instance's own concepts share a slug or a key (BIBLE §10, rule 10, as its full text gives it). It is a graph rule about the owner's and admins' own concepts, and it refuses. Its items are `{ concept?, slug?, key?, repeat? }`:
 - **A create** passes `{ slug, key, repeat: true }`. An own concept with that slug is the repeat, so nothing is violated. Otherwise, an own concept with that key is a violation: `key-in-use` (409), naming it.
 - **An update** passes `{ concept, slug }`. Another own concept with that slug is a violation: `slug-in-use` (409), naming it. An item whose `concept` names no own concept header has no violations, so the operation's own refusals (Decision 9) answer for it.
-- **As a check,** each own concept is an item `{ concept, slug, key }`. Every concept that shares a slug or a key with another is a violation, so `rules check` (A10.31) names both.
+- **As a check,** each own concept is an item `{ concept }` (Amendment 1.2). Every concept that shares a slug or a key with another is a violation, so `rules check` (A10.31) names both.
 
 Its one read lists every own header with its `slug`, `names` and `json` tags.
 
@@ -109,10 +109,10 @@ The list is capped at 10, in that order of `match` and then by address. `moreSim
 - **Steps, in one transaction:**
   1. Refuse `nothing-to-change` (400) when no field is given. Clean and check the given fields (Decision 2).
   2. Take the lock and run the rule again.
-  3. Read the concept by its header's tapestryKey. Refuse `unknown-concept` (404) unless it is a `ConceptHeader` or `ListHeader`, `not-own-concept` (409) unless it is this instance's own, and `firmware-concept` (409) for a firmware concept. Refuse `name-keyed` (409) when the singular name changes and `nameKeyed(<the current singular>)`.
+  3. Read the concept by its header's tapestryKey. Refuse `unknown-concept` (404) unless it is a `ConceptHeader` or `ListHeader`, `not-own-concept` (409) unless it is this instance's own, and `firmware-concept` (409) for a firmware concept. Refuse `name-keyed` (409) when the singular name changes and `nameKeyed(<the current singular>)`. *(Amendment 3.6: or `nameKeyed(<the new singular>)`.)*
   4. Work out the new values. When they equal the current ones, answer `unchanged`, with no changes and no entry.
   5. Otherwise, write in place:
-     - **The rename rule.** Build the eight nodes' names, tags and JSON twice, with `conceptNodes`, from the old names and from the new. Both builds keep the concept's own slugs, key, labels and addresses. Each value that differs between the two builds, in a node's `name`, `tapestryValue`, `name` and `names` tags, `description` tags and JSON, is set to the new value, but only where the node still holds the old one. So every value the names made follows the rename, and a value someone changed by hand stays. The slug fields are equal in both builds, so a rename never moves them (AC6).
+     - **The rename rule.** Build the eight nodes' names, tags and JSON twice, with `conceptNodes`, from the old names and from the new. Both builds keep the concept's own slugs, key, labels and addresses. Each value that differs between the two builds, in a node's `name`, `tapestryValue`, `name` and `names` tags, `description` tags and JSON, is set to the new value, but only where the node still holds the old one. So every value the names made follows the rename, and a value someone changed by hand stays. The slug fields are equal in both builds, so a rename never moves them (AC6). *(Amendment 3.1: a tag with no `value1`, such as a `names` tag with no plural, holds the old one.)*
      - **A slug** sets the header's `slug` tag, adding it if missing. `oSlugs` stays, as the Dictionary keeps it.
      - **A description** sets the header's `description` tag and `conceptHeader.description`. An empty one removes the tag, and the JSON's description goes back to the default create-concept writes for the current names.
      - **A json tag held in the LMDB** (`lmdb:<key>`) is read through the store, and its new value is written inline, so the graph holds the change (BIBLE §30).
@@ -133,7 +133,7 @@ create-concept's already-exists answer and update-concept's answer use it, and `
 
 **12. What reads it.** `_fields.js` reads a concept made here as it reads a lettered one, with no change: `conceptOf` finds the header's json tag and the schema node's json tag, and `elementsOf` walks its class thread. Its fields can be marked once `graph add-property` (A10.18) gives it property nodes. Until then, mark-field refuses `no-property-node`, as for any concept without them. The concept-graph reads find it by label and address (AC2).
 
-**13. Durability (AC8).** A reinstall adds no edge to these nodes, since Decision 3 made them all. It rebuilds only firmware headers, and update-concept refuses those. Its derive pass writes each node's LMDB entry and its `tapestryJsonUpdatedAt` stamp. "As it was" means the same nodes, labels, properties (the cache's stamp aside), tags and relationships. A backup carries the whole graph, so a restore brings the concept back with its keys (ADR 0002).
+**13. Durability (AC8).** A reinstall adds no edge to these nodes, since Decision 3 made them all *(and, amended, prunes none, since Amendment 2 wires what a reinstall leaves)*. It rebuilds only firmware headers, and update-concept refuses those. Its derive pass writes each node's LMDB entry and its `tapestryJsonUpdatedAt` stamp. "As it was" means the same nodes, labels, properties (the cache's stamp aside), tags and relationships. A backup carries the whole graph, so a restore brings the concept back with its keys (ADR 0002).
 
 **14. The rules document and the catalog.** `docs/GRAPH_RULES.md` gains §4, `concept-slug-unique`, in the form its entries take: what it says, its kind, what it refuses, its check, repair (none yet) and where it is enforced. The catalog's §2 rows for create-concept and update-concept give these refusals and reports.
 
@@ -175,7 +175,7 @@ create-concept's already-exists answer and update-concept's answer use it, and `
 - **`src/operations/changes.js`**: the `CHANGE` fields (Decision 10).
 - **`docs/GRAPH_RULES.md`** §4, and **`docs/GRAPH_OPERATIONS_CATALOG.md`** §2's two rows (Decision 14).
 - **Statements** (the Tester teaches the fake those it doesn't run; the Implementer keeps to them):
-  - **C1, the lock:** `MATCH (n:TapestryNode {uuid: $uuid}) SET n.tapestryLock = true REMOVE n.tapestryLock RETURN n.tapestryKey AS key`.
+  - **C1, the lock:** `MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n.tapestryLock = true REMOVE n.tapestryLock RETURN n.tapestryKey AS key` (Amendment 1.1).
   - **C2, own headers:** `(h:ConceptHeader OR h:ListHeader) AND h.pubkey = $ta`, with their `slug`, `names`, `json` and `description` tags, by `OPTIONAL MATCH (h)-[:HAS_TAG]->(t:NostrEventTag)`, one row per tag, grouped in code.
   - **C3, supersets:** `UNWIND $uuids AS u MATCH (h:NostrEvent|TapestryNode {uuid: u})-[:IS_THE_CONCEPT_FOR]->(s:Superset) RETURN u AS concept, s.tapestryKey AS superset`.
   - **C4, held addresses:** `MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid IN $uuids RETURN n.uuid AS uuid`.
@@ -200,6 +200,94 @@ create-concept's already-exists answer and update-concept's answer use it, and `
   - an admin agent through nginx and the external CLI;
   - the relay's event count, unchanged.
 - **Branches:** staging only, by the usual chain. This isn't a fix that must reach other live branches.
+
+## Amendment 1 (2026-11-15, at Test Design) — what the tests pin that the Decisions left open
+
+1. **The lock names `NostrEvent|TapestryNode`** (Decision 6, C1). It finds a node by its address, and ADR graph-operations-foundation/0003 Decision 9 holds every such lookup to the disjunction until every instance has run both migrations. The key-path guard (G11, `test/operations/lifecycle/tapestry-key-paths.test.js`) checks it.
+2. **The rule's items** (Decision 5). A check's item is `{ concept }`, and the rule reads that concept's own slug and key, as Decision 4 gives them. An update's item, `{ concept, slug }`, checks the slug alone. So a key two concepts already shared, before this rule existed, never blocks an update that doesn't touch it. A create's item stays `{ slug, key, repeat: true }`.
+3. **A concept, as answered** (Decision 11):
+   - `nodes` holds the header too, under `conceptHeader`, as `coreNodesGraph.constituents` does;
+   - `description` is the header's `description` tag, else its JSON's `conceptHeader.description`, else null;
+   - each `differs` entry is `{ input, given, holds }`, with `given` the cleaned input. The names are compared after `deriveAllNames`, so `Coffee  House` is no different from `coffee house`.
+4. **What the fake graph learns** (Implementation notes; the Tester's commit): C1, C5 for any node, C6 and C11 as write statements of their own; label alternatives in them; `toLower` in both read fakes; and the four wiring types. Each has its own test in `test/operations/graph-fake.test.js` (F15–F20). Nothing it ran before changed.
+5. **AC2's oracle is the route itself.** `test/helpers/todaysCreateConcept.js` runs today's `handleCreateConcept`, read from its source, in a sandbox that records what it would sign and wire. So the comparison can't drift from the route, and fails loudly if the route moves.
+
+## Amendment 2 (2026-11-15, at Implementation; the owner's ruling) — memberships are what a reinstall leaves
+
+Decision 3 wired each node into every concept its `z` tags name, `word` included, on the premise that a reinstall only adds memberships. The live check (L3) found the premise wrong. A reinstall also prunes the memberships its passes judge redundant:
+- Of the 21 the Decision wired, it removed 11: every `word` membership, `graph` on the three graph nodes, and `set` on the properties set.
+- A second reinstall changed nothing, so that is where a reinstall settles.
+- Every concept the `z` tags name still reaches each node through its class thread: `word`, for one, contains every core-node concept.
+
+The owner chose to wire that end state directly (2026-11-15), so a reinstall leaves a new concept as it was, as AC8 says:
+
+| Node | An element of |
+|---|---|
+| header | `concept-header` |
+| superset | `superset`, `set` |
+| JSON schema | `json-schema` |
+| primary property | `primary-property`, `property` |
+| properties set | `properties-set` |
+| property tree graph | `property-tree-graph` |
+| concept graph | `concept-graph` |
+| core nodes graph | `core-nodes-graph` |
+
+- **The `z` tags don't change.** They are the letter's, and they still name every concept the node belongs to, `word` and `graph` among them. The class threads give those memberships.
+- **`not-installed` still asks for all twelve firmware concepts the `z` tags name.**
+- **The table follows firmware 1.0.0's pruning, which isn't fully consistent.** It keeps `set` on the superset but prunes it on the properties set. A firmware that prunes differently would change what a reinstall leaves; the live check is what shows it.
+- **The same check found a bug in today's concepts:** a reinstall takes the superset of a concept today's route made out of the superset concept. That is ledger `2026-11-15-reinstall-drops-a-supersets-own-membership`.
+
+## Amendment 3 (2026-11-15, at Review round 1) — what the review found
+
+1. **A tag with no `value1` holds the old one** (Decision 9, the rename rule; blocking 1). A `names` tag can have no plural: the protocol doesn't require one, and the dlist curation copies a community header's tag as it is. The concept then reads its plural from `oNames` (Decision 4). The rule had asked a tag to hold the old build's whole tag, so such a tag kept its old singular, and the same rename recorded an entry each time it ran.
+   - Now a tag whose `value` is the old one, and whose `value1` is the old one or absent, holds the old names.
+   - It gains a `value1` only when the plural changes, so that the concept then holds the new plural whatever its JSON holds. Otherwise it keeps having none.
+   - UC8 pins it.
+2. **The guards check nothing when an input has a problem** (Decision 2; non-blocking 1). `anyBadInput(inputs)` in `_concepts.js` asks `nameProblem` of a name and a plural and `descriptionProblem` of a description. When it finds one, create-concept's guard and update-concept's guard give no item, and `apply`'s `bad-name` or `bad-description` comes before anything reads the graph. CC20 and UC9 pin it.
+   - The refusals that need the graph, such as `firmware-concept`, still come after the rule's `slug-in-use`, as Decision 9's steps order them: the rule runs again at step 2, and those refusals come at step 3. Nothing is written in either order. *(Corrected at round 2, which found the earlier sentence said the Decisions order no two graph refusals.)*
+3. **Invisible formatting characters are refused** (Decision 2; non-blocking 2 and 3). *(Superseded by Amendment 4.1: format characters were too narrow a set.)* `nameProblem` also refuses a format character (`\p{Cf}`) other than a text-direction control, which has its own reason, naming its code point. A zero-width space inside `beagle`, say, makes a name that reads as beagle but has the slug `bea-gle`, so neither the repeat nor a near match finds beagle.
+   - The zero-width non-joiner and joiner (U+200C, U+200D) are the exceptions: Persian, the Indic scripts and emoji sequences need them. They are refused only at either end of a name, or beside white space, a–z or 0–9, where no script needs them.
+   - A name with no slug is refused for having "no letter a–z or digit 0–9", which a name in another script has.
+   - That makes AC5's list one longer, in its own terms: a name that reads as another. CN3 and CC11b pin it.
+4. **Two counts are checked** (non-blocking 7). Each wiring and membership `MERGE` must find its two nodes (`count(r)` is 1), and update-concept's `writeCopies` must write every row it is given. Either failing throws, and the transaction keeps nothing.
+5. **C3 names `NostrEvent|TapestryNode`** (non-blocking 10), as Implementation note C3 does, so Neo4j can find the header by its uuid index.
+6. **A rename onto a name-keyed name is refused** (Decision 9, step 3; non-blocking 5; the owner's ruling, 2026-11-15). `name-keyed` also refuses a new singular that `nameKeyed` names, as the Dictionary's edit does (`src/api/adoption/editConcept.js`, "so no other concept can take it"). The server finds those concepts by name, the goal lookup by `LIMIT 1`, so a concept renamed onto one could be taken for it once it has a letter. create-concept is unchanged: a repeat by slug returns the instance's own concept. UC10 pins it.
+
+## Amendment 4 (2026-11-15, at Review round 2) — every invisible character, and the published reason
+
+1. **Every invisible character is refused, except where a script or an emoji draws with it** (Decision 2; R2-1). *(Superseded by Amendment 5.1, which sets both what counts as invisible and the exceptions.)* Amendment 3.3 refused format characters (`\p{Cf}`), but other characters draw nothing too: a variation selector or a Hangul filler inside `beagle` gave a name that reads as beagle at the slug `bea-gle`. The slug isn't the only thing such a character changes. `toKeyName` and `toLabelName` keep it, so `cat` with a variation selector after it reads as cat but has another key. It isn't a repeat either, since its own slug keeps the character too, and it isn't `key-in-use`, so it would be made beside cat. *(Corrected by Amendment 5.2: this said the reason was cat's slug being `feline`.)* Now:
+   - `nameProblem` refuses every default-ignorable code point (`\p{Default_Ignorable_Code_Point}`), naming the first one no script or emoji draws with. That covers the zero-width space, the soft hyphen, the word joiner, the variation selectors, the Hangul fillers and the grapheme joiner.
+   - **The exceptions:** a zero-width joiner or non-joiner between two letters of a script other than Latin, or between two emoji, looking past the combining marks, presentation selectors and skin-tone modifiers before it; and a presentation selector (U+FE0E, U+FE0F) right after an emoji. Persian's non-joiner, a Devanagari conjunct, an emoji's presentation and emoji sequences pass.
+   - **What it gets wrong, knowingly.** Keycap emoji and tag-sequence flags, such as England's, are refused. A joiner between two letters of a script that doesn't join, such as Hebrew or Cyrillic, passes. Either only matters in a name that also has a letter a–z or a digit, since without one there is no slug.
+   - Text-direction controls, default-ignorable too, keep their own reason, checked first.
+   - CN3 and CC22 pin it.
+2. **`bad-name`'s published reason names every problem** (R2-2): a control character, a text-direction control, an invisible character, no slug, more than 200 characters. `/docs`, the command's help and the operations list show it. So does the catalog's create-concept row. CC22 checks the list.
+3. **The two count checks are pinned** (R2-3). CC21 and UC11 make a node the write can't find. Both fail on the code before the checks, and pass on it now.
+
+## Amendment 5 (2026-11-15, at Review round 3) — what draws nothing, exactly
+
+1. **An invisible character is a default-ignorable one, a format character or the braille blank, and each is refused unless it draws something** (Decision 2; R3-1, R3-2). Amendment 4.1's exceptions let three look-alikes through beside emoji:
+   - a selector after an emoji that shows as one anyway, such as a cat face;
+   - a selector after a sign that shows as text anyway, such as `™` with U+FE0E;
+   - a joiner between two emoji that no sequence joins.
+
+   It also refused selectors that scripts draw with. And it accepted again the 32 format characters outside the default-ignorable set, such as U+FFF9, which round 1's rule had refused.
+
+   Now `nameProblem` refuses each character in `\p{Default_Ignorable_Code_Point}` or `\p{Cf}`, and U+2800, naming the first one that draws nothing where it is. A character draws something when it is:
+   - inside one of Unicode's recommended emoji sequences, `\p{RGI_Emoji}`, read with the regex `v` flag: a keycap, a flag, a ZWJ sequence, a sign shown as an emoji;
+   - a zero-width joiner or non-joiner between two letters of a script other than Latin, looking past the combining marks on either side, as in Persian, a Devanagari conjunct or Bengali's ya-phala;
+   - a Mongolian free variation selector after a Mongolian letter, or an ideographic variation selector after an ideograph.
+
+   In a name of Latin letters, digits and spaces, all 4,207 such characters are refused, whether at its start, inside it or at its end. The exception is U+FEFF, which `cleanName` reads as white space and turns into a space.
+   - **What it gets wrong, knowingly.** Each of these matters only in a name that also has a letter a–z or a digit:
+     - a joiner between two letters of a script that doesn't join, such as Hebrew or Cyrillic, passes;
+     - a text-presentation selector after an emoji that has a text form, such as U+231A with U+FE0E, is refused, and so are the standardized variants of math symbols;
+     - the prepended concatenation marks, such as U+0600, and the Egyptian hieroglyph format controls do show, but are refused;
+     - on Node 18, which has no `v` flag, an emoji sequence's invisible characters are refused too. The instance and CI run Node 22.
+   - CN3 pins it, case by case.
+2. **Why a name holding a selector isn't a repeat** (R3-3). Amendment 4.1 gave the reason as cat's slug being `feline`. The real reason is that a create's own slug, `toSlugName` of the name, keeps the character, so a name holding one is never the repeat of a concept without it: beagle with a selector after it was made beside beagle too. Cat's slug being `feline` is why plain `cat` meets `key-in-use` (CC8).
+3. **The control and text-direction reasons name their character** (R3-4). `bad-name`'s published reason now says it names the input, and the character when one is the problem.
+4. **Three parts of the rule are pinned in CN3** (R3-5): a joiner at the start, before a Persian letter; a selector after a Cyrillic letter; and the text-direction reason.
 
 ## Out of scope
 
