@@ -182,3 +182,85 @@ Both are wording changes, in three files.
 
 - [ ] Not applicable: the verdict is CHANGES_REQUESTED. There is no story to mark Done (the doc lane has none) and no book to check (0-intake `:39`).
 - [ ] Commit: left to the session that launched this review, which asked for the file to stay uncommitted. The role's rule is to commit the review whatever the verdict (`workflows/5-review.md:33–34`). A suggested message: `review: main-guard-actions-policy — CHANGES_REQUESTED (harness-self-improvement, doc lane)`.
+
+## Round 2
+
+**Date:** 2026-11-16 (UTC; the round ran from about 21:35Z, just after the fix commit, to about 21:45Z)
+**Diff:** `git diff 587425f9..7cb12f82` on `docs/main-guard-actions-policy`: one commit, `7cb12f82`, over `587425f9`, the round-1 review's commit. Four files, 45 insertions and 9 deletions: `.github/rulesets/README.md`, `OPERATIONS.md`, `ledger/2026-11-16-main-guard-blocked-by-github-policy.md`, and a new row, `ledger/2026-11-16-epicless-doc-lane-review-folder.md`. The fix commit leaves this file as round 1 wrote it. The branch still has no upstream and no PR.
+**Asked:** re-review the fixes for B1, B2 and N1–N3. N4 is outside this change and left as a follow-up. Friction 3 became a new `meta` row, and the brief asks whether it holds as written.
+**Method:** every changed statement is checked as a fresh claim, round 1's suggested wording included (`roles/reviewer.md`, rule 10). The row-codes R, J, O and L are round 1's.
+
+### Quality gates (round 2, run by reviewer)
+
+- [x] `bash scripts/harness-lint.sh` at `7cb12f82`: `harness-lint: clean (0 violations)`, exit 0. L15 accepts the new row's file name and header fields. L10 has nothing new to judge, because the fix commit touches no listed path, so the newest one is still `3c874499`, which carries the CHANGELOG row. L9: OPERATIONS.md's `Last updated: 2026-11-16` matches the fix commit's date. Run again with this section in place: still clean, exit 0.
+- [x] **The two file-reading suites, again,** because OPERATIONS.md changed and both read it: `test/workflow-hardening.test.js` `{"pass":27,"fail":0}` and `test/ci-test-job.test.js` `{"pass":14,"fail":0}`, exit 0.
+- [x] `git diff --check 3c874499..7cb12f82`: no output, exit 0.
+- [x] **Sources.** The guide, fetched again, is byte-identical to round 1's copy. Two more pages were read for B1's negative claim: "Secure use reference" and "Managing GitHub Actions settings for a repository". Neither says how GitHub's default treats workflows outside a policy's path.
+- [x] GitHub API: no calls this round. The local git history answered the questions it raised.
+- [x] **The verdict parse (OPEN.md row 28).** Round 1's file parses as the wrong verdict (R2-F1). This section ends on its own verdict, and after writing it, `awk -f scripts/lib/review-verdict.awk` on this file prints `CR`.
+- [ ] `npm test`: not run, for round 1's reason. `npm run gate:status` still finds no records.
+- [ ] Independent checker: not applied, because this session can't start one.
+- [x] Nothing else written to the repo. This file is the only change in the worktree.
+
+### Round-1 items
+
+| Item | The fix | Checked against | Holds? |
+|---|---|---|---|
+| B1 | R:13 and O:119 now say the guard, "found by its path, may run on `pull_request_target`, and on no other event. It covers no other workflow." R:69–71 and O:123 add that the policy says nothing about other workflows. GitHub's docs don't say whether the default block still applies to them, so a new `pull_request_target` workflow needs its own review and its own decision about the policy | <br>• The event rule is an allowlist ("an allowlist that controls … which events are permitted to run them", About Actions policies). J:5–8 targets one path, and "Omitting workflow_path targets all workflows" (REST). <br>• "On no other event" holds whatever else applies here. Protections "layer", and the lower levels "add to these restrictions" (the how-to), so no other policy can widen what this one allows the guard. <br>• The negative claim: no page read says how the default treats workflows outside a policy's path. The pages were the guide (unchanged), the concepts page, the how-to, the REST and events references, and this round's two pages | Yes |
+| B2 | L:29–33, a new "Closing it." paragraph | <br>• Evaluate mode: "workflow runs continue, but you can use policy insights to identify runs that would be blocked after enforcement" (the guide). <br>• Insights list runs "that have been blocked (for active policies) or would have been blocked (for "evaluate" policies)" (the how-to, § "Evaluating policies"). <br>• The first bullet (L:30) pairs a control with the test. The control: the guard's earlier runs are listed. The test: its run after the policy exists isn't. Under either reading of how GitHub scopes its default (B1), a run that insights don't list is one the default won't block on 2026-12-02. <br>• The second bullet (L:31) is the direct test. <br>• The read-back (L:33) is `GET /repos/{owner}/{repo}/actions/policies/{policy_id}` (REST, "Get a repository Actions policy"). <br>• L:6–7 still read OPEN and — | Yes. One overstatement: R2-N1 |
+| N1 | R:63–65 and O:122: "every other one would stop: the deploys, the image publisher, the test gate and the weekly link checks" | The seven workflows other than the guard (round 1's claim 5, and `publish-image.yml:14`, `:44`) are all named now | Yes |
+| N2 | R:65–67 and O:121: both paths stay in `include` until the rename is on `main`, then the old one comes out | `pull_request_target` takes the workflow "from the base repository's default branch" (the guide) and "runs in the context of the default branch" (the events reference). So until the rename merges, `main`'s copy at the old path is the one that runs | Yes |
+| N3 | R:50–61: the list passes `has_parents=false` in a quoted path, and the `PUT` carries the header and `--input` | <br>• REST: `has_parents`, "Include policies configured at higher levels that apply to this repository", `Default: true`. <br>• An organization's policy changes through `PUT /orgs/{org}/actions/policies/{policy_id}`, and the repository's through `PUT /repos/{owner}/{repo}/actions/policies/{policy_id}`. <br>• The quotes keep zsh from treating `?` as a glob | Yes |
+| N4 | None: it is outside this change, as the brief says | `ledger/2026-10-28-repo-move-follow-ups.md:55` is unchanged | Still open: R2-N2 |
+| Friction 3 | A new row, `2026-11-16-epicless-doc-lane-review-folder` | The table below | One claim is false: R2-B1 |
+
+### The new `meta` row, `ledger/2026-11-16-epicless-doc-lane-review-folder.md`
+
+| # | Claim | Evidence | Holds? |
+|---|---|---|---|
+| 1 | Its file name and header fields | L15 is clean. The id has five words and 42 characters, within OPEN.md's pattern (`:20`). `Type: meta`, `Status: OPEN` and `Done: —` (`:3–7`) | Yes |
+| 2 | 0-intake step 3 gives a doc-lane review `reviews/<epic>/<slug>.md`, and doesn't say where one goes when no active epic owns it (`:9`) | 0-intake `:31` | Yes |
+| 3 | "The review of the Actions policy … changed `.github/`, `OPERATIONS.md` §4 and `/cycle-prod`" (`:9`) | It was the change under review that changed them (`3c874499`). The review changed nothing | A slip: R2-B1 |
+| 4 | "no active epic owns any of them" (`:9`) | It holds for each thing the change touched: <br>• the guard, last changed by `cb6c8b82` (2026-08-07), which had no epic; <br>• `.github/rulesets/` and §4's rewrite, from `c8b24d87`, which had none either; <br>• `/cycle-prod`, whose last epic commit is `ffcf0f8a`, `deploy-safety-gate` #2, an epic now Done. <br>`honest-test-gate` #2 edited §3, §15 and §18.2, not §4. The claim doesn't hold for `.github/` as a whole: the active `honest-test-gate` added `.github/workflows/live-link-checks.yml` on 2026-11-16 (`36e123d2`) | For those files, yes. For `.github/` as a whole, no: R2-B1 |
+| 5 | "`workflow-hardening`, which last changed the workflows, is retired under `reviews/done/`" (`:9`) | Before `3c874499`, the newest commits to `.github/workflows/` are `36e123d2` and `0b2c436b`, from story `honest-test-gate` #2. `workflow-hardening` (`e596b6de`, 2026-11-13) last changed six of the eight files | **No**: R2-B1 |
+| 6 | "beside 14 other non-numbered reviews", and that epic's file says Done (`:9`) | The folder holds 15 non-numbered reviews, this one included. `epics/harness-self-improvement.md:3` says Done | Yes |
+| 7 | The fix shape, to be decided together with `2026-11-16-lint-mislabels-doc-lane-reviews` (`:11`) | That row is OPEN and is about lint's INFO line for non-numbered reviews (`scripts/harness-lint.sh:111`). It's cited by id, as OPEN.md `:22` asks | Yes |
+| 8 | The pointer (`:13`) | Both paths resolve, and "Harness friction" 3 is round 1's item | Yes |
+
+**Correction to round 1.** Round 1's "Filed under" line makes claim 5's error, so the row's error starts in this review. The filing still stands. `honest-test-gate`'s goal is the test gate: a verdict and exit status that are always true, and a red that always means signal (`epics/honest-test-gate.md`, Goal). It owns none of the guard, the rulesets, §4 or `/cycle-prod`.
+
+### Findings (round 2)
+
+#### Blocking
+
+1. **R2-B1. `ledger/2026-11-16-epicless-doc-lane-review-folder.md:9`: the row's example says `workflow-hardening` last changed the workflows, and it didn't.**
+   - Before this change, `honest-test-gate` #2 was the last to change `.github/workflows/`. It added `live-link-checks.yml` on 2026-11-16 (`36e123d2`, `0b2c436b`), and `honest-test-gate` is Active. `workflow-hardening` last changed six of the eight workflows.
+   - The same sentence has two smaller slips. "The review … changed" should name the change it reviewed. And "no active epic owns any of them" holds for the guard, the rulesets, §4 and `/cycle-prod`, but not for `.github/` as a whole.
+   - The error started in round 1's "Filed under" line, and the row adopted it. This is the case rule 10 is written for: the sentence now carries two roles' apparent endorsement.
+   - Why it blocks: the row is new, and the brief asks whether it holds as written. It doesn't, and a false fact in a ledger row costs one sentence to fix now.
+   - **Asked change:** rewrite that sentence so each fact in it is true. For example: "The change it reviewed touched the guard's workflow, `.github/rulesets/`, OPERATIONS.md §4 and `/cycle-prod`, and no active epic owns any of them. The guard's last change before it (`cb6c8b82`) and the rulesets' commit (`c8b24d87`) had no epic. `workflow-hardening`, which last changed six of the eight workflows, is retired under `reviews/done/`." The next round will check this wording as a claim like any other.
+
+#### Non-blocking
+
+1. **R2-N1. `ledger/2026-11-16-main-guard-blocked-by-github-policy.md:29` says "Until 2026-12-02 GitHub only reports what its default policy would block".** A scheduled brownout does block, as the row records (`:14`, `:16`), and its own second bullet names brownouts (`:31`). **Optional:** "Until 2026-12-02, apart from scheduled brownouts, GitHub only reports …".
+2. **R2-N2. N4 is left as a follow-up, and nothing records it yet.** `ledger/2026-10-28-repo-move-follow-ups.md:55` still says the repo has no rulesets, though both are live on `main`. **Suggested:** a dated note on that row before the session ends, so the follow-up isn't lost.
+
+#### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+1. **R2-F1. OPEN.md row 28's edge fired on round 1 of this review.**
+   - At `587425f9`, `scripts/lib/review-verdict.awk` reads this file as the wrong verdict.
+   - The last line it scans is the template's post-verdict heading, `## On PASS (same commit)`. The "Not applicable" line under it is a plain list item, and the parser scans only headings and lines with bold markers. So the fix from the row's fourth occurrence works only if that line is bold.
+   - No tool read the wrong verdict: lint's L1 and L4 and `harness-stats.sh` read only numbered reviews.
+   - This round leaves round 1's text as committed, and closes on its own verdict, so the file now parses as `CR`.
+   - **Suggested:** a fifth-occurrence note on row 28, not a new row.
+
+### Verdict (round 2)
+
+**CHANGES_REQUESTED**
+
+Round 1's two blocking items are fixed. So are the three optional ones that were taken up. B1's new wording says what the policy does and no more. B2's close condition now names evidence that tests the policy: insights before 2026-12-02, and a guard run that passes under enforcement after it. One item blocks: R2-B1, a false sentence in the new `meta` row (`ledger/2026-11-16-epicless-doc-lane-review-folder.md:9`), which started in this review's round 1. It is a one-sentence fix, and nothing else in the change needs another edit before it merges.
+
+### Close-out (same commit)
+
+- No story to mark Done, and no book to check (0-intake `:39`).
+- Commit: left to the session that launched this round, which asked for the file to stay uncommitted. A suggested message: `review: main-guard-actions-policy — round 2, changes requested (harness-self-improvement, doc lane)`.
