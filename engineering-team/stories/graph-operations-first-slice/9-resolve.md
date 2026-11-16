@@ -128,6 +128,14 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
 
 `dog breed` was meant to be the operation's concept. But the firmware ships a `dog breed` concept, so create-concept answered `already-exists` and wrote nothing, and the firmware's served for `kind=concept`. The relay held 450 events after the firmware install, and 462 after the seed.
 
+**Three scripted checks failed, on the scripts' own expectations, and each was rechecked.** The first pass ran 54 checks and 52 passed; the second ran 10 and 9 passed.
+- **The kind-30000 event by its address** (first pass).
+  - The check asked from the owner's point of view, which leaves the event out: its author is scored 0.01. It answered `kept 0` and `leftOut 1`, which is right, but the script expected the event.
+  - The second pass asked from both points of view, and both checks passed (AC3, AC1).
+- **The stranger's refusal** (both passes).
+  - The check looked for `not-allowed` or `403` in the external CLI's output. But the central check's body, `{"success": false, "error": "Only the owner or an admin can do this."}`, has no `code`, and the CLI prints no status, so neither could appear.
+  - The refusal was rechecked by a call by hand through nginx (AC6, sign-in).
+
 **By criterion:**
 - **AC1: passes.**
   - **Names.** `live dog` named the instance's concept. `  Live   DOG ` named the same, answered as `ref: "Live   DOG"` and read as `Live DOG`. `live cat` named the operation's event-less concept.
@@ -144,7 +152,7 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
   - **A key.** live dog's tapestryKey named it, matched `tapestryKey`.
   - **Kinds.** `dog breed` with `kind=concept` named its one concept, and `live walkers` with `kind=set` named the set.
 - **AC2: passes.**
-  - Each candidate came with its kind and how it matched, as above. The suites check each one's five facts (RV9). The live check read the tapestryKey and name of each candidate, and the author and `own` of some: live cat as the assistant's and the instance's own, and the kind-30000 event as the peer's.
+  - Each candidate came with its kind and how it matched, as above. The suites check each one's five facts (RV9). The live check read the tapestryKey and name of each candidate, and the author and `own` of one: live cat, as the assistant's and the instance's own.
   - The peer's live dog came as a concept, though it is labelled `ListHeader` only.
   - The superset came as a superset, the set as a set, and the kind-30000 event as a node.
 - **AC3: passes.**
@@ -170,7 +178,14 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
     - listed that concept's elements with the key it got back (rex, fido and patch);
     - was told `live dog` is ambiguous from everyone's point of view, with both candidates;
     - resolved `live walkers` with `--kind set` to the set.
-  - **Sign-in, through nginx.** A visitor got 401. The stranger, signed in with its own key, got 403 from resolve and from the operations list, and its CLI exited 1. The admin's session got the answer.
+  - **Sign-in, through nginx.**
+    - **A visitor** got 401.
+    - **The stranger, through the external CLI.** Signed in with its own key, it ran `tapestry graph resolve --ref "live dog"`.
+      - The CLI reads the operations list before any operation (`clients/cli/src/main.js:122–124`).
+      - The list was refused. The CLI printed the central check's body and its own message, that the key is "neither its owner nor an admin", which it prints only on the list's 403 (`clients/cli/src/operations.js:32`).
+      - It exited 1 without calling resolve.
+    - **The stranger, by hand.** Called through nginx with the stranger's session cookie, resolve itself answered `HTTP 403` with `{"success":false,"error":"Only the owner or an admin can do this."}`. With the admin's session cookie it answered `live dog`'s candidates. This call's output wasn't saved with the scripts' result files, so it's quoted here as the session's tool output showed it.
+    - **In the suites,** RV18 covers resolve's own 401 and 403.
   - **Nothing written.** In the first pass, the relay held 462 events and the graph 0 change entries before and after the resolve calls. In the second, after live cat, it held 462 and 1. Both held through the first timing run too.
 - **AC7:** no live part; the suites cover it.
 
@@ -197,6 +212,7 @@ The 500,000 nodes had tapestryKeys and no names, as the card sets have, made wit
 - **`resolveOne` decides by the page it reads.**
   - None on the page is refused `unknown-ref`, one gives its key, and more than one is refused `ambiguous-ref`. The count gives only the numbers the refusals state: how many nodes the point of view left out, and how many the ref names.
   - ADR 0009 Decision 5 decides by how many count, without saying which of its two statements answers that. Deciding by the page means a node added or removed between the two statements can't make `resolveOne` return no key, or call a single candidate ambiguous.
+- **The live check compared the route and the command as values, not byte for byte.** The ADR's live check, step 3, says byte for byte. But the command indents its JSON, where the route's body is compact, so the two were parsed and compared as values (Evidence, AC6).
 - **When the point of view left nothing out, `unknown-ref` says the ref names no node of the graph,** rather than giving a count of zero. Amendment 1, item 6, has the message give the number left out.
 - **`candidatesOf`'s rows carry `byKey` and `byAddress`.**
   - They are set in JavaScript from the reading's family, beside the `byName`, `byPlural`, `bySlug` and `byDTag` columns that family N's page returns.
