@@ -53,7 +53,11 @@ As the owner, or an admin agent, I want `tapestry lifecycle migrate --migration 
   - **with the rule in place, and a node without the label holding a labelled node's key:** it leaves that key alone and names it the same way. Status reads `tapestry-keys` as not applied.
 - [ ] **AC4. It doesn't depend on the limit.** On the graphs of AC1 and AC2:
   - Neo4j's transaction memory stays under 64 MB throughout the run, all transactions together, as `SHOW TRANSACTIONS` reports it. That is an eighth of the scratch stack's limit; today's check alone needs 1.5 GB on the AC1 graph.
-  - The memory doesn't move into the job's own process instead. That process reads what Neo4j sends, and its peak is no higher than a backup's count of the same graph's keys. OPERATIONS.md §17 gives that cost as about 400 MB at three million keys.
+  - The memory doesn't move into the job's own process instead. That process reads what Neo4j sends.
+    - **On AC1's graph,** where the job takes no backup, it peaks lower than a backup's count of the same keys. OPERATIONS.md §17 gives that cost as about 400 MB at three million keys.
+    - **On AC2's graph,** the job's own backup counts the keys first and sets the job's peak. The check adds no more than 8 bytes a key, plus 64 MB, to the peak the backup leaves. That peak is read when the job moves on to `planning` after its backup.
+
+    *Restated at Review round 1 (2026-11-16), at the owner's ruling. The first wording asked AC2's job, too, to peak no higher than a backup's count run alone. That job includes its own backup, which already peaked at 1.20× that yardstick before the fix, so the first wording couldn't hold there for any code (review `9-tapestry-keys-within-transaction-memory.md`, Blocking 1).*
   - The test plan records the time and memory of each read the migration makes, before the fix and after it.
 - [ ] **AC5. Nothing else changes.**
   - Every behaviour story 3's suites check still holds: the passes, the `'{}'` placeholder, the backup first, the rule and index outcomes, the report's fields and its words, and status.
