@@ -5,11 +5,16 @@
  * element write calls it: graph create-element now, and graph update-node (A10.21), graph add-to-concept (A10.22) and
  * the property operations (A10.18) when they are built (Decision 16).
  *
- * It reads and checks as the derive step does (src/lib/derivers/word.js:136–180), so an operation, rules check and the
- * derive step's parentJsonSchemas give one verdict: the schema node's json tag, inline or an LMDB reference; its
- * jsonSchema section, else the object itself; $schema dropped; and ajv's default class, which reads draft-07's
- * keywords, with allErrors and strict off. A schema that names draft 2020-12 is read the same way, as the derive step
- * reads it: a keyword only 2020-12 has is ignored by both. Each schema gets a new Ajv, so an $id never clashes.
+ * It reads a schema as the derive step does (src/lib/derivers/word.js:136–180): the schema node's json tag, inline or
+ * an LMDB reference; its jsonSchema section, else the object itself; $schema dropped; and ajv's default class, which
+ * reads draft-07's keywords, with allErrors and strict off. A schema that names draft 2020-12 is read the same way: a
+ * keyword only 2020-12 has is ignored by both. Each schema gets a new Ajv, so an $id never clashes.
+ *
+ * What it checks is an element's stored JSON, its json tag. The derive step checks another document, its own `base`:
+ * the cached JSON, with its graphContext added and word defaults filled in, against the concepts a z tag names too. So
+ * the two verdicts agree under a schema that neither requires nor forbids graphContext and doesn't limit an element's
+ * top-level keys, as every schema create-concept writes does; firmware's word schema, which requires graphContext,
+ * splits them (ADR graph-operations-first-slice/0020 Amendment 1; test SC9 runs both).
  *
  *   schemaOf(read, concept)       E1 → { schema, node, label, header: true }, or { problem, label, header }, where
  *                                 header is false when the key names no concept header

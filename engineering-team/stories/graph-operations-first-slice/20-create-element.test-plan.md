@@ -209,3 +209,15 @@ operations: _schemas.js, the check of an element against its schema: 9 passed, 0
 
 SC9 passes already: it pins what the code does, which the amendment now says. CE22 passes with its case moved.
 
+
+### The touched suites (review round 1's fixes, 2026-11-16)
+
+With every endpoint dead (`TAPESTRY_PORT=9` and `TAPESTRY_CONTAINER=no-such-container` among them), on the fixes, none failed:
+
+- **This story's suites:** create-element 33, `_schemas.js` 9, the rule 7, the agent 1, graph-rule-firmware 13 (its 4 live checks skipped), graph-rules-builder 26 and firmware-element-sync 21.
+- **The suites that share its files:** the fake graph 26, fields 8, map-fields 12, mark-field 16, unmark-field 13, fields-agent-through-cli 1, change-entry-fields 3, write-path 13, rules/field-mark-allowed 14, create-concept 23 and lifecycle/tapestry-key-paths 19.
+- **Staging's new suites, after the merge:** list-relationships 26, graph resolve 22, resolve.js 11 and concept names 5.
+
+`node src/firmware/graph-rules.js --check` finds the 7 items current, and `bash scripts/harness-lint.sh` is clean.
+
+No live check was run again. The fixes are a refusal before anything is read past the concept's header, a comparison and documents, and the fake graph covers each.

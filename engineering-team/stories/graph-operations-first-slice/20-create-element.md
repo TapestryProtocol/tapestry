@@ -88,6 +88,8 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 
 **Added at Architecture** (the owner's approval, 2026-11-16, with ADR 0020): AC5's list gains `made-elsewhere`, for an element of a concept whose elements another operation makes: the concept-header concept and the seven core-node concepts (graph create-concept), set (graph create-set), property (graph add-property) and graph rule (the rulebook). The ADR's other refusals beyond the list, `not-installed`, `no-free-address` and a length limit on the element's JSON, are mechanics create-concept has too.
 
+**Added at review round 1** (the owner's approval, 2026-11-16, with ADR 0020 Amendment 1): AC5's list gains `reserved-key`, for a concept keyed `word` or `graphContext`. Those are keys an element's JSON keeps for itself: the word block that names it, and the derive step's `graphContext`. AC5's "a firmware concept takes one too" holds for every firmware concept but `word`, whose key is the word block's. The same amendment corrects a claim in AC7's rule: it reads a schema as the derive step does, but the two check different documents, so their verdicts can split.
+
 For Architecture, not this gate:
 
 - **How the guard checks the JSON before the write.** A guard sees only the inputs, and the JSON needs the concept's key and schema from the graph. ADR 0016's pattern, a guard and the same rule run again in `apply`, may fit.

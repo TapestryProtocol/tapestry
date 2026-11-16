@@ -31,7 +31,7 @@ module.exports = {
   summary: "An element of a concept, or of a set in its class thread, with no event, its fields checked against the concept's schema",
   description: [
     "Makes an element named `name` of `concept`, directly under the concept's superset, or directly in `set`: a set or superset in the concept's class thread. Nothing is signed or sent anywhere. The element is the node the nostr import would make of the letter today's create-element signs, at the address that letter would carry, with its tags (`d`, `name`, a `z` naming the concept's header, an `n` naming the set, and `json`), and no event: a letter published for it later lands on the same node. The name is trimmed, and each run of white space inside it becomes one space.",
-    "Its JSON is word-wrapper JSON: a `word` block naming it, whose `wordTypes` list `word` and the key of each concept whose class thread reaches it, and the concept's section, under the concept's key, holding its name, its slug and `fields`. `fields` is an object, or its JSON text, as a command line gives it. Before anything is written, the JSON is checked against the concept's JSON Schema, read as the derive step reads it (BIBLE §10, rule 4: the rule `element-fits-schema`). JSON that doesn't fit is refused (`invalid-fields`), naming every problem; no value is made up for a field left out. For each other concept the element joins through its set, `concepts` says whether its JSON fits that concept's schema too; those never stop it. The concept's marked fields are carried on the node as `<concept key>_<field>`.",
+    "Its JSON is word-wrapper JSON: a `word` block naming it, whose `wordTypes` list `word` and the key of each concept whose class thread reaches it, and the concept's section, under the concept's key, holding its name, its slug and `fields`. `fields` is an object, or its JSON text, as a command line gives it. Before anything is written, the JSON is checked against the concept's JSON Schema, read as the derive step reads it (BIBLE §10, rule 4: the rule `element-fits-schema`). JSON that doesn't fit is refused (`invalid-fields`), naming every problem; no value is made up for a field left out. For each other concept the element joins through its set, `concepts` says whether its JSON fits that concept's schema too; those never stop it. A concept whose key is `word` or `graphContext` is refused (`reserved-key`): an element's JSON keeps those keys for itself, for its word block and the derive step's `graphContext`. The concept's marked fields are carried on the node as `<concept key>_<field>`.",
     "Safe to repeat: when this instance's own element of the concept, anywhere in its class thread, has the name, or sits at the address the name gives, it changes nothing, records nothing and answers `already-exists` with that element, naming in `differs` each input given that differs from what it holds, so fields given aren't assumed saved. Another author's element with the name isn't a repeat. The element is in this instance's graph only: only a backup keeps it.",
   ].join('\n\n'),
   inputs: {
@@ -83,7 +83,7 @@ module.exports = {
       },
     },
   },
-  refusals: [X.BAD_NAME, X.BAD_FIELDS, X.NOT_INSTALLED, F.UNKNOWN_CONCEPT, X.MADE_ELSEWHERE_REFUSAL, X.NO_SUPERSET, X.UNKNOWN_SET, X.NOT_A_SET, X.NOT_IN_CLASS_THREAD, X.NO_FREE_ADDRESS],
+  refusals: [X.BAD_NAME, X.BAD_FIELDS, X.NOT_INSTALLED, F.UNKNOWN_CONCEPT, X.MADE_ELSEWHERE_REFUSAL, X.RESERVED_KEY, X.NO_SUPERSET, X.UNKNOWN_SET, X.NOT_A_SET, X.NOT_IN_CLASS_THREAD, X.NO_FREE_ADDRESS],
   // The rule's refusals are listed through the guard, but its items are empty: the JSON it judges is built from the
   // graph, inside the write, so apply runs the rule on it after the lock (ADR 0020 Decision 12, Option A).
   guards: [{ rule: 'element-fits-schema', items: () => [] }],
@@ -109,15 +109,19 @@ module.exports = {
     if (!concept) throw refusal(F.UNKNOWN_CONCEPT.code, F.say.unknownConcept(inputs.concept), { input: 'concept' });
     const elsewhere = X.madeElsewhere(concept.uuid);
     if (elsewhere) throw refusal(X.MADE_ELSEWHERE_REFUSAL.code, X.say.madeElsewhere(concept, elsewhere), { input: 'concept' });
+    // The key the element's section is filed under (Decision 8). A key the element's JSON keeps for itself is refused
+    // before anything is built (Amendment 1, item 2).
+    const [header] = await K.headersByKey(read, [concept.key]);
+    if (header && X.RESERVED_KEYS.includes(header.oKey)) throw refusal(X.RESERVED_KEY.code, X.say.reservedKey(concept, header.oKey), { input: 'concept' });
     const superset = await S.supersetOf(read, concept.key);
     if (!superset) throw refusal(X.NO_SUPERSET.code, X.say.noSuperset(concept), { input: 'concept' });
     if (typeof concept.uuid !== 'string' || !concept.uuid) throw new Error(`the concept header ${concept.key} has no address, so an element of it has none either`);
+    if (!header || typeof header.oKey !== 'string' || !header.oKey) throw new Error(`the concept header ${concept.key} has no key, so an element's JSON has no section to file its fields under`);
 
     // 4. Where the element goes, and the concepts that reach it (Decision 3).
     const where = await X.whereTo(read, { concept, superset, set: inputs.set });
-    const headers = new Map((await K.headersByKey(read, where.concepts.map((c) => c.concept))).map((h) => [h.key, h]));
-    const header = headers.get(concept.key) || (await K.headersByKey(read, [concept.key]))[0];
-    if (!header || typeof header.oKey !== 'string' || !header.oKey) throw new Error(`the concept header ${concept.key} has no key, so an element's JSON has no section to file its fields under`);
+    const otherKeys = where.concepts.map((c) => c.concept).filter((k) => k !== concept.key);
+    const headers = new Map([[concept.key, header], ...(await K.headersByKey(read, otherKeys)).map((h) => [h.key, h])]);
 
     // 5. The repeat (Decision 6).
     const plain = `39999:${ta}:${dtag.childDTag(name, concept.uuid)}`;

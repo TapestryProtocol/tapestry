@@ -9,13 +9,14 @@
  *   cleanName(raw)                                    the name, cleaned and checked as create-concept checks one (Decision 5)
  *   the refusals the element writes share, with their wording (Decision 18)
  *   MADE_ELSEWHERE, madeElsewhere(uuid)               the concepts whose elements another operation makes (Decision 4)
+ *   RESERVED_KEYS                                     the top-level keys an element's JSON keeps for itself (Amendment 1)
  *   whereTo(read, { concept, superset, set })         where the element goes, and the concepts that reach it (Decision 3)
  *   findRepeat(read, { concept, name, ta, address })  this instance's own element the call repeats, or null (Decision 6)
  *   differsOf(repeat, { name, set, fields, oKey })    each input given that differs from what the element holds
  *   freeAddress(read, { name, header, ta })           the first address the name gives that no node holds (Decision 5)
  *   elementJson({ header, name, slug, fields, others }) the element's word-wrapper JSON (Decision 8)
  *   elementTags({ d, name, header, set, json })       the tags of the letter the write would sign (Decision 9)
- *   describeElement(row, concept)                     an element as the answer gives it (Decision 14)
+ *   describeElement({ key, address, name, slug, concept, parents, hasLetter })  an element as the answer gives it (Decision 14)
  *   link(tx, from, to)                                one HAS_ELEMENT from a superset or set to the element (Decision 10)
  *
  * Like _nodes.js and _sets.js, it opens nothing when it loads: firmware, the assistant's key and the LMDB store are
@@ -31,7 +32,8 @@ const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x)
 const own = (o, k) => isObject(o) && Object.prototype.hasOwnProperty.call(o, k);
 const count = (n) => n.toLocaleString('en-US');
 /** JSON with every object's keys sorted, so two values are compared as JSON, not by their keys' order. */
-const canon = (x) => JSON.stringify(x, (k, v) => (isObject(v) ? Object.keys(v).sort().reduce((o, key) => { o[key] = v[key]; return o; }, {}) : v));
+// Copied with Object.fromEntries, which keeps every key as the object's own, a __proto__ key included.
+const canon = (x) => JSON.stringify(x, (k, v) => (isObject(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v));
 const shorten = (s) => (String(s).length > 60 ? `${String(s).slice(0, 57)}…` : String(s));
 
 /** The longest an element's JSON may be, and its fields' text (Decisions 1 and 7). */
@@ -54,6 +56,14 @@ const UNKNOWN_SET = Object.freeze({ code: 'unknown-node', status: 404, when: 'A 
 const NOT_A_SET = Object.freeze({ code: 'not-a-set', status: 409, when: "A set that is neither a set nor a superset: an element, a concept header (the refusal names its superset, the key to pass), a node with no address, such as one of the trust pipeline's card sets, or any other node" });
 const NOT_IN_CLASS_THREAD = Object.freeze({ code: 'not-in-class-thread', status: 409, when: "A set outside the concept's class thread: no chain of class-thread links runs down to it from the concept's superset; the refusal names the concept and its superset" });
 const NO_FREE_ADDRESS = Object.freeze({ code: 'no-free-address', status: 409, when: `Every address the name gives is held, its d-tag and each versioning nonce to ~${MAX_NONCE}` });
+const RESERVED_KEY = Object.freeze({ code: 'reserved-key', status: 409, when: "A concept whose key is word or graphContext, keys an element's JSON keeps for itself: its word block, and the derive step's graphContext; the refusal names the key" });
+
+/**
+ * The top-level keys an element's JSON keeps for itself (ADR graph-operations-first-slice/0020 Amendment 1, item 2):
+ * word, its word block, which names it (Decision 8), and graphContext, which the derive step writes into its cached
+ * JSON. A concept's section filed under either would replace that block, or be replaced in the cache.
+ */
+const RESERVED_KEYS = Object.freeze(['word', 'graphContext']);
 
 /**
  * The concepts whose elements another operation makes, by firmware slug, and the operation each refusal names
@@ -100,6 +110,12 @@ const say = {
     const label = conceptLabel(concept);
     if (slug === 'graph-rule') return `The elements of ${label} are the graph's rules, made from the rulebook, docs/GRAPH_RULES.md, and each rule's code by node src/firmware/graph-rules.js, and installed by firmware: a rule is changed in the rulebook, never in the graph. Nothing changed.`;
     return `The elements of ${label} are made by ${operation}, with the tags and links each one needs, which an element made here would lack. Nothing changed. Use ${operation}.`;
+  },
+  reservedKey(concept, key) {
+    const why = key === 'word'
+      ? "an element's word block, which names it, is filed under word, so this concept's section would replace it. Every element is already a word through that block, which the write that makes the element gives it"
+      : "the derive step writes its own graphContext into each element's cached JSON, so this concept's section would be replaced there";
+    return `${conceptLabel(concept)}'s key is ${key}, a key an element's JSON keeps for itself: ${why}. No element of it can be made here (ADR graph-operations-first-slice/0020 Amendment 1). Nothing changed.`;
   },
   noSuperset(concept) {
     return `${conceptLabel(concept)} has no superset, so there is no class thread to put an element in (BIBLE §10, rule 1). Nothing changed.`;
@@ -325,8 +341,8 @@ const PROBLEM = Object.freeze({
 });
 
 module.exports = {
-  MAX_JSON, MAX_NONCE, FIELDS_INPUT, MADE_ELSEWHERE, ELEMENT, PROBLEM,
-  BAD_NAME, BAD_FIELDS, MADE_ELSEWHERE_REFUSAL, NO_SUPERSET, NOT_INSTALLED, UNKNOWN_SET, NOT_A_SET, NOT_IN_CLASS_THREAD, NO_FREE_ADDRESS,
+  MAX_JSON, MAX_NONCE, FIELDS_INPUT, MADE_ELSEWHERE, RESERVED_KEYS, ELEMENT, PROBLEM,
+  BAD_NAME, BAD_FIELDS, MADE_ELSEWHERE_REFUSAL, NO_SUPERSET, NOT_INSTALLED, UNKNOWN_SET, NOT_A_SET, NOT_IN_CLASS_THREAD, NO_FREE_ADDRESS, RESERVED_KEY,
   say, conceptLabel, cleanName, parseFields, madeElsewhere, conceptsReaching, whereTo, findRepeat, differsOf, freeAddress,
   elementJson, elementTags, describeElement, link,
 };
