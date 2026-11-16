@@ -402,6 +402,12 @@ const suites = [
   // graph-operations-foundation #10: a schema save lands on the header its caller means, never on another author's
   // same-named one. Stack-free in every run; its live checks run only against a scratch container (tapestry-scratch…).
   { file: 'schema-save-finds-the-right-header.test.js' },
+  // graph-operations-first-slice #41: the graph rule concept, made from the rulebook and the rules' code by
+  // src/firmware/graph-rules.js, and kept in line by every install (ADR graph-operations-first-slice/0041). Stack-free in
+  // every run; graph-rule-firmware's live checks run only against a scratch container (tapestry-scratch…).
+  { file: 'graph-rules-builder.test.js' },
+  { file: 'graph-rule-firmware.test.js' },
+  { file: 'firmware-element-sync.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

@@ -1,0 +1,78 @@
+{
+  "word": {
+    "slug": "field-mark-allowed",
+    "name": "field-mark-allowed",
+    "title": "Field Mark Allowed",
+    "description": "A field marked to be carried on its elements' Neo4j nodes is a plain top-level field of a concept, with a property node in the concept's property tree, and a property name that no other mark yields and that nothing else wrote.",
+    "wordTypes": [
+      "word",
+      "graphRule"
+    ]
+  },
+  "graphRule": {
+    "name": "field-mark-allowed",
+    "number": 3,
+    "says": "a field marked to be carried on its elements' Neo4j nodes is a plain top-level field of a concept, with a property node in the concept's property tree, and a property name that no other mark yields and that nothing else wrote. A mark is one `HAS_ELEMENT` edge from the set of neo4j properties that are also fields, `39999:<TA>:the-set-of-neo4j-properties-that-are-also-fields`, to the field's property node. It makes each current element of the concept carry the field's value from its JSON, as a node property.",
+    "kind": "a graph rule, about the owner's and the admins' own marks (D4). Every element of the set counts as a mark, whoever made the edge.",
+    "about": "the graph",
+    "refusesOrReports": "it refuses the write, before anything changes, with the first check that fails, in this order:\n- `not-installed` (409): the graph has no set of neo4j properties that are also fields, so the firmware isn't installed;\n- `unknown-concept` (404): no concept header has the key (a `ConceptHeader`, or a `ListHeader` for one the nostr import brought in);\n- `unknown-field` (404): the field isn't one of the concept's top-level fields, naming those fields;\n- `no-property-node` (409): the field has no node under the concept's section node, or the concept has no primary property. A node create-property made, off the schema node, doesn't count, since concepts can share it. The refusal points to `POST /api/normalize/generate-property-tree`, which signs;\n- `not-plain` (409): the field holds an object, a list of objects or a list of lists, which no Neo4j property can hold (design §5, question 1);\n- `unusable-name` (409): the concept's key isn't letters and digits, so `<key>_<field>` can't be written unquoted in Cypher;\n- `property-taken` (409): another mark already yields the same name, from another concept with the same key;\n- `property-in-use` (409): a current element of the concept already carries the name though the field isn't marked, naming one such node.\n\nThe last two skip the field's own mark, so a repeat on a marked field passes.",
+    "check": "the same `violations` over every current mark names each mark whose field has changed type, lost its property node, or now collides. `rules check` (A10.31) will run it over the graph.",
+    "repair": "`graph unmark-field` takes a broken mark out, with its copies; `graph map-fields` brings a concept's copies in line with its marks.",
+    "enforcedBy": "the guard of `graph mark-field`. The rule's code is in `src/operations/rules/field-mark-allowed.js`, and the mapping it guards is in `src/operations/catalog/graph/_fields.js`. Built in story graph-operations-foundation #5 (ADR 0005).",
+    "status": "enforced",
+    "source": "ADR graph-operations-foundation/0005",
+    "alsoSays": [
+      {
+        "label": "The naming convention",
+        "text": "a marked field's property is `<key>_<field>`, the concept's key (its `oKeys.singular`) and the field's name joined by `_`, such as `dog_breed` for Dog's `breed`. The name is computed every time, never stored, and one mark yields it across the graph. Names starting `<key>_` on an element of a concept with that key belong to marks: `graph map-fields` removes one that no mark yields, such as a copy left by a field that has left the schema."
+      }
+    ],
+    "code": {
+      "file": "src/operations/rules/field-mark-allowed.js",
+      "summary": "A field marked to be carried on its elements' Neo4j nodes is a plain top-level field of a concept, with a property node in its property tree, and a property name no other mark yields and nothing else wrote.",
+      "refuses": true,
+      "refusals": [
+        {
+          "code": "not-installed",
+          "status": 409,
+          "when": "The graph has no concept for neo4j properties, or no set of neo4j properties that are also fields: install the firmware first"
+        },
+        {
+          "code": "unknown-concept",
+          "status": 404,
+          "when": "A concept that names no concept header: a node labelled ConceptHeader, or ListHeader for one the nostr import brought in"
+        },
+        {
+          "code": "unknown-field",
+          "status": 404,
+          "when": "A field that isn't one of the concept's top-level fields, jsonSchema.properties[<concept key>].properties"
+        },
+        {
+          "code": "no-property-node",
+          "status": 409,
+          "when": "The field has no property node under its concept's section node in the concept's property tree, or the concept has no primary property: run POST /api/normalize/generate-property-tree for the concept first"
+        },
+        {
+          "code": "not-plain",
+          "status": 409,
+          "when": "The field holds an object, a list of objects or a list of lists, which no Neo4j property can hold"
+        },
+        {
+          "code": "unusable-name",
+          "status": 409,
+          "when": "The concept's key isn't letters and digits, so <key>_<field> can't be written unquoted in Cypher"
+        },
+        {
+          "code": "property-taken",
+          "status": 409,
+          "when": "Another mark already yields the same property name: another concept with the same key marked a field of the same name"
+        },
+        {
+          "code": "property-in-use",
+          "status": 409,
+          "when": "A current element of the concept already carries the property name, though the field isn't marked: something else wrote it"
+        }
+      ]
+    }
+  }
+}
