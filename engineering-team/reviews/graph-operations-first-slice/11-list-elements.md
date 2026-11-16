@@ -142,3 +142,53 @@ Not applicable: the book has an acceptance frame, not a PRD, and the read has no
 There is one blocking issue, Finding 1: AC3 and Decision 2 fail on a graph that holds `'{}'` keys. The fix is the two-statement change and a test. Asks 2–7 are small and should land in the same follow-up. Everything else matches the story, the ADR and its two amendments, and the full gate is green. The story stays `Approved` this round.
 
 **CHANGES_REQUESTED**
+
+---
+
+## Round 2 (2026-11-16, on `9d0258c3`)
+
+**Diff:** `git diff 23458b98..9d0258c3`: the Tester commit `bb8bcaff`, then the Implementer commit `9d0258c3`, both on PR #76.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [x] **The full gate:** PR #76's CI, check `stack-free`, passed in 6m25s (run 43789125087) on `9d0258c3`.
+- [x] **Run by the Reviewer** on `9d0258c3`, one at a time, with every endpoint dead:
+
+  | Suite | Result |
+  |---|---|
+  | list-elements | 30 / 30 |
+  | reads | 16 / 16 |
+  | agent through the external CLI | 2 / 2 |
+  | history | 8 / 8 |
+  | `test/operations.test.js` | 385 / 385 |
+
+- [x] **The new tests failed first.** On `23458b98`, LE29, RC6 and RC16 failed for the reasons they name, while LE30 passed as a pin (the test plan's Verification).
+- [ ] **Not re-checked live.** No scratch stack was booted for this round. The fix adds one string comparison to two statements, and the rest is a message, a key helper the suites cover, and docs.
+
+### Each ask, checked from the tree
+
+Every ask was checked from commands and the tree, not from memory, including the wording round 1 suggested:
+
+| Round 1 | The fix | How it was checked |
+|---|---|---|
+| 1 (blocking) | L3 and L4 add `AND e.tapestryKey <> '{}'` (`list-elements.js:139`, `:150`) | LE29 failed before and passes after; paging over legacy, one element a page, reaches a null cursor |
+| 2 | The catalog's Conventions, `docs/GRAPH_OPERATIONS_CATALOG.md:15`, `:16`, `:20`, `:22` | read against `changes.js`'s cursor and C2–C3 |
+| 3 | The shared refusal (`reads.js:63`) says a cursor works only with the inputs that made it | RC6's new check; no "the same concept or set" is left in `reads.js` |
+| 4 | `hexKey()` (`reads.js:112`) reads the owner's key (`:120`) and the assistant's (`:126`) | RC16 failed before and passes after |
+| 5 | LE30: an author scored exactly 0.05, against `> $cutoff` (`reads.js:149`) | it passes; `>=` would fail it |
+| 6 | ADR Amendment 3, item 4 (`:367`) | read against `run`'s order: `resolvePov` at `list-elements.js:95`, the cursor at `:97`, the node at `:101` |
+| 7 | The ledger row is DONE with its Done line; `_intake.md:683` gains the line | harness-lint (L15) clean |
+
+**Scope.** Round 2 changed eleven files, all of them the asks above, their tests and the records they name.
+
+### Findings
+
+**Blocking:** none.
+
+**Non-blocking:** none new. Round 1's findings 8–13 stand as records. Finding 9 is for `graph walk`'s ADR (A10.14).
+
+### Verdict
+
+Finding 1 is fixed and tested, every ask landed, the suites pass, and the full gate is green. The story is `Done` in this commit.
+
+**PASS**

@@ -1,6 +1,6 @@
 # Story 11: `graph list-elements` — the elements of a concept or a set, from a point of view
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Feature
 **Loom:** A10.11 — https://loom.brainstorm.world/t/A10.11
