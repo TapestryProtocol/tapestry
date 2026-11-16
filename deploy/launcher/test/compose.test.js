@@ -16,9 +16,11 @@ const config = {
 function setup({ ready = () => true, failOn = () => false } = {}) {
   const brainsDir = tempDir();
   const commands = [];
+  const argvs = [];
   const run = async (file, args, options) => {
     const line = [file, ...args].join(' ');
     commands.push(line);
+    argvs.push([file, ...args]);
     if (!options || !options.timeout) throw new Error(`no timeout on: ${line}`);
     if (line.includes('/api/ready') && !ready(line)) throw new Error('not ready');
     const failure = failOn(line);
@@ -28,7 +30,7 @@ function setup({ ready = () => true, failOn = () => false } = {}) {
   const backend = createComposeBackend({
     brainsDir, caddyContainer: 'edge-caddy', template: 'name: brain-${SLUG}\n', getConfig: () => config, run, sleep: async () => {},
   });
-  return { backend, brainsDir, commands };
+  return { backend, brainsDir, commands, argvs };
 }
 const has = (commands, text) => commands.some((c) => c.includes(text));
 
@@ -75,13 +77,16 @@ test('attaching Caddy when it is already attached is fine, and any other network
 });
 
 test('destroy detaches Caddy first, then removes containers and keeps volumes', async () => {
-  const { backend, brainsDir, commands } = setup();
+  const { backend, brainsDir, commands, argvs } = setup();
   await backend.create({ slug: 'avi', ownerPubkey: owner, imageTag: 'dogfood' });
   commands.length = 0;
+  argvs.length = 0;
   await backend.destroy('avi');
   assert.equal(commands[0], 'docker network disconnect brain-avi_default edge-caddy');
   assert.ok(commands[1].endsWith(' down'), commands[1]);
-  assert.ok(!commands.some((c) => c.includes('-v')), 'destroy must not remove volumes');
+  // Whole arguments, not the joined line: the brain's folder is a temp path, and a random name such as
+  // launcher-test-vQ3x9a holds "-v" (ledger 2026-11-16-launcher-volume-check-matches-temp-path).
+  assert.ok(!argvs.some((a) => a.includes('-v') || a.includes('--volumes')), 'destroy must not remove volumes');
   assert.ok(fs.existsSync(path.join(brainsDir, 'avi/.env')));
 });
 
