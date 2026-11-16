@@ -78,6 +78,6 @@ None. No concept definition changes, so there is no firmware reinstall.
 ## Linked artifacts
 
 - Found by: story 8's live check (`engineering-team/stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.test-plan.md`, Test infrastructure), ledger row `ledger/2026-11-15-tapestry-keys-exceeds-transaction-memory.md`. The migration is story 3's (`engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`, AC1–AC3; ADR `graph-operations-foundation/0003`, Decision 4).
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-foundation/0009-shared-keys-from-a-stream-of-hashes.md` (amends ADR `graph-operations-foundation/0003`, Decision 4)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
