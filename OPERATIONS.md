@@ -3,7 +3,7 @@
 > **Audience:** the active team running this fork at `tapestry.brainstorm.world`.
 > **Prerequisite reading:** [BIBLE.md](./BIBLE.md) — what tapestry *is* and how it works. This file documents the specifics of *our* deployment that aren't useful to other operators forking the codebase.
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-16
 
 ---
 
@@ -104,7 +104,7 @@ Every workflow follows three rules that `npm test` holds: actions pinned to a co
 
 ## 4. Branch protection rulesets
 
-Two rulesets (Settings → Rules → Rulesets) protect the long-lived branches. GitHub keeps them in the repository's settings, not in its files, so a move to a new owner can leave them behind: this repo has had none since the move of 2026-10-23 (see [ledger/2026-10-28-repo-move-follow-ups.md](./ledger/2026-10-28-repo-move-follow-ups.md)). Their definitions are kept in [`.github/rulesets/`](./.github/rulesets/), with the commands to recreate them. **Read the live settings, not this section, for what is enforced today.**
+Two rulesets (Settings → Rules → Rulesets) protect the long-lived branches, and an Actions policy keeps `main`'s source guard running (below). GitHub keeps them in the repository's settings, not in its files, so a move to a new owner can leave them behind: this repo had no rulesets after the move of 2026-10-23 (see [ledger/2026-10-28-repo-move-follow-ups.md](./ledger/2026-10-28-repo-move-follow-ups.md)). Their definitions are kept in [`.github/rulesets/`](./.github/rulesets/), with the commands to recreate them. **Read the live settings, not this section, for what is enforced today.**
 
 **`restrict-deletions`** targets `main`, `staging`, `feature-magic-carpet` and `feat/tags` with two rules:
 
@@ -115,6 +115,14 @@ Two rulesets (Settings → Rules → Rulesets) protect the long-lived branches. 
 
 - **Pull request before merging**, with 0 approving reviews.
 - **Required status checks:** `stack-free` (the `Test` workflow) and `main-source-guard` ([`guard-main-source.yml`](./.github/workflows/guard-main-source.yml): only `staging`, `promote/*` and `hotfix/*` may open a PR into `main`). While either is missing or failing, the merge state is `BLOCKED` (OPEN.md rows 155 and 256).
+
+**`allow-pull-request-target-for-main-source-guard`** is an Actions policy (Settings → Actions → Policies), not a ruleset. It lets `guard-main-source.yml`, found by its path, run on `pull_request_target`, and on no other event. It covers no other workflow. From 2026-12-02 GitHub blocks that event in a public repository unless an Actions policy that applies there allows it (GitHub's guide "Securely using pull_request_target", § "Default policy for pull_request_target"). Without the policy the guard never runs, and every PR into `main` stays `BLOCKED`. Its definition is with the rulesets', in [`.github/rulesets/`](./.github/rulesets/). Three things keep it right:
+
+- It finds the guard by its path, so a PR that moves or renames `guard-main-source.yml` changes the policy too. Until the rename is on `main`, the policy lists both paths, since `main`'s copy at the old path is the one that runs.
+- Its rule lists the only events a workflow it covers may run on, so it keeps that path. With no path it would cover every workflow, and every other one would stop: the deploys, the image publisher, the test gate and the weekly link checks.
+- It says nothing about other workflows. GitHub's docs don't say whether the default block still applies to the repository's other workflows once this policy exists, so a new `pull_request_target` workflow needs its own review against GitHub's guide, and its own decision about the policy.
+
+**When `main-source-guard` ends in `startup_failure`.** The run has no job and no log: GitHub refused to start the workflow, and the PR waits on a check that never came. On 2026-11-16 a scheduled brownout of the default policy above did this to three runs, and held promotion #96 for about two hours ([ledger row](./ledger/2026-11-16-main-guard-blocked-by-github-policy.md)). The run's annotation names the cause. First see that the policy is still there and still names the guard's path; Policy insights, under Policies, lists the runs a policy blocked. A startup failure can't be re-run (`gh run rerun` answers "This workflow run cannot be retried"). Once the cause is gone, close the PR and reopen it: that is a new `pull_request_target` event, and the guard runs again. Taking the check out of the ruleset is the owner's decision, not a way past the block.
 
 `staging` has neither a PR rule nor required checks: it permits direct pushes, and `/cycle-staging` merges on the deploy-safety check, not on the PR's CI. Making `stack-free` required there is a separate operator decision. The "Required-check status" note further down this file predates `stack-free` becoming required on `main`.
 

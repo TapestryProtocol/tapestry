@@ -14,6 +14,12 @@ name: Guard main PR source
 # which cannot be bypassed from a branch. That trigger is normally risky because
 # it pairs a write token with untrusted code — this job checks out nothing and
 # reads only `github.head_ref`, so that risk does not apply.
+#
+# From 2026-12-02 GitHub refuses to start a `pull_request_target` workflow in a
+# public repository unless an Actions policy allows the event. This repo's
+# policy allows it for this file alone, found by its path (OPERATIONS.md §4):
+# a move or rename has to change the policy too, or every PR into `main` stays
+# BLOCKED.
 
 on:
   pull_request_target:
