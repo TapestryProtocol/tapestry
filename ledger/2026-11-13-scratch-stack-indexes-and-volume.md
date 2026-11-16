@@ -20,4 +20,6 @@ Two gaps, found while running story 3's live check and measurements on the Mac S
 
 Related: OPEN.md row `2026-10-31-scratch-stack-image-and-lib-mount`. The stale default image, which this session also met: the default `tapestry-tapestry` has no `cron-parser`, so the session booted `agent-memory-tapestry`.
 
+**2026-11-15 (graph-operations-foundation #8):** seen again. On a fresh scratch stack, `(:NostrEvent|TapestryNode {uuid})` planned as a label scan plus one seek, because `nostrEvent_uuid` was missing. Story 8's seeder (`test/helpers/seedStagingShape.js`) adds the setup indexes from `setup/neo4jConstraintsAndIndexes.sh` before its measurements.
+
 **Pointer:** `engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.test-plan.md` § Verification, "The live check and the measurements".

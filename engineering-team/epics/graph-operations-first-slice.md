@@ -25,6 +25,9 @@ instance's URL rebuilds the brain on a fresh instance, with no raw Cypher.
 Each story is planned when its task is taken, and is numbered by its Loom task, as the foundation's are (A10.n is story
 n, and its first ADR 000n), because teammates plan them at the same time in different sessions.
 
+11. `stories/graph-operations-first-slice/11-list-elements.md` — list the elements of a concept or a set, a page at a
+    time, from a point of view, the owner's by default; its ADR sets the paging, the point of view and the node shape
+    every graph read follows (Loom A10.11).
 16. `stories/graph-operations-first-slice/16-create-concept-and-update-concept.md` — make a concept with its eight core
     nodes and no event, and change its names, slug or description (Loom A10.16).
 28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's

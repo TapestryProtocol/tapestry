@@ -44,6 +44,9 @@ its own, with nothing shared to edit.
 7. `stories/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.md` — a bug from story 3: the
    cache counts in `lifecycle status` and on the Dashboard cover only the nodes with an address, and asking for them no
    longer reads every node's key. Story 3's run on staging found it, and Loom tracks it as A10.3.a, a subtask of A10.3.
+8. `stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.md` — a bug from story 3: a firmware install's
+   Pass 3 rebuilds only the nodes with an address, so it passes by the trust pipeline's card sets, and no rebuild reads
+   the whole graph. Story 5's firmware install on staging found it on 2026-11-15.
 
 Each story was planned when its task was taken. The foundation's stories, and each story's first
 ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in

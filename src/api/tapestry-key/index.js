@@ -444,9 +444,11 @@ async function handleDeriveStatus(req, res) {
     const status = [];
 
     for (const label of labels) {
+      // The nodes derive-all rebuilds: a key and an address (graph-operations-foundation #8), so a label's derived
+      // count can reach its total. Since `tapestry-keys`, the trust pipeline's card sets are keyed Sets with no address.
       const rows = await runCypher(`
         MATCH (n:${label})
-        WHERE n.tapestryKey IS NOT NULL
+        WHERE n.tapestryKey IS NOT NULL AND (n.uuid IS NOT NULL OR n.id IS NOT NULL)
         WITH n,
              CASE WHEN n.tapestryJsonUpdatedAt IS NOT NULL THEN true ELSE false END AS derived
         RETURN derived, count(n) AS count
