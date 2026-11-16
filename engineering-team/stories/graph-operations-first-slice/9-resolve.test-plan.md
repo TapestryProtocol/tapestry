@@ -64,7 +64,7 @@ ADR 0009, Context 9: `graphFake.exec` sent every read with no relationship to `n
 - **Runner.** Node's, through each suite's own `run()` (`test/helpers/graphOpsSuite.js`'s `makeSuite`), as every suite under `test/operations/` has.
 - **No live API.** Every suite gives its child processes dead Neo4j, Redis, Meilisearch and base-URL endpoints (`S.childEnv`). The local `:7778` stack is the owner's agent-memory instance, so no suite here reaches it.
 - **Firmware.** None installed. Nothing here reads a relationship alias.
-- **Fixtures.** `test/helpers/resolveGraph.js` (new): nine concept headers with their `names` and `slug` tags, three of them another author's or versioned; elements, a set, a card set, a note and its look-alike tag node, a kind-30000 event, and 120 nodes named `item`; the NostrUser scores. `unscored` takes every influence away, and `items` sets how many share the name `item`.
+- **Fixtures.** `test/helpers/resolveGraph.js` (new): eight concept headers with their `names` tags, all but `fish` with a `slug` tag, three of them another author's or versioned; elements, a set, a card set, a note and its look-alike tag node, a kind-30000 event, and 120 nodes named `item`; the NostrUser scores. `unscored` takes every influence away, and `items` sets how many share the name `item`.
 - **The live check** is Implementation's, on a scratch stack (ADR, Implementation notes). It isn't a gate suite.
 
 ## How to run
