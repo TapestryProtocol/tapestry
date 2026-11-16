@@ -396,6 +396,9 @@ const suites = [
   // graph-operations-foundation #6: the external CLI in clients/cli/, made from the instance's list of operations, and
   // the agent's skill beside it (ADR graph-operations-foundation/0006). Its instances are loopback children of its own.
   { file: 'external-cli.test.js' },
+  // graph-operations-foundation #8: a firmware install's Pass 3 rebuilds only the nodes with an address, and no rebuild
+  // reads the whole graph. Stack-free in every run; its live checks run only against a scratch container (tapestry-scratch…).
+  { file: 'pass-3-finishes-in-minutes.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so
