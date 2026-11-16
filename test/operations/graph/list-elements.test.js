@@ -37,6 +37,7 @@
  *   LE25 the command answers what the route answers, refusals included
  *   LE26 it is listed for an admin, with its inputs and refusals, and has its /docs entry
  *   LE27 its paging, point of view and node shape are reads.js's, and the catalog's Conventions say so
+ *   LE28 a node labelled Set with no address (a trust-pipeline card set) is no set (ADR 0011 Amendment 2)
  */
 
 const fs = require('fs');
@@ -135,6 +136,8 @@ function main() {
     get('element-as-concept', 'owner', { concept: k.rover }),
     get('header-as-set', 'owner', { set: k.H }),
     get('element-as-set', 'owner', { set: k.rover }),
+    get('card-set', 'owner', { set: k.cardSet }),
+    get('card-set-as-concept', 'owner', { concept: k.cardSet }),
     get('bad-key', 'owner', { concept: 'not-a-key' }),
     get('bad-set-key', 'owner', { set: 'not-a-key' }),
     get('bad-direct', 'owner', { concept: k.H, direct: 'maybe' }),
@@ -532,6 +535,13 @@ test('LE27: its paging, point of view and node shape are reads.js\'s, and the ca
   }
   const row = text.split('\n').find((l) => l.startsWith('| `list-elements` |')) || '';
   assert(/kept/.test(row) && /leftOut/.test(row), `§1's list-elements row gives the answer as built, kept and leftOut among it; got ${show(row)}`);
+});
+
+test('LE28: a node labelled Set with no address, as the trust pipeline\'s card sets are, is no set', () => {
+  const { a } = main();
+  refused(a, 'card-set', 409, 'not-a-set', 'set');
+  const c = refused(a, 'card-set-as-concept', 409, 'not-a-concept', 'concept');
+  assert(!/pass it as set/.test(c.error), `given as concept, a card set isn't offered as a set to pass; got ${show(c.error)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

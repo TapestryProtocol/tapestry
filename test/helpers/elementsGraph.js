@@ -21,7 +21,9 @@
  *   admin    W        the admin, scored 0.01: an admin counts by score, like anyone (the story's question 2)
  *   nokey    S        the assistant, but no tapestryKey: never listed or counted
  * and three that aren't its elements: stray (its z tag names dog, but no HAS_ELEMENT reaches it: an implicit member),
- * loner (a node of no concept) and G (a change entry).
+ * loner (a node of no concept) and G (a change entry). cardSet is a trust-pipeline card set, as staging holds 370,377
+ * of them: labelled Set and SetOfNostrUserWotMetricsCards, with a tapestryKey but no address and no class-thread links,
+ * so no set (ADR graph-operations-first-slice/0011 Amendment 2, after ADR 0028 Amendment 3).
  *
  * The other concepts:
  *   mammal   header MH, superset MS with its own element whale; dog's superset S is under MS (a class link), so
@@ -113,6 +115,7 @@ function seedElements({ owner = S.OWNER, admin = S.ADMIN, ta = S.TA, unscored = 
   link(stray, 'HAS_TAG', z);
   item('loner', { uuid: `39999:${ta}:loner`, name: 'loner', pubkey: ta });
   add('G', ['GraphChange', 'TapestryNode'], { at: '2026-01-01T00:00:00.000Z', byRole: 'owner', byPubkey: owner, operation: 'graph add-relationship', keys: [], changes: '[]' });
+  add('cardSet', ['Set', 'SetOfNostrUserWotMetricsCards', 'TapestryNode'], { observee_pubkey: PEERS.hi });
 
   // ── mammal, with dog's superset under its own ──
   const MH = header('MH', 'mammal');

@@ -14,7 +14,7 @@ Every suite is stack-free and lives under `test/operations/`, where `test/operat
 | AC2 — Each element, answered | LE7 exactly `{ tapestryKey, name, address, author, own }`: the assistant's, the owner's, one with no author or address, a peer's, an admin's, a tapestryValue before a name, no name at all · RC4 the `NODE` schema · RC13 `nodeColumns` and `nodeOf` | `graph/list-elements.test.js`, `reads.test.js` | integration; unit |
 | AC3 — Page by page | LE8 three pages of bulk (50, 50, 20), each element once, ascending tapestryKey · LE9 limit 3 and 200; 0 and 201 refused naming `limit` · LE10 between two pages, two taken out and two added: no other element twice or missing · LE11 a cursor for another concept, another point of view, the other `direct`, the same elements asked as a set, history's, and garbage, refused `invalid-cursor`; its own list pages on · RC5–RC8 the cursor's text, what it refuses, the scope, a page's cut | `graph/list-elements.test.js`, `reads.test.js` | integration; unit |
 | AC4 — From a point of view, the owner's by default | LE12 the owner's keeps the assistant's, the owner's, the author-less and a peer scored 0.2; leaves out 0.01, no influence, no NostrUser and the admin (scored 0.01); `owner` and the owner's pubkey answer as the default · LE13 kept and leftOut across the whole list on a page of 2 · LE14 `everyone` keeps all 12 · LE15 new scores between two runs answer differently, and both runs only read · LE16 no scores yet: only the instance's own, `scored: false` · LE17 the cutoff from `VERIFIED_FOLLOWERS_INFLUENCE_CUTOFF` (0.3) · LE18 a stranger's or the admin's pubkey refused `unknown-pov`, naming the two it reads from; `house` refused `invalid-input` · RC9–RC12, RC14 how a point of view resolves, `scored`, the cutoff (set, unset, not a number), what `trust` counts, `ownKeys` | `graph/list-elements.test.js`, `reads.test.js` | integration; unit |
-| AC5 — What it refuses | LE19 neither, neither with other inputs, both: `concept-or-set` · LE20 unknown keys, and a change entry's: `unknown-node`, naming the input · LE21 a set, a superset or an element as `concept`: `not-a-concept` (pass it as set); a header or an element as `set`: `not-a-set` (pass it as concept, naming its superset) · LE22 malformed keys, a `direct` that isn't true or false, an unknown input | `graph/list-elements.test.js` | integration |
+| AC5 — What it refuses | LE19 neither, neither with other inputs, both: `concept-or-set` · LE20 unknown keys, and a change entry's: `unknown-node`, naming the input · LE21 a set, a superset or an element as `concept`: `not-a-concept` (pass it as set); a header or an element as `set`: `not-a-set` (pass it as concept, naming its superset) · LE22 malformed keys, a `direct` that isn't true or false, an unknown input · LE28 a trust-pipeline card set, labelled `Set` with no address: `not-a-set` as `set`, and `not-a-concept` with no "pass it as set" as `concept` (ADR Amendment 2) | `graph/list-elements.test.js` | integration |
 | AC6 — A read, behind sign-in, for agents | LE23 401 and 403; an admin reads what the owner reads · LE24 reads only: no write transaction, the same nodes and relationships, no change entry · LE25 the command answers what the route answers, a refusal included, and `--direct` alone is true · LE26 listed for an admin with its inputs and refusals; `/docs` has GET with the six parameters · LX1 an admin agent pages through a concept to its last cursor, through the external CLI · LX2 it lists a set from everyone's point of view and is refused a header as a set · *on a real Neo4j, through nginx: the live check* | `graph/list-elements.test.js`, `graph/list-elements-agent-through-cli.test.js` | integration; the real external CLI against a loopback instance; live |
 | AC7 — The conventions, written once | LE27 the declaration's `limit`, `cursor` and `pov` are `reads.js`'s, it declares `reads.js`'s two refusals, and its elements and `pov` are `NODE` and `POV`; the catalog's Conventions name `reads.js`, ADR 0011 and the conventions' words; §1's row gives the answer as built · RC1–RC3 the exports and their schemas · RC15 loading it opens nothing · `graph/history.test.js` runs unchanged | `graph/list-elements.test.js`, `reads.test.js`, `graph/history.test.js` | integration; unit; docs |
 
@@ -29,6 +29,8 @@ The ADR leaves these open, or states them loosely. The tests settle them, and AD
 5. **A superset given as `concept`** gets the same hint as a set (LE21).
 6. **A cursor's position must pass the read's own test,** and its JSON must be three items long (RC6).
 7. **`everyone` resolves without a read** (RC10).
+
+At Implementation, ADR Amendment 2 adopted ADR 0028's Amendment 3: a set or superset has an address. LE28 was added for it in a Tester commit of its own, and it failed against the code it was added beside, as the Verification below records.
 
 ## Edge cases
 
@@ -90,6 +92,14 @@ operations: the read conventions (reads.js): 0 passed, 15 failed, 0 skipped
         src/operations/catalog/graph/list-elements.js does not exist yet (ADR graph-operations-first-slice/0011 Decision 2)
   FAIL  LX2: …
 operations: an admin agent lists elements through the external CLI: 0 passed, 2 failed, 0 skipped
+```
+
+**LE28, added at Implementation** (ADR Amendment 2), was run on 2026-11-16 against `c0bcb744`, the implementation before the amendment. It failed for the reason it names, and the rest passed:
+
+```
+  FAIL  LE28: a node labelled Set with no address, as the trust pipeline's card sets are, is no set
+        card-set: 409 not-a-set; got 200 {"success":true,"data":{"concept":null,"set":"901fc764-…","direct":false,…,"kept":0,"leftOut":0,"elements":[],"cursor":null}}
+operations: graph list-elements: 27 passed, 1 failed, 0 skipped
 ```
 
 **That they can pass.** Before committing them, the Tester ran the three suites once against a throwaway build of the ADR. It was kept outside the tree and copied in only for that run. The results were 26 of 27, 15 of 15 and 2 of 2. The one left failing, LE27, checks the catalog's Conventions, which Implementation writes. No test was changed to fit that build: it only showed that the tests ask for what the ADR describes. `graph/history.test.js` passes as it stands (8 of 8).

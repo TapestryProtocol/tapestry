@@ -29,7 +29,7 @@ The owner settled the story's three questions (2026-11-15): `pov` is the owner's
    - The cursor names no list: one from a filtered page, passed to an unfiltered one, starts mid-list without complaint.
    - `changes.js` is story 16's session's to change; nothing here edits it.
 2. **The class-thread walk.** `elementsOf` in `src/operations/catalog/graph/_fields.js:223–247` reads a concept's elements as `(h)-[:INIT]->(:Superset)-[:PROP*0..]->()-[:TERM]->(e)`, then `WITH DISTINCT e`, from a header found by tapestryKey with `h:ConceptHeader OR h:ListHeader`. Its relationship types come from `firmware.relAlias('CLASS_THREAD_INITIATION' | 'CLASS_THREAD_PROPAGATION' | 'CLASS_THREAD_TERMINATION')` (`:44–54`). It returns the field mapping's JSON and copies, and has no paging, order or point of view. Implicit members, nodes that only name the concept in a `z` tag, join once wired (ADR graph-operations-foundation/0005, Context 11).
-3. **Kinds of node.** Story 28's ADR reads a set as a node labelled `Set` and not `Superset`, and a superset as a node labelled `Superset` (ADR graph-operations-first-slice/0028, Decision 4). Its refusals are `unknown-node` (404) and `not-a-set` (409), and a header given as a set is told which key to pass. The field mapping reads a concept header as a node labelled `ConceptHeader`, or `ListHeader` for one the nostr import brought in (ADR 0005, Decision 5).
+3. **Kinds of node.** Story 28's ADR reads a set as a node labelled `Set` and not `Superset`, and a superset as a node labelled `Superset` (ADR graph-operations-first-slice/0028, Decision 5; the citation corrected, and the reading refined, by Amendment 2 below). Its refusals are `unknown-node` (404) and `not-a-set` (409), and a header given as a set is told which key to pass. The field mapping reads a concept header as a node labelled `ConceptHeader`, or `ListHeader` for one the nostr import brought in (ADR 0005, Decision 5).
 4. **Authors.** A node records its author as `pubkey`:
    - the event's author, for a node the nostr import made (`buildImportCypher`, `src/api/neo4j/eventSync.js:215–218`);
    - the assistant's, for nodes from today's signing routes, from add-subset, and from the new graph writes (ADR 0016, Decision 1).
@@ -341,6 +341,22 @@ The test plan (`engineering-team/stories/graph-operations-first-slice/11-list-el
 5. **A superset given as `concept`** is refused `not-a-concept` with the same hint as a set: pass it as `set`.
 6. **A cursor's position must pass the read's own test,** which for list-elements is a tapestryKey. A cursor whose position fails it, or whose JSON isn't three items long, is refused `invalid-cursor`.
 7. **Only the owner's point of view reads the graph to resolve.** `everyone` resolves without a read.
+
+## Amendment 2 (2026-11-16, at Implementation) — a set has an address
+
+ADR 0028's Amendment 3 refines the reading of a set that Context 3 adopts, and passes it on to this ADR's readers. The owner approved it on 2026-11-15; when this was written, it was on branch `A10.28-link-unlink-set` at `f77faea7`.
+
+**The refined reading:** a node counts as a set or a superset only when it has an address, its `uuid`.
+
+**Why.** The trust pipeline's card sets, `Set:SetOfNostrUserWotMetricsCards`, are 370,377 of staging's 370,401 `Set` nodes. Each has a tapestryKey, but no address and no class-thread links (ledger `2026-11-15-card-sets-carry-the-set-label`).
+
+**For list-elements:**
+1. `set` must name a node labelled `Set` or `Superset` that has a `uuid`. Anything else is refused `not-a-set`. So a card set is refused, rather than answering an empty list.
+2. The walk from a set starts only from such a node: the `set` walks of L3 and L4 add `s.uuid IS NOT NULL`.
+3. `not-a-concept` gives its hint, "pass it as set", only for a set or a superset that has an address.
+4. Context 3's citation of ADR 0028's reading is Decision 5, not Decision 4.
+
+**What stays as it is.** The walk from a concept doesn't change: card sets have no class-thread links, so no walk reaches one. Concept headers are read as before.
 
 ## Out of scope
 
