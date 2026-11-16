@@ -12,7 +12,7 @@
  *   - `=`, `<>`, `<`, `>`, `<=`, `>=`, `IS NULL`, `IS NOT NULL`, `IN`, `STARTS WITH`, `ENDS WITH`, `CONTAINS`
  *   - `NOT`, `AND`, `XOR`, `OR`, with Cypher's precedence (OR binds loosest, then XOR, AND, NOT, then comparisons) and
  *     its three-valued logic: a comparison with null is null, and WHERE keeps a row only when its test is true
- *   - `CASE WHEN … THEN … [ELSE …] END`, `coalesce`, `size`, `toString`, `trim`
+ *   - `CASE WHEN … THEN … [ELSE …] END`, `coalesce`, `size`, `toString`, `trim`, `toLower`
  *   - a node's `labels(v)`, `elementId(v)` and `id(v)` (graph-operations-foundation #8). A node's element id is
  *     "4:fake:<its place in the list>", and its id is that place.
  *   - aggregates `count(x)`, `count(*)`, `count(DISTINCT x)`, `collect(x)`, `sum(x)`, grouped by the other items
@@ -129,7 +129,7 @@ function parse(q) {
       op(')');
       if (AGGREGATES.has(fn)) { if (args.length !== 1) throw cantRead(`${fn} with ${args.length} arguments`, q); return { k: 'agg', fn, distinct, e: args[0] }; }
       if (distinct) throw cantRead(`DISTINCT in ${fn}()`, q);
-      if (!['coalesce', 'size', 'tostring', 'trim', 'labels', 'elementid', 'id'].includes(fn)) throw cantRead(`the function ${fn}()`, q);
+      if (!['coalesce', 'size', 'tostring', 'trim', 'tolower', 'labels', 'elementid', 'id'].includes(fn)) throw cantRead(`the function ${fn}()`, q);
       return { k: 'fn', fn, args };
     }
     if (t.t === 'id') {
@@ -263,6 +263,7 @@ function evaluate(e, env, params, q) {
       }
       if (e.fn === 'size') return x.length;
       if (e.fn === 'tostring') return String(x);
+      if (e.fn === 'tolower') return String(x).toLowerCase();
       return String(x).trim();
     }
     case 'agg': throw cantRead('an aggregate inside another expression', q);

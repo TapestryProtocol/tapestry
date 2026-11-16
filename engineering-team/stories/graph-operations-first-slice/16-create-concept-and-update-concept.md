@@ -1,6 +1,6 @@
 # Story 16: `graph create-concept` and `update-concept` — make a concept with no event, and change its names, slug or description
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Feature
 **Loom:** A10.16 — https://loom.brainstorm.world/t/A10.16
@@ -51,7 +51,7 @@ As the same agent, I want to change a concept's names, slug or description witho
   - a slug that another of this instance's concepts has, naming that concept;
   - a concept that isn't this instance's own: one that came from another author's event (D4);
   - a firmware concept, which a reinstall would rebuild (lifecycle seed-firmware, A10.37, is how those change);
-  - a new singular name for one of the concepts the server finds by name, as the Dictionary's edit refuses it;
+  - a new singular name for one of the concepts the server finds by name, or a new singular name that is one of those names, as the Dictionary's edit refuses both. *(Ruled at Review, 2026-11-15: the owner's answer to review round 1's non-blocking 5, which found only the first refused.)*
   - a call that names no field to change.
 
   The rule behind it is rule 10 as its full text gives it: no two of this instance's own concepts share a slug, or a key, since the key is what the rule keeps elements' JSON apart by. It holds for both operations. create-concept refuses a name whose key another of this instance's concepts already has under a different slug, naming that concept; a concept with the same slug is the repeat (AC3). The rule is defined once: as both operations' guard, and, run over a set of concepts, as a check that names each concept breaking it, for `rules check` (A10.31). It is written into the rules document (`docs/GRAPH_RULES.md`) with what it says, that it refuses a write, and how a check finds what breaks it. Names are not part of it: no rule makes them unique.
@@ -103,6 +103,47 @@ For Architecture, not this gate:
 - **What a letter that no longer matches means** when today's import brings the old letter in again, and how the answer says it (open question 3).
 - **The change entries' shape** for a concept made (eight nodes, eleven or so edges) and a concept changed (each field, from and to).
 
+## Evidence
+
+### The live check (Implementation, 2026-11-15)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, booted from image `agent-memory-tapestry` with this branch's `src/` mounted, and never on a shared or private instance. Every step and number is in the test plan's Verification. By criterion:
+
+- **AC1 and AC2: pass.**
+  - Today's create-concept made tea house, and `graph create-concept` made coffee house.
+  - The concept-graph reads show coffee house: `summaries` lists it, `node` gives its labels with no `NostrEvent`, and `neighbors` its wiring.
+  - All eight of `core-nodes`' nodes are identical to tea house's once the names are swapped.
+- **AC3: passes.**
+  - `graph create-concept` asked for tea house answered `already-exists`, `hasLetter` true, with no entry.
+  - Two creates of moth at once made one concept and one entry: the lock held.
+- **AC6 and AC7: pass on the instance too.** A rename of lamp to light, and a description on the lettered tea house (`letterOutOfDate` true), each answered as the suites do. Repeating them answered `already-exists` or `unchanged`.
+- **AC8: passes.**
+  - A backup was restored on a fresh instance. It brought back the assistant, and five concepts with every node, tag, relationship and tapestryKey as they were.
+  - An admin agent, through nginx and the external CLI, created reading lamp, created it again and renamed it. Each change was recorded as the agent's.
+  - The relay held 450 events before the first write, and 458 after the last. All 8 came from today's create-concept, and none from a graph operation.
+  - **A reinstall:** the first live run wired Decision 3's memberships, and a reinstall pruned 11 of them (Amendment 2, below). Re-checked on a fresh instance with Amendment 2's wiring, a reinstall (69 s) left a created concept and a renamed one exactly as they were: nodes, tags and relationships. Every concept each node's `z` tags name still reached it through its class thread.
+
+## Deviations
+
+- **Memberships are what a reinstall leaves** (ADR 0016 Amendment 2, the owner's ruling at Implementation). The live check's first reinstall pruned 11 of the 21 memberships Decision 3 wired: `word` everywhere, `graph` on the graph nodes, and `set` on the properties set. A second reinstall changed nothing. The class threads still reached every node from each concept its `z` tags name. create-concept now wires the 10 memberships a reinstall leaves, and CC2 expects exactly those.
+- **Two Tester corrections at Implementation,** each in a commit of its own, outside the implementation's:
+  - CC3 expects a new concept's schema to read as wrapped. Today's route makes a schema whose only top-level key is the concept's key, which `conceptOf` reads as wrapped, and CC3 had asserted the opposite.
+  - The seed's lettered concept is beagle, not dog. The active firmware has a dog concept at `39998:<TA>:dog`, so a seeded dog sat at a firmware concept's address, and update-concept rightly refused it (UC2).
+- **`differs` compares the plural and the description only when they are given** (AC3: "each input that differs"). A repeat that names only the name never reports the plural it didn't give.
+- **An update entry's `was` and `now` for the description are the description tag's**, null when there is none, not the JSON's default for a concept made without one.
+- **The near-match read takes at most 500 candidates by name or slug before it sorts them** (`LIMIT 500` in C8). `moreSimilar` counts within those. A graph with more than 500 concepts sharing a name with the one asked for would under-count; it caps the read, which an unbounded scan wouldn't.
+- **The rename writes node and tag values through the field mapping's S8 statement**, `_fields.js`'s `writeCopies`, reused rather than repeated: tag nodes carry keys too.
+- **What review round 1 changed** (ADR 0016 Amendment 3), with the review's cases added first as a third Tester correction, in a commit of its own:
+  - **A rename of a concept whose `names` tag has no plural lands,** and the same rename again answers `unchanged` (UC8). Before, it kept the old singular and recorded an entry each time.
+  - **A bad name, plural or description is refused before the rule reads the graph** (CC20, UC9), as Decision 2 says. A refusal that needs the graph, such as `firmware-concept`, still comes after the rule's `slug-in-use`.
+  - **AC5's list is one longer: an invisible character is refused** (CN3, CC11b, CC22), naming its code point. A name holding one reads as another, while its slug, key and labels hold the character, so `cat` with a variation selector after it would have been made beside cat. "Invisible" means default-ignorable, a format character or the braille blank, and each passes only where it draws something: inside one of Unicode's recommended emoji sequences, as a joiner between two letters of a script other than Latin, or as a Mongolian or ideographic selector (review rounds 2 and 3, ADR Amendments 4 and 5). Amendment 5 lists what that gets wrong, knowingly. A name with no slug is now refused for having "no letter a–z or digit 0–9", which is what a name in another script lacks.
+  - **A rename onto a name the server finds a concept by is refused `name-keyed`** (UC10), as the Dictionary's edit refuses it: the owner's ruling, now in AC7. create-concept is unchanged: a repeat by slug returns the instance's own concept.
+  - **Two counts are checked:** each relationship create-concept makes must find its two nodes, and an update must write every node and tag it means to.
+- **Known limits carried forward:**
+  - **A concept can't be named in a non-Latin script alone,** since a slug keeps only a–z and 0–9 (Decision 2). Noted on Loom for the rebuild (A10.39).
+  - **The re-check after the lock is pinned by no test.** The fake has no concurrency, and L2 is answered without it. The test plan's L7 is for the next scratch run that touches concepts.
+  - **A create reads every own concept three times** (the guard, the re-check and the repeat). That is fine at today's size; noted on Loom for the rebuild, which makes many in a row.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
@@ -112,5 +153,5 @@ For Architecture, not this gate:
 - The field marks a rename must keep: [stories/graph-operations-foundation/5-field-mapping.md](../graph-operations-foundation/5-field-mapping.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md](../../decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [16-create-concept-and-update-concept.test-plan.md](16-create-concept-and-update-concept.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md](../../reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md) (rounds 1–4, 2026-11-15)
