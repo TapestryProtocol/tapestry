@@ -75,6 +75,8 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - **Check:** the same `violations` over every own concept, each as `{ concept }`, names each concept that shares a slug or a key with another, both of the pair. `rules check` (A10.31) will run it over the graph.
 - **Repair:** none yet. A slug clash is fixed with `graph update-concept --slug`. A key clash needs a concept moved to another key, which no operation does yet.
 - **Enforced by:** the guards of `graph create-concept` and `graph update-concept`, run again after each takes its lock, so two writes at once can't both pass it. The rule's code is in `src/operations/rules/concept-slug-unique.js`. Built in story graph-operations-first-slice #16 (ADR 0016).
+- **Status:** enforced.
+- **Source:** ADR graph-operations-first-slice/0016.
 
 ## 5. `class-thread-acyclic`
 
