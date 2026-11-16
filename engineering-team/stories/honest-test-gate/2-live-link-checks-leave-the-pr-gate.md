@@ -1,6 +1,6 @@
 # Story 2: The pull-request gate stops checking live links; a weekly run checks them and files an issue
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Bug
 
@@ -112,4 +112,4 @@ Judgment calls made in Implementation, too small for an ADR (the story has none)
 - ADR: none. Architecture is skipped: a Bug under Standard, with the design chosen by the owner from ledger
   row `2026-11-16-link-check-fails-during-prod-deploy`'s options on 2026-11-16.
 - Test plan: `engineering-team/stories/honest-test-gate/2-live-link-checks-leave-the-pr-gate.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/honest-test-gate/2-live-link-checks-leave-the-pr-gate.md`
