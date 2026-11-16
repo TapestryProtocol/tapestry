@@ -11,8 +11,9 @@
  *   CN1 deriveAllNames gives what today's route's deriveAllNames gives, for a table of names
  *   CN2 cleanName trims, and turns each run of white space inside a name into one space
  *   CN3 nameProblem names the problem of an empty name, one whose slug is empty, one with a control character or a
- *       text-direction control, and one longer than 200 characters; a name of 200 is fine. (Review round 1) It names an
- *       invisible formatting character, but not a joiner a script needs, and says which letters a slug keeps
+ *       text-direction control, and one longer than 200 characters; a name of 200 is fine. (Review rounds 1 and 2) It
+ *       names the first invisible character, but not a joiner or selector a script or an emoji draws with, and says
+ *       which letters a slug keeps
  *   CN4 descriptionProblem allows line breaks and tabs, and names any other control character
  */
 
@@ -67,6 +68,31 @@ test('CN3: nameProblem names each problem a name can have, and passes a name of 
   }
   const fineJoiner = 'nastaliq نیم\u200Cفاصله';
   assert(L.nameProblem(fineJoiner) === null, `a zero-width non-joiner between two Persian letters, which the script needs, is fine; got ${show(L.nameProblem(fineJoiner))}`);
+  // Review round 2 (R2-1, R2-3): every invisible (default-ignorable) character is refused, and the first one named,
+  // but the joiners and selectors a script or an emoji draws with.
+  for (const [bad, cp] of [
+    ['bea\uFE0Fgle', 'U+FE0F'], // a variation selector after a Latin letter
+    ['bea\u3164gle', 'U+3164'], // a Hangul filler
+    ['bea\u034Fgle', 'U+034F'], // a combining grapheme joiner
+    ['caf\u00E9\u200D\u00E9', 'U+200D'], // a joiner between two accented Latin letters
+    ['cafe\u0301\u200De\u0301', 'U+200D'], // the same, the accents written as combining marks
+    ['ng\u01B0\u200D\u1EDDi', 'U+200D'], // Vietnamese
+    ['tea \u200Droom', 'U+200D'], // a joiner beside a space
+    ['nastaliq نیم\u200C', 'U+200C'], // a joiner at the end, after a Persian letter
+    ['beagle\u200B', 'U+200B'], // at the end of a Latin name
+    ['نیم\u200Cفاصله bea\u200Dgle', 'U+200D'], // the stray joiner, not the one Persian needs
+  ]) {
+    const why = L.nameProblem(bad);
+    assert(typeof why === 'string' && /invisible/.test(why) && why.includes(cp) && (cp === 'U+200C' || !why.includes('U+200C')), `nameProblem(${show(bad)}) names ${cp}; got ${show(why)}`);
+  }
+  for (const fine of [
+    'kshatriya \u0915\u094D\u200D\u0937', // a joiner in a Devanagari conjunct, after a virama
+    'heart \u2764\uFE0F', // an emoji's presentation selector
+    'rainbow flag \u{1F3F3}\uFE0F\u200D\u{1F308}', // an emoji sequence: a selector, then a joiner
+    'technologist \u{1F469}\u{1F3FD}\u200D\u{1F4BB}', // a joiner after a skin-tone modifier
+  ]) {
+    assert(L.nameProblem(fine) === null, `nameProblem(${show(fine)}) is null: a script or an emoji draws with these; got ${show(L.nameProblem(fine))}`);
+  }
   const cy = L.nameProblem('собака');
   assert(typeof cy === 'string' && /a–z/.test(cy) && /0–9/.test(cy) && !/no letter or digit/.test(cy), `a Cyrillic name is refused for having no letter a–z or digit 0–9, not for having no letter; got ${show(cy)}`);
 });

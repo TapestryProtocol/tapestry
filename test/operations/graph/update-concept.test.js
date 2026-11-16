@@ -28,6 +28,7 @@
  *   (review round 1) UC8 a rename of a concept whose names tag has no plural lands, and repeating it answers
  *        unchanged; UC9 a bad name is refused before the rule reads the graph; UC10 a rename onto a name-keyed name is
  *        refused (the owner's ruling)
+ *   (review round 2) UC11 a tag the update can't find when it writes fails the update, which changes nothing
  */
 
 const fs = require('fs');
@@ -264,6 +265,22 @@ test('UC10: a rename onto a name the server finds a concept by is refused name-k
   assert(set.input === 'name', `any of the name-keyed names; got ${show(set)}`);
   const g = await graph();
   assert(C.node(g, k.bird).props.name === 'bird' && C.tags(g, k.bird).find((t) => t.type === 'names').value === 'bird', `bird keeps its name; got ${show(C.tags(g, k.bird).find((t) => t.type === 'names'))}`);
+});
+
+test('UC11: a tag the update can\'t find when it writes fails the update, which changes nothing', async () => {
+  needDecls();
+  // As CC21: the fake can't change a tag while the update runs, so bird's names tag keeps its key but loses the
+  // TapestryNode label. conceptFacts still reads it, and the copies statement finds one row fewer than it was given.
+  const seed = await C.seedConcepts();
+  const bird = C.node(seed.state, seed.keys.bird);
+  const namesTag = seed.state.rels.filter((r) => r.from === bird.eid && r.type === 'HAS_TAG').map((r) => seed.state.nodes.find((n) => n.eid === r.to)).find((t) => t.props.type === 'names');
+  namesTag.labels = namesTag.labels.filter((l) => l !== 'TapestryNode');
+  const file = seed.file(tmp('update-concept-lost-'));
+  const r = runOn(file, [post('lost', 'owner', { concept: seed.keys.bird, name: 'parrot' })]);
+  const x = r.req('lost');
+  assert(x.status === 500, `the update fails rather than write part of a rename; got ${x.status} ${show(x.body)}`);
+  const g = S.readState(file);
+  assert(C.node(g, seed.keys.bird).props.name === 'bird' && C.tags(g, seed.keys.bird).find((t) => t.type === 'names').value === 'bird', 'bird is as it was');
 });
 
 test('UC7: nothing is signed; callers, the command, the list and /docs', async () => {

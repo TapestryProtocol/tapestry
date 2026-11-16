@@ -35,6 +35,8 @@
  *        admin's create is recorded as the admin's
  *   CC16 the command creates one too, recorded as the command's, and its refusal matches the route's
  *   CC17 it is listed with its guard, repeatKey and refusals, and has its /docs entry; inputs are checked
+ *   (review round 2) CC21 a superset the write can't find fails the create, which keeps nothing; CC22 an invisible
+ *        character after cat is refused, not made beside cat, and bad-name's published reason names it
  *   (review round 1) CC11b an invisible formatting character, and a name with no letter a–z or digit, are refused
  *        saying why; CC18 differs names the name; CC19 a plural swap the other way; CC20 a bad plural or description is
  *        refused before the rule reads the graph
@@ -112,6 +114,7 @@ function main() {
       post('order-desc', 'owner', { name: 'cat', description: 'x\u0000y' }),
       post('n-zero-width', 'owner', { name: 'bea\u200Bgle' }),
       post('n-cyrillic', 'owner', { name: 'собака' }),
+      post('cat-selector', 'owner', { name: 'cat\uFE0F' }),
       post('n-blank', 'owner', { name: '   ' }),
       post('n-noslug', 'owner', { name: '!!!' }),
       post('n-control', 'owner', { name: 'bad\u0007name' }),
@@ -378,6 +381,35 @@ test('CC20: a bad plural or description is refused before the rule reads the gra
   assert(p.input === 'plural', `the plural's problem, before the key clash; got ${show(p)}`);
   const dsc = await refused('order-desc', 400, 'bad-description');
   assert(dsc.input === 'description', `the description's problem, before the key clash; got ${show(dsc)}`);
+});
+
+test('CC21: a superset the write can\'t find when it joins a node to it fails the create, which keeps none of its nodes', async () => {
+  needDecl();
+  // The fake runs one transaction at a time, so it can't delete the superset while the create runs. A superset that
+  // keeps its key but not the TapestryNode label stands in: C3 still reads it, and the membership's MERGE finds nothing.
+  const sup = `39999:${TA}:json-schema-superset`;
+  const { file } = await fresh({}, (s) => {
+    const n = s.nodes.find((x) => x.props.uuid === sup);
+    if (!n) throw new Error(`the seed has no ${sup}`);
+    n.labels = n.labels.filter((l) => l !== 'TapestryNode');
+  });
+  const { a } = runOn(file, [post('lost', 'owner', { name: 'teakettle' })]);
+  const x = a.req('lost');
+  assert(x.status === 500, `the create fails rather than make a concept missing a membership; got ${x.status} ${show(x.body)}`);
+  const g = S.readState(file);
+  assert(C.nodesAt(g, `39998:${TA}:teakettle`).length === 0 && C.nodesAt(g, `39999:${TA}:teakettle`).length === 0, 'and keeps none of its nodes');
+});
+
+test('CC22: cat with a variation selector after it is refused bad-name, not made beside cat with a key that reads as cat\'s; bad-name\'s published reason names invisible characters', async () => {
+  const x = await refused('cat-selector', 400, 'bad-name');
+  assert(x.input === 'name' && /invisible/.test(String(x.error)) && String(x.error).includes('U+FE0F'), `the selector is named; got ${show(x)}`);
+  const g = await graph();
+  // cat's header holds 39998:<TA>:cat (its slug tag says feline), so a concept made with this name would take a nonce.
+  assert(C.nodesAt(g, `39998:${TA}:cat~`).length === 0 && C.nodesAt(g, `39999:${TA}:cat~`).length === 0, 'no concept was made beside cat, at the next nonce');
+  const { a } = await main();
+  const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'create-concept');
+  const when = String(((e && e.refusals) || []).find((r) => r.code === 'bad-name')?.when || '');
+  assert(/text-direction/.test(when) && /invisible/.test(when), `the list publishes every problem a name can have; bad-name's reason is ${show(when)}`);
 });
 
 test('CC12: without a firmware concept its nodes join, or without the concept-header concept, it is refused not-installed', async () => {
