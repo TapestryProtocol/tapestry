@@ -236,3 +236,143 @@ The four non-blocking items can ride along. The story stays `Approved`.
 ## Close-out (same commit)
 - [ ] Story `**Status:**` stays `Approved`. Its Review line fills in on the round that passes.
 - [ ] **Still owed by the PR's own commit:** ledger row `2026-11-15-tapestry-keys-exceeds-transaction-memory` is `OPEN` on this branch. The story's Deviation 5 leaves it to that commit to flip it to `DONE`, naming story 9 and the PR's number, as ADR 0009's Implementation notes ask.
+
+# Round 2
+
+**Date:** 2026-11-16 (UTC)
+**Diff:** `git diff ab3a34bd..0f0cd24c` (`ab3a34bd` committed round 1's review). Four commits:
+- `d561746b`, the story: AC4's second bullet restated at the owner's ruling.
+- `7e59d029`, the Tester's Amendment 1:
+  - LK4's new bound, with `afterBackupKB` added to `workerPeak.sh`;
+  - the fake's holders read applying the query's label tests;
+  - SK9;
+  - the plan's Amendment 1.
+- `bf311184`, the Implementer:
+  - the `sharedKeys` and `planKeys` comments, ADR 0009's "Memory and time" and OPERATIONS.md §17, on what status costs while a key is shared;
+  - round 1's harness friction, appended to the ledger row `2026-11-08-scratch-stack-one-shared-name`.
+- `0f0cd24c`, the Implementer: two live runs and each read's time and memory, in the plan's "Round 2".
+
+Each role kept to its own files. In `src/`, every line changed since round 1 is a comment, so the code is round 1's. `origin/staging` is now `ab888938`.
+
+## Gates, again
+
+- [ ] **`npm test`: not run,** as in round 1 (OPEN.md row 294).
+- [x] **The operations family, through the gate engine,** set up as in round 1 (dead endpoints, a scratch record). `npm run gate:status -- --label reviewer-9-round2`:
+  `20261116T025151Z-8585-c203 [reviewer-9-round2] started 2026-11-16T02:51:51.883Z on 0f0cd24c — PASS, exit 0, 346 passed, 0 failed, 4 skipped, 1/1 suites`
+  - That is round 1's 345 plus SK9. The tree was clean.
+- [x] **Each suite on its own,** stack-free:
+  - `shared-keys`: 9 passed, 0 failed, 4 skipped.
+  - The eleven other lifecycle suites: 152 of 152, as in round 1.
+  - The operations family through `node -e`: 346 passed, 0 failed, 4 skipped, exit 0.
+- [x] **The wrong fixes, again.** Round 1's ten, plus two more against the growth path, were each made in a scratch copy of the tree at HEAD. Eleven of the twelve fail a test.
+  - Wrong fix 7, the holders read narrowed to `NOT n:TapestryNode`, now fails SK4.
+  - Deleting the growth block fails SK9, as the plan's Amendment 1 says, and so does growing without copying the old hashes.
+  - Wrong fix 2, `n > hashes.length`, still passes all 9 SK tests (Non-blocking 1).
+- [x] **The live checks, re-run twice** on one fresh scratch stack at `0f0cd24c`.
+  - The stack booted 02:50:49–02:52:34 UTC and was seeded by 02:55:13. The two passes ran 02:55:13–02:59:37 and 02:59:37–03:03:51, and the stack was then removed.
+  - **Each pass: 13 passed, 0 failed, 0 skipped.** This time the runner recorded each exit status the moment the command ended.
+
+  | Check | Pass 1 | Pass 2 |
+  |---|---|---|
+  | LK1 | 19.5 s. Neo4j 2 MB. Process 113.2 MB, against a backup's count of 451.9 MB | 18.4 s. Neo4j 2 MB. Process 113.1 MB, against 450.5 MB |
+  | LK2, no rule; then the rule in place with a held key | 18.3 s; then 68.1 s with its backup | 17.2 s; then 67.4 s with its backup |
+  | LK3 | 3.08 s | 2.98 s |
+  | LK4 | 68.5 s, 2,294,384 stripped. Neo4j 28 MB. Process 263.8 MB, and 263.8 MB when the backup was done: **0 added** | 65.4 s, 2,294,384 stripped. Neo4j 28 MB. Process 288.4 MB, and 285.9 MB when the backup was done: **2.5 MB added** |
+
+  - **The budget** was 77.7 MB in both: 8 bytes × 1,556,860 keys, plus 64 MiB (`shared-keys.test.js:498`).
+  - **The four runs under the restated bound agree.** The plan's two and these two put the check's addition at 4.1, 0.2, 0 and 2.5 MB. Over the same runs the job's peak itself ranged from 263.8 to 290.5 MB.
+  - **Each LK4 job took its backup.** Its run file, saved before teardown, shows one `"stage"` field, inside `progress`.
+- [x] **Each read, timed again with my own instrument,** on a second fresh stack (03:05:44–03:11:16 UTC, then removed).
+  - The plan's own instrument isn't in the repo (Non-blocking 4). Mine wraps lifecycle's `_system` inside the container and times each read, with the process's memory around it.
+  - It didn't sample `SHOW TRANSACTIONS`. LK1's probe covers the first read, at 2 MB.
+
+  | Read | A: no rule, nothing shared (the job's `full` plan) | B: no rule, one key on two nodes | C: the rule in place, a held key (status's plan) |
+  |---|---|---|---|
+  | The counts (count store) | 115 ms, 13 ms | 109 ms, 1 ms | 106 ms, 1 ms |
+  | Decision 4's scan | 1,508 ms | 1,390 ms | 1,399 ms |
+  | `SHOW CONSTRAINTS`, `SHOW INDEXES` | 22 ms, 25 ms | 2 ms, 4 ms | 3 ms, 3 ms |
+  | The check's first read | 4,393 ms, 3,851,244 rows; the process 66.5 → 103.1 MB | 4,227 ms; 68.3 → 104.5 MB | 258 ms, 1 row |
+  | The check's second read | — | 4,221 ms; 104.5 → 113.0 MB | 4,295 ms, 3,851,245 rows; 66.5 → 73.9 MB |
+  | The `'{}'` count | 1,238 ms | 1,231 ms | — |
+  | The whole `plan` | 7.7 s, peak 101 MB, nothing shared | 11.5 s, peak 111 MB, the pair named (2) | 6.1 s, peak 75 MB, the held key named (2) |
+  | The plan's figure | 7.2 s, 100 MB | 10.8 s, 107 MB | 5.6 s, 79 MB |
+
+  - **`lifecycle status` on the migrated graph,** with the rule in place, took 3.28, 3.16 and 3.18 s. While the held key stood it took 6.37, 6.30 and 6.50 s, then 3.11 s once the probe was gone. The plan gives 3.05–3.08 s and 6.01–6.15 s.
+- [x] **A merge with today's staging conflicts in one file:** `ledger/2026-11-08-scratch-stack-one-shared-name.md` (`git merge-tree`; Non-blocking 3).
+
+## Round 1's findings, each re-derived as a fresh claim
+
+1. **Blocking 1 (LK4's bound): resolved.**
+   - **The ruling.** The story restates AC4's second bullet (`9-tapestry-keys-within-transaction-memory.md:56–60`). Its note and its commit message attribute the wording to the owner's ruling of 2026-11-16. The owner's own reply isn't in the repo; it reached this review through the coordinator. If that isn't the owner's ruling, this finding reopens.
+   - **The restated bullet is the wording round 1 suggested, so I checked it as a claim, not as my own text** (role, step 10).
+     - **It can hold.** On AC2's graph it compares the check with the peak the job's own backup leaves, not with a count run in another process.
+     - **LK4 measures what it says.**
+       - The job writes `planning` after its backup and just before the full plan (`src/operations/catalog/lifecycle/_jobs.js:292`).
+       - Only the migrate job writes `progress` into the run file (`_jobs.js:279–295`). The backup inside it updates the lock, not the run file.
+       - `workerPeak.sh` takes the run id from the worker's last argument (`_jobs.js:483`). It records the peak at the first sample whose stage is past `backup` (`test/helpers/scratchProbes/workerPeak.sh:24–25`).
+       - The run file is pretty-printed JSON (`_store.js:57`) with one `"stage"` field, as both saved run files show.
+     - **What it can't show.** A structure that fits under the backup's high-water mark doesn't raise the peak, so this bound can't see it.
+       - Keeping the key strings, ADR 0009's Option A at about 100 bytes a key, could pass LK4 whenever the backup's memory has been freed before the check runs.
+       - Option A also sits at LK1's bound: 442 MB against a 443–454 MB count.
+       - So the 8 bytes a key rests on the code (the `Float64Array`, `_migrations.js:108`), not on a test. That fits the bullet as ruled, which is about the job's peak.
+   - **The live runs** are in Gates, again. Four runs agree, where round 1's measure gave 1.24× and 1.33× for the same code.
+2. **Non-blocking 1 (status's second read): resolved.**
+   - **The comments are accurate.** The `sharedKeys` comment brings in the second read for "a candidate, or a held key" (`_migrations.js:103`) and says status pays for it on every call (`:106`). The `planKeys` comment says the same (`:164`).
+   - **ADR 0009, "Memory and time"** (`:130–135`):
+     - Its three triggers are Decision 3's.
+     - "a state where `tapestry-keys` already reads as not applied" holds for all three. Each needs an unlabelled node, so `withoutLabel > 0` (`_migrations.js:176–177`).
+   - **OPERATIONS.md §17** (`:1113`) has "Before the rule exists" back, and the sentence on status.
+   - **The numbers.** Status rose by about 3 s while the key was held, on the plan's runs and on mine. The second read alone took 4.2–4.3 s at 3.85 million keys in a process of its own. So "about 5 s at four million keys", round 1's suggested figure, errs high, which is the safe side.
+3. **Non-blocking 2 (the fake's label tests): resolved.** The holders read applies `NOT <v>:TapestryNode`, or a positive label test (`test/helpers/lifecycleFakes.js:477–479`). Wrong fix 7 now fails SK4, with 8 passed and 1 failed, as Amendment 1 says.
+4. **Non-blocking 3 (the growth path): only partly.** The miss is round 1's own.
+   - **What SK9 catches.** SK9 (`shared-keys.test.js:275–301`) fails when the growth block is deleted, and when the old hashes aren't copied. It passes wrong fix 2.
+   - **Round 1's description of wrong fix 2 was wrong.**
+     - `n > hashes.length` doesn't drop every row past the end. It drops one row at each boundary, rows 1,024 and 2,048 of SK9's 3,000.
+     - I ran the mutated code through SK9's stub. A pair whose second holder sits at row 1,024 or 2,048 isn't found, and SK9's pairs, at rows 1,500/1,600 and 2,500/2,999, are.
+   - **So round 1's asked case couldn't catch it.** The case, "a shared key past row 1,024", is what SK9 is (Non-blocking 1 below).
+5. **Non-blocking 4 (each read's record): resolved.** The plan's table (`…test-plan.md:193–203`) matches my re-run. The check's own reads are within 8% of its times, the other reads within about 20%, and each whole `plan` within 0.7 s and 4 MB.
+6. **Harness friction 1:** appended to `ledger/2026-11-08-scratch-stack-one-shared-name.md`. What in it I can check holds, and staging's own paragraph confirms that `tapestry-scratch-a1028` had its own network and Redis. Both appends now conflict (Non-blocking 3).
+
+## What the round's new text says that doesn't hold
+
+- **The test plan, line 191:** "With the restated bound, all three runs agree: once the backup is done, the check adds a few MB at most to the process."
+  - Round 1's run (298.9 MB) predates `afterBackupKB`, so it can't be read against the restated bound.
+  - Two runs agreed when that was written. With this round's, four do.
+
+## Findings (round 2)
+
+### Blocking
+None.
+
+### Non-blocking
+1. **`test/operations/lifecycle/shared-keys.test.js:279–280`: SK9's shared keys miss the rows that wrong fix 2 drops.**
+   - **Asked change** (Tester, when convenient): put one holder of each shared key on a boundary row. For example, `rows[1024].k = 'k-mid'` in place of `rows[1600]`, and `rows[2048].k = 'k-late'` in place of `rows[2500]`, with the node lists SK9 asserts to match. Then `n > hashes.length` fails SK9.
+   - The code is right, as round 1's direct check showed.
+2. **`9-tapestry-keys-within-transaction-memory.test-plan.md:191`: "all three runs agree"** counts round 1's run, which had no `afterBackupKB`. Optional: say that both runs agree, and add this review's two.
+3. **`ledger/2026-11-08-scratch-stack-one-shared-name.md` conflicts with `origin/staging` (`ab888938`).**
+   - This branch (`bf311184`) and staging (`41fdf5a7`) each appended a paragraph after its Pointer line.
+   - Whoever merges staging into the PR keeps both paragraphs. Nothing else conflicts.
+4. **`9-tapestry-keys-within-transaction-memory.test-plan.md:193`: the per-read table came from "the session's instrumented `plan`", which isn't in the repo.**
+   - The probes for AC4's first two bullets are committed, so a later round can re-run them. The instrument behind its third bullet can't be re-run.
+   - Optional: commit it beside `test/helpers/scratchProbes/`. It is about thirty lines: wrap `_system`'s `cypher` and `cypherEach`, and time each read with the process's memory.
+
+### Harness friction
+None new.
+
+## On PASS (same commit)
+- [x] Story `**Status:**` set to `Done` in place, and its Review line names this file.
+- [x] Completion detection was run. The result is in the chat, not here.
+- [ ] **Still owed by the PR's own commit:**
+  - the ledger row `2026-11-15-tapestry-keys-exceeds-transaction-memory`, flipped to `DONE` with story 9 and the PR's number (the story's Deviation 5);
+  - the merge with staging that Non-blocking 3 describes.
+
+## Verdict (round 2)
+
+Round 1's blocking finding is resolved.
+- **The owner has restated AC4's second bullet** so that it can hold on production's shape.
+- **LK4 now measures that bullet,** from the job's own peak after its backup. It passed on the plan's two runs and on this review's two, with the check adding 0–4.1 MB against a 77.7 MB budget. Round 1's ratio read 1.24× on one run and 1.33× on the next.
+- **Every acceptance criterion has a test that passes,** stack-free and live, re-run here.
+- **Three of the four smaller items are done in full.** The fourth, the growth test, stops one wrong fix short, because round 1 asked for the wrong case (Non-blocking 1).
+- **The code is round 1's,** and only comments changed.
+
+**PASS**
