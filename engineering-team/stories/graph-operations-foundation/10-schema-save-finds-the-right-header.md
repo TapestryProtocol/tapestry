@@ -1,6 +1,6 @@
 # Story 10: Saving a concept's schema never lands on another author's header
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Bug
 
@@ -107,4 +107,4 @@ One more was settled at the Test Design gate, 2026-11-15:
 - Found by: story 5's firmware install on the owner's local instance, 2026-11-15, and story 8's review, round 2 (`engineering-team/stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.test-plan.md`, Amendments 1 and 2).
 - Ledger: `ledger/2026-11-15-save-schema-finds-header-by-name.md`
 - Test plan: `engineering-team/stories/graph-operations-foundation/10-schema-save-finds-the-right-header.test-plan.md`
-- Review: (filled in after Review)
+- Review: `engineering-team/reviews/graph-operations-foundation/10-schema-save-finds-the-right-header.md`
