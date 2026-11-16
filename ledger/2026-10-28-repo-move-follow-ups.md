@@ -53,6 +53,7 @@ every `gh` command. These items remain:
   and reruns the job (`deploy/RUNBOOK.md`, Handover 3).
 - **Still open:**
   - Item 1 holds: the new repo has no rulesets, and an org owner has to create them (admin). Their definitions are now in `.github/rulesets/` (OPERATIONS §4), with the commands.
+    - **2026-11-16:** both rulesets are live on `main` now. `repos/TapestryProtocol/tapestry/rules/branches/main` lists ruleset 27080672 (`pull_request`, `required_status_checks`) and ruleset 27080689 (`deletion`, `non_fast_forward`). Read during the doc-lane review `harness-self-improvement/main-guard-actions-policy-2026-11-16`, which is where this line comes from. Item 1's owner action looks done; whoever closes it re-checks OPEN.md row 14, as item 1 asks.
   - The droplets' `origin` still names the old address, which redirects. Set it to the new one when convenient.
   - Loom's `config/repos.json` and the roadmap's `repo:` lines still name the old repo.
   - Item 3 holds: the public pointers still name the old repo.
