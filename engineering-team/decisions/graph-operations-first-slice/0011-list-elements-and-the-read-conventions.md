@@ -29,7 +29,7 @@ The owner settled the story's three questions (2026-11-15): `pov` is the owner's
    - The cursor names no list: one from a filtered page, passed to an unfiltered one, starts mid-list without complaint.
    - `changes.js` is story 16's session's to change; nothing here edits it.
 2. **The class-thread walk.** `elementsOf` in `src/operations/catalog/graph/_fields.js:223–247` reads a concept's elements as `(h)-[:INIT]->(:Superset)-[:PROP*0..]->()-[:TERM]->(e)`, then `WITH DISTINCT e`, from a header found by tapestryKey with `h:ConceptHeader OR h:ListHeader`. Its relationship types come from `firmware.relAlias('CLASS_THREAD_INITIATION' | 'CLASS_THREAD_PROPAGATION' | 'CLASS_THREAD_TERMINATION')` (`:44–54`). It returns the field mapping's JSON and copies, and has no paging, order or point of view. Implicit members, nodes that only name the concept in a `z` tag, join once wired (ADR graph-operations-foundation/0005, Context 11).
-3. **Kinds of node.** Story 28's ADR reads a set as a node labelled `Set` and not `Superset`, and a superset as a node labelled `Superset` (ADR graph-operations-first-slice/0028, Decision 4). Its refusals are `unknown-node` (404) and `not-a-set` (409), and a header given as a set is told which key to pass. The field mapping reads a concept header as a node labelled `ConceptHeader`, or `ListHeader` for one the nostr import brought in (ADR 0005, Decision 5).
+3. **Kinds of node.** Story 28's ADR reads a set as a node labelled `Set` and not `Superset`, and a superset as a node labelled `Superset` (ADR graph-operations-first-slice/0028, Decision 5; the citation corrected, and the reading refined, by Amendment 2 below). Its refusals are `unknown-node` (404) and `not-a-set` (409), and a header given as a set is told which key to pass. The field mapping reads a concept header as a node labelled `ConceptHeader`, or `ListHeader` for one the nostr import brought in (ADR 0005, Decision 5).
 4. **Authors.** A node records its author as `pubkey`:
    - the event's author, for a node the nostr import made (`buildImportCypher`, `src/api/neo4j/eventSync.js:215–218`);
    - the assistant's, for nodes from today's signing routes, from add-subset, and from the new graph writes (ADR 0016, Decision 1).
@@ -329,6 +329,43 @@ A read, `owner-and-admins`, declared with `run`.
 8. Do it again as an admin agent with its own key, through the external CLI.
 
 **Branches.** A new feature, for `staging` only. It reaches `main` through the normal promotion, and no long-lived sandbox branch needs a port.
+
+## Amendment 1 (2026-11-15, at Test Design) — what the Tester's readings settle
+
+The test plan (`engineering-team/stories/graph-operations-first-slice/11-list-elements.test-plan.md`) reads the decisions this way, and the suites hold the Implementer to it:
+
+1. **The three inputs are input declarations.** `LIMIT_INPUT`, `CURSOR_INPUT` and `POV_INPUT` are each `{ schema, description }`, with the schemas C1 and C2 give. A read puts them into its `inputs` exactly as they are.
+2. **The facts that can be missing are nullable.** In `NODE`, `name`, `address` and `author` are text with `nullable: true`, and `own` is a boolean. In `POV`, `observer`, `cutoff` and `scored` are nullable, and `name` is text.
+3. **The answer's `pov` holds four facts:** `{ name, observer, cutoff, scored }`. The keys in `own` stay inside the read.
+4. **The input not given is null in the answer.** A concept's listing answers `set: null`, and a set's answers `concept: null`.
+5. **A superset given as `concept`** is refused `not-a-concept` with the same hint as a set: pass it as `set`.
+6. **A cursor's position must pass the read's own test,** which for list-elements is a tapestryKey. A cursor whose position fails it, or whose JSON isn't three items long, is refused `invalid-cursor`.
+7. **Only the owner's point of view reads the graph to resolve.** `everyone` resolves without a read.
+
+## Amendment 2 (2026-11-16, at Implementation) — a set has an address
+
+ADR 0028's Amendment 3 refines the reading of a set that Context 3 adopts, and passes it on to this ADR's readers. The owner approved it on 2026-11-15; when this was written, it was on branch `A10.28-link-unlink-set` at `f77faea7`.
+
+**The refined reading:** a node counts as a set or a superset only when it has an address, its `uuid`.
+
+**Why.** The trust pipeline's card sets, `Set:SetOfNostrUserWotMetricsCards`, are 370,377 of staging's 370,401 `Set` nodes. Each has a tapestryKey, but no address and no class-thread links (ledger `2026-11-15-card-sets-carry-the-set-label`).
+
+**For list-elements:**
+1. `set` must name a node labelled `Set` or `Superset` that has a `uuid`. Anything else is refused `not-a-set`. So a card set is refused, rather than answering an empty list.
+2. The walk from a set starts only from such a node: the `set` walks of L3 and L4 add `s.uuid IS NOT NULL`.
+3. `not-a-concept` gives its hint, "pass it as set", only for a set or a superset that has an address.
+4. Context 3's citation of ADR 0028's reading is Decision 5, not Decision 4.
+
+**What stays as it is.** The walk from a concept doesn't change: card sets have no class-thread links, so no walk reaches one. Concept headers are read as before.
+
+## Amendment 3 (2026-11-16, at Review) — what review round 1 settled
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/11-list-elements.md`) found these, and round 2's commits make them so:
+1. **A key of `'{}'` is no key.** L3 and L4 leave out `e.tapestryKey = '{}'` wherever they leave out a null key. `'{}'` is the placeholder the codebase reads as no key (ADR graph-operations-foundation/0003). So such a node is neither listed nor counted, as Decision 2 already says of a node with no key, and no cursor can hold it.
+2. **Both instance keys are read as events carry them.** `ownKeys` trims, lowercases and checks the assistant's key as well as the owner's. A key that isn't 64 hex characters is left out.
+3. **The shared cursor refusal names no read's own inputs.** It says a cursor works only with the inputs that made it.
+4. **Decision 2, step 3, as built.** Its last sentence, "Both checks run before the graph is read", holds for everyone's point of view only. For the owner's, `resolvePov` reads the scores (C2) as it resolves, before the cursor is decoded. A cursor that doesn't parse then costs one small read before its 400.
+5. **Consequences, debt 1.** The cutoff's two homes are recorded by `engineering-team/stories/_intake.md`, 2026-06-06, item 2. That item notes a live `graperank.conf` of 0.01, so the verified counts and the API's lists may already disagree. The ledger row `2026-11-16-verified-cutoff-two-homes` is closed as its duplicate.
 
 ## Out of scope
 

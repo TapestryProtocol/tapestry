@@ -46,7 +46,7 @@ Facts from the codebase that the design rests on:
    - **(c) Concept manifests.** Each concept manifest's `IS_A_SUPERSET_OF: [{ nodeFrom, nodeTo }]` names files in that concept's `sets/` or `elements/` (`install.js:493–560`). Each reinstall MERGEs these again.
    - **(d) Community references.** A concept with a `communityReference` gets its superset linked to the curator's superset, `39999:<curatorPk>:<dTag>-superset` (`install.js:1097–1115`).
 
-   After wiring, the **prune** pass runs, for each firmware concept whose folder has a `manifest.json` (35 of the 40 in v1.0.0). It deletes a link from that concept's superset to a direct child that is also reachable through another direct child, within 10 links (`install.js:807–833`). It also deletes a superset's direct `HAS_ELEMENT` to an element reachable through its sets.
+   After wiring, the **prune** pass runs, for each firmware concept whose folder has a `manifest.json` (29 of the 40 in v1.0.0; Amendment 1). It deletes a link from that concept's superset to a direct child that is also reachable through another direct child, within 10 links (`install.js:807–833`). It also deletes a superset's direct `HAS_ELEMENT` to an element reachable through its sets.
 8. **No index on tag values.** `NostrEventTag` has only a uniqueness constraint on `uuid` (`setup/neo4jConstraintsAndIndexes.sh:48`). Any search for an event by a tag's value, such as the relationship events today's link-concepts and create-set sign (`nodeFrom`, `nodeTo`, `relationshipType`), scans every tag node. A read that starts at the set and follows its own `HAS_TAG` stays cheap.
 9. **The fakes are fixed for this story.** The stack-free suites run over `test/helpers/graphFake.js` and `pathCypherFake.js`. Those run:
    - one-node reads;
@@ -354,3 +354,62 @@ The owner then runs a firmware reinstall, and the link from step 1 (re-made for 
 - Making firmware's reinstall keep local class-thread edits (lifecycle seed-firmware, A10.37).
 - `create-set` (A10.27), `delete-set` (A10.17), and the element operations (A10.22, A10.23).
 - Today's link-concepts, add-relationship, delete-relationship, create-set, add-subset and prune-superset-edges routes (D15).
+
+## Amendment 1 (2026-11-15, at Test Design) — what the tests found
+
+1. **The prune's reach.** Context 7 said 35 of v1.0.0's 40 concepts have a `manifest.json`. The count is 29, now corrected in place. Nothing else changes: `firmwareLinks()` reads which concepts have one from the files.
+2. **`unknown-node`'s wording.** `_nodes.js`'s `UNKNOWN_NODE` says "A from or to that names no node…", which would mislabel these two operations' inputs in the list, the command's help and `/docs`. So each declaration declares its own entry, same code and status, as `_sets.js`'s `UNKNOWN_SET_OR_PARENT`: `{ code: 'unknown-node', status: 404, when: 'A set or parent that names no node of the graph (a change entry is not one); the refusal names which' }`. `_nodes.js` is not edited.
+3. **Which refusal answers when two apply.** The write path runs a declaration's guards before its `apply` (ADR graph-operations-foundation/0004 Decision 3). This has two consequences, and nothing changes in either case:
+   - **unlink-set:** a firmware link or a peer's link that is also the set's only parent is refused `last-parent`, not `firmware-link` or `peer-link`. After an install, a firmware set file's link is often its set's only parent.
+   - **link-set:** a repeat of a link already on a cycle is refused `cycle`, not answered `already-linked`. Only the old routes can make such a link.
+
+   The tests pin neither order. Putting the declarations' own checks first would mean taking the rules out of `guards`, so they would no longer be listed with their operations. That isn't worth it for two answers that both refuse.
+4. **The re-check after a write is a live check.** With one writer, the guard always refuses first, so no stack-free graph can reach the re-check (Decision 9). The Implementation notes' suggestion is withdrawn. The tests show that a refusal after the `MERGE` rolls it back through `firmware-prunes` (LS12, LS13). The re-check itself is the live check's step 8: two link-sets at once that would make a two-set cycle, of which exactly one succeeds.
+5. **Possible, unverified: a self-loop on a curator's instance.** On an instance whose TA is a community reference's curator, install's part (d) may MERGE that concept's superset onto itself (`src/firmware/install.js:1295` doesn't compare the two ends). `class-thread-acyclic`'s check would report that cycle, and unlink-set would refuse to take it out as firmware's. Recorded as an OPEN.md row at implementation, for a check against a live graph.
+
+## Amendment 2 (2026-11-15, at Implementation; the owner's approval) — unlink-set locks its set first
+
+**What the live check found.** Decision 9 said "MERGE and DELETE of a relationship take write locks on both of its nodes". That holds for `MERGE`. It doesn't hold for a relationship's `DELETE` on Neo4j 5.26.
+
+Live check step 8 raced two unlink-sets that each took out one of a set's last two parents. Both committed, and the set was left under no parent: each re-check ran before the other's delete was committed. Raced eight more times with no lock, three rounds ended under no parent (5 of 8 came out right).
+
+The two link-sets that would have made a two-set cycle did serialize: one linked, one was refused `cycle`. `MERGE` locks both ends, as Decision 9 said.
+
+**The decision.** unlink-set's `apply` takes a write lock on its `set` before it reads anything: `S.lockNode(ctx.tx, set)`, in `_sets.js`.
+- **How the lock works.** It sets the property `tapestryLock` on the node and removes it again, in two statements of the shape the field mapping's copies use (`UNWIND $rows AS row MATCH (n:TapestryNode {tapestryKey: row.key}) WHERE NOT n:GraphChange SET n += row.props`, graphFake's S8). Nothing of it is committed, and the node is left as it was.
+- **What it holds.** The lock lasts until the transaction commits or rolls back. A second unlink-set of the same set waits for it, then re-checks with the first's delete committed, and is refused `last-parent`.
+- **The idiom and the fakes.** The property name and the idiom are ADR 0016's (its C1, which locks the same way). This statement shape, rather than C1's single `SET … REMOVE`, is the one today's fakes run, so this story still edits no fake.
+
+The same race, re-run with the lock, came out right in 8 of 8 rounds: one `unlinked`, one refused `last-parent`, one parent left, and no `tapestryLock` left on the node.
+
+**What stays as it was.**
+- link-set takes no lock of its own: its `MERGE` already serializes.
+- The four-node race that could close a longer cycle (Decision 9) is still the residual risk, and `rules check` finds it.
+- The tests gain UL18: an unlink leaves the set's own properties as they were, with no lock property behind.
+
+## Amendment 3 (2026-11-15, at Review; the owner's approval) — a set has an address
+
+**What the review found.** The trust pipeline makes one `Set:SetOfNostrUserWotMetricsCards` node per scored user (`src/cns/addSetsOfMetricsCards.sh:26`, `src/cns/prepareNeo4jForCustomerData.sh:100`). Staging holds 370,377 of them among its 370,401 `Set` nodes. Each has a tapestryKey, but no address, no class-thread links and no Tapestry JSON (ledger `2026-11-15-card-sets-carry-the-set-label`, which reached staging after this ADR was approved).
+
+Decision 5 read a set by its label alone, so:
+- link-set took a card set as `set` or as `parent`, and unlink-set then refused to take the link out again;
+- a set under a card set counted the card set as its second parent, so the set's last real parent could be unlinked;
+- run as a check over the graph, `set-has-a-parent` would report every card set.
+
+**The decision.** Decision 5 is refined: a node counts as a set, a superset or a parent only when it has an address, its `uuid`.
+- **Who has one.** Every kind of class-thread set does: firmware's, today's create-set's and add-subset's, a pulled peer's, and those the graph operations make. A concept header's superset does too. Card sets don't.
+- **Why this rule.** It is the ledger row's second fix, "leave out the nodes with no address wherever the concept graph reads `:Set`", and story 8 already reads `:Set` this way.
+- **What follows.**
+  - `kindOf` answers `'other'` for a node with no `uuid`, so link-set refuses a card set as `set` (`not-a-set`) and as `parent` (`not-a-parent`), and unlink-set does the same.
+  - `set-has-a-parent` counts no address-less node as a parent, and judges no address-less node as a set. Its check doesn't report card sets.
+  - `class-thread-acyclic` judges no link with an address-less end.
+  - The refusals' words name a node with no address, such as the trust pipeline's card sets, as one that isn't a set.
+
+ADR graph-operations-first-slice/0011 (list-elements) adopts Decision 5's reading of a set. This amendment is passed on to whoever builds or changes its readers.
+
+**With it, from the review's other findings:**
+1. **The lock is the first thing unlink-set's `apply` does**, before it reads anything, as Amendment 2 says. A lock on a key that names no node locks nothing, and `unknown-node` follows.
+2. **A refusal by the re-check after a delete names the parent too.** When a concurrent unlink took the set's other parent first, the answer is `last-parent`, by `set-has-a-parent`, naming the set and the parent it stays under (AC5).
+3. **Part (c) of firmware's table resolves set files only.** A concept manifest's `IS_A_SUPERSET_OF` links sets. An element file's address isn't its `word.slug`, so (c) never resolves to one. No shipped manifest edge is affected: all ten link a set to a set.
+4. **A second race, left open.** Two link-sets that share no node can together make an earlier direct link from a firmware concept's superset redundant: each one's prune check runs before the other commits. A reinstall then takes that link out. It is the same shape as Decision 9's four-node cycle, but unlike the cycle no rule's check finds it, since `firmware-prunes` is link-set's own refusal, not a rule. Ledger `2026-11-16-concurrent-links-leave-prunable-firmware-link` records it for `rules check` (A10.31) and seed-firmware (A10.37). Nothing these operations make depends on such a link, since the set stays below the superset.
+5. **Amendment 1's refusal order** was put to the owner at the Test Design gate (2026-11-15), and the owner approved it there.
