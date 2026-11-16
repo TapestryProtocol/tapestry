@@ -386,3 +386,30 @@ The same race, re-run with the lock, came out right in 8 of 8 rounds: one `unlin
 - link-set takes no lock of its own: its `MERGE` already serializes.
 - The four-node race that could close a longer cycle (Decision 9) is still the residual risk, and `rules check` finds it.
 - The tests gain UL18: an unlink leaves the set's own properties as they were, with no lock property behind.
+
+## Amendment 3 (2026-11-15, at Review; the owner's approval) — a set has an address
+
+**What the review found.** The trust pipeline makes one `Set:SetOfNostrUserWotMetricsCards` node per scored user (`src/cns/addSetsOfMetricsCards.sh:26`, `src/cns/prepareNeo4jForCustomerData.sh:100`). Staging holds 370,377 of them among its 370,401 `Set` nodes. Each has a tapestryKey, but no address, no class-thread links and no Tapestry JSON (ledger `2026-11-15-card-sets-carry-the-set-label`, which reached staging after this ADR was approved).
+
+Decision 5 read a set by its label alone, so:
+- link-set took a card set as `set` or as `parent`, and unlink-set then refused to take the link out again;
+- a card set under a set counted as its second parent, so the set's last real parent could be unlinked;
+- run as a check over the graph, `set-has-a-parent` would report every card set.
+
+**The decision.** Decision 5 is refined: a node counts as a set, a superset or a parent only when it has an address, its `uuid`.
+- **Who has one.** Every kind of class-thread set does: firmware's, today's create-set's and add-subset's, a pulled peer's, and those the graph operations make. A concept header's superset does too. Card sets don't.
+- **Why this rule.** It is the ledger row's second fix, "leave out the nodes with no address wherever the concept graph reads `:Set`", and story 8 already reads `:Set` this way.
+- **What follows.**
+  - `kindOf` answers `'other'` for a node with no `uuid`, so link-set refuses a card set as `set` (`not-a-set`) and as `parent` (`not-a-parent`), and unlink-set does the same.
+  - `set-has-a-parent` counts no address-less node as a parent, and judges no address-less node as a set. Its check doesn't report card sets.
+  - `class-thread-acyclic` judges no link with an address-less end.
+  - The refusals' words name a node with no address, such as the trust pipeline's card sets, as one that isn't a set.
+
+ADR graph-operations-first-slice/0011 (list-elements) adopts Decision 5's reading of a set. This amendment is passed on to whoever builds or changes its readers.
+
+**With it, from the review's other findings:**
+1. **The lock is the first thing unlink-set's `apply` does**, before it reads anything, as Amendment 2 says. A lock on a key that names no node locks nothing, and `unknown-node` follows.
+2. **A refusal by the re-check after a delete names the parent too.** When a concurrent unlink took the set's other parent first, the answer is `last-parent`, by `set-has-a-parent`, naming the set and the parent it stays under (AC5).
+3. **Part (c) of firmware's table resolves set files only.** A concept manifest's `IS_A_SUPERSET_OF` links sets. An element file's address isn't its `word.slug`, so (c) never resolves to one. No shipped manifest edge is affected: all ten link a set to a set.
+4. **A second race left to `rules check`.** Two link-sets that share no node can together make an earlier direct link from a firmware concept's superset redundant: each one's prune check runs before the other commits. A reinstall then takes that link out. This is the same shape as Decision 9's four-node cycle, and it is left the same way: a check over the graph finds it, and nothing these operations make depends on such a link, since the set stays below the superset.
+5. **Amendment 1's refusal order** was put to the owner at the Test Design gate (2026-11-15), and the owner approved it there.
