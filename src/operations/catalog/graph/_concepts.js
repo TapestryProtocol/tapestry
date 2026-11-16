@@ -102,7 +102,7 @@ const NO_FREE_ADDRESS = Object.freeze({ code: 'no-free-address', status: 409, wh
 const UNKNOWN_CONCEPT = Object.freeze({ code: 'unknown-concept', status: 404, when: 'A concept that names no concept header: a node labelled ConceptHeader, or ListHeader' });
 const NOT_OWN_CONCEPT = Object.freeze({ code: 'not-own-concept', status: 409, when: "A concept that isn't this instance's own: its header's author isn't the instance's assistant (another author's, or the owner's own key's); this write can't sign a new version of it" });
 const FIRMWARE_CONCEPT = Object.freeze({ code: 'firmware-concept', status: 409, when: "A firmware concept, which a firmware reinstall rebuilds from its definition: lifecycle seed-firmware is how those change" });
-const NAME_KEYED = Object.freeze({ code: 'name-keyed', status: 409, when: "A new singular name for a concept the server finds by its name (the Dictionary's NAME_KEYED_CONCEPTS); its plural may change" });
+const NAME_KEYED = Object.freeze({ code: 'name-keyed', status: 409, when: "A new singular name for a concept the server finds by its name (the Dictionary's NAME_KEYED_CONCEPTS), or a new singular name that is one of those names; its plural may change" });
 const NOTHING_TO_CHANGE = Object.freeze({ code: 'nothing-to-change', status: 400, when: 'A call that names no field to change: name, plural, slug or description' });
 
 /** The cleaned names and description of a write's inputs, or the refusal for the first that has a problem. */

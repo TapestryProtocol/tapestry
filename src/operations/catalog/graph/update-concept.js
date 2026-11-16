@@ -28,7 +28,7 @@ module.exports = {
   description: [
     "Changes the concept whose header's tapestryKey is `concept`: its `name` and `plural` (trimmed, each run of white space one space), its `slug` (kebab-case), and its `description` (an empty one removes it). Give any of them; one already held changes nothing.",
     "A rename changes the names, and the titles and core-node names made from them, wherever each still holds the value the old names made: one edited by hand stays. The concept's slugs, key, labels, address and tapestryKeys never change, so its elements, its schema and its field marks go on working. A slug changes what create-concept finds the concept by; another of this instance's concepts can't have it (`slug-in-use`).",
-    "Only this instance's own concepts change: its header's author is the instance's assistant, with or without a letter. A firmware concept, another author's, and a new singular name for a concept the server finds by its name are refused. For a concept with a letter, the graph then differs from it: `letterOutOfDate` says so, and export nostr is what sends a new one. Nothing is signed.",
+    "Only this instance's own concepts change: its header's author is the instance's assistant, with or without a letter. A firmware concept, another author's, and a new singular name for a concept the server finds by its name, or onto such a name, are refused. For a concept with a letter, the graph then differs from it: `letterOutOfDate` says so, and export nostr is what sends a new one. Nothing is signed.",
   ].join('\n\n'),
   inputs: {
     concept: N.keyInput("The tapestryKey of the concept's header"),
@@ -81,6 +81,10 @@ module.exports = {
     const { nameKeyed } = require('../../../lib/conceptHeaderEdit');
     if (newNames.singular !== oldNames.singular && nameKeyed(oldNames.singular)) {
       throw refusal(K.NAME_KEYED.code, `The server finds ${oldNames.singular} (${h.uuid}) by its singular name, so a rename would break what looks it up; its plural may change. Nothing changed.`, { input: 'name' });
+    }
+    // Nor onto such a name, which the server would then take for its own concept (the owner's ruling, Amendment 3.6).
+    if (newNames.singular !== oldNames.singular && nameKeyed(newNames.singular)) {
+      throw refusal(K.NAME_KEYED.code, `The server finds a concept named ${newNames.singular} by that name for its own features, so no other concept can take it. Nothing changed.`, { input: 'name' });
     }
     const newSlug = typeof inputs.slug === 'string' ? inputs.slug : h.slug;
     const descTag = facts.nodes.conceptHeader.tags.find((t) => t.type === 'description');
