@@ -80,13 +80,41 @@ function pickDeriver(labels) {
 // ── Core Engine ──
 
 /**
+ * What a deriver reads of a node, and the node's element id. Every query of a rebuild starts from the node itself
+ * (`MATCH (n) WHERE elementId(n) = $elementId`, a direct lookup), so no query reads the whole graph to find it:
+ * 3.85 million nodes on staging since `tapestry-keys` (graph-operations-foundation #8).
+ */
+const NODE_FIELDS = `n.tapestryKey AS tapestryKey, n.uuid AS uuid, n.name AS name,
+           n.slug AS slug, n.kind AS kind, n.pubkey AS pubkey,
+           labels(n) AS labels, elementId(n) AS elementId`;
+
+/**
+ * Find a node by its tapestryKey. The rule tapestry_key indexes the keys of every TapestryNode node. An instance that
+ * hasn't run `tapestry-keys` yet still has keyed nodes without that label, so a miss falls back to the lookup with no
+ * label, which reads every node (ADR graph-operations-foundation/0003, Decision 9).
+ */
+async function findByKey(tapestryKey) {
+  const rows = await runCypher(`MATCH (n:TapestryNode {tapestryKey: $key}) RETURN ${NODE_FIELDS}`, { key: tapestryKey });
+  if (rows.length > 0) return rows[0];
+  const unlabelled = await runCypher(`MATCH (n {tapestryKey: $key}) RETURN ${NODE_FIELDS}`, { key: tapestryKey });
+  return unlabelled[0] || null;
+}
+
+/**
  * Derive tapestryJSON for a single node.
- * @param {{ tapestryKey: string, uuid: string, labels: string[], ... }} node
+ * @param {{ tapestryKey: string, uuid: string, labels: string[], elementId?: string, ... }} node
  * @returns {{ tapestryKey, derivedBy, envelope }|null}
  */
 async function deriveNode(node) {
   const deriver = pickDeriver(node.labels || []);
   if (!deriver) return null;
+
+  // The derivers' queries start from the node's element id; a caller that has only its key gets it here.
+  if (!node.elementId) {
+    const found = await findByKey(node.tapestryKey);
+    if (!found) return null;
+    node = { ...node, elementId: found.elementId };
+  }
 
   const data = await deriver.fn(node);
   if (!data) return null;
@@ -95,11 +123,11 @@ async function deriveNode(node) {
     rebuiltFrom: `derive:${deriver.label}`,
   });
 
-  // Update Neo4j timestamp
+  // Update Neo4j timestamp, on the node itself
   await writeCypher(`
-    MATCH (n { tapestryKey: $key })
+    MATCH (n) WHERE elementId(n) = $elementId AND n.tapestryKey = $key
     SET n.tapestryJsonUpdatedAt = $ts
-  `, { key: node.tapestryKey, ts: envelope.updatedAt });
+  `, { elementId: node.elementId, key: node.tapestryKey, ts: envelope.updatedAt });
 
   return { tapestryKey: node.tapestryKey, derivedBy: deriver.label, envelope };
 }
@@ -109,15 +137,9 @@ async function deriveNode(node) {
  * Fetches the node from Neo4j, then delegates to deriveNode().
  */
 async function deriveByKey(tapestryKey) {
-  const rows = await runCypher(`
-    MATCH (n { tapestryKey: $key })
-    RETURN n.tapestryKey AS tapestryKey, n.uuid AS uuid, n.name AS name,
-           n.slug AS slug, n.kind AS kind, n.pubkey AS pubkey,
-           labels(n) AS labels
-  `, { key: tapestryKey });
-
-  if (rows.length === 0) return null;
-  return deriveNode(rows[0]);
+  const node = await findByKey(tapestryKey);
+  if (!node) return null;
+  return deriveNode(node);
 }
 
 /**
@@ -129,12 +151,14 @@ async function deriveAll(label) {
     return { derived: 0, skipped: 0, errors: 0, message: `No deriver registered for label: ${label}` };
   }
 
+  // The nodes with a key and an address (a uuid or an id), as the cache counts count them (story
+  // graph-operations-foundation #7): the concept graph's nodes. Since `tapestry-keys` every node has a key, and the
+  // trust pipeline's SetOfNostrUserWotMetricsCards carry the label Set with no address; nothing reads a Tapestry JSON
+  // for them, and there were 370,377 on staging (graph-operations-foundation #8).
   const rows = await runCypher(`
     MATCH (n:${label})
-    WHERE n.tapestryKey IS NOT NULL
-    RETURN n.tapestryKey AS tapestryKey, n.uuid AS uuid, n.name AS name,
-           n.slug AS slug, n.kind AS kind, n.pubkey AS pubkey,
-           labels(n) AS labels
+    WHERE n.tapestryKey IS NOT NULL AND (n.uuid IS NOT NULL OR n.id IS NOT NULL)
+    RETURN ${NODE_FIELDS}
   `);
 
   let derived = 0, skipped = 0, errors = 0;

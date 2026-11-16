@@ -51,6 +51,7 @@ There is no story ADR, because the owner chose the Standard bug path on 2026-11-
 - [x] **The bug has no twin among the code's other whole-graph key reads.**
   - Initialize (`index.js:113–118`) has always keyed only addressed nodes. That is why the two counts agreed before story 3, and the fix brings that agreement back.
   - `deriveAll` and derive-status (`tapestry-derive.js:133–139`, `index.js:447–452`) read keyed nodes by label. The only labels with a deriver are concept-graph labels (`src/lib/derivers/index.js:14–23`), never `NostrUser`, so they don't reach the nodes `tapestry-keys` added.
+    - **Erratum (2026-11-15, story graph-operations-foundation #8):** they do reach them. The trust pipeline's `SetOfNostrUserWotMetricsCards` also carry `Set`, a label with a deriver. So since `tapestry-keys`, derive-all has picked staging's 370,377 card sets to rebuild, and derive-status has counted them. Staging's install stalled before it reached Set, so none was rebuilt there. That was story 8's bug (`engineering-team/reviews/graph-operations-foundation/8-pass-3-finishes-in-minutes.md`).
   - The backup's and the migrations' whole-graph reads are meant to cover every node (story 3, ADR 0003 Amendment 2), and C6 confirms that they still do.
 
 ## House rules check

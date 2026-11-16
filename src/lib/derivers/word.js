@@ -44,10 +44,11 @@ async function getExistingWordJson(node) {
   if (existing?.data?.word) return existing.data;
 
   const rows = await runCypher(`
-    MATCH (n { uuid: $uuid })-[:HAS_TAG]->(tag { type: 'json' })
+    MATCH (n) WHERE elementId(n) = $elementId
+    MATCH (n)-[:HAS_TAG]->(tag { type: 'json' })
     RETURN tag.value AS value
     LIMIT 1
-  `, { uuid: node.uuid });
+  `, { elementId: node.elementId });
 
   if (rows.length === 0 || !rows[0].value) return null;
   const raw = rows[0].value;
@@ -69,7 +70,7 @@ async function getExistingWordJson(node) {
  * Derive tapestryJSON for a generic word node.
  */
 async function deriveWord(node) {
-  const { uuid, tapestryKey, name, labels } = node;
+  const { uuid, tapestryKey, name, labels, elementId } = node;
 
   const base = await getExistingWordJson(node) || {};
 
@@ -83,20 +84,22 @@ async function deriveWord(node) {
 
   // ── elementOf ──
   const directElementOf = await runCypher(`
-    MATCH (parent)-[:HAS_ELEMENT]->(n { uuid: $uuid })
+    MATCH (n) WHERE elementId(n) = $elementId
+    MATCH (parent)-[:HAS_ELEMENT]->(n)
     RETURN parent.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const indirectElementOf = await runCypher(`
-    MATCH (parent)-[:HAS_ELEMENT]->(n { uuid: $uuid })
+    MATCH (n) WHERE elementId(n) = $elementId
+    MATCH (parent)-[:HAS_ELEMENT]->(n)
     MATCH (ancestor)-[:IS_A_SUPERSET_OF*1..10]->(parent)
-    WHERE NOT (ancestor)-[:HAS_ELEMENT]->(n { uuid: $uuid })
+    WHERE NOT (ancestor)-[:HAS_ELEMENT]->(n)
     RETURN DISTINCT ancestor.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   // ── JSON Schemas ──
   const schemaRows = await runCypher(`
-    MATCH (n { uuid: $uuid })
+    MATCH (n) WHERE elementId(n) = $elementId
     OPTIONAL MATCH (n)<-[:HAS_ELEMENT]-(parentSet)
           <-[:IS_A_SUPERSET_OF*0..10]-(sup:Superset)
           <-[:IS_THE_CONCEPT_FOR]-(h1:ConceptHeader)
@@ -111,7 +114,7 @@ async function deriveWord(node) {
     RETURN DISTINCT js.uuid AS schemaUuid, js.tapestryKey AS schemaTapestryKey,
            ch.name AS conceptName, ch.tapestryKey AS conceptTapestryKey,
            head(collect(jt.value)) AS schemaJson
-  `, { uuid });
+  `, { elementId });
 
   // ── Build graphContext first ──
   const now = Math.floor(Date.now() / 1000);

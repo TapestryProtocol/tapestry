@@ -29,4 +29,6 @@ worked: `docker create` a throwaway container from the image, stream `git ls-fil
 into a fresh `/tmp`, link the image's `node_modules` there, and run the suites from `/tmp`. A `scripts/` helper doing
 that would replace the hand recipe.
 
+**2026-11-15 (graph-operations-foundation #8):** seen again. `tapestry-tapestry` was built 2026-08-28. Story 8 booted its scratch stacks with `SCRATCH_IMAGE=agent-memory-tapestry:latest`, built that day from `39126bfc` (staging's code). Its L5b baseline is tied to that image's firmware digest, and skips, saying so, on any other.
+
 **Pointer:** `scripts/scratch-stack.sh:24-26,80`; `engineering-team/audits/config-secret-logging/audit.md` §7.
