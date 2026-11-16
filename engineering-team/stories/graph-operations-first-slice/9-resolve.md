@@ -95,6 +95,18 @@ For Architecture, not this gate:
 - **Where the shared resolution lives,** and how a later operation's input says it takes a ref, so that its command and its /docs entry say so too; what that input's refusals for an ambiguous ref and for none are called, and what they carry; and which point of view a write resolves its inputs from.
 - **The names of the kinds in the answer,** in line with how list-elements reads a concept header, a superset and a set (ADR 0011, Amendment 2: a set has an address).
 
+## Deviations
+
+- **`resolveOne` decides by the page it reads.**
+  - None on the page is refused `unknown-ref`, one gives its key, and more than one is refused `ambiguous-ref`. The count gives only the numbers the refusals state: how many nodes the point of view left out, and how many the ref names.
+  - ADR 0009 Decision 5 decides by how many count, without saying which of its two statements answers that. Deciding by the page means a node added or removed between the two statements can't make `resolveOne` return no key, or call a single candidate ambiguous.
+- **When the point of view left nothing out, `unknown-ref` says the ref names no node of the graph,** rather than giving a count of zero. Amendment 1, item 6, has the message give the number left out.
+- **`candidatesOf`'s rows carry `byKey` and `byAddress`.**
+  - They are set in JavaScript from the reading's family, beside the `byName`, `byPlural`, `bySlug` and `byDTag` columns that family N's page returns.
+  - So `candidateOf(row, own)` reads every way a node matched from its row alone, as the ADR's signature has it. The statements of families K and A stay as Decision 3 gives them.
+- **`run` checks its limit again,** as list-elements' does, and so does `candidatesOf`. A limit that isn't a whole number from 1 fails with a 500, though the input's schema refuses one first.
+- **`bad-ref` quotes the ref as given, cut to 60 characters, as create-concept quotes a name** (ADR 0009 Decision 1's example). A ref that holds a text-direction control is quoted with the control in it, as a name is in create-concept's `bad-name`. The refusal's words also name the character by its code point.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and "Reads stay behind sign-in" bullets)
