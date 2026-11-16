@@ -58,6 +58,10 @@
  *     IS_THE_CORE_GRAPH_FOR and IS_THE_CONCEPT_GRAPH_FOR; and toLower in both read fakes (C8).
  * C3, C4, C8 and C9 are reads the two read fakes run; C7 is the MERGE above, and C10 is S8.
  *
+ * Story graph-operations-first-slice #13 (ADR graph-operations-first-slice/0013, Decision 2, S2 and S3) adds the
+ * one-hop reads from a node found by its tapestryKey (ONE_HOP_FROM_KEY below), which the path fake runs over
+ * relationships of every type, with elementId() and properties() (test/helpers/pathCypherFake.js).
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -313,6 +317,14 @@ const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_
   // ADR graph-operations-first-slice/0016's C9: a concept's core nodes, by the wiring types today's create-concept makes.
   'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR']);
 
+/**
+ * ADR graph-operations-first-slice/0013's one-hop reads (story graph-operations-first-slice #13): a statement that opens
+ * with one relationship, held in a variable, of no named type or of one type in backticks, from a node found by its
+ * tapestryKey to a bare node. They read relationships of every type, so the path fake runs them with no repertoire
+ * (`types: null`). A relationship with no variable, a type outside backticks, or a second hop keeps the repertoire.
+ */
+const ONE_HOP_FROM_KEY = /^\s*MATCH\s*\(\s*\w+\s*:\s*TapestryNode\s*\{\s*tapestryKey\s*:\s*\$\w+\s*\}\s*\)\s*(?:-\s*\[\s*\w+\s*(?::\s*`[A-Za-z][A-Za-z0-9_]*`\s*)?\]\s*->|<-\s*\[\s*\w+\s*(?::\s*`[A-Za-z][A-Za-z0-9_]*`\s*)?\]\s*-)\s*\(\s*\w+\s*\)\s*(?:WHERE|WITH|RETURN|OPTIONAL)\b/i;
+
 /** Story 4's declared types' read: from a header found by uuid, through IS_THE_CONCEPT_FOR to HAS_ELEMENT, with no keys(). */
 const isDeclaredTypesRead = (bare) => /\bHAS_ELEMENT\b/.test(bare) && /\bIS_THE_CONCEPT_FOR\b/.test(bare)
   && /\{\s*uuid\s*:\s*\$\w+\s*\}/.test(bare) && !/\bkeys\s*\(/i.test(bare);
@@ -483,6 +495,7 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   const hasRel = HAS_RELATIONSHIP.test(bare);
   if (!writes && !hasRel) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
+  if (!writes && ONE_HOP_FROM_KEY.test(bare)) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
   if (writes && !write) throw new Error(`a read must write nothing; it sent: ${oneLine(q).slice(0, 300)}`);
   if (/\bCREATE\s*\(\s*\w+\s*:\s*[A-Za-z_:\s]*\bGraphChange\b/.test(bare)) return createEntry(s, q, params);

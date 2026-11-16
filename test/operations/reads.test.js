@@ -27,6 +27,16 @@
  *   RC14 ownKeys are the assistant's and the owner's
  *   RC15 loading it opens nothing
  *   RC16 the assistant's and the owner's keys are trimmed and lowercased (review round 1, ask 4)
+ *
+ * Story graph-operations-first-slice #13 (ADR graph-operations-first-slice/0013 Decision 1: C5 a relationship,
+ * answered, and C6 a relationship, from a point of view), over graphs test/helpers/relationshipsGraph.js seeds:
+ *   RC17 it exports RELATIONSHIP, relationshipColumns and relationshipOf
+ *   RC18 RELATIONSHIP is { type, direction, from, to, node, properties }, its node C3's NODE
+ *   RC19 relationshipColumns returns a relationship's type, its id as text, what it records as [key, value] pairs, and
+ *        the node at its other end's facts
+ *   RC20 relationshipOf answers a relationship by its direction: from and to, the node, and its properties as a map
+ *        with its keys sorted
+ *   RC21 trust(v, keep) carries the variables it keeps and judges the node v; a name that isn't a variable throws
  */
 
 const fs = require('fs');
@@ -134,6 +144,38 @@ const wrap = (x) => (x === undefined ? null : x);
   out.nodes = Object.fromEntries(nodeRows.map((r) => [name(r.tapestryKey), R.nodeOf(r, own)]));
   out.ownKeys = own;
   out.uuids = seed.uuids;
+
+  // ── C5 and C6 (ADR graph-operations-first-slice/0013 Decision 1) ──
+  out.rel = { schema: wrap(R.RELATIONSHIP), errors: {} };
+  const attempt = async (name, fn) => { try { await fn(); } catch (e) { out.rel.errors[name] = String((e && e.message) || e).split('\\n')[0]; } };
+  const { seedRelationships } = require(path.join(ROOT, 'test/helpers/relationshipsGraph.js'));
+  const rs = seedRelationships();
+  const rread = readerOver(rs.state);
+  const rk = rs.keys;
+  const rname = (key) => Object.keys(rk).find((n) => rk[n] === key) || key;
+  out.rel.bob = rk.bob;
+  await attempt('columns', async () => {
+    out.rel.columns = await rread('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE m.tapestryKey IS NOT NULL RETURN ' + R.relationshipColumns('r', 'm'), { key: rk.alice });
+  });
+  out.rel.badKeep = refusalOf(() => R.trust('m', ['not a variable']));
+  await attempt('judged', async () => {
+    const judged = await rread(
+      'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE m.tapestryKey IS NOT NULL AND m.tapestryKey <> ' + "'{}'" + ' AND NOT m:NostrEventTag ' + R.trust('m', ['r']) + ' RETURN type(r) AS type, m.tapestryKey AS key, counts',
+      { key: rk.hub, everyone: false, own: [${JSON.stringify(TA)}, ${JSON.stringify(OWNER)}], cutoff: 0.05 },
+    );
+    out.rel.judged = judged.map((row) => [row.type, rname(row.key), row.counts]);
+  });
+  await attempt('of', async () => {
+    const K1 = '0f0f0f0f-0000-4000-8000-000000000001';
+    const K2 = '0f0f0f0f-0000-4000-8000-000000000002';
+    const row = { type: 'CITES', rid: '5:x:1', properties: [['zeta', 1], ['alpha', 'a'], ['mid', [1, 2]]], tapestryKey: K2, name: 'other', address: '39999:' + ${JSON.stringify(TA)} + ':other', author: ${JSON.stringify(TA)} };
+    out.rel.K1 = K1;
+    out.rel.K2 = K2;
+    out.rel.ofOut = R.relationshipOf(row, { key: K1, direction: 'out', own });
+    out.rel.ofIn = R.relationshipOf(row, { key: K1, direction: 'in', own });
+    out.rel.ofLoop = R.relationshipOf(Object.assign({}, row, { tapestryKey: K1 }), { key: K1, direction: 'out', own });
+    out.rel.ofPeer = R.relationshipOf(Object.assign({}, row, { author: '22'.repeat(32), properties: [] }), { key: K1, direction: 'in', own });
+  });
   done();
 })().catch((e) => { out.error = String((e && e.stack) || e).split('\\n').slice(0, 6).join(' | '); done(); });
 `;
@@ -316,6 +358,82 @@ test('RC16: the assistant\'s and the owner\'s keys are trimmed and lowercased', 
   assert(r.pov && r.pov.owner && r.pov.owner.value && r.pov.owner.value.observer === OWNER, `the owner's point of view has the lowercase owner as observer; got ${show(r.pov && r.pov.owner)}`);
   assert(r.pov.ownerPubkey && !r.pov.ownerPubkey.threw && r.pov.ownerPubkey.value.name === 'owner', `the owner's lowercase pubkey still reads as owner; got ${show(r.pov.ownerPubkey)}`);
   assert(r.nodes && r.nodes.bella && r.nodes.bella.own === true && r.nodes.spot && r.nodes.spot.own === true, `the assistant's and the owner's elements are still the instance's own; got ${show(r.nodes && { bella: r.nodes.bella, spot: r.nodes.spot })}`);
+});
+
+// ── C5 and C6: story graph-operations-first-slice #13, ADR graph-operations-first-slice/0013 Decision 1 ──
+const REL_KEYS = ['direction', 'from', 'node', 'properties', 'to', 'type'];
+const NODE_FACTS = ['address', 'author', 'name', 'own', 'tapestryKey'];
+
+test('RC17: it exports RELATIONSHIP, relationshipColumns and relationshipOf', () => {
+  const r = result();
+  assert(r.exports.RELATIONSHIP === 'object', `it exports RELATIONSHIP, an object (ADR 0013, C5); got ${show(r.exports.RELATIONSHIP)}`);
+  for (const name of ['relationshipColumns', 'relationshipOf']) assert(r.exports[name] === 'function', `it exports ${name}, a function (ADR 0013, C5); got ${show(r.exports[name])}`);
+});
+
+test('RC18: RELATIONSHIP is { type, direction, from, to, node, properties }, its node C3\'s NODE', () => {
+  const r = result();
+  const s = r.rel.schema;
+  assert(s && s.type === 'object' && show([...(s.required || [])].sort()) === show(REL_KEYS), `RELATIONSHIP requires its six facts; got ${show(s && s.required)}`);
+  assert(show(Object.keys(s.properties || {}).sort()) === show(REL_KEYS), `RELATIONSHIP has those six properties and no others; got ${show(Object.keys((s && s.properties) || {}))}`);
+  for (const f of ['type', 'from', 'to']) assert(s.properties[f].type === 'string', `${f} is text; got ${show(s.properties[f])}`);
+  assert(s.properties.direction.type === 'string' && show([...(s.properties.direction.enum || [])].sort()) === show(['in', 'out']), `direction is out or in; got ${show(s.properties.direction)}`);
+  assert(show(s.properties.node) === show(r.schemas.node), `node is C3's NODE; got ${show(s.properties.node)}`);
+  assert(s.properties.properties.type === 'object', `properties is an object; got ${show(s.properties.properties)}`);
+});
+
+const ran = (r, name, what) => {
+  assert(r.exports[what] === 'function', `${what} does not exist yet (ADR graph-operations-first-slice/0013 Decision 1)`);
+  assert(!r.rel.errors[name], `${what}'s check ran; it failed: ${show(r.rel.errors[name])}`);
+};
+
+test('RC19: relationshipColumns gives a relationship\'s type, its id as text, what it records as pairs, and the other node\'s facts', () => {
+  const r = result();
+  ran(r, 'columns', 'relationshipColumns');
+  const rows = r.rel.columns;
+  assert(Array.isArray(rows) && rows.length === 4, `alice's 4 relationships out (three TAGS and a FOLLOWS, all to bob); got ${show(rows)}`);
+  for (const row of rows) {
+    for (const f of ['type', 'rid', 'properties', 'tapestryKey', 'name', 'address', 'author']) assert(f in row, `a row has ${f}; got ${show(row)}`);
+    assert(row.tapestryKey === r.rel.bob, `the other node's facts are bob's; got ${show(row.tapestryKey)}`);
+    assert(typeof row.rid === 'string' && row.rid.length > 0, `rid is the relationship's id, as text; got ${show(row.rid)}`);
+    assert(Array.isArray(row.properties) && row.properties.every((p) => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string'), `properties come as [key, value] pairs; got ${show(row.properties)}`);
+  }
+  const tags = rows.filter((row) => row.type === 'TAGS');
+  assert(tags.length === 3 && new Set(tags.map((t) => t.rid)).size === 3, `the three TAGS between the same two nodes have three ids; got ${show(tags.map((t) => t.rid))}`);
+  for (const t of tags) {
+    const created = t.properties.find((p) => p[0] === 'createdAt');
+    assert(created && typeof created[1] === 'number', `an integer in the pairs comes as a number; got ${show(created)}`);
+  }
+  const follows = rows.find((row) => row.type === 'FOLLOWS');
+  assert(follows && show(follows.properties) === show([['timestamp', 1700000000]]), `FOLLOWS records its timestamp; got ${show(follows && follows.properties)}`);
+});
+
+test('RC20: relationshipOf answers a relationship by its direction, with its node and its properties as a map, keys sorted', () => {
+  const r = result();
+  ran(r, 'of', 'relationshipOf');
+  const { K1, K2, ofOut, ofIn, ofLoop, ofPeer } = r.rel;
+  for (const [name, x] of Object.entries({ ofOut, ofIn, ofLoop, ofPeer })) {
+    assert(x && show(Object.keys(x).sort()) === show(REL_KEYS), `${name}: exactly the six facts; got ${show(x)}`);
+    assert(show(Object.keys(x.node).sort()) === show(NODE_FACTS), `${name}: its node has the five facts; got ${show(x.node)}`);
+  }
+  assert(ofOut.type === 'CITES' && ofOut.direction === 'out' && ofOut.from === K1 && ofOut.to === K2, `out: from the node the read is about, to the other; got ${show(ofOut)}`);
+  assert(ofIn.direction === 'in' && ofIn.from === K2 && ofIn.to === K1, `in: from the other, to the node the read is about; got ${show(ofIn)}`);
+  assert(ofLoop.from === K1 && ofLoop.to === K1 && ofLoop.node.tapestryKey === K1, `a relationship from the node to itself: from and to alike; got ${show(ofLoop)}`);
+  assert(ofOut.node.tapestryKey === K2 && ofOut.node.name === 'other' && ofOut.node.author === TA && ofOut.node.own === true, `the node at the other end, answered as C3: the assistant's, so own; got ${show(ofOut.node)}`);
+  assert(show(ofOut.properties) === show({ alpha: 'a', mid: [1, 2], zeta: 1 }) && show(Object.keys(ofOut.properties)) === show(['alpha', 'mid', 'zeta']), `properties: the pairs as a map, keys sorted; got ${show(ofOut.properties)}`);
+  assert(ofPeer.node.own === false && show(ofPeer.properties) === show({}), `a peer's node isn't own, and no pairs make {}; got ${show(ofPeer)}`);
+});
+
+test('RC21: trust(v, keep) carries the variables it keeps and judges the node v; a name that isn\'t a variable throws', () => {
+  const r = result();
+  assert(!r.rel.errors.judged, `a statement that judges m and keeps r runs: trust carries the variables it keeps through its WITH (ADR 0013, C6); it failed: ${show(r.rel.errors.judged)}`);
+  const got = Object.fromEntries((r.rel.judged || []).map(([type, name, counts]) => [`${type} ${name}`, counts]));
+  const wantJudged = {
+    'CITES citedTa': true, 'CITES citedOwner': true, 'CITES citedHi': true, 'CITES citedLo': false, 'CITES citedNoscore': false,
+    'CITES citedNouser': false, 'CITES citedAnon': true, 'DEPENDS_ON dependency': true, 'MENTIONS hub': true,
+  };
+  assert(show(Object.keys(got).sort()) === show(Object.keys(wantJudged).sort()), `the kept relationship's type comes through trust's WITH for each of hub's 9; got ${show(r.rel.judged)}`);
+  for (const [k, v] of Object.entries(wantJudged)) assert(got[k] === v, `${k}: counts is ${v}, judged by the node at the other end; got ${show(got[k])}`);
+  assert(r.rel.badKeep && r.rel.badKeep.threw === true, `trust throws for a kept name that isn't a Cypher variable, as it does for v; got ${show(r.rel.badKeep)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
