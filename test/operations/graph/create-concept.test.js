@@ -35,6 +35,9 @@
  *        admin's create is recorded as the admin's
  *   CC16 the command creates one too, recorded as the command's, and its refusal matches the route's
  *   CC17 it is listed with its guard, repeatKey and refusals, and has its /docs entry; inputs are checked
+ *   (review round 1) CC11b an invisible formatting character, and a name with no letter a–z or digit, are refused
+ *        saying why; CC18 differs names the name; CC19 a plural swap the other way; CC20 a bad plural or description is
+ *        refused before the rule reads the graph
  */
 
 const fs = require('fs');
@@ -103,10 +106,16 @@ function main() {
       post('held', 'owner', { name: 'held' }),
       post('crowded', 'owner', { name: 'crowded' }),
       post('trim', 'owner', { name: '  Tea   Room  ' }),
+      post('trim-dash', 'owner', { name: 'tea-room' }),
+      post('swap-other', 'owner', { name: 'meece', plural: 'mouse' }),
+      post('order-plural', 'owner', { name: 'cat', plural: 'ca\u0007ts' }),
+      post('order-desc', 'owner', { name: 'cat', description: 'x\u0000y' }),
+      post('n-zero-width', 'owner', { name: 'bea\u200Bgle' }),
+      post('n-cyrillic', 'owner', { name: 'собака' }),
       post('n-blank', 'owner', { name: '   ' }),
       post('n-noslug', 'owner', { name: '!!!' }),
       post('n-control', 'owner', { name: 'bad\u0007name' }),
-      post('n-bidi', 'owner', { name: 'bi‮di' }),
+      post('n-bidi', 'owner', { name: 'bi\u202Edi' }),
       post('n-long', 'owner', { name: 'x'.repeat(201) }),
       post('n-200', 'owner', { name: 'y'.repeat(200) }),
       post('p-control', 'owner', { name: 'kettle', plural: 'kett\u0000les' }),
@@ -338,6 +347,37 @@ test('CC11: names are trimmed and their white space collapsed; name and descript
   assert(dsc.input === 'description', `bad-description names the description; got ${show(dsc)}`);
   const g = await graph();
   assert(C.nodesAt(g, `39998:${TA}:kettle`).length === 0 && C.nodesAt(g, `39998:${TA}:x`).length === 0, 'none of the refused names made a node');
+});
+
+test('CC11b: an invisible formatting character is refused, and a name with no letter a–z or digit is refused saying so', async () => {
+  const zw = await refused('n-zero-width', 400, 'bad-name');
+  assert(zw.input === 'name' && /invisible|zero-width|format/i.test(String(zw.error)), `a zero-width space is refused as invisible formatting; got ${show(zw)}`);
+  const cy = await refused('n-cyrillic', 400, 'bad-name');
+  assert(/a–z|a-z/.test(String(cy.error)) && !/no letter or digit/.test(String(cy.error)), `a Cyrillic name is refused for having no letter a–z or digit, not for having no letter at all; got ${show(cy.error)}`);
+  // The zero-width space is not a-z or 0-9, so the name's slug, and its address, would be bea-gle.
+  assert(C.nodesAt(await graph(), `39998:${TA}:bea-gle`).length === 0, 'the zero-width name made nothing');
+});
+
+test('CC18: a repeat by slug under another name names the name in differs: tea-room against tea room', async () => {
+  const first = await ok('trim');
+  const d = await ok('trim-dash');
+  assert(d.outcome === 'already-exists' && d.concept.conceptHeader === first.concept.conceptHeader, `tea-room has tea room's slug, so it is the repeat; got ${show(d)}`);
+  const by = Object.fromEntries((d.differs || []).map((x) => [x.input, x]));
+  assert(by.name && by.name.given === 'tea-room' && by.name.holds === 'tea room', `differs names the name given and the name held; got ${show(d.differs)}`);
+});
+
+test('CC19: a plural swap the other way: a concept whose singular is the plural asked for', async () => {
+  const { k } = await main();
+  const d = await ok('swap-other');
+  const m = (d.similar || []).find((x) => x.concept === k.mouse);
+  assert(d.outcome === 'created' && m && m.match === 'plural-swap', `mouse is reported, its singular the plural asked for; got ${show(d.similar)}`);
+});
+
+test('CC20: a bad plural or description is refused before the rule reads the graph: not key-in-use, though cat\'s key is taken', async () => {
+  const p = await refused('order-plural', 400, 'bad-name');
+  assert(p.input === 'plural', `the plural's problem, before the key clash; got ${show(p)}`);
+  const dsc = await refused('order-desc', 400, 'bad-description');
+  assert(dsc.input === 'description', `the description's problem, before the key clash; got ${show(dsc)}`);
 });
 
 test('CC12: without a firmware concept its nodes join, or without the concept-header concept, it is refused not-installed', async () => {

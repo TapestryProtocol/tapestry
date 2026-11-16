@@ -25,6 +25,8 @@
  *   UC7  nothing is signed; a visitor gets 401, a stranger 403, a text/plain body 415, and none changes anything; an
  *        admin's update is the admin's; the command updates too, its refusal matching the route's; it is listed with its
  *        guard, repeatKey and refusals, and has its /docs entry
+ *   (review round 1) UC8 a rename of a concept whose names tag has no plural lands, and repeating it answers
+ *        unchanged; UC9 a bad name is refused before the rule reads the graph
  */
 
 const fs = require('fs');
@@ -57,6 +59,11 @@ function main() {
   MAIN = (async () => {
     needDecls();
     const seed = await C.seedConcepts();
+    // A names tag with no plural, as a header the dlist curation copies from the community can have (review round 1,
+    // blocking 1): mouse's loses its plural.
+    const mouse = C.node(seed.state, seed.keys.mouse);
+    const namesTag = seed.state.rels.filter((r) => r.from === mouse.eid && r.type === 'HAS_TAG').map((r) => seed.state.nodes.find((n) => n.eid === r.to)).find((t) => t.props.type === 'names');
+    delete namesTag.props.value1;
     const file = seed.file(tmp('update-concept-'));
     const k = seed.keys;
     const first = runOn(file, [create('lamp', { name: 'lamp' }), create('dog-house', { name: 'dog-house' })]);
@@ -93,6 +100,9 @@ function main() {
       post('dh-slug', 'owner', { concept: dogHouse.conceptHeader, slug: 'kennel' }),
       create('c-dog-house', { name: 'dog house' }),
       post('other-slug', 'owner', { concept: lamp.conceptHeader, slug: 'nostr-relay' }),
+      post('mouse-rat', 'owner', { concept: k.mouse, name: 'rat' }),
+      post('mouse-rat-again', 'owner', { concept: k.mouse, name: 'rat' }),
+      post('order-name-slug', 'owner', { concept: lamp.conceptHeader, name: '   ', slug: 'beagle' }),
       post('admin', 'admin', { concept: dogHouse.conceptHeader, description: 'Where a dog sleeps.' }),
       { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
     ], [
@@ -224,6 +234,23 @@ test('UC6: each refusal, naming what was wrong; nothing changes', async () => {
   assert(C.node(g, k.relay).props.name === 'nostr relay' && C.node(g, k.recipe).props.name === 'recipe' && C.tagArrays(g, k.word).find((t) => t[0] === 'names')[2] === 'words', 'another author\'s, the owner\'s and the firmware\'s concepts are as they were');
   assert(C.node(g, k.goal).props.name === 'tapestry owner goal', 'the name-keyed concept keeps its singular name');
   void lamp;
+});
+
+test('UC8: a rename of a concept whose names tag has no plural lands, and the same rename again answers unchanged', async () => {
+  const { k } = await main();
+  const d = await ok('mouse-rat');
+  assert(d.outcome === 'updated' && show(d.changed) === show(['name']) && d.concept.names.singular === 'rat', `the rename lands; got ${show(d)}`);
+  const again = await ok('mouse-rat-again');
+  assert(again.outcome === 'unchanged' && again.change === null, `the same rename again changes nothing and records nothing (AC6); got ${show(again)}`);
+  const g = await graph();
+  const names = C.tags(g, k.mouse).find((t) => t.type === 'names');
+  assert(names.value === 'rat' && (names.value1 === undefined || names.value1 === null), `the names tag holds the new singular, and still no plural; got ${show(names)}`);
+  assert(C.node(g, k.mouse).props.name === 'rat', 'the header\'s name follows too');
+});
+
+test('UC9: a bad name is refused before the rule reads the graph: bad-name, not slug-in-use', async () => {
+  const x = await refused('order-name-slug', 400, 'bad-name');
+  assert(x.input === 'name', `the name's problem comes first, though the slug is another concept's; got ${show(x)}`);
 });
 
 test('UC7: nothing is signed; callers, the command, the list and /docs', async () => {

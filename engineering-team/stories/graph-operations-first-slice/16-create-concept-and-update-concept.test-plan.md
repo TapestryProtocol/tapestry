@@ -12,10 +12,10 @@ Every suite is stack-free. It runs the real catalog in a child process (`test/he
 |---|---|---|---|
 | AC1 — create a concept | CC1 eight nodes, no `NostrEvent`, keyed, named, by role, its entry and the backup note; CC15 nothing signed; CC16 the command | `test/operations/graph/create-concept.test.js` | integration (fake) |
 | AC2 — reads like today's | CC2 against today's route itself: addresses, labels, names, tags (plus the `o` tag), the import's tag uuids, JSON, wiring and memberships; CC3 `_fields.js` reads it; CC4 history by any node; **L1** the concept-graph reads | `create-concept.test.js`; live | integration (fake); live |
-| AC3 — safe to repeat by slug | CC5 the same name, and other case and spacing, with `differs`; CC6 today's route's and firmware's concepts returned alike; CC13 the lock comes first; **L2** two calls at once make one concept | `create-concept.test.js`; live | integration (fake); live |
-| AC4 — near matches | CC7 another author's same slug, own same name, plural swap, the cap of 10 with `moreSimilar` | `create-concept.test.js` | integration (fake) |
-| AC5 — names | CC11 trim and collapse; `bad-name` for empty, no slug, control, text-direction, 201 characters; 200 is fine; a plural's problem names the plural; `bad-description`. UC6's `bad-name`. CN2–CN4 the functions | `create-concept.test.js`, `update-concept.test.js`, `concept-names.test.js` | integration (fake); unit |
-| AC6 — update | UC1 a rename with no event; UC2 a lettered rename (a hand edit kept, elements still read, `letterOutOfDate`); UC3 a slug (found by it, the old name refused while the key stays, a new concept at a nonce, another author's slug ignored); UC4 a description set and removed; UC5 `unchanged`; CN1 names exactly as today's route derives them | `update-concept.test.js`, `concept-names.test.js` | integration (fake); unit |
+| AC3 — safe to repeat by slug | CC5 the same name, and other case and spacing, with `differs`; CC18 `differs` names the name (`tea-room` given, `tea room` held); CC6 today's route's and firmware's concepts returned alike; CC13 the lock comes first; **L2** two calls at once make one concept | `create-concept.test.js`; live | integration (fake); live |
+| AC4 — near matches | CC7 another author's same slug, own same name, plural swap, the cap of 10 with `moreSimilar`; CC19 the plural swap the other way (a concept whose singular is the plural asked for) | `create-concept.test.js` | integration (fake) |
+| AC5 — names | CC11 trim and collapse; `bad-name` for empty, no slug, control, text-direction, 201 characters; 200 is fine; a plural's problem names the plural; `bad-description`. CC11b an invisible formatting character (U+200B), and a Cyrillic name refused for having no letter a–z or digit. CC20 and UC9 a bad input is refused before the rule reads the graph. UC6's `bad-name`. CN2–CN4 the functions | `create-concept.test.js`, `update-concept.test.js`, `concept-names.test.js` | integration (fake); unit |
+| AC6 — update | UC1 a rename with no event; UC2 a lettered rename (a hand edit kept, elements still read, `letterOutOfDate`); UC3 a slug (found by it, the old name refused while the key stays, a new concept at a nonce, another author's slug ignored); UC4 a description set and removed; UC5 `unchanged`; UC8 a rename of a concept whose `names` tag has no plural, and the same rename again `unchanged`; CN1 names exactly as today's route derives them | `update-concept.test.js`, `concept-names.test.js` | integration (fake); unit |
 | AC7 — refusals and the rule | UC6 `unknown-concept` (twice), `not-own-concept` (another author's, the owner's own key), `firmware-concept`, `name-keyed` (a new plural allowed), `nothing-to-change`, `slug-in-use` naming the concept, a slug that isn't kebab-case; CC8 `key-in-use`; CS1–CS5 the rule as a guard and as a check, and its rules-document entry | `update-concept.test.js`, `create-concept.test.js`, `test/operations/rules/concept-slug-unique.test.js` | integration (fake); unit |
 | AC8 — lasts, and reaches agents | CC15 and UC7 401, 403, 415, nothing signed, an admin recorded as the admin; CC16 and UC7 the command; CC17 and UC7 listed with guard, `repeatKey` and refusals, and `/docs`; X3 an admin agent through the external CLI; **L3** a reinstall; **L4** a restore on a fresh stack; **L5** an agent through nginx; **L6** the relay unchanged | `create-concept.test.js`, `update-concept.test.js`, `concepts-agent-through-cli.test.js`; live | integration (fake); live |
 
@@ -29,7 +29,10 @@ Every suite is stack-free. It runs the real catalog in a child process (`test/he
 - [x] **A hand edit survives a rename** (UC2), **and a value of 200 characters is fine** (CC11).
 - [x] **A pre-existing key clash** never blocks an update that doesn't touch it (CS3's items carry the slug alone; Amendment 1.2).
 - [x] **The fake's limits.** F15–F20 in `test/operations/graph-fake.test.js` prove the new statements over the fake itself, and the refusals F7 and F14 still hold.
-- [ ] **Concurrency, through Neo4j.** The fake has no locks, so L2 shows two creates at once making one concept. CC13 shows only that the lock is taken first.
+- [x] **A `names` tag with no plural** (review round 1, blocking 1). UC8: the seed's mouse loses its tag's plural, as a header the dlist curation copies can; a rename lands, and the same rename again answers `unchanged`.
+- [x] **Which refusal comes first** (review round 1, non-blocking 1). CC20 and UC9: a bad plural, description or name is refused before the rule reads the graph, though the rule would refuse too.
+- [x] **Invisible characters in a name** (review round 1, non-blocking 3). CN3: U+200B, U+00AD, and a zero-width joiner beside a Latin letter are refused; a zero-width non-joiner between two Persian letters, which the script needs, is not.
+- [ ] **Concurrency, through Neo4j.** The fake has no locks, so L2 shows two creates at once making one concept. CC13 shows only that the lock is taken first. The re-check after the lock is pinned by nothing (review round 1, non-blocking 4): **L7**, below, is for the next scratch run.
 - Not derivable from any criterion: **CC2's tag uuids and json text match the route's byte for byte.** That is what makes a later letter, signed from these tags, land on the same nodes.
 
 ## Test infrastructure
@@ -66,6 +69,11 @@ Re-run as well the suites that share the fake: `graph/{add-relationship,remove-r
 - **L4** A backup, restored on a fresh scratch stack, brings both back with their keys.
 - **L5** An admin agent, with its own key, through the instance's nginx and the external CLI: create, create again, rename.
 - **L6** The relay holds as many events after every write as before the first.
+
+Asked by review round 1, for the next scratch run that touches concepts (not run in this story):
+
+- **L7** A `graph create-concept` whose key comes into use only when a concurrent `graph update-concept --slug` commits, and two updates giving two concepts one slug at once: each is refused by the re-check after the lock (non-blocking 4).
+- **L3 again** A reinstall, to see whether the memberships it keeps depend on the order pass 1e meets the edges (non-blocking 6, ledger `2026-11-15-reinstall-drops-a-supersets-own-membership`).
 
 ## Verification
 
@@ -132,3 +140,7 @@ Run on the Mac Studio, on throwaway instances from `scripts/scratch-stack.sh`, o
 ### The touched suites (Implementation, 2026-11-15)
 
 `test/operations.test.js`, the whole stack-free operations gate, every suite under `test/operations/` included: **377 passed, 0 failed**. The worktree's `node_modules` is linked to the main checkout's, so that `test/helpers/routeWalk.js` finds express at its absolute path; without the link, W1, X1 and X2 fail on "Cannot find module express", before anything of this story runs.
+
+### The Tester correction for review round 1 (2026-11-15)
+
+On the code at `52ca6e8a` (the review), with this correction's tests and dead endpoints: concept names 3/1 (CN3: a zero-width space passes), create-concept 19/2 (CC11b: the zero-width name is created; CC20: the bad plural answers `key-in-use`), update-concept 7/2 (UC8: the same rename again answers `updated` and records another entry; UC9: the bad name answers `slug-in-use`). CC18 and CC19 pass already: they pin what the review's probe saw work, which no suite covered. The text-direction literals in `create-concept.test.js` and `concept-names.test.js` are `\u` escapes, and a scan of `src/` and `test/` by code point finds U+202A–U+202E and U+2066–U+2069 only at `test/dictionary-resync-concept.test.js:253`, which predates this story.
