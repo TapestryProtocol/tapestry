@@ -22,7 +22,8 @@
  *        gives nothing
  *   EFS4 within one call, a concept's schema is read once, however many items name it
  *   EFS5 _schemas.checkElements throws the rule's first finding as a refusal with rule set, and passes what fits
- *   EFS6 the rulebook holds its entry, §7, in its format, with its codes, its code's file and its source
+ *   EFS6 the rulebook holds its entry, §7, in its format, with its codes, its code's file and its source; it claims
+ *        no single verdict with the derive step, and names where the two split (review round 1; ADR 0020 Amendment 1)
  *   EFS7 the graph rule concept's firmware has its element, as node src/firmware/graph-rules.js makes it
  */
 
@@ -208,6 +209,8 @@ test('EFS6: the rulebook holds its entry, §7, in its format, with its codes, it
   assert(entry.includes(`src/operations/rules/${NAME}.js`) && entry.includes('create-element'), 'Enforced by names the rule\'s file and create-element\'s guard');
   assert(/graph-operations-first-slice\/0020/.test(entry), 'its source is ADR graph-operations-first-slice/0020');
   assert(/rule 4/.test(entry), 'it says it is BIBLE §10\'s rule 4');
+  assert(!/one verdict/i.test(entry), 'it claims no single verdict with the derive step, which checks another document (ADR 0020 Amendment 1, item 1)');
+  assert(/graphContext/.test(entry), 'it says where the two split: the derive step checks its own graphContext too (Amendment 1, item 1)');
 });
 
 test('EFS7: the graph rule concept\'s firmware has its element, as node src/firmware/graph-rules.js makes it', () => {

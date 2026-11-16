@@ -36,6 +36,7 @@
  *   CE14 it is listed with its guard, repeatKey, inputs and every refusal, and has its /docs entry
  *   CE15 the change entry's fields name, slug and from describe an element and the set it was made in
  *   CE16 the catalog's §2 row gives create-element as built: its inputs, its rule and what it reports
+ *   CE17 (review round 1) a repeat compares fields as JSON, a nested __proto__ key included
  *   CE20 fields that don't fit are refused invalid-fields by element-fits-schema, each problem named in words
  *   CE21 more than twenty problems: twenty named, and how many more
  *   CE22 a schema that is missing, can't be read, or doesn't compile is refused no-schema, saying why
@@ -49,6 +50,9 @@
  *   CE30 the refusal run changed nothing and recorded nothing
  *   CE31 with no assistant key it is refused not-installed, and nothing changes
  *   CE32 a write whose entry can't be recorded keeps nothing
+ *   CE33 (review round 1, ADR 0020 Amendment 1) a concept keyed word or graphContext is refused reserved-key before
+ *        anything is built: firmware's word, with no schema or with its real one, another author's word, and graph
+ *        context; nothing changes
  *   CE40 the marks: Biscuit carries dog's marked fields as dog_breed and dog_age in the same write, its entry records
  *        the copies, and what can't be carried comes back as skipped
  *   CE41 the new modules require nothing that signs
@@ -130,6 +134,9 @@ function main() {
       post('same-id-a', 'owner', { concept: k.sameIdA, name: 'Alpha', fields: { description: 'a' } }),
       post('same-id-b', 'owner', { concept: k.sameIdB, name: 'Beta', fields: { description: 'b' } }),
       post('admin', 'admin', { concept: k.beagle, name: 'Admin Beagle', fields: { description: 'by the admin' } }),
+      // A field holding an object with a __proto__ key, given as JSON text, then the repeat with an empty one.
+      beagle('nesty', 'Nesty', '{"description":"nested","meta":{"__proto__":{"a":1}}}'),
+      beagle('nesty-again', 'Nesty', { description: 'nested', meta: {} }),
       { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
     ], {
       spy: true,
@@ -411,7 +418,7 @@ test('CE14: it is listed with its guard, repeatKey, inputs and every refusal, an
   const kinds = ((ins.fields.schema || {}).oneOf || []).map((x) => x.type).sort();
   assert(show(kinds) === show(['object', 'string']), `fields takes an object or its JSON text (Decision 1); got ${show(ins.fields.schema)}`);
   const status = Object.fromEntries((e.refusals || []).map((x) => [x.code, x.status]));
-  const want = { 'bad-name': 400, 'bad-fields': 400, 'unknown-concept': 404, 'made-elsewhere': 409, 'no-superset': 409, 'not-installed': 409, 'unknown-node': 404, 'not-a-set': 409, 'not-in-class-thread': 409, 'no-free-address': 409, 'invalid-fields': 400, 'no-schema': 409 };
+  const want = { 'bad-name': 400, 'bad-fields': 400, 'unknown-concept': 404, 'made-elsewhere': 409, 'no-superset': 409, 'not-installed': 409, 'unknown-node': 404, 'not-a-set': 409, 'not-in-class-thread': 409, 'no-free-address': 409, 'invalid-fields': 400, 'no-schema': 409, 'reserved-key': 409 };
   for (const [code, st] of Object.entries(want)) assert(status[code] === st, `its refusals include ${code} (${st}), Decision 18's; got ${show(status)}`);
   for (const code of ['missing-input', 'invalid-input', 'unknown-input', 'wrong-content-type', 'sign-in-required', 'not-allowed']) assert(code in status, `its refusals include ${code}; got ${show(Object.keys(status))}`);
   const child = spawnSync(process.execPath, ['-e', `
@@ -440,6 +447,17 @@ test('CE16: the catalog\'s §2 row gives create-element as built: its inputs, it
   assert(row.includes('`element-fits-schema`') && /differs/.test(row), `it names its rule, and the repeat's report; got ${show(row)}`);
 });
 
+test('CE17: a repeat compares the fields given with what the element holds as JSON, a nested __proto__ key included', async () => {
+  const first = await ok('nesty');
+  assert(first.outcome === 'created', `Nesty is made, its meta holding a __proto__ key; got ${show(first)}`);
+  const g = await graph();
+  const held = sectionOf(g, first.element.tapestryKey, 'beagle');
+  assert(held && held.meta && Object.prototype.hasOwnProperty.call(held.meta, '__proto__'), `the key is stored as an own key of the section's meta; got ${show(held)}`);
+  const d = await ok('nesty-again');
+  const by = byInput(d);
+  assert(d.outcome === 'already-exists' && by['fields.meta'] && show(by['fields.meta'].given) === show({}), `meta given as {} differs from the meta held, whose __proto__ key the comparison must keep (review round 1, non-blocking 2); got ${show(d.differs)}`);
+});
+
 // ── REF: every refusal, over a graph that must end as it began ──
 let REF = null;
 function ref() {
@@ -461,7 +479,11 @@ function ref() {
       post('survey', 'owner', { concept: k.survey, name: 'Poll' }),
       b('beagle-missing', { name: 'Nameless' }),
       b('beagle-type', { name: 'Typo', fields: { description: 5 } }),
-      post('ns-word', 'owner', { concept: k.word, name: 'Lexeme' }),
+      post('ns-scroll', 'owner', { concept: k.scroll, name: 'Parchment' }),
+      // the keys an element's JSON keeps for itself (ADR 0020 Amendment 1, item 2)
+      post('rk-word', 'owner', { concept: k.word, name: 'Lexeme' }),
+      post('rk-other-word', 'owner', { concept: k.otherWord, name: 'Lexeme', fields: { description: 'a word' } }),
+      post('rk-graph-context', 'owner', { concept: k.graphContextConcept, name: 'Context', fields: { description: 'a context' } }),
       post('ns-teapot', 'owner', { concept: k.teapot, name: 'Brown Betty', fields: { description: 'x' } }),
       post('ns-kettle', 'owner', { concept: k.kettle, name: 'Whistler', fields: { description: 'x' } }),
       post('ns-lantern', 'owner', { concept: k.lantern, name: 'Glow', fields: { description: 'x' } }),
@@ -537,7 +559,7 @@ test('CE21: more than twenty problems: twenty are named, and how many more', asy
 });
 
 test('CE22: a concept whose schema is missing, can\'t be read, or doesn\'t compile is refused no-schema, saying why', async () => {
-  const cases = [['ns-word', /schema/i], ['ns-teapot', /pars/i], ['ns-kettle', /more than one|two|several/i], ['ns-lantern', /LMDB/i], ['ns-compass', /compile/i]];
+  const cases = [['ns-scroll', /schema/i], ['ns-teapot', /pars/i], ['ns-kettle', /more than one|two|several/i], ['ns-lantern', /LMDB/i], ['ns-compass', /compile/i]];
   for (const [id, why] of cases) {
     const body = await refused(id, 409, 'no-schema');
     assert(body.rule === RULE && why.test(err(body)), `${id}: no-schema from ${RULE}, saying why (${why}); got ${show(body)}`);
@@ -636,6 +658,30 @@ test('CE31: with no assistant key it is refused not-installed, and nothing chang
   assert(x.status === 409 && x.body.code === 'not-installed', `with no assistant, the would-be author, 409 not-installed; got ${x.status} ${show(x.body)}`);
   const after = S.readState(file);
   assert(show(after.nodes) === show(before.nodes), 'and nothing is made');
+});
+
+test('CE33: a concept keyed word or graphContext is refused reserved-key before anything is built, naming the key', async () => {
+  for (const [id, key] of [['rk-word', 'word'], ['rk-other-word', 'word'], ['rk-graph-context', 'graphContext']]) {
+    const body = await refused(id, 409, 'reserved-key');
+    assert(body.input === 'concept' && err(body).includes(key) && err(body).length > 40, `${id}: reserved-key, naming the input, the key ${key} and why (ADR 0020 Amendment 1, item 2); got ${show(body)}`);
+  }
+  // Firmware's word with its real schema, which asks for the derive step's graphContext: refused for its key, not for a
+  // field no caller can give.
+  const real = fs.readFileSync(path.join(ROOT, 'firmware/versions/v1.0.0/concepts/word/json-schema.json'), 'utf8');
+  const { file, k } = await fresh((s) => {
+    const header = s.nodes.find((n) => n.props.tapestryKey && n.props.uuid === `39998:${TA}:word`);
+    const node = { eid: s.nextEid++, labels: ['NostrEvent', 'ListItem', 'JSONSchema', 'TapestryNode'], props: { uuid: `39999:${TA}:word-json-schema`, kind: 39999, pubkey: TA, name: 'JSON schema for the concept of words', tapestryKey: '00000000-0000-4000-8000-0000000000ee' } };
+    const tag = { eid: s.nextEid++, labels: ['NostrEventTag', 'TapestryNode'], props: { type: 'json', value: real, uuid: 'word-json-schema-json', tapestryKey: '00000000-0000-4000-8000-0000000000ef' } };
+    s.nodes.push(node, tag);
+    s.rels.push({ eid: s.nextEid++, type: 'IS_THE_JSON_SCHEMA_FOR', from: node.eid, to: header.eid, props: {} });
+    s.rels.push({ eid: s.nextEid++, type: 'HAS_TAG', from: node.eid, to: tag.eid, props: {} });
+  });
+  const before = S.readState(file);
+  const { a } = runOn(file, [post('rk-word-real', 'owner', { concept: k.word, name: 'Lexeme', fields: { wordTypes: ['word'] } })]);
+  const x = a.req('rk-word-real');
+  assert(x.status === 409 && x.body.code === 'reserved-key', `firmware's word with its real schema: 409 reserved-key; got ${x.status} ${show(x.body)}`);
+  const after = S.readState(file);
+  assert(show(after.nodes) === show(before.nodes) && show(after.rels) === show(before.rels), 'and nothing changes');
 });
 
 test('CE32: a write whose entry can\'t be recorded keeps nothing', async () => {

@@ -19,11 +19,16 @@
  *   SC3 problemsOf names each problem by its dotted path, in words: required, a field the schema doesn't take, a value
  *       not allowed, the wrong type, any other keyword in ajv's words; "the element's JSON" at the top; every problem
  *   SC4 a schema that doesn't compile is a problem, not a throw; two schemas with one $id both check
- *   SC5 the dialect is the derive step's: for each schema and JSON, problemsOf's verdict is the one
- *       src/lib/derivers/word.js:136–180 reaches, 2020-12's own keywords ignored as it ignores them
+ *   SC5 the dialect is the derive step's reading of a schema: for each schema and JSON, problemsOf's verdict is the
+ *       one ajv gives the JSON under src/lib/derivers/word.js:136–180's reading, 2020-12's own keywords ignored as
+ *       it ignores them. It compares the reading of a schema, not the document the derive step checks (SC9)
  *   SC6 fits gives true, false (with the problems) or null (with why) for a concept and JSON
  *   SC7 loading _schemas.js opens nothing: no ajv, LMDB, Neo4j driver or store until first called
  *   SC8 the fake graph runs E1–E4 as the ADR writes them, answering as Neo4j would
+ *   SC9 (review round 1, ADR 0020 Amendment 1, item 1) the real derive step beside this check, its database, store
+ *       and resolver stubbed: they agree under create-concept's schema and firmware dog's, and split as Amendment 1
+ *       says under firmware word's schema, which requires the derive step's graphContext, and under a schema that
+ *       forbids extra top-level keys
  */
 
 const fs = require('fs');
@@ -44,7 +49,7 @@ function needSchemas() {
   if (!fs.existsSync(SCHEMAS)) throw new Error('src/operations/catalog/graph/_schemas.js does not exist yet (ADR graph-operations-first-slice/0020 Decision 11)');
 }
 
-/** The derive step's reading (src/lib/derivers/word.js:136–180): the jsonSchema section, $schema dropped, ajv's defaults with strict off. */
+/** The derive step's reading of a schema (src/lib/derivers/word.js:136–180): the jsonSchema section, $schema dropped, ajv's defaults with strict off. SC9 runs the derive step itself. */
 const DERIVE = `(schemaObj, json) => {
   if (schemaObj.jsonSchema && typeof schemaObj.jsonSchema === 'object') schemaObj = schemaObj.jsonSchema;
   const { $schema, ...schemaNoMeta } = schemaObj;
@@ -225,7 +230,7 @@ test('SC4: a schema that doesn\'t compile is a problem, not a throw; two schemas
   assert(!p.idA2.threw && show(p.idA2.problems) === show([]), `the first again, now fitting; got ${show(p.idA2)}`);
 });
 
-test('SC5: the dialect is the derive step\'s: the same verdict for each schema and JSON, 2020-12\'s own keywords ignored alike', () => {
+test('SC5: the dialect is the derive step\'s reading of a schema: the same verdict for each schema and JSON under it, 2020-12\'s own keywords ignored alike', () => {
   for (const d of got().dialect) {
     assert(d.derive !== 'throws' && !d.mine.threw && !d.mine.problem, `${d.label}: both compile; got derive ${show(d.derive)}, mine ${show(d.mine)}`);
     const mineValid = (d.mine.problems || []).length === 0;
@@ -259,6 +264,76 @@ test('SC8: the fake graph runs E1–E4 as the ADR writes them, answering as Neo4
     `E2: the concepts whose class thread reaches each; got ${show(f.e2)}`);
   assert(f.e3.length === 2 && f.e3.every((r) => r.json === true && r.parents.length === 1 && r.parents[0] === 'beagleSuperset'), `E3: both twins, each with its json and its parent; got ${show(f.e3)}`);
   assert(f.e4.rover === 'string' && f.e4.loner === null, `E4: rover's JSON, and a null for a node with none; got ${show(f.e4)}`);
+});
+
+/** SC9's child: the real deriveWord, with Neo4j, the LMDB store and the resolver stubbed in require.cache, beside problemsOf. */
+function deriveBeside(cases) {
+  const dir = tmp('element-schemas-derive-');
+  const script = path.join(dir, 'child.js');
+  const outFile = path.join(dir, 'out.json');
+  fs.writeFileSync(script, `'use strict';
+const path = require('path');
+const ROOT = ${JSON.stringify(ROOT)};
+const out = { cases: [] };
+const stub = (rel, exports) => { const f = require.resolve(path.join(ROOT, rel)); require.cache[f] = { id: f, filename: f, loaded: true, exports }; };
+let current = null;
+stub('src/lib/neo4j-driver', {
+  runCypher: async (q) => {
+    if (/tag\\.value AS value/.test(q)) return [{ value: current.json }];
+    if (/IS_THE_JSON_SCHEMA_FOR/.test(q)) return [{ schemaUuid: 's', schemaTapestryKey: 'sk', conceptName: 'c', conceptTapestryKey: 'ck', schemaJson: current.schema }];
+    return [];
+  },
+});
+stub('src/lib/tapestry-store', { get: () => undefined });
+stub('src/lib/tapestry-resolve', { isLmdbRef: () => false, resolveValue: () => null });
+(async () => {
+  try {
+    const deriveWord = require(path.join(ROOT, 'src/lib/derivers/word.js'));
+    const X = require(${JSON.stringify(SCHEMAS)});
+    for (const c of ${JSON.stringify(cases)}) {
+      current = { json: JSON.stringify(c.json), schema: c.schema };
+      const derived = await deriveWord({ uuid: 'u', tapestryKey: 'k', name: 'n', labels: [], elementId: 'e' });
+      const entry = derived.graphContext.parentJsonSchemas[0];
+      const parsed = JSON.parse(c.schema);
+      const section = parsed.jsonSchema && typeof parsed.jsonSchema === 'object' ? parsed.jsonSchema : parsed;
+      const { $schema, ...noMeta } = section;
+      const mine = X.problemsOf(noMeta, c.json);
+      out.cases.push({ label: c.label, derive: entry ? entry.valid : null, deriveErrors: entry ? entry.errors : null, fits: mine.problem ? null : mine.problems.length === 0, problems: (mine.problems || []).map((p) => p.message), problem: mine.problem || null });
+    }
+  } catch (e) { out.error = String(e && e.stack || e); }
+  require('fs').writeFileSync(${JSON.stringify(outFile)}, JSON.stringify(out));
+  process.exit(0);
+})();
+`);
+  const child = spawnSync(process.execPath, [script], { cwd: ROOT, encoding: 'utf8', env: S.childEnv(dir), timeout: 120000 });
+  let out = null;
+  try { out = JSON.parse(fs.readFileSync(outFile, 'utf8')); } catch { /* reported below */ }
+  assert(out, `the derive child wrote no answer: ${(child.stderr || '').slice(-600)}`);
+  assert(!out.error, `the derive child failed: ${String(out.error).slice(0, 600)}`);
+  return Object.fromEntries(out.cases.map((c) => [c.label, c]));
+}
+
+test('SC9: the real derive step beside this check: agreeing under create-concept\'s and firmware dog\'s schemas, split as Amendment 1 says under word\'s and one that limits top-level keys', () => {
+  needSchemas();
+  const fw = (c) => fs.readFileSync(path.join(ROOT, `firmware/versions/v1.0.0/concepts/${c}/json-schema.json`), 'utf8');
+  const beagleSchema = JSON.stringify({ jsonSchema: { $schema: 'https://json-schema.org/draft/2020-12/schema', type: 'object', required: ['beagle'], properties: { beagle: { type: 'object', required: ['name', 'slug', 'description'], properties: { name: { type: 'string' }, slug: { type: 'string' }, description: { type: 'string' } } } } } });
+  const beagle = (description) => ({ word: { slug: 'beagle--max', name: 'beagle: Max', title: 'Beagle: Max', wordTypes: ['word', 'beagle'] }, beagle: { name: 'Max', slug: 'max', ...(description === undefined ? {} : { description }) } });
+  const r = deriveBeside([
+    { label: 'beagle fits', schema: beagleSchema, json: beagle('a dog') },
+    { label: 'beagle misses', schema: beagleSchema, json: beagle(undefined) },
+    { label: 'dog in its set', schema: fw('dog'), json: { word: { slug: 'dog--rover', name: 'dog: Rover', title: 'Dog: Rover', wordTypes: ['word', 'dog', 'goldenRetriever'] }, dog: { name: 'Rover', slug: 'rover', breed: 'goldenRetriever' } } },
+    { label: 'dog outside it', schema: fw('dog'), json: { word: { slug: 'dog--fido', name: 'dog: Fido', title: 'Dog: Fido', wordTypes: ['word', 'dog'] }, dog: { name: 'Fido', slug: 'fido', breed: 'goldenRetriever' } } },
+    { label: 'word', schema: fw('word'), json: { word: { slug: 'word--lexeme', name: 'word: Lexeme', title: 'Word: Lexeme', wordTypes: ['word'] } } },
+    { label: 'closed top', schema: JSON.stringify({ jsonSchema: { type: 'object', properties: { word: {}, beagle: {} }, additionalProperties: false } }), json: beagle('a dog') },
+  ]);
+  for (const [label, want] of [['beagle fits', true], ['beagle misses', false], ['dog in its set', true], ['dog outside it', false]]) {
+    const c = r[label];
+    assert(c.derive === want && c.fits === want, `${label}: the derive step and this check agree, ${want ? 'fitting' : 'not fitting'} (Amendment 1, item 1); got derive ${show(c.derive)}, check ${show(c.fits)} ${show(c.problems)}`);
+  }
+  const w = r.word;
+  assert(w.derive === true && w.fits === false && w.problems.some((p) => /graphContext/.test(p)), `firmware word's schema: the derive step, which adds its own graphContext, says valid; this check, on the stored JSON, says graphContext is required (Amendment 1, item 1); got derive ${show(w.derive)}, check ${show(w.problems)}`);
+  const t = r['closed top'];
+  assert(t.derive === false && t.fits === true, `a schema that forbids extra top-level keys: the derive step's graphContext breaks it, the stored JSON doesn't; got derive ${show(t.derive)} ${show(t.deriveErrors)}, check ${show(t.fits)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

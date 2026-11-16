@@ -28,8 +28,11 @@
  *   survey    own; its section requires q01 to q25, each text, besides name and slug.
  *   sameIdA, sameIdB  own, as today's shape, their schemas sharing one $id.
  *   teapot (its schema's JSON doesn't parse), kettle (two schema nodes), lantern (an LMDB reference whose entry is
- *             missing), compass (a schema that doesn't compile): each refused no-schema, as is word (firmware's, with no
- *             schema node).
+ *             missing), compass (a schema that doesn't compile), scroll (no schema node: a header and a superset):
+ *             each refused no-schema. word (firmware's, with no schema node) has none either.
+ *   otherWord another author's concept named word (39998:<OTHER>:word), its key word, with a schema that takes any
+ *             object; graphContextConcept, own, named "graph context", its key graphContext, the same. With word, each
+ *             is refused reserved-key: an element's JSON keeps both keys for itself (ADR 0020 Amendment 1, item 2).
  *   relationshipType  firmware's (39998:<TA>:relationship-type), with a schema: a firmware concept that takes an element.
  *   graph     firmware's (seeded), given a schema that takes any object: a firmware concept that stays open.
  *   graphRule firmware's (39998:<TA>:graph-rule): made elsewhere, by the rulebook.
@@ -213,6 +216,13 @@ async function seedCreateElement() {
 
   const otherSet = await todays('set', 'sets', { author: OTHER });
   named('otherSet', otherSet.conceptHeader);
+
+  // ── a concept with no schema node, and the keys an element keeps for itself (ADR 0020 Amendment 1) ──
+  const scroll = named('scroll', lettered({ uuid: `39998:${TA}:scroll`, kind: 39998, tags: [['d', 'scroll'], ['names', 'scroll', 'scrolls'], ['slug', 'scroll'], ['json', JSON.stringify({ conceptHeader: { oNames: { singular: 'scroll', plural: 'scrolls' }, oSlugs: { singular: 'scroll', plural: 'scrolls' }, oKeys: { singular: 'scroll', plural: 'scrolls' } } })]], roleLabels: ['ConceptHeader'] }));
+  link(scroll, 'IS_THE_CONCEPT_FOR', named('scrollSuperset', lettered({ uuid: `39999:${TA}:scroll-superset`, tags: [['d', 'scroll-superset'], ['name', 'superset for the concept of scrolls']], roleLabels: ['Superset'] })));
+  const anyObject = (json, role) => { if (role === 'jsonSchema') json.jsonSchema = { type: 'object' }; };
+  named('otherWord', (await todays('word', 'words', { author: OTHER, edit: anyObject })).conceptHeader);
+  named('graphContextConcept', (await todays('graph context', 'graph contexts', { edit: anyObject })).conceptHeader);
 
   named('loner', add(['NostrEvent', 'ListItem', 'TapestryNode'], { uuid: `39999:${TA}:loner`, kind: 39999, pubkey: TA, name: 'loner', id: hex('loner') }));
   named('G', add(['GraphChange', 'TapestryNode'], { at: '2026-01-01T00:00:00.000Z', byRole: 'owner', byPubkey: C.OWNER, operation: 'graph add-relationship', keys: [], changes: '[]' }));

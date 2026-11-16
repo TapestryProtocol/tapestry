@@ -1,7 +1,7 @@
 # Test Plan: Story 20 — `graph create-element`
 
 **Story:** `engineering-team/stories/graph-operations-first-slice/20-create-element.md`
-**ADR:** `engineering-team/decisions/graph-operations-first-slice/0020-create-element.md`
+**ADR:** `engineering-team/decisions/graph-operations-first-slice/0020-create-element.md` (with Amendment 1, at review round 1)
 **Date:** 2026-11-16
 
 Every suite is stack-free:
@@ -18,11 +18,11 @@ The stack-free suites can't reach six things: Neo4j's own locking, a firmware re
 |---|---|---|---|
 | AC1: make an element of a concept | **CE1** one keyed node under the superset, no `NostrEvent`, its name its tapestryValue, the answer's key, address, concept and parents, its `element-created` entry, the backup note. **CE2** today's address (`dtag.childDTag`), the tags `d`, `name`, `z` and `json` in order with the import's tag uuids, and word-wrapper JSON with its keys in Decision 8's order. **CE3** `graph history` by the element, the concept and the set; `graph list-elements` lists it. **CE4** a name trimmed and collapsed; the section holds name, slug, then the fields as given; JSON text works. **CE13** nothing signed. | `test/operations/graph/create-element.test.js` | integration (fake) |
 | AC2: in a set | **CE5** Buddy directly in the golden retrievers' superset, which is in dog's class thread: its `n` tag names it; `wordTypes` and the answer list dog, then golden retriever. **CE6** Max, in walkers, is of dog and pet; Ribbon is in a set only beagle reaches; a `set` that is the concept's own superset is the same as none. | `create-element.test.js` | integration (fake) |
-| AC3: rule 4 | **CE20** `invalid-fields` from `element-fits-schema`, each problem in words: required, the wrong type, a value not allowed (with the values), a field the schema doesn't take, and dog's breed tied to `wordTypes`. **CE21** twenty problems named, then how many more. **CE22** `no-schema`, saying why. **CE4** no value made up. **CE5/CE6** the other concepts reported (`fits: false` with the problems), never refused. **SC1–SC6** the shared check. **SC5** its verdict is the derive step's. | `create-element.test.js`, `test/operations/graph/element-schemas.test.js` | integration (fake); unit |
-| AC4: safe to repeat | **CE7** `already-exists`, `change: null`, nothing written. `differs` names the name's case, a set it isn't in, and each field given that differs; a repeat checks no fields. **CE8** found anywhere in the class thread, by name or by the address the name gives, with or without a nonce; the plain address wins, then the lowest key; today's lettered rover counts. **CE9** another author's element is no repeat. **CE10** a held address takes the next nonce. **CE12** each transaction takes the lock before any read. **L2** two calls at once. | `create-element.test.js`; live | integration (fake); live |
-| AC5: what it refuses | **CE23** `unknown-concept` (a random key, an element's key) and `no-superset`. **CE24** `unknown-node`, `not-a-set` (an element; a header names its superset), `not-in-class-thread` (naming dog and its superset) and `no-free-address`. **CE25** `bad-name`, six ways. **CE26** `bad-fields`: text that isn't JSON, a list, null, another name or slug, JSON over 1,000,000 characters; a list in a JSON body. **CE27** `made-elsewhere` for the eleven concepts of Decision 4, naming the operation to use. **CE11** another author's concept, another author's concept named `set`, firmware's relationship type and `graph` each take one. **CE30** the refusal run changes nothing and records nothing. **CE31** `not-installed`. | `create-element.test.js` | integration (fake) |
+| AC3: rule 4 | **CE20** `invalid-fields` from `element-fits-schema`, each problem in words: required, the wrong type, a value not allowed (with the values), a field the schema doesn't take, and dog's breed tied to `wordTypes`. **CE21** twenty problems named, then how many more. **CE22** `no-schema`, saying why. **CE4** no value made up. **CE5/CE6** the other concepts reported (`fits: false` with the problems), never refused. **SC1–SC6** the shared check. **SC5** it reads a schema as the derive step does. **SC9** the real derive step beside it: where the two agree, and where they split (Amendment 1, item 1). | `create-element.test.js`, `test/operations/graph/element-schemas.test.js` | integration (fake); unit |
+| AC4: safe to repeat | **CE7** `already-exists`, `change: null`, nothing written. `differs` names the name's case, a set it isn't in, and each field given that differs; a repeat checks no fields. **CE8** found anywhere in the class thread, by name or by the address the name gives, with or without a nonce; the plain address wins, then the lowest key; today's lettered rover counts. **CE9** another author's element is no repeat. **CE10** a held address takes the next nonce. **CE17** (review round 1) fields are compared as JSON, a nested `__proto__` key included. **CE12** each transaction takes the lock before any read. **L2** two calls at once. | `create-element.test.js`; live | integration (fake); live |
+| AC5: what it refuses | **CE23** `unknown-concept` (a random key, an element's key) and `no-superset`. **CE24** `unknown-node`, `not-a-set` (an element; a header names its superset), `not-in-class-thread` (naming dog and its superset) and `no-free-address`. **CE25** `bad-name`, six ways. **CE26** `bad-fields`: text that isn't JSON, a list, null, another name or slug, JSON over 1,000,000 characters; a list in a JSON body. **CE27** `made-elsewhere` for the eleven concepts of Decision 4, naming the operation to use. **CE33** (Amendment 1, item 2) `reserved-key` for a concept keyed `word` or `graphContext`: firmware's `word`, with no schema and with its real one, another author's `word`, and graph context. **CE11** another author's concept, another author's concept named `set`, firmware's relationship type and `graph` each take one. **CE30** the refusal run changes nothing and records nothing. **CE31** `not-installed`. | `create-element.test.js` | integration (fake) |
 | AC6: marked fields | **CE40** over `fieldGraph.js`'s dog: the copies `dog_breed` and `dog_age` in the same write, their `copies-set` changes in the entry, and `skipped` for the owner (an object) and for pet (no pet section). | `create-element.test.js` | integration (fake) |
-| AC7: rule 4, defined once | **EFS1** loaded with its two refusals. **EFS2** `{ concept, json }`. **EFS3** `{ node }` and `{ node, concept }`. **EFS4** a schema read once per concept per call. **EFS5** `checkElements` throws the first finding with `rule`. **EFS6** the rulebook's entry 7, in its format. **EFS7** its firmware element file, `--check` clean. **CE14** the guard listed. **CE15** the change fields' descriptions. **CE16** the catalog's §2 row. `graph-rule-firmware`, `graph-rules-builder` and `firmware-element-sync` know rule 7. | `test/operations/rules/element-fits-schema.test.js`, `create-element.test.js`, and the three A10.41 tests | unit; integration (fake) |
+| AC7: rule 4, defined once | **EFS1** loaded with its two refusals. **EFS2** `{ concept, json }`. **EFS3** `{ node }` and `{ node, concept }`. **EFS4** a schema read once per concept per call. **EFS5** `checkElements` throws the first finding with `rule`. **EFS6** the rulebook's entry 7, in its format, claiming no single verdict with the derive step and naming where they split. **EFS7** its firmware element file, `--check` clean. **CE14** the guard listed. **CE15** the change fields' descriptions. **CE16** the catalog's §2 row. `graph-rule-firmware`, `graph-rules-builder` and `firmware-element-sync` know rule 7. | `test/operations/rules/element-fits-schema.test.js`, `create-element.test.js`, and the three A10.41 tests | unit; integration (fake) |
 | AC8: it lasts, and it reaches agents | **CE29** 401, 403 and 415, and the command's refusal is the route's. **CE13** an admin's create is the admin's, and the command's is the command's. **CE14** listed with guard, `repeatKey`, inputs and every refusal, and `/docs`. **CE41** no new module requires a signer. **XE1** an admin agent through the external CLI, with no change to it. **L3–L7** reinstall, derive, restore, nginx, relay. | `create-element.test.js`, `test/operations/graph/elements-agent-through-cli.test.js`; live | integration (fake); live |
 
 ## Edge cases
@@ -33,7 +33,7 @@ The stack-free suites can't reach six things: Neo4j's own locking, a firmware re
 - [x] **A name of 200 characters** is made (CE11); one of 201 is refused (CE25).
 - [x] **Two schemas with one `$id`** both check, in one process (CE11, SC4).
 - [x] **No stamps.** Beagle's header has a `b` pointer to another author's nostr relay. Today's route would stamp that as a second `z`; CE2 holds the tags to `d`, `name`, one `z` and `json` (Decision 9).
-- [x] **The dialect.** SC5 runs eight schema and JSON pairs through both readings, `_schemas.problemsOf` and the derive step's (`src/lib/derivers/word.js:136–180`), and requires one verdict:
+- [x] **The dialect.** SC5 runs eight schema and JSON pairs through both readings of a schema, `_schemas.problemsOf` and the derive step's (`src/lib/derivers/word.js:136–180`), and requires one verdict. It compares the reading of a schema only; SC9 runs the derive step itself, which checks another document (Amendment 1):
   - draft-07's `dependencies`, `definitions` with `$ref`, and `if`/`then` with `contains` count;
   - `prefixItems`, `dependentRequired` and `unevaluatedProperties` are ignored by both.
 
@@ -182,3 +182,30 @@ With every endpoint dead, on the implementation, none failed:
 - **The suites that share `_fields.js` and `changes.js`:** fields 8, map-fields 12, mark-field 16, unmark-field 13, fields-agent-through-cli 1, change-entry-fields 3, write-path 13, rules/field-mark-allowed 14, create-concept 23 and lifecycle/tapestry-key-paths 19.
 
 `test/operations.test.js` as a whole, and the route-surface suites, weren't run on this Mac (the task's rule); they run in the PR's CI gate.
+
+### The Tester correction for review round 1 (2026-11-16)
+
+Review round 1 asked for tests of its two blocking findings, as ADR 0020 Amendment 1 decides them (the owner's approval, 2026-11-16), and of its non-blocking finding 2.
+
+- **The seed** gains `scroll`, a concept with no schema node, and two concepts keyed for the element's own blocks: another author's `word`, and graph context, keyed `graphContext`, each with a schema that takes any object.
+- **CE22's case with no schema node** moves from `word` to `scroll`, since `reserved-key` now refuses `word` first.
+- **CE33** (new): the three concepts keyed `word` or `graphContext` are refused `reserved-key`, naming the key. Firmware's `word`, with its real schema attached, is refused the same way, with nothing changed. **CE14** lists `reserved-key` (409).
+- **CE17** (new): a repeat whose `meta` is `{}`, against a held `meta` with a `__proto__` key, names `fields.meta` in `differs`.
+- **SC5's claim** is narrowed to the reading of a schema. **SC9** (new) runs the real `deriveWord`, its Neo4j, store and resolver stubbed, beside `problemsOf`. They agree under create-concept's schema and firmware dog's, and split as Amendment 1 says: under firmware word's schema the derive step says valid and this check says `graphContext` is required; under a schema that forbids extra top-level keys, the reverse.
+- **EFS6** requires the rulebook's entry 7 to claim no single verdict with the derive step, and to name where they split (`graphContext`).
+
+On the code at `0534b738` (round 1's review, then the amendment), with dead endpoints:
+
+```
+operations: graph create-element: 29 passed, 4 failed, 0 skipped
+  FAIL  CE14  its refusals include reserved-key (409), Decision 18's
+  FAIL  CE17  meta given as {} differs from the meta held, whose __proto__ key the comparison must keep; got []
+  FAIL  CE30  no change entry was recorded; 1 before, 3 after   (the concepts keyed word and graphContext were made)
+  FAIL  CE33  rk-word must be refused 409 reserved-key; got 409 no-schema
+operations: rule element-fits-schema: 6 passed, 1 failed, 0 skipped
+  FAIL  EFS6  it claims no single verdict with the derive step, which checks another document
+operations: _schemas.js, the check of an element against its schema: 9 passed, 0 failed, 0 skipped
+```
+
+SC9 passes already: it pins what the code does, which the amendment now says. CE22 passes with its case moved.
+
