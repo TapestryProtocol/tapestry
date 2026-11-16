@@ -223,7 +223,7 @@ Each wrong fix below was applied in place under `src/` or `ui/`, run against the
 | W20 the tab's read ordered `uuid DESC` | S4a |
 | W29 Pass 2 finds its header by name among the TA's own headers, ordered by address (review round 3, non-blocking finding 13) | S1c, whose twin's d tag now sorts both before the slug and after it |
 
-**Not re-run live yet.** The new `ORDER BY` lines in the fold, Pass 2 and the tab use Cypher forms that already run on real Neo4j (review round 2, "The `ORDER BY` lines"). The live checks to repeat, when a scratch stack is free or at the first install on staging after merge:
-- L1;
-- the page path;
-- Pass 2's line `40 enriched, 0 skipped, 0 errors`.
+**Re-run live since.** Round 2 listed three live checks still owed by the new `ORDER BY` lines in the fold, Pass 2 and the tab: L1, the page path, and Pass 2's line. All three have run since.
+- **Round 3 of the review,** on its own fresh scratch stack, ran L1 and L2 (28 passed, 0 failed) and the page path, with the label both on and off. Both of that stack's installs logged `40 enriched, 0 skipped, 0 errors`.
+- **Staging's firmware install** after #80's merge (2026-11-16, 04:36–04:40 UTC) logged `Pass 2 complete: 40 enriched, 0 skipped, 0 errors`, then `FIRMWARE INSTALL COMPLETE`. Staging holds the community's "tag" header.
+- **Production's install** after the promotion (TapestryProtocol/tapestry#82; 05:27–05:31 UTC) logged the same two lines. It also brought production to 40 of 40 firmware concepts installed.
