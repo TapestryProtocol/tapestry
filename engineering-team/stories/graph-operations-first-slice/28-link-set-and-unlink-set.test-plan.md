@@ -14,7 +14,7 @@ Every suite is stack-free and lives under `test/operations/`, where `test/operat
 | AC2 — Safe to repeat | LS4 again: `already-linked`, `change: null`, one link, one entry; a repeat of a link a reinstall would prune also answers `already-linked` and is never refused · *two calls at once: the live check, step 8* | `graph/link-set.test.js` | integration; live |
 | AC3 — What link-set refuses | LS5 `unknown-node` (404) for `set`, for `parent`, and for a change entry, each naming its input and the key; a non-key is `invalid-input` · LS6 `not-a-set` (409, `input: set`) for an element, a NostrUser and a concept header, whose refusal names its superset's tapestryKey · LS7 `not-a-parent` (409, `input: parent`) for an element and a concept header, naming its superset's key · LS8 `cycle` (409, `rule: class-thread-acyclic`) for a set under itself · LS9 one link down and two, the chain named from the set down to the parent, in order · LS10 across two concepts, five sets named in order · each: no link, no entry · CA1–CA7 the rule itself | `graph/link-set.test.js`, `rules/class-thread-acyclic.test.js` | integration; unit (the rule) |
 | AC4 — Unlink a set | UL1 one of two parents: gone, the other stays, the parent's concept no longer reaches the set's element, `unlinked`, `letters: []`, the entry (`set-unlinked`, no `count` for one copy) · UL2 history by either key · UL3 again: `already-unlinked`, `letters: []`, `change: null`, one entry · UL4 no link from that parent is `already-unlinked`, not `last-parent`: a set under no parent (its would-be `s` still naming that parent), and a set under another · UL5 two copies, `count: 2` · UL6 the instance's own lettered set reports `letters: [{ address: <set uuid>, says: <names the parent's uuid> }]`, signed by the TA and by the owner · UL7 an event-less set whose would-be `s` names the parent reports none · UL15 an admin's call is the admin's · UL16 nothing is signed | `graph/unlink-set.test.js` | integration |
-| AC5 — What unlink-set refuses | UL8 `last-parent` (409, `rule: set-has-a-parent`), naming the parent and both ways on (another parent first; `graph delete-set`); the link stays, no entry · UL9 a superset unlinked from its last parent: its concept is no longer a kind of the other, and it stays its concept's superset · UL10 `unknown-node`, `not-a-set` and `not-a-parent` as LS5–LS7 · SP1–SP8 the rule itself | `graph/unlink-set.test.js`, `rules/set-has-a-parent.test.js` | integration; unit (the rule) |
+| AC5 — What unlink-set refuses | UL8 `last-parent` (409, `rule: set-has-a-parent`), naming the parent and both ways on (another parent first; `graph delete-set`); the link stays, no entry · UL9 a superset unlinked from its last parent: its concept is no longer a kind of the other, and it stays its concept's superset · UL10 `unknown-node`, `not-a-set` and `not-a-parent` as LS5–LS7 · UL18 an unlink, made or refused, leaves the set's own properties as they were: the lock it takes (ADR 0028 Amendment 2) leaves nothing behind · SP1–SP8 the rule itself | `graph/unlink-set.test.js`, `rules/set-has-a-parent.test.js` | integration; unit (the rule) |
 | AC6 — The links these operations leave alone | UL11 `firmware-link` (409) for one link of each part of firmware's definition (ADR Decision 6's table: (a) a set file, (b) existing-sets, (c) a concept manifest, (d) a community reference), each naming its own part and lifecycle seed-firmware; the link stays · UL12 a sweep: all 64 class-thread links the active firmware's files make (22 + 26 + 10 + 6) are each refused as their part, and every shipped existing-sets category resolves to a firmware concept · UL13 the owner's own link between two firmware sets is unlinked · UL14 `peer-link` (409) for a peer's lettered set under the parent its `s` tag names, naming its author and that the point of view decides; the owner's own link to the same peer set is unlinked · LS11 the owner's sets under a firmware concept's set and its superset are linked, beside an older redundancy that stays prunable · LS12 `firmware-prunes` (409), shape 1, naming the link and seed-firmware · LS13 shape 2, the set itself was directly under the firmware superset, or a set below it was, naming that earlier link · LS14 both shapes are linked under the owner's own concept and under `property`, a firmware concept whose folder has no manifest.json | `graph/unlink-set.test.js`, `graph/link-set.test.js` | integration |
 | AC7 — The two rules, defined once | CA1/SP1 the loader finds each: name, summary, `refuses: true`, one refusal (`cycle` 409; `last-parent` 409) · CA2–CA6 and SP2–SP7 `violations()` as a guard (`{ set, parent }`; `{ set, without }`) · CA7 and SP8 as a check over links and sets already there: each that breaks it, and only those · CA6/SP7 missing and wrong-kind nodes give no finding · SP5 a superset is exempt · CA8/SP9 the class thread anomaly breaks neither · CA9/SP10 each has its entry in docs/GRAPH_RULES.md (any section number), in the six-part format, saying it refuses, with its check and its repair | `rules/class-thread-acyclic.test.js`, `rules/set-has-a-parent.test.js` | unit (the rule, over the fake graph) |
 | AC8 — It lasts, and it reaches agents | LS17/UL16 a visitor 401 and a stranger 403, each told who may call, and neither changes anything: the command, run afterwards, makes that same link (or takes it out) as new · LS19/UL17 listed for an admin: a POST write for the owner and admins, `guards` ([class-thread-acyclic]; [set-has-a-parent]), `repeatKey: ['set', 'parent']`, two required inputs, the refusals with their statuses (each rule's code among them), and the `/docs` entry · LS18/UL16 the internal command works with no sign-in, recorded as `local`, its refusal the route's · X3 an admin agent with its own key, through the external CLI: links a set, links it again, is refused a cycle, unlinks it, is refused its last parent; history reads the two entries back as the agent's · *a reinstall and a restore, and the agent on a real instance: the live check, steps 4–7* | the two operations' suites, `graph/sets-agent-through-cli.test.js` | integration (the real external CLI against a loopback instance); live |
@@ -95,6 +95,49 @@ Never on a shared or private instance. Use a throwaway instance from `scripts/sc
    - Two link-sets at once that would make a two-set cycle (X under Y, Y under X): exactly one links, and the other is refused `cycle`.
    - Two unlink-sets at once that would take a set's last two parents: exactly one unlinks.
 9. **The relay.** Its event count is step 2's baseline after every graph operation above. Nothing these operations do signs or sends anything.
+
+### The live check (Implementation, 2026-11-15, on `d321da0a` plus ADR 0028 Amendment 2's lock)
+
+**The instance.** It ran on the Mac Studio, as one throwaway instance, `tapestry-scratch-a1028`.
+- **The script.** A copy of `scripts/scratch-stack.sh` with its three names changed, so it couldn't collide with story 16's. It booted only once story 16's instance was down, one instance at a time (ledger `2026-11-08-scratch-stack-one-shared-name`).
+- **The image.** `agent-memory-tapestry`, with this branch's `src/` mounted. The image's firmware, `bin/` and `clients/` match this branch's (they are unchanged since the image's commit, `09dc9b7b`), so only `clients/` was copied in, for the agent.
+- **Its identity.** It had its own assistant key (`f79c4ba4…`) and no published ports, and was removed afterwards.
+- **The callers.** Calls through `docker exec` to `127.0.0.1:7778` are `local`. The agent's went through the instance's nginx (`http://127.0.0.1:80`).
+
+1. **Install and orientation.** The firmware install ran at boot.
+   - `/api/concept-graph/summaries` lists `39998:<TA>:class-thread`, `…:set`, `…:superset` and `…:relationship-type`.
+   - nostr-relay's class thread reads `ConceptHeader` −IS_THE_CONCEPT_FOR→ `Superset` −IS_A_SUPERSET_OF→ `Set`, as ADR Context 4 says.
+2. **Something to link.**
+   - create-concept made *pet* and *household member*, signing as today's route does.
+   - add-subset made *dogs*, *cats* and *birds* under pet's superset, and *residents* under household member's.
+   - The relay went from 450 to 466 events: the baseline.
+3. **The command.** `tapestry graph link-set` of dogs under residents answered `linked`, and `unlink-set` answered `unlinked`. Both were recorded as `local`.
+4. **The agent (AC8).** It held a throwaway key made inside the instance and made an admin in the instance's settings, and drove `clients/cli/bin/tapestry.js`.
+   - It linked dogs under residents: `linked`, recorded as `admin` with the agent's pubkey.
+   - Again: `already-linked`, with no entry.
+   - It was refused household member's superset under dogs: `cycle`, naming the chain.
+   - It unlinked dogs: `unlinked`.
+   - It was refused dogs' last parent: `last-parent`.
+
+   `graph history --node dogs` read four entries back, newest first: the agent's two, then the command's two. A visitor through nginx got 401.
+5. **What firmware owns (AC6).**
+   - unlink-set of the superset of *superset* from the superset of *set* (part b) was refused `firmware-link`, naming the manifest's existing-sets.
+   - An owner's set made under nostr-relay's set organized by firmware category, then linked straight under nostr-relay's superset, was refused `firmware-prunes`.
+6. **A reinstall (AC8).** First, dogs was linked again under residents, and cats was linked under residents and taken out again. Then `POST /api/firmware/install` ran, in 72 s. After it:
+   - dogs is still under residents;
+   - cats is still not under residents;
+   - the superset of superset is still under the superset of set;
+   - the relay is unchanged, at 466.
+7. **A restore (AC8).** `tapestry lifecycle backup` made `20261116T001555Z-d7e66277`. Then birds was linked under residents, and `tapestry lifecycle restore` of that backup ran. After it, birds is no longer under residents, and dogs is still under residents.
+8. **Two writes at once (AC2, Decision 9).**
+   - Two identical link-sets: one `linked`, one `already-linked`, and one entry.
+   - Cats under birds and birds under cats, at once: one `linked`, and the other refused `cycle`.
+   - **Two unlink-sets of birds' last two parents, at once: both answered `unlinked`, leaving birds under no parent.** On Neo4j 5.26 a relationship's `DELETE` doesn't lock its ends, which is the finding behind ADR 0028 Amendment 2.
+     - **Without the lock.** Raced eight more times on a fresh set, *fish*, with the lock disabled, 3 of 8 rounds left it under no parent.
+     - **With the lock.** With Amendment 2's lock, 8 of 8 came out right: one `unlinked`, one refused `last-parent`, one parent left, and no `tapestryLock` left on the node.
+9. **The relay.** It held 466 events after every graph operation above, the baseline. Nothing these operations do signs or sends anything.
+
+**Not run:** step 7's optional restore onto a second, fresh instance. Story 16's live check restored onto a fresh instance the same day, and the Docker VM's memory allowed only one scratch instance at a time.
 
 ## How to run
 
