@@ -99,5 +99,5 @@ For Architecture, not this gate:
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - The sibling stories in this epic: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md), [28-link-set-and-unlink-set.md](28-link-set-and-unlink-set.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [11-list-elements.test-plan.md](11-list-elements.test-plan.md)
 - Review: (filled in after Review phase)

@@ -330,6 +330,18 @@ A read, `owner-and-admins`, declared with `run`.
 
 **Branches.** A new feature, for `staging` only. It reaches `main` through the normal promotion, and no long-lived sandbox branch needs a port.
 
+## Amendment 1 (2026-11-15, at Test Design) — what the Tester's readings settle
+
+The test plan (`engineering-team/stories/graph-operations-first-slice/11-list-elements.test-plan.md`) reads the decisions this way, and the suites hold the Implementer to it:
+
+1. **The three inputs are input declarations.** `LIMIT_INPUT`, `CURSOR_INPUT` and `POV_INPUT` are each `{ schema, description }`, with the schemas C1 and C2 give. A read puts them into its `inputs` exactly as they are.
+2. **The facts that can be missing are nullable.** In `NODE`, `name`, `address` and `author` are text with `nullable: true`, and `own` is a boolean. In `POV`, `observer`, `cutoff` and `scored` are nullable, and `name` is text.
+3. **The answer's `pov` holds four facts:** `{ name, observer, cutoff, scored }`. The keys in `own` stay inside the read.
+4. **The input not given is null in the answer.** A concept's listing answers `set: null`, and a set's answers `concept: null`.
+5. **A superset given as `concept`** is refused `not-a-concept` with the same hint as a set: pass it as `set`.
+6. **A cursor's position must pass the read's own test,** which for list-elements is a tapestryKey. A cursor whose position fails it, or whose JSON isn't three items long, is refused `invalid-cursor`.
+7. **Only the owner's point of view reads the graph to resolve.** `everyone` resolves without a read.
+
 ## Out of scope
 
 - Everything the story leaves out: implicit members, other points of view, more about each element, naming by name or slug, an order the owner chooses, counts without a list, visitors' reads, today's subgraph route, and `graph history`.
