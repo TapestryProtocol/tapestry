@@ -199,3 +199,20 @@ The lookup and its outcome are one pure step, `planElement({ json, found, ta })`
 - Changing create-element's check by name, or how a reinstall treats any other concept's elements.
 - Deleting an item when its entry goes.
 - Moving the rulebook under `protocols/`.
+
+## Amendment 1 (2026-11-15, at Test Design) — what the Tester's readings settle
+
+1. **The script's parts.**
+   - `parseRulebook(text)` answers `{ entries, problems }`. Each entry has at least its `number` and its `name`.
+   - `itemsFor({ entries, rules, ruleFiles, ruleProblems })` answers `{ items, problems }`. Each item is `{ name, json }`, where `json` is the element's word wrapper of Decision 2. `ruleFiles` are file names, such as `set-has-a-parent.js`, and `ruleProblems` are the loader's `[{ file, problem }]`.
+   - Each problem is `{ rule, message }`. `rule` is the name of the rule it is about, or `null` when no name can be read, as from a heading without one. `message` says what is wrong, in words.
+2. **`planElement({ json, found, ta, resolve })`** answers `{ action, uuid, others }`.
+   - `found` is the rows install read, `[{ uuid, json }]`, with `json` as the node's `json` tag holds it: JSON text, an LMDB reference, or null. `resolve(value)` turns an LMDB reference into its JSON, as an object or as text, or null when its entry is missing. It defaults to `resolveValue` from `src/lib/tapestry-resolve`.
+   - The assistant's elements are those whose address starts `39999:<ta>:`. Install gives `ta` from `firmware.getTAPubkey()`.
+   - `create` when no row has the name.
+   - `unchanged`, with the element's `uuid`, when the assistant's element holds the file's JSON. They are compared as values, so key order doesn't matter.
+   - `update`, with its `uuid`, when it holds other JSON, or JSON that can't be read.
+   - `blocked`, with `others`, the other authors' addresses, when only other authors' elements have the name.
+   - When more than one of the assistant's elements has the name, the first by address decides, and the rest are left as they are.
+3. **Install finds the concept's header by its address,** `firmware.conceptUuid(slug)`, as Pass 2 now does (graph-operations-foundation #10), and never by name.
+4. **The schema states what Decision 2's table gives.** `about`'s and `status`'s values are each an `enum`. `number` is an `integer`, `alsoSays` an `array`, and `code` is `["object", "null"]`.

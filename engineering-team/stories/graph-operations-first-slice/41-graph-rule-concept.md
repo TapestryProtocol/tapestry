@@ -102,7 +102,7 @@ For Architecture, not this gate:
 - The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md)
 - The operations that will read it: catalog §4 in [docs/GRAPH_OPERATIONS_CATALOG.md](../../../docs/GRAPH_OPERATIONS_CATALOG.md) (A10.31)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0041-graph-rule-concept.md](../../decisions/graph-operations-first-slice/0041-graph-rule-concept.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [41-graph-rule-concept.test-plan.md](41-graph-rule-concept.test-plan.md)
 - Review: (filled in after Review phase)
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
