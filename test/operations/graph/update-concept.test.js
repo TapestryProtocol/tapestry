@@ -26,7 +26,8 @@
  *        admin's update is the admin's; the command updates too, its refusal matching the route's; it is listed with its
  *        guard, repeatKey and refusals, and has its /docs entry
  *   (review round 1) UC8 a rename of a concept whose names tag has no plural lands, and repeating it answers
- *        unchanged; UC9 a bad name is refused before the rule reads the graph
+ *        unchanged; UC9 a bad name is refused before the rule reads the graph; UC10 a rename onto a name-keyed name is
+ *        refused (the owner's ruling)
  */
 
 const fs = require('fs');
@@ -103,6 +104,8 @@ function main() {
       post('mouse-rat', 'owner', { concept: k.mouse, name: 'rat' }),
       post('mouse-rat-again', 'owner', { concept: k.mouse, name: 'rat' }),
       post('order-name-slug', 'owner', { concept: lamp.conceptHeader, name: '   ', slug: 'beagle' }),
+      post('onto-goal', 'owner', { concept: k.bird, name: '  Tapestry   Owner Goal ' }),
+      post('onto-set', 'owner', { concept: k.bird, name: 'set', plural: 'sets' }),
       post('admin', 'admin', { concept: dogHouse.conceptHeader, description: 'Where a dog sleeps.' }),
       { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
     ], [
@@ -251,6 +254,16 @@ test('UC8: a rename of a concept whose names tag has no plural lands, and the sa
 test('UC9: a bad name is refused before the rule reads the graph: bad-name, not slug-in-use', async () => {
   const x = await refused('order-name-slug', 400, 'bad-name');
   assert(x.input === 'name', `the name's problem comes first, though the slug is another concept's; got ${show(x)}`);
+});
+
+test('UC10: a rename onto a name the server finds a concept by is refused name-keyed, as the Dictionary\'s edit refuses it; nothing changes', async () => {
+  const { k } = await main();
+  const goal = await refused('onto-goal', 409, 'name-keyed');
+  assert(goal.input === 'name' && /tapestry owner goal/.test(String(goal.error)), `the name is cleaned and compared, and the refusal names it; got ${show(goal)}`);
+  const set = await refused('onto-set', 409, 'name-keyed');
+  assert(set.input === 'name', `any of the name-keyed names; got ${show(set)}`);
+  const g = await graph();
+  assert(C.node(g, k.bird).props.name === 'bird' && C.tags(g, k.bird).find((t) => t.type === 'names').value === 'bird', `bird keeps its name; got ${show(C.tags(g, k.bird).find((t) => t.type === 'names'))}`);
 });
 
 test('UC7: nothing is signed; callers, the command, the list and /docs', async () => {
