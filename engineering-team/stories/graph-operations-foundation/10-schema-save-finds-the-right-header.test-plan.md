@@ -92,7 +92,10 @@ The draft suggested one cause to check first: the nostr-relay header from `919ba
 
 ## Suites the Implementer runs again
 
-The fix touches the code these suites cover: the save-schema callers, the Schema tab and `openapi.yaml`. Run each one on its own with dead endpoints. Never run the full `npm test` on this Mac.
+The fix touches the code these suites cover: the save-schema callers, the Schema tab and `openapi.yaml`. Never run the full `npm test` on this Mac. Run each suite on its own with dead endpoints:
+- `BRAINSTORM_BASE_URL`, `TAPESTRY_PORT` and `MEILI_URL_HOST` at `127.0.0.1:9`;
+- `TAPESTRY_CONTAINER=no-such-container`;
+- `BRAINSTORM_CONF_PATH` naming a conf whose `NEO4J_URI` is `bolt://127.0.0.1:9`. The database driver reads only the conf, and without one falls back to `bolt://localhost:7687`, the agent-memory instance (ledger row `2026-11-14-harness-points-tests-at-agent-memory`, 2026-11-16).
 
 `structures-the-brain-can-trust`, `create-concept-duplicate-check`, `pass-3-finishes-in-minutes`, `capture-a-goal-and-see-it`, `break-a-goal-into-pieces`, `store-the-four-when-a-goal-is-captured-or-updated`, `attach-the-world`, `teach-it-what-matters`, `the-proposal-loop`, `the-brain-survives`, `sessions-read-the-brain`, `openapi-document` and `stack-free-npm-test`.
 
@@ -182,8 +185,12 @@ The four sentinels pass (S3a, S3b, S3g, S4f). So does `stack-free-npm-test` (6 o
 
 **AC5's record:** every difference between the first install's graph and the second's.
 
-- **The six schemas story 8 saw change are gone.** The five tag concepts' failed saves were this bug, and the fix removed them. Nostr relay's schema came out the same in all four installs. Whether story 8's change to it came from this bug isn't certain: no firmware enumeration targets nostr relay, and Pass 2 hadn't failed for it there. It didn't recur, so there is nothing to file.
-- **The two moved supersets didn't recur.** In four installs on two stacks, every superset's HAS_ELEMENT targets came out the same. Their cause is still unknown. That is recorded in the new row's "Not this row" note, and not filed, for want of a reproduction.
+- **The five tag concepts' schemas are this bug, and the fix removed it.** Their failed saves were the bug itself, and with the fix their schemas came out as the first install left them.
+- **Nostr relay's schema and the two moved supersets can't be judged from these runs.** *(Corrected after the review, its non-blocking finding 6.)*
+  - **Where they were seen.** Story 8 saw them only on its stack seeded to staging's shape, on its second install (`8-pass-3-finishes-in-minutes.test-plan.md`, Amendment 1).
+  - **On a fresh stack,** story 8's review found neither, with the code before this fix (`engineering-team/reviews/graph-operations-foundation/8-pass-3-finishes-in-minutes.md:117`).
+  - **So these runs say nothing either way.** In four installs on two fresh stacks with the fix, nostr relay's schema and every superset's HAS_ELEMENT targets came out the same. That doesn't show the fix removed them, or what causes them. Nothing writes nostr relay's schema except the save (no firmware enumeration targets it), and Pass 2 hadn't failed for it there.
+  - **Filed** as ledger row `2026-11-16-seeded-second-install-differs`, unexplained, until L2 runs on a seeded stack.
 - **Nine nodes' cached Tapestry JSON differs, and has another cause.** They are six supersets of the TA's own (tag, nostr user tag, tag pinning, nostr relay, set, word) and three of the tag concepts' supersets under ADR 0015's literal pubkey. Everything else is the same: every schema's json tag and every superset's elements. A third install matches the second exactly.
   - **The cause.** Pass 3 rebuilds its caches before its own last steps change the graph. That is why a rebuild right after any install changes 439 nodes, and why the first install, which lays down the community-reference edges after its rebuild, differs from the later ones in these nine.
   - **Filed** as ledger row `2026-11-16-install-caches-lag-its-own-graph`, with the runs that show it: an install after a rebuild matches the other stack's second install exactly, and a rebuild after any install lands on the same state.
