@@ -145,7 +145,26 @@ Never on a shared or private instance. Use a throwaway instance from `scripts/sc
      - **With the lock.** With Amendment 2's lock, 8 of 8 came out right: one `unlinked`, one refused `last-parent`, one parent left, and no `tapestryLock` left on the node.
 9. **The relay.** It held 466 events after every graph operation above, the baseline. Nothing these operations do signs or sends anything.
 
-**Not run:** step 7's optional restore onto a second, fresh instance. Story 16's live check restored onto a fresh instance the same day, and the Docker VM's memory allowed only one scratch instance at a time.
+**Step 7 onto a fresh instance (AC8; review round 1's finding), 2026-11-16, on `da0770c5`, with ADR 0028 Amendment 3.** It used two throwaway instances, one at a time, from the same renamed script.
+1. **On instance A** (TA `e106596e…`), through the routes, these were done in order:
+   - dogs linked under residents;
+   - cats linked under residents;
+   - pet's superset linked under residents (a class link);
+   - cats unlinked again.
+
+   Then `tapestry lifecycle backup` made `20261116T013359Z-a7be1450`, and `download-backup` wrote it out as a 1,845,760-byte tar. At the backup, dogs and pet's superset were under residents, and cats wasn't.
+2. **A was removed, and B booted** with fresh volumes and an assistant key of its own (`506c0aea…`). It had no node with dogs' tapestryKey.
+3. **On B:**
+   - `tapestry lifecycle upload-backup` (the tar on standard input) answered `sameInstance: false`;
+   - `tapestry lifecycle restore` of it took the graph offline for 21.9 s.
+4. **After the restore, B matched A at the backup:**
+   - B's assistant key is A's;
+   - dogs and pet's superset are under residents, and cats isn't;
+   - all 4 of the operations' change entries from A are there (three `graph link-set`, one `graph unlink-set`);
+   - `graph history --node dogs` reads its entry;
+   - an unlink-set of dogs from residents on the restored graph answered `unlinked`.
+
+   Both instances were removed afterwards.
 
 ## How to run
 
