@@ -39,6 +39,9 @@
  *   LS17 a visitor is refused 401 and a stranger 403, and neither links anything: the command links that pair afterwards
  *   LS18 the command links a set too, recorded as the command's, and its refusal matches the route's
  *   LS19 it is listed for an admin with its guard, repeatKey, inputs and refusals, and has its /docs entry
+ *   LS20 a trust-pipeline card set, labelled Set but with no address, is refused not-a-set, named as a node with no
+ *        address (ADR 0028 Amendment 3); nothing changes
+ *   LS21 a card set as the parent is refused not-a-parent, named the same way; nothing changes
  */
 
 const fs = require('fs');
@@ -109,6 +112,8 @@ function main() {
         post('ls15-admin', 'admin', k.Tabbies, k['Indoor pets']),
         post('ls17-visitor', 'visitor', k.Kittens, k['Outdoor pets']),
         post('ls17-stranger', 'stranger', k.Kittens, k['Outdoor pets']),
+        post('ls20-card-set', 'owner', k['Card set'], k.Pets),
+        post('ls21-card-set-as-parent', 'owner', k['Lap cats'], k['Card set']),
         { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
       ],
       cli: [
@@ -391,6 +396,29 @@ test('LS19: it is listed for an admin with its guard, repeatKey, inputs and refu
   `], { cwd: ROOT, encoding: 'utf8', env: S.childEnv(tmp('link-set-docs-')) });
   const line = (child.stdout || '').split('RESULT:')[1];
   assert(line && same(JSON.parse(line), ['post']), `/docs has POST ${ROUTE}; got ${line} ${(child.stderr || '').slice(-300)}`);
+});
+
+// ADR 0028 Amendment 3: a node counts as a set, a superset or a parent only when it has an address, its uuid. The trust
+// pipeline's card sets are labelled Set and have none (classThreadSeed.js's cardSet).
+const namesNoAddress = (text) => /address/i.test(String(text));
+
+test('LS20: a trust-pipeline card set, labelled Set but with no address, is refused not-a-set, named as a node with no address', () => {
+  const { k } = main();
+  const b = refused('ls20-card-set', 409, 'not-a-set');
+  assert(b.input === 'set', `the refusal names the input, set; got ${show(b)}`);
+  assert(b.error.includes(k['Card set']), `its words name the key passed; got ${show(b.error)}`);
+  assert(namesNoAddress(b.error), `its words say the node has no address, as the trust pipeline's card sets haven't (ADR 0028 Amendment 3); got ${show(b.error)}`);
+  assert(links(k.Pets, k['Card set']) === 0 && !S.entriesOf(graph()).some((e) => (e.keys || []).includes(k['Card set'])), 'the card set was linked under nothing, and no entry names it');
+});
+
+test('LS21: a card set as the parent is refused not-a-parent, named as a node with no address; nothing changes', () => {
+  const { k } = main();
+  const b = refused('ls21-card-set-as-parent', 409, 'not-a-parent');
+  assert(b.input === 'parent', `the refusal names the input, parent; got ${show(b)}`);
+  assert(b.error.includes(k['Card set']), `its words name the key passed; got ${show(b.error)}`);
+  assert(namesNoAddress(b.error), `its words say the node has no address (ADR 0028 Amendment 3); got ${show(b.error)}`);
+  assert(links(k['Card set'], k['Lap cats']) === 0 && CT.parentsOf(graph(), k['Lap cats']).length === 1, 'Lap cats was put under nothing new: Felines is still its only parent');
+  assert(entriesFor(k['Card set'], k['Lap cats']).length === 0, 'and no entry was recorded');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

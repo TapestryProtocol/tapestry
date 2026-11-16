@@ -12,11 +12,11 @@ Every suite is stack-free and lives under `test/operations/`, where `test/operat
 |---|---|---|---|
 | AC1 — Link a set | LS1 a set under a second parent: one link, `linked`, the link `{ set, parent }`, the entry (`graph link-set`, the owner's, `[{ change: 'set-linked', type: 'IS_A_SUPERSET_OF', from: <parent>, to: <set> }]`, kept and keyed by both); the set keeps its first parent; both concepts above the parent now reach the set's element and the element of a set below it · LS2 a class link: a concept's superset under another concept's set, and under its superset; the one concept's elements become the other's · LS3 `graph history` finds the entry by the parent and by the set · LS15 an admin's call is the admin's · LS16 nothing is signed or read (the harness spy), paired with LS1's link | `graph/link-set.test.js` | integration (route and command over the fake graph) |
 | AC2 — Safe to repeat | LS4 again: `already-linked`, `change: null`, one link, one entry; a repeat of a link a reinstall would prune also answers `already-linked` and is never refused · *two calls at once: the live check, step 8* | `graph/link-set.test.js` | integration; live |
-| AC3 — What link-set refuses | LS5 `unknown-node` (404) for `set`, for `parent`, and for a change entry, each naming its input and the key; a non-key is `invalid-input` · LS6 `not-a-set` (409, `input: set`) for an element, a NostrUser and a concept header, whose refusal names its superset's tapestryKey · LS7 `not-a-parent` (409, `input: parent`) for an element and a concept header, naming its superset's key · LS8 `cycle` (409, `rule: class-thread-acyclic`) for a set under itself · LS9 one link down and two, the chain named from the set down to the parent, in order · LS10 across two concepts, five sets named in order · each: no link, no entry · CA1–CA7 the rule itself | `graph/link-set.test.js`, `rules/class-thread-acyclic.test.js` | integration; unit (the rule) |
+| AC3 — What link-set refuses | LS5 `unknown-node` (404) for `set`, for `parent`, and for a change entry, each naming its input and the key; a non-key is `invalid-input` · LS6 `not-a-set` (409, `input: set`) for an element, a NostrUser and a concept header, whose refusal names its superset's tapestryKey · LS7 `not-a-parent` (409, `input: parent`) for an element and a concept header, naming its superset's key · LS8 `cycle` (409, `rule: class-thread-acyclic`) for a set under itself · LS9 one link down and two, the chain named from the set down to the parent, in order · LS10 across two concepts, five sets named in order · each: no link, no entry · LS20 a trust-pipeline card set (labelled `Set`, no address) is `not-a-set` (409, `input: set`), its words naming a node with no address · LS21 a card set as `parent` is `not-a-parent` (409, `input: parent`), the same way; neither links anything or records an entry (ADR Amendment 3) · CA1–CA7 and CA10 the rule itself | `graph/link-set.test.js`, `rules/class-thread-acyclic.test.js` | integration; unit (the rule) |
 | AC4 — Unlink a set | UL1 one of two parents: gone, the other stays, the parent's concept no longer reaches the set's element, `unlinked`, `letters: []`, the entry (`set-unlinked`, no `count` for one copy) · UL2 history by either key · UL3 again: `already-unlinked`, `letters: []`, `change: null`, one entry · UL4 no link from that parent is `already-unlinked`, not `last-parent`: a set under no parent (its would-be `s` still naming that parent), and a set under another · UL5 two copies, `count: 2` · UL6 the instance's own lettered set reports `letters: [{ address: <set uuid>, says: <names the parent's uuid> }]`, signed by the TA and by the owner · UL7 an event-less set whose would-be `s` names the parent reports none · UL15 an admin's call is the admin's · UL16 nothing is signed | `graph/unlink-set.test.js` | integration |
-| AC5 — What unlink-set refuses | UL8 `last-parent` (409, `rule: set-has-a-parent`), naming the parent and both ways on (another parent first; `graph delete-set`); the link stays, no entry · UL9 a superset unlinked from its last parent: its concept is no longer a kind of the other, and it stays its concept's superset · UL10 `unknown-node`, `not-a-set` and `not-a-parent` as LS5–LS7 · UL18 an unlink, made or refused, leaves the set's own properties as they were: the lock it takes (ADR 0028 Amendment 2) leaves nothing behind · SP1–SP8 the rule itself | `graph/unlink-set.test.js`, `rules/set-has-a-parent.test.js` | integration; unit (the rule) |
+| AC5 — What unlink-set refuses | UL8 `last-parent` (409, `rule: set-has-a-parent`), naming the parent and both ways on (another parent first; `graph delete-set`); the link stays, no entry · UL9 a superset unlinked from its last parent: its concept is no longer a kind of the other, and it stays its concept's superset · UL10 `unknown-node`, `not-a-set` and `not-a-parent` as LS5–LS7 · UL18 an unlink leaves the node's own properties as they were, whether it is made or refused inside `apply` after the lock (`not-a-set`), and the refused call's rolled-back transaction shows it took the lock first (ADR 0028 Amendment 2; Amendment 3, item 1) · UL19 a card set as `set` is `not-a-set`, even one a link puts under a set · UL20 a card set as `parent` is `not-a-parent` · UL21 a card set doesn't count as a parent: a set whose only other incoming link is from one is refused `last-parent` from its one real parent, and stays under it (Amendment 3) · SP1–SP8, SP11 and SP12 the rule itself | `graph/unlink-set.test.js`, `rules/set-has-a-parent.test.js` | integration; unit (the rule) |
 | AC6 — The links these operations leave alone | UL11 `firmware-link` (409) for one link of each part of firmware's definition (ADR Decision 6's table: (a) a set file, (b) existing-sets, (c) a concept manifest, (d) a community reference), each naming its own part and lifecycle seed-firmware; the link stays · UL12 a sweep: all 64 class-thread links the active firmware's files make (22 + 26 + 10 + 6) are each refused as their part, and every shipped existing-sets category resolves to a firmware concept · UL13 the owner's own link between two firmware sets is unlinked · UL14 `peer-link` (409) for a peer's lettered set under the parent its `s` tag names, naming its author and that the point of view decides; the owner's own link to the same peer set is unlinked · LS11 the owner's sets under a firmware concept's set and its superset are linked, beside an older redundancy that stays prunable · LS12 `firmware-prunes` (409), shape 1, naming the link and seed-firmware · LS13 shape 2, the set itself was directly under the firmware superset, or a set below it was, naming that earlier link · LS14 both shapes are linked under the owner's own concept and under `property`, a firmware concept whose folder has no manifest.json | `graph/unlink-set.test.js`, `graph/link-set.test.js` | integration |
-| AC7 — The two rules, defined once | CA1/SP1 the loader finds each: name, summary, `refuses: true`, one refusal (`cycle` 409; `last-parent` 409) · CA2–CA6 and SP2–SP7 `violations()` as a guard (`{ set, parent }`; `{ set, without }`) · CA7 and SP8 as a check over links and sets already there: each that breaks it, and only those · CA6/SP7 missing and wrong-kind nodes give no finding · SP5 a superset is exempt · CA8/SP9 the class thread anomaly breaks neither · CA9/SP10 each has its entry in docs/GRAPH_RULES.md (any section number), in the six-part format, saying it refuses, with its check and its repair | `rules/class-thread-acyclic.test.js`, `rules/set-has-a-parent.test.js` | unit (the rule, over the fake graph) |
+| AC7 — The two rules, defined once | CA1/SP1 the loader finds each: name, summary, `refuses: true`, one refusal (`cycle` 409; `last-parent` 409) · CA2–CA6 and SP2–SP7 `violations()` as a guard (`{ set, parent }`; `{ set, without }`) · CA7 and SP8 as a check over links and sets already there: each that breaks it, and only those · CA6/SP7 missing and wrong-kind nodes give no finding · SP5 a superset is exempt · CA8/SP9 the class thread anomaly breaks neither · CA9/SP10 each has its entry in docs/GRAPH_RULES.md (any section number), in the six-part format, saying it refuses, with its check and its repair · Amendment 3, a set has an address: CA10 an item with a card set at either end gives no finding, where a walk that took it for a set would find a cycle; SP11 the check reports no card set, under no parent or under one; SP12 a card set is no parent, as a guard (a set whose only other parent is one is `last-parent`) and as a check (a set under only a card set is reported) | `rules/class-thread-acyclic.test.js`, `rules/set-has-a-parent.test.js` | unit (the rule, over the fake graph) |
 | AC8 — It lasts, and it reaches agents | LS17/UL16 a visitor 401 and a stranger 403, each told who may call, and neither changes anything: the command, run afterwards, makes that same link (or takes it out) as new · LS19/UL17 listed for an admin: a POST write for the owner and admins, `guards` ([class-thread-acyclic]; [set-has-a-parent]), `repeatKey: ['set', 'parent']`, two required inputs, the refusals with their statuses (each rule's code among them), and the `/docs` entry · LS18/UL16 the internal command works with no sign-in, recorded as `local`, its refusal the route's · X3 an admin agent with its own key, through the external CLI: links a set, links it again, is refused a cycle, unlinks it, is refused its last parent; history reads the two entries back as the agent's · *a reinstall and a restore, and the agent on a real instance: the live check, steps 4–7* | the two operations' suites, `graph/sets-agent-through-cli.test.js` | integration (the real external CLI against a loopback instance); live |
 
 ## Edge cases
@@ -38,6 +38,12 @@ Every suite is stack-free and lives under `test/operations/`, where `test/operat
 - [x] **A firmware concept with no manifest.json:** LS14 (`property`).
 - [x] **An older redundancy unrelated to the new link:** LS11 and LS4.
 - [x] **Every link the shipped firmware makes:** UL12.
+- [x] **A trust-pipeline card set** (ADR Amendment 3): labelled `Set`, with a tapestryKey and an `observee_pubkey` but no address, as `src/cns/addSetsOfMetricsCards.sh:26` makes one per scored user.
+  - As `set` or `parent` of either operation: LS20, LS21, UL19, UL20.
+  - Linked under a set, as the link-set before Amendment 3 could do (UL19), and above one (UL20, UL21, SP12).
+  - As a rule's item: CA10 and SP11. Where a card set sits between two sets, a walk that took it for a set would find a cycle. CA10's items are chosen so that it would.
+  - Its `WOT_METRICS_CARDS` edge from a NostrUser isn't seeded: no test needs it, and the fake's path reads don't run that type.
+- [x] **The lock comes before a refusal inside `apply`:** UL18's refused half (`not-a-set`, after the lock in Amendment 3's order). A guard's refusal, such as UL8's `last-parent`, comes before `apply` and takes no lock.
 - [ ] **Two writes at once:** two identical link-sets (AC2), two link-sets that would close a two-set cycle, and two unlink-sets that would take a set's last two parents (Decision 9). The harness sends one request at a time and the fake runs one transaction at a time, so these are the live check's step 8. The re-check after the write (Decision 9) agrees with the guard whenever no other writer runs in between, so no stack-free test can reach it. Its rollback path, a refusal thrown in `apply` after the `MERGE`, is the one LS12 and LS13 take.
 - [ ] **The graph database not answering:** the write path's 500 `failed`, shown by story 4's W8.
 - [ ] **A firmware or peer link that is also the set's last parent:** the guard runs before `apply`, so it is refused `last-parent`, not `firmware-link` or `peer-link`. Not pinned; see "Gaps and questions" below.
@@ -52,6 +58,8 @@ Every suite is stack-free and lives under `test/operations/`, where `test/operat
   - `firmwareDefinition()` reads `firmware/active` (which is `versions/v1.0.0`), with the harness's TA, and lists the links ADR Decision 6's table names. Today that is 22 (a), 26 (b), 10 (c) and 6 (d). `categoryToSlug` is copied from `src/firmware/install.js:123`, as the ADR copies it.
   - `addFirmware(b, { concepts, pruned })` seeds firmware's class threads. With `pruned`, it applies install's prune: a link from the superset of a concept with a manifest.json to a child already below it through another child goes.
   - Owner concepts use slugs no firmware concept has. `dog` is a firmware concept with a manifest.json, so it isn't used.
+  - `cardSet(name)` makes a trust-pipeline card set: `Set` and `SetOfNostrUserWotMetricsCards`, a tapestryKey and an `observee_pubkey`, no `uuid` and no name (Amendment 3). A class-thread link to or from one is seeded only where a test says so.
+  - Part (c) resolves set files only (Amendment 3, item 3). For v1.0.0 nothing changes: all ten edges link a set to a set.
   - The curator's key in part (d) is read from the manifest, never written in.
   - Readers: `relsBetween`, `parentsOf`, `elementsOf` (what a concept's class thread reaches, from its header) and `entriesNaming`.
 - **No changed helper or fake.** The fakes already run every statement ADR Decision 10 names. That was checked before the suites were written, by running R1–R5, W1 and W2 over a small graph through `graphFake.exec` and `fakeGraph`:
@@ -177,6 +185,10 @@ node test/operations/rules/set-has-a-parent.test.js
 
     Each also names `seed-firmware`.
   - `peer-link` names the author's pubkey and says the point of view decides (/point of view|POV/).
+  - For a card set, `not-a-set` and `not-a-parent` name the key passed and mention an address (/address/). Amendment 3: "The refusals' words name a node with no address … as one that isn't a set". The wording is the Implementer's.
+- **The lock** (UL18). The refused call's transaction is found in the fake's log, as story 4's W6 finds one: by the rollback whose error names the node.
+  - It must hold a write of the copies' shape, the lock Amendment 2 describes: the fake's kind `copies`, or `UNWIND … SET`.
+  - This pins the lock before `requireEnds`' kind checks. It doesn't pin the lock before every read: a lock taken between `requireNodes` and the kind checks would also pass.
 - **letters.** For a lettered set of the TA's or the owner's whose `s` tag names the parent's uuid: exactly one, `{ address: <the set's uuid>, says: <text naming the parent's uuid> }`. Otherwise `[]`.
 - **What a check's finding names.** Its `item` is the item it was given. A set-has-a-parent check's message also names the set.
 - **Not pinned:**
@@ -268,6 +280,68 @@ Two first runs found faults in the tests, both fixed:
 
 **Not reachable stack-free:** the re-check after the write (Decision 9). With either declaration's re-check taken out of the reference, every suite still passed (link-set 19, unlink-set 17, X3 1), since only a second writer between the guard and the write can make it disagree. That is the live check's step 8.
 
+### Amendment 3's tests (2026-11-15, at Review's request, on `f77faea7`)
+
+The review's blocking finding and its non-blocking item 9 led to ADR 0028 Amendment 3: a set has an address. These tests are new: LS20, LS21, UL19–UL21, CA10, SP11 and SP12. UL18's refused half changed: it now uses a refusal inside `apply`, after the lock.
+
+Each suite was run on its own, with every endpoint dead, against the implementation at `f77faea7`. Every new or changed test fails for the reason Amendment 3 names, and the 56 tests left as they were all pass:
+
+```
+operations: graph link-set: 19 passed, 2 failed, 0 skipped
+  FAIL  LS20: a trust-pipeline card set, labelled Set but with no address, is refused not-a-set, named as a node with no address
+        ls20-card-set: 409 not-a-set; got 200 {"success":true,"data":{"link":{…},"outcome":"linked",…
+  FAIL  LS21: a card set as the parent is refused not-a-parent, named as a node with no address; nothing changes
+        ls21-card-set-as-parent: 409 not-a-parent; got 200 {"success":true,"data":{"link":{…},"outcome":"linked",…
+operations: graph unlink-set: 17 passed, 4 failed, 0 skipped
+  FAIL  UL18: an unlink leaves the set's own properties as they were, unlinked or refused after its lock: the lock leaves nothing behind
+        the refused unlink took its lock before it refused not-a-set, and the rollback took it away (ADR 0028 Amendment 3, item 1: the lock is the first thing apply does); its transaction ran ["read","read","read","read","read","read"]
+  FAIL  UL19: a trust-pipeline card set, labelled Set but with no address, is refused not-a-set, even one a link puts under a set
+        ul19-card-set: 409 not-a-set; got 409 {"success":false,"error":"<card set key> is under no superset or set other than \"Pets\" (…), so taking it out from under that parent would leave it under none, …
+  FAIL  UL20: a card set as the parent is refused not-a-parent, named as a node with no address; nothing changes
+        ul20-card-set-as-parent: 409 not-a-parent; got 200 {"success":true,"data":{"link":{…},"outcome":"unlinked","letters":[],…
+  FAIL  UL21: a card set doesn't count as a parent: a set whose only other incoming link is from one is refused last-parent from its real parent
+        ul21-a-card-set-is-no-parent: 409 last-parent; got 200 {"success":true,"data":{"link":{…},"outcome":"unlinked","letters":[],…
+operations: an admin agent links and unlinks sets through the external CLI: 1 passed, 0 failed, 0 skipped
+operations: rule class-thread-acyclic: 9 passed, 1 failed, 0 skipped
+  FAIL  CA10: an item with a trust-pipeline card set at either end gives no finding, even where a walk that took it for a set would come back
+        cardSetAsSet: no finding; got [{"item":{…},"code":"cycle","message":"<card set key> under \"Below cards\" (…) makes a cycle in the class thread: …
+operations: rule set-has-a-parent: 10 passed, 2 failed, 0 skipped
+  FAIL  SP11: as a check, a trust-pipeline card set gives no finding, under no parent or under one: it isn't a set of the concept graph
+        cardSetCheck: no finding; got [{"item":{…},"code":"last-parent","message":"<card set key> is under no superset or set, …
+  FAIL  SP12: a card set doesn't count as a parent: as a guard, a set whose only other parent is one is last-parent; as a check, one under only a card set
+        cardSetNotAParentGuard: one last-parent finding; got []
+```
+
+Why each fails:
+- **`kindOf` reads labels alone.** So a card set is taken as a set:
+  - link-set links it as `set` and as `parent` (LS20, LS21);
+  - unlink-set's guard judges it as a set, and answers `last-parent`, not `not-a-set` (UL19);
+  - unlink-set takes a link out from under it (UL20);
+  - it counts as a set's other parent (UL21, SP12);
+  - the check reports it (SP11);
+  - the cycle rule walks through it (CA10).
+- **unlink-set locks after `requireEnds`.** So `not-a-set` comes before the lock, and the refused transaction ran only reads (UL18). The unlinked half, UL1's, passes as before.
+
+**Checked against a throwaway reference.** Amendment 3 was applied to a scratch copy of `f77faea7`, outside the repository, and deleted afterwards:
+- `kindOf` answers `'other'` for a node with no `uuid`;
+- the two refusals' words say a set or superset has an address;
+- unlink-set's lock moved before `requireEnds`.
+
+Every suite then passed, each run on its own: link-set 21 of 21, unlink-set 21 of 21, X3 1 of 1, CA 10 of 10 and SP 12 of 12. Then the reference was broken one way at a time:
+
+| Broken | Failed |
+|---|---|
+| only the declarations check for an address, and the rules still read labels | UL19, UL21, CA10, SP11, SP12 |
+| the refusals don't name a node with no address | LS20, LS21, UL19, UL20 |
+| unlink-set locks after `requireEnds`, as before Amendment 3 | UL18 |
+| unlink-set takes no lock at all | UL18 |
+| set-has-a-parent counts any parent labelled Set or Superset | SP12, UL21 |
+| set-has-a-parent judges any node labelled Set as a set | SP11, UL19 |
+| class-thread-acyclic judges a parent by its labels | CA10 |
+| class-thread-acyclic judges a set by its labels | CA10 |
+
+"unlink-set takes no lock at all" is now caught stack-free, by UL18's look at the refused transaction. In the review's breaks of the real code, nothing caught it.
+
 ## Gaps and questions for the gate
 
 1. **ADR Context 7's count.** The prune covers "35 of the 40" firmware concepts. Of the 40 in v1.0.0's manifest, 29 have a manifest.json. The 11 without one:
@@ -287,3 +361,11 @@ Two first runs found faults in the tests, both fixed:
 5. **"A repeat never refuses" (Decision 1, step 3) holds for `apply` only.** The guard runs first, so a link-set of a link already on a cycle an old route made is refused `cycle`, though the link is there. Not pinned; CA7 shows the check finds such links.
 6. **Possible, unverified:** an instance whose TA is a community reference's curator. The local Mac's TA is the `tag` family's curator. There, install's part (d) would MERGE the `tag` superset onto itself, since `src/firmware/install.js:1295` doesn't compare its two ends. That makes a self-loop, which class-thread-acyclic's check reports and which unlink-set would refuse to take out as part (d). It wasn't checked against a live graph, since the local stack is off limits.
 7. **Test ids.** The agent test is `X3`: story 4's agent suite (`agent-through-cli.test.js`) has `X1`, and story 5's has `X2`, so each agent test id stays unique across suites.
+
+**From Amendment 3's tests (at Review):**
+
+8. **The tests can't tell the uuid rule from the label rule it rejected.** Amendment 3 chose "a set has an address" over leaving out the label `SetOfNostrUserWotMetricsCards`. Every address-less node labelled `Set` in a real graph today is a card set, and every fixture of one carries that label too, so an implementation of either rule passes. Pinning the choice would need an address-less `Set` that isn't a card set, and none exists.
+9. **A card-set link already made can't be taken out by either operation.** UL19 shows unlink-set refuses a card set as `set` even when a link puts it under a set, and UL20 refuses one as `parent`. After Amendment 3, link-set can't make such a link. Only the link-set before Amendment 3 could, and that ran only on this branch and its scratch stack, so no shared instance should hold one. Recorded, not tested further.
+10. **What isn't reachable stack-free.**
+    - Amendment 3's item 2, the re-check's `last-parent` naming the parent, is on the race path only, like the re-check itself (live check, step 8).
+    - Item 3, part (c) resolving set files only, changes nothing for v1.0.0, since all ten edges link a set to a set. The fixture's reading of part (c) now follows it; no shipped edge can show the difference.

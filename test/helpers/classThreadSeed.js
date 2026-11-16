@@ -14,6 +14,11 @@
  *     tags d, name, z and s, its s naming its first parent's uuid (or `claims`, the parent its tag names);
  *   - an event-less set, as add-subset makes it: ListItem and Set, the TA's pubkey, the same would-be tags, no id;
  *   - an element: NostrEvent and ListItem, under a superset or a set by HAS_ELEMENT;
+ *   - a card set, as the trust pipeline makes one per scored user (src/cns/addSetsOfMetricsCards.sh:26): Set and
+ *     SetOfNostrUserWotMetricsCards, a tapestryKey and an observee_pubkey, no uuid and no name. It isn't a set of the
+ *     concept graph (ADR 0028 Amendment 3: a set has an address). Its WOT_METRICS_CARDS edge from a NostrUser isn't
+ *     seeded: no test needs it, and the fake's path reads don't run that type. A class-thread link to or from one is
+ *     seeded only where a test says so, as the link-set before Amendment 3 could make (the review's probe);
  *   - U, a NostrUser, and G, a change entry, which no write may name.
  * "A ─▶ B" below is a class-thread link, (A)-[:IS_A_SUPERSET_OF]->(B): A is one of B's parents. TA, OWNER and PEER
  * are 'dd', 'aa' and 'ee' repeated (test/helpers/graphOpsSuite.js's TA and owner).
@@ -24,7 +29,8 @@
  *   canine    "Canines"    ─▶ Hounds (lettered) ─▶ Beagles ─▶ Pocket beagles; elements Fido (of Canines), Rex (of
  *                            Beagles), Snoopy (of Pocket beagles)
  *   mammal    "Mammals"    ─▶ Pack animals; element Whale
- *   feline    "Felines"    ─▶ Tabbies, Kittens; element Tom
+ *   feline    "Felines"    ─▶ Tabbies, Kittens, Lap cats; element Tom
+ *   Card set, a trust-pipeline card set, under nothing and over nothing
  *   vehicle   "Vehicles"   ─▶ Cars ─▶ Sedans; machine "Machines" ─▶ Movers ─▶ Vehicles (vehicles are a kind of mover)
  *   firmware, as an install leaves it after its prune (addFirmware, pruned): nostr-relay, relationship-type and
  *     property (the last a firmware concept whose folder has no manifest.json). On nostr-relay's superset (F below):
@@ -46,6 +52,10 @@
  *                          ─▶ Siamese (its only parent)
  *                          ─▶ Persians (also under Indoor pets), Maine coons (also under Outdoor pets)
  *   Strays: an event-less set an old route left under no parent; its would-be s tag still names Pets
+ *   card sets, each with the link the review's probe made through link-set before Amendment 3:
+ *     Pets ─▶ Card set A;  Card set B ─▶ Lap cats, also under Felines;
+ *     Card set C ─▶ House cats, also under Felines, its one real parent; Mittens (of House cats)
+ *   Lock probe, an element: UL18's unlink, refused not-a-set inside apply, after the lock
  *   mammal    "Mammals"    ─▶ Pack animals ─▶ Wolves, the wolf concept's superset, its only parent; Grey wolf (of Wolves)
  *   firmware, before its prune (addFirmware): nostr-relay, set, superset and tag, every link Decision 6's table names
  *   the owner's links: collection "Collections" ─▶ Relay taxonomies ─▶ organization-by-monetization;
@@ -64,6 +74,8 @@
  *   pet "Pets" ─▶ Indoor pets, Notes; Notes ─▶ Stray note (an element an old route put under a set as a set)
  *   feline "Felines" ─▶ Tabbies (also under Indoor pets), Siamese, Hybrid; Old note (an element) ─▶ Hybrid, Ghost set
  *   Strays (under no parent); mammal "Mammals" ─▶ Pack animals ─▶ Wolves (the wolf concept's superset)
+ *   card sets: Card set, under no parent; Pets ─▶ Above cards ─▶ Card set X ─▶ Below cards (its only incoming link);
+ *     Felines ─▶ House cats, and Card set Y ─▶ House cats
  *   the class thread anomaly (BIBLE §10, rule 9): firmware's concept-header concept, whose superset has every header
  *     here as an element, its own header among them; concept-header's superset ─▶ Header sets
  *   U
@@ -75,11 +87,12 @@
  *   (a) each set file concepts/<c>/sets/<f>.json: <c>'s superset ─▶ 39999:<TA>:<word.slug, or f>
  *   (b) each manifest.json sets.<category>['existing-sets'][].concept: the superset of categoryToSlug(category) ─▶ the
  *       concept's superset (categoryToSlug copied from src/firmware/install.js:123)
- *   (c) each concepts/<c>/manifest.json IS_A_SUPERSET_OF[{ nodeFrom, nodeTo }]: the file of each name in <c>'s sets/ or
- *       elements/, else the first such file in any firmware concept; a name that resolves to no file is left out
+ *   (c) each concepts/<c>/manifest.json IS_A_SUPERSET_OF[{ nodeFrom, nodeTo }]: the set file of each name in <c>'s sets/,
+ *       else the first such file in any firmware concept; a name that resolves to no set file is left out (Amendment 3,
+ *       item 3: an element file's address isn't its word.slug, so part (c) never resolves to one)
  *   (d) each communityReference.headerATag 39998:<pk>:<d>: <c>'s superset ─▶ 39999:<pk>:<d>-superset
- * Firmware's nodes are named fw:<c> (the header), fw:<c>/superset, fw:<c>/sets/<f>, fw:<c>/elements/<f> and
- * fw:<c>/community (the curator's superset, the curator's lettered node). addFirmware(b, { concepts, pruned }) adds the
+ * Firmware's nodes are named fw:<c> (the header), fw:<c>/superset, fw:<c>/sets/<f> and fw:<c>/community (the
+ * curator's superset, the curator's lettered node). addFirmware(b, { concepts, pruned }) adds the
  * concepts named (all of them by default), their set files' sets (lettered by the TA, each s tag naming the superset,
  * as create-set made them), and every link above whose two ends it added. pruned takes out what install's prune pass
  * does (src/firmware/install.js:807–833): each link from the superset of a concept whose folder has a manifest.json to a
@@ -164,13 +177,20 @@ function builder() {
     state.rels = state.rels.filter((r) => !(r.type === PROP && r.from === nodes[parent].eid && r.to === nodes[child].eid));
   }
   function user(name, pubkey) { node(name, ['NostrUser'], { pubkey }); }
+  /**
+   * A trust-pipeline card set, as src/cns/addSetsOfMetricsCards.sh:26 makes one (ADR 0028 Amendment 3): labelled Set
+   * and SetOfNostrUserWotMetricsCards, with a tapestryKey and an observee_pubkey, and no uuid and no name. The
+   * pipeline reaches it from the observee's NostrUser by WOT_METRICS_CARDS; that edge isn't seeded, since nothing these
+   * operations read follows it and the fake's path reads don't run that type.
+   */
+  function cardSet(name, { observee = hex() } = {}) { node(name, ['Set', 'SetOfNostrUserWotMetricsCards'], { observee_pubkey: observee }); }
   function entry(name) {
     node(name, ['GraphChange'], { at: '2026-01-01T00:00:00.000Z', byRole: 'owner', byPubkey: OWNER, operation: 'graph add-relationship', keys: [], changes: '[]' });
   }
 
   return {
     state, keys, uuids, names, nodes, headers,
-    node, rel, tags, concept, set, element, link, unlink, user, entry,
+    node, rel, tags, concept, set, element, link, unlink, user, cardSet, entry,
     has: (name) => !!nodes[name],
     /** Write the state to <dir>/graph.json and return its path. */
     file(dir) { const f = path.join(dir, 'graph.json'); writeState(f, state); return f; },
@@ -213,7 +233,6 @@ function firmwareDefinition() {
       singular: oNames.singular || entry.slug,
       plural: oNames.plural || `${entry.slug}s`,
       sets: filesIn('sets').map((f) => fileOf('sets', f)),
-      elements: filesIn('elements').map((f) => fileOf('elements', f)),
       hasManifest,
       edges: hasManifest ? (readJson(path.join(dir, 'manifest.json'))[PROP] || []) : [],
       communityReference: entry.communityReference || null,
@@ -236,12 +255,9 @@ function firmwareDefinition() {
       });
     }
   }
-  // (c) concept manifests' IS_A_SUPERSET_OF
+  // (c) concept manifests' IS_A_SUPERSET_OF, set files only (Amendment 3, item 3)
   const resolve = (c, name) => {
-    for (const [sub, list] of [['sets', c.sets], ['elements', c.elements]]) if (list.some((x) => x.file === name)) return `fw:${c.slug}/${sub}/${name}`;
-    for (const other of concepts) {
-      for (const [sub, list] of [['sets', other.sets], ['elements', other.elements]]) if (list.some((x) => x.file === name)) return `fw:${other.slug}/${sub}/${name}`;
-    }
+    for (const owner of [c, ...concepts]) if (owner.sets.some((x) => x.file === name)) return `fw:${owner.slug}/sets/${name}`;
     return null;
   };
   for (const c of concepts) {
@@ -270,16 +286,6 @@ function addFirmware(b, { concepts = null, pruned = false } = {}) {
     b.concept(c.slug, { header: `fw:${c.slug}`, superset: `fw:${c.slug}/superset`, headerName: c.singular, supersetName: `the superset of all ${c.plural}` });
     for (const s of c.sets) {
       b.set(`fw:${c.slug}/sets/${s.file}`, { uuid: `39999:${TA}:${s.slug}`, displayName: s.name, letter: true, claims: `fw:${c.slug}/superset` });
-    }
-  }
-  // The elements an included concept's manifest edges name.
-  for (const l of def.links.filter((x) => x.part === 'c' && include.has(x.concept))) {
-    for (const end of [l.parent, l.set]) {
-      const m = end.match(/^fw:([^/]+)\/elements\/(.+)$/);
-      if (m && !b.has(end) && def.bySlug[m[1]]) {
-        const e = def.bySlug[m[1]].elements.find((x) => x.file === m[2]);
-        b.element(end, { uuid: `39999:${TA}:${e.slug}` });
-      }
     }
   }
   const present = (l) => b.has(l.parent) && b.has(l.set);
@@ -343,7 +349,9 @@ function linkSetGraph() {
   b.concept('feline', { superset: 'Felines' });
   b.set('Tabbies', { under: ['Felines'] });
   b.set('Kittens', { under: ['Felines'] });
+  b.set('Lap cats', { under: ['Felines'] });
   b.element('Tom', { under: ['Felines'] });
+  b.cardSet('Card set');
   b.concept('vehicle', { superset: 'Vehicles' });
   b.set('Cars', { under: ['Vehicles'] });
   b.set('Sedans', { under: ['Cars'] });
@@ -389,6 +397,16 @@ function unlinkSetGraph() {
   b.set('Persians', { under: ['Felines', 'Indoor pets'] });
   b.set('Maine coons', { under: ['Felines', 'Outdoor pets'] });
   b.set('Strays', { under: [], claims: 'Pets' });
+  b.cardSet('Card set A');
+  b.link('Pets', 'Card set A');
+  b.set('Lap cats', { under: ['Felines'] });
+  b.cardSet('Card set B');
+  b.link('Card set B', 'Lap cats');
+  b.set('House cats', { under: ['Felines'] });
+  b.element('Mittens', { under: ['House cats'] });
+  b.cardSet('Card set C');
+  b.link('Card set C', 'House cats');
+  b.element('Lock probe');
   b.concept('mammal', { superset: 'Mammals' });
   b.set('Pack animals', { under: ['Mammals'] });
   b.concept('wolf', { superset: 'Wolves' });
@@ -457,6 +475,15 @@ function ruleGraph() {
   b.set('Pack animals', { under: ['Mammals'] });
   b.concept('wolf', { superset: 'Wolves' });
   b.link('Pack animals', 'Wolves');
+  b.cardSet('Card set');
+  b.set('Above cards', { under: ['Pets'] });
+  b.cardSet('Card set X');
+  b.link('Above cards', 'Card set X');
+  b.set('Below cards', { under: [], claims: 'Above cards' });
+  b.link('Card set X', 'Below cards');
+  b.set('House cats', { under: ['Felines'] });
+  b.cardSet('Card set Y');
+  b.link('Card set Y', 'House cats');
   b.concept('concept-header', { header: 'fw:concept-header', superset: 'fw:concept-header/superset', supersetName: 'the superset of all concept headers' });
   b.set('Header sets', { under: ['fw:concept-header/superset'] });
   for (const h of b.headers) b.rel('HAS_ELEMENT', 'fw:concept-header/superset', h);

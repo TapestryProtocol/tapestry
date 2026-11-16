@@ -36,8 +36,14 @@
  *   UL16 nothing is signed; a visitor gets 401 and a stranger 403 and neither unlinks anything; the command unlinks that
  *        pair afterwards, recorded as the command's, and its refusal matches the route's
  *   UL17 it is listed for an admin with its guard, repeatKey, inputs and refusals, and has its /docs entry
- *   UL18 an unlink leaves the set's own properties as they were, unlinked or refused: the lock it takes (ADR 0028
- *        Amendment 2) leaves nothing behind
+ *   UL18 an unlink leaves the set's own properties as they were, unlinked or refused after its lock: the lock it takes
+ *        first (ADR 0028 Amendment 2; Amendment 3, item 1) leaves nothing behind. The refused call is refused inside
+ *        apply, not by the guard, and its rolled-back transaction shows it took the lock before it refused
+ *   UL19 a trust-pipeline card set, labelled Set but with no address, is refused not-a-set, named as a node with no
+ *        address (Amendment 3), even one a link puts under a set; nothing changes
+ *   UL20 a card set as the parent is refused not-a-parent, named the same way; nothing changes
+ *   UL21 a card set doesn't count as a parent: a set whose only other incoming link is from one is refused last-parent
+ *        when unlinked from its one real parent, which it stays under
  */
 
 const fs = require('fs');
@@ -127,6 +133,10 @@ function main() {
         post('ul15-admin', 'admin', k.Persians, k['Indoor pets']),
         post('ul16-visitor', 'visitor', k['Maine coons'], k['Outdoor pets']),
         post('ul16-stranger', 'stranger', k['Maine coons'], k['Outdoor pets']),
+        post('ul18-refused-after-the-lock', 'owner', k['Lock probe'], k.Pets),
+        post('ul19-card-set', 'owner', k['Card set A'], k.Pets),
+        post('ul20-card-set-as-parent', 'owner', k['Lap cats'], k['Card set B']),
+        post('ul21-a-card-set-is-no-parent', 'owner', k['House cats'], k.Felines),
         { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
       ],
       cli: [
@@ -410,22 +420,76 @@ test('UL17: it is listed for an admin with its guard, repeatKey, inputs and refu
   assert(line && same(JSON.parse(line), ['post']), `/docs has POST ${ROUTE}; got ${line} ${(child.stderr || '').slice(-300)}`);
 });
 
+/**
+ * The steps of each transaction the fake rolled back whose error names one of `marks`, as story 4's W6 reads them
+ * (test/operations/write-path.test.js): from its `begin` to its `rollback`.
+ */
+function rolledBack(log, marks) {
+  const out = [];
+  for (let i = 0; i < log.length; i++) {
+    if (log[i].call !== 'rollback' || !marks.some((m) => String(log[i].error || '').includes(m))) continue;
+    const steps = [];
+    for (let j = i - 1; j >= 0 && log[j].call !== 'begin'; j--) steps.unshift(log[j]);
+    out.push(steps);
+  }
+  return out;
+}
+/** The lock (ADR 0028 Amendment 2): a write in the shape of the field mapping's copies, UNWIND … SET n += row.props. */
+const isLock = (s) => s.call === 'tx.run' && (s.kind === 'copies' || /\bUNWIND\b[\s\S]*\bSET\b/i.test(String(s.query || '')));
+
 // ADR 0028 Amendment 2: unlink-set locks its set by setting a property and removing it again in its own transaction.
-test('UL18: an unlink leaves the set\'s own properties as they were, unlinked or refused: the lock it takes leaves nothing behind', () => {
+// Amendment 3, item 1: the lock is the first thing its apply does, so a refusal inside apply comes after it. A guard's
+// refusal (UL8's last-parent) comes before apply, and takes no lock.
+test('UL18: an unlink leaves the set\'s own properties as they were, unlinked or refused after its lock: the lock leaves nothing behind', () => {
   const { k } = main();
   const propsOf = (state, key) => {
     const n = state.nodes.find((x) => x.props && x.props.tapestryKey === key);
     return n ? n.props : null;
   };
   ok('ul1-unlink');
-  refused('ul8-last-parent', 409, 'last-parent');
-  for (const [what, key] of [['Hounds, unlinked (UL1)', k.Hounds], ['Siamese, refused its last parent (UL8)', k.Siamese]]) {
+  const b = refused('ul18-refused-after-the-lock', 409, 'not-a-set');
+  assert(b.input === 'set', `Lock probe, an element, is refused not-a-set, naming set; got ${show(b)}`);
+  const txs = rolledBack(graph().log, [k['Lock probe'], 'Lock probe']);
+  assert(txs.length === 1, `one rolled-back transaction names Lock probe; found ${txs.length}`);
+  assert(txs[0].some(isLock), `the refused unlink took its lock before it refused not-a-set, and the rollback took it away (ADR 0028 Amendment 3, item 1: the lock is the first thing apply does); its transaction ran ${show(txs[0].map((s) => s.kind))}`);
+  for (const [what, key] of [['Hounds, unlinked (UL1)', k.Hounds], ['Lock probe, refused not-a-set after the lock', k['Lock probe']]]) {
     const was = propsOf(before(), key);
     const is = propsOf(graph(), key);
     assert(was && is, `(the seed holds ${what})`);
-    assert(!Object.prototype.hasOwnProperty.call(is, 'tapestryLock'), `${what}: no lock property is left on the set; got ${show(is)}`);
-    assert(same(is, was), `${what}: the set's properties are as they were; was ${show(was)}, is ${show(is)}`);
+    assert(!Object.prototype.hasOwnProperty.call(is, 'tapestryLock'), `${what}: no lock property is left on the node; got ${show(is)}`);
+    assert(same(is, was), `${what}: the node's properties are as they were; was ${show(was)}, is ${show(is)}`);
   }
+});
+
+// ADR 0028 Amendment 3: a node counts as a set, a superset or a parent only when it has an address, its uuid. The trust
+// pipeline's card sets are labelled Set and have none (classThreadSeed.js's cardSet). Each link to or from one here
+// is one the link-set before Amendment 3 could make, as the review's probe did.
+const namesNoAddress = (text) => /address/i.test(String(text));
+
+test('UL19: a trust-pipeline card set, labelled Set but with no address, is refused not-a-set, even one a link puts under a set', () => {
+  const { k } = main();
+  const b = refused('ul19-card-set', 409, 'not-a-set');
+  assert(b.input === 'set' && b.error.includes(k['Card set A']), `not-a-set, naming set and the key passed; got ${show(b)}`);
+  assert(namesNoAddress(b.error), `its words say the node has no address, as the trust pipeline's card sets haven't (ADR 0028 Amendment 3); got ${show(b.error)}`);
+  assert(links(k.Pets, k['Card set A']) === 1 && entriesFor(k.Pets, k['Card set A']).length === 0, 'the link from Pets is still there, and nothing was recorded');
+});
+
+test('UL20: a card set as the parent is refused not-a-parent, named as a node with no address; nothing changes', () => {
+  const { k } = main();
+  const b = refused('ul20-card-set-as-parent', 409, 'not-a-parent');
+  assert(b.input === 'parent' && b.error.includes(k['Card set B']), `not-a-parent, naming parent and the key passed; got ${show(b)}`);
+  assert(namesNoAddress(b.error), `its words say the node has no address (ADR 0028 Amendment 3); got ${show(b.error)}`);
+  assert(links(k['Card set B'], k['Lap cats']) === 1 && links(k.Felines, k['Lap cats']) === 1, 'both links to Lap cats are still there');
+  assert(entriesFor(k['Card set B'], k['Lap cats']).length === 0, 'and nothing was recorded');
+});
+
+test('UL21: a card set doesn\'t count as a parent: a set whose only other incoming link is from one is refused last-parent from its real parent', () => {
+  const { k } = main();
+  const b = refused('ul21-a-card-set-is-no-parent', 409, 'last-parent');
+  assert(b.rule === RULE, `the refusal comes from ${RULE}; got ${show(b)}`);
+  assert(names(b.error, k.Felines), `it names the parent, Felines; got ${show(b.error)}`);
+  assert(links(k.Felines, k['House cats']) === 1 && entriesFor(k.Felines, k['House cats']).length === 0, 'House cats is still under Felines, and nothing was recorded');
+  assert(CT.elementsOf(graph(), k.feline).includes(k.Mittens), 'feline\'s class thread still reaches Mittens, the element of House cats');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

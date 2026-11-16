@@ -23,6 +23,10 @@
  *   SP9  the class thread anomaly breaks it nowhere: the concept-header concept's header is an element, not a set
  *   SP10 the rules document holds its entry, in the entry format: it refuses, how a check finds what breaks it, and
  *        graph link-set as its repair
+ *   SP11 as a check, a trust-pipeline card set, labelled Set but with no address, gives no finding, under no parent or
+ *        under one: it isn't a set of the concept graph (ADR 0028 Amendment 3)
+ *   SP12 a card set doesn't count as a parent: as a guard, a set whose only other parent is a card set is last-parent;
+ *        as a check, a set whose only parent is a card set is under no superset or set
  */
 
 const fs = require('fs');
@@ -55,6 +59,11 @@ const CASES = {
   notASet: [check('@Rex'), check('@feline'), check('@U'), guard('@Rex', '@Sedans')],
   check: [check('@Tabbies'), check('@Siamese'), check('@Strays'), check('@Ghost set'), check('@Hybrid'), check('@Felines'), check('@Wolves'), check('@Sedans')],
   anomaly: [check(`@${CH}`), guard(`@${CH}`, `@${CH_SUPERSET}`), check(`@${CH_SUPERSET}`)],
+  // ADR 0028 Amendment 3: card sets (Card set under no parent; Above cards ─▶ Card set X ─▶ Below cards; Felines ─▶
+  // House cats ◀─ Card set Y).
+  cardSetCheck: [check('@Card set'), check('@Card set X')],
+  cardSetNotAParentGuard: [guard('@House cats', '@Felines')],
+  cardSetNotAParentCheck: [check('@Below cards')],
 };
 
 /** Run the rule in a child over ruleGraph(); each case answers { items, violations } or { error }. */
@@ -194,6 +203,19 @@ test('SP10: the rules document holds its entry, in the entry format: it refuses,
   const repair = entry.slice(entry.indexOf('**Repair:**'), entry.indexOf('**Enforced by:**'));
   assert(/\blink-set/.test(repair), `its repair is graph link-set, which gives a set with no parent one; got ${show(repair.trim())}`);
   assert(/unlink-set/.test(entry.slice(entry.indexOf('**Enforced by:**'))), 'it is enforced by graph unlink-set\'s guard');
+});
+
+test('SP11: as a check, a trust-pipeline card set gives no finding, under no parent or under one: it isn\'t a set of the concept graph', () => {
+  // ADR 0028 Amendment 3: set-has-a-parent judges no address-less node as a set.
+  none('cardSetCheck');
+});
+
+test('SP12: a card set doesn\'t count as a parent: as a guard, a set whose only other parent is one is last-parent; as a check, one under only a card set', () => {
+  // ADR 0028 Amendment 3: set-has-a-parent counts no address-less node as a parent.
+  const g = lastParent('cardSetNotAParentGuard');
+  assert(names(g.message, 'Felines'), `House cats' only superset or set is Felines, which it would leave; the card set above it doesn't count; got ${show(g.message)}`);
+  const c = lastParent('cardSetNotAParentCheck');
+  assert(names(c.message, 'Below cards'), `Below cards, under only a card set, is under no superset or set; the finding names it; got ${show(c.message)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

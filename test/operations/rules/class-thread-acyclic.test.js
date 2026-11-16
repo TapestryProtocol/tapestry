@@ -25,6 +25,8 @@
  *       superset, makes no cycle, as an item or on a walk
  *   CA9 the rules document holds its entry, in the entry format: it refuses, how a check finds what breaks it, and
  *       graph unlink-set as its repair
+ *   CA10 an item with a trust-pipeline card set at either end, labelled Set but with no address, gives no finding, even
+ *        where a walk that took the card set for a set would come back to the set (ADR 0028 Amendment 3)
  */
 
 const fs = require('fs');
@@ -67,6 +69,9 @@ const CASES = {
   anomalyLink: [item('@Header sets', `@${CH_SUPERSET}`)],
   anomalyItself: [item(`@${CH}`, `@${CH_SUPERSET}`)],
   anomalyWalk: [item(`@${CH_SUPERSET}`, '@Cars')],
+  // Above cards ─▶ Card set X ─▶ Below cards: each item would close a loop through the card set, if it were a set.
+  cardSetAsSet: [item('@Card set X', '@Below cards')],
+  cardSetAsParent: [item('@Above cards', '@Card set X')],
 };
 
 /** Run the rule in a child over ruleGraph(); each case answers { items, violations } or { error }. */
@@ -215,6 +220,12 @@ test('CA9: the rules document holds its entry, in the entry format: it refuses, 
   const repair = entry.slice(entry.indexOf('**Repair:**'), entry.indexOf('**Enforced by:**'));
   assert(/unlink-set/.test(repair), `its repair is graph unlink-set, which takes out a link on a cycle; got ${show(repair.trim())}`);
   assert(/\blink-set/.test(entry.slice(entry.indexOf('**Enforced by:**'))), 'it is enforced by graph link-set\'s guard');
+});
+
+test('CA10: an item with a trust-pipeline card set at either end gives no finding, even where a walk that took it for a set would come back', () => {
+  // ADR 0028 Amendment 3: class-thread-acyclic judges no link with an address-less end; the declaration refuses it.
+  none('cardSetAsSet');
+  none('cardSetAsParent');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
