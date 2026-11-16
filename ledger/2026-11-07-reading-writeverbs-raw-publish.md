@@ -3,8 +3,8 @@
 **Id:** 2026-11-07-reading-writeverbs-raw-publish
 **Type:** bug
 **Opened:** 2026-11-07 (openapi-coverage ship to staging, CI on nousclawds4/tapestry#28)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-14 (TapestryProtocol/tapestry#51, merged to `staging` as `fa5b9767`)
 
 `test/setup-alert-polish.test.js` S2 (ADR setup-status-and-alert/0003 § 7) fails on GitHub `staging` since Vinney
 Cavallo's reading-views commit `8a0b78e0d` (PR #26) added `ui/src/pages/reading/writeVerbs.js`, which POSTs to
@@ -20,3 +20,9 @@ so it looks unable to carry the viewer's own kind 3 or 10040. If so, add `'pages
 `publishToLocalStrfry`.
 
 **Pointer:** `engineering-team/audits/openapi-coverage/audit.md` (the book shipped with this red, on the owner's OK)
+
+**Closed, 2026-11-14.** The first fix shape was taken: `pages/reading/writeVerbs.js` is on `RAW_PUBLISH_ALLOWED`, with
+the reason beside it. It republishes one addressable event at its own address, only when the instance's Assistant
+authored it, and signs as the Assistant, so it cannot carry the viewer's kind 3 or 10040. The suite reads 17 passed,
+0 failed on the tree that holds it. The last pull request to read red on this test was TapestryProtocol/tapestry#54,
+on its first run (7,089 passed, 1 failed).

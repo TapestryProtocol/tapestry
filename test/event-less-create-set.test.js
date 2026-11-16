@@ -82,7 +82,8 @@ const ADD_REL_ROUTE = '/api/normalize/add-relationship';
 const EXPECTED_PROBE = { success: true, surface: 'node-primitives', operations: ['add-subset'] };
 
 // nodes.js's whole import surface (ADR Implementation notes), sorted.
-const EXPECTED_REQUIRES = ['../../lib/dtag', '../../lib/neo4j-driver', '../../middleware/auth', './firmware', 'crypto'];
+// lib/tapestry-key-cypher builds Cypher text and requires nothing (ADR graph-operations-foundation/0003 Decision 8).
+const EXPECTED_REQUIRES = ['../../lib/dtag', '../../lib/neo4j-driver', '../../lib/tapestry-key-cypher', '../../middleware/auth', './firmware', 'crypto'];
 const FORBIDDEN = ['child_process', 'nostr-tools', 'assistantKeys', 'publishToStrfry', 'signAndFinalize', 'strfry'];
 
 const NODES_MISSING =
@@ -368,7 +369,7 @@ function addressFor(ta, name, parentUuid) {
 
 function setSupersetFor(ta) {
   const rows = loopbackCypher(
-    'MATCH (:NostrEvent {uuid: $h})-[:IS_THE_CONCEPT_FOR]->(s:Superset) RETURN s.uuid AS uuid',
+    'MATCH (:NostrEvent|TapestryNode {uuid: $h})-[:IS_THE_CONCEPT_FOR]->(s:Superset) RETURN s.uuid AS uuid',
     { h: `39998:${ta}:set` });
   assert(rows[0] && rows[0].uuid,
     `the \`set\` concept's superset is missing on '${CONTAINER}' — run firmware install there first.`);
@@ -377,7 +378,7 @@ function setSupersetFor(ta) {
 
 function nodeState(uuid) {
   const rows = loopbackCypher(
-    'MATCH (n:NostrEvent {uuid: $u}) RETURN n.id AS id, labels(n) AS labels, n.name AS name, n.pubkey AS pubkey',
+    'MATCH (n:NostrEvent|TapestryNode {uuid: $u}) RETURN n.id AS id, labels(n) AS labels, n.name AS name, n.pubkey AS pubkey',
     { u: uuid });
   if (rows.length === 0) return { exists: false, count: 0 };
   const r = rows[0];
@@ -394,7 +395,7 @@ function nodeState(uuid) {
 
 function tagsOf(uuid) {
   return loopbackCypher(
-    'MATCH (:NostrEvent {uuid: $u})-[:HAS_TAG]->(t:NostrEventTag) RETURN t.uuid AS uuid, t.type AS type, t.value AS value',
+    'MATCH (:NostrEvent|TapestryNode {uuid: $u})-[:HAS_TAG]->(t:NostrEventTag) RETURN t.uuid AS uuid, t.type AS type, t.value AS value',
     { u: uuid });
 }
 
@@ -402,7 +403,7 @@ function tagsOf(uuid) {
 function edgeCount(alias, fromUuid, toUuid) {
   assert(['HAS_ELEMENT', 'IS_A_SUPERSET_OF'].includes(alias), `test bug: alias ${alias} not in the fixed set`);
   const rows = loopbackCypher(
-    `MATCH (:NostrEvent {uuid: $a})-[r:${alias}]->(:NostrEvent {uuid: $b}) RETURN count(r) AS c`,
+    `MATCH (:NostrEvent|TapestryNode {uuid: $a})-[r:${alias}]->(:NostrEvent|TapestryNode {uuid: $b}) RETURN count(r) AS c`,
     { a: fromUuid, b: toUuid });
   return rows[0] ? Number(rows[0].c) : 0;
 }
@@ -482,12 +483,12 @@ function teardownFixtures() {
   if (uuids.length === 0) return;
   try {
     loopbackCypher(
-      'MATCH (n:NostrEvent) WHERE n.uuid IN $uuids OPTIONAL MATCH (n)-[:HAS_TAG]->(t:NostrEventTag) DETACH DELETE t, n',
+      'MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid IN $uuids OPTIONAL MATCH (n)-[:HAS_TAG]->(t:NostrEventTag) DETACH DELETE t, n',
       { uuids });
-    const left = loopbackCypher('MATCH (n:NostrEvent) WHERE n.uuid IN $uuids RETURN count(n) AS c', { uuids });
+    const left = loopbackCypher('MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid IN $uuids RETURN count(n) AS c', { uuids });
     if (left[0] && Number(left[0].c) !== 0) {
       console.log(`  WARN  fixture cleanup left ${left[0].c} node(s) on '${CONTAINER}'; remove with: ` +
-        `MATCH (n:NostrEvent) WHERE n.uuid IN ${JSON.stringify(uuids)} DETACH DELETE n`);
+        `MATCH (n:NostrEvent|TapestryNode) WHERE n.uuid IN ${JSON.stringify(uuids)} DETACH DELETE n`);
     }
   } catch (e) {
     console.log(`  WARN  fixture cleanup failed on '${CONTAINER}' (${e.message}); uuids: ${uuids.join(', ')}`);
@@ -626,7 +627,7 @@ t('U10 (book frame "shipped"): the probe handler answers 200 with the exact stat
 
 /* ══════════════ S-class — structural event-less guarantee + registration ══════════════ */
 
-t('S1 (AC-1): nodes.js requires exactly crypto, neo4j-driver, ./firmware, middleware/auth and lib/dtag — structurally unable to sign or touch strfry', () => {
+t('S1 (AC-1): nodes.js requires exactly crypto, neo4j-driver, ./firmware, middleware/auth, lib/dtag and lib/tapestry-key-cypher — structurally unable to sign or touch strfry', () => {
   const src = readSafe(NODES_MODULE);
   assert(src !== null, NODES_MISSING);
   const specifiers = [];
@@ -725,9 +726,10 @@ t('H1 (AC-1): add-subset creates the set under its parent — 200 created at the
   const n = nodeState(f.alpha);
   assert(n.exists, `no node exists at ${f.alpha} after a 'created' answer.`);
   assert(!n.hasId, `an event-less set must carry no event id; found id ${short(n.id)}.`);
-  for (const l of ['NostrEvent', 'ListItem', 'Set']) {
-    assert(n.labels.includes(l), `the set must carry the ${l} label, as a lettered set does (ADR decision 7); got ${short(n.labels)}.`);
+  for (const l of ['TapestryNode', 'ListItem', 'Set']) {
+    assert(n.labels.includes(l), `the set must carry the ${l} label (ADR decision 7, amended by graph-operations-foundation/0003 Decision 9); got ${short(n.labels)}.`);
   }
+  assert(!n.labels.includes('NostrEvent'), `an event-less set is made without NostrEvent, which means "came from a nostr event" (graph-operations-foundation/0003 Decision 9); got ${short(n.labels)}.`);
   assert(n.name === f.alphaName && n.pubkey === f.ta,
     `the node's name and pubkey must be the set's name and this instance's TA; got name=${short(n.name)} pubkey=${short(n.pubkey, 16)}.`);
   assert(edgeCount('IS_A_SUPERSET_OF', f.sup, f.alpha) === 1, 'exactly one IS_A_SUPERSET_OF edge must link the parent to the set.');
@@ -777,7 +779,7 @@ t('H3 (AC-2): the same name in another case and with padding is the same set —
   assert(r.status === 200 && r.json && r.json.result === 'already-existed' && r.json.set && r.json.set.uuid === f.alpha,
     `"${variant}" must match "${f.alphaName}" (trimmed, case-insensitive — ADR decision 6a); got ${describeResponse(r)} ${short(r.json || r.raw)}.`);
   const rows = loopbackCypher(
-    'MATCH (:NostrEvent {uuid: $sup})-[:IS_A_SUPERSET_OF]->(s:Set) WHERE toLower(trim(s.name)) = toLower($n) RETURN count(s) AS c',
+    'MATCH (:NostrEvent|TapestryNode {uuid: $sup})-[:IS_A_SUPERSET_OF]->(s:Set) WHERE toLower(trim(s.name)) = toLower($n) RETURN count(s) AS c',
     { sup: f.sup, n: f.alphaName });
   assert(rows[0] && Number(rows[0].c) === 1, `exactly one set of that name may sit under the parent; found ${short(rows)}.`);
 });
@@ -901,7 +903,7 @@ t('H9 (edge — ADR Option A rationale): Set Detail\'s own lookup finds the even
   assert(!/\$\{/.test(q), 'SetDetail.jsx\'s set query gained another interpolation — re-baseline this test.');
   const rows = loopbackCypher(q);
   assert(rows[0] && rows[0].uuid === f.alpha && rows[0].name === f.alphaName && rows[0].author === f.ta,
-    `Set Detail matches (s:NostrEvent {uuid}) — an event-less set must keep that label to open there; got ${short(rows)}.`);
+    `Set Detail matches (s:NostrEvent|TapestryNode {uuid}), which finds an event-less set (graph-operations-foundation/0003 Decision 9); got ${short(rows)}.`);
 });
 
 t('H10 (AC-5): after a firmware reinstall the set, its parent link, its membership in `set` and its member links are all still there (scratch container only, opt-in)', async () => {
@@ -915,7 +917,7 @@ t('H10 (AC-5): after a firmware reinstall the set, its parent link, its membersh
   const setSup = setSupersetFor(ta);
   // A MANIFEST concept's superset — the path install's pass 1e prunes on.
   const sup = loopbackCypher(
-    'MATCH (:NostrEvent {uuid: $h})-[:IS_THE_CONCEPT_FOR]->(s:Superset) RETURN s.uuid AS uuid',
+    'MATCH (:NostrEvent|TapestryNode {uuid: $h})-[:IS_THE_CONCEPT_FOR]->(s:Superset) RETURN s.uuid AS uuid',
     { h: `39998:${ta}:nostr-kind` });
   assert(sup[0] && sup[0].uuid, `the nostr-kind concept's superset is missing on '${CONTAINER}' — was firmware installed?`);
   const supUuid = sup[0].uuid;
@@ -927,7 +929,7 @@ t('H10 (AC-5): after a firmware reinstall the set, its parent link, its membersh
   const members = [`test-nodeprim-reinstall-${stamp}-m1`, `test-nodeprim-reinstall-${stamp}-m2`];
   members.forEach((m) => createdSetUuids.add(m));
   loopbackCypher(
-    `MATCH (s:NostrEvent {uuid: $sup})
+    `MATCH (s:NostrEvent|TapestryNode {uuid: $sup})
      UNWIND $members AS m
      CREATE (e:NostrEvent:ListItem {uuid: m, name: m, pubkey: $ta, kind: 39999})
      CREATE (s)-[:HAS_ELEMENT]->(e)`,

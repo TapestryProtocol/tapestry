@@ -3,6 +3,7 @@
  * Extracted from normalize/index.js to avoid circular dependencies.
  */
 const { runCypher, writeCypher } = require('../../lib/neo4j-driver');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 const { exec } = require('child_process');
 const crypto = require('crypto');
 
@@ -70,12 +71,20 @@ async function importEventDirect(event, uuid) {
   const namesTag = event.tags.find(t => t[0] === 'names');
   const name = nameTag?.[1] || namesTag?.[1] || '';
 
+  // An event-less node at this address (an add-subset set, or one event-less-nodes took NostrEvent off) takes the
+  // event: it gets NostrEvent back, so the MERGE below lands on it (ADR graph-operations-foundation/0003 Decision 9).
+  await writeCypher(`
+    MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent
+    SET x:NostrEvent
+  `, { uuid });
+
   // Merge the main event node
   await writeCypher(`
     MERGE (e:NostrEvent {uuid: $uuid})
     SET e.id = $id, e.pubkey = $pubkey, e.kind = $kind,
         e.created_at = $created_at, e.content = $content,
         e.name = $name
+    ${keyNode('e')}
   `, {
     uuid, id: event.id, pubkey: event.pubkey,
     kind: event.kind, created_at: event.created_at,
@@ -84,7 +93,7 @@ async function importEventDirect(event, uuid) {
 
   // Delete old tags for this event
   await writeCypher(`
-    MATCH (e:NostrEvent {uuid: $uuid})-[r:HAS_TAG]->(t:NostrEventTag)
+    MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[r:HAS_TAG]->(t:NostrEventTag)
     DELETE r, t
   `, { uuid });
 
@@ -101,11 +110,12 @@ async function importEventDirect(event, uuid) {
       value1: tag[2] || null, value2: tag[3] || null,
     };
     await writeCypher(`
-      MATCH (e:NostrEvent {uuid: $uuid})
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})
       CREATE (t:NostrEventTag {
         uuid: $tagUuid, type: $type, value: $value,
         value1: $value1, value2: $value2
       })
+      ${keyNode('t')}
       CREATE (e)-[:HAS_TAG]->(t)
     `, params);
   }
@@ -114,7 +124,7 @@ async function importEventDirect(event, uuid) {
 async function regenerateJson(uuid, jsonValue) {
   await loadTAKey();
   const tagRows = await runCypher(`
-    MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+    MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
     RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
     ORDER BY t.uuid
   `, { uuid });

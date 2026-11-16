@@ -34,4 +34,6 @@ that would replace the hand recipe.
 once by `npm ci --omit=dev --ignore-scripts` (the one run that needs the checkout writable, since Docker must create
 the `node_modules` mount point). Suites with no `require.main` block have to be called through `run()`.
 
+**2026-11-15 (graph-operations-foundation #8):** seen again. `tapestry-tapestry` was built 2026-08-28. Story 8 booted its scratch stacks with `SCRATCH_IMAGE=agent-memory-tapestry:latest`, built that day from `39126bfc` (staging's code). Its L5b baseline is tied to that image's firmware digest, and skips, saying so, on any other.
+
 **Pointer:** `scripts/scratch-stack.sh:24-26,80`; `engineering-team/audits/config-secret-logging/audit.md` §7.

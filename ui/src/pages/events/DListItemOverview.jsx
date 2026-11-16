@@ -48,7 +48,7 @@ export default function DListItemOverview() {
   const neo4jUuid = aTag || event.id;
   const { data: neo4jData, loading: neo4jLoading } = useCypher(
     neo4jUuid
-      ? `MATCH (n:NostrEvent {uuid: '${neo4jUuid.replace(/'/g, "\\'")}'}) RETURN n.uuid AS uuid LIMIT 1`
+      ? `MATCH (n:NostrEvent|TapestryNode {uuid: '${neo4jUuid.replace(/'/g, "\\'")}'}) RETURN n.uuid AS uuid LIMIT 1`
       : null
   );
   const neo4jExists = neo4jData && neo4jData.length > 0;

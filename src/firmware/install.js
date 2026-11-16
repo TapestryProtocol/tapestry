@@ -31,6 +31,8 @@ const { buildImportCypher, executeCypher } = require('../api/neo4j/eventSync');
 // TA signer for the b-tag emitter (ADR 0034): re-sign the local TA header
 // through the existing runtime TA key path — never a hardcoded key.
 const { loadTAKey, signAndFinalize } = require('../api/normalize/helpers');
+// The form of a tapestryKey (ADR graph-operations-foundation/0004 Decision 7): Pass 2 names a header by one only when it has one.
+const TAPESTRY_KEY = new RegExp(require('../operations/catalog/graph/_nodes').KEY_PATTERN);
 // Relationship type aliases used by concept manifests
 const REL = {
   CLASS_THREAD_INITIATION: firmware.relAlias('CLASS_THREAD_INITIATION') || 'IS_THE_CONCEPT_FOR',
@@ -174,13 +176,14 @@ async function pass1_bootstrap(opts = {}) {
         description: ch.description,
         dTag: slug,  // deterministic d-tag for firmware concepts
         conceptHeaderOverrides: ch,  // pass full firmware conceptHeader for extra fields (e.g., x-tapestry)
+        overwrite: true,  // a reinstall rebuilds the header from the built-in definition
       });
 
       if (result.success) {
         results[slug] = result.concept;
         console.log(`     ✅ Created (header: ${result.concept.uuid})`);
       } else {
-        // Concept might already exist — that's ok
+        // Refused: say why, and carry on with the other concepts
         console.log(`     ⚠️  ${result.error}`);
         results[slug] = { existing: true, error: result.error };
       }
@@ -311,9 +314,9 @@ async function pass1_bootstrap(opts = {}) {
           } else if (rel) {
             let cypher;
             if (coreNodeType === 'superset') {
-              cypher = `MATCH (h:NostrEvent {uuid: $headerUuid})-[:${rel}]->(n) RETURN n.uuid AS uuid LIMIT 1`;
+              cypher = `MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${rel}]->(n) RETURN n.uuid AS uuid LIMIT 1`;
             } else {
-              cypher = `MATCH (n)-[:${rel}]->(h:NostrEvent {uuid: $headerUuid}) RETURN n.uuid AS uuid LIMIT 1`;
+              cypher = `MATCH (n)-[:${rel}]->(h:NostrEvent|TapestryNode {uuid: $headerUuid}) RETURN n.uuid AS uuid LIMIT 1`;
             }
             const rows = await runCypherApi(cypher, { headerUuid: targetHeaderUuid });
             const dataRows = rows.data || [];
@@ -385,7 +388,7 @@ async function pass1_bootstrap(opts = {}) {
 
         try {
           const supersetRows = await runCypherApi(
-            `MATCH (h:NostrEvent {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+            `MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
              RETURN sup.uuid AS uuid LIMIT 1`,
             { headerUuid: conceptHeaderUuid }
           );
@@ -448,7 +451,7 @@ async function pass1_bootstrap(opts = {}) {
           // Find the parent concept's Superset
           const parentHeaderUuid = `39998:${taPk}:${conceptSlug}`;
           const parentRows = await runCypherApi(
-            `MATCH (h:NostrEvent {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+            `MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
              RETURN sup.uuid AS uuid LIMIT 1`,
             { headerUuid: parentHeaderUuid }
           );
@@ -462,7 +465,7 @@ async function pass1_bootstrap(opts = {}) {
           // Find the child concept's Superset
           const childHeaderUuid = `39998:${taPk}:${childConceptSlug}`;
           const childRows = await runCypherApi(
-            `MATCH (h:NostrEvent {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+            `MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
              RETURN sup.uuid AS uuid LIMIT 1`,
             { headerUuid: childHeaderUuid }
           );
@@ -475,7 +478,7 @@ async function pass1_bootstrap(opts = {}) {
 
           // Create IS_A_SUPERSET_OF: parent superset → child superset
           await runCypherApi(
-            `MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+            `MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
              MERGE (a)-[:IS_A_SUPERSET_OF]->(b)`,
             { from: parentSupersetUuid, to: childSupersetUuid }
           );
@@ -568,7 +571,7 @@ async function pass1_bootstrap(opts = {}) {
 
           try {
             await runCypherApi(
-              `MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+              `MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
                MERGE (a)-[:${neoRel}]->(b)`,
               { from: fromUuid, to: toUuid }
             );
@@ -612,7 +615,7 @@ async function pass1_bootstrap(opts = {}) {
 
     // Find all nodes with a z-tag pointing to this concept (excluding the concept's own superset)
     const elemRes = await runCypherApi(
-      `MATCH (n:NostrEvent)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'})
+      `MATCH (n:NostrEvent|ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'})
        WHERE z.value = $headerUuid
          AND n.uuid <> $supersetUuid
        RETURN n.uuid AS uuid`,
@@ -626,7 +629,7 @@ async function pass1_bootstrap(opts = {}) {
     // Add HAS_ELEMENT edges (unwrapped — Neo4j only, no nostr events)
     for (const elem of elemRows) {
       await runCypherApi(
-        `MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+        `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
          MERGE (sup)-[:HAS_ELEMENT]->(elem)`,
         { supersetUuid, elemUuid: elem.uuid }
       );
@@ -661,7 +664,7 @@ async function pass1_bootstrap(opts = {}) {
       const headers = allHeaders.data || [];
       for (const h of headers) {
         await runCypherApi(
-          `MATCH (sup:NostrEvent {uuid: $supersetUuid}), (ch:NostrEvent {uuid: $chUuid})
+          `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (ch:NostrEvent|TapestryNode {uuid: $chUuid})
            MERGE (sup)-[:HAS_ELEMENT]->(ch)`,
           { supersetUuid: chSupersetUuid, chUuid: h.uuid }
         );
@@ -728,7 +731,7 @@ async function pass1_bootstrap(opts = {}) {
 
         // Create the ENUMERATES relationship with sourcePath and destinationPath
         await runCypherApi(
-          `MATCH (sup:NostrEvent {uuid: $fromUuid}), (js:NostrEvent {uuid: $toUuid})
+          `MATCH (sup:NostrEvent|TapestryNode {uuid: $fromUuid}), (js:NostrEvent|TapestryNode {uuid: $toUuid})
            MERGE (sup)-[r:ENUMERATES]->(js)
            SET r.sourcePath = $sourcePath, r.destinationPath = $destinationPath`,
           { fromUuid: enumeratingRow.supersetUuid, toUuid: targetRow.schemaUuid, sourcePath, destinationPath }
@@ -769,7 +772,7 @@ async function pass1_bootstrap(opts = {}) {
 
       // Find the concept's Superset
       const supRows = await runCypherApi(
-        `MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+        `MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
          RETURN sup.uuid AS uuid LIMIT 1`,
         { headerUuid }
       );
@@ -779,7 +782,7 @@ async function pass1_bootstrap(opts = {}) {
 
       // ── Pass 1: Prune HAS_ELEMENT from Superset ──
       const directElements = await runCypherApi(
-        `MATCH (sup:NostrEvent {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
+        `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
          RETURN elem.uuid AS uuid, elem.name AS name`,
         { supersetUuid }
       );
@@ -788,14 +791,14 @@ async function pass1_bootstrap(opts = {}) {
       let prunedHE = 0;
       for (const elem of elemRows) {
         const altPath = await runCypherApi(
-          `MATCH p = (sup:NostrEvent {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}|${REL.CLASS_THREAD_TERMINATION}*2..12]->(elem:NostrEvent {uuid: $elemUuid})
+          `MATCH p = (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}|${REL.CLASS_THREAD_TERMINATION}*2..12]->(elem:NostrEvent|TapestryNode {uuid: $elemUuid})
            RETURN count(p) AS cnt`,
           { supersetUuid, elemUuid: elem.uuid }
         );
         const cnt = (altPath.data || [])[0]?.cnt || 0;
         if (cnt > 0) {
           await runCypherApi(
-            `MATCH (sup:NostrEvent {uuid: $supersetUuid})-[r:${REL.CLASS_THREAD_TERMINATION}]->(elem:NostrEvent {uuid: $elemUuid})
+            `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[r:${REL.CLASS_THREAD_TERMINATION}]->(elem:NostrEvent|TapestryNode {uuid: $elemUuid})
              DELETE r`,
             { supersetUuid, elemUuid: elem.uuid }
           );
@@ -805,7 +808,7 @@ async function pass1_bootstrap(opts = {}) {
 
       // ── Pass 2: Prune IS_A_SUPERSET_OF from Superset ──
       const directSets = await runCypherApi(
-        `MATCH (sup:NostrEvent {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}]->(s)
+        `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}]->(s)
          RETURN s.uuid AS uuid, s.name AS name`,
         { supersetUuid }
       );
@@ -814,8 +817,8 @@ async function pass1_bootstrap(opts = {}) {
       let prunedSO = 0;
       for (const set of setRows) {
         const altPath = await runCypherApi(
-          `MATCH (sup:NostrEvent {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}]->(mid)
-                -[:${REL.CLASS_THREAD_PROPAGATION}*1..10]->(s:NostrEvent {uuid: $setUuid})
+          `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}]->(mid)
+                -[:${REL.CLASS_THREAD_PROPAGATION}*1..10]->(s:NostrEvent|TapestryNode {uuid: $setUuid})
            WHERE mid.uuid <> $setUuid
            RETURN count(*) AS cnt`,
           { supersetUuid, setUuid: set.uuid }
@@ -823,7 +826,7 @@ async function pass1_bootstrap(opts = {}) {
         const cnt = (altPath.data || [])[0]?.cnt || 0;
         if (cnt > 0) {
           await runCypherApi(
-            `MATCH (sup:NostrEvent {uuid: $supersetUuid})-[r:${REL.CLASS_THREAD_PROPAGATION}]->(s:NostrEvent {uuid: $setUuid})
+            `MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[r:${REL.CLASS_THREAD_PROPAGATION}]->(s:NostrEvent|TapestryNode {uuid: $setUuid})
              DELETE r`,
             { supersetUuid, setUuid: set.uuid }
           );
@@ -905,16 +908,18 @@ async function pass2_enrich(opts = {}) {
     }
 
     try {
-      // Find the concept's schema node UUID via Neo4j
-      // Use the relationship alias from firmware for the schema relationship
+      // Find the concept's own header by its address, 39998:<TA>:<slug>, as readInstallState does, and its schema node
+      // (the relationship alias comes from firmware). Never by name: another author's header with the same name must not
+      // take its place (graph-operations-foundation #10).
       const schemaRel = firmware.relAlias('CORE_NODE_JSON_SCHEMA');
       const conceptNameLower = conceptName.toLowerCase();
 
       const queryResult = await runCypherApi(
-        `MATCH (s:JSONSchema)-[:${schemaRel}]->(h:ListHeader {name: $name})
-         RETURN h.uuid AS headerUuid, s.uuid AS schemaUuid
+        `MATCH (s:JSONSchema)-[:${schemaRel}]->(h:NostrEvent|TapestryNode {uuid: $uuid})
+         RETURN h.uuid AS headerUuid, s.uuid AS schemaUuid, h.tapestryKey AS headerKey
+         ORDER BY schemaUuid
          LIMIT 1`,
-        { name: conceptNameLower }
+        { uuid: `39998:${firmware.getTAPubkey()}:${slug}` }
       );
 
       // Use data array from POST endpoint, fall back to CSV parsing
@@ -928,7 +933,7 @@ async function pass2_enrich(opts = {}) {
           const dataLine = csvLines[1];
           const values = dataLine.match(/"([^"]*)"/g)?.map(v => v.replace(/"/g, '')) || [];
           if (values[0] && values[1]) {
-            dataRows.push({ headerUuid: values[0], schemaUuid: values[1] });
+            dataRows.push({ headerUuid: values[0], schemaUuid: values[1], headerKey: values[2] });
           }
         }
       }
@@ -941,6 +946,7 @@ async function pass2_enrich(opts = {}) {
 
       const headerUuid = dataRows[0].headerUuid;
       const schemaUuid = dataRows[0].schemaUuid;
+      const headerKey = dataRows[0].headerKey;
 
       if (!headerUuid || !schemaUuid) {
         console.log(`     ⚠️  Could not parse UUIDs for "${conceptName}"`);
@@ -958,9 +964,11 @@ async function pass2_enrich(opts = {}) {
       }
 
       // Call save-schema to overwrite the starter
-      // save-schema expects { concept: name, schema: jsonSchema section }
+      // save-schema expects { concept: name, tapestryKey?: the header's, schema: jsonSchema section }. The key names this
+      // header; a header with no key yet (an instance before tapestry-keys) is found by name, the instance's own first.
       const saveResult = await apiPost('/api/normalize/save-schema', {
         concept: conceptNameLower,
+        ...(typeof headerKey === 'string' && TAPESTRY_KEY.test(headerKey) ? { tapestryKey: headerKey } : {}),
         schema: firmwareSchema.jsonSchema,
       });
 
@@ -1121,7 +1129,7 @@ async function pass_communityReferences(opts = {}) {
           await apiPost('/api/strfry/publish', { event: supEv });
           await executeCypher(buildImportCypher(supEv));
           await runCypherApi(
-            'MATCH (n:NostrEvent {uuid:$uuid}) SET n:Superset',
+            'MATCH (n:NostrEvent|TapestryNode {uuid:$uuid}) SET n:Superset',
             { uuid: supersetUuid }
           );
           supersetTo = supersetUuid;
@@ -1254,7 +1262,7 @@ async function install(opts = {}) {
       // (1) Header → REFERENCES
       try {
         const found = await runCypherApi(
-          `MATCH (b:NostrEvent {uuid:$to}) RETURN count(b) AS cnt`,
+          `MATCH (b:NostrEvent|TapestryNode {uuid:$to}) RETURN count(b) AS cnt`,
           { to: link.to }
         );
         const present = ((found && found.data) || [])[0]?.cnt || 0;
@@ -1268,7 +1276,7 @@ async function install(opts = {}) {
           console.log(`  ⏭️  ${link.slug}: community Header ${link.to} not present yet — REFERENCES deferred (graceful)`);
         } else {
           await runCypherApi(
-            `MATCH (a:NostrEvent {uuid:$from}), (b:NostrEvent {uuid:$to})
+            `MATCH (a:NostrEvent|TapestryNode {uuid:$from}), (b:NostrEvent|TapestryNode {uuid:$to})
              MERGE (a)-[r:REFERENCES]->(b)
              SET r.source = 'firmware-community'`,
             { from: link.from, to: link.to }
@@ -1283,7 +1291,7 @@ async function install(opts = {}) {
       if (!link.supersetTo) continue;
       try {
         const foundS = await runCypherApi(
-          `MATCH (b:NostrEvent {uuid:$to}) RETURN count(b) AS cnt`,
+          `MATCH (b:NostrEvent|TapestryNode {uuid:$to}) RETURN count(b) AS cnt`,
           { to: link.supersetTo }
         );
         const presentS = ((foundS && foundS.data) || [])[0]?.cnt || 0;
@@ -1292,7 +1300,7 @@ async function install(opts = {}) {
           continue;
         }
         await runCypherApi(
-          `MATCH (a:NostrEvent {uuid:$from}), (b:NostrEvent {uuid:$to})
+          `MATCH (a:NostrEvent|TapestryNode {uuid:$from}), (b:NostrEvent|TapestryNode {uuid:$to})
            MERGE (a)-[:IS_A_SUPERSET_OF]->(b)`,
           { from: link.supersetFrom, to: link.supersetTo }
         );

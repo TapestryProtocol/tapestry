@@ -30,14 +30,14 @@ export default function NewProperty() {
 
   // Fetch the JSON Schema, Primary Property, and all object-typed properties as valid parent targets
   const { data: schemaRow } = useCypher(`
-    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent {uuid: '${uuid}'})
+    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent|TapestryNode {uuid: '${uuid}'})
     OPTIONAL MATCH (pp)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(h)
     RETURN js.uuid AS schemaUuid, js.name AS schemaName,
            pp.uuid AS primaryUuid, pp.name AS primaryName
     LIMIT 1
   `);
   const { data: objectProps } = useCypher(`
-    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent {uuid: '${uuid}'})
+    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent|TapestryNode {uuid: '${uuid}'})
     OPTIONAL MATCH (pp)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(h)
     WITH js, pp
     MATCH (p:Property)-[:IS_A_PROPERTY_OF*1..10]->(js)

@@ -56,6 +56,15 @@
             ]
         },
         {
+            "slug": "neo4j-property",
+            "dir": "./concepts/neo4j-property/",
+            "conceptHeader": "concept-header.json",
+            "jsonSchema": "json-schema.json",
+            "categories": [
+                "graph-theoretic"
+            ]
+        },
+        {
             "slug": "property",
             "dir": "./concepts/property/",
             "conceptHeader": "concept-header.json",

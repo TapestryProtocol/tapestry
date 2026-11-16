@@ -36,11 +36,16 @@ export async function createElement({ concept, name, json } = {}) {
   return data;
 }
 
-export async function saveSchema({ concept, schema } = {}) {
+export async function saveSchema({ concept, schema, tapestryKey } = {}) {
+  // The header's tapestryKey, when the caller has one, names the concept, so another header with its name can't take
+  // its place (graph-operations-foundation #10). "{}" is a placeholder some older nodes hold, not a key; without a key,
+  // the server finds the concept by its name.
+  const body = { concept, schema };
+  if (typeof tapestryKey === 'string' && tapestryKey && tapestryKey !== '{}') body.tapestryKey = tapestryKey;
   const res = await fetch(`${API_BASE}/save-schema`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ concept, schema }),
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Save schema failed');

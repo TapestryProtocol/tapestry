@@ -1,0 +1,16 @@
+{
+  "word": {
+    "slug": "concept-header-for-the-concept-of-neo4j-properties",
+    "name": "concept header for the concept of neo4j properties",
+    "title": "Concept Header for the Concept of Neo4j Properties",
+    "wordTypes": ["word", "conceptHeader"]
+  },
+  "conceptHeader": {
+    "description": "A property that Neo4j nodes carry, so that Cypher can find nodes by it. It has two sets. Neo4j properties that are also fields holds fields of concepts, marked with graph mark-field: each element of the field's concept carries the field's value from its JSON on its node, as the property <concept key>_<field>, such as dog_breed. Neo4j-only properties holds properties a node carries that are no field of its concept, such as search strings or an event's kind, each with the source its value comes from. These values are optional data and cost space on every node, so a property goes in only when a read needs it. A fully reduced graph keeps the memberships, which are edges, and drops the values on the nodes, which can be made again: a field's from the element's JSON, a Neo4j-only property's from its source.",
+    "oNames": { "singular": "neo4j property", "plural": "neo4j properties" },
+    "oSlugs": { "singular": "neo4j-property", "plural": "neo4j-properties" },
+    "oKeys": { "singular": "neo4jProperty", "plural": "neo4jProperties" },
+    "oTitles": { "singular": "Neo4j Property", "plural": "Neo4j Properties" },
+    "oLabels": { "singular": "Neo4jProperty", "plural": "Neo4jProperties" }
+  }
+}

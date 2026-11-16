@@ -61,6 +61,12 @@ export const MANAGE_TREASURE_MAP_PATH = '/treasure-map';
 export const TREASURE_MAP_ADVANCED_PATH = `${MANAGE_TREASURE_MAP_PATH}/advanced`;
 export const TA_TREASURE_MAP_PATH = '/tapestry/grapevine/treasure-map';
 
+/**
+ * The reading views (experimental): the instance's concept graph as Table, Outline, Drift and Dictionary boards,
+ * read-only (ui/src/pages/reading/ReadingViews.jsx).
+ */
+export const READING_VIEWS_PATH = '/reading';
+
 /** Is this the Tapestry header's menu? Its profile pages live under /tapestry/; the Main menus' don't. */
 function isTapestryMenu(profileBase) {
   return typeof profileBase === 'string' && profileBase.startsWith('/tapestry/');
@@ -159,6 +165,7 @@ export const destinationLinks = [
   { key: 'brainstorm-landing', icon: '🔍', label: 'Brainstorm Landing Page', to: '/' },
   { key: 'tapestry-dashboard', icon: '📊', label: 'Tapestry Dashboard', to: '/tapestry/' },
   { key: 'legacy-dashboard', icon: '🗂️', label: 'Legacy Dashboard', to: '/legacy/', external: true },
+  { key: 'reading-views', icon: '📚', label: 'Reading Views (experimental)', to: READING_VIEWS_PATH },
 ];
 
 /**

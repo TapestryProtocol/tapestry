@@ -46,7 +46,7 @@ export const CONCEPT_UUID_PARAM = 'conceptUuid';
 export function conceptCountsCypher() {
   return `
     MATCH (h:ListHeader {uuid: $conceptUuid})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
-    OPTIONAL MATCH (sup)-[:IS_A_SUPERSET_OF*0..5]->(ss)-[:HAS_ELEMENT]->(elem:NostrEvent)
+    OPTIONAL MATCH (sup)-[:IS_A_SUPERSET_OF*0..5]->(ss)-[:HAS_ELEMENT]->(elem:NostrEvent|ListItem)
     OPTIONAL MATCH (sup)-[:IS_A_SUPERSET_OF*0..5]->(setNode)
     RETURN count(DISTINCT elem) AS elementCount,
            count(DISTINCT setNode) AS setCount

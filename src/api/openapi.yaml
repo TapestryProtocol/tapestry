@@ -1068,13 +1068,18 @@ paths:
                   type: boolean
                 conceptHeaderOverrides:
                   type: object
+                overwrite:
+                  type: boolean
+                  description: >-
+                    Replace a concept this instance's key has already made under this name, including its
+                    definition and schema. Without it, a repeat answers success false.
       responses:
         '401':
           description: Not signed in
         '403':
           description: Signed in, but not the owner or an admin
         '200':
-          description: Concept created
+          description: Concept created, or success false if the name is taken and overwrite isn't set
           content:
             application/json:
               schema:
@@ -1219,7 +1224,11 @@ paths:
       summary: Save or update a concept's JSON Schema
       description: >-
         Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
-        other signed-in person.
+        other signed-in person. Given `tapestryKey`, the save reaches that concept header and no other. Given only
+        `concept`, it reaches the one header with that name; when several share the name, the one this instance's
+        Tapestry Assistant wrote, and it refuses (success false, naming the headers) when that isn't exactly one. It
+        refuses a concept with no event behind it, since it signs and publishes the schema it saves
+        (graph-operations-foundation #10).
       requestBody:
         required: true
         content:
@@ -1230,6 +1239,13 @@ paths:
               properties:
                 concept:
                   type: string
+                  description: The concept's name
+                tapestryKey:
+                  type: string
+                  description: >-
+                    The tapestryKey of the concept's header. Optional; a value that isn't a tapestryKey (400), or a key
+                    that no concept header holds or that more than one concept header holds, is refused and changes
+                    nothing.
                 schema:
                   type: object
                   description: JSON Schema object
@@ -1649,6 +1665,48 @@ paths:
           description: Signed in, but not the owner or an admin
         '200':
           description: JSON tag set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/normalize/set-b-tag:
+    post:
+      tags: [Normalize]
+      summary: Set or remove a b tag on a node
+      description: >-
+        Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
+        other signed-in person. Each (event, target) pair has at most one b tag: setting it again replaces it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid, target]
+              properties:
+                uuid:
+                  type: string
+                  description: The node that carries the b tag
+                target:
+                  type: string
+                  description: The node it points at
+                marker:
+                  type: string
+                  description: pointer (the default) or inherit; never b-tag-deferred
+                note:
+                  type: string
+                  description: Stored in the tag's fourth position, capped at 500 characters
+                remove:
+                  type: boolean
+                  description: Delete the b tag for this target
+      responses:
+        '401':
+          description: Not signed in
+        '403':
+          description: Signed in, but not the owner or an admin
+        '200':
+          description: b tag set or removed
           content:
             application/json:
               schema:

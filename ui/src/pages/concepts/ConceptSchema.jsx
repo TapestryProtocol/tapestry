@@ -18,10 +18,11 @@ export default function ConceptSchema() {
   const isOwner = user?.classification === 'owner' || user?.classification === 'admin';
 
   const { data, loading, error, refetch } = useCypher(`
-    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent {uuid: '${uuid}'})
+    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent|TapestryNode {uuid: '${uuid}'})
     OPTIONAL MATCH (js)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
     WITH js, head(collect(j.value)) AS json
     RETURN js.uuid AS uuid, js.name AS name, js.pubkey AS author, json
+    ORDER BY uuid
     LIMIT 1
   `);
 
@@ -98,8 +99,9 @@ export default function ConceptSchema() {
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      // Send the plain JSON Schema — server handles word-wrapper wrapping
-      await saveSchema({ concept: concept.name, schema: editSchema });
+      // Send the plain JSON Schema — server handles word-wrapper wrapping. The header's tapestryKey names this
+      // concept, so another header with its name can't take its place (graph-operations-foundation #10).
+      await saveSchema({ concept: concept.name, tapestryKey: concept.tapestryKey, schema: editSchema });
       setSaveSuccess(true);
       setEditing(false);
       setEditSchema(null);
@@ -159,7 +161,7 @@ export default function ConceptSchema() {
       setSaving(true);
       setSaveError(null);
       setSaveSuccess(false);
-      await saveSchema({ concept: concept.name, schema: rest });
+      await saveSchema({ concept: concept.name, tapestryKey: concept.tapestryKey, schema: rest });
       setSaveSuccess(true);
       setEditing(false);
       setEditSchema(null);

@@ -73,8 +73,8 @@ const HYGIENE_CONCEPTS = [
 // Direction is the stray filter — incoming HAS_ELEMENT edges (the goal
 // superset is itself an element of the set/superset concepts) never match.
 const EXPLICIT_CYPHER = `
-  MATCH (h:NostrEvent {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(s:Superset)
-  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
+  MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(s:Superset)
+  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   WITH DISTINCT e, head(collect(j.value)) AS json
@@ -83,7 +83,7 @@ const EXPLICIT_CYPHER = `
 // Implicit members: elements z-tagged to the concept header whose HAS_ELEMENT
 // edge may be missing (reinstall re-derives such wiring from the same z tag).
 const IMPLICIT_CYPHER = `
-  MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+  MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   WITH DISTINCT e, head(collect(j.value)) AS json
@@ -523,17 +523,17 @@ async function handleGetProposals(req, res) {
 
 // A header's full directed edge inventory, both directions, with labels.
 const HEADER_EDGES_CYPHER = `
-  MATCH (h:NostrEvent {uuid: $headerUuid})-[r]->(t)
+  MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[r]->(t)
   RETURN 'out' AS direction, type(r) AS rel, t.uuid AS otherUuid, labels(t) AS otherLabels
   UNION ALL
-  MATCH (h:NostrEvent {uuid: $headerUuid})<-[r]-(s)
+  MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})<-[r]-(s)
   RETURN 'in' AS direction, type(r) AS rel, s.uuid AS otherUuid, labels(s) AS otherLabels`;
 
 // Explicit members via the directed downward walk (the 0001 EXPLICIT_CYPHER
 // shape), each annotated with whether its z-tag declaration is present.
 const ELEMENTS_WITH_EDGE_CYPHER = `
-  MATCH (h:NostrEvent {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(s:Superset)
-  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent)
+  MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:IS_THE_CONCEPT_FOR]->(s:Superset)
+  MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   OPTIONAL MATCH (e)-[:HAS_TAG]->(z:NostrEventTag {type: 'z', value: $headerUuid})
@@ -542,7 +542,7 @@ const ELEMENTS_WITH_EDGE_CYPHER = `
 
 // Implicit members: z-tag declarations (the 0001 IMPLICIT_CYPHER shape).
 const ELEMENTS_WITH_ZTAG_CYPHER = `
-  MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+  MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
   WHERE e.kind = 39999
   OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
   WITH DISTINCT e, head(collect(j.value)) AS json
@@ -551,10 +551,10 @@ const ELEMENTS_WITH_ZTAG_CYPHER = `
 // The json tags of the two nodes the property comparison needs.
 const NODE_JSON_CYPHER = `
   UNWIND $uuids AS u
-  MATCH (n:NostrEvent {uuid: u})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
+  MATCH (n:NostrEvent|TapestryNode {uuid: u})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
   RETURN n.uuid AS uuid, t.value AS json`;
 
-const HEADER_PRESENT_CYPHER = 'MATCH (h:NostrEvent {uuid: $headerUuid}) RETURN h.uuid AS uuid';
+const HEADER_PRESENT_CYPHER = 'MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid}) RETURN h.uuid AS uuid';
 
 function parseJsonSafe(s) {
   if (typeof s !== 'string' || s === '') return null;
@@ -799,11 +799,11 @@ const SERVES_PATHS_QUERY_TIMEOUT_MS = 3000;
 const GOAL_UUID_RE = /^39999:[0-9a-f]{64}:.+$/;
 
 const SERVES_PATHS_CYPHER =
-  'MATCH p = allShortestPaths((c:NostrEvent {uuid: $child})-[:SERVES*..20]->(g:NostrEvent {uuid: $parent})) ' +
+  'MATCH p = allShortestPaths((c:NostrEvent|TapestryNode {uuid: $child})-[:SERVES*..20]->(g:NostrEvent|TapestryNode {uuid: $parent})) ' +
   'RETURN [n IN nodes(p) | { uuid: n.uuid, name: n.name }] AS nodes ' +
   'LIMIT 25';
 
-const SERVES_SELF_CYPHER = 'MATCH (c:NostrEvent {uuid: $child}) RETURN c.name AS name';
+const SERVES_SELF_CYPHER = 'MATCH (c:NostrEvent|TapestryNode {uuid: $child}) RETURN c.name AS name';
 
 async function handleGetServesPath(req, res) {
   if (!isOwner(req) && !req.localTrusted) {

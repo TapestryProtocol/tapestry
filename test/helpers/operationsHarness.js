@@ -1,0 +1,340 @@
+'use strict';
+/**
+ * The operations harness — run as a CHILD PROCESS (`node test/helpers/operationsHarness.js <spec.json> <out.json>`),
+ * never required in-process. Story graph-operations-foundation #1, ADR graph-operations-foundation/0001.
+ *
+ * It loads the operations module from spec.root (this checkout by default, or a throwaway copy of it) and runs
+ * spec.scenarios in order. Each scenario may:
+ *   - replace lifecycle status's firmware and cache parts (statusStubs: { firmware|cache: { value } | { throw } });
+ *   - send requests to one of two Express apps, each on an ephemeral loopback port with express.json(), a session
+ *     read from the X-Test-Session header, the REAL central auth middleware (src/middleware/auth.js) and
+ *     registerOperationRoutes:
+ *       'real'    — the tree's own catalog (registerOperationRoutes(app));
+ *       'fixture' — the catalog at spec.fixtureDir (registerOperationRoutes(app, { dir }));
+ *     each request is made as one caller: owner, admin, stranger (signed in, neither), visitor (no session) or local
+ *     (loopback with no forwarding header — the direct-local caller). The others carry X-Forwarded-For, as nginx
+ *     traffic does;
+ *   - run the command in-process: cli.main(argv, io, opts), with opts { dir } for the fixture catalog;
+ *   - (story graph-operations-foundation #2, ADR graph-operations-foundation/0002) install the lifecycle fakes:
+ *     lifecycleFake: { stateFile } replaces the methods of src/operations/catalog/lifecycle/_system.js with
+ *     test/helpers/lifecycleFakes.js's fakeSystem(stateFile), and _jobs.js's runDetached with one that runs the job
+ *     in this process with that system (ADR Decision 8): through _jobs.js's runJob, as the worker does, once it has
+ *     one (ADR 0002 Amendment 1, A4). It writes the record into the run's file, as the worker does, and resolves it.
+ *     (Story graph-operations-foundation #3, ADR 0003 Sub-decision 3) It logs { call: 'runDetached', op, runId,
+ *     waitMs } in the fake's state file, and with lifecycleFake.detachedOutcome 'running' it resolves
+ *     { outcome: 'running' } after the job, as the real one does when the job outlasts waitMs.
+ *
+ *   - (story graph-operations-foundation #4, ADR graph-operations-foundation/0004 Decision 9) install the graph fake:
+ *     graphFake: { stateFile } replaces the methods of src/operations/graph.js with test/helpers/graphFake.js's
+ *     fakeGraph(stateFile), so every graph operation reads and writes the graph kept in that file.
+ *
+ * spec.spy (ADR 0004 Decision 10) records, in the result's `spy`, every call of what signs or reads a key: nostr-tools'
+ * finalizeEvent (from 'nostr-tools' or 'nostr-tools/pure'), src/api/normalize/helpers.js's loadTAKey and
+ * signAndFinalize, any method of src/utils/secureKeyStorage.js's SecureKeyStorage, and any child process whose command
+ * names strfry. Calls go through; the spy only records them. spec.formBodies mounts express.urlencoded beside
+ * express.json, as the control panel does (bin/control-panel.js).
+ *
+ * A request may also carry rawBase64 (a binary body), contentType (noContentType: true sends none) and extra headers; every answer records its headers
+ * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
+ * stdoutBase64 beside stdout. pauseMs waits after each request, for work a route does after it has answered.
+ *
+ * It writes { error, scenarios: [{ requests: [{ id, status, headers, body, bodyBase64 }], cli: [{ id, code, stdout,
+ * stdoutBase64, stderr, leaked }] }], runs } to <out.json>. `runs` is globalThis.__opsRuns, which fixture operations
+ * count their runs in. A missing module is reported as `error`, so the parent's assertions fail with the reason.
+ *
+ * The parent sets BRAINSTORM_CONF_PATH (the owner, and dead Neo4j and Redis endpoints) and TAPESTRY_SETTINGS_PATH (the
+ * admin list). Nothing here reaches a live instance.
+ */
+
+const fs = require('fs');
+const http = require('http');
+const path = require('path');
+const Module = require('module');
+
+const SPEC = process.argv[2] ? path.resolve(process.argv[2]) : null;
+const OUT = process.argv[3] ? path.resolve(process.argv[3]) : null;
+const result = { error: null, scenarios: [], runs: {} };
+
+function finish(code) {
+  result.runs = globalThis.__opsRuns || {};
+  result.spy = globalThis.__signingSpy || null;
+  try { fs.writeFileSync(OUT, JSON.stringify(result)); } catch (e) { process.stderr.write(`operationsHarness: cannot write ${OUT}: ${e.message}\n`); code = 2; }
+  process.exit(code);
+}
+
+if (!SPEC || !OUT) { process.stderr.write('usage: node test/helpers/operationsHarness.js <spec.json> <out.json>\n'); process.exit(2); }
+const spec = JSON.parse(fs.readFileSync(SPEC, 'utf8'));
+const ROOT = path.resolve(spec.root || path.join(__dirname, '..', '..'));
+
+// Modules that name the in-container path load from the tree under test instead.
+const CONTAINER_PREFIX = '/usr/local/lib/node_modules/brainstorm/';
+const origResolve = Module._resolveFilename;
+Module._resolveFilename = function (request, ...rest) {
+  if (typeof request === 'string' && request.startsWith(CONTAINER_PREFIX)) request = path.join(ROOT, request.slice(CONTAINER_PREFIX.length));
+  return origResolve.call(this, request, ...rest);
+};
+
+/** spec.spy: record every call of what signs or reads a key (ADR graph-operations-foundation/0004 Decision 10). */
+function installSpies() {
+  const calls = [];
+  globalThis.__signingSpy = calls;
+  const proxies = new WeakMap();
+  const recordFns = (exp, names, label) => {
+    if (!exp || (typeof exp !== 'object' && typeof exp !== 'function')) return exp;
+    if (proxies.has(exp)) return proxies.get(exp);
+    const p = new Proxy(exp, {
+      get(target, k, receiver) {
+        const v = Reflect.get(target, k, receiver);
+        if (typeof k === 'string' && names.includes(k) && typeof v === 'function') {
+          return function spied(...args) { calls.push(`${label}.${k}`); return v.apply(this, args); };
+        }
+        return v;
+      },
+    });
+    proxies.set(exp, p);
+    return p;
+  };
+  const wrappedClasses = new WeakSet();
+  const origLoad = Module._load;
+  Module._load = function spyLoad(request, parent, isMain) {
+    const exp = origLoad.apply(this, arguments);
+    if (request === 'nostr-tools' || request === 'nostr-tools/pure') return recordFns(exp, ['finalizeEvent'], request);
+    let file = '';
+    try { file = Module._resolveFilename(request, parent, isMain); } catch { /* a built-in */ }
+    if (file.endsWith(path.join('src', 'api', 'normalize', 'helpers.js'))) return recordFns(exp, ['loadTAKey', 'signAndFinalize'], 'normalize/helpers');
+    if (file.endsWith(path.join('src', 'utils', 'secureKeyStorage.js')) && exp && typeof exp.SecureKeyStorage === 'function' && !wrappedClasses.has(exp.SecureKeyStorage)) {
+      const proto = exp.SecureKeyStorage.prototype;
+      for (const name of Object.getOwnPropertyNames(proto)) {
+        if (name === 'constructor' || typeof proto[name] !== 'function') continue;
+        const orig = proto[name];
+        proto[name] = function spiedKeyStore(...args) { calls.push(`SecureKeyStorage.${name}`); return orig.apply(this, args); };
+      }
+      wrappedClasses.add(exp.SecureKeyStorage);
+    }
+    return exp;
+  };
+  const cp = require('child_process');
+  for (const fn of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync']) {
+    const orig = cp[fn];
+    cp[fn] = function spiedChild(cmd, args) {
+      const line = [cmd].concat(Array.isArray(args) ? args : []).join(' ');
+      if (/strfry/.test(line)) calls.push(`child_process.${fn}: ${line.slice(0, 120)}`);
+      return orig.apply(this, arguments);
+    };
+  }
+}
+if (spec.spy) installSpies();
+
+const timer = setTimeout(() => { result.error = `the harness timed out after ${spec.timeoutMs || 60000} ms`; finish(1); }, spec.timeoutMs || 60000);
+timer.unref();
+
+function need(rel) {
+  const p = path.join(ROOT, rel);
+  if (!fs.existsSync(p)) throw new Error(`${rel} does not exist yet (ADR graph-operations-foundation/0001)`);
+  return require(p);
+}
+
+const SESSIONS = {
+  owner: () => ({ authenticated: true, pubkey: spec.owner }),
+  admin: () => ({ authenticated: true, pubkey: spec.admin }),
+  stranger: () => ({ authenticated: true, pubkey: spec.stranger }),
+  visitor: () => null,
+  local: () => null,
+};
+
+async function startApp(dir) {
+  const express = require(require.resolve('express', { paths: [ROOT] }));
+  const { authMiddleware } = need('src/middleware/auth.js');
+  const { registerOperationRoutes } = need('src/operations/http.js');
+  const app = express();
+  app.use(express.json({ limit: '1mb', strict: false }));
+  if (spec.formBodies) app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+  app.use((req, res, next) => {
+    const s = req.headers['x-test-session'];
+    req.session = s ? JSON.parse(s) : {};
+    next();
+  });
+  app.use(authMiddleware);
+  await (dir ? registerOperationRoutes(app, { dir }) : registerOperationRoutes(app));
+  const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  return { server, port: server.address().port };
+}
+
+function send(port, r) {
+  return new Promise((resolve) => {
+    const caller = r.caller || 'visitor';
+    const session = (SESSIONS[caller] || SESSIONS.visitor)();
+    const headers = { 'Content-Type': r.contentType || 'application/json' };
+    if (caller !== 'local') headers['X-Forwarded-For'] = '203.0.113.9';
+    if (session) headers['X-Test-Session'] = JSON.stringify(session);
+    Object.assign(headers, r.headers || {});
+    if (r.noContentType) delete headers['Content-Type'];
+    let payload;
+    if (typeof r.rawBase64 === 'string') payload = Buffer.from(r.rawBase64, 'base64');
+    else if (typeof r.rawBody === 'string') payload = r.rawBody;
+    else if (r.body !== undefined) payload = JSON.stringify(r.body);
+    let settled = false;
+    const done = (x) => { if (!settled) { settled = true; resolve(x); } };
+    // agent: false — a fresh connection each time, so a request that declares a body it never sends (declaredOnly)
+    // can't leave a half-read socket for the next request to be parsed into.
+    const req = http.request({ host: '127.0.0.1', port, path: r.url, method: r.method, headers, agent: false }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => { chunks.push(Buffer.from(c)); });
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        const text = buf.toString('utf8');
+        let body = text;
+        try { body = JSON.parse(text); } catch { /* keep the text */ }
+        done({ id: r.id, status: res.statusCode, headers: res.headers, body, bodyBase64: buf.toString('base64'), at: Date.now() });
+      });
+      res.on('error', (e) => done({ id: r.id, status: res.statusCode, headers: res.headers, body: `response error: ${e.message}`, bodyBase64: '' }));
+    });
+    req.on('error', (e) => done({ id: r.id, status: 0, body: `request error: ${e.message}`, aborted: !!r.abortAfterMs, at: Date.now() }));
+    if (r.declaredOnly) req.end(); // headers only (a Content-Length given in r.headers is never sent)
+    else req.end(payload);
+    // abortAfterMs: the client gives up and closes the connection before the answer (graph-operations-foundation #2,
+    // review round 1).
+    if (r.abortAfterMs) setTimeout(() => { req.destroy(); done({ id: r.id, status: 0, aborted: true, at: Date.now() }); }, r.abortAfterMs);
+  });
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function runCli(scn) {
+  const cli = need('src/operations/cli.js');
+  const { Readable } = require('stream');
+  let stdout = '', stderr = '', leaked = '';
+  const outChunks = [];
+  const stdin = scn.stdinIsTTY
+    ? Object.assign(Readable.from([]), { isTTY: true })
+    : Object.assign(Readable.from(scn.stdinBase64 ? [Buffer.from(scn.stdinBase64, 'base64')] : []), { isTTY: false });
+  const io = {
+    stdin,
+    stdout: { isTTY: !!scn.stdoutIsTTY, write: (s, ...rest) => { const b = Buffer.isBuffer(s) ? s : Buffer.from(String(s)); outChunks.push(b); stdout += b.toString('utf8'); const cb = rest.find((x) => typeof x === 'function'); if (cb) cb(); return true; } },
+    stderr: { isTTY: false, write: (s, ...rest) => { stderr += String(s); const cb = rest.find((x) => typeof x === 'function'); if (cb) cb(); return true; } },
+  };
+  // The command runs with the real console, so a console.log that reaches the process's own stdout (rather than the
+  // command keeping it off stdout, ADR Decision 7) is recorded as `leaked`.
+  const quiet = {};
+  for (const k of QUIETED) { quiet[k] = console[k]; console[k] = ORIGINAL_CONSOLE[k]; }
+  const realWrite = process.stdout.write;
+  process.stdout.write = (s) => { leaked += String(s); return true; };
+  let code;
+  try {
+    code = await (scn.catalog === 'fixture' ? cli.main(scn.argv, io, { dir: spec.fixtureDir }) : cli.main(scn.argv, io));
+  } catch (e) {
+    code = `threw: ${e.message}`;
+  } finally {
+    process.stdout.write = realWrite;
+    for (const k of QUIETED) console[k] = quiet[k];
+  }
+  return { id: scn.id, code, stdout, stdoutBase64: Buffer.concat(outChunks).toString('base64'), stderr, leaked, endedAt: Date.now() };
+}
+
+/** ADR graph-operations-foundation/0002 Decision 8: the fake system in, and the jobs run in this process with it. */
+let lifecycleFakeInstalled = null;
+function installLifecycleFake(cfg) {
+  if (!cfg) return;
+  if (lifecycleFakeInstalled) {
+    if (lifecycleFakeInstalled !== cfg.stateFile) throw new Error('one harness run installs one lifecycle fake');
+    return;
+  }
+  const sys = need('src/operations/catalog/lifecycle/_system.js');
+  const jobs = need('src/operations/catalog/lifecycle/_jobs.js');
+  const fake = require(path.join(__dirname, 'lifecycleFakes.js')).fakeSystem(cfg.stateFile);
+  for (const k of Object.keys(fake)) sys[k] = fake[k];
+  for (const k of ['runBackupJob', 'runRestoreJob']) {
+    if (typeof jobs[k] !== 'function') throw new Error(`_jobs.js must export ${k}(request, system) (ADR graph-operations-foundation/0002 Decision 8)`);
+  }
+  // As _worker.js does: the job's record (from _jobs.js's runJob, once it has one, so the worker's way of making it is
+  // the one tested), written into the run's file over what the caller put there; then what runDetached resolves.
+  const store = need('src/operations/catalog/lifecycle/_store.js');
+  const F = require(path.join(__dirname, 'lifecycleFakes.js'));
+  jobs.runDetached = async (request, opts = {}) => {
+    // ADR graph-operations-foundation/0003 Sub-decision 3: what the caller asked runDetached to wait, in the fake's log.
+    const st = F.readState(cfg.stateFile);
+    st.log.push({ call: 'runDetached', op: request && request.op, runId: request && request.runId, waitMs: opts && opts.waitMs !== undefined ? opts.waitMs : null });
+    F.writeState(cfg.stateFile, st);
+    let record;
+    if (typeof jobs.runJob === 'function') {
+      record = await jobs.runJob(request, sys);
+    } else {
+      const job = request && request.op === 'restore' ? jobs.runRestoreJob : jobs.runBackupJob;
+      try {
+        record = { ...request, outcome: 'done', result: await job(request, sys), finishedAt: new Date().toISOString() };
+      } catch (e) {
+        record = { ...request, outcome: 'failed', error: (e && e.message) || String(e), finishedAt: new Date().toISOString() };
+      }
+    }
+    if (request && store.isId(request.runId)) {
+      const file = store.runFile(request.runId);
+      store.writeJson(file, { ...(store.readJson(file) || {}), ...record });
+    }
+    // lifecycleFake.detachedOutcome 'running': answer as runDetached does when the job outlasts its waitMs. The job
+    // has run to its end here, so status afterwards shows how it went.
+    if (cfg.detachedOutcome === 'running') return { outcome: 'running' };
+    return record.outcome === 'done'
+      ? { outcome: 'done', result: record.result, finishedAt: record.finishedAt }
+      : { outcome: record.outcome, error: record.error, finishedAt: record.finishedAt };
+  };
+  lifecycleFakeInstalled = cfg.stateFile;
+}
+
+/** ADR graph-operations-foundation/0004 Decision 9: the graph fake in, over the graph kept in cfg.stateFile. */
+let graphFakeInstalled = null;
+function installGraphFake(cfg) {
+  if (!cfg) return;
+  if (graphFakeInstalled) {
+    if (graphFakeInstalled !== cfg.stateFile) throw new Error('one harness run installs one graph fake');
+    return;
+  }
+  if (!fs.existsSync(path.join(ROOT, 'src/operations/graph.js'))) throw new Error('src/operations/graph.js does not exist yet (ADR graph-operations-foundation/0004 Decision 9)');
+  const seam = need('src/operations/graph.js');
+  const fake = require(path.join(__dirname, 'graphFake.js')).fakeGraph(cfg.stateFile);
+  for (const k of ['writeTransaction', 'read']) seam[k] = fake[k];
+  graphFakeInstalled = cfg.stateFile;
+}
+
+function applyStubs(stubs) {
+  if (!stubs) return;
+  const status = need('src/operations/catalog/lifecycle/status.js');
+  if (!status.parts || typeof status.parts !== 'object') {
+    throw new Error('lifecycle status has no `parts` object to replace (ADR graph-operations-foundation/0001 Decision 11)');
+  }
+  for (const [part, stub] of Object.entries(stubs)) {
+    status.parts[part] = async () => {
+      if (stub.throw) throw new Error(stub.throw);
+      return JSON.parse(JSON.stringify(stub.value));
+    };
+  }
+}
+
+// Outside a command run, the loaded modules' logging goes to stderr, so the parent's captured stdout stays small.
+const QUIETED = ['log', 'info', 'debug'];
+const ORIGINAL_CONSOLE = {};
+for (const k of QUIETED) ORIGINAL_CONSOLE[k] = console[k];
+
+(async () => {
+  for (const k of QUIETED) console[k] = (...a) => process.stderr.write(a.join(' ') + '\n');
+  const apps = {};
+  try {
+    for (const scenario of spec.scenarios || []) {
+      applyStubs(scenario.statusStubs);
+      installLifecycleFake(scenario.lifecycleFake);
+      installGraphFake(scenario.graphFake);
+      const out = { requests: [], cli: [] };
+      for (const r of scenario.requests || []) {
+        const which = r.app || 'real';
+        if (!apps[which]) apps[which] = await startApp(which === 'fixture' ? spec.fixtureDir : null);
+        out.requests.push(await send(apps[which].port, r));
+        if (scenario.pauseMs) await sleep(scenario.pauseMs);
+      }
+      for (const scn of scenario.cli || []) out.cli.push(await runCli(scn));
+      result.scenarios.push(out);
+    }
+  } catch (e) {
+    result.error = e.message;
+  }
+  for (const a of Object.values(apps)) a.server.close();
+  finish(0);
+})();

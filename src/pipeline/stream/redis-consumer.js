@@ -11,6 +11,7 @@
 
 const Redis = require('ioredis');
 const { writeCypher } = require('../../lib/neo4j-driver');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 
 const REDIS_HOST = process.env.REDIS_HOST || 'redis';
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379');
@@ -46,9 +47,11 @@ async function processFollows(event) {
 
   await writeCypher(`
     MERGE (pub:NostrUser {pubkey: $publisher})
+    ${keyNode('pub')}
     WITH pub, $followed AS fps
     UNWIND fps AS fp
       MERGE (f:NostrUser {pubkey: fp})
+      ${keyNode('f')}
       MERGE (pub)-[:FOLLOWS]->(f)
     WITH pub, fps
     OPTIONAL MATCH (pub)-[r:FOLLOWS]->(oldF)
@@ -75,9 +78,11 @@ async function processMutes(event) {
 
   await writeCypher(`
     MERGE (pub:NostrUser {pubkey: $publisher})
+    ${keyNode('pub')}
     WITH pub, $muted AS mps
     UNWIND mps AS mp
       MERGE (m:NostrUser {pubkey: mp})
+      ${keyNode('m')}
       MERGE (pub)-[:MUTES]->(m)
     WITH pub, mps
     OPTIONAL MATCH (pub)-[r:MUTES]->(oldM)
@@ -97,9 +102,11 @@ async function processReports(event) {
 
   await writeCypher(`
     MERGE (pub:NostrUser {pubkey: $publisher})
+    ${keyNode('pub')}
     WITH pub, $reported AS rps
     UNWIND rps AS rp
       MERGE (r:NostrUser {pubkey: rp})
+      ${keyNode('r')}
       MERGE (pub)-[:REPORTS]->(r)
   `, { publisher, reported });
 }

@@ -3,6 +3,9 @@ CALL apoc.periodic.iterate(
         "
         MERGE (u:NostrUser {pubkey:event.pubkey})
         SET u.kind1984CreatedAt=event.created_at, u.kind1984EventId=event.id
+        FOREACH (_ IN CASE WHEN NOT u:TapestryNode OR u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN [1] ELSE [] END |
+          SET u:TapestryNode,
+              u.tapestryKey = CASE WHEN u.tapestryKey IS NULL OR u.tapestryKey = '{}' THEN randomUUID() ELSE u.tapestryKey END)
         ",
         { batchSize:1000, parallel:true}
 )

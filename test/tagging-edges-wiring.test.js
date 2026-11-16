@@ -943,9 +943,20 @@ test('SWR14: no statement in graph.js contains DETACH, REMOVE, ON CREATE, ON MAT
 });
 
 test('SWR15: the only clause that touches a node is a bare keyed MERGE (x:NostrUser {pubkey: …}) — no SET on a node, every CREATE a TAGS relationship — and MOVE and CREATE_IF_ABSENT merge both ends', () => {
+  // Amended by ADR graph-operations-foundation/0003 Decision 8: each merged person may be followed by keyNode(x) —
+  // the label TapestryNode and a tapestryKey where either is missing, writing nothing on a node that has both. That
+  // fragment, exactly as src/lib/tapestry-key-cypher.js writes it for a merged NostrUser variable, is the one node
+  // SET allowed; it is taken out before the clauses are read, and anything else still fails.
+  const { keyNode } = require(path.join(REPO_ROOT, 'src/lib/tapestry-key-cypher.js'));
+  const withoutKeys = (s) => {
+    let out = norm(s);
+    for (const m of s.matchAll(/MERGE\s*\(\s*(\w+)\s*:\s*NostrUser\s*\{/gi)) out = out.split(norm(keyNode(m[1]))).join(' ');
+    return out;
+  };
   const problems = [];
-  for (const [at, s] of allStatements()) {
-    if (isSchemaStatement(s)) continue;
+  for (const [at, raw] of allStatements()) {
+    if (isSchemaStatement(raw)) continue;
+    const s = withoutKeys(raw);
     const rels = relVars(s);
     for (const cl of clauses(s)) {
       if (cl.kw === 'SET') {

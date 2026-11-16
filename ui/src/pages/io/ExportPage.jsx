@@ -17,7 +17,7 @@ export default function ExportPage() {
 
   // Fetch all NostrEvent nodes (tapestry nodes)
   const { data: nodesData, loading: nodesLoading } = useCypher(`
-    MATCH (e:NostrEvent)
+    MATCH (e:NostrEvent|ListItem)
     RETURN e.uuid AS uuid, e.name AS name, e.kind AS kind
     ORDER BY e.name
   `);

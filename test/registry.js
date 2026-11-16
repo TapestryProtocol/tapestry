@@ -69,6 +69,7 @@ const suites = [
   { file: 'collapse-into-export-concept.test.js' },
   { file: 'login-failure-and-tag-collapse.test.js' },
   { file: 'header-conceptgraph-tag.test.js' },
+  { file: 'create-concept-duplicate-check.test.js' },
   { file: 'community-reference-superset-link.test.js' },
   { file: 'graperank-shared-csv-race.test.js' },
   { file: 'community-class-thread-pull.test.js' },
@@ -157,6 +158,7 @@ const suites = [
   { file: 'rollup-scanners.test.js' },
   { file: 'stack-free-npm-test.test.js' },
   { file: 'ci-test-job.test.js' },
+  { file: 'workflow-hardening.test.js' },
   { file: 'sync-panel-tag-filters.test.js' },
   { file: 'router-stream-tag-filters.test.js' },
   { file: 'deploy-safety-status.test.js', skipNote: 'preconditions not met' },
@@ -230,6 +232,9 @@ const suites = [
   { file: 'tl-treasure-map-panel.test.js' },
   { file: 'tl-treasure-map-optin-publish.test.js' },
   { file: 'neo4j-sizing-override.test.js' },
+  { file: 'brains-launcher-repo.test.js' },
+  { file: 'brains-launcher-service.test.js' },
+  { file: 'score-auto-sync.test.js' },
   { file: 'relay-scan-bounds.test.js' },
   { file: 'profile-lookup-bounds.test.js' },
   { file: 'honest-broadcast-reporting.test.js' },
@@ -380,6 +385,23 @@ const suites = [
   // (test/fixtures/openapi-known-gaps.json), and what the document and BIBLE §11 say about it (ngit 7a13648f).
   { file: 'openapi-coverage.test.js' },
   { file: 'openapi-document.test.js' },
+  // graph-operations-foundation #1: the operations module — one declaration per operation, and its route, route-table
+  // entry, /docs entry, command and list entry made from it (ADR graph-operations-foundation/0001). It also runs every
+  // suite under test/operations/, so an operation's own suite needs no line here (ADR Decision 12).
+  { file: 'operations.test.js' },
+  // graph-operations-foundation #5: the concept of neo4j properties in firmware, its two sets and its manifest entry
+  // (ADR graph-operations-foundation/0005 Decisions 1 and 2). The story's operation suites live under test/operations/.
+  { file: 'neo4j-property-firmware.test.js' },
+
+  // graph-operations-foundation #6: the external CLI in clients/cli/, made from the instance's list of operations, and
+  // the agent's skill beside it (ADR graph-operations-foundation/0006). Its instances are loopback children of its own.
+  { file: 'external-cli.test.js' },
+  // graph-operations-foundation #8: a firmware install's Pass 3 rebuilds only the nodes with an address, and no rebuild
+  // reads the whole graph. Stack-free in every run; its live checks run only against a scratch container (tapestry-scratch…).
+  { file: 'pass-3-finishes-in-minutes.test.js' },
+  // graph-operations-foundation #10: a schema save lands on the header its caller means, never on another author's
+  // same-named one. Stack-free in every run; its live checks run only against a scratch container (tapestry-scratch…).
+  { file: 'schema-save-finds-the-right-header.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

@@ -30,7 +30,7 @@ export default function SetDetail() {
   // Fetch set info
   const { data: setData, loading: setLoading, error: setError } = useCypher(
     decodedSetUuid ? `
-      MATCH (s:NostrEvent {uuid: '${decodedSetUuid}'})
+      MATCH (s:NostrEvent|TapestryNode {uuid: '${decodedSetUuid}'})
       RETURN s.uuid AS uuid, s.name AS name, s.pubkey AS author,
              labels(s) AS nodeLabels
       LIMIT 1
@@ -40,7 +40,7 @@ export default function SetDetail() {
   // Fetch description from json tag
   const { data: jsonData } = useCypher(
     decodedSetUuid ? `
-      MATCH (s:NostrEvent {uuid: '${decodedSetUuid}'})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
+      MATCH (s:NostrEvent|TapestryNode {uuid: '${decodedSetUuid}'})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
       RETURN t.value AS json
       LIMIT 1
     ` : null
@@ -49,7 +49,7 @@ export default function SetDetail() {
   // Direct supersets (nodes that this set is a subset of)
   const { data: supersets, loading: supersetsLoading, refetch: refetchSupersets } = useCypher(
     decodedSetUuid ? `
-      MATCH (parent)-[:IS_A_SUPERSET_OF]->(s:NostrEvent {uuid: '${decodedSetUuid}'})
+      MATCH (parent)-[:IS_A_SUPERSET_OF]->(s:NostrEvent|TapestryNode {uuid: '${decodedSetUuid}'})
       RETURN parent.uuid AS uuid, parent.name AS name, labels(parent) AS nodeLabels
       ORDER BY parent.name
     ` : null
@@ -58,7 +58,7 @@ export default function SetDetail() {
   // Direct subsets (nodes that this set is a superset of)
   const { data: subsets, loading: subsetsLoading, refetch: refetchSubsets } = useCypher(
     decodedSetUuid ? `
-      MATCH (s:NostrEvent {uuid: '${decodedSetUuid}'})-[:IS_A_SUPERSET_OF]->(child)
+      MATCH (s:NostrEvent|TapestryNode {uuid: '${decodedSetUuid}'})-[:IS_A_SUPERSET_OF]->(child)
       RETURN child.uuid AS uuid, child.name AS name, labels(child) AS nodeLabels
       ORDER BY child.name
     ` : null
@@ -69,7 +69,7 @@ export default function SetDetail() {
   // placements can be removed from this page (AC2 / ADR decision 4).
   const { data: elements, loading: elementsLoading, refetch: refetchElements } = useCypher(
     decodedSetUuid ? `
-      MATCH (s:NostrEvent {uuid: '${decodedSetUuid}'})-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(elem)
+      MATCH (s:NostrEvent|TapestryNode {uuid: '${decodedSetUuid}'})-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(elem)
       WITH DISTINCT s, elem
       RETURN elem.uuid AS uuid, elem.name AS name, labels(elem) AS nodeLabels,
              EXISTS { MATCH (s)-[:HAS_ELEMENT]->(elem) } AS direct

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tapestry brains</title>
+  <link rel="stylesheet" href="/page.css">
+</head>
+<body>
+  <main>
+    <h1>Tapestry brains</h1>
+    <p>Launch your own Tapestry instance. It starts blank and knows only you.</p>
+    <p class="warning">What you put in a brain can be read by anyone with its URL. Put nothing private in it yet.</p>
+
+    <section id="signed-out">
+      <p>Sign in with your nostr extension to see the brains on this box.</p>
+      <button id="sign-in" type="button">Sign in</button>
+      <p id="sign-in-error" class="error" role="alert"></p>
+    </section>
+
+    <section id="not-listed" hidden>
+      <p>This key is not on the list for this launcher. Ask someone on the team to add it.</p>
+    </section>
+
+    <section id="signed-in" hidden>
+      <h2>New brain</h2>
+      <form id="launch">
+        <label for="slug">Name</label>
+        <div class="name">
+          <input id="slug" name="slug" autocomplete="off" spellcheck="false" autocapitalize="off" required minlength="3" maxlength="30" pattern="[a-z0-9][a-z0-9\-]+[a-z0-9]">
+          <span id="domain"></span>
+        </div>
+        <p class="hint">3 to 30 characters: lowercase letters, digits and hyphens.</p>
+        <button type="submit">Launch</button>
+        <p id="launch-error" class="error" role="alert"></p>
+      </form>
+
+      <h2>Brains</h2>
+      <p id="no-brains" hidden>No brains yet. Launch the first one.</p>
+      <ul id="brains"></ul>
+    </section>
+  </main>
+  <script src="/page.js" defer></script>
+</body>
+</html>

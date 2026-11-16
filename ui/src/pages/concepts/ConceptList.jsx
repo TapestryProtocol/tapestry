@@ -21,7 +21,7 @@ const QUERY = `
   OPTIONAL MATCH (g1)-[:IS_THE_CORE_GRAPH_FOR]->(h)
   OPTIONAL MATCH (g2)-[:IS_THE_CONCEPT_GRAPH_FOR]->(h)
   OPTIONAL MATCH (g3)-[:IS_THE_PROPERTY_TREE_GRAPH_FOR]->(h)
-  OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(s)-[:IS_A_SUPERSET_OF*0..5]->(ss)-[:HAS_ELEMENT]->(explicitElem:NostrEvent)
+  OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(s)-[:IS_A_SUPERSET_OF*0..5]->(ss)-[:HAS_ELEMENT]->(explicitElem:NostrEvent|ListItem)
   OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(s)-[:IS_A_SUPERSET_OF*0..5]->(setNode)
   OPTIONAL MATCH (p:Property)-[:IS_A_PROPERTY_OF]->(js)
   OPTIONAL MATCH (h)-[:HAS_TAG]->(bt:NostrEventTag {type: 'b'})
@@ -37,7 +37,7 @@ const QUERY = `
     count(DISTINCT setNode) AS setCount,
     collect(DISTINCT explicitElem.uuid) AS explicitUuids,
     count(DISTINCT p) AS propertyCount
-  OPTIONAL MATCH (implicitElem:NostrEvent)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: h.uuid})
+  OPTIONAL MATCH (implicitElem:NostrEvent|ListItem)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: h.uuid})
   WITH h, bValues, supersetCount, schemaCount, ppCount, propsSetCount, coreGraphCount, conceptGraphCount, propTreeGraphCount, setCount,
     explicitUuids, propertyCount,
     collect(DISTINCT implicitElem.uuid) AS implicitUuids

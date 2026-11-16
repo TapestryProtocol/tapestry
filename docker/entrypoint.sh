@@ -7,6 +7,7 @@ ADMIN_PUBKEYS="${ADMIN_PUBKEYS:-}"
 NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4j}"
 DOMAIN_NAME="${DOMAIN_NAME:-localhost}"
 RELAY_URL="${RELAY_URL:-ws://localhost:7777}"
+NEO4J_BROWSER_URL="${NEO4J_BROWSER_URL:-http://${DOMAIN_NAME}:7474}"
 
 BRAINSTORM_MODULE_BASE_DIR="/usr/local/lib/node_modules/brainstorm/"
 BRAINSTORM_NODE_BIN="$(which node)"
@@ -31,7 +32,7 @@ OWNER_NPUB="unassigned"
 if [ "$OWNER_PUBKEY" != "unassigned" ] && [ ${#OWNER_PUBKEY} -eq 64 ]; then
   OWNER_NPUB=$(node -e "
     try {
-      const {nip19} = require('nostr-tools');
+      const {nip19} = require('${BRAINSTORM_MODULE_BASE_DIR}node_modules/nostr-tools');
       console.log(nip19.npubEncode('${OWNER_PUBKEY}'));
     } catch(e) { console.log('unassigned'); }
   " 2>/dev/null || echo "unassigned")
@@ -43,7 +44,7 @@ fi
 # invoking it — they are local shell vars at this point. The renderer rejects
 # unknown ${VAR} references with nonzero exit, so a missing env var fails the
 # boot loudly rather than producing a silently-incomplete conf file.
-export OWNER_PUBKEY ADMIN_PUBKEYS NEO4J_PASSWORD DOMAIN_NAME RELAY_URL
+export OWNER_PUBKEY ADMIN_PUBKEYS NEO4J_PASSWORD DOMAIN_NAME RELAY_URL NEO4J_BROWSER_URL
 export BRAINSTORM_MODULE_BASE_DIR BRAINSTORM_NODE_BIN SESSION_SECRET OWNER_NPUB
 
 if ! node "${BRAINSTORM_MODULE_BASE_DIR}tools/render-conf-template.js" \
@@ -131,6 +132,25 @@ REDISEOF
 TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
 TOTAL_MEM_MB=$((TOTAL_MEM_KB / 1024))
 NUM_CPUS=$(nproc)
+
+# Inside a container, /proc/meminfo reports the whole host. When the container has
+# a memory limit, that limit is what it really has (brains-launcher #1). cgroup v2
+# reads "max" and v1 reads a huge number when there is no limit; both leave the
+# host total in place, so a droplet with no limit sizes exactly as it did before.
+for CGROUP_MEM_FILE in "${CGROUP_V2_MEMORY_MAX:-/sys/fs/cgroup/memory.max}" "${CGROUP_V1_MEMORY_LIMIT:-/sys/fs/cgroup/memory/memory.limit_in_bytes}"; do
+  [ -r "$CGROUP_MEM_FILE" ] || continue
+  CGROUP_MEM_BYTES="$(cat "$CGROUP_MEM_FILE")"
+  case "$CGROUP_MEM_BYTES" in
+    ''|*[!0-9]*) ;;
+    *)
+      # Compare lengths first: v1's "no limit" value can pass what bash arithmetic holds safely.
+      if [ "${#CGROUP_MEM_BYTES}" -le 15 ] && [ "$((CGROUP_MEM_BYTES / 1024 / 1024))" -lt "$TOTAL_MEM_MB" ]; then
+        TOTAL_MEM_MB=$((CGROUP_MEM_BYTES / 1024 / 1024))
+      fi
+      ;;
+  esac
+  break
+done
 
 # Reserve memory for other services (Meilisearch, strfry, Redis, Node.js, OS).
 # Empirical measurements on 32GB/2.6M profiles: Meilisearch uses ~6GB,
@@ -246,12 +266,10 @@ if [ ! -d "${BRAINSTORM_MODULE_BASE_DIR}node_modules/express" ]; then
 fi
 
 # --- strfry router config ---
-# Router config is normally managed by initRouter() in the Node app, which reads
-# from router-state.json (persistent volume) or initializes from router-presets.json.
-# On a true first boot the bundled template seeds /etc/ with the legacy defaults.
-if [ ! -f "/var/lib/brainstorm/router-state.json" ] && [ -f "${BRAINSTORM_MODULE_BASE_DIR}setup/strfry-router-tapestry.config" ]; then
-  cp "${BRAINSTORM_MODULE_BASE_DIR}setup/strfry-router-tapestry.config" /etc/strfry-router-tapestry.config
-fi
+# Router config is managed by initRouter() in the Node app, which reads from
+# router-state.json (persistent volume) or initializes from router-presets.json.
+# Until the app writes it, the router starts idle, on a fresh instance too, so a
+# new instance connects to no other relay on its own (brains-launcher #1).
 
 # Guarantee /etc/strfry-router-tapestry.config exists before supervisord starts.
 # strfry-router (priority 25) boots before brainstorm (priority 30), and /etc/ is
@@ -332,6 +350,12 @@ nginx 2>/dev/null || echo "WARNING: nginx failed to start"
 
 # Symlink concept-graph defaults so setup.sh can find it
 ln -sf /usr/local/lib/node_modules/brainstorm/src/concept-graph/parameters/defaults.conf /etc/concept-graph.conf
+
+# --- Firmware on first boot (opt-in) ---
+# Off unless asked for, so an existing droplet changes nothing (brains-launcher #1).
+if [ "${TAPESTRY_FIRMWARE_ON_BOOT:-}" = "true" ]; then
+  bash "${BRAINSTORM_MODULE_BASE_DIR}tools/firmware-on-boot.sh" >> /var/log/brainstorm/firmware-on-boot.log 2>&1 &
+fi
 
 # Start supervisord
 exec /usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf

@@ -10,7 +10,7 @@
  * WHAT WENT WRONG. The suite resolves nostr-tools with
  * `require.resolve('nostr-tools/pool', { paths: [UI] })`, intending ui/'s pinned copy — the one
  * Vite bundles into production. But `paths:` falls back to ANCESTOR node_modules, and CI runs
- * `npm ci` at the repo root only (.github/workflows/test.yml:36), so `ui/node_modules` never
+ * `npm ci` at the repo root only (.github/workflows/test.yml, the `npm ci` step), so `ui/node_modules` never
  * exists there and resolution silently lands on the repo root's nostr-tools 2.10.4 instead of
  * ui/'s 2.23.3. The two report a failed connection differently:
  *

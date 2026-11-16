@@ -7,11 +7,15 @@
  *   Returns list of created events.
  */
 const { runCypher, writeCypher } = require('../../lib/neo4j-driver');
+const { keyNode } = require('../../lib/tapestry-key-cypher');
 const { getOwnerAssistantKeys } = require('../../utils/assistantKeys');
 const { exec } = require('child_process');
 const crypto = require('crypto');
 const firmware = require('./firmware');
+const { buildImportCypher, executeCypher } = require('../neo4j/eventSync');
 const dtag = require('../../lib/dtag');
+// The form of a tapestryKey, as the graph operations check it (ADR graph-operations-foundation/0004 Decision 7).
+const { KEY_PATTERN } = require('../../operations/catalog/graph/_nodes');
 
 // ── Relationship type aliases from firmware ──────────────────
 // Use REL.XXX instead of hardcoded strings. These resolve to the
@@ -55,7 +59,7 @@ function toCamelCase(name) {
 // ── Shared: regenerate JSON tag on an event and re-publish ────
 async function regenerateJson(uuid, jsonValue) {
   const tagRows = await runCypher(`
-    MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+    MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
     RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
     ORDER BY t.uuid
   `, { uuid });
@@ -138,11 +142,19 @@ async function importEventDirect(event, uuid) {
   const namesTag = event.tags.find(t => t[0] === 'names');
   const name = nameTag?.[1] || namesTag?.[1] || '';
 
+  // An event-less node at this address takes the event: it gets NostrEvent back, so the MERGE below lands on it
+  // (ADR graph-operations-foundation/0003 Decision 9).
+  await writeCypher(`
+    MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent
+    SET x:NostrEvent
+  `, { uuid });
+
   // MERGE the event node
   await writeCypher(`
     MERGE (e:NostrEvent {uuid: $uuid})
     SET e.id = $id, e.kind = $kind, e.pubkey = $pubkey, e.name = $name,
         e.created_at = $created_at
+    ${keyNode('e')}
     WITH e
     // Set labels based on kind
     FOREACH (_ IN CASE WHEN $kind = 39998 THEN [1] ELSE [] END |
@@ -155,7 +167,7 @@ async function importEventDirect(event, uuid) {
 
   // Delete old tags for this event, then re-create
   await writeCypher(`
-    MATCH (e:NostrEvent {uuid: $uuid})-[r:HAS_TAG]->(t:NostrEventTag)
+    MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[r:HAS_TAG]->(t:NostrEventTag)
     DELETE r, t
   `, { uuid });
 
@@ -169,9 +181,10 @@ async function importEventDirect(event, uuid) {
     if (tag[3]) { props.value2 = tag[3]; setClauses += ', t.value2 = $value2'; }
 
     await writeCypher(`
-      MATCH (e:NostrEvent {uuid: $eventUuid})
+      MATCH (e:NostrEvent|TapestryNode {uuid: $eventUuid})
       CREATE (e)-[:HAS_TAG]->(t:NostrEventTag {uuid: $tagUuid})
       SET ${setClauses}
+      ${keyNode('t')}
     `, props);
   }
 }
@@ -241,7 +254,7 @@ async function handleNormalizeSkeleton(req, res) {
 
     // 2. Check what already exists
     const existing = await runCypher(`
-      MATCH (h:NostrEvent {uuid: $uuid})
+      MATCH (h:NostrEvent|TapestryNode {uuid: $uuid})
       OPTIONAL MATCH (h)-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
       OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
       OPTIONAL MATCH (cg)-[:${REL.CORE_NODE_CORE_GRAPH}]->(h)
@@ -326,7 +339,7 @@ async function handleNormalizeSkeleton(req, res) {
 
       // Wire in Neo4j
       await writeCypher(`
-        MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+        MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
         MERGE (a)-[:${relType}]->(b)
       `, { from, to });
 
@@ -375,11 +388,11 @@ async function handleNormalizeSkeleton(req, res) {
 
       // Superset gets Superset label
       await createNode('Superset', evt, REL.CLASS_THREAD_INITIATION, 'from-header');
-      await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:Superset`, { uuid: supersetATag });
+      await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Superset`, { uuid: supersetATag });
 
       // Also set ConceptHeader label on the header if missing
       await writeCypher(`
-        MATCH (h:NostrEvent {uuid: $uuid})
+        MATCH (h:NostrEvent|TapestryNode {uuid: $uuid})
         WHERE NOT h:ConceptHeader
         SET h:ConceptHeader
       `, { uuid: headerUuid });
@@ -442,7 +455,7 @@ async function handleNormalizeSkeleton(req, res) {
       schemaATag = evt._uuid;
 
       await createNode('JSON Schema', evt, REL.CORE_NODE_JSON_SCHEMA, 'to-header');
-      await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:JSONSchema`, { uuid: schemaATag });
+      await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:JSONSchema`, { uuid: schemaATag });
     }
 
     // ── Primary Property ──
@@ -489,7 +502,7 @@ async function handleNormalizeSkeleton(req, res) {
       primaryPropATag = evt._uuid;
 
       await createNode('Primary Property', evt, REL.CORE_NODE_PRIMARY_PROPERTY, 'to-header');
-      await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:Property`, { uuid: primaryPropATag });
+      await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Property`, { uuid: primaryPropATag });
 
       // Also wire IS_A_PROPERTY_OF → schema if schema exists
       if (schemaATag) {
@@ -507,7 +520,7 @@ async function handleNormalizeSkeleton(req, res) {
         await importEventDirect(relEvent, relUuid);
         allEvents.push(relEvent);
         await writeCypher(`
-          MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+          MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
           MERGE (a)-[:${REL.PROPERTY_MEMBERSHIP}]->(b)
         `, { from: primaryPropATag, to: schemaATag });
       }
@@ -758,14 +771,14 @@ async function handleNormalizeSkeleton(req, res) {
       if (!fwConceptUuid) continue;
 
       const fwRows = await runCypher(`
-        MATCH (h:NostrEvent {uuid: $fwConceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+        MATCH (h:NostrEvent|TapestryNode {uuid: $fwConceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
         RETURN sup.uuid AS supersetUuid
         LIMIT 1
       `, { fwConceptUuid });
 
       if (fwRows.length > 0 && fwRows[0].supersetUuid) {
         await writeCypher(`
-          MATCH (sup:NostrEvent {uuid: $supersetUuid}), (node:NostrEvent {uuid: $nodeUuid})
+          MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (node:NostrEvent|TapestryNode {uuid: $nodeUuid})
           MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(node)
         `, { supersetUuid: fwRows[0].supersetUuid, nodeUuid: item.uuid });
       }
@@ -897,7 +910,7 @@ async function handleNormalizeJson(req, res) {
     if ((!node || node === 'schema') && h.schemaUuid) {
       // Fetch existing json to preserve user-defined jsonSchema section
       const existingJsonRows = await runCypher(`
-        MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
+        MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
         RETURN t.value AS json
       `, { uuid: h.schemaUuid });
 
@@ -1011,9 +1024,9 @@ async function handleNormalizeJson(req, res) {
 
       // Include superset + any intermediate sets
       const setRows = await runCypher(`
-        MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+        MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
         OPTIONAL MATCH (sup)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(s)
-        WHERE s:Superset OR s:NostrEvent
+        WHERE s:Superset OR s:NostrEvent|ListItem
         RETURN DISTINCT s.uuid AS uuid, s.name AS name
       `, { headerUuid: h.headerUuid });
 
@@ -1136,7 +1149,8 @@ async function handleNormalizeJson(req, res) {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/normalize/create-concept
-//   Body: { name, plural?, description? }
+//   Body: { name, plural?, description?, overwrite? }
+//   Refuses a name this instance's key has already used, unless overwrite is true.
 //   Creates a full concept skeleton matching tapestry-cli concept-header.md spec:
 //   ConceptHeader + Superset + JSON Schema + Primary Property + Properties (set)
 //   + Property Tree Graph + Concept Graph + Core Nodes Graph + 7 relationship events.
@@ -1193,20 +1207,24 @@ async function handleCreateConcept(req, res) {
     const slug = names.oSlugs.singular;
     const slugPlural = names.oSlugs.plural;
 
-    // Check for duplicate
+    // A repeat would re-sign the replaceable header and core nodes, replacing the concept's
+    // definition and schema while its items stay. It's refused unless the caller asks:
+    // firmware install rebuilds headers from the built-in definition on purpose.
     const privBytes = getPrivkey();
-    const pubkey = Buffer.from(nt().getPublicKey(privBytes)).toString('hex');
+    const pubkey = nt().getPublicKey(privBytes);
 
-    const dupes = await runCypher(`
-      MATCH (h:NostrEvent)
-      WHERE (h:ListHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
-        AND h.name = $name AND h.pubkey = $pubkey
-      RETURN h.uuid AS uuid
-      LIMIT 1
-    `, { name: trimName, pubkey });
+    if (req.body.overwrite !== true) {
+      const dupes = await runCypher(`
+        MATCH (h:NostrEvent)
+        WHERE (h:ListHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
+          AND h.name = $name AND h.pubkey = $pubkey
+        RETURN h.uuid AS uuid
+        LIMIT 1
+      `, { name: trimName, pubkey });
 
-    if (dupes.length > 0) {
-      return res.json({ success: false, error: `Concept "${trimName}" already exists (uuid: ${dupes[0].uuid})` });
+      if (dupes.length > 0) {
+        return res.json({ success: false, error: `Concept "${trimName}" already exists (uuid: ${dupes[0].uuid})` });
+      }
     }
 
     const allEvents = [];
@@ -1278,7 +1296,7 @@ async function handleCreateConcept(req, res) {
 
     // Set ListHeader + ConceptHeader labels
     await writeCypher(`
-      MATCH (h:NostrEvent {uuid: $uuid})
+      MATCH (h:NostrEvent|TapestryNode {uuid: $uuid})
       SET h:ListHeader, h:ConceptHeader
     `, { uuid: headerUuid });
 
@@ -1321,7 +1339,7 @@ async function handleCreateConcept(req, res) {
     const supersetUuid = `39999:${supersetEvent.pubkey}:${supersetDTag}`;
     await publishToStrfry(supersetEvent);
     await importEventDirect(supersetEvent, supersetUuid);
-    await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:Superset`, { uuid: supersetUuid });
+    await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Superset`, { uuid: supersetUuid });
     allEvents.push(supersetEvent);
 
     // ── 3. JSON Schema ──
@@ -1387,7 +1405,7 @@ async function handleCreateConcept(req, res) {
     const schemaUuid = `39999:${schemaEvent.pubkey}:${schemaDTag}`;
     await publishToStrfry(schemaEvent);
     await importEventDirect(schemaEvent, schemaUuid);
-    await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:JSONSchema`, { uuid: schemaUuid });
+    await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:JSONSchema`, { uuid: schemaUuid });
     allEvents.push(schemaEvent);
 
     // ── 4. Primary Property ──
@@ -1430,7 +1448,7 @@ async function handleCreateConcept(req, res) {
     const ppUuid = `39999:${ppEvent.pubkey}:${ppDTag}`;
     await publishToStrfry(ppEvent);
     await importEventDirect(ppEvent, ppUuid);
-    await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:Property`, { uuid: ppUuid });
+    await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Property`, { uuid: ppUuid });
     allEvents.push(ppEvent);
 
     // ── 5. Properties (set) ──
@@ -1690,7 +1708,7 @@ async function handleCreateConcept(req, res) {
       // Relationships between core nodes are unwrapped — Neo4j edges only, no nostr events.
       // See glossary: "wrapped data" for rationale.
       await writeCypher(`
-        MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+        MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
         MERGE (a)-[:${rel.type}]->(b)
       `, { from: rel.from, to: rel.to });
     }
@@ -1715,14 +1733,14 @@ async function handleCreateConcept(req, res) {
 
       // Find the firmware concept's superset
       const fwRows = await runCypher(`
-        MATCH (h:NostrEvent {uuid: $fwConceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+        MATCH (h:NostrEvent|TapestryNode {uuid: $fwConceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
         RETURN sup.uuid AS supersetUuid
         LIMIT 1
       `, { fwConceptUuid });
 
       if (fwRows.length > 0 && fwRows[0].supersetUuid) {
         await writeCypher(`
-          MATCH (sup:NostrEvent {uuid: $supersetUuid}), (node:NostrEvent {uuid: $nodeUuid})
+          MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (node:NostrEvent|TapestryNode {uuid: $nodeUuid})
           MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(node)
         `, { supersetUuid: fwRows[0].supersetUuid, nodeUuid: mapping.uuid });
       }
@@ -1789,7 +1807,7 @@ async function handleCreateElement(req, res) {
 
     // Check for duplicate element name under same superset
     const dupes = await runCypher(`
-      MATCH (sup:Superset {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}*0..5]->(s)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (sup:Superset {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}*0..5]->(s)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.name = $name
       RETURN e.uuid AS uuid
       LIMIT 1
@@ -1806,7 +1824,7 @@ async function handleCreateElement(req, res) {
     if (!finalJson) {
       // Look up the concept's JSON Schema json tag
       const schemaRows = await runCypher(`
-        MATCH (h:NostrEvent {uuid: $headerUuid})
+        MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})
         OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
         OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
         RETURN head(collect(jt.value)) AS schemaJson
@@ -1875,14 +1893,14 @@ async function handleCreateElement(req, res) {
       ? (finalJson.word?.slug || finalJson[Object.keys(finalJson).find(k => k !== 'word')]?.slug || null)
       : null;
     if (elemSlug) {
-      await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: elemSlug });
+      await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: elemSlug });
     } else {
-      await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem`, { uuid: elemUuid });
+      await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem`, { uuid: elemUuid });
     }
 
     // Wire HAS_ELEMENT from superset
     await writeCypher(`
-      MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+      MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
       MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
     `, { supersetUuid, elemUuid });
 
@@ -1900,34 +1918,85 @@ async function handleCreateElement(req, res) {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/normalize/save-schema
-//   Body: { concept: "<name>", schema: { ... JSON Schema object } }
+//   Body: { concept: "<name>", tapestryKey?: "<the header's tapestryKey>", schema: { ... JSON Schema object } }
 //   Replaces the JSON tag on the concept's JSONSchema node and re-publishes.
+//   Which header (graph-operations-foundation #10): with tapestryKey, that header and no other. With the name alone, the
+//   one header of that name; when several share it, the one the instance's Tapestry Assistant wrote, and a refusal when
+//   that isn't exactly one. Never the database's choice. Either way, a concept with no event behind it is refused: this
+//   route signs and publishes, and such a concept hasn't been published (BIBLE §30).
 // ══════════════════════════════════════════════════════════════
+
+const TAPESTRY_KEY = new RegExp(KEY_PATTERN);
+
+/**
+ * The concept header a schema save is for, with its JSON Schema node (graph-operations-foundation #10). Answers
+ * { header: { headerUuid, author, lettered, schemaUuid, schemaLettered, existingJson, slug } } or { status, error }.
+ */
+async function findSchemaHeader({ concept, tapestryKey, taPubkey }) {
+  const rest = `
+    OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
+    OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
+    OPTIONAL MATCH (h)-[:HAS_TAG]->(st:NostrEventTag {type: 'slug'})
+    WITH h, js, head(collect(jt.value)) AS existingJson, head(collect(st.value)) AS slug
+    RETURN h.uuid AS headerUuid, h.pubkey AS author, 'NostrEvent' IN labels(h) AS lettered,
+           js.uuid AS schemaUuid, 'NostrEvent' IN labels(js) AS schemaLettered, existingJson, slug
+    ORDER BY headerUuid, schemaUuid
+  `;
+  // One entry per header: its first schema node, in a fixed order, if it has more than one.
+  const headersOf = (rows) => {
+    const byHeader = new Map();
+    for (const r of rows) if (!byHeader.has(r.headerUuid)) byHeader.set(r.headerUuid, r);
+    return [...byHeader.values()];
+  };
+
+  if (tapestryKey !== undefined && tapestryKey !== null) {
+    if (typeof tapestryKey !== 'string' || !TAPESTRY_KEY.test(tapestryKey)) {
+      return { status: 400, error: `"${tapestryKey}" is not a tapestryKey` };
+    }
+    // Not :TapestryNode, which a node lacks until tapestry-keys runs; the headers are few enough to read by label.
+    const headers = headersOf(await runCypher(`
+      MATCH (h:ListHeader|ClassThreadHeader|ConceptHeader) WHERE h.tapestryKey = $tapestryKey
+      ${rest}
+    `, { tapestryKey }));
+    if (headers.length === 0) return { status: 200, error: `No concept header has the tapestryKey ${tapestryKey}` };
+    if (headers.length > 1) {
+      return { status: 200, error: `More than one concept header holds the tapestryKey ${tapestryKey} (${headers.map((h) => h.headerUuid).join(', ')}), so it doesn't say which concept is meant` };
+    }
+    return { header: headers[0] };
+  }
+
+  const headers = headersOf(await runCypher(`
+    MATCH (h:NostrEvent)
+    WHERE (h:ListHeader OR h:ClassThreadHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
+      AND h.name = $concept
+    ${rest}
+  `, { concept }));
+  if (headers.length === 0) return { status: 200, error: `Concept "${concept}" not found` };
+  if (headers.length === 1) return { header: headers[0] };
+  const own = headers.filter((h) => h.author === taPubkey);
+  if (own.length === 1) return { header: own[0] };
+  return {
+    status: 200,
+    error: `Concept "${concept}" is the name of ${headers.length} headers (${headers.map((h) => h.headerUuid).join(', ')}), ` +
+      `${own.length === 0 ? "none of them this instance's own" : `${own.length} of them this instance's own`}, ` +
+      "so the save can't tell which one is meant. Name it by its header's tapestryKey.",
+  };
+}
 
 async function handleSaveSchema(req, res) {
   try {
-    const { concept, schema } = req.body;
+    const { concept, schema, tapestryKey } = req.body;
     if (!concept) return res.status(400).json({ success: false, error: 'Missing concept name' });
     if (!schema || typeof schema !== 'object') return res.status(400).json({ success: false, error: 'Missing or invalid schema object' });
 
-    // Find the concept's JSON Schema node + existing json
-    const rows = await runCypher(`
-      MATCH (h:NostrEvent)
-      WHERE (h:ListHeader OR h:ClassThreadHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
-        AND h.name = $concept
-      OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
-      OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
-      OPTIONAL MATCH (h)-[:HAS_TAG]->(st:NostrEventTag {type: 'slug'})
-      RETURN h.uuid AS headerUuid, js.uuid AS schemaUuid,
-             head(collect(jt.value)) AS existingJson, st.value AS slug
-      LIMIT 1
-    `, { concept });
+    // Find the concept's header, its JSON Schema node and the existing json
+    const found = await findSchemaHeader({ concept, tapestryKey, taPubkey: nt().getPublicKey(getPrivkey()) });
+    if (found.error) return res.status(found.status).json({ success: false, error: found.error });
 
-    if (rows.length === 0) {
-      return res.json({ success: false, error: `Concept "${concept}" not found` });
+    const { schemaUuid, headerUuid, slug: conceptSlug, lettered, schemaLettered } = found.header;
+    if (lettered !== true || (schemaUuid && schemaLettered !== true)) {
+      return res.json({ success: false, error: `Concept "${concept}" has no event behind it. This route signs and publishes the schema it saves, so it won't save one for a concept that hasn't been published.` });
     }
-
-    const { schemaUuid, headerUuid, slug: conceptSlug } = rows[0];
     if (!schemaUuid) {
       return res.json({ success: false, error: `Concept "${concept}" has no JSON Schema node. Create one first via normalize skeleton.` });
     }
@@ -1941,7 +2010,7 @@ async function handleSaveSchema(req, res) {
 
     // Read existing word wrapper or build one
     let wordWrapper;
-    const raw = rows[0].existingJson;
+    const raw = found.header.existingJson;
     if (raw) {
       try {
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1976,10 +2045,11 @@ async function handleSaveSchema(req, res) {
     // also runs for every firmware concept during install pass 2 and must
     // not turn unconventional concepts into noise. A fold failure after the
     // successful schema write is surfaced loudly here (no rollback exists;
-    // the hygiene check stands guard).
+    // the hygiene check stands guard). It reconciles the header the save
+    // found, not whichever one has the name (graph-operations-foundation #10).
     let primaryProperty;
     try {
-      const rec = await reconcilePrimaryPropertyForConcept(concept);
+      const rec = await reconcilePrimaryPropertyForConcept(concept, { headerUuid });
       if (rec.success) {
         primaryProperty = { result: rec.result, ...(rec.properties ? { properties: rec.properties } : {}) };
       } else if (rec.code === 'no-primary-property' || rec.code === 'schema-shape' || rec.code === 'pp-unreadable') {
@@ -2023,21 +2093,29 @@ async function handleSaveSchema(req, res) {
 // ADR 0003 d8) so handleSaveSchema can fold it in. Behavior is byte-equivalent
 // for the endpoint; failures carry a discriminated `code` so the fold can map
 // structural non-fits to a non-alarming result while the standalone endpoint
-// keeps its loud named refusals.
-async function reconcilePrimaryPropertyForConcept(concept) {
+// keeps its loud named refusals. Inside a save, `headerUuid` names the header
+// the save found, so the fold reconciles that concept and no other
+// (graph-operations-foundation #10); the standalone endpoint still finds it by
+// name.
+async function reconcilePrimaryPropertyForConcept(concept, { headerUuid } = {}) {
   // The save-schema lookup idiom, extended to the primary-property node.
-  const rows = await runCypher(`
+  const header = headerUuid
+    ? 'MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})'
+    : `
     MATCH (h:NostrEvent)
     WHERE (h:ListHeader OR h:ClassThreadHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
-      AND h.name = $concept
+      AND h.name = $concept`;
+  const rows = await runCypher(`
+    ${header}
     OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
     OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
     OPTIONAL MATCH (pp:Property)-[:${REL.CORE_NODE_PRIMARY_PROPERTY}]->(h)
     OPTIONAL MATCH (pp)-[:HAS_TAG]->(pt:NostrEventTag {type: 'json'})
     RETURN h.uuid AS headerUuid, js.uuid AS schemaUuid, head(collect(DISTINCT jt.value)) AS schemaJson,
            pp.uuid AS ppUuid, head(collect(DISTINCT pt.value)) AS ppJson
+    ORDER BY schemaUuid, ppUuid
     LIMIT 1
-  `, { concept });
+  `, headerUuid ? { headerUuid } : { concept });
 
   if (rows.length === 0) {
     return { success: false, code: 'not-found', error: `Concept "${concept}" not found` };
@@ -2150,15 +2228,15 @@ async function fetchGoalRecords(headerUuid) {
   const { parseGoalRow } = require('../../lib/brain/goals');
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
-      MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -2275,9 +2353,9 @@ async function createChildGoal({ parentSlug, name, statement, deliverable, bound
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: derivedSlug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: derivedSlug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
 
@@ -2460,15 +2538,15 @@ async function fetchResourceRecords(headerUuid) {
   const { parseResourceRow } = require('../../lib/brain/resources');
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
-      MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -2509,6 +2587,7 @@ async function ensureResourceConcept() {
   const existing = await resolveResourceConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: RESOURCE_CONCEPT_NAME,
     description: 'A resource a goal points at — a file, vault note, nostr event, repository, or web address. The brain organizes knowledge; it never contains it.',
   });
@@ -2616,9 +2695,9 @@ async function createResource({ goalSlug, title, locatorKind, locator, whyKept, 
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: identitySlug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: identitySlug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
 
@@ -2757,15 +2836,15 @@ async function fetchWorkRecords(headerUuid) {
   const { parseWorkRecordRow } = require('../../lib/brain/work-records');
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
-      MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -2789,6 +2868,7 @@ async function ensureWorkRecordConcept() {
   const existing = await resolveWorkRecordConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: WORK_RECORD_CONCEPT_NAME,
     description: 'A dated, append-only record a session leaves on a goal — what it worked on and produced, or an idea it noted. Never edited; corrections are new records.',
   });
@@ -2820,9 +2900,9 @@ async function mintWorkRecordElement({ headerUuid, supersetUuid, label, section 
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
   return { uuid: elemUuid, slug };
@@ -2981,9 +3061,9 @@ async function noteGoalIdea({ name, statement, session, intent }) {
   const goalUuid = `39999:${goalEvt.pubkey}:${dTag}`;
   await publishToStrfry(goalEvt);
   await importEventDirect(goalEvt, goalUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: goalUuid, slug: derivedSlug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: goalUuid, slug: derivedSlug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid: goalUuid });
 
@@ -3084,15 +3164,15 @@ async function fetchProposals(headerUuid) {
   const { parseProposalRow } = require('../../lib/brain/proposals');
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
-      MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -3116,6 +3196,7 @@ async function ensureProposalConcept() {
   const existing = await resolveProposalConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: PROPOSAL_CONCEPT_NAME,
     description: 'A dated, append-only proposal a session leaves for the owner — one viable goal nominated with why-now and the goals it passed over — and its decision (approved or skipped). Never edited; a decision is a new fact.',
   });
@@ -3147,9 +3228,9 @@ async function mintProposalElement({ headerUuid, supersetUuid, label, section })
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
   return { uuid: elemUuid, slug };
@@ -3353,7 +3434,7 @@ async function handleSaveElementJson(req, res) {
 
     // Verify the element exists
     const rows = await runCypher(`
-      MATCH (e:NostrEvent {uuid: $uuid})
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})
       RETURN e.uuid AS uuid, e.name AS name
       LIMIT 1
     `, { uuid });
@@ -3400,7 +3481,7 @@ async function handleCreateProperty(req, res) {
     if (parentUuid) {
       // Nested property — parent is another property node
       const rows = await runCypher(`
-        MATCH (p:NostrEvent {uuid: $parentUuid})
+        MATCH (p:NostrEvent|TapestryNode {uuid: $parentUuid})
         RETURN p.uuid AS uuid, p.name AS name
         LIMIT 1
       `, { parentUuid });
@@ -3425,7 +3506,7 @@ async function handleCreateProperty(req, res) {
 
     // Check for duplicate property name under the same target
     const dupes = await runCypher(`
-      MATCH (p:NostrEvent)-[:${REL.PROPERTY_MEMBERSHIP}]->(target:NostrEvent {uuid: $targetUuid})
+      MATCH (p:NostrEvent|ListItem)-[:${REL.PROPERTY_MEMBERSHIP}]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
       WHERE p.name = $name
       RETURN p.uuid AS uuid
       LIMIT 1
@@ -3465,23 +3546,23 @@ async function handleCreateProperty(req, res) {
     await importEventDirect(evt, propUuid);
 
     // Set ListItem + Property labels
-    await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem:Property`, { uuid: propUuid });
+    await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem:Property`, { uuid: propUuid });
 
     // Wire IS_A_PROPERTY_OF → target
     await writeCypher(`
-      MATCH (prop:NostrEvent {uuid: $propUuid}), (target:NostrEvent {uuid: $targetUuid})
+      MATCH (prop:NostrEvent|TapestryNode {uuid: $propUuid}), (target:NostrEvent|TapestryNode {uuid: $targetUuid})
       MERGE (prop)-[:${REL.PROPERTY_MEMBERSHIP}]->(target)
     `, { propUuid, targetUuid });
 
     // Wire HAS_ELEMENT from BIOS property superset
     const biosSupersetRows = await runCypher(`
-      MATCH (h:NostrEvent {uuid: $biosPropertyUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $biosPropertyUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
       RETURN sup.uuid AS supersetUuid
       LIMIT 1
     `, { biosPropertyUuid });
     if (biosSupersetRows.length > 0) {
       await writeCypher(`
-        MATCH (sup:NostrEvent {uuid: $supersetUuid}), (prop:NostrEvent {uuid: $propUuid})
+        MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (prop:NostrEvent|TapestryNode {uuid: $propUuid})
         MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(prop)
       `, { supersetUuid: biosSupersetRows[0].supersetUuid, propUuid });
     }
@@ -3489,7 +3570,7 @@ async function handleCreateProperty(req, res) {
     // Update the property tree graph for this concept
     // Walk up IS_A_PROPERTY_OF chain to find the JSONSchema, then the concept header
     const graphRows = await runCypher(`
-      MATCH (prop:NostrEvent {uuid: $propUuid})-[:${REL.PROPERTY_MEMBERSHIP} *1..]->(js:JSONSchema)
+      MATCH (prop:NostrEvent|TapestryNode {uuid: $propUuid})-[:${REL.PROPERTY_MEMBERSHIP} *1..]->(js:JSONSchema)
       MATCH (js)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h:NostrEvent)
       OPTIONAL MATCH (pg:NostrEvent)-[:${REL.CORE_NODE_PROPERTY_TREE_GRAPH}]->(h)
       RETURN js.uuid AS schemaUuid, js.name AS schemaName,
@@ -3618,7 +3699,7 @@ async function handleGeneratePropertyTree(req, res) {
     // Get property concept info
     const biosPropertyUuid = firmware.conceptUuid('property');
     const biosSupersetRows = await runCypher(`
-      MATCH (h:NostrEvent {uuid: $biosPropertyUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $biosPropertyUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
       RETURN sup.uuid AS supersetUuid
       LIMIT 1
     `, { biosPropertyUuid });
@@ -3678,18 +3759,18 @@ async function handleGeneratePropertyTree(req, res) {
         await importEventDirect(evt, propUuid);
 
         // Labels
-        await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem:Property`, { uuid: propUuid });
+        await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem:Property`, { uuid: propUuid });
 
         // Wire IS_A_PROPERTY_OF → parent
         await writeCypher(`
-          MATCH (prop:NostrEvent {uuid: $propUuid}), (target:NostrEvent {uuid: $parentUuid})
+          MATCH (prop:NostrEvent|TapestryNode {uuid: $propUuid}), (target:NostrEvent|TapestryNode {uuid: $parentUuid})
           MERGE (prop)-[:${REL.PROPERTY_MEMBERSHIP}]->(target)
         `, { propUuid, parentUuid });
 
         // Wire HAS_ELEMENT from BIOS property superset
         if (biosSupersetUuid) {
           await writeCypher(`
-            MATCH (sup:NostrEvent {uuid: $supersetUuid}), (prop:NostrEvent {uuid: $propUuid})
+            MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (prop:NostrEvent|TapestryNode {uuid: $propUuid})
             MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(prop)
           `, { supersetUuid: biosSupersetUuid, propUuid });
         }
@@ -3750,7 +3831,7 @@ async function handleGeneratePropertyTree(req, res) {
       // Find all properties currently wired into this concept's tree
       const treeRoot = primaryUuid || schemaUuid;
       const allInTree = await runCypher(`
-        MATCH (p:Property)-[:${REL.PROPERTY_MEMBERSHIP}*1..10]->(root:NostrEvent {uuid: $treeRoot})
+        MATCH (p:Property)-[:${REL.PROPERTY_MEMBERSHIP}*1..10]->(root:NostrEvent|TapestryNode {uuid: $treeRoot})
         WHERE NOT p.uuid ENDS WITH '-primary-property'
         RETURN DISTINCT p.uuid AS uuid, p.name AS name
       `, { treeRoot });
@@ -3761,13 +3842,13 @@ async function handleGeneratePropertyTree(req, res) {
         for (const orphan of orphans) {
           // Remove IS_A_PROPERTY_OF edge (unhook from tree)
           await writeCypher(`
-            MATCH (p:NostrEvent {uuid: $uuid})-[r:${REL.PROPERTY_MEMBERSHIP}]->()
+            MATCH (p:NostrEvent|TapestryNode {uuid: $uuid})-[r:${REL.PROPERTY_MEMBERSHIP}]->()
             DELETE r
           `, { uuid: orphan.uuid });
 
           // Remove HAS_ELEMENT edge from property superset (if any)
           await writeCypher(`
-            MATCH ()-[r:${REL.CLASS_THREAD_TERMINATION}]->(p:NostrEvent {uuid: $uuid})
+            MATCH ()-[r:${REL.CLASS_THREAD_TERMINATION}]->(p:NostrEvent|TapestryNode {uuid: $uuid})
             DELETE r
           `, { uuid: orphan.uuid });
         }
@@ -3829,7 +3910,7 @@ async function handleAddNodeAsElement(req, res) {
 
     // Look up concept header, superset, and concept graph
     const rows = await runCypher(`
-      MATCH (h:NostrEvent {uuid: $conceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $conceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
       OPTIONAL MATCH (ctg)-[:${REL.CORE_NODE_CONCEPT_GRAPH}]->(h)
       RETURN h.name AS conceptName, h.uuid AS headerUuid,
              sup.uuid AS supersetUuid, sup.name AS supersetName,
@@ -3841,7 +3922,7 @@ async function handleAddNodeAsElement(req, res) {
 
     // Look up the target node
     const nodeRows = await runCypher(`
-      MATCH (n:NostrEvent {uuid: $nodeUuid})
+      MATCH (n:NostrEvent|TapestryNode {uuid: $nodeUuid})
       RETURN n.name AS name, n.uuid AS uuid, labels(n) AS labels
     `, { nodeUuid });
     if (!nodeRows.length) return res.status(404).json({ success: false, error: 'Target node not found' });
@@ -3849,7 +3930,7 @@ async function handleAddNodeAsElement(req, res) {
 
     // Check if HAS_ELEMENT already exists
     const existingRel = await runCypher(`
-      MATCH (sup:NostrEvent {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_TERMINATION}]->(n:NostrEvent {uuid: $nodeUuid})
+      MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_TERMINATION}]->(n:NostrEvent|TapestryNode {uuid: $nodeUuid})
       RETURN count(*) AS cnt
     `, { supersetUuid, nodeUuid });
     if (existingRel[0]?.cnt > 0) {
@@ -3858,7 +3939,7 @@ async function handleAddNodeAsElement(req, res) {
 
     // 1. Create HAS_ELEMENT relationship
     await writeCypher(`
-      MATCH (sup:NostrEvent {uuid: $supersetUuid}), (node:NostrEvent {uuid: $nodeUuid})
+      MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (node:NostrEvent|TapestryNode {uuid: $nodeUuid})
       MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(node)
     `, { supersetUuid, nodeUuid });
 
@@ -3868,9 +3949,9 @@ async function handleAddNodeAsElement(req, res) {
 
       // Fetch current sets in the class thread
       const setRows = await runCypher(`
-        MATCH (h:NostrEvent {uuid: $conceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+        MATCH (h:NostrEvent|TapestryNode {uuid: $conceptUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
         OPTIONAL MATCH (sup)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(s)
-        WHERE s:Superset OR s:NostrEvent
+        WHERE s:Superset OR s:NostrEvent|ListItem
         RETURN DISTINCT s.uuid AS uuid, s.name AS name
       `, { conceptUuid });
 
@@ -3925,7 +4006,7 @@ async function handleMigratePrimaryPropertyZTags(req, res) {
     for (const pp of ppNodes) {
       // Read existing tags
       const tagRows = await runCypher(`
-        MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+        MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
         RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
         ORDER BY t.uuid
       `, { uuid: pp.uuid });
@@ -3999,7 +4080,7 @@ async function handleLinkConcepts(req, res) {
 
     // Check if already linked
     const existing = await runCypher(`
-      MATCH (a:NostrEvent {uuid: $from})-[:${REL.CLASS_THREAD_PROPAGATION}]->(b:NostrEvent {uuid: $to})
+      MATCH (a:NostrEvent|TapestryNode {uuid: $from})-[:${REL.CLASS_THREAD_PROPAGATION}]->(b:NostrEvent|TapestryNode {uuid: $to})
       RETURN count(*) AS cnt
     `, { from: p.supersetUuid, to: c.supersetUuid });
     if (existing[0]?.cnt > 0) {
@@ -4023,7 +4104,7 @@ async function handleLinkConcepts(req, res) {
 
     // Wire in Neo4j
     await writeCypher(`
-      MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+      MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
       MERGE (a)-[:${REL.CLASS_THREAD_PROPAGATION}]->(b)
     `, { from: p.supersetUuid, to: c.supersetUuid });
 
@@ -4092,14 +4173,14 @@ async function handleEnumerate(req, res) {
       propDisplayName = propName;
       await publishToStrfry(propEvent);
       await importEventDirect(propEvent, propUuid);
-      await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:Property`, { uuid: propUuid });
+      await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Property`, { uuid: propUuid });
     } else {
       return res.json({ success: false, error: `Property "${propName}" not found. Set createProperty: true to create it.` });
     }
 
     // Check if ENUMERATES already exists
     const existingEnum = await runCypher(`
-      MATCH (s:NostrEvent {uuid: $from})-[:${REL.PROPERTY_ENUMERATION}]->(p:NostrEvent {uuid: $to})
+      MATCH (s:NostrEvent|TapestryNode {uuid: $from})-[:${REL.PROPERTY_ENUMERATION}]->(p:NostrEvent|TapestryNode {uuid: $to})
       RETURN count(*) AS cnt
     `, { from: enumer.supersetUuid, to: propUuid });
     if (existingEnum[0]?.cnt > 0) {
@@ -4121,7 +4202,7 @@ async function handleEnumerate(req, res) {
     await publishToStrfry(enumEvent);
     await importEventDirect(enumEvent, `39999:${enumEvent.pubkey}:${enumEvent.tags.find(t=>t[0]==='d')[1]}`);
     await writeCypher(`
-      MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+      MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
       MERGE (a)-[:${REL.PROPERTY_ENUMERATION}]->(b)
     `, { from: enumer.supersetUuid, to: propUuid });
 
@@ -4137,7 +4218,7 @@ async function handleEnumerate(req, res) {
 
     if (schemaRows.length > 0) {
       const existingProp = await runCypher(`
-        MATCH (p:NostrEvent {uuid: $from})-[:${REL.PROPERTY_MEMBERSHIP}]->(s:NostrEvent {uuid: $to})
+        MATCH (p:NostrEvent|TapestryNode {uuid: $from})-[:${REL.PROPERTY_MEMBERSHIP}]->(s:NostrEvent|TapestryNode {uuid: $to})
         RETURN count(*) AS cnt
       `, { from: propUuid, to: schemaRows[0].schemaUuid });
       if (existingProp[0]?.cnt === 0) {
@@ -4155,7 +4236,7 @@ async function handleEnumerate(req, res) {
         await publishToStrfry(propOfEvent);
         await importEventDirect(propOfEvent, `39999:${propOfEvent.pubkey}:${propOfEvent.tags.find(t=>t[0]==='d')[1]}`);
         await writeCypher(`
-          MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+          MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
           MERGE (a)-[:${REL.PROPERTY_MEMBERSHIP}]->(b)
         `, { from: propUuid, to: schemaRows[0].schemaUuid });
         schemaWired = true;
@@ -4207,7 +4288,7 @@ async function handleSetSlug(req, res) {
 
     // Get existing tags and rebuild with slug
     const tagRows = await runCypher(`
-      MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
       RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
       ORDER BY t.uuid
     `, { uuid: headerUuid });
@@ -4261,7 +4342,7 @@ async function handleCreateSet(req, res) {
     if (parentUuid) {
       // Direct UUID — verify it exists
       const rows = await runCypher(`
-        MATCH (n:NostrEvent {uuid: $uuid})
+        MATCH (n:NostrEvent|TapestryNode {uuid: $uuid})
         RETURN n.uuid AS uuid, n.name AS name
         LIMIT 1
       `, { uuid: parentUuid });
@@ -4289,7 +4370,7 @@ async function handleCreateSet(req, res) {
 
     // Check if this set already exists (idempotent for firmware reinstalls)
     const existingRows = await runCypher(
-      `MATCH (n:NostrEvent {uuid: $uuid}) RETURN n.uuid AS uuid LIMIT 1`,
+      `MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) RETURN n.uuid AS uuid LIMIT 1`,
       { uuid: setUuid }
     );
     if (existingRows.length > 0) {
@@ -4317,7 +4398,7 @@ async function handleCreateSet(req, res) {
     const setEvent = signAndFinalize({ kind: 39999, content: '', tags });
     await publishToStrfry(setEvent);
     await importEventDirect(setEvent, setUuid);
-    await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:Set`, { uuid: setUuid });
+    await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Set`, { uuid: setUuid });
 
     // Create IS_A_SUPERSET_OF relationship
     const relEvent = signAndFinalize({
@@ -4334,7 +4415,7 @@ async function handleCreateSet(req, res) {
     await publishToStrfry(relEvent);
     await importEventDirect(relEvent, `39999:${relEvent.pubkey}:${relEvent.tags.find(t=>t[0]==='d')[1]}`);
     await writeCypher(`
-      MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+      MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
       MERGE (a)-[:${REL.CLASS_THREAD_PROPAGATION}]->(b)
     `, { from: resolvedParentUuid, to: setUuid });
 
@@ -4388,7 +4469,7 @@ async function handleAddToSet(req, res) {
 
     // Check existing
     const existing = await runCypher(`
-      MATCH (s:NostrEvent {uuid: $from})-[:${REL.CLASS_THREAD_TERMINATION}]->(i:NostrEvent {uuid: $to})
+      MATCH (s:NostrEvent|TapestryNode {uuid: $from})-[:${REL.CLASS_THREAD_TERMINATION}]->(i:NostrEvent|TapestryNode {uuid: $to})
       RETURN count(*) AS cnt
     `, { from: s.uuid, to: item.uuid });
     if (existing[0]?.cnt > 0) return res.json({ success: false, error: `"${item.name}" is already in set "${s.name}"` });
@@ -4455,7 +4536,7 @@ async function handleAddToSet(req, res) {
     await publishToStrfry(relEvent);
     await importEventDirect(relEvent, `39999:${relEvent.pubkey}:${relEvent.tags.find(t=>t[0]==='d')[1]}`);
     await writeCypher(`
-      MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+      MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
       MERGE (a)-[:${REL.CLASS_THREAD_TERMINATION}]->(b)
     `, { from: s.uuid, to: item.uuid });
 
@@ -4499,7 +4580,7 @@ async function handleForkNode(req, res) {
 
     // Get all tags from the original
     const tagRows = await runCypher(`
-      MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
       RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
       ORDER BY t.uuid
     `, { uuid: node.uuid });
@@ -4570,7 +4651,7 @@ async function handleForkNode(req, res) {
       await publishToStrfry(relEvent);
       await importEventDirect(relEvent, `39999:${relEvent.pubkey}:${relEvent.tags.find(t=>t[0]==='d')[1]}`);
       await writeCypher(`
-        MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+        MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
         MERGE (a)-[:${r.relType}]->(b)
       `, { from: newFrom, to: newTo });
       swapped.push({ relType: r.relType, from: newFrom, to: newTo });
@@ -4590,7 +4671,7 @@ async function handleForkNode(req, res) {
     await publishToStrfry(provEvent);
     await importEventDirect(provEvent, `39999:${provEvent.pubkey}:${provEvent.tags.find(t=>t[0]==='d')[1]}`);
     await writeCypher(`
-      MATCH (a:NostrEvent {uuid: $from}), (b:NostrEvent {uuid: $to})
+      MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
       MERGE (a)-[:PROVIDED_THE_TEMPLATE_FOR]->(b)
     `, { from: node.uuid, to: forkedUuid });
 
@@ -4608,6 +4689,101 @@ async function handleForkNode(req, res) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// POST /api/normalize/set-b-tag
+//   Body: { uuid, target, marker? ('pointer' default | 'inherit'), note?, remove? }
+//   Adds, replaces, or removes a `b` tag on a replaceable event — the
+//   authoring surface for the shared-affiliation primitive (ADR 0034).
+//   The import pipeline already derives the edge (eventSync: explicit
+//   'inherit' -> INHERITS_FROM, anything else -> REFERENCES{source:'b-tag'});
+//   until now b tags were only written by the firmware-install and
+//   community-adoption flows, so there was no way to author "this node
+//   points, non-committally, at that node" directly. Mirrors
+//   handleSetJsonTag: rebuild tags from Neo4j, re-sign, republish, import.
+//   One b tag per (event, target); other b tags on the event are preserved.
+//   An optional note rides in the tag's 4th position (stored as value2).
+// ══════════════════════════════════════════════════════════════
+async function handleSetBTag(req, res) {
+  try {
+    // Owner gate (the in-file pattern): the event is signed with the TA key,
+    // so an authenticated non-owner must not be able to author through it.
+    const { isOwner } = require('../../middleware/auth');
+    if (!isOwner(req) && !req.localTrusted) {
+      return res.status(403).json({ success: false, error: 'Owner access required' });
+    }
+    const { uuid, target, marker, note, remove } = req.body || {};
+    if (!uuid) return res.status(400).json({ success: false, error: 'Missing uuid' });
+    if (!target) return res.status(400).json({ success: false, error: 'Missing target' });
+    const mk = marker || 'pointer';
+    if (mk === 'b-tag-deferred')
+      return res.status(400).json({ success: false, error: 'b-tag-deferred is a reserved sentinel' });
+
+    // Rebuild the event's tag list from the graph, dropping any existing
+    // b tag for this target (idempotent set / clean remove).
+    const tagRows = await runCypher(`
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+      RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
+      ORDER BY t.uuid
+    `, { uuid });
+    if (!tagRows.length) return res.json({ success: false, error: `Event "${uuid}" not found` });
+
+    // Graphs written by older import paths can hold exact-duplicate tag
+    // rows; dedupe so they are never signed into the rebuilt event.
+    const seen = new Set();
+    const uniqueRows = tagRows.filter(t => {
+      const k = JSON.stringify([t.type, t.value, t.value1, t.value2]);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    const newTags = uniqueRows
+      .filter(t => !(t.type === 'b' && t.value === target))
+      .map(t => {
+        const tag = [t.type, t.value];
+        if (t.value1) tag.push(t.value1);
+        if (t.value2) tag.push(t.value2);
+        return tag;
+      });
+    if (!remove) {
+      const b = ['b', target, mk];
+      if (note) b.push(String(note).slice(0, 500));
+      newTags.push(b);
+    }
+
+    const kind = uuid.startsWith('39998:') ? 39998 : 39999;
+    const evt = signAndFinalize({ kind, tags: newTags, content: '' });
+    await publishToStrfry(evt);
+
+    // Import with the canonical importer (eventSync.buildImportCypher), the
+    // same path firmware install uses when it seeds a pointer-b. It derives
+    // REFERENCES / INHERITS_FROM from the b tags itself, so this handler holds
+    // no edge logic of its own. First clear what the previous version of this
+    // event produced — its tag nodes, and the edges derived from its b tags —
+    // so the result is a pure function of the new event: removal needs no
+    // special case, and stale tags cannot accumulate.
+    await writeCypher(`
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+      DETACH DELETE t
+    `, { uuid });
+    await writeCypher(`
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[r:REFERENCES|INHERITS_FROM]->()
+      WHERE type(r) = 'INHERITS_FROM' OR r.source = 'b-tag'
+      DELETE r
+    `, { uuid });
+    await executeCypher(buildImportCypher(evt));
+
+    return res.json({
+      success: true,
+      message: `b tag (${mk}) ${remove ? 'removed' : 'set'}: ${uuid} -> ${target}`,
+      uuid,
+      target,
+    });
+  } catch (error) {
+    console.error('normalize/set-b-tag error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // POST /api/normalize/set-json-tag
 //   Body: { uuid, json? (object or string), remove? (bool) }
 //   Updates the json tag on a replaceable event.
@@ -4620,7 +4796,7 @@ async function handleSetJsonTag(req, res) {
 
     // Get existing tags
     const tagRows = await runCypher(`
-      MATCH (e:NostrEvent {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
+      MATCH (e:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag)
       RETURN t.type AS type, t.value AS value, t.value1 AS value1, t.value2 AS value2
       ORDER BY t.uuid
     `, { uuid });
@@ -4737,6 +4913,7 @@ async function ensureSignalConcept() {
   const existing = await resolveSignalConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: SIGNAL_CONCEPT_NAME,
     description: 'A dated, append-only record of the owner choosing one goal over another — who judged, when, and under which framing. Never edited; a changed mind is a new signal.',
   });
@@ -4768,9 +4945,9 @@ async function mintSignalElement({ headerUuid, supersetUuid, label, section }) {
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
   return { uuid: elemUuid, slug };
@@ -4907,6 +5084,7 @@ async function ensureGoalConcept() {
   const existing = await resolveGoalConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: GOAL_CONCEPT_NAME,
     description: 'A goal the owner captured in plain words — its name, statement, origin, capture date, its place in the decomposition, and (for viable leaves) the deliverable and boundary. Standing is derived from dated facts, never stored.',
   });
@@ -4925,15 +5103,15 @@ async function ensureGoalConcept() {
 async function fetchFamilyRecords(headerUuid, parseRow) {
   const [explicitRows, implicitRows] = await Promise.all([
     runCypher(`
-      MATCH (h:NostrEvent {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
-      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent)
+      MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})-[:${REL.CLASS_THREAD_INITIATION}]->(s:Superset)
+      MATCH (s)-[:${REL.CLASS_THREAD_PROPAGATION}*0..10]->(ss)-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
       RETURN e.uuid AS uuid, e.name AS name, e.created_at AS createdAt, json AS json
     `, { headerUuid }),
     runCypher(`
-      MATCH (e:NostrEvent)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
+      MATCH (e:NostrEvent|ListItem)-[:HAS_TAG]->(:NostrEventTag {type: 'z', value: $headerUuid})
       WHERE e.kind = 39999
       OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
       WITH DISTINCT e, head(collect(j.value)) AS json
@@ -4964,9 +5142,9 @@ async function mintRestoredGoal({ headerUuid, supersetUuid, name, section }) {
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: section.slug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: section.slug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
   return { uuid: elemUuid, slug: section.slug };
@@ -4988,9 +5166,9 @@ async function mintRestoredElement({ headerUuid, supersetUuid, familyKey, name, 
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: section.slug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug: section.slug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
   return { uuid: elemUuid, slug: section.slug };
@@ -5150,6 +5328,7 @@ async function ensureRestoreDrillConcept() {
   const existing = await resolveRestoreDrillConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: DRILL_CONCEPT_NAME,
     description: 'A dated, append-only record that a restore drill ran — which export was drilled, where, when, who performed it, and whether the restored content matched. Never edited; every drill is a new record.',
   });
@@ -5178,9 +5357,9 @@ async function mintRestoreDrillElement({ headerUuid, supersetUuid, label, sectio
   const elemUuid = `39999:${evt.pubkey}:${dTag}`;
   await publishToStrfry(evt);
   await importEventDirect(evt, elemUuid);
-  await writeCypher(`MATCH (n:NostrEvent {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
+  await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:ListItem, n.slug = $slug`, { uuid: elemUuid, slug });
   await writeCypher(`
-    MATCH (sup:NostrEvent {uuid: $supersetUuid}), (elem:NostrEvent {uuid: $elemUuid})
+    MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid}), (elem:NostrEvent|TapestryNode {uuid: $elemUuid})
     MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(elem)
   `, { supersetUuid, elemUuid });
   return { uuid: elemUuid, slug };
@@ -5281,6 +5460,7 @@ async function ensureAdoptionDispositionConcept() {
   const existing = await resolveAdoptionDispositionConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: ADOPTION_DISPOSITION_CONCEPT_NAME,
     description: 'A dated record of the owner declining (or re-queueing) a foreign shared concept nominated for adoption. Instance-private stance history — never published outward, never firmware-seeded.',
   });
@@ -5389,6 +5569,7 @@ async function ensureTrustedDictionarySnapshotConcept() {
   const existing = await resolveTrustedDictionarySnapshotConcept();
   if (!existing.error) return existing;
   await invokeNormalizeHandler(handleCreateConcept, {
+    overwrite: true, // only reached when the concept is absent or has no superset, so no items can be lost
     name: TRUSTED_DICTIONARY_SNAPSHOT_CONCEPT_NAME,
     description: 'A dated, attributed publication of the trusted dictionary — the concepts this instance\'s trust network demonstrably uses, with the parameters that derived them. Usage-derived; never a consensus signal.',
   });
@@ -5500,6 +5681,7 @@ async function registerNormalizeRoutes(app) {
   app.post('/api/normalize/add-to-set', handleAddToSet);
   app.post('/api/normalize/fork-node', handleForkNode);
   app.post('/api/normalize/set-json-tag', handleSetJsonTag);
+  app.post('/api/normalize/set-b-tag', handleSetBTag);
   app.post('/api/normalize/prune-superset-edges', handlePruneSupersetEdges);
   app.post('/api/normalize/apply-enumerations', handleApplyEnumerations);
   app.post('/api/normalize/wire-implicit-elements', handleWireImplicitElements);
@@ -5581,7 +5763,7 @@ async function handlePruneSupersetEdges(req, res) {
 
     // Find all direct connections from Superset
     const directRows = await runCypher(`
-      MATCH (sup:NostrEvent {uuid: $supersetUuid})-[:${neoRel}]->(target)
+      MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${neoRel}]->(target)
       RETURN target.uuid AS uuid, target.name AS name
     `, { supersetUuid });
 
@@ -5595,14 +5777,14 @@ async function handlePruneSupersetEdges(req, res) {
       let checkCypher;
       if (relType === 'HAS_ELEMENT') {
         checkCypher = `
-          MATCH p = (sup:NostrEvent {uuid: $supersetUuid})
+          MATCH p = (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})
                 -[:${REL.CLASS_THREAD_PROPAGATION}|${REL.CLASS_THREAD_TERMINATION}*2..12]->
-                (target:NostrEvent {uuid: $targetUuid})
+                (target:NostrEvent|TapestryNode {uuid: $targetUuid})
           RETURN count(p) AS cnt`;
       } else {
         checkCypher = `
-          MATCH (sup:NostrEvent {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}]->(mid)
-                -[:${REL.CLASS_THREAD_PROPAGATION}*1..10]->(target:NostrEvent {uuid: $targetUuid})
+          MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[:${REL.CLASS_THREAD_PROPAGATION}]->(mid)
+                -[:${REL.CLASS_THREAD_PROPAGATION}*1..10]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
           WHERE mid.uuid <> $targetUuid
           RETURN count(*) AS cnt`;
       }
@@ -5618,7 +5800,7 @@ async function handlePruneSupersetEdges(req, res) {
       if (cnt > 0) {
         // Prune
         await writeCypher(`
-          MATCH (sup:NostrEvent {uuid: $supersetUuid})-[r:${neoRel}]->(target:NostrEvent {uuid: $targetUuid})
+          MATCH (sup:NostrEvent|TapestryNode {uuid: $supersetUuid})-[r:${neoRel}]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
           DELETE r
         `, { supersetUuid, targetUuid: target.uuid });
         log.push(`    ✅ PRUNED`);
@@ -5689,7 +5871,7 @@ async function handleWireImplicitElements(req, res) {
 
       // Find all nodes with a z-tag pointing to this concept header
       const implicitNodes = await runCypher(`
-        MATCH (n:NostrEvent)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: $headerUuid})
+        MATCH (n:NostrEvent|ListItem)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z', value: $headerUuid})
         RETURN n.uuid AS uuid, n.name AS name
         ORDER BY n.name
       `, { headerUuid });
@@ -5716,7 +5898,7 @@ async function handleWireImplicitElements(req, res) {
         } else {
           // Wire HAS_ELEMENT from Superset → node
           await writeCypher(`
-            MATCH (sup:Superset {uuid: $supersetUuid}), (n:NostrEvent {uuid: $nodeUuid})
+            MATCH (sup:Superset {uuid: $supersetUuid}), (n:NostrEvent|TapestryNode {uuid: $nodeUuid})
             MERGE (sup)-[:${REL.CLASS_THREAD_TERMINATION}]->(n)
           `, { supersetUuid, nodeUuid: node.uuid });
           log.push(`  ✅ "${node.name}" — wired to Superset`);
@@ -5738,13 +5920,13 @@ async function handleWireImplicitElements(req, res) {
           const altPaths = await runCypher(`
             MATCH (sup:Superset {uuid: $supersetUuid})
                   -[:${REL.CLASS_THREAD_PROPAGATION}*1..10]->(childSet)
-                  -[:${REL.CLASS_THREAD_TERMINATION}]->(target:NostrEvent {uuid: $targetUuid})
+                  -[:${REL.CLASS_THREAD_TERMINATION}]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
             RETURN count(*) AS cnt
           `, { supersetUuid, targetUuid: target.uuid });
 
           if ((altPaths[0]?.cnt || 0) > 0) {
             await writeCypher(`
-              MATCH (sup:Superset {uuid: $supersetUuid})-[r:${REL.CLASS_THREAD_TERMINATION}]->(target:NostrEvent {uuid: $targetUuid})
+              MATCH (sup:Superset {uuid: $supersetUuid})-[r:${REL.CLASS_THREAD_TERMINATION}]->(target:NostrEvent|TapestryNode {uuid: $targetUuid})
               DELETE r
             `, { supersetUuid, targetUuid: target.uuid });
             log.push(`  🔄 "${target.name}" — pruned redundant edge`);
@@ -5806,7 +5988,7 @@ async function handleApplyEnumerations(req, res) {
       RETURN source.uuid AS sourceUuid, source.name AS sourceName,
              r.sourcePath AS sourcePath, r.destinationPath AS destinationPath,
              targetSchema.uuid AS schemaUuid, targetSchema.name AS schemaName,
-             targetHeader.name AS targetConcept
+             targetHeader.name AS targetConcept, targetHeader.tapestryKey AS targetKey
     `;
 
     const enumEdges = await runCypher(cypher, params);
@@ -5949,7 +6131,7 @@ async function handleApplyEnumerations(req, res) {
     }
 
     for (const edge of enumEdges) {
-      const { sourceUuid, sourceName, sourcePath, destinationPath, schemaUuid, schemaName, targetConcept } = edge;
+      const { sourceUuid, sourceName, sourcePath, destinationPath, schemaUuid, schemaName, targetConcept, targetKey } = edge;
       const path = destinationPath; // for schema navigation
       log.push(`\n── ${sourceName} → ${schemaName} ──`);
       log.push(`  source-path: ${sourcePath || '(slug fallback)'}, destination-path: ${destinationPath}`);
@@ -5958,9 +6140,11 @@ async function handleApplyEnumerations(req, res) {
       const enforceConditionals = shouldEnforceWordTypeConditionals(targetConcept, destinationPath);
       log.push(`  enforce-wordType-conditionals: ${enforceConditionals}`);
 
-      // 1. Collect enum values from each element's tapestryJSON
+      // 1. Collect enum values from each element's tapestryJSON. The source is found by its address, as every lookup by
+      // address is (ADR graph-operations-foundation/0003, Decision 9; graph-operations-foundation #8). The planner may
+      // start from the concept graph's HAS_ELEMENT edges instead, which it did for the old query too.
       const elements = await runCypher(`
-        MATCH (source { uuid: $sourceUuid })-[:IS_A_SUPERSET_OF*0..10]->(s)-[:HAS_ELEMENT]->(e)
+        MATCH (source:NostrEvent|TapestryNode { uuid: $sourceUuid })-[:IS_A_SUPERSET_OF*0..10]->(s)-[:HAS_ELEMENT]->(e)
         RETURN DISTINCT e.tapestryKey AS tapestryKey, e.name AS name
       `, { sourceUuid });
 
@@ -6099,8 +6283,11 @@ async function handleApplyEnumerations(req, res) {
       }
 
       try {
+        // Saved on the header this schema belongs to, named by its tapestryKey: another header with the concept's name
+        // must never take its place (graph-operations-foundation #10).
+        const named = typeof targetKey === 'string' && TAPESTRY_KEY.test(targetKey) ? { tapestryKey: targetKey } : {};
         const saveRes = await new Promise((resolve, reject) => {
-          const mockReq = { body: { concept: targetConcept, schema } };
+          const mockReq = { body: { concept: targetConcept, ...named, schema } };
           const mockRes = {
             json: (data) => resolve(data),
             status: () => ({ json: (data) => resolve(data) }),

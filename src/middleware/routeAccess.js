@@ -288,6 +288,7 @@ const ROUTE_ACCESS = Object.freeze({
     "The read backbone of public browsing (book negentropy-sync-access decision 3); the handler keeps write Cypher " +
     "on the owner's side (ADR 0001)."),
   'GET /api/network-status': PUBLIC_READ,
+  'GET /api/ready': PUBLIC_READ,
   'GET /api/nip05/verify': PUBLIC_READ,
   'POST /api/normalize/add-node-as-element': OWNER_ACTION,
   'POST /api/normalize/add-relationship': OWNER_ACTION,
@@ -321,6 +322,7 @@ const ROUTE_ACCESS = Object.freeze({
   'POST /api/normalize/restore-brain': OWNER_ACTION,
   'POST /api/normalize/save-element-json': OWNER_ACTION,
   'POST /api/normalize/save-schema': OWNER_ACTION,
+  'POST /api/normalize/set-b-tag': OWNER_ACTION,
   'POST /api/normalize/set-json-tag': OWNER_ACTION,
   'POST /api/normalize/set-slug': OWNER_ACTION,
   'POST /api/normalize/skeleton': OWNER_ACTION,
@@ -460,6 +462,9 @@ const ROUTE_ACCESS = Object.freeze({
   'GET /api/tapestry-key/offload-status': PUBLIC_READ,
   'GET /api/tapestry-key/resolve/:key': PUBLIC_READ,
   'GET /api/tapestry-key/status': PUBLIC_READ,
+  // The graph operations (ADR graph-operations-foundation/0001 Decision 3): the list here, and each operation's own
+  // entry generated from its declaration (spread at the end of this table).
+  'GET /api/tapestry/operations': OWNER_READ,
   'GET /api/task-analytics/analytics': PUBLIC_READ,
   'GET /api/task-analytics/performance': PUBLIC_READ,
   'GET /api/task-analytics/predictions': PUBLIC_READ,
@@ -495,6 +500,9 @@ const ROUTE_ACCESS = Object.freeze({
   'GET /api/validate-encoding': PUBLIC_READ,
   'GET /api/whitelist-preview-count': PUBLIC_READ,
   'GET /api/whitelist-stats': PUBLIC_READ,
+  // One exact entry per declared operation under /api/tapestry/, 'owner' or 'owner-only', never more open
+  // (ADR graph-operations-foundation/0001 Decision 3). Checked by the loop below like every other entry.
+  ...require('../operations/routeTable').routeAccessEntries(),
 });
 
 for (const [key, v] of Object.entries(ROUTE_ACCESS)) {

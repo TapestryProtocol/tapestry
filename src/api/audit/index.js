@@ -119,7 +119,7 @@ async function handleSkeletons(req, res) {
 async function handleOrphans(req, res) {
   try {
     const [brokenZ, noZ, empty] = await Promise.all([
-      runCypher(`MATCH (i:ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) WHERE NOT EXISTS { MATCH (parent:NostrEvent {uuid: z.value}) } OPTIONAL MATCH (i)-[:HAS_TAG]->(n:NostrEventTag) WHERE n.type = 'name' OR n.type = 'names' RETURN coalesce(n.value, '(unnamed)') AS item, i.uuid AS uuid, z.value AS brokenZTag ORDER BY item`),
+      runCypher(`MATCH (i:ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) WHERE NOT EXISTS { MATCH (parent:NostrEvent|TapestryNode {uuid: z.value}) } OPTIONAL MATCH (i)-[:HAS_TAG]->(n:NostrEventTag) WHERE n.type = 'name' OR n.type = 'names' RETURN coalesce(n.value, '(unnamed)') AS item, i.uuid AS uuid, z.value AS brokenZTag ORDER BY item`),
       runCypher(`MATCH (i:ListItem) WHERE NOT EXISTS { MATCH (i)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) } OPTIONAL MATCH (i)-[:HAS_TAG]->(n:NostrEventTag) WHERE n.type = 'name' OR n.type = 'names' RETURN coalesce(n.value, '(unnamed)') AS item, i.uuid AS uuid ORDER BY item`),
       runCypher(`MATCH (h:ListHeader)-[:HAS_TAG]->(t:NostrEventTag {type: 'names'}) WHERE NOT EXISTS { MATCH (item:ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) WHERE z.value = h.uuid } RETURN t.value AS concept, h.uuid AS uuid ORDER BY concept`),
     ]);
@@ -199,7 +199,7 @@ async function handleBios(req, res) {
 
     const rows = await runCypher(`
       UNWIND $concepts AS c
-      OPTIONAL MATCH (h:NostrEvent {uuid: c.uuid})
+      OPTIONAL MATCH (h:NostrEvent|TapestryNode {uuid: c.uuid})
       RETURN c.name AS concept, c.uuid AS uuid,
              h IS NOT NULL AS exists,
              CASE WHEN h IS NULL THEN false ELSE h:ConceptHeader END AS cth,
@@ -345,7 +345,7 @@ async function handleHealth(req, res) {
 
       // Orphans — counts only
       Promise.all([
-        runCypher(`MATCH (i:ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) WHERE NOT EXISTS { MATCH (parent:NostrEvent {uuid: z.value}) } RETURN count(i) AS count`),
+        runCypher(`MATCH (i:ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) WHERE NOT EXISTS { MATCH (parent:NostrEvent|TapestryNode {uuid: z.value}) } RETURN count(i) AS count`),
         runCypher(`MATCH (i:ListItem) WHERE NOT EXISTS { MATCH (i)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) } RETURN count(i) AS count`),
         runCypher(`MATCH (h:ListHeader)-[:HAS_TAG]->(t:NostrEventTag {type: 'names'}) WHERE NOT EXISTS { MATCH (item:ListItem)-[:HAS_TAG]->(z:NostrEventTag {type: 'z'}) WHERE z.value = h.uuid } RETURN count(h) AS count`),
       ]),
@@ -381,7 +381,7 @@ async function handleHealth(req, res) {
         const uuids = FIRMWARE_CONCEPTS.map(bc => ({ name: bc.name, uuid: firmwareConceptUuid(bc.slug) }));
         return runCypher(`
           UNWIND $concepts AS c
-          OPTIONAL MATCH (h:NostrEvent {uuid: c.uuid})
+          OPTIONAL MATCH (h:NostrEvent|TapestryNode {uuid: c.uuid})
           RETURN c.name AS concept, c.uuid AS uuid,
                  h IS NOT NULL AS exists,
                  CASE WHEN h IS NULL THEN false ELSE h:ConceptHeader END AS cth,
@@ -625,7 +625,7 @@ async function handleConcept(req, res) {
       // Batch fetch: for each node, get its JSON content and z-tags (concept UUIDs)
       const jsonRows = await runCypher(
         `UNWIND $uuids AS nodeUuid
-         MATCH (n:NostrEvent {uuid: nodeUuid})
+         MATCH (n:NostrEvent|TapestryNode {uuid: nodeUuid})
          OPTIONAL MATCH (n)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
          OPTIONAL MATCH (n)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z'})
          RETURN nodeUuid AS uuid, head(collect(DISTINCT jt.value)) AS jsonText, collect(DISTINCT zt.value) AS zTags`,
@@ -639,7 +639,7 @@ async function handleConcept(req, res) {
       if (zTags.length > 0) {
         const schemaRows = await runCypher(
           `UNWIND $zTags AS conceptUuid
-           MATCH (h:NostrEvent {uuid: conceptUuid})
+           MATCH (h:NostrEvent|TapestryNode {uuid: conceptUuid})
            OPTIONAL MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h)
            OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
            RETURN conceptUuid, head(collect(jt.value)) AS schemaJsonText`,
@@ -736,7 +736,7 @@ async function handleConcept(req, res) {
          MATCH (sup)<-[:IS_A_SUPERSET_OF*0..10]-(container)-[:HAS_ELEMENT]->(elem)
          OPTIONAL MATCH (elem)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
          OPTIONAL MATCH (elem)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z'})
-         OPTIONAL MATCH (parent:NostrEvent {uuid: zt.value})
+         OPTIONAL MATCH (parent:NostrEvent|TapestryNode {uuid: zt.value})
          RETURN DISTINCT elem.uuid AS uuid, elem.name AS name,
                 jt IS NOT NULL AS hasJson,
                 zt IS NULL AS missingZTag,

@@ -82,8 +82,10 @@ async function derive(uuid) {
      OPTIONAL MATCH (sup)-[:IS_A_SUPERSET_OF*0..5]->(n)
      RETURN collect(DISTINCT n.uuid) AS uuids`, { u: uuid });
   const containerUuids = (sets.uuids || []).filter(Boolean);
+  // Containers and elements may be event-less sets, which carry ListItem and not NostrEvent once event-less-nodes
+  // has run (graph-operations-foundation ADR 0003 Decision 9): the same labels the canonical rule now names.
   const els = await run1(
-    `MATCH (c:NostrEvent)-[:HAS_ELEMENT]->(e:NostrEvent)
+    `MATCH (c:NostrEvent|TapestryNode)-[:HAS_ELEMENT]->(e:NostrEvent|ListItem)
      WHERE c.uuid IN $ids RETURN count(DISTINCT e) AS c`, { ids: containerUuids });
   return { elementCount: els.c, setCount: containerUuids.length };
 }

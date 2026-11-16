@@ -18,7 +18,7 @@ export default function NewSet() {
   // Fetch all Sets/Supersets downstream from concept's Superset (same query as ConceptDag)
   const { data: setsData, loading: setsLoading } = useCypher(
     uuid ? `
-      MATCH (h:NostrEvent {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
       OPTIONAL MATCH path = (sup)-[:IS_A_SUPERSET_OF*0..10]->(s)
       WITH s, length(path) AS depth, labels(s) AS nodeLabels
       RETURN s.uuid AS uuid, s.name AS name, nodeLabels, depth

@@ -1,0 +1,72 @@
+# Epic: graph-operations-foundation
+
+**Created:** 2026-11-08
+**Status:** Active
+
+## Goal
+
+Build the base every graph operation stands on, so the operations of the graph-operations design
+([docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md), catalog
+[docs/GRAPH_OPERATIONS_CATALOG.md](../../docs/GRAPH_OPERATIONS_CATALOG.md)) can be built one at a time, by whoever needs
+each first. These are the first six tasks of Loom block A10: the operation declaration with its routes, command and
+`/docs` entry (A10.1); backup and restore (A10.2); a tapestryKey on every node (A10.3); the write path (A10.4); the field
+mapping (A10.5); and the external CLI with the agent's skill (A10.6).
+
+This epic realizes the Foundation and Backup bullets of book
+[engineering-team/audits/graph-operations-first-slice/book.md](../audits/graph-operations-first-slice/book.md).
+
+## Why it matters
+
+The owner wants agents to change a Tapestry's concept graph through operations that keep it valid, rather than through
+raw Cypher or routes that sign a nostr event before they write (BIBLE §30: an unpublished write is a private thought).
+Teammates will build different operations at the same time, so the base has to let each operation be added in files of
+its own, with nothing shared to edit.
+
+## Stories
+
+1. `stories/graph-operations-foundation/1-operation-declaration-and-lifecycle-status.md` — each operation declared once,
+   reached as a route under `/api/tapestry/`, a command inside the instance and a `/docs` entry, and listed for agents,
+   proved with `lifecycle status` (Loom A10.1).
+2. `stories/graph-operations-foundation/2-lifecycle-backup-and-restore.md` — a full backup of the instance (its graph,
+   its assistant's key and its admin list), restored on this instance or a fresh one, and moved between instances by
+   download and upload (Loom A10.2).
+3. `stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md` — `lifecycle migrate` gives every node a
+   tapestryKey and one shared label under a uniqueness rule, after a backup, and every node the instance makes gets
+   both when it is made; then `NostrEvent` comes off the nodes with no event (Loom A10.3).
+4. `stories/graph-operations-foundation/4-the-write-path.md` — writes that check the graph's rules, record who changed
+   what and never sign, proved with `graph add-relationship`, `remove-relationship` and `history` (Loom A10.4, taking in
+   A10.29 and A10.15).
+5. `stories/graph-operations-foundation/5-field-mapping.md` — a concept's field is carried on its elements' Neo4j nodes
+   once marked, the mark being an edge into a firmware concept for Neo4j properties, with `graph mark-field`,
+   `unmark-field` and `map-fields` (Loom A10.5).
+6. `stories/graph-operations-foundation/6-external-cli-and-agent-skill.md` — the external CLI, which signs in with an
+   admin agent's own key and calls every operation the instance lists, and the agent's skill (Loom A10.6).
+7. `stories/graph-operations-foundation/7-cache-counts-cover-only-the-nodes-they-count.md` — a bug from story 3: the
+   cache counts in `lifecycle status` and on the Dashboard cover only the nodes with an address, and asking for them no
+   longer reads every node's key. Story 3's run on staging found it, and Loom tracks it as A10.3.a, a subtask of A10.3.
+8. `stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.md` — a bug from story 3: a firmware install's
+   Pass 3 rebuilds only the nodes with an address, so it passes by the trust pipeline's card sets, and no rebuild reads
+   the whole graph. Story 5's firmware install on staging found it on 2026-11-15.
+9. `stories/graph-operations-foundation/9-tapestry-keys-within-transaction-memory.md` — a bug from story 3:
+   `tapestry-keys` finishes on a graph of millions of keyed nodes under any transaction limit, because its check for
+   keys held by more than one node no longer holds every key in Neo4j's memory at once. Story 8's scratch stack found it
+   on 2026-11-15, before the migration's first run on production.
+10. `stories/graph-operations-foundation/10-schema-save-finds-the-right-header.md` — a bug: saving a concept's schema
+   finds the header by name, so another author's header with the same name can take its place. The firmware install's
+   Pass 2 and apply-enumerations save on the instance's own header, and a save by name is never the database's choice.
+   Story 5's install on the owner's local instance found it on 2026-11-15, and story 8's review confirmed it.
+
+Each story was planned when its task was taken. The foundation's stories, and each story's first
+ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in
+different sessions.
+
+## Key facts / guardrails
+
+- **One declaration per operation, in files of its own** — so parallel builders never edit the same file.
+- **Routes live under `/api/tapestry/<group>/<operation>`** (D13); the command is `tapestry <group> <operation>`.
+- **Callers:** the owner and admins (agents' nostr keys); admins equal the owner unless the owner decides otherwise for
+  a route (ADR `security-auth-exposure/0005`, Decision 4). New reads stay behind sign-in until read visibility is
+  decided (catalog §10, question 1).
+- **Nothing here signs a nostr event** (D1).
+- **Live checks run on a scratch stack** (`scripts/scratch-stack.sh`), never on a shared or private instance.
+- **Loom tracks each story as its A10 task;** the story's pull request names the task id.

@@ -45,5 +45,106 @@ every `gh` command. These items remain:
   - Staging's first (run `40434357530`, 2026-10-27) logged the same repo.
   - Tags and magic-carpet have not deployed from it yet, so theirs is still unverified.
 
+**Seen again on 2026-11-11** (the repo moved to `TapestryProtocol/tapestry`; GitHub redirects `nousclawds4/tapestry`):
+- **Moved with it:** all four deploy branches, and the 15 `DEPLOY_*` secrets the workflows name (names read; not
+  whether the keys still log in, which the first run of each deploy shows).
+- **Did not move:** the GHCR images stay under `ghcr.io/nousclawds4/`. The publish workflow and the launcher now name
+  `ghcr.io/tapestryprotocol/`. New packages start private, so an org owner makes both Public after the first publish
+  and reruns the job (`deploy/RUNBOOK.md`, Handover 3).
+- **Still open:**
+  - Item 1 holds: the new repo has no rulesets, and an org owner has to create them (admin). Their definitions are now in `.github/rulesets/` (OPERATIONS §4), with the commands.
+  - The droplets' `origin` still names the old address, which redirects. Set it to the new one when convenient.
+  - Loom's `config/repos.json` and the roadmap's `repo:` lines still name the old repo.
+  - Item 3 holds: the public pointers still name the old repo.
+  - OPERATIONS §9.1 describes a remote layout that a checkout cloned from ngit does not have (there GitHub is the
+    `github` remote, and `origin` is ngit).
+  - Never create a new `nousclawds4/tapestry`: it would end the redirect.
+
+**Seen again on 2026-11-14** (the merge of TapestryProtocol/tapestry#55 into `staging`):
+- **Staging's `origin` still names the old address.** The deploy run for the merge (run `43606611349`) logged
+  "From https://github.com/nousclawds4/tapestry" and "Updating fef86880..66240a92". Staging is the only server whose
+  deploy log has been read since the move.
+- **The old address still leads to this repo.** Read through the API the same day, `nousclawds4/tapestry` answered as
+  `TapestryProtocol/tapestry` (repository id 1430501166).
+- **What GitHub says about a transferred repo's old name** (its docs page "Transferring a repository", read the same
+  day):
+  - A new repository or fork created at the old location deletes the redirect for good. That is the warning that ends
+    the list above.
+  - GitHub retires the old owner and name for good, so that nothing can be created there, when the repo had "more
+    than 100 clones" in the week before the transfer.
+  - It recommends pointing existing clones at the new address, with `git remote set-url`.
+- **The clones GitHub counted for this repo, by day** (traffic API, read 2026-11-14). The API keeps 14 days, so the
+  days before the move are gone from it by 2026-11-25:
+  - Oct 31: 92 · Nov 1: 7 · Nov 2: 85 · Nov 3: 47 · Nov 4: 78 · Nov 5: 78 · Nov 6: 114
+  - Nov 7: 84 · Nov 8: 170 · Nov 9: 103 · Nov 10: 128 · Nov 11: 26 · Nov 12: 31 · Nov 13: 57
+
+  Any seven days in a row before 2026-11-11 hold between 493 and 755 clones.
+- **What the counts show, and what they don't.** By GitHub's rule the old name was retired at the move, so a
+  repository cannot be created there. Nothing reads that state back. The only test is to try to create one, which
+  stays forbidden: if the name were not retired, the try itself would end the redirect.
+- **Still open:** set each server's `origin` to the new address, in `/opt/tapestry`:
+  `git remote set-url origin https://github.com/TapestryProtocol/tapestry.git`. Until then a server follows whatever
+  the old address leads to. **Owner action,** on each of the four servers that deploy by `git pull`.
+
+**Seen again on 2026-11-14, later the same day** (the merges of TapestryProtocol/tapestry#58, #59 and #60 into `main`,
+`feat/tags` and `feature-magic-carpet`):
+- **All four servers pull from the old address.** After staging, the other three each logged
+  "From https://github.com/nousclawds4/tapestry" in the deploy run for its merge:
+  - production, run `43625005407` ("Updating 59d0e7a6..09e4a6c9");
+  - tags, run `43628534280` ("5406f4fe..25d39636  feat/tags");
+  - magic carpet, run `43627352495` ("Updating 08376328..d10f74aa").
+
+  So staging is no longer the only server whose deploy log has been read since the move.
+- **Still open,** as above: set each server's `origin` to the new address. A server's next deploy log shows whether it
+  was done.
+
+**Seen again on 2026-11-14, in the evening** (the owner's work on the four servers, and a review of their login
+history):
+- **The deploy keys the old repo held no longer open any of the four servers.** Item 2 left open whether those keys
+  still log in. On 2026-11-14 the owner removed from each server's `authorized_keys` every deploy key that predated the
+  first move:
+  - Production and tags each lost the key made on the server itself. Each already had a newer deploy key: production's
+    made that day, tags' on 2026-10-23.
+  - Staging and magic carpet each got a new key pair first, proven by a re-run of its deploy (staging run
+    `43639662678`, attempt 2; magic carpet run `43627352495`, attempt 2). Each then lost its April key.
+
+  The old repo's Actions and its secrets are as they were. Disabling and removing them is still item 2's owner action,
+  and its other secrets are untouched by this.
+- **Every key login since 2026-10-11 is accounted for.** The four servers' `auth.log` files go back to that date. They
+  hold 436 accepted key logins, all as root:
+  - 246 came from addresses in GitHub's published runner ranges. Each used a deploy key, and each falls inside the time
+    of a deploy run in this repo or the old one.
+  - 182 came from the owner's own address, with the admin key or a deploy key file. Most are from 2026-10-23, the day
+    of the first move.
+  - 8 used one-time keys from DigitalOcean's addresses, as its web console makes them. Three were the owner's
+    sessions of 2026-11-14. The other five are of the same kind and are not confirmed one by one: three on 2026-10-23,
+    and one each on 2026-11-08 and 2026-11-13.
+
+  None came from anywhere else. No server accepted a login by password in that time, and password login is off on all
+  four (`sshd -T`).
+- **One personal key removed.** Staging held a personal key that no longer belonged there. It had not logged in since
+  2026-10-11, and the owner removed it.
+- **`origin`, set on all four.** The owner set it on 2026-11-14. Deploy logs since then show the new address on staging
+  (run `43633449263`) and magic carpet (run `43627352495`, attempt 2). Production and tags have not deployed since.
+- **Limits of the review.** It covers key logins from 2026-10-11 on, read from the servers' own logs.
+
+**Seen again on 2026-11-15** (the fifth server: the `ninja` box, which the image-publishing workflow logs in to):
+- **The `ninja` box pulled from the old address too.** The four servers above are not the only ones that deploy by
+  `git pull`: the workflow's last step pulls on the `ninja` box before it rolls the brains. A re-run of the newest
+  image-publishing run (run `43627357452`, attempt 2) logged "From https://github.com/nousclawds4/tapestry" and
+  "Updating 491158e9..e53e5474". The owner set the box's `origin` to the new address the same day, and the command
+  printed it back. No roll has run since, so no log shows the new address in use yet.
+- **The box's first deploy key is off it.** That key was made when the box was set up, on 2026-11-04, and its private
+  half sat in a repository-level secret until 2026-11-15. The box got a new key pair first, proven by that re-run. The
+  owner then deleted the repository-level secret and removed the old key from the box's `authorized_keys`. A listing
+  before and after shows one line fewer. Of the deploy keys, only the new one is left on the box.
+- **No deploy secret is left at repository level.** Read through the API on 2026-11-15: the repository holds no Actions
+  secret of its own, and the organization shares none with it. All 15 `DEPLOY_*` secrets are in the five environments,
+  three in each, and each environment allows only its deploy branch or branches (OPERATIONS §18.3).
+- **What a later review of that box's logins should expect.** The owner did this from his own machine, logged in with
+  the new deploy key, since the box accepts no other key of his. So the box's log for 2026-11-15 holds deploy-key
+  logins from an address outside GitHub's runner ranges.
+- **Limits.** The box's login history has not been read. The review of 2026-11-14 covered the other four servers only.
+
 **Pointer:** `.claude/skills/cycle-staging/SKILL.md` ("The old repo"); OPERATIONS §9.1;
 `engineering-team/reviews/harness-self-improvement/skills-repo-nousclawds4-2026-10-28.md`.

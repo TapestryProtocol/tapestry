@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-09-12
 **Story:** `engineering-team/stories/node-primitives/1-event-less-create-set.md`
+**Amended by:** `graph-operations-foundation/0003` (2026-11-13), Decision 9 — add-subset makes its set as `(s:TapestryNode {uuid}) ON CREATE SET s:ListItem:Set`, with a tapestryKey and without `NostrEvent` (which now means "came from a nostr event"); its checks find nodes by `NostrEvent|TapestryNode`, and its tag nodes get keys. `lifecycle migrate --migration event-less-nodes` takes `NostrEvent` off the sets it made before.
 
 ## Context
 

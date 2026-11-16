@@ -54,7 +54,7 @@ export default function PlacementDialog({
   // set-candidates in intoSet mode). Same DAG walk as NewSet.jsx/ConceptDag.jsx.
   const { data: setsData } = useCypher(
     open && conceptUuid ? `
-      MATCH (h:NostrEvent {uuid: '${conceptUuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: '${conceptUuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
       OPTIONAL MATCH path = (sup)-[:IS_A_SUPERSET_OF*0..10]->(s)
       WITH s, length(path) AS depth, labels(s) AS nodeLabels
       RETURN s.uuid AS uuid, s.name AS name, nodeLabels, depth
@@ -65,7 +65,7 @@ export default function PlacementDialog({
   // Elements of the concept (node candidates, intoSet mode only).
   const { data: elementsData } = useCypher(
     open && intoSet && conceptUuid ? `
-      MATCH (h:NostrEvent {uuid: '${conceptUuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
+      MATCH (h:NostrEvent|TapestryNode {uuid: '${conceptUuid}'})-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
       MATCH (sup)-[:IS_A_SUPERSET_OF*0..10]->(ss)-[:HAS_ELEMENT]->(elem)
       WITH DISTINCT elem
       RETURN elem.uuid AS uuid, elem.name AS name, labels(elem) AS nodeLabels
@@ -80,8 +80,8 @@ export default function PlacementDialog({
   const { data: exclusionData } = useCypher(
     open && anchorUuid ? (
       intoSet
-        ? `MATCH (x)-[:IS_A_SUPERSET_OF*0..10]->(s:NostrEvent {uuid: '${anchorUuid}'}) RETURN x.uuid AS uuid`
-        : `MATCH (n:NostrEvent {uuid: '${anchorUuid}'})-[:IS_A_SUPERSET_OF*0..10]->(d) RETURN d.uuid AS uuid`
+        ? `MATCH (x)-[:IS_A_SUPERSET_OF*0..10]->(s:NostrEvent|TapestryNode {uuid: '${anchorUuid}'}) RETURN x.uuid AS uuid`
+        : `MATCH (n:NostrEvent|TapestryNode {uuid: '${anchorUuid}'})-[:IS_A_SUPERSET_OF*0..10]->(d) RETURN d.uuid AS uuid`
     ) : null
   );
 
@@ -89,7 +89,7 @@ export default function PlacementDialog({
   // `source`): offered as an optional "move from" choice.
   const { data: currentPlacements } = useCypher(
     open && !intoSet && !source && fixedNode?.uuid ? `
-      MATCH (p)-[r:HAS_ELEMENT|IS_A_SUPERSET_OF]->(e:NostrEvent {uuid: '${fixedNode.uuid}'})
+      MATCH (p)-[r:HAS_ELEMENT|IS_A_SUPERSET_OF]->(e:NostrEvent|TapestryNode {uuid: '${fixedNode.uuid}'})
       RETURN p.uuid AS uuid, p.name AS name, type(r) AS relType
       ORDER BY p.name
     ` : null

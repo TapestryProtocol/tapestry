@@ -37,7 +37,7 @@ export default function ElementDetail() {
 
   // Fetch the element node
   const { data: elemData, loading: elemLoading, refetch: refetchElem } = useCypher(`
-    MATCH (e:NostrEvent {uuid: '${elemUuid}'})
+    MATCH (e:NostrEvent|TapestryNode {uuid: '${elemUuid}'})
     OPTIONAL MATCH (e)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
     OPTIONAL MATCH (e)-[:HAS_TAG]->(t:NostrEventTag)
     WITH e, head(collect(DISTINCT j.value)) AS json,
@@ -49,7 +49,7 @@ export default function ElementDetail() {
 
   // Fetch the concept's JSON Schema
   const { data: schemaData } = useCypher(`
-    MATCH (h:NostrEvent {uuid: '${conceptUuid}'})
+    MATCH (h:NostrEvent|TapestryNode {uuid: '${conceptUuid}'})
     OPTIONAL MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h)
     OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
     RETURN head(collect(jt.value)) AS schemaJson
@@ -57,7 +57,7 @@ export default function ElementDetail() {
 
   // Direct parent placements of this node across BOTH placement kinds (AC3).
   const { data: parents, refetch: refetchParents } = useCypher(`
-    MATCH (p)-[r:HAS_ELEMENT|IS_A_SUPERSET_OF]->(e:NostrEvent {uuid: '${elemUuid}'})
+    MATCH (p)-[r:HAS_ELEMENT|IS_A_SUPERSET_OF]->(e:NostrEvent|TapestryNode {uuid: '${elemUuid}'})
     RETURN p.uuid AS uuid, p.name AS name, labels(p) AS nodeLabels, type(r) AS relType
     ORDER BY p.name
   `);

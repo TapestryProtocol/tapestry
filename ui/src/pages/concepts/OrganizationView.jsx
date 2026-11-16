@@ -71,7 +71,7 @@ export default function OrganizationView({ uuid, conceptName }) {
   // Get all nodes reachable via class thread paths from the header
   const { data: threadData, loading: threadLoading, error: threadError } = useCypher(
     uuid ? `
-      MATCH (h:NostrEvent {uuid: '${uuid}'})
+      MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})
       OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(sup:Superset)
       WITH h, sup
       OPTIONAL MATCH path = (sup)-[:IS_A_SUPERSET_OF|HAS_ELEMENT*1..10]->(n)

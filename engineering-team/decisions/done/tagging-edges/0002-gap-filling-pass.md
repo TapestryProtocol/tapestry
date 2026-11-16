@@ -10,6 +10,10 @@ residuals, owner decision 2, the pre-image line, `scanStrict`'s contract, C16, a
 route's answers for this pass.
 **Amended (2026-11-07):** by `tagging-edges/0007` — the confirm route runs as one controller step, refuses a second
 confirmation and an unrecordable one, and writes no `mintedBy`; C12's public confirmation is an allowlist.
+**Amended (2026-11-13):** by `graph-operations-foundation/0003` Decision 8 — D6-B's people `MERGE` is followed by
+`keyNode(x)`, the label `TapestryNode` and a `tapestryKey` where either is missing. Until `lifecycle migrate` has run,
+that changes an existing person without a key, so the pass's transactions take write locks on them; afterwards it
+writes nothing. SWR15 allows that fragment and nothing else.
 
 ## Context
 

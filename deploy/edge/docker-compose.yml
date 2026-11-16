@@ -1,0 +1,44 @@
+# Caddy and the launcher. Caddy is the only thing that touches a brain's network; the launcher is the only thing that
+# holds the Docker socket, and it listens on this private network alone.
+name: edge
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: edge-caddy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      - BASE_DOMAIN=${BASE_DOMAIN:-tapestry.ninja}
+      - CADDY_GLOBAL_EXTRA=${CADDY_GLOBAL_EXTRA:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge]
+    mem_limit: 128m
+    restart: unless-stopped
+
+  launcher:
+    build:
+      context: ..
+      dockerfile: launcher/Dockerfile
+    container_name: edge-launcher
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${BRAINS_DIR:-/opt/brains}:/opt/brains
+      - ${LAUNCHER_DIR:-/opt/launcher}:/opt/launcher
+    networks: [edge]
+    mem_limit: 256m
+    # Not unless-stopped: `docker kill` with any signal marks a container as manually stopped, and it would then stay down
+    # after a reboot. Brains stop answering without the launcher, since Caddy asks it before loading their certificates.
+    restart: always
+
+networks:
+  edge:
+    name: edge
+
+volumes:
+  caddy-data:
+  caddy-config:

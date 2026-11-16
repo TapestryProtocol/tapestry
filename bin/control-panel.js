@@ -311,10 +311,11 @@ app.get('/:filename.html', (req, res) => {
     res.redirect(302, `/legacy/${req.params.filename}.html${qs}`);
 });
 
-// Swagger UI — serve OpenAPI docs at /docs (before auth so docs are public)
+// Swagger UI — serve OpenAPI docs at /docs (before auth so docs are public). The document is the YAML plus each graph
+// operation's entry, made from its declaration (ADR graph-operations-foundation/0001 Decision 6).
 const swaggerUi = require('swagger-ui-express');
 const yaml = require('js-yaml');
-const openapiSpec = yaml.load(fs.readFileSync(path.join(__dirname, '../src/api/openapi.yaml'), 'utf8'));
+const openapiSpec = require('../src/operations/openapi').withOperationDocs(yaml.load(fs.readFileSync(path.join(__dirname, '../src/api/openapi.yaml'), 'utf8')));
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, {
   customSiteTitle: 'Tapestry API Docs',
 }));
@@ -350,6 +351,24 @@ app.use(authMiddleware);
   // The one-per-tagging rule (tagging-edges #2, ADR tagging-edges/0002 D12, AC-6), in place from deploy with no owner
   // step. Not awaited, and it never rejects: it retries while Neo4j starts or its password is still being set.
   require('../src/pipeline/tagging-edges/graph').ensureTagsConstraintOnBoot({
+    runWrite: (cypher, params) => require('../src/lib/neo4j-driver').writeCypher(cypher, params),
+    runRead: (cypher, params) => require('../src/lib/neo4j-driver').runCypher(cypher, params),
+    log: (line) => console.log(line),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+
+  // The index on TapestryNode.uuid, so lookups by address have one from the deploy on, before lifecycle migrate runs
+  // (graph-operations-foundation ADR 0003 Amendment 1). Not awaited, and it never rejects; it makes no rule and no data.
+  require('../src/lib/tapestry-node-index').ensureUuidIndexOnBoot({
+    runWrite: (cypher, params) => require('../src/lib/neo4j-driver').writeCypher(cypher, params),
+    runRead: (cypher, params) => require('../src/lib/neo4j-driver').runCypher(cypher, params),
+    log: (line) => console.log(line),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+
+  // The change entries' indexes, which graph history reads by (graph-operations-foundation ADR 0004 Decision 5). Made
+  // as the one above is: not awaited, never rejecting, and changing no data.
+  require('../src/lib/tapestry-node-index').ensureChangeIndexesOnBoot({
     runWrite: (cypher, params) => require('../src/lib/neo4j-driver').writeCypher(cypher, params),
     runRead: (cypher, params) => require('../src/lib/neo4j-driver').runCypher(cypher, params),
     log: (line) => console.log(line),

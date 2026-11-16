@@ -217,6 +217,7 @@ test('T4: rendering the template via render-conf-template.js with a fixture env 
     BRAINSTORM_NODE_BIN: '/usr/bin/node',
     DOMAIN_NAME: 'test.example.com',
     RELAY_URL: 'wss://test.example.com',
+    NEO4J_BROWSER_URL: 'http://test.example.com:7474',
     NEO4J_PASSWORD: 'test-neo4j-pw',
     OWNER_PUBKEY: 'a'.repeat(64),
     OWNER_NPUB: 'npub1testnpub',
@@ -229,8 +230,8 @@ test('T4: rendering the template via render-conf-template.js with a fixture env 
     result.status === 0,
     'render-conf-template.js exited with status ' + result.status + ' (stderr: ' +
       (result.stderr || '<empty>') + ') under the fixture env (ADR 0014 §Byte-equivalence verification). ' +
-      'The renderer must successfully render the backfilled template against the 9 fixture variables ' +
-      '(BRAINSTORM_MODULE_BASE_DIR, BRAINSTORM_NODE_BIN, DOMAIN_NAME, RELAY_URL, NEO4J_PASSWORD, ' +
+      'The renderer must successfully render the backfilled template against the 10 fixture variables ' +
+      '(BRAINSTORM_MODULE_BASE_DIR, BRAINSTORM_NODE_BIN, DOMAIN_NAME, RELAY_URL, NEO4J_BROWSER_URL, NEO4J_PASSWORD, ' +
       'OWNER_PUBKEY, OWNER_NPUB, ADMIN_PUBKEYS, SESSION_SECRET). Common failure modes: (a) template ' +
       'references a ${VAR} the fixture does not set — fix by listing it above or removing it from the ' +
       'template; (b) renderer file missing or unparseable — T1 must pass first.'

@@ -9,8 +9,11 @@
  *   registered — what the server registers under /api/: the admin-action sweep's router walk (test/helpers/routeWalk.js)
  *                in a CHILD PROCESS (register(app) has side effects the gate must not see), plus any /api/ route the
  *                entrypoint bin/control-panel.js registers itself, found by a scan of its source (none today);
- *   documented — the method entries under `paths:` in src/api/openapi.yaml, read with js-yaml, the reader the server
- *                uses to serve /docs, so a path key in quotes counts like any other;
+ *   documented — the method entries under `paths:` in the document the server serves at /docs: src/api/openapi.yaml,
+ *                read with js-yaml (the reader the server uses, so a path key in quotes counts like any other), plus
+ *                the entries the operations module generates from each operation's declaration
+ *                (withOperationDocs in src/operations/openapi.js; re-aimed by graph-operations-foundation #1,
+ *                ADR graph-operations-foundation/0001 Decision 6);
  *   gaps       — test/fixtures/openapi-known-gaps.json, one "METHOD /path" string per route registered but not yet
  *                documented. It can only shrink: GAP_CEILING below is lowered when a story documents an area, and
  *                never raised.
@@ -28,6 +31,8 @@
  *   C4 — every documented method and path is registered.                                                    [AC2 c]
  *   C5 — every gap-list line names a registered route, and none is there twice.                             [AC2 d]
  *   C6 — the gap list holds at most GAP_CEILING lines.                                                     [AC3]
+ *   V1 — the served document keeps every entry of the YAML and adds the operations' generated entries, and
+ *        the gap list names none of them (graph-operations-foundation #1, AC4).
  *   D1 — each rule, on made-up sets: it names the offending route, and stops once the cause is gone.        [AC2]
  *   D2 — the suite itself, run in a throwaway copy of the tree: the unchanged copy passes; with a route added
  *        to src/api/index.js and no entry, and a documented route's line put on the gap list, it exits
@@ -45,6 +50,7 @@ const yaml = require('js-yaml');
 
 const ROOT = path.resolve(__dirname, '..');
 const OPENAPI = path.join(ROOT, 'src/api/openapi.yaml');
+const OPERATIONS_DOCS = path.join(ROOT, 'src/operations/openapi.js');
 const GAPS = path.join(ROOT, 'test/fixtures/openapi-known-gaps.json');
 const ENTRYPOINT = path.join(ROOT, 'bin/control-panel.js');
 const WALKER = path.join(ROOT, 'test/helpers/routeWalk.js');
@@ -87,15 +93,31 @@ function keyed(pairs) {
   return m;
 }
 
-/** The documented [method, path] pairs of an OpenAPI document's text. Throws if the YAML doesn't load. */
-function documentedPairs(text) {
-  const doc = yaml.load(text);
+/** The documented [method, path] pairs of a loaded OpenAPI document. */
+function pairsOf(doc) {
   const out = [];
   for (const [p, item] of Object.entries((doc && doc.paths) || {})) {
     for (const m of METHODS) if (item && item[m]) out.push([m.toUpperCase(), p]);
   }
   return out;
 }
+
+/** The documented [method, path] pairs of an OpenAPI document's text. Throws if the YAML doesn't load. */
+function documentedPairs(text) {
+  return pairsOf(yaml.load(text));
+}
+
+/**
+ * The document the server serves at /docs for this YAML text: the YAML plus the entries the operations module
+ * generates from each declaration (bin/control-panel.js serves withOperationDocs(yaml.load(…)); ADR
+ * graph-operations-foundation/0001 Decision 6). Throws the right failing reason while the module is missing.
+ */
+function servedDocument(text) {
+  assert(fs.existsSync(OPERATIONS_DOCS),
+    'src/operations/openapi.js does not exist yet: the served document is the YAML plus the operations\' generated entries (ADR graph-operations-foundation/0001 Decision 6)');
+  return require(OPERATIONS_DOCS).withOperationDocs(yaml.load(text));
+}
+const servedPairs = (text) => pairsOf(servedDocument(text));
 
 /** "METHOD /path" lines → [method, path] pairs. */
 const linePairs = (lines) => lines.map((l) => { const sp = l.indexOf(' '); return [l.slice(0, sp), l.slice(sp + 1)]; });
@@ -178,7 +200,7 @@ function gapLines() {
 function current() {
   return {
     registered: registeredPairs(),
-    documented: documentedPairs(fs.readFileSync(OPENAPI, 'utf8')),
+    documented: servedPairs(fs.readFileSync(OPENAPI, 'utf8')),
     gaps: gapLines(),
   };
 }
@@ -244,7 +266,7 @@ test('G1: the gap list exists and holds one "METHOD /api/…" string per line', 
 test('C2: every registered /api/ route has an entry in the document or a line on the gap list (AC2 a)', () => {
   const p = findProblems(current());
   assert(p.undocumented.length === 0,
-    `${p.undocumented.length} registered route(s) with no entry in src/api/openapi.yaml and no line on the gap list:${list(p.undocumented)}`);
+    `${p.undocumented.length} registered route(s) with no entry in the served document (src/api/openapi.yaml plus the operations' entries) and no line on the gap list:${list(p.undocumented)}`);
 });
 
 test('C3: no gap-list line names a documented route — take it off the list (AC2 b)', () => {
@@ -254,7 +276,7 @@ test('C3: no gap-list line names a documented route — take it off the list (AC
 });
 
 test('C4: every method and path the document lists is registered (AC2 c)', () => {
-  const p = findProblems({ registered: registeredPairs(), documented: documentedPairs(fs.readFileSync(OPENAPI, 'utf8')), gaps: [] });
+  const p = findProblems({ registered: registeredPairs(), documented: servedPairs(fs.readFileSync(OPENAPI, 'utf8')), gaps: [] });
   assert(p.documentedNotRegistered.length === 0,
     `documented method(s) and path(s) the server doesn't register:${list(p.documentedNotRegistered)}`);
 });
@@ -269,6 +291,18 @@ test(`C6: the gap list holds at most ${GAP_CEILING} lines — it only shrinks`, 
   const lines = gapLines();
   assert(lines.length <= GAP_CEILING,
     `the gap list holds ${lines.length} lines; the ceiling is ${GAP_CEILING}. Document the new route instead of listing it.`);
+});
+
+test('V1: the served document keeps every entry of the YAML and adds the operations\' entries, and the gap list names none of them', () => {
+  const text = fs.readFileSync(OPENAPI, 'utf8');
+  const served = new Set(servedPairs(text).map(([m, p]) => keyOf(m, p)));
+  const lost = documentedPairs(text).filter(([m, p]) => !served.has(keyOf(m, p))).map(([m, p]) => `${m} ${p}`);
+  assert(lost.length === 0, `the served document must keep every YAML entry; it lost:${list(lost)}`);
+  for (const p of ['/api/tapestry/lifecycle/status', '/api/tapestry/operations']) {
+    assert(served.has(keyOf('GET', p)), `the served document must document GET ${p}, generated from its declaration`);
+  }
+  const listed = gapLines().filter((l) => /^[A-Z]+ \/api\/tapestry\//.test(l));
+  assert(listed.length === 0, `the gap list must name no /api/tapestry/ route — each is documented from its declaration:${list(listed)}`);
 });
 
 test('D1: each rule names the offending route on made-up sets, and stops once the cause is gone', () => {
@@ -368,4 +402,4 @@ async function run() {
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
 
-module.exports = { run, findProblems, documentedPairs, scanEntrypoint, keyOf, GAP_CEILING };
+module.exports = { run, findProblems, documentedPairs, servedDocument, scanEntrypoint, keyOf, GAP_CEILING };

@@ -37,6 +37,8 @@ function sizingBlock() {
 }
 
 const NO_OVERRIDE = { BRAINSTORM_NEO4J_HEAP_MB: '', BRAINSTORM_NEO4J_CACHE_MB: '', BRAINSTORM_NEO4J_TX_MAX_MB: '' };
+// The machine running the tests may sit in a cgroup of its own. Every run reads these fixture paths instead.
+const NO_CGROUP = { CGROUP_V2_MEMORY_MAX: '/nonexistent/memory.max', CGROUP_V1_MEMORY_LIMIT: '/nonexistent/memory.limit_in_bytes' };
 
 /** Run the real block with stubbed system probes and the given env.
  *  The base env NEUTRALIZES ambient BRAINSTORM_NEO4J_* (empty ≡ unset by the
@@ -54,7 +56,7 @@ function runSizing({ memTotalKb, env = {} }) {
   ].join('\n');
   const out = cp.execFileSync('bash', ['-c', script], {
     encoding: 'utf8',
-    env: { ...process.env, ...NO_OVERRIDE, ...env },
+    env: { ...process.env, ...NO_OVERRIDE, ...NO_CGROUP, ...env },
     timeout: 15000,
   });
   const m = out.match(/RESULT (\d+) (\d+) (\d+)/);
@@ -147,6 +149,58 @@ test('S3: the written config block itself is untouched (five exact lines)', () =
   ]) {
     assert(src.includes(line), `AC-1: config writer line must stay byte-identical: ${line}`);
   }
+});
+
+/* ── C: a container's memory limit (brains-launcher #1) ── */
+
+const os = require('os');
+function cgroupFile(content) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cgroup-'));
+  const file = path.join(dir, 'limit');
+  fs.writeFileSync(file, content);
+  return file;
+}
+const GIB = 1024 * 1024 * 1024;
+
+test('C1: a cgroup v2 limit under the host total sizes from the limit, not the host', () => {
+  const r = runSizing({ memTotalKb: 32866228, env: { CGROUP_V2_MEMORY_MAX: cgroupFile(`${16 * GIB}\n`) } });
+  assert(r.heap === 3753 && r.cache === 3753 && r.tx === 1876, `16 GiB limit: got ${JSON.stringify(r)}`);
+});
+
+test('C2: a cgroup v2 file reading "max" means no limit, and the formula stands', () => {
+  const r = runSizing({ memTotalKb: 32866228, env: { CGROUP_V2_MEMORY_MAX: cgroupFile('max\n') } });
+  assert(r.heap === 8038 && r.cache === 8038 && r.tx === 4019, `no limit: got ${JSON.stringify(r)}`);
+});
+
+test('C3: with no v2 file, the cgroup v1 limit is read', () => {
+  const r = runSizing({ memTotalKb: 32866228, env: { CGROUP_V1_MEMORY_LIMIT: cgroupFile(`${16 * GIB}\n`) } });
+  assert(r.heap === 3753, `v1 limit: got ${JSON.stringify(r)}`);
+});
+
+test('C4: cgroup v1 reports no limit as a huge number, and the formula stands', () => {
+  const r = runSizing({ memTotalKb: 32866228, env: { CGROUP_V1_MEMORY_LIMIT: cgroupFile('9223372036854771712\n') } });
+  assert(r.heap === 8038, `v1 no limit: got ${JSON.stringify(r)}`);
+});
+
+test('C5: a small limit lands on the floor the formula already has', () => {
+  const r = runSizing({ memTotalKb: 32866228, env: { CGROUP_V2_MEMORY_MAX: cgroupFile(`${2 * GIB}\n`) } });
+  assert(r.heap === 409 && r.cache === 409 && r.tx === 204, `2 GiB limit: got ${JSON.stringify(r)}`);
+});
+
+test('C6: an explicit override still wins over a limit', () => {
+  const r = runSizing({
+    memTotalKb: 32866228,
+    env: {
+      CGROUP_V2_MEMORY_MAX: cgroupFile(`${2 * GIB}\n`),
+      BRAINSTORM_NEO4J_HEAP_MB: '768', BRAINSTORM_NEO4J_CACHE_MB: '512', BRAINSTORM_NEO4J_TX_MAX_MB: '384',
+    },
+  });
+  assert(r.heap === 768 && r.cache === 512 && r.tx === 384, `override: got ${JSON.stringify(r)}`);
+});
+
+test('C7: a file holding something unreadable is ignored', () => {
+  const r = runSizing({ memTotalKb: 32866228, env: { CGROUP_V2_MEMORY_MAX: cgroupFile('garbage\n') } });
+  assert(r.heap === 8038, `garbage: got ${JSON.stringify(r)}`);
 });
 
 async function run() {

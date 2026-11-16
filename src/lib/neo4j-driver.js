@@ -109,6 +109,32 @@ async function writeCypher(cypher, params = {}) {
 /**
  * Gracefully close the driver (call on process shutdown).
  */
+/**
+ * Run a read and hand each record to onRecord(row) as a plain object, as the driver delivers it. The result is
+ * subscribed to, never awaited whole, so the driver keeps none of the records: memory is what onRecord keeps. For a
+ * read of millions of rows, such as backup's count of every key (graph-operations-foundation ADR 0003 Amendment 2).
+ * Resolves when the last record has been handed on; the session is closed either way.
+ */
+async function streamCypher(cypher, params = {}, onRecord) {
+  const driver = getDriver();
+  const session = driver.session({ defaultAccessMode: neo4j.session.READ });
+  try {
+    await new Promise((resolve, reject) => {
+      session.run(cypher, params).subscribe({
+        onNext: (record) => {
+          const obj = {};
+          for (const key of record.keys) obj[key] = toJS(record.get(key));
+          try { onRecord(obj); } catch (err) { reject(err); }
+        },
+        onCompleted: () => resolve(),
+        onError: (err) => reject(err),
+      });
+    });
+  } finally {
+    await session.close();
+  }
+}
+
 async function closeDriver() {
   if (_driver) {
     await _driver.close();
@@ -159,4 +185,4 @@ function toJS(value) {
   return value;
 }
 
-module.exports = { getDriver, runCypher, explainCypher, writeCypher, closeDriver, toJS };
+module.exports = { getDriver, runCypher, explainCypher, writeCypher, streamCypher, closeDriver, toJS };

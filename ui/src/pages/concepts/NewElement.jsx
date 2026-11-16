@@ -20,7 +20,7 @@ export default function NewElement() {
 
   // Fetch schema
   const { data: schemaData, loading: schemaLoading } = useCypher(`
-    MATCH (h:NostrEvent {uuid: '${uuid}'})
+    MATCH (h:NostrEvent|TapestryNode {uuid: '${uuid}'})
     OPTIONAL MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h)
     OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
     OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(sup:Superset)

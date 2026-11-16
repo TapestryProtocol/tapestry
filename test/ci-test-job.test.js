@@ -89,8 +89,10 @@ test('W3 (AC-1): checks out with full history (fetch-depth: 0) so lint L9/L10 st
   // v4 → v5 (2026-08-06, chore/ci-green, operator-approved): GitHub deprecated
   // the Node 20 runtime and force-runs node20-targeting actions on Node 24;
   // v5 targets Node 24 natively. Supersedes ADR 0001's @v4 implementation note.
-  assert(/uses:\s*actions\/checkout@v5/.test(f),
-    'must use actions/checkout@v5 (Node-24-native; chore/ci-green 2026-08-06, superseding ADR 0001 Implementation notes).');
+  // Tag → commit (2026-11-13, workflow-hardening #1 AC-1): the action is named by its full
+  // commit id, and the line's comment names the release, which is still a v5.
+  assert(/uses:\s*actions\/checkout@[0-9a-f]{40}\s*#\s*v5\.\d+\.\d+/.test(f),
+    'must use actions/checkout pinned to its full commit id, with a "# v5.x.y" comment (Node-24-native v5, chore/ci-green 2026-08-06; pinned by workflow-hardening #1).');
   assert(/fetch-depth:\s*0/.test(f),
     'checkout must set fetch-depth: 0 — a shallow clone silently disables harness-lint L9/L10 in the CI real-repo pass (ADR 0001 Decision table).');
 });
@@ -98,8 +100,9 @@ test('W3 (AC-1): checks out with full history (fetch-depth: 0) so lint L9/L10 st
 test('W4 (AC-1): sets up Node 22 (production Dockerfile parity) with npm cache', () => {
   const src = workflow();
   const f = flat(src);
-  assert(/uses:\s*actions\/setup-node@v5/.test(f),
-    'must use actions/setup-node@v5 (Node-24-native; chore/ci-green 2026-08-06, superseding ADR 0001 Implementation notes).');
+  // Tag → commit (2026-11-13, workflow-hardening #1 AC-1), as in W3.
+  assert(/uses:\s*actions\/setup-node@[0-9a-f]{40}\s*#\s*v5\.\d+\.\d+/.test(f),
+    'must use actions/setup-node pinned to its full commit id, with a "# v5.x.y" comment (Node-24-native v5, chore/ci-green 2026-08-06; pinned by workflow-hardening #1).');
   assert(/node-version:\s*['"]?22['"]?/.test(f),
     'node-version must be 22 to match the production Dockerfile (nodesource 22.x); ADR 0001 Decision table.');
   assert(/cache:\s*['"]?npm['"]?/.test(f),
@@ -168,8 +171,9 @@ test('W9 (supply chain): only the two official actions/* are used — no unpinne
   const uses = (src.match(/uses:\s*\S+/g) || []).map((u) => u.replace(/uses:\s*/, '').trim());
   assert(uses.length >= 2, `expected at least the two official actions; found uses: ${JSON.stringify(uses)}.`);
   for (const u of uses) {
-    assert(/^actions\/(checkout|setup-node)@v\d/.test(u),
-      `only official actions/checkout + actions/setup-node are authorized in this gate; found unexpected action "${u}" (ADR 0001 Implementation notes: no third-party actions beyond the two official ones).`);
+    // Tag → commit (2026-11-13, workflow-hardening #1 AC-1): each is named by its full commit id.
+    assert(/^actions\/(checkout|setup-node)@[0-9a-f]{40}$/.test(u),
+      `only official actions/checkout + actions/setup-node are authorized in this gate, each pinned to its full commit id; found unexpected action "${u}" (ADR 0001 Implementation notes: no third-party actions beyond the two official ones; pinned by workflow-hardening #1).`);
   }
 });
 
