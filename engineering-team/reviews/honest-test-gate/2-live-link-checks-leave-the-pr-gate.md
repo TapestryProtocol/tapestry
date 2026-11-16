@@ -390,3 +390,102 @@ whether it goes back to Approved in the meantime.
 ### Verdict (round 2)
 
 **CHANGES_REQUESTED**
+
+## Round 3
+
+**Date:** 2026-11-16
+**Delta:** `git diff 0e2519b3..HEAD`: the Tester's crash-path tests and restorations `04193ca0`, and the
+Implementer's fix `d3f9d455`. Reviewed at `d3f9d455`, PR #94's head. Rounds 1 and 2 above are unchanged since
+`0e2519b3`.
+
+### Gates (run by the Reviewer)
+
+- The guard at HEAD: 26 passed, 0 failed, 0 skipped (1.8 s on Node 24.18.0). It also passes 26/0/0 on Node 22.23.1,
+  CI's version. The runs were stack-free, with the switch unset and a recording trap in front of the real `gh`. The
+  trap was never reached.
+- `information-for-agents` 32/0/25 · `llms-txt` 12/0/15 · `workflow-hardening` 27/0 · `ci-test-job` 14/0 ·
+  `stack-free-npm-test` 6/0/1 · `site-trust-signals` 20/0/8 · `brains-launcher-repo` 31/0/0 · `ledger-row-ids` 6/0.
+- `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`. Round 3 touches no harness-definition path,
+  so L10 still lands on `0b2c436b`. `git diff --check` is clean for `0e2519b3..HEAD` and for `89376a4c...HEAD`.
+- **Test-first.** At `04193ca0` (the new tests, with round 2's runner) the guard reads 25 passed, 1 failed. The one
+  failure is D11, on the calls `issue list, issue create, issue list, issue create`, which is round 2's false
+  report. D8, D9, D10 and D12 pass there.
+- CI, read once (`gh pr view 94`, 16:44Z): head `d3f9d455`, check `stack-free` IN_PROGRESS (Actions run
+  43909400201, job 133446857131, started 16:36:44Z). I didn't poll it. `npm run gate:status` still has no record
+  here.
+
+### Each fix against its finding
+
+| Round-2 finding | The fix | Holds? | Evidence |
+|---|---|---|---|
+| Blocking 1: a `gh` failure after counting was reported as "could not run" | The "could not run" report now runs only in `main`'s try around the suites (`scripts/live-link-checks.js:112-122`). The top level just exits 2 (`:139-143`). | Yes | P7: a red run whose create fails once exits 2, logs "the run failed after counting", and posts nothing more. P8: a green run whose close fails once exits 2, with no comment. D11 pins both. Mutations that move the report back to the top level, or exit 0 there, are caught by D11. |
+| Blocking 2: no test reached the crash path | D8, D9 and D10, using the stub's `LINK_STUB_CRASH`; D11, using the fake `gh`'s `FAKE_GH_FAIL` | Yes | All four round-2 survivors are caught: not reported (D8, D9), a new issue beside the open one (D9), reported without `--report` (D10), exit 0 (D8–D10). The six mutations aimed at the fix are caught too. |
+| R2-1: D7 and E2 loosened | D7 wants "skip" and the words; E2 is case-sensitive again | Yes | Both round-2 probes are now caught (D7, E2). |
+| R2-2: "no login" | Comment reworded | Yes | `test/live-link-checks.test.js:63-66`: a `gh` that keeps its token in the keychain may still be logged in, and the placeholder is what keeps such a call harmless. |
+| R2-3: §15 wording | "The schedule always runs `main`'s copy, while a by-hand run can pick a branch and runs that branch's copy." | Yes | `OPERATIONS.md:1048`. |
+| R2-4: the story-numbers row | It now says what the search looked for and how the citations are written | Yes | Ledger `2026-11-16-story-numbers-ignore-planned-stories`, "Read today" paragraph. |
+| R2-5: the PR body | To be rewritten after this round, per the coordinator | Pending | Non-blocking R3-3. |
+| R2-6: no test for the green close's list | D12 | Yes | "Green close lists no skipped link" is caught by D12. |
+
+### No test loosened against the round-2 guard
+
+I ran 55 mutations in a throwaway copy of HEAD. Each ran against the round-3 guard and, beside it, the round-2
+guard (`0e2519b3`'s copy, blob `80668ad0`). A script checked every row: any test that fails under the round-2 guard
+also fails under the round-3 one. Several rows also fail D11 or D12. The diff is additive too. `LINK_STUB_CRASH` and
+`FAKE_GH_FAIL` act only when a test sets them. D7 keeps its words and adds "skip" back. E2 only drops its `i` flag.
+
+| Group | Mutations | Round-3 guard | Round-2 guard |
+|---|---|---|---|
+| Round 1's set, including the four tightened in round 2 | 39 | 38 caught | the same 38 |
+| Round 2's survivors in the new code | 8 | 5 caught: the green close's list (D12) and the four crash-path ones (D8–D10) | none |
+| Aimed at round 3's fix: the report moved back to the top level; exit 0 after a `gh` failure; the crash path exits 1; the crash report loses its run link, its words, or its title's marker | 6 | all 6 | none |
+| Round 2's loosening probes | 2 | both (D7, E2) | none |
+
+Four mutations survive both guards:
+- removing §15's issue sentence: E1 checks for the word "issue", which the crash sentence also supplies;
+- dropping `persist-credentials: false`: a setting with no test, and no ask;
+- removing §15's default-branch sentences: prose with no test, and no ask;
+- putting the green close's lead sentence back to "Every link resolves again" over a run with skips: the comment
+  still lists the skipped links, and that list is all D12 checks (non-blocking R3-2).
+
+### The runner paths (in the copy, with the stub and a recording fake `gh`)
+
+- **P7, red, the create fails once:** exit 2, "the run failed after counting". One create attempt, carrying the real
+  result, and nothing after it.
+- **P8, green, the close fails once, #7 open:** exit 2, and no comment. #7 stays open for the next green run.
+- **P3–P6:** unchanged from round 2. A load failure with `--report` opens "Live link check could not run", or
+  comments on #7. Without `--report` there's no `gh` call. With `gh` down, the log says so. All exit 2.
+- **P9, a case the guard doesn't try:** the briefing's suite finds `https://brainstorm.world` answering 404, and then
+  llms-txt fails to load. The issue says "could not run … No link was counted, so this run says nothing about the
+  links", and the dead link isn't on it. The run's log, which the issue links, does have the FAIL line. Non-blocking
+  R3-1.
+
+### Findings (round 3)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+- **R3-1.** `scripts/live-link-checks.js:96-107`, as P9 shows: when a later suite fails to load, a dead link found
+  before that is left off the crash report, which says the run "says nothing about the links". The suites run one
+  after the other, so the first one's results are already in `links.recorded` when the second fails. Optional: list
+  any dead link already recorded, and say the run stopped before it could count every link.
+- **R3-2.** D12 pins that the green close names each skipped link, but not its lead sentence. Put back to "Every
+  link resolves again" over a run with skips, that sentence survives the guard. Optional: D12 could also refuse that
+  sentence when links were skipped.
+- **R3-3.** PR #94's body, read at 16:44Z, still says the guard was "written at Test Design and not edited since". It
+  still says "Review: to come", and it doesn't answer round 1's non-blocking 5. The coordinator plans to rewrite it
+  after this round. Do that before the PR leaves draft.
+- **R3-4.** CI on `d3f9d455` was still running when I read it. Confirm that `stack-free` passes before the PR leaves
+  draft.
+
+### Verdict (round 3)
+
+**PASS**
+
+### On PASS
+
+- [x] Story `**Status:**` flipped from In Progress to Done. Its Review line already points here.
+- [x] Completion detection performed. The result is reported in the chat, not here.

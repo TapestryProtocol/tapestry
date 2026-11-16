@@ -1,6 +1,6 @@
 # Story 2: The pull-request gate stops checking live links; a weekly run checks them and files an issue
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Bug
 
