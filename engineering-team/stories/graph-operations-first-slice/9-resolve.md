@@ -104,6 +104,6 @@ For Architecture, not this gate:
 - A concept's names and slug, and rule 10: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md); [ADR graph-operations-first-slice/0016](../../decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md)
 - What counts as a set: [ADR graph-operations-first-slice/0028](../../decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md), Amendment 3
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0009-resolve-and-naming-a-node.md](../../decisions/graph-operations-first-slice/0009-resolve-and-naming-a-node.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
