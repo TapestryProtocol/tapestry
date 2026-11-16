@@ -223,6 +223,24 @@ async function requireEnds(tx, { set, parent }) {
   return { setNode, parentNode };
 }
 
+// The node property a lock writes and takes away again in the same transaction, so nothing of it is ever committed:
+// the same name ADR graph-operations-first-slice/0016's lock (C1) uses.
+const LOCK_PROPERTY = 'tapestryLock';
+const LOCK_STATEMENT = `UNWIND $rows AS row
+   MATCH (n:TapestryNode {tapestryKey: row.key}) WHERE NOT n:GraphChange
+   SET n += row.props
+   RETURN count(n) AS n`;
+/**
+ * Take a write lock on one node until the transaction ends (ADR graph-operations-first-slice/0028 Amendment 2): a
+ * relationship's DELETE doesn't lock its ends, so two unlink-sets of one set would otherwise both pass their re-check.
+ * It sets a property and removes it again, in the statement shape field mapping's copies use, so the node is left as
+ * it was and only the lock remains, held until commit or rollback.
+ */
+async function lockNode(tx, key) {
+  await tx.run(LOCK_STATEMENT, { rows: [{ key, props: { [LOCK_PROPERTY]: true } }] });
+  await tx.run(LOCK_STATEMENT, { rows: [{ key, props: { [LOCK_PROPERTY]: null } }] });
+}
+
 // ── firmware's links and firmware's prune (Decision 6) ──
 /**
  * src/firmware/install.js:123's categoryToSlug, copied (it is private there): a manifest category, a plural, to the
@@ -443,6 +461,7 @@ module.exports = {
   isAbove,
   chain,
   requireEnds,
+  lockNode,
   firmwareLinks,
   isFirmwareLink,
   firmwarePrunes,

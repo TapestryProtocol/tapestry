@@ -69,6 +69,9 @@ module.exports = {
     const read = (cypher, params) => ctx.tx.read(cypher, params);
     const { setNode, parentNode } = await S.requireEnds(ctx.tx, { set, parent });
     const link = { set, parent };
+    // A relationship's DELETE doesn't lock its ends (the live check, ADR 0028 Amendment 2), so lock the set first: two
+    // unlink-sets of one set then run one after the other, and the re-check below sees the other's delete.
+    await S.lockNode(ctx.tx, set);
     if (!(await S.isLinked(read, parent, set))) return { data: { link, outcome: 'already-unlinked', letters: [] }, changes: [] };
     const made = await S.isFirmwareLink(read, parentNode, setNode);
     if (made) {
