@@ -38,6 +38,9 @@
  *   LE26 it is listed for an admin, with its inputs and refusals, and has its /docs entry
  *   LE27 its paging, point of view and node shape are reads.js's, and the catalog's Conventions say so
  *   LE28 a node labelled Set with no address (a trust-pipeline card set) is no set (ADR 0011 Amendment 2)
+ *   LE29 an element keyed '{}', the placeholder the codebase reads as no key, is neither listed nor counted, and paging
+ *        reaches the last page (review round 1, Finding 1)
+ *   LE30 an author scored exactly at the cutoff isn't above it, so their element is left out (review round 1, ask 5)
  */
 
 const fs = require('fs');
@@ -138,6 +141,10 @@ function main() {
     get('element-as-set', 'owner', { set: k.rover }),
     get('card-set', 'owner', { set: k.cardSet }),
     get('card-set-as-concept', 'owner', { concept: k.cardSet }),
+    get('legacy', 'owner', { concept: k.LH, pov: 'everyone', limit: 200 }),
+    get('legacy-1', 'owner', { concept: k.LH, pov: 'everyone', limit: 1 }),
+    get('edge', 'owner', { concept: k.EGH }),
+    get('edge-everyone', 'owner', { concept: k.EGH, pov: 'everyone' }),
     get('bad-key', 'owner', { concept: 'not-a-key' }),
     get('bad-set-key', 'owner', { set: 'not-a-key' }),
     get('bad-direct', 'owner', { concept: k.H, direct: 'maybe' }),
@@ -542,6 +549,30 @@ test('LE28: a node labelled Set with no address, as the trust pipeline\'s card s
   refused(a, 'card-set', 409, 'not-a-set', 'set');
   const c = refused(a, 'card-set-as-concept', 409, 'not-a-concept', 'concept');
   assert(!/pass it as set/.test(c.error), `given as concept, a card set isn't offered as a set to pass; got ${show(c.error)}`);
+});
+
+test('LE29: an element keyed \'{}\', which the codebase reads as no key, is neither listed nor counted, and paging reaches the last page', () => {
+  const { a, seed, file } = main();
+  const all = ok(a, 'legacy');
+  assert(!all.elements.some((e) => e.tapestryKey === '{}'), `no element is answered with the key '{}'; got ${show(all.elements.map((e) => e.tapestryKey))}`);
+  assert(show(sorted(keysOf(all.elements))) === show(seed.names(['oldA', 'oldB'])) && all.kept === 2 && all.leftOut === 0, `legacy: its two keyed elements, kept 2 and left out 0, with the two keyed '{}' neither listed nor counted; got ${show({ names: all.elements.map((e) => e.name), kept: all.kept, leftOut: all.leftOut })}`);
+  const keys = [];
+  let page = ok(a, 'legacy-1');
+  keys.push(...keysOf(page.elements));
+  for (let i = 0; page.cursor && i < 5; i++) {
+    page = ok(runOver(file, [get('legacy-next', 'owner', { concept: seed.keys.LH, pov: 'everyone', limit: 1, cursor: page.cursor })]), 'legacy-next');
+    keys.push(...keysOf(page.elements));
+  }
+  assert(page.cursor === null, 'one element a page, the cursors reach the last page, whose cursor is null');
+  assert(show(keys) === show(seed.names(['oldA', 'oldB'])), `the pages hold the two keyed elements, once each, and nothing keyed '{}'; got ${show(keys)}`);
+});
+
+test('LE30: an author scored exactly at the cutoff isn\'t above it, so their element is left out', () => {
+  const { a, seed } = main();
+  const d = ok(a, 'edge');
+  assert(d.elements.length === 0 && d.kept === 0 && d.leftOut === 1, `from the owner's point of view, at cutoff (0.05, the default cutoff) is left out; got ${show({ names: d.elements.map((e) => e.name), kept: d.kept, leftOut: d.leftOut })}`);
+  const e = ok(a, 'edge-everyone');
+  assert(show(keysOf(e.elements)) === show(seed.names(['atCutoff'])), `from everyone's, it is listed; got ${show(e.elements)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

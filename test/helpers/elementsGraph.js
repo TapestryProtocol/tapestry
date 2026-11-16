@@ -33,6 +33,11 @@
  *   bare     a header with no superset
  *   bulk     header BH and superset BS with `bulk` elements (120 by default), all the assistant's, each directly under
  *            BS: enough for three pages of 50
+ *   legacy   header LH and superset LS with two keyed elements, oldA and oldB, and two more from before the graph was
+ *            migrated, keyed '{}', the placeholder the codebase reads as no key (ADR graph-operations-foundation/0003):
+ *            neither is an element a read may list or count (story 11's review, Finding 1)
+ *   edge     header EGH and superset EGS with one element, atCutoff, by a peer GrapeRank scores exactly 0.05, the default
+ *            cutoff: not above it, so left out (the review's ask 5)
  *
  * The NostrUser nodes: hi 0.2, lo 0.01, noscore (no influence), admin 0.01, and the owner 1. With `unscored` none of
  * them has an influence, as before GrapeRank has run.
@@ -51,6 +56,7 @@ const PEERS = Object.freeze({
   lo: '22'.repeat(32),
   noscore: '33'.repeat(32),
   nouser: '44'.repeat(32),
+  atCutoff: '55'.repeat(32),
   stranger: 'ef'.repeat(32),
 });
 
@@ -147,8 +153,25 @@ function seedElements({ owner = S.OWNER, admin = S.ADMIN, ta = S.TA, unscored = 
     under(BS, item(name, { uuid: `39999:${ta}:${name}`, name: `item ${i}`, pubkey: ta }));
   }
 
+  // ── legacy: two elements keyed '{}', from before the graph was migrated ──
+  const LH = header('LH', 'legacy');
+  const LS = superset('LS', 'legacy');
+  link(LH, 'IS_THE_CONCEPT_FOR', LS);
+  under(LS, item('oldA', { uuid: `39999:${ta}:old-a`, name: 'old a', pubkey: ta }));
+  under(LS, item('oldB', { uuid: `39999:${ta}:old-b`, name: 'old b', pubkey: ta }));
+  for (const name of ['oldC', 'oldD']) {
+    under(LS, add(null, ['NostrEvent', 'ListItem', 'TapestryNode'], { kind: 39999, uuid: `39999:${ta}:${name.toLowerCase()}`, name, pubkey: ta, tapestryKey: '{}' }, { keyed: false }));
+  }
+
+  // ── edge: one element by a peer scored exactly at the default cutoff ──
+  const EGH = header('EGH', 'edge');
+  const EGS = superset('EGS', 'edge');
+  link(EGH, 'IS_THE_CONCEPT_FOR', EGS);
+  under(EGS, item('atCutoff', { uuid: `39999:${PEERS.atCutoff}:at-cutoff`, name: 'at cutoff', pubkey: PEERS.atCutoff }));
+
   // ── the web of trust's scores ──
   const user = (pubkey, influence) => add(null, ['NostrUser', 'TapestryNode'], unscored || influence === undefined ? { pubkey } : { pubkey, influence });
+  user(PEERS.atCutoff, 0.05);
   user(PEERS.hi, 0.2);
   user(PEERS.lo, 0.01);
   user(PEERS.noscore);
