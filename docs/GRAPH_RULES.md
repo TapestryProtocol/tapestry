@@ -64,3 +64,21 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - **Check:** the same `violations` over every current mark names each mark whose field has changed type, lost its property node, or now collides. `rules check` (A10.31) will run it over the graph.
 - **Repair:** `graph unmark-field` takes a broken mark out, with its copies; `graph map-fields` brings a concept's copies in line with its marks.
 - **Enforced by:** the guard of `graph mark-field`. The rule's code is in `src/operations/rules/field-mark-allowed.js`, and the mapping it guards is in `src/operations/catalog/graph/_fields.js`. Built in story graph-operations-foundation #5 (ADR 0005).
+
+## 5. `class-thread-acyclic`
+
+- **Says:** no set or superset is below itself. Following class-thread links down from any node, through any number of links and across concepts, never comes back to it. A class-thread link is `IS_A_SUPERSET_OF`, the class thread's propagation link, from a superset or a set to the set or superset directly under it. The class thread anomaly (BIBLE §10, rule 9) is an element, not a link, so it breaks nothing here.
+- **Kind:** a graph rule, about the class threads' links.
+- **Refuses or reports:** it refuses the write, before anything changes: `cycle` (409) for a link whose parent is the set itself, or is already below it in the class thread. The refusal names the chain of sets from the set down to the parent, at most twelve of them and then how many more.
+- **Check:** the same `violations` over a set of links that are there names each link on a cycle: walking up the class thread from its parent, one level per read, reaches its set. The walk never uses the link itself, so the guard and the check are one definition. `rules check` (A10.31) will run it over the graph's class-thread links, judging each by where it came from (D15). Today's `POST /api/normalize/add-relationship` checks for no cycle, so it can make one, and so can two link-sets at once that close a loop between four sets (ADR graph-operations-first-slice/0028 Decision 9).
+- **Repair:** `graph unlink-set` takes out a link on the cycle.
+- **Enforced by:** the guard of `graph link-set`, which runs the rule again after its write, inside the same transaction. The rule's code is in `src/operations/rules/class-thread-acyclic.js`, and the walk it uses is in `src/operations/catalog/graph/_sets.js`. Built in story graph-operations-first-slice #28 (ADR graph-operations-first-slice/0028).
+
+## 6. `set-has-a-parent`
+
+- **Says:** every set is directly under at least one superset or set, so some class thread reaches it and its elements. A superset is exempt: its concept's header holds it in its class thread. Only a superset or a set counts as a parent, so an element an old route put above a set doesn't.
+- **Kind:** a graph rule, about the class threads' sets.
+- **Refuses or reports:** it refuses the write, before anything changes: `last-parent` (409) when taking a set out from under a parent would leave it under no other superset or set. The refusal names that parent and says how to go on: link the set under another parent first, or delete it once it is empty (`graph delete-set`, A10.17). Taking out a link that isn't there is a repeat, not a refusal.
+- **Check:** the same `violations` over a set of sets, with no parent to leave, names each set under no superset or set. `rules check` (A10.31) will run it over the graph's sets. Today's `POST /api/normalize/delete-relationship` doesn't check for a set's last parent, so it can leave one.
+- **Repair:** `graph link-set` gives a set with no parent one; `graph delete-set` (A10.17) deletes it once it is empty.
+- **Enforced by:** the guard of `graph unlink-set`, which runs the rule again after its write, inside the same transaction. The rule's code is in `src/operations/rules/set-has-a-parent.js`, and what it reads with is in `src/operations/catalog/graph/_sets.js`. Built in story graph-operations-first-slice #28 (ADR graph-operations-first-slice/0028).

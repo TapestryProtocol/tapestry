@@ -99,6 +99,19 @@ For Architecture, not this gate:
 - **The change entries' shape:** a link made or taken out, as `type`, `from` and `to`, as add-relationship's entries record it.
 - **What a letter that no longer matches means** when today's import brings the old letter in again (open question 1).
 
+## Deviations
+
+Small judgment calls made in Implementation, inside ADR 0028:
+
+- **`_sets.js` holds a few things beside Decision 2's functions,** so the two declarations state each once: `requireEnds` (Decision 1's steps 1 and 2), `isLinked` (the repeat's read, through R3), `say` (the wording of `not-a-set` and `not-a-parent`), and the shapes `NOT_A_SET`, `NOT_A_PARENT` and `LINK`.
+- **`ancestors` takes an optional `nodes` map** that collects each parent's uuid, name and labels from R3's rows. The cycle message names the chain with it, and `firmwarePrunes` tells a superset from a set with it, with no read per node.
+- **`firmwarePrunes` answers `[{ parent, set, isNew }]`.** `isNew` marks the new link itself, so the refusal tells shape 1 (this link) from shape 2 (an earlier link).
+- **unlink-set answers `already-unlinked`, with no change, when its `DELETE` removes nothing,** because a concurrent unlink took the link first. Decision 1 says the same of link-set's `MERGE`, through `relationshipsCreated`, and nothing of unlink-set's.
+- **The `cycle` message reads the same as a guard and as a check** ("X under Y makes a cycle…"), since the rule's items don't say which they are. `last-parent` names the parent being left as a guard, and only the set as a check, as Decision 4 words them.
+- **`firmware-link` says a reinstall *can* put the link back,** not that it will: part (a)'s links come back only for a set the install newly makes (ADR Context 7).
+- **Part (d) reads `headerATag` as install does:** split on `:`, kind 39998, then the curator and the d-tag. It doesn't match a 64-hex pattern.
+- **With no assistant key, `firmwareLinks()` answers no links and doesn't cache that,** so a key configured later is used.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
