@@ -122,4 +122,4 @@ Small judgment calls made in Implementation, inside ADR 0028:
 - The sibling story in this epic: stories/graph-operations-first-slice/16-create-concept-and-update-concept.md (on story 16's branch)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md](../../decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md)
 - Test plan: [28-link-set-and-unlink-set.test-plan.md](./28-link-set-and-unlink-set.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/28-link-set-and-unlink-set.md](../../reviews/graph-operations-first-slice/28-link-set-and-unlink-set.md)
