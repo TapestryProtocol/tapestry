@@ -250,7 +250,7 @@ test('E8: an unverifiable header at the address is said so; another site is refu
 });
 
 test('E10: names or a description Edit would refuse are never signed, whoever wrote them (review 1, M1)', async () => {
-  const bad = [['names', '', ''], ['names', 'GitHub ‮tnuoccA', 'GitHub Accounts'], ['names', 'Git\nHub', 'GitHub Accounts'], ['names', 'GitHub Account', '']];
+  const bad = [['names', '', ''], ['names', 'GitHub \u202EtnuoccA', 'GitHub Accounts'], ['names', 'Git\nHub', 'GitHub Accounts'], ['names', 'GitHub Account', '']];
   for (const names of bad) {
     const source = { ...SOURCE, tags: SOURCE.tags.map((t) => (t[0] === 'names' ? names : t)) };
     const r = await run({ local: [source] });
