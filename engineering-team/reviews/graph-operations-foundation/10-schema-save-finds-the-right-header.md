@@ -465,3 +465,149 @@ Every finding and harness friction from round 1 is addressed, and each fix holds
 - **What is asked.** The code is right. The ask is a fixture change, and a re-run of W3 and W4b.
 
 This round edits no other file, so it leaves the story's status line as round 1's verdict set it, Done. Whether that stands until the fix lands is for the session that commits this review. That session set it back to In Progress.
+
+## Round 3
+
+**Date:** 2026-11-15 (the runs were between 03:35 and 03:49 UTC on 2026-11-16)
+**Diff:** `git diff bb3e0016..f8d237bf`. Two commits:
+- `8f8ff515` (`test:`) changes only the suite. It answers Blocking 1 and Non-blocking 7, 8 and 9.
+- `f8d237bf` (`docs:`) changes the story, the plan and two ledger rows. It answers Non-blocking 10, 11 and 12, and adds the coverage map and a record of the rounds' wrong fixes.
+
+`src/` and `ui/` are unchanged since `601575f1` (`git diff --stat 601575f1..f8d237bf -- src ui` is empty). I checked each fix as a fresh claim: the coordinator's wording, the commits' wording, and my own round-2 asks.
+
+### Gates, again
+- [x] **The fourteen stack-free suites, through the gate engine,** as in rounds 1 and 2. Endpoints were dead, `BRAINSTORM_CONF_PATH` named a dead conf, and the TCP guard was on; the guard refused nothing. `npm run gate:status -- --label reviewer-10-round3`:
+  `20261116T034429Z-16384-161e [reviewer-10-round3] started 2026-11-16T03:44:29.559Z on f8d237bf — PASS, exit 0, 584 passed, 0 failed, 85 skipped, 14/14 suites`
+  - The 584 are round 2's 583 plus S1e.
+  - `operations` passes 337 of 337, G11 and G18 among them.
+- [x] **`create-concept-duplicate-check` on its own, with `TAPESTRY_CONTAINER` unset:**
+  `20261116T034538Z-17373-ded0 [reviewer-10-round3-ccdc] started 2026-11-16T03:45:38.018Z on f8d237bf — PASS, exit 0, 3 passed, 0 failed, 3 skipped, 1/1 suites`
+- [x] **The suite on its own:** 26 passed, 0 failed, 2 skipped, as the plan (`10-…test-plan.md:205`) and the commit say. The new load-time order check holds: `00…` sorts before the TA (`4f355bdc…`), which sorts before `abab…` (`test/schema-save-finds-the-right-header.test.js:92–93`).
+- [x] **Live, on a fresh scratch stack.**
+  - **Before `up`:** `docker ps -a --filter name=tapestry-scratch` showed none.
+  - **The stack:** booted from `SCRATCH_IMAGE=agent-memory-tapestry:latest`, 03:44:25–03:46:05 UTC.
+  - **Before any check and again before `down`,** `docker inspect` showed it mounting this worktree's `src/`. It was removed at 03:48:23.
+  - See "Live" below for what ran on it.
+- [x] _Lint, typecheck and build: not configured._
+
+### Wrong fixes, again
+Each was applied in place, run against the whole suite stack-free, and restored with `git checkout --`. `git status` was clean after each. Every failure below is the test's own assertion; none is the fake graph failing to run a query.
+
+| Wrong fix | Caught in round 2 by | Caught in round 3 by |
+|---|---|---|
+| W1 the name lookup restricted to the TA's own headers | S3b, S3d, S3e | S3b, S3d, S3e |
+| W2 prefer the TA's header, never refuse | S3d, S3e | S3d, S3e |
+| W3 the fold left looking up by name | nothing | S3f, S5a, S5b |
+| W4a Pass 2 sends only the name | S1c | S1c |
+| W4b Pass 2 finds the header by name again, then sends its key | nothing | S1b |
+| W5 apply-enumerations sends only the name | S2c | S2c |
+| W6 no no-event refusal | S4f, S4i | S4f, S4i |
+| W7 a key two headers hold takes the first | S4g | S4g |
+| W8 the key lookup reads `:TapestryNode` | S5a | S5a |
+| W9 the tab sends the header's address as `tapestryKey`, in both saves | S4a | S4a |
+| W9b the same, in the raw-mode save only | (not tried) | S4a |
+| W10 the client sends `{}` | S4b | S4b |
+| W11 no 400 for a value that isn't a key | S4h | S4h |
+| W12 the no-event refusal checks only the header | S4i | S4i |
+| W12b the no-event refusal checks only the schema node | nothing | S4i |
+| W15 no `ORDER BY` in the header lookup | S3d, S3e, S3h | S1e, S3d, S3e, S3h |
+| W17 the fold matches `:TapestryNode` only | S5a, S5b | S5a, S5b |
+| W18 the fold's `ORDER BY` removed; W18b, reversed | nothing | S3h |
+| W19 Pass 2's `ORDER BY` removed | nothing | S1e |
+| W20 the tab's read ordered `uuid DESC` | nothing | S4a |
+| W21 the tab's `ORDER BY` removed | S4a | S4a |
+| W22 the header lookup takes the last schema node by address | S3h | S1e, S3h |
+| W23 the page stops reading the header's key | S4a | S4a |
+| W24 the client sends an empty key | S4b | S4b |
+| W25 a value that isn't a key answers 200 | S4h | S4h |
+| W26 the name rule takes the first header by address | (not tried) | S3d, S3e, S3f, S5b |
+| W29 Pass 2 finds its header by name among the TA's own headers, ordered by address | (not tried) | nothing (Non-blocking 13) |
+
+The plan's new record of what catches each wrong fix (`10-…test-plan.md:199–224`) matches these runs, row for row.
+
+### The round-2 findings
+1. **Blocking 1: fixed.**
+   - **The fix.** An author whose addresses sort before the TA's, `EARLY` (`00…`), is now in S1b, S3f, S5a and S5b, in all six storage orders. A check at load time keeps the order `EARLY` < TA < `OTHER` (`test/…:92–93`).
+   - **W3 now fails S3f, S5a and S5b.** Under W3 the fold read EARLY's concept, whose schema is still the starter, and reported `not-applicable`.
+   - **W4b now fails S1b.** Under W4b, Pass 2 saved nothing on the TA's own schemas.
+   - So AC3's fifth bullet and AC1 again have tests that fail when they regress, with address order and identity kept apart.
+   - W26, a name rule that takes the first header by address, also fails four tests.
+2. **Non-blocking 7: fixed.**
+   - S3h gives the header a primary property. W18 and W18b fail it: the fold read the second schema node, which still holds the starter.
+   - New S1e has Pass 2 save on the first node and checks that its log names that node. W19 fails it, and so do W15 and W22.
+3. **Non-blocking 8: fixed.** S4a's check now rejects `DESC`, in any case (`test/…:509`). W20 fails it, and W21 still does.
+4. **Non-blocking 9: fixed.** S4i covers each half of the check on its own (`test/…:614–621`), and W12 and W12b each fail it.
+   - The catch is on the key path.
+   - By name, an event-less header isn't found at all, so the answer is today's "not found".
+5. **Non-blocking 10: fixed.** The plan now says that Pass 1 rebuilds every schema node on each install, and that Pass 2's save is the last to write nostr relay's (`10-…test-plan.md:193`). Both hold:
+   - Pass 1 calls create-concept with `overwrite: true` (`src/firmware/install.js:173–180`);
+   - create-concept rebuilds the schema node (`src/api/normalize/index.js:1345–1346`);
+   - no enumeration targets nostr relay.
+6. **Non-blocking 11: fixed.**
+   - **The row** (`ledger/2026-11-16-seeded-second-install-differs.md:1, 9–14`) now says story 8 compared the seeded stack with its baseline, taken on another, fresh stack. It also says that "differed from that stack's own first install" is an inference.
+   - **That matches story 8's plan** (`8-pass-3-finishes-in-minutes.test-plan.md:94, 102–104, 109`).
+   - **The caches row's "Not this row"** (`ledger/2026-11-16-install-caches-lag-its-own-graph.md:24`) says the same.
+7. **Non-blocking 12: fixed.** The new Deviation (`10-…md:103`) describes the standalone route as the code has it (`src/api/normalize/index.js:2102–2117`).
+   - Live, the route asked for "tag" by name chose the TA's own primary property, and answered `already-consistent`.
+   - The community's "tag" header on the stack has no schema node, so its row sorts last.
+- **Harness friction 4: followed.**
+  - The tests came in a commit of their own (`8f8ff515`, the suite only), ahead of the docs, and this round changed no code.
+  - They guard code that is already right, so their red run is the wrong fixes above.
+
+### Live
+All on the fresh scratch stack above, this worktree's `src/`, real Neo4j:
+- **The boot's install.** One install in the log, and `Pass 2 complete: 40 enriched, 0 skipped, 0 errors`. Pass 2's new `ORDER BY schemaUuid` lookup ran there for each of the 40 concepts.
+- **`TAPESTRY_CONTAINER=tapestry-scratch SCHEMA_SAVE_INSTALL=1`: 28 passed, 0 failed, 0 skipped.**
+  - L1 and L2 pass.
+  - The second install logs `40 enriched, 0 skipped, 0 errors`, 4 enumerations and 90 implicit elements, as the first did.
+  - L2 prints the same nine cached-JSON differences as in round 1, and nostr relay's own schema came out the same.
+- **The page path, run as the page runs it** (round 1's method).
+  - The tab's read now has its `ORDER BY uuid`.
+  - Both saves sent the header's key, landed on the schema node the page shows, and the page showed it unchanged after.
+  - This held with `TapestryNode` taken off the header too, and the label was put back.
+- **A header with two schema nodes, on real Neo4j.**
+  - **The setup.** I gave the TA's `tag` header a second schema node, at an address that sorts before the real one (`39999:<TA>:tag-a-reviewer-probe-schema`), and saved by key a schema with one extra field.
+  - **The save** answered that first node.
+  - **The fold** reported `reconciled` against it: the primary property gained the field.
+  - **The tab's read and Pass 2's lookup,** each run with its text read from its file, both picked that node.
+  - **The real schema node** was left untouched.
+  - **Cleanup.** The extra node and its tags were then deleted.
+
+  So the story's Deviation holds on real Neo4j: such a header is saved, reconciled, logged and shown on the same schema node (`10-…md:102`).
+
+That covers what round 2 left still to run: the three `ORDER BY` lines on real Neo4j, and Pass 2's line.
+
+### New findings
+
+#### Blocking
+None.
+
+#### Non-blocking
+13. **`test/schema-save-finds-the-right-header.test.js:309–321` (S1c): the TA's twin header sorts after the firmware header. So a Pass 2 that finds its header by name among the TA's own headers, ordered by address, passes.**
+    - **W29 passes all 26 tests.** It keeps Pass 2's `ORDER BY schemaUuid`. S1c's twin, `tag-made-by-hand`, sorts after `tag`, so the first by address is the firmware header by the fixture's luck. That is round 2's mechanism, for the TA's own twin.
+    - **My own scenario** gives the twin a d tag that sorts first, `a-tag-twin`. Under W29, Pass 2 wrote the firmware's schema onto the twin and not onto `39998:<TA>:tag`. HEAD wrote it on the firmware header.
+    - **Why it doesn't block.**
+      - AC1's Given is another author's header, and S1b now tests that both ways round.
+      - The twin is the plan's own edge case (`10-…test-plan.md:74`).
+      - It needs two same-named headers of the TA's own, which create-concept's duplicate check refuses.
+      - W29 isn't any earlier version of the code.
+    - **Optional improvement:** give S1c's twin a d tag that sorts before the slug, such as `a-tag-made-by-hand`, and show W29 failing.
+
+#### Harness friction
+None new.
+
+### Round 3 verdict
+Every finding from round 2 is fixed, and each fix holds when re-derived.
+- **The suite** again sees a fold, or a Pass 2, that finds its header by name, with address order and identity kept apart.
+- **Each wrong fix the briefs named fails a test.**
+- **Live, the round's three `ORDER BY` lines ran on real Neo4j.** Pass 2's line read `40 enriched, 0 skipped, 0 errors` on both installs, and a header with two schema nodes was saved, reconciled, picked and shown on the same node.
+- **What is left** is Non-blocking 13, an edge case outside the acceptance criteria.
+
+The story's `**Status:**` is `In Progress`, from round 2. This round edits no other file, so marking it Done is left to the session that commits this review. Round 3 supersedes round 2's verdict.
+
+**PASS**
+
+### Close-out, after round 3
+- Non-blocking 13 was taken up after this round, test-only, in `7e04a206`: S1c's twin's d tag now sorts both before the slug and after it, and W29 fails S1c. The suite reads 26 passed, 0 failed, 2 skipped, and nothing under `src/` or `ui/` changed.
+- The story's status line is set to Done in the commit that adds this round.
+- Completion detection: book `graph-operations-first-slice` is far from complete (its acceptance frame still needs the brain rebuild and the race), so no book close is offered.

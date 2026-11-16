@@ -1,6 +1,6 @@
 # Story 10: Saving a concept's schema never lands on another author's header
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Bug
 
