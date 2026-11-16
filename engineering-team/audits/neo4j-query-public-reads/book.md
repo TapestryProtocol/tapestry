@@ -1,8 +1,9 @@
 # Book of Work: A public /api/neo4j/query is a plain read of the graph
 
 **Slug:** neo4j-query-public-reads
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-11-02
+**Closed:** 2026-11-03
 **Gating:** **Human-gated.** A live security hotfix; the owner approved each step (fix, staging, production, each
 sandbox). No Direction mode.
 
@@ -46,8 +47,8 @@ as stories 4–8 were. Completion is *judged* against the bullets below.
 
 ## Provenance
 - **Mode:** Acceptance-frame
-- **Confidence at close:** *(filled by `/close-book`)*
+- **Confidence at close:** high
 
-## Close artifacts *(filled by `/close-book`)*
+## Close artifacts
 - Build audit: `engineering-team/audits/neo4j-query-public-reads/audit.md`
 - Product feedback: `engineering-team/audits/neo4j-query-public-reads/prd-seed.md`
