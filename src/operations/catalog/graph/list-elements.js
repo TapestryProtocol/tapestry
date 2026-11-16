@@ -136,7 +136,7 @@ module.exports = {
     const counted = await read(
       `${walk}
        WITH DISTINCT e
-       WHERE e.tapestryKey IS NOT NULL
+       WHERE e.tapestryKey IS NOT NULL AND e.tapestryKey <> '{}'
        ${R.trust('e')}
        RETURN count(e) AS seen, count(CASE WHEN counts THEN 1 END) AS kept`,
       params,
@@ -147,7 +147,7 @@ module.exports = {
     const rows = await read(
       `${walk}
        WITH DISTINCT e
-       WHERE e.tapestryKey IS NOT NULL AND ($after IS NULL OR e.tapestryKey > $after)
+       WHERE e.tapestryKey IS NOT NULL AND e.tapestryKey <> '{}' AND ($after IS NULL OR e.tapestryKey > $after)
        ${R.trust('e')}
        WHERE counts
        RETURN ${R.nodeColumns('e')}

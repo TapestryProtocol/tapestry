@@ -137,7 +137,7 @@ The relay held 450 events after the boot's firmware install. Seeding through tod
 ## Deviations
 
 - **`trustParams(pov)` sits beside `trust(v)`** in `src/operations/reads.js`. It gives the three parameters the fragment reads, from a resolved point of view, so no read builds them by hand. ADR 0011 Decision 1 names the fragment but not a builder for its parameters.
-- **`resolvePov` reads `scored` as it resolves** (C2), so Decision 2's step 5 happens inside its step 2. From the owner's point of view, the read asks for the scores once, before it reads the node.
+- **`resolvePov` reads `scored` as it resolves** (C2), so Decision 2's step 5 happens inside its step 2. From the owner's point of view, the read asks for the scores once, before it decodes the cursor and before it reads the node (ADR Amendment 3, item 4).
 - **The owner's pubkey is trimmed and lowercased** before it is compared with `pov` and with authors. Events carry lowercase hex, and `pov`'s pattern takes only lowercase.
 - **`run` checks its limit again,** as `readHistory` does. A limit that isn't a whole number from 1 fails with a 500, though the input's schema refuses one first.
 - **A set has an address** (ADR 0011 Amendment 2). Midway through Implementation, ADR 0028's Amendment 3, which the owner approved for story 28, reached this story: its readers count a node as a set or a superset only when it has a uuid. list-elements followed it. LE28 came in a Tester commit of its own and failed first; then the code changed in an Implementer commit.

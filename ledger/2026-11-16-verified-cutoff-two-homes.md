@@ -3,8 +3,10 @@
 **Id:** 2026-11-16-verified-cutoff-two-homes
 **Type:** bug
 **Opened:** 2026-11-16 (graph-operations-first-slice #11, ADR 0011 Context 5 and Consequences debt 1)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16. A duplicate of `engineering-team/stories/_intake.md`, 2026-06-06, item 2, "Verified-cutoff inconsistency", which already tracks it (story graph-operations-first-slice #11, review round 1, ask 7; the follow-up to PR #72).
+
+**Closed as a duplicate.** The intake item has tracked this since 2026-06-06, so this row should not have been opened (OPEN.md: a row is for an item with no other home). The intake item also records a live `graperank.conf` of 0.01. So "Nothing changes while both stay at 0.05", below, understates today: on such an instance, the verified counts and the API's lists may already disagree. The intake item now says that the graph reads read the cutoff the same way as the API's readers.
 
 **What was seen.**
 - **The value's home.** `config/graperank.conf.template:76` sets `VERIFIED_FOLLOWERS_INFLUENCE_CUTOFF=0.05` in `/etc/graperank.conf`. The owner-side count scripts that write `verifiedFollowerCount` onto each `NostrUser` source that file, as the customer scripts source their own (`src/algos/customers/follows-mutes-reports/calculateVerifiedFollowerCounts.sh:30`).
