@@ -1,6 +1,6 @@
 # Story 13: `graph list-relationships` — a node's typed relationships, in and out, each with the way it points
 
-**Status:** Approved
+**Status:** In Progress
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.13 — https://loom.brainstorm.world/t/A10.13
@@ -83,6 +83,88 @@ For Architecture, not this gate:
 - **Relationships to nodes with no tapestryKey,** which a cursor can't name.
 - **How `type` reaches the query,** since a relationship type can't be a query parameter, and what a page costs on a node with thousands of relationships. Measure it on a scratch stack.
 - **The test fakes,** which read relationships of a few named types only, in one direction at a time.
+
+## Evidence
+
+### The live check (Implementation, 2026-11-16, on the code of the implementation commit)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one.
+- **The instance.** It booted from image `agent-memory-tapestry` with this branch's `src/` mounted. The image's `bin/` was identical to the branch's, and its `tapestry` command was linked. The branch's `clients/cli` was copied in, on the instance's own nostr-tools 2.10.4 and ajv 8.18.0, the CLI's versions.
+- **Keys.** The instance made its own assistant key at boot. A throwaway owner key, a throwaway admin key for the agent and a peer's key were made inside it, and only their public keys left it.
+- **Afterwards** it was removed, with its keys.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, a direct-local caller. The agent's went through the instance's nginx.
+- **How each answer was judged.** A script inside the instance compared every list with its own reading of the graph: one undirected match for each node, each relationship's direction from `startNode(r)`, each relationship once by its `elementId`, and the filter and the point of view applied in JavaScript. It made 91 checks, and all passed.
+
+**The seed:**
+- `cites`, declared through today's `create-element`, which signed one event: the relay went from 450 to 451.
+- live widget, made by `graph create-concept`, with CITES added by `graph add-relationship`: from its header to its superset, from its schema to its header, and from its header to itself.
+- A peer's list item, signed by a throwaway key with a `z` tag naming live widget. It was put on the relay (451 to 452), imported (`event-update`) and wired (`wire-implicit-elements`, wired 1), and given a CITES from the header.
+- With Cypher: the owner's NostrUser, with two TAGS to the peer's, one to a third person's, and a FOLLOWS to the peer's. Their `createdAt` and `timestamp` are integers.
+- With Cypher: a dense hub with 10,000 relationships, 6,000 LINKS out (25 of them parallel to another) and 4,000 CITES in. A quarter of the nodes at their other ends are the peer's.
+
+**By criterion:**
+- **AC1: passes.** With no type, live widget's header listed 11 relationships, and left out its 6 to tag nodes as `tagsLeftOut`. With each `direction`, and with `type` CITES (alone and with `in`), `HAS_TAG`, `IS_THE_CONCEPT_FOR` and FOLLOWS, it answered exactly what the graph holds:
+  - `HAS_TAG` listed its 6 tag nodes, author-less, with `tagsLeftOut` 0;
+  - FOLLOWS, which it has none of, answered an empty list.
+- **AC2: passes.** Every relationship came with exactly its six facts.
+  - The header's IS_THE_CONCEPT_FOR and CITES to its superset each came as out, from the header to the superset, and the schema's CITES as in.
+  - The header's CITES to itself came once, as out, under `both` and `out`, and as in under `in`.
+  - The owner's two TAGS to the peer were each listed, told apart by their tags, and a page of 1 parted them.
+  - `createdAt` and `timestamp` came as numbers.
+- **AC3: passes.**
+  - The dense hub paged through at 50 a page: 200 pages, all 10,000 each once (the 25 parallel LINKS twice each), the 6,000 out and then the 4,000 in, in order, with the whole count on every page. A page took 67 ms at the median and 312 ms at most, 14.3 s in all.
+  - At 200 a page: 50 pages, 68 ms at the median and 155 ms at most, 3.6 s in all.
+  - A page of 1, mostly its counts, took 72 ms at the median, and a page of the header 31 ms. No index was needed.
+  - A cursor from another node, or another direction, was refused `invalid-cursor`.
+- **AC4: passes.**
+  - **Before any score existed:** the owner's point of view answered `scored: false`. It kept none of the owner's 4, and left the CITES to the peer's widget out.
+  - **The peer's influence set to 0.2:** kept 3 and left out 1 (the third person's), `scored: true`, and the CITES to the peer's widget was kept.
+  - **Then 0.01:** kept 0 and left out 4, and the CITES was left out again. The peer's own node, asked about, was still answered, and the owner's 3 relationships to it counted.
+  - **The owner's own pubkey as `pov`** answered exactly as the default did. **`everyone`** kept all 4, and a stranger's pubkey was refused `unknown-pov`.
+  - **The dense hub, from the owner's point of view,** kept 7,501 and left out 2,499: the nodes by the peer, at 0.01.
+  - The relay, the change entries, the nodes and the relationships were the same before and after the score changes and the reads around them.
+- **AC5: passes.**
+  - A key no node has, and a change entry's key, got 404 `unknown-node`, naming `node`.
+  - No `node` got `missing-input`.
+  - A node that isn't a key, a type with a backtick, `direction=OUT`, and limits of 0 and 201 got `invalid-input`, each naming its input.
+  - `foo` got `unknown-input`.
+- **AC6: passes.**
+  - `tapestry graph list-relationships` in the instance answered what the route answered, a refusal included (exit 1).
+  - **The admin agent,** with its own key, through nginx and the external CLI:
+    - `whoami` answered `admin`;
+    - it paged through live widget's header 3 at a time to its last cursor: 4 pages, kept 11, left out 1;
+    - it listed the dense hub's 4,000 incoming CITES from everyone's point of view, 200 at a time, in 20 pages;
+    - it was refused a key no node has (exit 1, `unknown-node`).
+  - A visitor through nginx got 401.
+  - Before and after every list-relationships call, the relay held 452 events, and the graph 5 change entries, 13,293 nodes and 13,732 relationships.
+- **AC7: passes.** The relationship conventions are C5 and C6 in `src/operations/reads.js`, and the catalog's Conventions state them.
+
+### The suites (Implementation, 2026-11-16)
+
+Each ran on its own on the Mac Studio, never the full `npm test`, with every endpoint dead:
+
+| Suite | Passed |
+|---|---|
+| `test/operations/graph/list-relationships.test.js` | 26 of 26 |
+| `test/operations/reads.test.js` | 21 of 21 |
+| `test/operations/graph/list-relationships-agent-through-cli.test.js` | 2 of 2 |
+| `test/operations/graph-fake.test.js` | 24 of 24 |
+| `test/operations/graph/list-elements.test.js` | 30 of 30 |
+| `test/operations/graph/history.test.js` | 8 of 8 |
+| `test/operations/graph/list-elements-agent-through-cli.test.js` | 2 of 2 |
+| `test/openapi-coverage.test.js` | 13 of 13 |
+| `test/admin-action-sweep.test.js` | 9 of 9 |
+
+- **The catalog loads.** A script doing what `test/operations.test.js`'s L1 and L4 check found the repo's catalog loads with no problems (19 operations), and requires no driver, LMDB or Redis module at load.
+- **The fakes' new route catches only this read.** No other statement in `src/` opens with a relationship held in a variable to a bare node, which is what the route catches.
+- **The full gate** runs in the pull request's CI.
+
+## Deviations
+
+- **`trust(v, keep)` checks that `keep` is a list,** and carries `v` once when `keep` names it too. A caller's slip then fails with a plain error, never a Cypher one. It throws for a kept name that isn't a variable, as ADR 0013 Decision 1 asks.
+- **`relationshipOf` throws for a direction other than `out` or `in`,** as `trust` and `nodeColumns` throw for a name that isn't a variable. That is a programming error, never an answer.
+- **`run` checks `direction` again, and checks the type again before writing it into Cypher's text,** as it checks `limit` again (list-elements' deviation). The inputs' schemas refuse each first, so these checks are for a caller that skips them.
+- **The catalog's `list-relationships` row also says what the read does:** "each with the way it points, from a point of view", as list-elements' row does. ADR 0013 Decision 3 named only its "Takes → returns" column.
 
 ## Linked artifacts
 
