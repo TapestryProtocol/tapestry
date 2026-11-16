@@ -54,7 +54,10 @@ As the owner, or an admin agent, I want a schema save to reach the concept I mea
   - when several do and none or more than one is the instance's own, the save changes nothing, and its error says the name is shared and names the headers that share it;
   - on the same graph, the same request always gets the same answer;
   - the primary-property record the save brings up to date in the same call belongs to the same concept as the schema it saved.
-- [ ] **AC4. The concept page saves the schema it shows.** Given the instance's own "tag" concept and another author's header named "tag", when the owner saves a schema on the Schema tab of the instance's own concept page, in the visual editor or in raw mode, then the schema saved is the one the page showed, and the page shows the saved schema after.
+- [ ] **AC4. The concept page saves the schema it shows.**
+  - Given the instance's own "tag" concept and another author's header named "tag", when the owner saves a schema on the Schema tab of the instance's own concept page, in the visual editor or in raw mode, then the schema saved is the one the page showed, and the page shows the saved schema after.
+  - A caller can name the concept it means by its header's tapestryKey, which every node has, and the save then reaches that concept and no other. A key no node holds, or one that more than one node holds, changes nothing.
+  - A concept that came from no event, as one `graph create-concept` makes (A10.16), is refused and nothing changes, whether it is named by its key or by its name. The save signs and publishes the schema, and a concept with no event is the instance's own private thought (BIBLE §30). *(Amended at the Test Design gate, 2026-11-15.)*
 - [ ] **AC5. A second install saves what the first one did.**
   - Given a scratch stack after one firmware install, when a second install runs, then its Pass 2 logs 0 errors.
   - The schemas of the five tag concepts, on the instance's own headers, come out as the first install left them.
@@ -71,7 +74,7 @@ As the owner, or an admin agent, I want a schema save to reach the concept I mea
 
 - **The other routes that find a header by name.** These include the skeleton route and the Health Audit (ledger row 230), the standalone `POST /api/normalize/reconcile-primary-property`, create-element, create-property, generate-property-tree (the Schema tab's other button), and wire-implicit-elements and prune-superset-edges when they are given one concept. They need the same treatment. This story fixes the schema save and the record it updates in the same call, and the rule it sets is theirs to follow.
 - **Whether a schema save should write onto another author's concept at all,** when the owner asks for it on that concept's own page. The save signs as this instance's Tapestry Assistant, so the result is no longer the other author's event. This story only stops it from happening by accident.
-- **`graph set-schema`**, the operation Loom tracks as A10.18.
+- **`graph set-schema`**, the operation Loom tracks as A10.18. It is how a concept with no event will get its schema saved, without signing (AC4).
 - **Running an install on staging, production or the owner's local instance.** That is the owner's call. This story's checks run on scratch stacks.
 
 ## Open questions
@@ -81,10 +84,14 @@ None. Both were settled by the owner at the planning gate, 2026-11-15:
 - **AC3's rule stands as drafted.** When several headers share a name and the caller gives only the name, the save goes to the instance's own header, and refuses when there isn't exactly one. Refusing whenever a name is shared was the alternative. This rule keeps the routes that make the instance's own concepts, and any other caller that sends only a name, working as they do today.
 - **No ADR.** Under Standard a bug skips Architecture when the fix is obvious, as story 8 did. How a caller names the header it means is a change to a documented route; the Implementer records it under Deviations, and the Reviewer checks it there.
 
+One more was settled at the Test Design gate, 2026-11-15:
+
+- **A caller names the header by its tapestryKey.** The test plan first proposed the header's address. The owner chose the tapestryKey: every node has one (ADR graph-operations-foundation/0003), while not every concept is guaranteed an address. The graph operations name a concept the same way (`graph mark-field`'s `concept`). Naming a concept by key can reach one with no event, which the name lookup never could, so AC4 now says what happens then.
+
 ## Linked artifacts
 
 - ADR: none. The owner chose the Standard bug path, with Architecture skipped, on 2026-11-15.
 - Found by: story 5's firmware install on the owner's local instance, 2026-11-15, and story 8's review, round 2 (`engineering-team/stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.test-plan.md`, Amendments 1 and 2).
 - Ledger: `ledger/2026-11-15-save-schema-finds-header-by-name.md`
-- Test plan: (filled in after Test Design)
+- Test plan: `engineering-team/stories/graph-operations-foundation/10-schema-save-finds-the-right-header.test-plan.md`
 - Review: (filled in after Review)

@@ -399,6 +399,9 @@ const suites = [
   // graph-operations-foundation #8: a firmware install's Pass 3 rebuilds only the nodes with an address, and no rebuild
   // reads the whole graph. Stack-free in every run; its live checks run only against a scratch container (tapestry-scratch…).
   { file: 'pass-3-finishes-in-minutes.test.js' },
+  // graph-operations-foundation #10: a schema save lands on the header its caller means, never on another author's
+  // same-named one. Stack-free in every run; its live checks run only against a scratch container (tapestry-scratch…).
+  { file: 'schema-save-finds-the-right-header.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so
