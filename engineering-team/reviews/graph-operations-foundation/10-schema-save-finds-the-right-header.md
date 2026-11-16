@@ -299,3 +299,169 @@ The code those findings concern was checked directly, so none of them blocks.
   - story 8's fresh-stack result.
   It corrected one citation.
 - [x] Completion detection: performed in the chat.
+
+## Round 2
+
+**Date:** 2026-11-15 (the runs were between 03:00 and 03:30 UTC on 2026-11-16)
+**Diff:** `git diff cd6c375b..601575f1`. Two commits:
+- `ab4722b3` (`impl:`) covers findings 1–5: the wording, the new and tightened tests, three `ORDER BY` lines, and the suite's dead conf.
+- `601575f1` (`ledger:`) covers finding 6 and the harness friction: AC5's record, two new rows, and an addendum.
+
+The two commits change nothing else. I checked each fix as a fresh claim, my own round-1 wording included. No scratch stack was used this round.
+
+### Gates, again
+- [x] **The fourteen stack-free suites, through the gate engine,** as in round 1. Endpoints were dead, `BRAINSTORM_CONF_PATH` named a dead conf, and the TCP guard was on; the guard refused nothing. `npm run gate:status -- --label reviewer-10-round2`:
+  `20261116T031626Z-56295-ab03 [reviewer-10-round2] started 2026-11-16T03:16:26.198Z on 601575f1 — PASS, exit 0, 583 passed, 0 failed, 85 skipped, 14/14 suites`
+  - The 583 are round 1's 578 plus the five new tests.
+  - `operations` passes 337 of 337, G11 and G18 among them.
+- [x] **`create-concept-duplicate-check` on its own, with `TAPESTRY_CONTAINER` unset:**
+  `20261116T031739Z-63909-4741 [reviewer-10-round2-ccdc] started 2026-11-16T03:17:39.654Z on 601575f1 — PASS, exit 0, 3 passed, 0 failed, 3 skipped, 1/1 suites`
+- [x] **The suite on its own:** 25 passed, 0 failed, 2 skipped. The temporary conf it writes is gone after the run.
+- [x] **The new tests against round 1's code.** I checked out `cd6c375b`'s four changed `src/` and `ui/` files, ran the suite, and restored them: 24 passed, 1 failed.
+  - Only S4a fails, on the tab's missing `ORDER BY`.
+  - The other new tests guard behaviour that round 1's code already had.
+- [x] **The UI still parses:** 0 diagnostics in each of the three files. The tab's new query is still a read under the route's write check.
+- [ ] **Live: not run,** as the brief says. See "The `ORDER BY` lines" below.
+
+### Wrong fixes, again
+Each was applied in place, run against the whole suite stack-free, and restored with `git checkout --`. `git status` was clean after each.
+
+| Wrong fix | Caught in round 1 by | Caught in round 2 by |
+|---|---|---|
+| W1 the name lookup restricted to the TA's own headers | S3b, S3d, S3e | S3b, S3d, S3e |
+| W2 prefer the TA's header, never refuse | S3d, S3e | S3d, S3e |
+| **W3 the fold left looking up by name** | S3f | **nothing** (Blocking 1) |
+| W4a Pass 2 sends only the name | S1c | S1c |
+| **W4b Pass 2 finds the header by name again, then sends its key** | S1b, S1c | **nothing** (Blocking 1) |
+| W5 apply-enumerations sends only the name | S2c | S2c |
+| W6 no no-event refusal | S4f | S4f, S4i |
+| W7 a key two headers hold takes the first | S4g | S4g |
+| W8 the key lookup reads `:TapestryNode` | nothing | S5a |
+| W9 the tab sends the header's address as `tapestryKey` | nothing | S4a |
+| W10 the client sends `{}` | nothing | S4b |
+| W11 no 400 for a value that isn't a key | nothing | S4h |
+| W12 the no-event refusal checks only the header | nothing | S4i |
+| W12b the no-event refusal checks only the schema node | (not tried) | nothing (Non-blocking 9) |
+| W15 no `ORDER BY` in the header lookup | nothing | S3d, S3e, S3h |
+| W17 the fold matches `:TapestryNode` only | nothing | S5a, S5b |
+| W18 the fold's new `ORDER BY` removed; W18b, reversed | (new line) | nothing (Non-blocking 7) |
+| W19 Pass 2's new `ORDER BY` removed | (new line) | nothing (Non-blocking 7) |
+| W20 the tab's read ordered `uuid DESC` | (new line) | nothing (Non-blocking 8) |
+| W21 the tab's new `ORDER BY` removed | (new line) | S4a |
+| W22 the header lookup takes the last schema node by address | (not tried) | S3h |
+| W23 the page stops reading the header's key | (not tried) | S4a |
+| W24 the client sends an empty key | (not tried) | S4b |
+| W25 a value that isn't a key answers 200 | (not tried) | S4h |
+
+### The round-1 findings
+1. **Non-blocking 1: fixed.** The record now says "concept header" wherever the code counts concept headers:
+   - AC4 (`10-schema-save-finds-the-right-header.md:59`);
+   - the Deviation (`:93`);
+   - `src/api/openapi.yaml:1246–1248`;
+   - the error (`src/api/normalize/index.js:1963`);
+   - the plan (`10-…test-plan.md:26, 76`) and S4g's title.
+
+   Each matches the code. AC4's new note gives the reason, which I re-derived: a match on a key with no label can't use an index before `tapestry-keys`, so counting every holder would read every node. The note also records the owner's go-ahead at the review gate. That is the committing session's record, and I can't check it from the repo.
+2. **Non-blocking 2: fixed.**
+   - S5a and S5b lay the graph out with no `TapestryNode` label: with keys as `initialize` stamps them, and with no keys at all.
+   - W8 now fails S5a, and W17 fails S5a and S5b.
+   - The plan's Fixtures line says which test covers which state (`10-…test-plan.md:90`).
+3. **Non-blocking 3: fixed.**
+   - S4a pins `tapestryKey: concept.tapestryKey` in each call, and `h.tapestryKey AS tapestryKey` in the page's query. W9 and W23 fail it.
+   - S4b adds the `{}` case and the empty case. W10 and W24 fail it.
+   - One residue: Non-blocking 8.
+4. **Non-blocking 4: fixed.**
+   - S4h catches W11 and W25.
+   - S4i catches W12.
+   - S3d and S3e now require one answer in every storage order, and with S3h they catch W15. S3h also catches W22.
+   - One mirror case is left: Non-blocking 9.
+5. **Non-blocking 5: fixed in the code, and two of its three new lines cause Blocking 1.**
+   - The save, the fold, Pass 2 and the tab now all take a header's first schema node by address, ascending. So the new Deviation's sentence (`10-…md:102`) holds by reading.
+   - Only the tab's line has a test (S4a), and that test accepts a reversed order (Non-blocking 8). The fold's and Pass 2's lines have none (Non-blocking 7).
+6. **Non-blocking 6: fixed, with two points of prose (Non-blocking 10 and 11).**
+   - The plan's record no longer reads the fresh stacks as evidence about nostr relay's schema or the moved supersets (`10-…test-plan.md:189–193`).
+   - The two are filed as `ledger/2026-11-16-seeded-second-install-differs.md`. Its settling procedure would test the right thing: seed after the boot's install, then run L2, comparing one stack's two installs.
+   - The caches row's "Not this row" points there (`ledger/2026-11-16-install-caches-lag-its-own-graph.md:24`).
+- **Harness friction 1: fixed.**
+  - The addendum's claims hold: the driver reads the conf alone (`src/lib/neo4j-driver.js:33`, `src/utils/config.js:17–74`).
+  - The suite's child now gets a dead conf (`test/schema-save-finds-the-right-header.test.js:209–212`). In that conf's form, `NEO4J_URI` reads back through `getConfigFromFile` as `bolt://127.0.0.1:9`.
+  - The plan's recipe names `BRAINSTORM_CONF_PATH` (`10-…test-plan.md:98`).
+  - The suite's dead env no longer sets `NEO4J_URI`. The only readers of that variable in `src/` are pipeline and maintenance scripts, none of them in the child's path, so nothing is lost.
+- **Harness friction 2: filed,** as `ledger/2026-11-16-scratch-stack-down-removes-anyones.md`. Its claims hold:
+  - `down` is `scripts/scratch-stack.sh:34–38`;
+  - worktree `awesome-ramanujan-76c6f8` is on `fix/tapestry-keys-tx-memory`;
+  - test plans do tell a session to run `down` afterwards (`engineering-team/stories/done/node-primitives/1-event-less-create-set.test-plan.md:91`; story 8's plan `:142`). The words "always finish with" are the review brief's.
+- **Harness friction 3:** unchanged, OPEN.md row 294.
+
+### The `ORDER BY` lines
+- **The lines.** The fold's `ORDER BY schemaUuid, ppUuid` (`src/api/normalize/index.js:2116`), Pass 2's `ORDER BY schemaUuid` (`src/firmware/install.js:920`), and the tab's `ORDER BY uuid` (`ui/src/pages/concepts/ConceptSchema.jsx:25`).
+- **They need no live check before merge, for their Cypher.** The same forms already run on real Neo4j:
+  - the save's own `WITH … RETURN … ORDER BY headerUuid, schemaUuid` ran in round 1's L1 and on the page path;
+  - an aggregating `RETURN` followed by `ORDER BY` on its aliases runs in the audit route (`src/api/audit/index.js:69, 71, 249`).
+- **Still to run, when a scratch stack is free or at the first install on staging after merge:**
+  - L1 and the page path;
+  - an install's Pass 2 line, `40 enriched, 0 skipped, 0 errors`.
+
+  None of the three lines has run on real Neo4j yet, and Pass 2's is on every install's path.
+
+### New findings
+
+#### Blocking
+1. **`src/api/normalize/index.js:2116` and `src/firmware/install.js:920`, with the fixtures' authors (`test/schema-save-finds-the-right-header.test.js:82–86`): the new `ORDER BY` lines let two wrong fixes pass every test, and the round-1 brief named one of them.**
+   - **What passes.** W3, the fold left looking up by name. W4b, Pass 2 finding the header by name, then sending its key. Each passes all 25 tests. Each also passes the whole fourteen-suite subset: 583 passed, 0 failed.
+   - **What used to catch them.** In round 1, S3f caught W3, and S1b and S1c caught W4b. With the new lines taken out again, they still do: W3 fails S3f, S5a and S5b, and W4b fails S1b and S1c.
+   - **Why.** Every other author in the fixtures sorts after the test's TA, `4f355bdc…`. That is `abab…` (`:86`), and the manifest's `82b75e47…` and `919ba08a…`. So among same-named concepts, the first by address is always the TA's own. A lookup by name that then orders by address lands on the right concept only by the fixtures' luck.
+   - **What it would do on an instance,** where the TA's pubkey is random. My own scenario, through the suite's child process, adds an author whose pubkey sorts before the TA's (`00…`):
+     - under W3, the fold read that author's concept (`already-consistent`), and left the TA's primary property behind the schema just saved;
+     - under W4b, Pass 2 wrote the firmware's schema onto that author's schema node, and not onto the TA's.
+
+     The real code does neither.
+   - **What it leaves.**
+     - AC3's fifth bullet (`10-…md:56`) no longer has a test that fails when it regresses.
+     - AC1 has none for W4b. W4a, sending only the name, is still caught, by S1c.
+     - Round 1's PASS rested on each wrong fix the brief names failing a test (`:288`). For W3 that no longer holds.
+   - **The code is right.** The fold reconciles the header the save found (`src/api/normalize/index.js:2052`), and Pass 2 finds the header by its address (`src/firmware/install.js:917–923`). The gap is in the fixtures.
+   - **Asked change (Tester).** Make "first by address" and "the instance's own" disagree in the fixtures. Either:
+     - add an author whose pubkey sorts before the TA's to S3f, S5a and S5b, and to S1b or a case beside it; or
+     - run the order-sensitive tests twice, under a TA that sorts first and under one that sorts last.
+
+     Then show W3 and W4b failing again.
+
+#### Non-blocking
+7. **`src/api/normalize/index.js:2116`, `src/firmware/install.js:920`: the fold's and Pass 2's new ordering have no test.**
+   - W18 (the fold's `ORDER BY` removed), W18b (reversed) and W19 (Pass 2's removed) pass every test.
+   - No fixture has a header with two schema nodes and a primary property. Pass 2's choice shows only in its log line (`:976`).
+   - So the new Deviation's "reconciled" and "logged" (`10-…md:102`) hold by reading only.
+   - Optional: give S3h a primary property, and assert the fold reconciled against the schema node that was saved.
+8. **`test/schema-save-finds-the-right-header.test.js:472`: S4a's check accepts `ORDER BY uuid DESC`.** W20 passes. The tab would then show a header's last schema node, not the one the save writes. Optional: require ascending order.
+9. **`src/api/normalize/index.js:1997`: the header half of the no-event refusal is only tested together with the schema half.** W12b, which checks only the schema node, passes. S4f's schema node has no event either, and S4i's header has one. Optional: a fixture with an event-less header and a schema node from an event.
+10. **`10-schema-save-finds-the-right-header.test-plan.md:192`: "Nothing writes nostr relay's schema except the save" isn't so.**
+    - Pass 1 calls create-concept with `overwrite: true` (`src/firmware/install.js:173–180`), and create-concept rebuilds the schema node on every install (`src/api/normalize/index.js:1345–1346`, its section "3. JSON Schema").
+    - The new row says this correctly (`ledger/2026-11-16-seeded-second-install-differs.md:10`).
+    - The plan's point still holds: Pass 2's save is the last writer, since no enumeration targets nostr relay. Optional: say that instead.
+11. **`ledger/2026-11-16-seeded-second-install-differs.md:9`: "differed from the first install's" is an inference.**
+    - Story 8 compared the seeded stack, after its second install, with a baseline taken on another, fresh stack after one install (`8-pass-3-finishes-in-minutes.test-plan.md:94, 102–104`).
+    - The row's own "it may need the seeded shape" allows for that.
+    - Optional: say what story 8 compared.
+12. **`src/api/normalize/index.js:2116`: the fold's ordering also changes the standalone `POST /api/normalize/reconcile-primary-property`.**
+    - Given no `headerUuid`, its lookup by name now takes the same-named header whose schema node sorts first by address. Before, it took the database's choice.
+    - The route is out of scope (`10-…md:75`). The change is deterministic, and no worse than before. It is noted here because it's a change to that route.
+
+### Harness friction, round 2
+4. **The new tests and the code they guard arrived in one `impl:` commit (`ab4722b3`).**
+   - So no recorded run shows the new tests failing first. Against round 1's code, only S4a fails.
+   - The fold's and Pass 2's new lines went in with no test that fails without them, and that is how Blocking 1 got through.
+   - As in story 8's harness friction 3: the Tester's change belongs in a commit of its own, run red first.
+
+### Corrections to round 1
+- My citation at line 63, `8-pass-3-finishes-in-minutes.md:27`, means story 8's review (`engineering-team/reviews/graph-operations-foundation/8-pass-3-finishes-in-minutes.md:27`). It has the same ambiguity the committing session corrected at line 253.
+- Round 1's "each wrong fix the brief names fails at least one" held for round 1's code. At `601575f1` it doesn't hold for W3 (Blocking 1).
+
+### Round 2 verdict
+**CHANGES_REQUESTED**
+
+Every finding and harness friction from round 1 is addressed, and each fix holds when re-derived, apart from the smaller points above. One new issue blocks.
+- **What it is.** Two of the round's new `ORDER BY` lines, in fixtures where the TA always sorts first, leave the suite unable to see a fold, or a Pass 2, that finds its header by name.
+- **What is asked.** The code is right. The ask is a fixture change, and a re-run of W3 and W4b.
+
+This round edits no other file, so it leaves the story's status line as round 1's verdict set it, Done. Whether that stands until the fix lands is for the session that commits this review. That session set it back to In Progress.
