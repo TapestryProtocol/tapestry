@@ -36,3 +36,5 @@ brain's `src/api/brain/index.js` already does this with `*_CONCEPT_SLUG`). Pass 
 the audit. Then the rename guard can go, apart from the duplicate-name rule, if names stay unique for display.
 
 **Pointer:** the review of the Edit a concept change, S1; `docs/DICTIONARY_PAGE_HANDOFF.md` § "Edit a concept".
+
+**Seen again 2026-11-16** (story graph-operations-first-slice #41, the graph rule concept; its review, non-blocking 8). Firmware install's Pass 1b makes a concept's elements through `POST /api/normalize/create-element`, which finds the concept by name (`h.name = $concept … LIMIT 1`). The graph rule concept's items are made that way when an instance first installs them. Once instances import one another's assistant-signed "graph rule" headers, a new entry's item can be filed under another instance's header, as #80's "tag" bug was. That story's update path finds the header by its address (`firmware.conceptUuid`), so only an item's first creation is exposed.

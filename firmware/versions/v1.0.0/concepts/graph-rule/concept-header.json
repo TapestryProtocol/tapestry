@@ -1,0 +1,16 @@
+{
+  "word": {
+    "slug": "concept-header-for-the-concept-of-graph-rules",
+    "name": "concept header for the concept of graph rules",
+    "title": "Concept Header for the Concept of Graph Rules",
+    "wordTypes": ["word", "conceptHeader"]
+  },
+  "conceptHeader": {
+    "description": "A graph rule is one sentence that a graph or an event meets or breaks. The test: a program can check it and answer pass or fail. A rule either refuses a write or only reports. Each rule's wording is written once, in the rulebook, docs/GRAPH_RULES.md in TapestryProtocol/tapestry. Each element of this concept is made from its entry there and from the rule's code, never kept by hand, so a rule is changed in the rulebook, not here.",
+    "oNames": { "singular": "graph rule", "plural": "graph rules" },
+    "oSlugs": { "singular": "graph-rule", "plural": "graph-rules" },
+    "oKeys": { "singular": "graphRule", "plural": "graphRules" },
+    "oTitles": { "singular": "Graph Rule", "plural": "Graph Rules" },
+    "oLabels": { "singular": "GraphRule", "plural": "GraphRules" }
+  }
+}

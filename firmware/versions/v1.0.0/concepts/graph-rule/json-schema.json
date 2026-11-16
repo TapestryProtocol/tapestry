@@ -1,0 +1,160 @@
+{
+  "word": {
+    "slug": "json-schema-for-the-concept-of-graph-rules",
+    "name": "JSON schema for the concept of graph rules",
+    "title": "JSON Schema for the Concept of Graph Rules",
+    "description": "the json schema for the concept of graph rules",
+    "wordTypes": ["word", "jsonSchema", "validationTool"],
+    "coreMemberOf": [
+      {
+        "slug": "concept-header-for-the-concept-of-graph-rules",
+        "uuid": "<uuid>"
+      }
+    ]
+  },
+  "jsonSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "name": "graph rule",
+    "title": "Graph Rule",
+    "description": "JSON Schema for the concept of graph rules. Each element is one entry of the rulebook, docs/GRAPH_RULES.md, made from that entry and from the rule's code by src/firmware/graph-rules.js. Its text fields hold the rulebook's words as Markdown.",
+    "required": ["graphRule"],
+    "definitions": {},
+    "properties": {
+      "graphRule": {
+        "type": "object",
+        "name": "graph rule",
+        "title": "Graph Rule",
+        "slug": "graph-rule",
+        "description": "One rule, as its rulebook entry and its code give it.",
+        "required": ["name", "number", "says", "kind", "about", "refusesOrReports", "check", "repair", "enforcedBy", "status", "source", "alsoSays", "code"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "name": "name",
+            "title": "Name",
+            "slug": "name",
+            "description": "The rule's name, from its entry's heading: kebab-case, and its code file's name when it has one",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          },
+          "number": {
+            "type": "integer",
+            "name": "number",
+            "title": "Number",
+            "slug": "number",
+            "description": "The entry's number in the rulebook",
+            "minimum": 1
+          },
+          "says": {
+            "type": "string",
+            "name": "says",
+            "title": "Says",
+            "slug": "says",
+            "description": "What the rule says, as the rulebook writes it (Markdown)"
+          },
+          "kind": {
+            "type": "string",
+            "name": "kind",
+            "title": "Kind",
+            "slug": "kind",
+            "description": "The entry's Kind, as the rulebook writes it (Markdown)"
+          },
+          "about": {
+            "type": "string",
+            "name": "about",
+            "title": "About",
+            "slug": "about",
+            "description": "What the rule is about: the graph (its Kind starts \"a graph rule\") or events (it starts \"a letter rule\")",
+            "enum": ["the graph", "events"]
+          },
+          "refusesOrReports": {
+            "type": "string",
+            "name": "refuses or reports",
+            "title": "Refuses or Reports",
+            "slug": "refuses-or-reports",
+            "description": "Whether the rule refuses a write or only reports, and its refusals, as the rulebook writes it (Markdown)"
+          },
+          "check": {
+            "type": "string",
+            "name": "check",
+            "title": "Check",
+            "slug": "check",
+            "description": "How a check finds what breaks the rule (Markdown)"
+          },
+          "repair": {
+            "type": "string",
+            "name": "repair",
+            "title": "Repair",
+            "slug": "repair",
+            "description": "How a repair fixes what breaks the rule (Markdown)"
+          },
+          "enforcedBy": {
+            "type": "string",
+            "name": "enforced by",
+            "title": "Enforced By",
+            "slug": "enforced-by",
+            "description": "Where the rule is enforced: by the database, a guard or a check, and where (Markdown)"
+          },
+          "status": {
+            "type": "string",
+            "name": "status",
+            "title": "Status",
+            "slug": "status",
+            "description": "proposed (written, not yet enforced), enforced, or retired",
+            "enum": ["proposed", "enforced", "retired"]
+          },
+          "source": {
+            "type": "string",
+            "name": "source",
+            "title": "Source",
+            "slug": "source",
+            "description": "The TIP or ADR that brought the rule in (Markdown)"
+          },
+          "alsoSays": {
+            "type": "array",
+            "name": "also says",
+            "title": "Also Says",
+            "slug": "also-says",
+            "description": "The entry's other fields, in order, each with its label and its text (Markdown); empty when there are none",
+            "items": {
+              "type": "object",
+              "required": ["label", "text"],
+              "properties": {
+                "label": { "type": "string" },
+                "text": { "type": "string" }
+              }
+            }
+          },
+          "code": {
+            "type": ["object", "null"],
+            "name": "code",
+            "title": "Code",
+            "slug": "code",
+            "description": "What the rule's code file declares, or null for a rule with no code file",
+            "required": ["file", "summary", "refuses", "refusals"],
+            "properties": {
+              "file": { "type": "string" },
+              "summary": { "type": "string" },
+              "refuses": { "type": "boolean" },
+              "refusals": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["code", "status", "when"],
+                  "properties": {
+                    "code": { "type": "string" },
+                    "status": { "type": "integer" },
+                    "when": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-tapestry": {
+          "unique": ["name"]
+        }
+      }
+    }
+  }
+}

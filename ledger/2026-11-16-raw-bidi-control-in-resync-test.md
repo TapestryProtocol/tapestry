@@ -3,8 +3,8 @@
 **Id:** 2026-11-16-raw-bidi-control-in-resync-test
 **Type:** cleanup
 **Opened:** 2026-11-16 (graph-operations-first-slice #16, review round 1's non-blocking 11)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16, in #83 (commit 3f8dd8f4): a script wrote the character on line 253 as its escape. The line's array has the same value as before, so E10 checks the same string, and a scan of the checkout by code point finds no raw text-direction control.
 
 **What was seen.** `test/dictionary-resync-concept.test.js:253` holds a literal U+202E (right-to-left override) inside a string, where it is the input under test. In a viewer that applies the Unicode bidirectional algorithm, which most editors and GitHub do, the rest of the line displays reversed, so it doesn't show what the parser reads (the "Trojan Source" pattern, CVE-2021-42574). GitHub marks such a file with a warning about hidden bidirectional text.
 

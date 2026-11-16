@@ -1,6 +1,6 @@
 # Story 41: The graph rules as a concept on every instance, made from the rulebook
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Feature
 **Loom:** A10.41 — https://loom.brainstorm.world/t/A10.41
@@ -94,6 +94,43 @@ For Architecture, not this gate:
 - **What a reinstall does with an item whose entry has left the rulebook.** The ADR retires a rule rather than removing its entry, so this should be rare.
 - **Whether firmware's usual signed path suits these items,** and which category and sets, if any, the concept gets.
 
+## Evidence
+
+### The live check (Implementation, 2026-11-16)
+
+This ran on a throwaway instance booted from image `agent-memory-tapestry:latest`, with fresh volumes and no published ports, never on a shared or private instance. It had this branch's `src/` mounted. Before the instance's first install, its graph held no concept, and this branch's firmware was copied into it (see Deviations). By criterion:
+
+- **AC1, AC2, AC3 and AC6 pass.**
+  - The first install, which took 85 s, created the concept and logged `graph-rule: 6 to create`.
+  - `test/graph-rule-firmware.test.js` against the instance passed 17 of 17.
+  - GL1: `summaries` lists `39998:<TA>:graph-rule` as "graph rule" with six elements, and it has the eight core nodes relationship-type has.
+  - GL2: each item is at an address of the instance's own, `39999:<TA>:<name>-1b2c3b2d`, and holds its committed file's JSON.
+  - GL3: `tapestry graph list-elements` gives the six.
+  - The concept's page in the UI wasn't opened, since a scratch instance has no published ports. The page reads the same concept graph.
+- **AC4 passes.** After an item's file changed, its JSON in the graph said the new words.
+- **AC5 passes.** Every install took about 63 s and logged its outcome for the concept. A whole-graph fingerprint (every node with an address, its labels and tags, and every relationship) was compared before and after each install:
+  - **No change** (GL4, then again): `0 to create, 0 re-signed in place, 6 already in line`. Every item kept its address and its event, and no relationship changed. The rest of the graph changed only as every reinstall changes it: the 44 tag nodes of the headers a reinstall re-signs get new addresses.
+  - **One item's file changed** (class-thread-acyclic's `says`): `1 re-signed in place, 5 already in line`. That item kept its address, got a new event and kept its 5 relationships, and the other five kept their events. Beyond the 44, the only node that changed was that item. Its 4 tag nodes were re-keyed too, as regenerateJson re-keys them on every re-sign.
+  - **A seventh entry's file added:** `1 to create, 6 already in line`. Beyond the 44, the graph gained that item, its 4 tags and its one `HAS_ELEMENT`, and nothing else changed.
+
+## Deviations
+
+- **ADR 0041 gained Amendment 1 at Test Design.** It pins the shapes the tests read: the script's three parts and their problems, `planElement`'s arguments and answers, and how the schema states Decision 2's values. It also says install finds the concept's header by its address, never by name. That is what Pass 2 began doing while this story was in Architecture (graph-operations-foundation #10, TapestryProtocol/tapestry#80).
+- **The rulebook's preamble says more than Decision 8 listed.** As well as "In the graph", it now describes the format the script reads: a field's bold label, its indented continuation lines, how a refusal is written, and that a rule with code names its file.
+- **The live check put this branch's firmware into the scratch instance by hand.** `scripts/scratch-stack.sh` mounts only `src/`, so the firmware would have come from the image, which predates this branch. Mounting a copy of the firmware from the session's temporary folder failed: Docker Desktop doesn't share that folder, so the mount came up empty and the control panel exited. So the check booted the instance with `src/` mounted, copied the branch's firmware in, and restarted the control panel before the first install. The instance's first install therefore included the graph rule concept. Giving the stock script a firmware mount is a possible follow-up.
+- **What review round 1 changed** (ADR 0041 Amendment 2), with its new tests added first, in a commit of their own:
+  - **BIBLE §7, the manifest's changelog and the ADR now say what install does with an item edited in the graph.** Install compares the item's JSON in the graph with its file, so it puts the edit back, whether or not the file changed. Before, all three said such an item was left alone while its file was unchanged.
+  - **The rulebook's format is stricter.** Each of these is now a problem: a line after a field that isn't indented, a level-2 heading that isn't an entry's but holds something in backticks, and a field line outside any entry. Before, the first joined the field before it, and the second dropped its entry without a word (GP12 to GP14). The rulebook's preamble lists the eight labels and the format.
+  - **A description is the whole first sentence.** It no longer ends at an "e.g." or an "i.e." (GP15).
+  - **A stack-free test runs Pass 1 itself,** with its dependencies stubbed in a child process (IS4 to IS9, and IS10 from review round 2: with another author's element read first, the assistant's is the one re-signed).
+  - **BIBLE §7's category lines match the manifest.**
+- **Known limits, carried forward:**
+  - **create-element still finds its concept by name,** as it does for every firmware concept. #80 fixed that for schema saves only. Another author's header named "graph rule" could take the instance's own header's place when the items are first made. Once instances import one another's assistant-signed "graph rule" headers, that becomes likely, as #80's "tag" bug showed. An update finds the header by its address, so it isn't affected. This is tracked in `ledger/2026-10-02-normalize-lookups-by-concept-name.md`, which now notes graph rule's case.
+  - **Another author's element with a rule's name stops firmware making its own** (ADR 0041 Consequences). Install logs it and signs nothing over it.
+  - **An item whose entry leaves the rulebook stays on instances that have it.** Nothing deletes it.
+  - **After a re-sign, an item's LMDB entry keeps its earlier words.** Pass 3's derive builds each entry on top of the one already there (`src/lib/derivers/word.js:43–44`). So after a rule changes, the item's json tag has the new words and its LMDB entry the old, as after every re-sign: Pass 2's schema saves, and the element page's save. Whatever reads the rules should read the json tag, as `relationship-type-allowed` does; that includes `rules list-rules` and `rules check` (A10.31). OPEN.md row 137, the LMDB doctrine row, now notes this case.
+  - **AC6's UI page hasn't been opened.** A scratch instance has no published ports. The page lists elements with the same class-thread walk GL2 read live (`ConceptElements.jsx:67–72`), so the risk is low. Open it on staging once this ships.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
@@ -102,7 +139,7 @@ For Architecture, not this gate:
 - The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md)
 - The operations that will read it: catalog §4 in [docs/GRAPH_OPERATIONS_CATALOG.md](../../../docs/GRAPH_OPERATIONS_CATALOG.md) (A10.31)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0041-graph-rule-concept.md](../../decisions/graph-operations-first-slice/0041-graph-rule-concept.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [41-graph-rule-concept.test-plan.md](41-graph-rule-concept.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-first-slice/41-graph-rule-concept.md](../../reviews/graph-operations-first-slice/41-graph-rule-concept.md)
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)

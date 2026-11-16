@@ -25,11 +25,20 @@ instance's URL rebuilds the brain on a fresh instance, with no raw Cypher.
 Each story is planned when its task is taken, and is numbered by its Loom task, as the foundation's are (A10.n is story
 n, and its first ADR 000n), because teammates plan them at the same time in different sessions.
 
+9. `stories/graph-operations-first-slice/9-resolve.md` — turn a name, slug or nostr address into the tapestryKeys it
+    could mean, from a point of view, reporting any ambiguity; the resolution every input that names a node will use
+    (Loom A10.9).
 11. `stories/graph-operations-first-slice/11-list-elements.md` — list the elements of a concept or a set, a page at a
     time, from a point of view, the owner's by default; its ADR sets the paging, the point of view and the node shape
     every graph read follows (Loom A10.11).
+13. `stories/graph-operations-first-slice/13-list-relationships.md` — list a node's relationships, in and out, each
+    with the way it points, a page at a time, from a point of view; its ADR sets how a relationship is answered and
+    judged, for graph walk and describe-node (Loom A10.13).
 16. `stories/graph-operations-first-slice/16-create-concept-and-update-concept.md` — make a concept with its eight core
     nodes and no event, and change its names, slug or description (Loom A10.16).
+20. `stories/graph-operations-first-slice/20-create-element.md` — make an element of a concept, or of a set in its class
+    thread, with no event, its fields checked against the concept's schema; brings BIBLE §10's rule 4 into the
+    rulebook as one check the later element writes reuse (Loom A10.20).
 28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's
     superset, under another parent, refusing a cycle, and take a set out from under one of its parents, refusing its
     last parent (Loom A10.28).

@@ -31,7 +31,7 @@ Concepts, by handle (the assistant's pubkey is read at runtime, never written in
 
 ### Option A — The element files are made by a script, kept in line by a test, and a reinstall brings them in
 
-A script reads the rulebook and the rules' declarations and writes one element file per entry into the concept's `elements/` folder. The files are committed, and a stack-free test fails whenever they differ from what the script would write. Install creates them as it creates every firmware element. For this concept only, a reinstall also re-signs an existing item in place when its file has changed.
+A script reads the rulebook and the rules' declarations and writes one element file per entry into the concept's `elements/` folder. The files are committed, and a stack-free test fails whenever they differ from what the script would write. Install creates them as it creates every firmware element. For this concept only, a reinstall also re-signs an existing item in place when its JSON in the graph differs from its file (Amendment 2).
 
 - **Pros:**
   - Firmware stays a folder of JSON files, the "canonical set of JSON definitions" of BIBLE §7, which a version folder and the `active` symlink pin. Every reader of firmware files sees the items, as `relationship-type-allowed` sees its types.
@@ -156,7 +156,7 @@ The lookup and its outcome are one pure step, `planElement({ json, found, ta })`
 - **What it constrains.**
   - A change to an entry or a rule's code needs `node src/firmware/graph-rules.js` run and its files committed. The stack-free suite fails until they are.
   - A new rule file can't merge without its rulebook entry. ADR graph-operations-foundation/0004 Decision 12 already asked for this, and now it is checked.
-  - Hand edits to an item in the graph are put back by the next install that finds its file changed, as a reinstall puts back every firmware header (OPEN.md row 8). An item whose file is unchanged keeps such an edit until its file next changes. Rules are changed in the rulebook (story, Out of scope).
+  - An edit made to an item in the graph is put back by the next install, whether or not the item's file changed, as a reinstall puts back every firmware header (OPEN.md row 8). Install compares the item's JSON in the graph with its file (Decision 6; Amendment 2). Rules are changed in the rulebook (story, Out of scope).
 - **New debt and follow-ups.**
   - **create-element's check is by name, not by author** (Context 3), so another author's element with a rule's name in this concept stops firmware making its own. That is true of every firmware concept today. Decision 6 logs it rather than signing over the other element.
   - **An item whose entry leaves the rulebook stays on instances that have it** (Decision 6).
@@ -199,3 +199,30 @@ The lookup and its outcome are one pure step, `planElement({ json, found, ta })`
 - Changing create-element's check by name, or how a reinstall treats any other concept's elements.
 - Deleting an item when its entry goes.
 - Moving the rulebook under `protocols/`.
+
+## Amendment 1 (2026-11-15, at Test Design) — what the Tester's readings settle
+
+1. **The script's parts.**
+   - `parseRulebook(text)` answers `{ entries, problems }`. Each entry has at least its `number` and its `name`.
+   - `itemsFor({ entries, rules, ruleFiles, ruleProblems })` answers `{ items, problems }`. Each item is `{ name, json }`, where `json` is the element's word wrapper of Decision 2. `ruleFiles` are file names, such as `set-has-a-parent.js`, and `ruleProblems` are the loader's `[{ file, problem }]`.
+   - Each problem is `{ rule, message }`. `rule` is the name of the rule it is about, or `null` when no name can be read, as from a heading without one. `message` says what is wrong, in words.
+2. **`planElement({ json, found, ta, resolve })`** answers `{ action, uuid, others }`.
+   - `found` is the rows install read, `[{ uuid, json }]`, with `json` as the node's `json` tag holds it: JSON text, an LMDB reference, or null. `resolve(value)` turns an LMDB reference into its JSON, as an object or as text, or null when its entry is missing. It defaults to `resolveValue` from `src/lib/tapestry-resolve`.
+   - The assistant's elements are those whose address starts `39999:<ta>:`. Install gives `ta` from `firmware.getTAPubkey()`.
+   - `create` when no row has the name.
+   - `unchanged`, with the element's `uuid`, when the assistant's element holds the file's JSON. They are compared as values, so key order doesn't matter.
+   - `update`, with its `uuid`, when it holds other JSON, or JSON that can't be read.
+   - `blocked`, with `others`, the other authors' addresses, when only other authors' elements have the name.
+   - When more than one of the assistant's elements has the name, the first by address decides, and the rest are left as they are.
+3. **Install finds the concept's header by its address,** `firmware.conceptUuid(slug)`, as Pass 2 now does (graph-operations-foundation #10), and never by name.
+4. **The schema states what Decision 2's table gives.** `about`'s and `status`'s values are each an `enum`. `number` is an `integer`, `alsoSays` an `array`, and `code` is `["object", "null"]`.
+
+## Amendment 2 (2026-11-16, at Review) — what review round 1 changed
+
+1. **An install puts back an edit made in the graph.** Decision 6 compares an item's JSON in the graph with its file, so install re-signs the item whenever they differ. They differ when the file changed, and also when someone edited the item in the graph. Two sentences said otherwise: Option A's ("when its file has changed"), and the Consequences bullet saying an item whose file is unchanged keeps an edit. Both are corrected above. This is the one place the story lets an install overwrite graph state, and the story's Out of scope approved it.
+2. **The rulebook's format is stricter (Decision 3).** Each of these is now a problem:
+   - **A non-blank line after a field that isn't indented,** naming the entry. A field's text goes on only on blank or indented lines, so a `---` separator, a stray note or a mistyped label no longer joins the field before it.
+   - **A level-2 heading that holds anything in backticks but isn't an entry's heading,** such as `` ## 7 `x` `` or `` ## Rule 7: `x` ``, naming what the backticks hold. Such an entry was dropped silently before.
+   - **A field line outside any entry,** in the preamble or under a level-2 heading that isn't an entry's.
+3. **Where a Says' first sentence ends (Decision 2's `word.description`).** It ends at a full stop, question mark or exclamation mark followed by white space and a capital letter, or by the end of the text. It never ends at "e.g.", "i.e.", "cf." or "vs.".
+4. **A stack-free test runs Pass 1b's `updateElements` path.** It runs in a child process, with the driver, the normalize helpers, the event sync and the assistant's keys stubbed, as `test/helpers/saveSchemaChild.js` does for Pass 2. The text checks IS1 to IS3 no longer stand alone.

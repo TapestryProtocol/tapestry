@@ -1,0 +1,48 @@
+{
+  "word": {
+    "slug": "relationship-type-allowed",
+    "name": "relationship-type-allowed",
+    "title": "Relationship Type Allowed",
+    "description": "A relationship the owner or an admin adds or removes has a type the graph declares, and not one reserved for another operation or the nostr import.",
+    "wordTypes": [
+      "word",
+      "graphRule"
+    ]
+  },
+  "graphRule": {
+    "name": "relationship-type-allowed",
+    "number": 2,
+    "says": "a relationship the owner or an admin adds or removes has a type the graph declares, and not one reserved for another operation or the nostr import. A type is declared by being an element of the relationship type concept, `39998:<TA>:relationship-type`.",
+    "kind": "a graph rule, about the owner's and the admins' own writes (D4).",
+    "about": "the graph",
+    "refusesOrReports": "it refuses the write, before anything changes:\n- `reserved-type` (409) for a reserved type, even a declared one, naming what makes it;\n- `undeclared-type` (409) for a type nothing declares.",
+    "check": "the same `violations` over a set of relationships names each one that breaks it. `rules check` (A10.31) will run it over the graph, judging each relationship by where it came from (D15). A relationship an import recorded is a peer's claim, not one of the owner's writes.",
+    "repair": "none yet.",
+    "enforcedBy": "the guards of `graph add-relationship` and `graph remove-relationship`. The rule's code is in `src/operations/rules/relationship-type-allowed.js`. Built in story graph-operations-foundation #4 (ADR 0004).",
+    "status": "enforced",
+    "source": "ADR graph-operations-foundation/0004",
+    "alsoSays": [
+      {
+        "label": "Reserved",
+        "text": "two groups.\n- Every relationship type the active firmware declares. These are the class threads, a concept's core-node wiring, the property tree, and the import's `AUTHORS`, `HAS_TAG` and `REFERENCES`.\n- What the instance's own code writes beyond them: `INHERITS_FROM`, `FOLLOWS`, `MUTES`, `REPORTS`, `TAGS`, `PROVIDED_THE_TEMPLATE_FOR`, `IMPORT`, `SUPERCEDES`, `SPECIFIC_INSTANCE`, `WOT_METRICS_CARDS` and `SERVES`.\n\nA test fails if the code names a relationship type in Cypher that isn't reserved."
+      }
+    ],
+    "code": {
+      "file": "src/operations/rules/relationship-type-allowed.js",
+      "summary": "A relationship the owner or an admin adds or removes has a type the graph declares, and not one reserved for another operation or the nostr import.",
+      "refuses": true,
+      "refusals": [
+        {
+          "code": "undeclared-type",
+          "status": 409,
+          "when": "The relationship type is not one the graph declares as an element of its relationship type concept"
+        },
+        {
+          "code": "reserved-type",
+          "status": 409,
+          "when": "The relationship type is reserved for another operation, or for the nostr import, which make it with the checks it needs"
+        }
+      ]
+    }
+  }
+}
