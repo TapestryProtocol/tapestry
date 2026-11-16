@@ -130,7 +130,7 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
 
 **Three scripted checks failed, on the scripts' own expectations, and each was rechecked.** The first pass ran 54 checks and 52 passed; the second ran 10 and 9 passed.
 - **The kind-30000 event by its address** (first pass).
-  - The check asked from the owner's point of view, which leaves the event out: its author is scored 0.01. It answered `kept 0` and `leftOut 1`, which is right, but the script expected the event.
+  - The check asked from the owner's point of view, which leaves the event out: by then its author was scored 0.01. It answered an empty list, which is right, but the script expected the event.
   - The second pass asked from both points of view, and both checks passed (AC3, AC1).
 - **The stranger's refusal** (both passes).
   - The check looked for `not-allowed` or `403` in the external CLI's output. But the central check's body, `{"success": false, "error": "Only the owner or an admin can do this."}`, has no `code`, and the CLI prints no status, so neither could appear.
@@ -182,9 +182,9 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared
     - **A visitor** got 401.
     - **The stranger, through the external CLI.** Signed in with its own key, it ran `tapestry graph resolve --ref "live dog"`.
       - The CLI reads the operations list before any operation (`clients/cli/src/main.js:122–124`).
-      - The list was refused. The CLI printed the central check's body and its own message, that the key is "neither its owner nor an admin", which it prints only on the list's 403 (`clients/cli/src/operations.js:32`).
+      - The list was refused. The CLI printed the central check's body and its own message, that the key is "neither its owner nor an admin", which it prints only on the list's 403 (`clients/cli/src/operations.js:32` and `:41`).
       - It exited 1 without calling resolve.
-    - **The stranger, by hand.** Called through nginx with the stranger's session cookie, resolve itself answered `HTTP 403` with `{"success":false,"error":"Only the owner or an admin can do this."}`. With the admin's session cookie it answered `live dog`'s candidates. This call's output wasn't saved with the scripts' result files, so it's quoted here as the session's tool output showed it.
+    - **The stranger, by hand.** Called through nginx with the stranger's session cookie, resolve itself answered `HTTP 403` with `{"success":false,"error":"Only the owner or an admin can do this."}`. With the admin's session cookie, it answered with success for `live dog`. This call's output wasn't saved with the scripts' result files, so it's quoted here as the session's tool output showed it.
     - **In the suites,** RV18 covers resolve's own 401 and 403.
   - **Nothing written.** In the first pass, the relay held 462 events and the graph 0 change entries before and after the resolve calls. In the second, after live cat, it held 462 and 1. Both held through the first timing run too.
 - **AC7:** no live part; the suites cover it.
