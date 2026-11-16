@@ -366,3 +366,23 @@ The owner then runs a firmware reinstall, and the link from step 1 (re-made for 
    The tests pin neither order. Putting the declarations' own checks first would mean taking the rules out of `guards`, so they would no longer be listed with their operations. That isn't worth it for two answers that both refuse.
 4. **The re-check after a write is a live check.** With one writer, the guard always refuses first, so no stack-free graph can reach the re-check (Decision 9). The Implementation notes' suggestion is withdrawn. The tests show that a refusal after the `MERGE` rolls it back through `firmware-prunes` (LS12, LS13). The re-check itself is the live check's step 8: two link-sets at once that would make a two-set cycle, of which exactly one succeeds.
 5. **Possible, unverified: a self-loop on a curator's instance.** On an instance whose TA is a community reference's curator, install's part (d) may MERGE that concept's superset onto itself (`src/firmware/install.js:1295` doesn't compare the two ends). `class-thread-acyclic`'s check would report that cycle, and unlink-set would refuse to take it out as firmware's. Recorded as an OPEN.md row at implementation, for a check against a live graph.
+
+## Amendment 2 (2026-11-15, at Implementation; the owner's approval) — unlink-set locks its set first
+
+**What the live check found.** Decision 9 said "MERGE and DELETE of a relationship take write locks on both of its nodes". That holds for `MERGE`. It doesn't hold for a relationship's `DELETE` on Neo4j 5.26.
+
+Live check step 8 raced two unlink-sets that each took out one of a set's last two parents. Both committed, and the set was left under no parent: each re-check ran before the other's delete was committed. Raced eight more times with no lock, three rounds ended under no parent (5 of 8 came out right).
+
+The two link-sets that would have made a two-set cycle did serialize: one linked, one was refused `cycle`. `MERGE` locks both ends, as Decision 9 said.
+
+**The decision.** unlink-set's `apply` takes a write lock on its `set` before it reads anything: `S.lockNode(ctx.tx, set)`, in `_sets.js`.
+- **How the lock works.** It sets the property `tapestryLock` on the node and removes it again, in two statements of the shape the field mapping's copies use (`UNWIND $rows AS row MATCH (n:TapestryNode {tapestryKey: row.key}) WHERE NOT n:GraphChange SET n += row.props`, graphFake's S8). Nothing of it is committed, and the node is left as it was.
+- **What it holds.** The lock lasts until the transaction commits or rolls back. A second unlink-set of the same set waits for it, then re-checks with the first's delete committed, and is refused `last-parent`.
+- **The idiom and the fakes.** The property name and the idiom are ADR 0016's (its C1, which locks the same way). This statement shape, rather than C1's single `SET … REMOVE`, is the one today's fakes run, so this story still edits no fake.
+
+The same race, re-run with the lock, came out right in 8 of 8 rounds: one `unlinked`, one refused `last-parent`, one parent left, and no `tapestryLock` left on the node.
+
+**What stays as it was.**
+- link-set takes no lock of its own: its `MERGE` already serializes.
+- The four-node race that could close a longer cycle (Decision 9) is still the residual risk, and `rules check` finds it.
+- The tests gain UL18: an unlink leaves the set's own properties as they were, with no lock property behind.
