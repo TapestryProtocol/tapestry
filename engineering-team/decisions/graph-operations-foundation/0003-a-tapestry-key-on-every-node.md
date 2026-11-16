@@ -4,6 +4,7 @@
 **Date:** 2026-11-08
 **Story:** `engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`
 **Amends:** ADR `graph-operations-foundation/0002`, Decision 4 step 2's key counting (Decision 10 below).
+**Amended by:** ADR `graph-operations-foundation/0009` (Decision 4's shared-keys read: streamed, with a hash of each key, never one grouping; story 9).
 **Amended:** 2026-11-13, at Implementation, by the owner's ruling — the index `tapestry_node_uuid` is also made at control-panel start (Amendment 1, at the end). 2026-11-13, at Review round 1, by the owner's ruling — before the rule is online, backup reads the keys as a stream, and OPERATIONS.md says to run `tapestry-keys` soon after the deploy (Amendment 2).
 
 ## Context
@@ -113,7 +114,7 @@ A later migration, such as copying `name` into `tapestryValue` (D11), is a new e
 - `MATCH (n) RETURN count(n)` and `MATCH (n:TapestryNode) RETURN count(n)`, both from the count store;
 - `MATCH (n) WHERE n.tapestryKey IS NULL OR n.tapestryKey = '{}' RETURN count(n)`, a full scan (measurement 2);
 - `SHOW CONSTRAINTS` and `SHOW INDEXES` for `tapestry_key` and `tapestry_node_uuid`;
-- **shared keys:** when the rule isn't in place, every key held by more than one node (`MATCH (n) WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}' WITH n.tapestryKey AS k, collect(elementId(n))[..10] AS ids, count(*) AS c WHERE c > 1 RETURN k, c, ids LIMIT 100`); when it is, the same over nodes without the label, each also checked against the index.
+- **shared keys:** when the rule isn't in place, every key held by more than one node (`MATCH (n) WHERE n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}' WITH n.tapestryKey AS k, collect(elementId(n))[..10] AS ids, count(*) AS c WHERE c > 1 RETURN k, c, ids LIMIT 100`); when it is, the same over nodes without the label, each also checked against the index. *(Amended by ADR 0009: the same keys, found from a streamed read of the keys with a 53-bit hash of each kept in the job, and a second streamed read to confirm candidates; this grouping needed 394 bytes a key of transaction memory and failed a 512 MB limit at 3.85 million keys.)*
 
 It is applied when no node lacks a key or the label, no key is shared, and both the rule and the index are online. `needsBackup` is true when any node will change. Adding only the rule and the index changes no data, so a fresh instance, whose nodes all got keys when they were made, needs no backup.
 

@@ -75,6 +75,14 @@ None. No concept definition changes, so there is no firmware reinstall.
 
 1. **Production's limit.** May production's `dbms.memory.transaction.total.max` be read, read-only, before the promotion? It says how close today's code would come to failing there, beside the pipeline. The fix doesn't depend on the answer. *Left open at approval (2026-11-16): the owner approved the story without answering it, so nothing on production is read.*
 
+## Deviations
+
+- **One function gives a key's comparison text** (`keyText` in `_migrations.js`), and both `keyHash` and the exact comparison in the second read use it. That way the two can't drift apart: a string is its text, and any other value carries its type, as ADR 0009 Decision 5 says.
+- **Key order is the order of that comparison text.** For string keys that is their text. A key of another type, which no path writes, sorts before them. The answer still shows `String(key)`, as before.
+- **The second read hashes a row only when there is a hash candidate.** When the only shared keys are held ones (the rule in place), it compares the text alone.
+- **The hash array** starts at `max(1024, expected × 1.01)` and doubles when full (`HASHES_MIN`, `HASHES_SLACK`).
+- **The ledger row** `2026-11-15-tapestry-keys-exceeds-transaction-memory` flips to `DONE` in the pull request's own commit, once the pull request has a number, since ADR 0009 asks the row to name it.
+
 ## Linked artifacts
 
 - Found by: story 8's live check (`engineering-team/stories/graph-operations-foundation/8-pass-3-finishes-in-minutes.test-plan.md`, Test infrastructure), ledger row `ledger/2026-11-15-tapestry-keys-exceeds-transaction-memory.md`. The migration is story 3's (`engineering-team/stories/graph-operations-foundation/3-a-tapestry-key-on-every-node.md`, AC1–AC3; ADR `graph-operations-foundation/0003`, Decision 4).
