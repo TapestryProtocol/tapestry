@@ -31,6 +31,8 @@ const { buildImportCypher, executeCypher } = require('../api/neo4j/eventSync');
 // TA signer for the b-tag emitter (ADR 0034): re-sign the local TA header
 // through the existing runtime TA key path — never a hardcoded key.
 const { loadTAKey, signAndFinalize } = require('../api/normalize/helpers');
+// The form of a tapestryKey (ADR graph-operations-foundation/0004 Decision 7): Pass 2 names a header by one only when it has one.
+const TAPESTRY_KEY = new RegExp(require('../operations/catalog/graph/_nodes').KEY_PATTERN);
 // Relationship type aliases used by concept manifests
 const REL = {
   CLASS_THREAD_INITIATION: firmware.relAlias('CLASS_THREAD_INITIATION') || 'IS_THE_CONCEPT_FOR',
@@ -906,16 +908,18 @@ async function pass2_enrich(opts = {}) {
     }
 
     try {
-      // Find the concept's schema node UUID via Neo4j
-      // Use the relationship alias from firmware for the schema relationship
+      // Find the concept's own header by its address, 39998:<TA>:<slug>, as readInstallState does, and its schema node
+      // (the relationship alias comes from firmware). Never by name: another author's header with the same name must not
+      // take its place (graph-operations-foundation #10).
       const schemaRel = firmware.relAlias('CORE_NODE_JSON_SCHEMA');
       const conceptNameLower = conceptName.toLowerCase();
 
       const queryResult = await runCypherApi(
-        `MATCH (s:JSONSchema)-[:${schemaRel}]->(h:ListHeader {name: $name})
-         RETURN h.uuid AS headerUuid, s.uuid AS schemaUuid
+        `MATCH (s:JSONSchema)-[:${schemaRel}]->(h:NostrEvent|TapestryNode {uuid: $uuid})
+         RETURN h.uuid AS headerUuid, s.uuid AS schemaUuid, h.tapestryKey AS headerKey
+         ORDER BY schemaUuid
          LIMIT 1`,
-        { name: conceptNameLower }
+        { uuid: `39998:${firmware.getTAPubkey()}:${slug}` }
       );
 
       // Use data array from POST endpoint, fall back to CSV parsing
@@ -929,7 +933,7 @@ async function pass2_enrich(opts = {}) {
           const dataLine = csvLines[1];
           const values = dataLine.match(/"([^"]*)"/g)?.map(v => v.replace(/"/g, '')) || [];
           if (values[0] && values[1]) {
-            dataRows.push({ headerUuid: values[0], schemaUuid: values[1] });
+            dataRows.push({ headerUuid: values[0], schemaUuid: values[1], headerKey: values[2] });
           }
         }
       }
@@ -942,6 +946,7 @@ async function pass2_enrich(opts = {}) {
 
       const headerUuid = dataRows[0].headerUuid;
       const schemaUuid = dataRows[0].schemaUuid;
+      const headerKey = dataRows[0].headerKey;
 
       if (!headerUuid || !schemaUuid) {
         console.log(`     ⚠️  Could not parse UUIDs for "${conceptName}"`);
@@ -959,9 +964,11 @@ async function pass2_enrich(opts = {}) {
       }
 
       // Call save-schema to overwrite the starter
-      // save-schema expects { concept: name, schema: jsonSchema section }
+      // save-schema expects { concept: name, tapestryKey?: the header's, schema: jsonSchema section }. The key names this
+      // header; a header with no key yet (an instance before tapestry-keys) is found by name, the instance's own first.
       const saveResult = await apiPost('/api/normalize/save-schema', {
         concept: conceptNameLower,
+        ...(typeof headerKey === 'string' && TAPESTRY_KEY.test(headerKey) ? { tapestryKey: headerKey } : {}),
         schema: firmwareSchema.jsonSchema,
       });
 

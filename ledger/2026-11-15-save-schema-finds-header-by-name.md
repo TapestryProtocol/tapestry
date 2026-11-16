@@ -3,8 +3,8 @@
 **Id:** 2026-11-15-save-schema-finds-header-by-name
 **Type:** bug
 **Opened:** 2026-11-15 (story 5's session, from the owner's local install; filed by story graph-operations-foundation #8's session)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16 (TapestryProtocol/tapestry#80, story graph-operations-foundation #10)
 
 **What was seen.** On the owner's local instance, upgraded to staging's `09dc9b7b`, a firmware install at about 20:35 UTC on 2026-11-15 logged two lines:
 
@@ -27,3 +27,9 @@ then `Pass 2 complete: 39 enriched, 0 skipped, 1 errors`. Staging's install logg
 **Fix shape.** Find a firmware concept's header by its address, `39998:<TA>:<slug>`, as `readInstallState` already does (`src/api/firmware/index.js:128–151`), not by name. Then check whether a second install leaves the same graph as the first.
 
 **Pointer:** story graph-operations-foundation #8's test plan, Amendment 1; `src/api/normalize/index.js:1923–1948`.
+
+**Closed, 2026-11-16.** Story graph-operations-foundation #10 took the fix shape, by key rather than address: a caller names the header by its tapestryKey.
+- **Pass 2** finds each firmware concept's header by `39998:<TA>:<slug>`, and names it by its key. So do apply-enumerations and the Schema tab.
+- **A save by name** reaches the one header with that name, or the instance's own among several, and otherwise refuses.
+- **On fresh scratch stacks,** a second install logged 0 errors in Pass 2, and left the five tag schemas as the first install did.
+- **Not settled here:** the "rest" this row couldn't explain, nostr relay's schema and the two moved supersets, which story 8 saw only on its seeded stack. That is row `2026-11-16-seeded-second-install-differs`.

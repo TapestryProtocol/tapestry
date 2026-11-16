@@ -51,6 +51,10 @@ its own, with nothing shared to edit.
    `tapestry-keys` finishes on a graph of millions of keyed nodes under any transaction limit, because its check for
    keys held by more than one node no longer holds every key in Neo4j's memory at once. Story 8's scratch stack found it
    on 2026-11-15, before the migration's first run on production.
+10. `stories/graph-operations-foundation/10-schema-save-finds-the-right-header.md` — a bug: saving a concept's schema
+   finds the header by name, so another author's header with the same name can take its place. The firmware install's
+   Pass 2 and apply-enumerations save on the instance's own header, and a save by name is never the database's choice.
+   Story 5's install on the owner's local instance found it on 2026-11-15, and story 8's review confirmed it.
 
 Each story was planned when its task was taken. The foundation's stories, and each story's first
 ADR, are numbered by their Loom task (A10.n is story n and ADR 000n), because several are planned at the same time in

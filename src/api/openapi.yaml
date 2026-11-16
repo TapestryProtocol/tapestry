@@ -1224,7 +1224,11 @@ paths:
       summary: Save or update a concept's JSON Schema
       description: >-
         Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
-        other signed-in person.
+        other signed-in person. Given `tapestryKey`, the save reaches that concept header and no other. Given only
+        `concept`, it reaches the one header with that name; when several share the name, the one this instance's
+        Tapestry Assistant wrote, and it refuses (success false, naming the headers) when that isn't exactly one. It
+        refuses a concept with no event behind it, since it signs and publishes the schema it saves
+        (graph-operations-foundation #10).
       requestBody:
         required: true
         content:
@@ -1235,6 +1239,13 @@ paths:
               properties:
                 concept:
                   type: string
+                  description: The concept's name
+                tapestryKey:
+                  type: string
+                  description: >-
+                    The tapestryKey of the concept's header. Optional; a value that isn't a tapestryKey (400), or a key
+                    that no concept header holds or that more than one concept header holds, is refused and changes
+                    nothing.
                 schema:
                   type: object
                   description: JSON Schema object

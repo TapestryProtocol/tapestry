@@ -56,7 +56,7 @@ export default function ConceptDetail() {
   const { data, loading, error } = useCypher(`
     MATCH (h:ListHeader {uuid: $conceptUuid})
     OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(s:Superset)
-    RETURN h.uuid AS uuid, h.name AS name, h.pubkey AS author,
+    RETURN h.uuid AS uuid, h.name AS name, h.pubkey AS author, h.tapestryKey AS tapestryKey,
            s.uuid AS supersetUuid, s.name AS supersetName
     LIMIT 1
   `, [], countParams);
