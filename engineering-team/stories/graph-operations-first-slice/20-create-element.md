@@ -86,6 +86,8 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 2. **What about the other concepts an element joins through its set?** *Resolved: check the named concept's schema only, and report the others* (the drafting's proposal, approved by the owner, 2026-11-16). AC3. Refusing until the element fits every concept its set reaches would need a section for each, which only add-to-concept (A10.22) makes. This matches story 28, whose link-set doesn't check the elements a link brings into another concept: `rules check` (A10.31) reports them.
 3. **What about a field the schema requires that the caller leaves out?** *Resolved: refuse it, naming the field; never fill in a value* (the drafting's proposal, approved by the owner, 2026-11-16). AC3. Today's route fills empty values in, and an element of a concept today's create-concept made needs a description. The agent can give an empty one on purpose, but the operation doesn't decide that for it.
 
+**Added at Architecture** (the owner's approval, 2026-11-16, with ADR 0020): AC5's list gains `made-elsewhere`, for an element of a concept whose elements another operation makes: the concept-header concept and the seven core-node concepts (graph create-concept), set (graph create-set), property (graph add-property) and graph rule (the rulebook). The ADR's other refusals beyond the list, `not-installed`, `no-free-address` and a length limit on the element's JSON, are mechanics create-concept has too.
+
 For Architecture, not this gate:
 
 - **How the guard checks the JSON before the write.** A guard sees only the inputs, and the JSON needs the concept's key and schema from the graph. ADR 0016's pattern, a guard and the same rule run again in `apply`, may fit.
@@ -110,6 +112,6 @@ For Architecture, not this gate:
 - The field marks it carries: [stories/graph-operations-foundation/5-field-mapping.md](../graph-operations-foundation/5-field-mapping.md)
 - The rulebook and its graph rule concept: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md); [41-graph-rule-concept.md](41-graph-rule-concept.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0020-create-element.md](../../decisions/graph-operations-first-slice/0020-create-element.md)
 - Test plan: (filled in after Test Design)
 - Review: (filled in after Review)
