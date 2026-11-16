@@ -11,6 +11,8 @@
  *   own-changed     the assistant's element, holding other JSON
  *   other-only      only another author's element
  *   own-same+other  the assistant's element with the file's JSON, and another author's with other JSON
+ *   other-first+own-changed  another author's element first, then the assistant's holding other JSON: install must
+ *                  re-sign the assistant's, never the first row it read
  *   throws          the lookup fails
  * stdout: one line `@@RESULT@@<json>` with { createElement, regenerateJson, loadTAKey, lookups, otherConcepts,
  *   errors, log }.
@@ -62,6 +64,7 @@ function rowsFor(name) {
     case 'own-changed': return [{ uuid: own, json: changed }];
     case 'other-only': return [{ uuid: theirs, json: changed }];
     case 'own-same+other': return [{ uuid: theirs, json: changed }, { uuid: own, json: same }];
+    case 'other-first+own-changed': return [{ uuid: theirs, json: changed }, { uuid: own, json: changed }];
     case 'throws': throw new Error('the graph database is unreachable (pass1bChild)');
     default: throw new Error(`pass1bChild: unknown scenario ${scenario[name]}`);
   }

@@ -33,6 +33,7 @@
  *   IS7  an element only another author has is never signed over, nor created beside it
  *   IS8  a lookup that fails is recorded as an error, the element isn't created blindly, and the install goes on
  *   IS9  every lookup finds the header by its address, and every other concept installs as before
+ *   IS10 with another author's element read first, the assistant's that differs is the one re-signed (review round 2)
  */
 
 const fs = require('fs');
@@ -170,10 +171,16 @@ t('IS3: install.js reads the elements with runCypher from src/lib/neo4j-driver, 
 //
 // test/helpers/pass1bChild.js runs the real pass1_bootstrap. The driver, the normalize helpers, the event sync and the
 // assistant's keys are stubbed in its require.cache, and its control-panel calls are answered in-process, so nothing
-// leaves the child. Every endpoint it could fall back to is a closed port besides.
+// leaves the child. Were the driver's stub ever bypassed, the driver would read its address only from the conf file
+// (src/lib/neo4j-driver.js, src/utils/config.js), and with none it falls back to bolt://localhost:7687, which on the
+// owner's Mac is the agent-memory instance. So the child gets a conf of its own whose Neo4j is a closed port, as
+// test/schema-save-finds-the-right-header.test.js gives its child, and every other endpoint is a closed port too.
 
+const os = require('os');
 const { spawnSync } = require('child_process');
 const CHILD = path.join(__dirname, 'helpers/pass1bChild.js');
+const DEAD_CONF = path.join(os.tmpdir(), `pass1b-dead-${process.pid}.conf`);
+const DEAD = { BRAINSTORM_CONF_PATH: DEAD_CONF, NEO4J_URI: 'bolt://127.0.0.1:9', TAPESTRY_API_BASE: 'http://127.0.0.1:9', BRAINSTORM_BASE_URL: 'http://127.0.0.1:9', TAPESTRY_PORT: '9', MEILI_URL_HOST: 'http://127.0.0.1:9', TAPESTRY_CONTAINER: 'no-such-container' };
 const SCENARIO = {
   'tapestry-key-unique': 'none',
   'relationship-type-allowed': 'own-reordered',
@@ -182,21 +189,27 @@ const SCENARIO = {
   'class-thread-acyclic': 'throws',
   'set-has-a-parent': 'own-same+other',
 };
-let pass1b = null;
-function runPass1b() {
-  if (pass1b) return pass1b;
-  const r = spawnSync(process.execPath, [CHILD, JSON.stringify(SCENARIO)], {
+const runs = new Map();
+function runPass1b(scenario = SCENARIO) {
+  const key = JSON.stringify(scenario);
+  if (runs.has(key)) return runs.get(key);
+  if (!fs.existsSync(DEAD_CONF)) {
+    fs.writeFileSync(DEAD_CONF, 'NEO4J_URI="bolt://127.0.0.1:9"\nNEO4J_USER="none"\nNEO4J_PASSWORD="none"\n');
+    process.on('exit', () => { try { fs.unlinkSync(DEAD_CONF); } catch { /* already gone */ } });
+  }
+  const r = spawnSync(process.execPath, [CHILD, key], {
     cwd: REPO,
     encoding: 'utf8',
     timeout: 120000,
     maxBuffer: 64 << 20,
-    env: { ...process.env, NEO4J_URI: 'bolt://127.0.0.1:9', TAPESTRY_API_BASE: 'http://127.0.0.1:9', TAPESTRY_CONTAINER: '' },
+    env: { ...process.env, ...DEAD },
   });
   const line = String(r.stdout || '').split('\n').find((l) => l.startsWith('@@RESULT@@'));
   assert(line, `the child printed no result (exit ${r.status}): ${String(r.stderr || r.stdout).slice(0, 600)}`);
-  pass1b = JSON.parse(line.slice('@@RESULT@@'.length));
-  assert(!pass1b.threw, `Pass 1 threw in the child: ${String(pass1b.threw).slice(0, 600)}`);
-  return pass1b;
+  const out = JSON.parse(line.slice('@@RESULT@@'.length));
+  assert(!out.threw, `Pass 1 threw in the child: ${String(out.threw).slice(0, 600)}`);
+  runs.set(key, out);
+  return out;
 }
 const own = (name) => `39999:${'a'.repeat(64)}:${name}-1b2c3b2d`;
 
@@ -250,6 +263,15 @@ t('IS9: every lookup finds the header by its address, and every other concept in
   }
   assert(r.otherConcepts.createElement === files, `create-element once per other concept's element file, ${files}; got ${r.otherConcepts.createElement}`);
   assert(r.otherConcepts.lookups === 0, `no other concept's element is looked up; got ${r.otherConcepts.lookups}`);
+});
+
+t("IS10: with another author's element read first, the assistant's that differs is the one re-signed, never the other's", () => {
+  const others = { 'tapestry-key-unique': 'own-reordered', 'relationship-type-allowed': 'own-reordered', 'concept-slug-unique': 'own-reordered', 'class-thread-acyclic': 'own-reordered', 'set-has-a-parent': 'own-reordered' };
+  const r = runPass1b({ ...others, 'field-mark-allowed': 'other-first+own-changed' });
+  const re = r.regenerateJson.map((x) => x.uuid);
+  assert(show(re) === show([own('field-mark-allowed')]), `one re-sign, at the assistant's ${own('field-mark-allowed')}, though another author's row came first; got ${show(re)}`);
+  assert(!re.some((u) => u.startsWith(`39999:${'b'.repeat(64)}:`)), 'another author\'s element is never re-signed (ADR 0041 Decision 6)');
+  assert(r.createElement.length === 0, `nothing is created; got ${show(r.createElement)}`);
 });
 
 async function run() {
