@@ -12,7 +12,7 @@
  * rules, and fixtures. Run on its own with `node test/graph-rules-builder.test.js`.
  *
  *   GB1  the script exports its three parts
- *   GB2  the real rulebook reads as six entries, numbered 1 to 6, with no problem; entry 1 is tapestry-key-unique   [AC2]
+ *   GB2  the real rulebook reads as seven entries, numbered 1 to 7, with no problem; entry 1 is tapestry-key-unique [AC2]
  *   GB3  each real item's name, number, title, description, about, status and source                              [AC2, AC3]
  *   GB4  each real item's fields hold the rulebook's text: continuation lines dedented, other fields in alsoSays   [AC3]
  *   GB5  a real item whose rule has code holds the code's declaration; entry 1's code is null                       [AC3]
@@ -131,6 +131,13 @@ const REAL = [
     source: 'ADR graph-operations-first-slice/0028',
     description: 'Every set is directly under at least one superset or set, so some class thread reaches it and its elements.',
   },
+  // Rule 7, joined with story graph-operations-first-slice #20: its Says opens with ADR graph-operations-first-slice/0020
+  // Decision 12's sentence.
+  {
+    number: 7, name: 'element-fits-schema', title: 'Element Fits Schema', code: true, alsoSays: [],
+    source: 'ADR graph-operations-first-slice/0020',
+    description: "An element's JSON fits the JSON schema of each concept it belongs to.",
+  },
 ];
 const GRAPH_RULE_KEYS = ['name', 'number', 'says', 'kind', 'about', 'refusesOrReports', 'check', 'repair', 'enforcedBy', 'status', 'source', 'alsoSays', 'code'];
 
@@ -139,7 +146,7 @@ function t(name, fn) { tests.push([name, fn]); }
 
 t('GB1: src/firmware/graph-rules.js exports parseRulebook, itemsFor and elementFiles', () => { builder(); });
 
-t('GB2 (AC2): the real rulebook reads as six entries, numbered 1 to 6, with no problem, and entry 1 is tapestry-key-unique', () => {
+t('GB2 (AC2): the real rulebook reads as seven entries, numbered 1 to 7, with no problem, and entry 1 is tapestry-key-unique', () => {
   const r = build(builder(), realInputs());
   assert(r.problems.length === 0, `no problem with today's rulebook and rules; got ${short(r.problems, 1200)}`);
   const got = r.entries.map((e) => [e.number, e.name]);
