@@ -4,9 +4,11 @@
  * what graph link-set and unlink-set, and the rules class-thread-acyclic and set-has-a-parent, share.
  *
  * A class-thread link runs from a parent to a set by the class thread's propagation type. What counts as which
- * (Decision 5): a superset is a node labelled Superset; a set, one labelled Set and not Superset; a parent, either; a
- * concept header, a node with a Superset at the end of its IS_THE_CONCEPT_FOR, which is named only to say which key to
- * pass. These are the labels today's add-subset and create-set write and check.
+ * (Decision 5, refined by Amendment 3): a superset is a node labelled Superset that has an address, its uuid; a set,
+ * one labelled Set and not Superset that has one; a parent, either; a concept header, a node with a Superset at the
+ * end of its IS_THE_CONCEPT_FOR, which is named only to say which key to pass. These are the labels today's add-subset
+ * and create-set write and check. A node with no address, such as one of the trust pipeline's card sets (labelled
+ * Set), is none of them.
  *
  * Like _nodes.js and _fields.js, it opens nothing when it loads: firmware, the assistant's key and the config are
  * required when first called (ADR graph-operations-foundation/0001 Decision 10).
@@ -47,8 +49,8 @@ function aliases() {
 
 // ── what the two operations refuse with (Decision 1; Amendment 1, item 2) ──
 const UNKNOWN_SET_OR_PARENT = Object.freeze({ code: 'unknown-node', status: 404, when: 'A set or parent that names no node of the graph (a change entry is not one); the refusal names which' });
-const NOT_A_SET = Object.freeze({ code: 'not-a-set', status: 409, when: 'A set that is neither a set nor a superset: an element, a concept header (the refusal names its superset, the key to pass) or any other node' });
-const NOT_A_PARENT = Object.freeze({ code: 'not-a-parent', status: 409, when: 'A parent that is neither a superset nor a set: an element, a concept header (the refusal names its superset, the key to pass) or any other node' });
+const NOT_A_SET = Object.freeze({ code: 'not-a-set', status: 409, when: "A set that is neither a set nor a superset: an element, a concept header (the refusal names its superset, the key to pass), a node with no address, such as one of the trust pipeline's card sets, or any other node" });
+const NOT_A_PARENT = Object.freeze({ code: 'not-a-parent', status: 409, when: "A parent that is neither a superset nor a set: an element, a concept header (the refusal names its superset, the key to pass), a node with no address, such as one of the trust pipeline's card sets, or any other node" });
 
 /** The link an answer is about. */
 const LINK = Object.freeze({
@@ -73,12 +75,12 @@ const say = {
   notASet(node, superset) {
     return superset
       ? `${describe(node)}, which set names, is a concept header, not a set or a superset. To put its concept under another parent, or take it out from under one, pass its superset's tapestryKey, ${superset}.`
-      : `${describe(node)}, which set names, is neither a set nor a superset. Pass the tapestryKey of a set (a node labelled Set) or of a concept's superset (labelled Superset).`;
+      : `${describe(node)}, which set names, is neither a set nor a superset. A set or a superset is a node labelled Set or Superset that has an address, its uuid; a node with no address, such as one of the trust pipeline's card sets, isn't one. Pass the tapestryKey of a set or of a concept's superset.`;
   },
   notAParent(node, superset) {
     return superset
       ? `${describe(node)}, which parent names, is a concept header, not a superset or a set. To use its concept's class thread, pass its superset's tapestryKey, ${superset}.`
-      : `${describe(node)}, which parent names, is neither a superset nor a set, so no set goes under it. Pass the tapestryKey of a concept's superset (a node labelled Superset) or of a set (labelled Set).`;
+      : `${describe(node)}, which parent names, is neither a superset nor a set, so no set goes under it. A superset or a set is a node labelled Superset or Set that has an address, its uuid; a node with no address, such as one of the trust pipeline's card sets, isn't one. Pass the tapestryKey of a concept's superset or of a set.`;
   },
 };
 
@@ -100,9 +102,14 @@ async function nodeOf(read, key) {
   };
 }
 
-/** 'superset' (labelled Superset), 'set' (Set, not Superset) or 'other' (Decision 5). */
+/**
+ * 'superset' (labelled Superset), 'set' (Set, not Superset) or 'other' (Decision 5). Only a node with an address, its
+ * uuid, is either (Amendment 3): the trust pipeline's card sets are labelled Set and have none. A node read with R1, a
+ * parent read with R3 and a walk's node each carry the uuid this reads.
+ */
 function kindOf(node) {
-  const labels = node && Array.isArray(node.labels) ? node.labels : [];
+  if (!node || typeof node.uuid !== 'string' || !node.uuid) return 'other';
+  const labels = Array.isArray(node.labels) ? node.labels : [];
   if (labels.includes('Superset')) return 'superset';
   if (labels.includes('Set')) return 'set';
   return 'other';
@@ -266,8 +273,9 @@ let firmwareCache = null;
  *   (b) manifest.json's sets.<category>['existing-sets'][].concept: superset-of:39998:<TA>:<categoryToSlug(category)>
  *       → superset-of:39998:<TA>:<concept>
  *   (c) each concepts/<c>/manifest.json's IS_A_SUPERSET_OF [{ nodeFrom, nodeTo }]: node:39999:<TA>:<slug of nodeFrom>
- *       → node:39999:<TA>:<slug of nodeTo>; a name is the file of that name in <c>'s sets/ or elements/, else the first
- *       such file in any firmware concept, and an edge with a name that resolves to no file is left out
+ *       → node:39999:<TA>:<slug of nodeTo>; a name is the set file of that name in <c>'s sets/, else the first such
+ *       file in any firmware concept, and an edge with a name that resolves to no set file is left out (Amendment 3,
+ *       item 3: an element file's address isn't its word.slug)
  *   (d) each communityReference.headerATag 39998:<pk>:<d>: superset-of:39998:<TA>:<c> → node:39999:<pk>:<d>-superset
  * → { pairs: Map('<parent> <set>' → { part, what }), pruned: Set of the superset-of descriptors of the concepts whose
  *   folder has a manifest.json, the ones install's prune pass covers }. Nothing, with no assistant key.
@@ -290,27 +298,25 @@ function firmwareLinks() {
   const add = (parent, set, made) => { const k = `${parent} ${set}`; if (!pairs.has(k)) pairs.set(k, made); };
 
   const concepts = (manifest.concepts || []).filter((c) => isObject(c) && typeof c.slug === 'string' && typeof c.dir === 'string');
-  // Each concept's files, by name: their word.slug, else the name (install's d-tag for a set file).
-  const files = new Map();
+  // Each concept's set files, by name: their word.slug, else the name (install's d-tag for a set file, and so its
+  // address's last part).
+  const setFiles = new Map();
   for (const c of concepts) {
     const dir = path.join(root, c.dir);
-    const own = { sets: new Map(), elements: new Map() };
-    for (const sub of ['sets', 'elements']) {
-      for (const f of jsonFiles(path.join(dir, sub))) {
-        const name = f.slice(0, -'.json'.length);
-        const data = readJson(path.join(dir, sub, f));
-        const slug = isObject(data) && isObject(data.word) && typeof data.word.slug === 'string' && data.word.slug ? data.word.slug : name;
-        own[sub].set(name, slug);
-      }
+    const own = new Map();
+    for (const f of jsonFiles(path.join(dir, 'sets'))) {
+      const name = f.slice(0, -'.json'.length);
+      const data = readJson(path.join(dir, 'sets', f));
+      own.set(name, isObject(data) && isObject(data.word) && typeof data.word.slug === 'string' && data.word.slug ? data.word.slug : name);
     }
-    files.set(c.slug, own);
+    setFiles.set(c.slug, own);
     if (fs.existsSync(path.join(dir, 'manifest.json'))) pruned.add(supersetOfConcept(c.slug));
   }
   const relative = (c, ...parts) => path.posix.normalize(path.posix.join(String(c.dir).replace(/\\/g, '/'), ...parts));
 
   // (a) each set file
   for (const c of concepts) {
-    for (const [name, slug] of files.get(c.slug).sets) {
+    for (const [name, slug] of setFiles.get(c.slug)) {
       add(supersetOfConcept(c.slug), `node:39999:${ta}:${slug}`, { part: 'a', what: `the set file ${relative(c, 'sets', `${name}.json`)}, which puts that set under the superset of ${c.slug}` });
     }
   }
@@ -323,12 +329,10 @@ function firmwareLinks() {
       add(supersetOfConcept(parentSlug), supersetOfConcept(e.concept), { part: 'b', what: `the firmware manifest's existing-sets for ${category}, which put the superset of ${e.concept} under the superset of ${parentSlug}` });
     }
   }
-  // (c) concept manifests
+  // (c) concept manifests, set files only (Amendment 3, item 3): their IS_A_SUPERSET_OF links sets, and an element
+  // file's address isn't its word.slug
   const resolve = (c, name) => {
-    for (const owner of [c, ...concepts]) {
-      const own = files.get(owner.slug);
-      for (const sub of ['sets', 'elements']) if (own[sub].has(name)) return own[sub].get(name);
-    }
+    for (const owner of [c, ...concepts]) if (setFiles.get(owner.slug).has(name)) return setFiles.get(owner.slug).get(name);
     return null;
   };
   for (const c of concepts) {

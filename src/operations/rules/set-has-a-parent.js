@@ -11,7 +11,9 @@
  *   - as a check (rules check, A10.31, and unlink-set's re-check after its write), `without` is left out.
  * No finding for a key that names no node, or for a node that isn't a set (a superset, an element, a concept header).
  * Otherwise the set's parents are read, and only a superset or a set other than `without` counts: an element an old
- * route put above a set doesn't. With none, the finding is last-parent.
+ * route put above a set doesn't. With none, the finding is last-parent. A node with no address, such as one of the
+ * trust pipeline's card sets, is neither judged as a set nor counted as a parent (_sets.js's kindOf; ADR 0028
+ * Amendment 3).
  */
 
 const S = require('../catalog/graph/_sets');

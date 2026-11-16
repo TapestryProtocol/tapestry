@@ -7,7 +7,8 @@
  * Its items are { set, parent }: a link about to be made (graph link-set's guard, and its re-check after the write) or
  * one that is there (rules check, A10.31). For each:
  *   - an item whose set or parent names no node, whose set isn't a set or a superset, or whose parent isn't a superset
- *     or a set, isn't this rule's to judge: no finding, and the declaration refuses it;
+ *     or a set, isn't this rule's to judge: no finding, and the declaration refuses it. A node with no address, such as
+ *     one of the trust pipeline's card sets, is neither (_sets.js's kindOf; ADR 0028 Amendment 3);
  *   - a parent that is the set itself is a cycle;
  *   - otherwise the class thread above the parent is walked, one level per read (_sets.js's ancestors). When the set
  *     is in it, the link is on a cycle, and the finding names the chain from the set down to the parent: at most

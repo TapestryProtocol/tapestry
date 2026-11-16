@@ -5,9 +5,10 @@
  *
  * A write through the write path: its guard is set-has-a-parent, it is safe to repeat by set and parent, it records a
  * change entry when it takes the link out, and it signs nothing. It leaves alone the links firmware makes and the ones
- * a peer's event claims (Decisions 6 and 7). It removes every copy of the link, since older paths could have made two,
- * then runs the rule again, for a parent another writer took out meanwhile (Decision 9), which rolls it back. When the
- * set's own letter still names the parent, its answer says so: export nostr (A10.34) is what sends a new one (D2).
+ * a peer's event claims (Decisions 6 and 7). It locks the set before it reads anything (Amendments 2 and 3). It removes
+ * every copy of the link, since older paths could have made two, then runs the rule again, for a parent another writer
+ * took out meanwhile (Decision 9), which rolls it back, naming the parent the set stays under. When the set's own
+ * letter still names the parent, its answer says so: export nostr (A10.34) is what sends a new one (D2).
  */
 
 const { CHANGE_ENTRY } = require('../../changes');
@@ -66,12 +67,13 @@ module.exports = {
 
   async apply(inputs, ctx) {
     const { set, parent } = inputs;
+    // A relationship's DELETE doesn't lock its ends (the live check, ADR 0028 Amendment 2), so the set is locked before
+    // anything here reads (Amendment 3, item 1): two unlink-sets of one set then run one after the other, and the
+    // re-check below sees the other's delete. A key that names no node locks nothing, and unknown-node follows.
+    await S.lockNode(ctx.tx, set);
     const read = (cypher, params) => ctx.tx.read(cypher, params);
     const { setNode, parentNode } = await S.requireEnds(ctx.tx, { set, parent });
     const link = { set, parent };
-    // A relationship's DELETE doesn't lock its ends (the live check, ADR 0028 Amendment 2), so lock the set first: two
-    // unlink-sets of one set then run one after the other, and the re-check below sees the other's delete.
-    await S.lockNode(ctx.tx, set);
     if (!(await S.isLinked(read, parent, set))) return { data: { link, outcome: 'already-unlinked', letters: [] }, changes: [] };
     const made = await S.isFirmwareLink(read, parentNode, setNode);
     if (made) {
@@ -92,9 +94,13 @@ module.exports = {
     const removed = counters.relationshipsDeleted;
     // An unlink that raced this call took it out first.
     if (!removed) return { data: { link, outcome: 'already-unlinked', letters: [] }, changes: [] };
+    // The re-check (Decision 9). The guard found another parent, so a finding now means another write took it away while
+    // this call ran. The rule decides, and the refusal names the parent the set stays under (Amendment 3, item 2).
     const rule = findRule(RULE);
     const found = await rule.violations([{ set }], read);
-    if (found.length) throw refusal(found[0].code, found[0].message, { rule: rule.name });
+    if (found.length) {
+      throw refusal(found[0].code, `${S.describe(setNode)} stays under ${S.describe(parentNode)}: another write took it out from under its other parent while this call ran, so ${S.describe(parentNode)} is now its last parent, and taking it out would leave the set under no superset or set, where no class thread would reach it or its elements. Nothing changed. Link it under another parent first (graph link-set), or delete it once it is empty (graph delete-set, A10.17).`, { rule: rule.name });
+    }
     const letters = await S.ownLetters(read, parentNode, setNode);
     const change = { change: 'set-unlinked', type: PROP, from: parent, to: set };
     if (removed > 1) change.count = removed;

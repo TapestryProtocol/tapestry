@@ -112,6 +112,13 @@ Small judgment calls made in Implementation, inside ADR 0028:
 - **Part (d) reads `headerATag` as install does:** split on `:`, kind 39998, then the curator and the d-tag. It doesn't match a 64-hex pattern.
 - **With no assistant key, `firmwareLinks()` answers no links and doesn't cache that,** so a key configured later is used.
 
+From ADR 0028 Amendment 3 (a set has an address):
+
+- **An address is a `uuid` that is a non-empty string.** `kindOf` answers `'other'` for any other node, read whole by R1, as a parent by R3, or in a walk.
+- **The walks are unchanged:** `ancestors` still follows every class-thread link, through a node with no address too. Amendment 3 changes what an item's ends and a set's parents count as, and install's prune, which `firmwarePrunes` copies, walks through any node. Only an old route, or link-set before Amendment 3, could put a card set inside a class thread.
+- **One `not-a-set` message, and one `not-a-parent`, for every node that isn't one.** Each says that a set or superset is a node with that label and an address, and names the trust pipeline's card sets as nodes with none. A concept header keeps its own message, which names its superset.
+- **The re-check's `last-parent` is worded by unlink-set, not by the rule.** The rule decides as a check, `[{ set }]`, since the link is gone by then. The message says another write took the set's other parent away while the call ran, and names the parent the set stays under.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
