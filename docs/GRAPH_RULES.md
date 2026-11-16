@@ -1,6 +1,6 @@
 # Graph Rules
 
-**Status:** Draft. This rulebook was started on 2026-11-14 by story graph-operations-foundation #4 (ADR graph-operations-foundation/0004 Decision 12). It holds one entry per rule: each rule that is built, as the design's §7 asks ("Write each rule into the rules document (§7) as its guard or check is built."), and, since ADR graph-rules/0001, rules that are proposed but not yet enforced. That ADR also says what may be written here and what goes elsewhere. Once ratified it moves under `protocols/`, next to `protocols/drafts/tapestry-concepts.md`, and BIBLE §10 shrinks to a pointer (design §7, "Where it lands").
+**Status:** Draft. This rulebook was started on 2026-11-14 by story graph-operations-foundation #4 (ADR graph-operations-foundation/0004 Decision 12). It holds one entry per rule: each rule that is built, as the design's §8, step 3 asks ("Write each rule into the rules document (§7) as its guard or check is built."), and, since ADR graph-rules/0001, rules that are proposed but not yet enforced, or retired. That ADR also says what may be written here and what goes elsewhere. Once ratified it moves under `protocols/`, next to `protocols/drafts/tapestry-concepts.md`, and BIBLE §10 shrinks to a pointer (design §7, "Where it lands").
 
 **How a rule is built.** Each rule is defined once and used two ways (design D3):
 - as a guard inside each write that could break it;
@@ -15,7 +15,7 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - how a check finds what breaks it;
 - how a repair fixes it;
 - where it is enforced: by the database, a guard or a check;
-- its status: proposed (written, not yet enforced), enforced (its guard or check is built) or retired;
+- its status: proposed (written, not yet enforced), enforced (the database, a guard or a check enforces it) or retired;
 - its source: the TIP or ADR that brought it in. Whether a rule is agreed is its source's status, not the rule's (ADR graph-rules/0001).
 
 ## 1. Every node has a unique tapestryKey
