@@ -160,3 +160,7 @@ On the code at `e10251ad` (round 2's PASS, merged with staging), with dead endpo
 - **update-concept 11/0.**
 
 CC21 and UC11 pass there, because they pin round 1's count checks, which no seed reached before. On `52ca6e8a`'s code, from before those checks, both answer 200: a concept missing a membership, and a rename written in part. That ran in a scratch copy, with this correction's tests.
+
+### The touched suites (review round 2's fixes, 2026-11-15)
+
+With every endpoint dead: `test/operations.test.js` **387 passed, 0 failed** (384, and CC21, CC22 and UC11). This story's suites: create-concept 23, update-concept 11, concept names 4. `test/pass-3-finishes-in-minutes.test.js`, from staging: 8 passed, 0 failed, its 8 live checks skipped (no scratch container). The route-surface suites: openapi-coverage 13, default-deny-mutations 14, admin-action-sweep 9, admin-action-sweep-access 13, close-unauth-write-surface 14, external-cli 53, each with none failed.

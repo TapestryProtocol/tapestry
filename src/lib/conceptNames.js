@@ -9,8 +9,8 @@
  * What the graph operations add (AC5):
  *   cleanName(text)          trimmed, each run of white space inside it one space
  *   nameProblem(name)        why a cleaned name can't be a concept's name, or null: empty, no slug, a control
- *                            character, a text-direction control, an invisible formatting character (but not a
- *                            joiner a script needs), or longer than MAX_NAME (refused, never cut)
+ *                            character, a text-direction control, an invisible character no script or emoji
+ *                            draws with where it is, or longer than MAX_NAME (refused, never cut)
  *   descriptionProblem(text) why a description can't be one, or null: a control character other than a line break or
  *                            a tab (as the Dictionary's edit allows, src/lib/conceptHeaderEdit.js)
  *
@@ -23,14 +23,42 @@ const MAX_NAME = 200;
 const CONTROL_RE = /\p{Cc}/u;
 // Bidirectional overrides and isolates can make a name read differently from what it is.
 const BIDI_RE = /[\u202A-\u202E\u2066-\u2069]/u;
-// Other format characters are invisible, so two names that read alike can differ by one (review round 1). The zero-width
-// non-joiner and joiner are the exceptions: some scripts, and emoji sequences, need them, though never at an end or
-// beside a space, a–z or 0–9.
-const FORMAT_RE = /(?![\u200C\u200D])\p{Cf}/u;
-const JOINER_RE = /[\u200C\u200D]/u;
-const STRAY_JOINER_RE = /(?:^|[\sA-Za-z0-9])[\u200C\u200D]|[\u200C\u200D](?:$|[\sA-Za-z0-9])/u;
+// Unicode's default-ignorable code points draw nothing: zero-width spaces and joiners, variation selectors, fillers,
+// the soft hyphen and the like. A name holding one reads as another, while the slug, key and labels made from it hold
+// the character too: cat with a variation selector after it reads as cat, but its key isn't cat's (review rounds 1
+// and 2). So each is refused, except where a script or an emoji draws with it: a zero-width joiner or non-joiner
+// between two letters of a script other than Latin, or two emoji, and a presentation selector after an emoji.
+// Text-direction controls, default-ignorable too, are refused before this, with a reason of their own.
+const IGNORABLE_RE = /\p{Default_Ignorable_Code_Point}/u;
+const JOINERS = new Set([0x200c, 0x200d]);
+const SELECTORS = new Set([0xfe0e, 0xfe0f]);
+// What may sit between a joiner and the letter or emoji it follows: a combining mark (a virama, an accent), a
+// presentation selector, a skin-tone modifier.
+const BEFORE_JOINER_RE = /[\p{M}\p{Emoji_Modifier}\uFE0E\uFE0F]/u;
+const JOINS_RE = /\p{Extended_Pictographic}|(?!\p{Script=Latin})\p{L}/u;
+const EMOJI_RE = /\p{Extended_Pictographic}/u;
 const DESCRIPTION_CONTROL_RE = /(?![\n\r\t])\p{Cc}/u;
 const codePoint = (ch) => `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`;
+
+/** The first invisible character in a name that no script or emoji draws with where it is, or null. */
+function strayInvisible(name) {
+  const chars = [...name];
+  for (let i = 0; i < chars.length; i++) {
+    if (!IGNORABLE_RE.test(chars[i])) continue;
+    const cp = chars[i].codePointAt(0);
+    if (JOINERS.has(cp)) {
+      let j = i - 1;
+      while (j >= 0 && BEFORE_JOINER_RE.test(chars[j])) j--;
+      const before = j >= 0 ? chars[j] : null;
+      const after = i + 1 < chars.length ? chars[i + 1] : null;
+      if (before && after && JOINS_RE.test(before) && JOINS_RE.test(after)) continue;
+    } else if (SELECTORS.has(cp) && i > 0 && EMOJI_RE.test(chars[i - 1])) {
+      continue;
+    }
+    return chars[i];
+  }
+  return null;
+}
 
 // ── today's derivation, copied ──
 function toSlugName(name) {
@@ -75,8 +103,8 @@ function nameProblem(name) {
   if (typeof name !== 'string' || !name) return 'it is empty once trimmed';
   if (CONTROL_RE.test(name)) return 'it contains a control character';
   if (BIDI_RE.test(name)) return 'it contains a text-direction control, which can make it read differently from what it is';
-  const format = name.match(FORMAT_RE) || (STRAY_JOINER_RE.test(name) ? name.match(JOINER_RE) : null);
-  if (format) return `it contains an invisible formatting character, ${codePoint(format[0])}, which can make it read as another name`;
+  const invisible = strayInvisible(name);
+  if (invisible) return `it contains an invisible character, ${codePoint(invisible)}, which would make it read as another name: its slug, key and labels would hold the character too`;
   if (name.length > MAX_NAME) return `it is ${name.length} characters long, more than ${MAX_NAME}; a name is refused rather than cut`;
   if (!dtag.slug(name)) return 'it has no letter a–z or digit 0–9, so it would have no slug: a slug keeps only those, with accents dropped';
   return null;
