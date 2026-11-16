@@ -19,9 +19,14 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - its status: proposed (written, not yet enforced), enforced (the database, a guard or a check enforces it) or retired;
 - its source: the TIP or ADR that brought it in. Whether a rule is agreed is its source's status, not the rule's (ADR graph-rules/0001).
 
-Each field is a bullet that starts with its label in bold, such as `- **Says:**`, and its text may go on below the bullet on indented lines. The eight labels above appear once in every entry; an entry may add others, such as entry 2's Reserved. A refusal is written as its code in backticks and its status in parentheses, such as `` `cycle` (409) ``, and a rule with code names its file in Enforced by, `src/operations/rules/<name>.js`.
+The format, which `node src/firmware/graph-rules.js` checks:
+- **Headings.** An entry's heading is its number, a full stop and its rule's name in backticks, and nothing else. Any other level-2 heading isn't an entry, and doesn't name a rule in backticks.
+- **Fields.** Each field is a bullet that starts with its label in bold, then a colon, such as `- **Says:**`. Its text may go on below the bullet, on lines indented by two spaces. A line after a field that isn't indented is a problem, and nothing but fields belongs in an entry.
+- **Labels.** Every entry has each of eight labels once: Says, Kind, Refuses or reports, Check, Repair, Enforced by, Status and Source. An entry may add others, such as entry 2's Reserved.
+- **Refusals.** A refusal is written as its code in backticks and its status in parentheses, such as `` `cycle` (409) ``.
+- **Code.** A rule with code names its file in Enforced by, `src/operations/rules/<name>.js`.
 
-**In the graph.** Firmware installs each entry as an element of the graph rule concept, `39998:<TA>:graph-rule`, on every instance (story graph-operations-first-slice #41, ADR graph-operations-first-slice/0041). The elements are made from this file and each rule's code by `node src/firmware/graph-rules.js`, which writes them into the firmware, and a test fails until it is run again after an entry or a rule's code changes. So a rule is changed here, never in the graph: an install brings each instance's items in line.
+**In the graph.** Firmware installs each entry as an element of the graph rule concept, `39998:<TA>:graph-rule`, on every instance (story graph-operations-first-slice #41, ADR graph-operations-first-slice/0041). The elements are made from this file and each rule's code by `node src/firmware/graph-rules.js`, which writes them into the firmware, and a test fails until it is run again after an entry or a rule's code changes. So a rule is changed here, never in the graph: an install brings each instance's items in line, and puts back any edit made to one in the graph.
 
 ## 1. `tapestry-key-unique`
 

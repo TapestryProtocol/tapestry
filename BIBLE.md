@@ -376,12 +376,13 @@ The v1.0.0 manifest (`manifest.json`) contains:
 - **11 relationship types** (CLASS_THREAD_INITIATION, CLASS_THREAD_PROPAGATION, CLASS_THREAD_TERMINATION, CORE_NODE_JSON_SCHEMA, CORE_NODE_PRIMARY_PROPERTY, CORE_NODE_PROPERTIES, CORE_NODE_PROPERTY_TREE_GRAPH, CORE_NODE_CORE_GRAPH, CORE_NODE_CONCEPT_GRAPH, PROPERTY_MEMBERSHIP, PROPERTY_ENUMERATION)
 - **41 concepts** organized by category (some concepts belong to multiple categories):
   - **Core (8):** superset, concept-header, primary-property, properties-set, json-schema, property-tree-graph, core-nodes-graph, concept-graph
-  - **Graph-theoretic (6):** node-type, relationship, relationship-type, graph, graph-type, word
+  - **Graph-theoretic (7):** node-type, relationship, relationship-type, neo4j-property, graph, graph-type, word
   - **Graphs (5):** graph, property-tree-graph, core-nodes-graph, concept-graph, tapestry
-  - **Nostr (4):** nostr-user, nostr-relay, nostr-event, nostr-kind
+  - **Nostr (7):** nostr-user, nostr-relay, nostr-event, nostr-kind, nostr-user-tag, nostr-event-tag, tagging-with-specific-tag
+  - **Tag (5):** tag, nostr-user-tag, tag-pinning, nostr-event-tag, tagging-with-specific-tag
   - **Tapestry (3):** class-thread, word-wrapper, graph-rule
   - **Web-of-trust (2):** graperank, web-of-trust
-  - **Other:** set, property, json-data-type, list, validation-tool, validation-tool-type, image, image-type, image-validation-script, plus example concepts (dog, dog-breed)
+  - **No category (11):** set, property, json-data-type, list, validation-tool, validation-tool-type, image, image-type, image-validation-script, plus example concepts (dog, dog-breed)
 - **Elements:** json-data-types (string, number, integer, boolean, object, array, null), node-types, graph-types, validation-tool-types
 - **Sets:** graphs, relationship-types (class-threads, core-nodes), validation-tools, properties, sets
 
@@ -404,7 +405,7 @@ Triggered via the Dashboard "Install Tapestry firmware" button or `POST /api/fir
 
 Pass 1 ends by wiring and pruning (`src/firmware/install.js`). Step 1d adds `HAS_ELEMENT` from every concept's Superset to each node whose `z` names that concept (`word` skipped). Step 1e prunes a Superset's direct `HAS_ELEMENT` and `IS_A_SUPERSET_OF` edges when a longer class-thread path already reaches the target. Step 1e walks only `manifest.concepts` (those with a concept manifest), so edges hanging off a local, non-manifest concept survive an install, while step 1d re-adds any direct edge a `z` tag backs, even one pruned by hand.
 
-**Elements an install keeps in line.** Step 1b creates each concept's elements from its `elements/*.json` files and leaves an element that is already there as it was. A concept whose manifest entry sets `updateElements` (only `graph-rule`) is brought in line instead: each of its elements that the instance's assistant signed is re-signed in place, at the same address, when its file has changed, and left alone when it hasn't. Another author's element with the same name is never signed over, and no element is deleted (ADR graph-operations-first-slice/0041 Decision 6). `graph-rule`'s element files are made from the rulebook, `docs/GRAPH_RULES.md`, and the rules' code by `node src/firmware/graph-rules.js`, one per rulebook entry, and are never edited by hand: a test fails until the script is run again after a rule changes.
+**Elements an install keeps in line.** Step 1b creates each concept's elements from its `elements/*.json` files and leaves an element that is already there as it was. A concept whose manifest entry sets `updateElements` (only `graph-rule`) is brought in line instead. Each of its elements that the instance's assistant signed is re-signed in place, at the same address, whenever its JSON in the graph differs from its file, and left alone while they match. They differ when the file has changed, and also when someone has edited the element in the graph: the install puts that edit back. Another author's element with the same name is never signed over, and no element is deleted (ADR graph-operations-first-slice/0041 Decision 6). `graph-rule`'s element files are made from the rulebook, `docs/GRAPH_RULES.md`, and the rules' code by `node src/firmware/graph-rules.js`, one per rulebook entry, and are never edited by hand: a test fails until the script is run again after a rule changes.
 
 ---
 

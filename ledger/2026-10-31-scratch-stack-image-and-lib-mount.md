@@ -32,3 +32,5 @@ that would replace the hand recipe.
 **2026-11-15 (graph-operations-foundation #8):** seen again. `tapestry-tapestry` was built 2026-08-28. Story 8 booted its scratch stacks with `SCRATCH_IMAGE=agent-memory-tapestry:latest`, built that day from `39126bfc` (staging's code). Its L5b baseline is tied to that image's firmware digest, and skips, saying so, on any other.
 
 **Pointer:** `scripts/scratch-stack.sh:24-26,80`; `engineering-team/audits/config-secret-logging/audit.md` §7.
+
+**Seen again 2026-11-16** (story graph-operations-first-slice #41, and its review). `firmware/` is a third folder the script doesn't mount. A firmware change's live check needs the branch's firmware in the instance before its first install. Both the Implementer and the Reviewer had to `docker cp` it into `firmware/versions/v1.0.0/` and run `supervisorctl restart brainstorm`, because the control panel caches the manifest at start. A bind mount of a copy in the session scratchpad came up empty, as the 2026-11-01 note found, and the control panel exited on the missing manifest.

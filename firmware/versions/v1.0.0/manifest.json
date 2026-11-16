@@ -620,7 +620,7 @@
             "date": "2026-11-15",
             "changes": [
                 "Add the graph-rule concept: one element per entry of docs/GRAPH_RULES.md, made from the rulebook and src/operations/rules/ by src/firmware/graph-rules.js (graph-operations-first-slice #41, ADR 0041)",
-                "Add updateElements to the graph-rule entry: an install re-signs the instance's own element in place when its file has changed"
+                "Add updateElements to the graph-rule entry: an install re-signs the instance's own element in place whenever its JSON in the graph differs from its file, so it also puts back an edit made in the graph"
             ]
         },
         {

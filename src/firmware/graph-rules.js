@@ -75,7 +75,13 @@ function parseRulebook(text) {
     if (line.startsWith('## ')) {
       endEntry();
       const heading = ENTRY_HEADING.exec(line);
-      if (!heading) continue; // another level-2 heading ends the entry before it, and isn't one
+      if (!heading) {
+        // Another level-2 heading ends the entry before it, and isn't one. One that names a rule in backticks is a
+        // mistyped entry's heading, which would otherwise drop the entry unseen (ADR 0041 Amendment 2.2).
+        const named = /`([^`]+)`/.exec(line);
+        if (named) problems.push({ rule: named[1], message: `The heading "${line}" names ${named[1]} in backticks, but it isn't an entry's heading, so no entry is made from it. An entry's heading is its number, a full stop and its rule's name in backticks, and nothing else: "## <n>. \`${named[1]}\`".` });
+        continue;
+      }
       const named = ONLY_A_NAME.exec(heading[2]);
       if (!named) {
         problems.push({ rule: null, message: `The heading "${line}" starts like an entry's, but an entry's heading is its number, a full stop and its rule's name in backticks, and nothing else: "## ${heading[1]}. \`<name>\`".` });
@@ -85,13 +91,26 @@ function parseRulebook(text) {
       entry = { number: Number(heading[1]), name: named[1], raw: [], stray: false };
       continue;
     }
-    if (!entry || entry.broken) continue; // the preamble, or an entry whose heading can't be read
     const f = FIELD_LINE.exec(line);
+    if (!entry) {
+      // The preamble, or a level-2 section that isn't an entry: a field line here belongs to no entry.
+      if (f) problems.push({ rule: null, message: `The line "${line.slice(0, 80)}" is a ${f[1].trim()} field outside any entry. A field belongs under an entry's heading, "## <n>. \`<name>\`".` });
+      continue;
+    }
+    if (entry.broken) continue; // an entry whose heading can't be read, already a problem
     if (f) {
       endField();
-      field = { label: f[1].trim(), lines: [f[2] || ''] };
+      field = { label: f[1].trim(), lines: [f[2] || ''], closed: false };
     } else if (field) {
-      field.lines.push(line);
+      if (field.closed) continue;
+      if (!line.trim() || /^[ \t]/.test(line)) {
+        field.lines.push(line);
+      } else {
+        // A field's text goes on only on blank or indented lines (ADR 0041 Amendment 2.2). The line joins nothing, and
+        // the field takes no more lines until the next field or heading.
+        problems.push({ rule: entry.name, message: `Entry ${entry.name} has a line after its ${field.label} field that isn't indented: "${line.trim().slice(0, 60)}". A field's text goes on only on lines indented below its bullet, and nothing but fields belongs in an entry.` });
+        field.closed = true;
+      }
     } else if (line.trim()) {
       entry.stray = true;
     }
@@ -139,12 +158,24 @@ function plain(md) {
     .trim();
 }
 
-/** The first sentence of a field, as plain text, its first letter capitalized (Decision 2's word.description). */
+/** An abbreviation whose full stop ends no sentence, just before a full stop. */
+const ABBREVIATION = /(?:^|[\s([])(?:e\.g|i\.e|cf|vs)$/i;
+
+/**
+ * The first sentence of a field, as plain text, its first letter capitalized (Decision 2's word.description). It ends
+ * at a full stop, question mark or exclamation mark followed by white space and a capital letter, or by the end of the
+ * text, and never at "e.g.", "i.e.", "cf." or "vs." (ADR 0041 Amendment 2.3).
+ */
 function firstSentence(md) {
   const text = plain(md);
-  const m = /^(.*?[.!?])(?=\s|$)/.exec(text);
-  const s = m ? m[1] : text;
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  const capital = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const ends = /[.!?](?=\s+[A-Z]|\s*$)/g;
+  let m;
+  while ((m = ends.exec(text))) {
+    if (m[0] === '.' && ABBREVIATION.test(text.slice(0, m.index))) continue;
+    return capital(text.slice(0, m.index + 1));
+  }
+  return capital(text);
 }
 
 const titleOf = (name) => name.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
