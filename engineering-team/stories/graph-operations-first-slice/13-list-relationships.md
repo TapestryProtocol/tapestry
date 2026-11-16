@@ -93,6 +93,6 @@ For Architecture, not this gate:
 - The read conventions this read follows: [11-list-elements.md](11-list-elements.md); [ADR graph-operations-first-slice/0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
 - The writes that name a relationship by `from`, `to` and `type`: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0013-list-relationships-and-the-relationship-conventions.md](../../decisions/graph-operations-first-slice/0013-list-relationships-and-the-relationship-conventions.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
