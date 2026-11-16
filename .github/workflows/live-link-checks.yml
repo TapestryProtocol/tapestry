@@ -1,0 +1,41 @@
+name: Live link checks
+
+# The live link checks (honest-test-gate #2). The information-for-agents and
+# llms-txt suites fetch every link they publish from the public internet, so a
+# red from them is about a website at that minute, not about a pull request.
+# The pull-request gate leaves them off (OPERATIONS.md § "CI test gate"); they
+# run here instead, weekly and by hand. A red run opens an issue titled
+# "Live link check…", or comments on the open one; the next green run closes it.
+
+on:
+  schedule:
+    - cron: '23 7 * * 1'   # Mondays, 07:23 UTC
+  workflow_dispatch:
+
+# Reads the repository, and keeps its one issue (OPERATIONS.md, "Workflow rules").
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: live-link-checks
+  cancel-in-progress: false
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # @scarf/scarf's postinstall phones home; suppress it, as the test gate does.
+      SCARF_ANALYTICS: "false"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'   # the test gate's Node
+          cache: npm
+      - run: npm ci
+      - name: Check every link, and keep the issue
+        run: node scripts/live-link-checks.js --report
+        env:
+          GH_TOKEN: ${{ github.token }}

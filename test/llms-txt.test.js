@@ -26,12 +26,18 @@
  *     the wire, not just in the pure function.
  *
  *   L-class (live link resolution, per-link SKIP on network failure rather
- *     than stack absence) — story AC-7: every linked URL must resolve. A
- *     timeout/DNS failure SKIPs that link (most likely no outbound network in
- *     this environment); an actual non-2xx response FAILs it (a real broken
- *     link). This is the automated half of the "ongoing check" the story asks
- *     for; the human half is OPEN.md row 172's renewal ritual, extended by
- *     this phase to also cover these links (see that row).
+ *     than stack absence) — story AC-7: every linked URL must resolve. Off
+ *     unless TAPESTRY_LIVE_LINK_CHECKS=1, so the pull-request gate fetches no
+ *     links: each check SKIPs, naming the switch (honest-test-gate #2;
+ *     OPERATIONS.md §15). The weekly run, scripts/live-link-checks.js,
+ *     switches it on. Switched on, it follows the briefing's rules
+ *     (test/helpers/liveLinkChecks.js): a timeout/DNS failure, or a cloud
+ *     egress gateway's own 403, SKIPs that link with its reason (ledger
+ *     2026-10-04-llms-txt-egress-403-false-fail); any other non-2xx response
+ *     FAILs it (a real broken link). This is the automated half of the
+ *     "ongoing check" the story asks for; the human half is OPEN.md row 172's
+ *     renewal ritual, extended by this phase to also cover these links (see
+ *     that row).
  *
  * ALL U/S tests and (stack-present) H tests FAIL until the feature lands:
  * buildLlmsTxt does not exist yet, and /llms.txt returns the SPA shell today.
@@ -39,6 +45,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { liveLinkCheck } = require('./helpers/liveLinkChecks');
 
 const ROOT = path.resolve(__dirname, '..');
 const SITE_TRUST = path.join(ROOT, 'src/utils/siteTrust.js');
@@ -111,21 +118,6 @@ async function fetchOrNull(url, opts) {
 async function stackPresent() {
   const res = await fetchOrNull(`${BASE}/`);
   return res !== null;
-}
-
-/** L-class guard: a bounded fetch that distinguishes "no network" (SKIP) from
- *  "network fine, response is bad" (FAIL). Longer timeout than fetchOrNull's
- *  10s — GitHub raw content and the production OpenAPI doc can be slow. */
-async function fetchForLinkCheck(url) {
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000);
-    const res = await fetch(url, { method: 'GET', signal: ctrl.signal, redirect: 'follow' });
-    clearTimeout(t);
-    return { ok: true, status: res.status };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
 }
 
 /* ─────────────── U-class: the pure core ─────────────── */
@@ -315,12 +307,12 @@ test('H3 a small representative regression sweep: probe and SPA paths still beha
   assert(api && api.status !== 404, `/api/ routes must be unaffected; got ${api && api.status}.`);
 });
 
-/* ─── L-class: live link resolution (story AC-7) — per-link SKIP on network failure ─── */
+/* ─── L-class: live link resolution (story AC-7) — off unless switched on; per-link SKIP on network failure ─── */
 
 for (const url of ALL_LINKS) {
   test(`L1 link resolves with 2xx: ${url}`, async () => {
-    const result = await fetchForLinkCheck(url);
-    if (!result.ok) return 'SKIP'; // no outbound network in this environment — not a link defect
+    const result = await liveLinkCheck('llms-txt', url);
+    if (result.skip) { console.log(`        (${result.skip})`); return 'SKIP'; } // off, or the host couldn't be asked — not a link defect
     assert(result.status >= 200 && result.status < 300,
       `${url} must resolve with a 2xx status; got ${result.status}. This is the automated half ` +
       'of story AC-7 — the human half is OPEN.md row 172\'s renewal ritual.');

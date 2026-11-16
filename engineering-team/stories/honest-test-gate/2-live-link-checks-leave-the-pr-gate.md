@@ -88,6 +88,25 @@ None left. Resolved by the owner on 2026-11-16: when a later run is green while 
 run is still open, that run closes the issue with a comment naming itself (now part of AC4), so that a site
 that was down for a minute leaves no open issue behind.
 
+## Deviations
+
+Judgment calls made in Implementation, too small for an ADR (the story has none):
+
+- **One helper for both suites.** The briefing's link check (`checkLink`, `isEgressRefusal`) moved into a new
+  `test/helpers/liveLinkChecks.js` with the switch, so both suites follow one set of rules (AC2), and the weekly
+  run counts every check from the outcomes it records rather than by reading the suites' output. Its abort
+  timer is now cleared on every path: before, a failed fetch left it pending for up to 15 s.
+- **The new write scope is declared where §18.2 says.** `WRITE_SCOPES` in `test/workflow-hardening.test.js`
+  gains `live-link-checks.yml: ['issues']`, and OPERATIONS.md §18.2 lists the workflow, in the same pull
+  request that adds the scope, as that section requires.
+- **The schedule** is Mondays at 07:23 UTC, off the hour as GitHub advises for scheduled workflows.
+- **A failed `gh` call ends the run red** (exit 2, "the run itself failed"), so a report that couldn't be made
+  is never silent.
+- **Left as found, and flagged for the owner.** §15's "zero recorded-flake history" was already untrue on
+  2026-11-16 (K1 and the launcher's destroy test, fixed in #90 and #91); this story only adds the link checks to
+  the paragraph's excluded live classes. OPEN.md row 172 still says llms-txt's L1 checks the links on every
+  `npm test`; they now run weekly or by hand, and the row is left for its next renewal.
+
 ## Linked artifacts
 
 - ADR: none. Architecture is skipped: a Bug under Standard, with the design chosen by the owner from ledger
