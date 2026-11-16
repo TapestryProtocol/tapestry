@@ -26,10 +26,13 @@
  *
  *   H-class (live HTTP against :7778, per-test SKIP when the stack is absent).
  *
- *   L-class (live link resolution over every markdown link in the briefing). SKIPs on a network
- *     failure AND on a cloud egress gateway's own 403 (ledger
- *     2026-10-04-llms-txt-egress-403-false-fail): that 403 is the sandbox refusing the host, not
- *     the host answering. Any other non-2xx FAILs.
+ *   L-class (live link resolution over every markdown link in the briefing). Off unless
+ *     TAPESTRY_LIVE_LINK_CHECKS=1, so the pull-request gate fetches no links: each check SKIPs,
+ *     naming the switch (honest-test-gate #2; OPERATIONS.md §15). The weekly run,
+ *     scripts/live-link-checks.js, switches it on. Switched on, it SKIPs on a network failure AND
+ *     on a cloud egress gateway's own 403 (ledger 2026-10-04-llms-txt-egress-403-false-fail): that
+ *     403 is the sandbox refusing the host, not the host answering. Any other non-2xx FAILs. The
+ *     switch and the rules live in test/helpers/liveLinkChecks.js, shared with llms-txt.
  *
  * Until the feature lands: U/P/S fail (missing exports, module, route, page), B3 fails on the
  * whitelist section's missing reference link, and the stack-present H tests fail.
@@ -38,6 +41,7 @@
 const fs = require('fs');
 const path = require('path');
 const { pathToFileURL } = require('url');
+const { liveLinkCheck } = require('./helpers/liveLinkChecks');
 
 const ROOT = path.resolve(__dirname, '..');
 const SITE_TRUST = path.join(ROOT, 'src/utils/siteTrust.js');
@@ -133,29 +137,6 @@ async function fetchOrNull(url, opts) {
 
 async function stackPresent() {
   return (await fetchOrNull(`${BASE}/`)) !== null;
-}
-
-/** A 403 written by a sandbox's egress gateway, not by the host. Seen in Claude Code cloud
- *  containers: "Host not in allowlist: <host>. Add this host to your network egress settings…",
- *  and through the agent proxy, "GitHub access to this repository is not enabled for this
- *  session". The host never saw the request, so the link's health is unknown, not bad. */
-function isEgressRefusal(status, body) {
-  return status === 403 &&
-    /Host not in allowlist|network egress settings|not enabled for this session/i.test(body || '');
-}
-
-async function checkLink(url) {
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000);
-    const res = await fetch(url, { method: 'GET', signal: ctrl.signal, redirect: 'follow' });
-    const body = res.status === 403 ? await res.text().catch(() => '') : '';
-    clearTimeout(t);
-    if (isEgressRefusal(res.status, body)) return { skip: `egress gateway refused the host (${res.status})` };
-    return { status: res.status };
-  } catch (e) {
-    return { skip: `no network (${e.cause?.code || e.message})` };
-  }
 }
 
 /* ─────────────── U-class: the server's pure core ─────────────── */
@@ -529,7 +510,7 @@ test('L0 the briefing has links to check', () => {
 
 for (const url of BRIEFING_LINKS) {
   test(`L1 briefing link resolves with 2xx: ${url}`, async () => {
-    const r = await checkLink(url);
+    const r = await liveLinkCheck('information-for-agents', url);
     if (r.skip) { console.log(`        (${r.skip})`); return 'SKIP'; }
     assert(r.status >= 200 && r.status < 300,
       `${url} must resolve with a 2xx; got ${r.status}. Fix the link in docs/information-for-agents.md ` +

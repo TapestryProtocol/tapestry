@@ -3,8 +3,8 @@
 **Id:** 2026-11-16-link-check-fails-during-prod-deploy
 **Type:** meta
 **Opened:** 2026-11-16 (PR #83's first CI run, Actions run 43808151504)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16, in #94 (commit 36e123d2; story honest-test-gate #2, the first fix option)
 
 **What was seen.** PR #83's stack-free run, at 4df10d9b, ended "Overall: FAIL — 7447 passed, 1 failed, 607 skipped". The one failure was `information-for-agents` L1: "https://tapestry.brainstorm.world must resolve with a 2xx; got 502", at 05:09:30Z on 2026-11-16. A production deploy, "Deploy to Tapestry" (Actions run 43808217938 on `main`, commit e58e016f), ran from 05:07:46Z to 05:09:48Z, so the check reached the site while its container restarted. The site answered 200 at 05:29Z. A rerun of the job, its attempt 2, passed L1 and failed another test (OPEN.md row `2026-11-16-k1-lock-check-races-worker`).
 
