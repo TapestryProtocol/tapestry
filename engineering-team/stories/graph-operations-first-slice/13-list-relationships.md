@@ -1,6 +1,6 @@
 # Story 13: `graph list-relationships` — a node's typed relationships, in and out, each with the way it points
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.13 — https://loom.brainstorm.world/t/A10.13
@@ -177,4 +177,4 @@ Each ran on its own on the Mac Studio, never the full `npm test`, with every end
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0013-list-relationships-and-the-relationship-conventions.md](../../decisions/graph-operations-first-slice/0013-list-relationships-and-the-relationship-conventions.md)
 - Test plan: [13-list-relationships.test-plan.md](13-list-relationships.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/13-list-relationships.md](../../reviews/graph-operations-first-slice/13-list-relationships.md)
