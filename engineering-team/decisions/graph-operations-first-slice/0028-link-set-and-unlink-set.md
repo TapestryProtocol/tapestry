@@ -393,7 +393,7 @@ The same race, re-run with the lock, came out right in 8 of 8 rounds: one `unlin
 
 Decision 5 read a set by its label alone, so:
 - link-set took a card set as `set` or as `parent`, and unlink-set then refused to take the link out again;
-- a card set under a set counted as its second parent, so the set's last real parent could be unlinked;
+- a set under a card set counted the card set as its second parent, so the set's last real parent could be unlinked;
 - run as a check over the graph, `set-has-a-parent` would report every card set.
 
 **The decision.** Decision 5 is refined: a node counts as a set, a superset or a parent only when it has an address, its `uuid`.
@@ -411,5 +411,5 @@ ADR graph-operations-first-slice/0011 (list-elements) adopts Decision 5's readin
 1. **The lock is the first thing unlink-set's `apply` does**, before it reads anything, as Amendment 2 says. A lock on a key that names no node locks nothing, and `unknown-node` follows.
 2. **A refusal by the re-check after a delete names the parent too.** When a concurrent unlink took the set's other parent first, the answer is `last-parent`, by `set-has-a-parent`, naming the set and the parent it stays under (AC5).
 3. **Part (c) of firmware's table resolves set files only.** A concept manifest's `IS_A_SUPERSET_OF` links sets. An element file's address isn't its `word.slug`, so (c) never resolves to one. No shipped manifest edge is affected: all ten link a set to a set.
-4. **A second race left to `rules check`.** Two link-sets that share no node can together make an earlier direct link from a firmware concept's superset redundant: each one's prune check runs before the other commits. A reinstall then takes that link out. This is the same shape as Decision 9's four-node cycle, and it is left the same way: a check over the graph finds it, and nothing these operations make depends on such a link, since the set stays below the superset.
+4. **A second race, left open.** Two link-sets that share no node can together make an earlier direct link from a firmware concept's superset redundant: each one's prune check runs before the other commits. A reinstall then takes that link out. It is the same shape as Decision 9's four-node cycle, but unlike the cycle no rule's check finds it, since `firmware-prunes` is link-set's own refusal, not a rule. Ledger `2026-11-16-concurrent-links-leave-prunable-firmware-link` records it for `rules check` (A10.31) and seed-firmware (A10.37). Nothing these operations make depends on such a link, since the set stays below the superset.
 5. **Amendment 1's refusal order** was put to the owner at the Test Design gate (2026-11-15), and the owner approved it there.

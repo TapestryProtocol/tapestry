@@ -285,3 +285,148 @@ That defeats AC3's refusal of "any other node", and the invariant AC5 and AC7 ex
 
 ## Close-out
 Not applicable this round. The launching session asked for this one file, with no commit and no edit to the story.
+
+## Round 2
+
+**Date:** 2026-11-15
+**Diff since round 1:** `a9dfe9fb..063b3549`. This story's own commits:
+- `f77faea7`: ADR 0028 Amendment 3, approved by the owner;
+- `80c59a41`: round 1's two harness lessons, as ledger rows;
+- `3dff79ef`: nine failing tests (LS20, LS21, UL18 changed, UL19–UL21, CA10, SP11, SP12);
+- `572c9b40`: the fix, and the Deviations it added to the story;
+- `da0770c5`: a line on ledger row `2026-11-15-card-sets-carry-the-set-label`;
+- `063b3549`: AC8's restore onto a fresh instance, recorded in the test plan.
+
+`f66c37d8` merges staging at `18b5db81`, with no conflicts. Staging has since moved on to `28b55c6a`: PR #72 (story 11's list-elements) and PR #73 (a ledger row).
+
+### Gates (run by reviewer, as in round 1)
+
+Every run had dead endpoints exported. No `npm test`, no `:7778` and no docker.
+
+- [x] **The five suites,** each in its own process: 65 of 65.
+  - link-set 21/21 and unlink-set 21/21;
+  - sets-agent-through-cli 1/1;
+  - class-thread-acyclic 10/10 and set-has-a-parent 12/12.
+- [x] **`node test/operations.test.js`,** with the temporary `node_modules` link made and removed in the same command: `operations: 402 passed, 0 failed, 0 skipped`, exit 0. W1 (both of them), X1 and X2 pass. The link was never staged, and the tree is clean afterwards.
+- [x] **`bash scripts/harness-lint.sh`,** run before this round was appended: `harness-lint: clean (0 violations)`.
+- [ ] **`npm test`** wasn't run, as in round 1, so `gate:status` still has no run to quote. Ledger row `2026-11-16-gate-status-unmet-without-local-gate` now records why. The full gate comes from the pull request's CI.
+- [x] **The card-set probe**, on a scratch copy refreshed to `063b3549`. All four calls are now refused, and pet's class thread still reaches Goldie:
+  1. link-set of a card set as `set`: `409 not-a-set`, its words saying a set has an address;
+  2. unlink-set of that card set: `409 not-a-set`;
+  3. link-set of Indoor pets under a card set: `409 not-a-parent`;
+  4. unlink-set of Indoor pets from Pets: `409 last-parent`.
+- [x] **A second probe, with card-set links seeded directly.** Step 4 above proves less than it did in round 1: step 3 is refused now, so no card set sits above Indoor pets. So this probe seeds the links the link-set before Amendment 3 could have made, then calls the operations and runs both rules as checks:
+  - **(a)** taking a set out from under Pets, its one real parent, while a card set is above it too: `409 last-parent`, and pet's class thread still reaches the set's element;
+  - **(b)** taking that set out from under the card set: `409 not-a-parent`, as test plan gap 9 records;
+  - **(c)** a link that would close a loop only through a card set (`Above ─▶ Card set X ─▶ Below`, then Above under Below): `409 cycle`. The walks are unchanged (the story's Deviations), which is the safe side;
+  - **(d)** taking Below out from under Pets, when its only other parent is a card set: `409 last-parent`;
+  - **both rules as checks** over the seeded graph: no findings.
+- [x] **Merges:**
+  - **with current staging (`28b55c6a`),** the merge is clean. Over that merged tree, which includes story 11's suites, this story's 65 tests pass and `node test/operations.test.js` gives `operations: 447 passed, 0 failed, 0 skipped`, exit 0;
+  - **with story 16's branch (`e10251ad`),** it has the same single textual conflict in `docs/GRAPH_RULES.md` as in round 1.
+
+**Breaking the real code again,** one break at a time, on the refreshed scratch copy:
+
+| Broken | Failed in round 1 | Failed in round 2 |
+|---|---|---|
+| the lock leaves its property | UL18 | UL18 |
+| the prune check runs with no `before` | LS11 | LS11 |
+| supersets lose their `superset-of:` descriptors | LS12, LS13, UL11, UL12 | the same |
+| a superset isn't exempt from `last-parent` | UL9, UL11, UL12, SP5, SP8, SP9 | the same |
+| no peer check | UL14 | UL14 |
+| the prune covers every firmware concept | LS14 | LS14 |
+| "own" leaves out the owner | UL6 | UL6 |
+| link-set's re-check after the `MERGE` taken out | nothing | nothing |
+| unlink-set's re-check after the `DELETE` taken out | nothing | nothing |
+| unlink-set takes no lock | nothing | UL18 |
+| `kindOf` reads labels alone (Amendment 3 undone) | — | LS20, LS21, UL19, UL20, UL21, CA10, SP11, SP12 |
+| the lock after `requireEnds`, round 1's order | — | UL18 |
+
+### The blocking finding, against Amendment 3
+
+Each of the amendment's claims, checked as a fresh claim:
+
+| Amendment 3 says | Checked by | Holds? |
+|---|---|---|
+| Staging holds 370,377 card sets among its 370,401 `Set` nodes, each with a tapestryKey but no address, no class-thread links and no Tapestry JSON | the ledger row's counts; `src/cns/addSetsOfMetricsCards.sh:26–30` | Yes. The counts are the ledger row's. |
+| "a card set under a set counted as its second parent" (line 396) | round 1's probe | The direction is reversed: the card set was above the set, as its parent (new item 2) |
+| Every kind of class-thread set has an address: firmware's, create-set's and add-subset's, a pulled peer's, those the graph operations make, and a concept header's superset. Card sets don't. | every write in `src/` that gives a node `Set` or `Superset` (the list below) | Yes |
+| It is the ledger row's second fix, and story 8 already reads `:Set` this way | the ledger row; `src/lib/tapestry-derive.js:160` | Yes, nearly: story 8 counts "a uuid or an id" as an address. For every `Set` node today the two readings agree. |
+| `kindOf` answers `'other'` for a node with no `uuid`, so both operations refuse a card set as `set` and as `parent` | `_sets.js:110–115`; LS20, LS21, UL19, UL20; probe steps 1–3 | Yes |
+| `set-has-a-parent` counts no address-less node as a parent, judges none as a set, and its check reports no card set | `set-has-a-parent.js:36` and `:40`, through `kindOf`; SP11, SP12, UL21; the second probe | Yes |
+| `class-thread-acyclic` judges no link with an address-less end | `class-thread-acyclic.js:40`; CA10; the second probe | Yes. A loop through a card set between two sets that have addresses is still refused, by design. |
+| The refusals' words name a node with no address as one that isn't a set | `_sets.js:52–53` (the `when` texts) and the `say` messages at `:75–84`; LS20, LS21, UL19, UL20 | Yes |
+| ADR 0011 (list-elements) adopts this reading of a set | ADR 0011 Amendment 2 on staging adopts it by reference; `list-elements.js:41` and `:105` read `uuid IS NOT NULL` | Yes (new item 3) |
+| Item 1: the lock is the first thing `apply` does; a key that names no node locks nothing, and `unknown-node` follows | `unlink-set.js:73`; the lock statement only matches nodes; UL10; UL18, which now catches both breaks of the lock | Yes |
+| Item 2: the re-check's refusal names the set and the parent it stays under | `unlink-set.js:100–103`, read. Only the race path reaches it (test plan gap 10). | Yes, by reading |
+| Item 3: part (c) resolves set files only, and no shipped edge is affected | `_sets.js:303` onwards; all ten part-(c) edges link a set to a set; the definition still lists 64 links (22, 26, 10 and 6), and UL12 sweeps them | Yes |
+| Item 4: the second race "is left the same way" as Decision 9's: "a check over the graph finds it" | `src/operations/rules/` and GRAPH_RULES.md, which hold no rule about redundant links; the audit routes, which list sets and paths; `prune-superset-edges`, a repair with no check mode | No: nothing finds it today (new item 1) |
+| Item 5: the owner approved Amendment 1's order at the Test Design gate | recorded in Amendment 3, which the owner approved (`f77faea7`) | Recorded. A conversation can't be checked from the repository. |
+
+The writes that give a node `Set` or `Superset` all go by `uuid`, except the card sets':
+- create-set: `src/api/normalize/index.js:4339`;
+- add-subset: `src/api/normalize/nodes.js:204–205`, a `MERGE` on `uuid`;
+- the pull: `src/api/concept/pullClassThread.js:284`;
+- a community superset: `src/firmware/install.js:1125`;
+- create-concept's superset at `index.js:1340`, and normalize-skeleton's at `:389`;
+- `src/manage/concept-graph/setup.sh:70` and `:78`, on imported list items whose `uuid` it sets at `:61`;
+- story 16's `_eventless.js`, on its own branch, which creates each node with the letter's address.
+
+The two card-set scripts are the only writes that make a `Set` with no `uuid`.
+
+**Blocking 1 is resolved.** The code, the nine tests, both probes and the merge with staging all agree with the amendment's decision.
+
+### Round 1's non-blocking items
+
+1. **The concurrency guarantees.** Partly fixed.
+   - **The lock** is now pinned: UL18 fails without it, and fails if it moves back after `requireEnds`.
+   - **The two re-checks** are still reached only by a second writer, so live step 8 remains their only evidence. That is recorded (the test plan's edge cases, and gap 10), and accepted for that reason.
+2. **AC6's order.** Accepted: Amendment 3 item 5 records the owner's approval. The two-step advice for a firmware or peer set's last parent stays as approved.
+3. **The restore onto a fresh instance.** Fixed: it was run and recorded (`063b3549`, the test plan's step 7).
+   - **The setup.** It used two throwaway instances, one at a time. B booted with fresh volumes and an assistant key of its own.
+   - **The result.** `upload-backup` answered `sameInstance: false`. After the restore, B held A's key, the links as they were at the backup, all four change entries and dogs' history, and an unlink-set worked on the restored graph.
+   - The record is consistent with the steps it lists.
+4. **The lock's placement.** Fixed: Amendment 3 item 1, at `unlink-set.js:73`, and UL18 pins it.
+5. **The prune's residual race.** Recorded, as Amendment 3 item 4, but with one inaccurate clause (new item 1).
+6. **The race path's `last-parent` wording.** Fixed: it names the set and the parent (`unlink-set.js:100–103`). Only a second writer reaches it (gap 10).
+7. **GRAPH_RULES.md line 73.** Fixed: it now says "doesn't check for a cycle".
+8. **Part (c)'s element addresses.** Fixed: part (c) resolves set files only, and so does the seed helper.
+9. **UL18's refused case.** Fixed: the refusal now comes inside `apply`, and the test finds the lock in its rolled-back transaction.
+10. **Merging beside story 16.** Still applies, unchanged: one textual conflict in `docs/GRAPH_RULES.md`. Keep §4, then §5–6.
+
+Round 1's harness friction is recorded: items 1 and 2 as ledger rows `2026-11-16-staging-ledger-rows-go-unseen` and `2026-11-16-gate-status-unmet-without-local-gate`. Item 3 was already a row.
+
+### New in round 2
+
+None of these blocks.
+
+1. **ADR 0028 line 414, Amendment 3 item 4: "a check over the graph finds it".** Nothing does today.
+   - **Why not.** `class-thread-acyclic`'s check finds Decision 9's cycle. But a link a reinstall would prune is found only by link-set's `firmware-prunes` refusal, which Option A deliberately kept out of the rules, so `rules check` (A10.31) won't run it. The audit routes list sets and paths only, and `prune-superset-edges` is a repair.
+   - **Ask:** correct the clause. For example: "No rule finds it today: `firmware-prunes` is a refusal of link-set's, not a rule. A check for it is A10.31's to add, or seed-firmware's (A10.37) to make moot." Or open a ledger row for A10.31, so its builder doesn't take the race as covered.
+2. **ADR 0028 line 396:** "a card set under a set counted as its second parent" has the direction reversed. **Suggest:** "a set under a card set counted the card set as its second parent".
+3. **The address rule now has two homes:** `_sets.js:111`, and `list-elements.js:41` and `:105` on staging. ADR 0011 Amendment 2 ties them by reference.
+   - They agree, except on a `uuid` that is an empty string, which nothing writes.
+   - Each operation keeping its own reading is the epic's pattern for builders working in parallel, so there's no ask. A later change to the rule has to change both.
+4. **A card-set link made before Amendment 3 can't be taken out by either operation** (test plan gap 9). Accepted.
+   - Only the link-set before Amendment 3 could make one: today's routes name nodes by `uuid`, which a card set lacks.
+   - That link-set ran only on this branch and its scratch stacks.
+
+### Verdict, round 2
+**PASS**
+
+The blocking finding is resolved. Amendment 3's decision holds wherever I checked it:
+- in the code;
+- in nine tests that fail without it;
+- in both probes;
+- in the merge with current staging, where story 11 reads a set the same way.
+
+Of round 1's ten non-blocking items:
+- seven are fixed;
+- two are accepted, for reasons now on record: the re-checks need a second writer, and AC6's order has the owner's approval;
+- one, the conflict beside story 16, is informational.
+
+The two wording errors new in Amendment 3 don't change what the code does. They're worth correcting before the ADR is read as the record of what covers the second race.
+
+### Close-out
+- **The story's Status** is the coordinator's to flip, in the review commit. With this round appended, the lint's L1 check reads this review as passed, and flags the story's `Approved` status until then.
+- **Completion detection** is reported to the coordinator, not recorded here.

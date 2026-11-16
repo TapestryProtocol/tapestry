@@ -1,6 +1,6 @@
 # Story 28: `graph link-set` and `unlink-set` — put a set under another parent, or take it out from under one
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Feature
 **Loom:** A10.28 — https://loom.brainstorm.world/t/A10.28
