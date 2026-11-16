@@ -95,6 +95,103 @@ For Architecture, not this gate:
 - **Where the shared resolution lives,** and how a later operation's input says it takes a ref, so that its command and its /docs entry say so too; what that input's refusals for an ambiguous ref and for none are called, and what they carry; and which point of view a write resolves its inputs from.
 - **The names of the kinds in the answer,** in line with how list-elements reads a concept header, a superset and a set (ADR 0011, Amendment 2: a set has an address).
 
+## Evidence
+
+### The suites (Implementation, 2026-11-16, on `a3d689a0`)
+
+Run one at a time on this Mac, each with every service endpoint dead (`test/helpers/graphOpsSuite.js`'s `childEnv`). No full `npm test` ran here: the local stack is the owner's agent-memory instance.
+- **The new suites:**
+  - `test/operations/graph/resolve.test.js`: 22 passed, 0 failed;
+  - `test/operations/resolve.test.js`: 11 passed, 0 failed;
+  - `test/operations/graph/resolve-agent-through-cli.test.js`: 2 passed, 0 failed;
+  - `test/operations/graph/concept-names.test.js`: 5 passed, CN5 among them.
+- **Every other suite under `test/operations/`** passed as before: its own six suites (F21 among the fake's 22), the 20 under `graph/`, and the 5 under `rules/`, 31 in all with the new ones. `lifecycle/` was left out, as at Test Design.
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-16, on `a3d689a0`)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Its scripts are kept outside the tree. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`.
+- **The instance.**
+  - It booted from image `agent-memory-tapestry` with this branch's `src/` mounted.
+  - The image's firmware differed from the branch's (digests `c4c30295…` and `136f3af4…`), so the branch's was copied in and installed.
+  - The branch's `bin/tapestry.js` was copied in and linked as `tapestry`, and `clients/cli` was copied in.
+- **Keys.** The instance had its own assistant key. Four throwaway keys were made for the check: the owner's, an admin's for the agent, a peer's and a stranger's.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The agent's, the stranger's and the visitor's went through the instance's nginx.
+- **Afterwards** it was removed.
+
+**The seed:**
+- `live dog`, through today's create-concept route, which signs, with rex, fido and patch through today's create-element;
+- the set `live walkers`, through today's add-subset, under live dog's superset;
+- a peer's `live dog`, signed by the peer's key, put on the relay with `strfry import` and imported with `event-update`. The import labels it `ListHeader`, not `ConceptHeader`;
+- `live cat`, through the operation `graph create-concept`: no event, and one change entry;
+- a kind-30000 event by the peer at `30000:<peer>:live-dog`, and 120 nodes named `live item`, made with Cypher. `event-update` imports only the concept graph's kinds.
+
+`dog breed` was meant to be the operation's concept. But the firmware ships a `dog breed` concept, so create-concept answered `already-exists` and wrote nothing, and the firmware's served for `kind=concept`. The relay held 450 events after the firmware install, and 462 after the seed.
+
+**By criterion:**
+- **AC1: passes.**
+  - **Names.** `live dog` named the instance's concept. `  Live   DOG ` named the same, answered as `ref: "Live   DOG"` and read as `Live DOG`. `live cat` named the operation's event-less concept.
+  - **Plurals.** `live dogs` named both live dogs, and `live cats` named live cat, each matched `plural`.
+  - **Slugs.**
+    - `live-dog` named both live dogs, matched `slug` and `d-tag`. It didn't name the kind-30000 event at `30000:<peer>:live-dog`.
+    - `live-cat` named live cat the same way.
+    - `live-dog-superset`, a core node's d-tag, named live dog's superset, matched `d-tag`.
+  - **Addresses.**
+    - `39998:<assistant>:live-dog` named live dog, and so did the address with its pubkey in capitals (read in lowercase) and its naddr.
+    - live cat's address named live cat.
+    - `30000:<peer>:live-dog` named the kind-30000 event from everyone's point of view.
+  - **An event's id.** The peer's event id named its concept, and so did its nevent and its note.
+  - **A key.** live dog's tapestryKey named it, matched `tapestryKey`.
+  - **Kinds.** `dog breed` with `kind=concept` named its one concept, and `live walkers` with `kind=set` named the set.
+- **AC2: passes.**
+  - Each candidate came with its kind and how it matched, as above. The suites check each one's five facts (RV9). The live check read the tapestryKey and name of each candidate, and the author and `own` of some: live cat as the assistant's and the instance's own, and the kind-30000 event as the peer's.
+  - The peer's live dog came as a concept, though it is labelled `ListHeader` only.
+  - The superset came as a superset, the set as a set, and the kind-30000 event as a node.
+- **AC3: passes.**
+  - **Before any score existed** (no `NostrUser` had an influence): `live dog` kept 1, the instance's own, and left the peer's out, with `scored: false`.
+  - **With the peer's influence set to 0.2:** kept 2, ambiguous, `scored: true`.
+  - **Then 0.01:** kept 1, left out 1, not ambiguous.
+  - **The owner's own pubkey as `pov`** answered exactly as the default did.
+  - **`everyone`:** both, ambiguous.
+  - **The kind-30000 event,** by the peer at 0.01: kept 0 and left out 1 from the owner's point of view.
+- **AC4: passes.**
+  - `live item` paged 50, 50 and 20, each of the 120 once, in tapestryKey order. Every page said kept 120, and the last cursor was null.
+  - A cursor from another ref was refused `invalid-cursor`.
+- **AC5: passes.** Each refusal answered as the suites expect:
+  - no ref: `missing-input`;
+  - an empty ref, one of spaces, a control character (U+0007), a text-direction control (U+202E) and an invisible character (U+200B): `bad-ref`, naming the character;
+  - a ref of 1,001 characters, `kind=property` and `limit=0`: `invalid-input`;
+  - a stranger's pubkey as `pov`: `unknown-pov`;
+  - an input resolve doesn't take: `unknown-input`.
+- **AC6: passes.**
+  - **The command.** `tapestry graph resolve` in the container printed the same JSON value the route answered. It indents it, where the route's body is compact, so the two match as values, not byte for byte. Its refusal exited 1 with the route's answer.
+  - **The admin agent,** through nginx and the external CLI:
+    - resolved `live dog` to one candidate from the owner's point of view (kept 1, left out 1);
+    - listed that concept's elements with the key it got back (rex, fido and patch);
+    - was told `live dog` is ambiguous from everyone's point of view, with both candidates;
+    - resolved `live walkers` with `--kind set` to the set.
+  - **Sign-in, through nginx.** A visitor got 401. The stranger, signed in with its own key, got 403 from resolve and from the operations list, and its CLI exited 1. The admin's session got the answer.
+  - **Nothing written.** In the first pass, the relay held 462 events and the graph 0 change entries before and after the resolve calls. In the second, after live cat, it held 462 and 1. Both held through the first timing run too.
+- **AC7:** no live part; the suites cover it.
+
+**The measurement** (ADR 0009, Consequences): a page by name, slug, address and key, the median of five each.
+
+| Lookup | 3,507 nodes | 503,507 nodes, as the scratch stack boots | 503,507 nodes, with the agent-memory instance's four constraints |
+|---|---|---|---|
+| name (`live dog`) | 0.050 s | 0.636 s | 0.846 s |
+| slug (`live-dog`) | 0.051 s | 0.974 s | 0.929 s |
+| address (`39998:…:live-dog`) | 0.005 s | 0.451 s | 0.503 s |
+| key | 0.005 s | 0.351 s | 0.005 s |
+
+The 500,000 nodes had tapestryKeys and no names, as the card sets have, made with Cypher. Every page took under the ADR's 2 seconds, so no OPEN.md row is added.
+
+**Found along the way:**
+- **A fresh scratch stack has no constraint on `TapestryNode`, `NostrEvent` or `NostrUser`.** So a key there is found by scanning (0.351 s above). The agent-memory instance has `tapestry_key`, `nostrEvent_uuid`, `nostrEvent_id` and `nostrUser_pubkey`. With those four added to the scratch stack, the key took 0.005 s, the third column.
+- **`TapestryNode`'s uuid is indexed** (`tapestry_node_uuid`), on the agent-memory instance and on the scratch stack. ADR 0009, Context 4 says no index covers it.
+  - An address still scans, because family A's `n.uuid = $address OR n.id = $address` can't use that index alone.
+  - Splitting the two halves would let one of them seek. It isn't needed under 2 seconds.
+- **No node on the agent-memory instance has a name or tapestryValue that isn't text** (read only: 9,549 nodes, 450 named, none with a tapestryValue). `toLower` would fail a read by name or slug if one did. Every writer today writes text.
+
 ## Deviations
 
 - **`resolveOne` decides by the page it reads.**
