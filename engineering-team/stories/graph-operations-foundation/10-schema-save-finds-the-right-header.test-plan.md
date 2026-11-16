@@ -58,7 +58,9 @@ AC4's page is tested at the source level and through its client, as the repo's U
 
 ## AC5's record
 
-L2 prints every difference it finds. AC5 asks for each one to be listed here with its cause. One that follows from this bug must be gone, and one with another cause gets a ledger row of its own. That is filled in from the L2 run, under Verification, after the fix. One cause is worth checking first. If the nostr-relay header from `919ba08a…` has a schema, today's save writes the firmware's schema onto that schema and logs no error. Meanwhile the TA's own schema stays as Pass 1 left it. That would be this bug, and it would explain why Pass 2 didn't fail for nostr relay (S1b reproduces it on the fake).
+L2 prints every difference it finds. AC5 asks for each one to be listed here with its cause. One that follows from this bug must be gone, and one with another cause gets a ledger row of its own. The record is under Verification, after the fix.
+
+The draft suggested one cause to check first: the nostr-relay header from `919ba08a…` might have a schema, and today's save would write onto it silently (S1b reproduces that on the fake). On the scratch stacks it doesn't: none of the six community headers has a schema there.
 
 ## Edge cases
 
@@ -146,3 +148,34 @@ Each failure is the bug itself, not a fault in the test:
 - S4c, S4d and S4g show today's route ignoring the key and saving by name.
 
 The four sentinels pass (S3a, S3b, S3g, S4f). So does `stack-free-npm-test` (6 of 6, 1 skipped) with the suite registered. The suite takes about 3 s.
+
+### After the fix (2026-11-15/16, on `639eaaf5`)
+
+**Stack-free**, each suite on its own with dead endpoints:
+
+- **This suite:** 20 of 20, with L1 and L2 skipped.
+- **The operations gate** (`test/operations.test.js`): 337 of 337. Its first run failed G18 on three lines that named `:NostrEvent` alone. Two were label tests, now written `'NostrEvent' IN labels(h)`, the form G18 itself lets through. The third was the fold's name lookup, which shared a line with a ternary and now has a line of its own. So no entry was added to `nostr-event-lookups-kept.json`.
+- **The regression suites:** structures-the-brain-can-trust 18 (6 skipped), pass-3-finishes-in-minutes 8 (8), capture-a-goal-and-see-it 21 (6), break-a-goal-into-pieces 23 (7), store-the-four-when-a-goal-is-captured-or-updated 29 (11), attach-the-world 21 (8), teach-it-what-matters 20 (7), the-proposal-loop 22 (11), the-brain-survives 23 (8), sessions-read-the-brain 20 (10), openapi-document 10, stack-free-npm-test 6 (1).
+- **create-concept-duplicate-check:** 3 (3 skipped). Run it with `TAPESTRY_CONTAINER` unset: it treats any name but `tapestry` as a live stack, so `no-such-container` fails its H1 and H2 for want of a stack. It never falls back to `tapestry`.
+- **Each refusal fails for its own reason**, not an early return. Checked by printing the error each one gets:
+  - a concept with no event, by key: "has no event behind it";
+  - the same concept by name: "not found", as today;
+  - a key two headers hold: "More than one node holds…";
+  - `{}`: 400, "is not a tapestryKey";
+  - a shared name: names both headers;
+  - a key no node holds: "No concept header has…".
+
+**Live**, on fresh scratch stacks (`SCRATCH_IMAGE=agent-memory-tapestry:latest`, this checkout's `src/`):
+
+- **The boot's install** (the first): `Pass 2 complete: 40 enriched, 0 skipped, 0 errors`. It fetched all six community headers. None of them has a schema on these stacks.
+- **L1 passes.** Real Neo4j runs the new lookups: the label disjunction, `labels()`, the grouped `WITH` and the ordering. By name and by key alike, a save reaches the TA's own tag schema.
+- **L2 passes.** The second install answers success and logs 0 errors in Pass 2. The five tag schemas, and nostr relay's own, come out as the first install left them.
+- **create-concept-duplicate-check H1 and H2 pass live.** A new concept's schema saved by name lands on it.
+
+**AC5's record:** every difference between the first install's graph and the second's.
+
+- **The six schemas story 8 saw change are gone.** The five tag concepts' failed saves were this bug, and the fix removed them. Nostr relay's schema came out the same in all four installs. Whether story 8's change to it came from this bug isn't certain: no firmware enumeration targets nostr relay, and Pass 2 hadn't failed for it there. It didn't recur, so there is nothing to file.
+- **The two moved supersets didn't recur.** In four installs on two stacks, every superset's HAS_ELEMENT targets came out the same. Their cause is still unknown. That is recorded in the new row's "Not this row" note, and not filed, for want of a reproduction.
+- **Nine nodes' cached Tapestry JSON differs, and has another cause.** They are six supersets of the TA's own (tag, nostr user tag, tag pinning, nostr relay, set, word) and three of the tag concepts' supersets under ADR 0015's literal pubkey. Everything else is the same: every schema's json tag and every superset's elements. A third install matches the second exactly.
+  - **The cause.** Pass 3 rebuilds its caches before its own last steps change the graph. That is why a rebuild right after any install changes 439 nodes, and why the first install, which lays down the community-reference edges after its rebuild, differs from the later ones in these nine.
+  - **Filed** as ledger row `2026-11-16-install-caches-lag-its-own-graph`, with the runs that show it: an install after a rebuild matches the other stack's second install exactly, and a rebuild after any install lands on the same state.
