@@ -42,7 +42,7 @@
  *   F20 failures.entry fails only a GraphChange's CREATE, so a write's nodes are made before its entry fails
  *
  * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9 and For the Tester):
- *   F21 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
+ *   F24 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
  *       relationship), runs as Neo4j would: through the path reader, since the one-node reader refuses OPTIONAL MATCH
  */
 
@@ -452,7 +452,7 @@ test('F20: failures.entry fails only a GraphChange\'s CREATE, so a write\'s node
   assert(G.readState(c.path).nodes.length === before, 'and the transaction kept nothing');
 });
 
-test('F21: a read of nodes found by their properties, with the trust fragment\'s OPTIONAL MATCH and no relationship, runs as Neo4j would', async () => {
+test('F24: a read of nodes found by their properties, with the trust fragment\'s OPTIONAL MATCH and no relationship, runs as Neo4j would', async () => {
   const R = require(path.join(ROOT, 'src/operations/reads.js'));
   const lo = '22'.repeat(32);
   const hi = '11'.repeat(32);

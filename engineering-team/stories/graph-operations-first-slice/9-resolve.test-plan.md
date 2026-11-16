@@ -31,13 +31,13 @@ The ADR leaves these open, or states them loosely. The tests settle them, and AD
 4. **The answer's `ref` is trimmed, and the name read is cleaned** (RV5, RS5).
 5. **The schemas' lists** for `READING.as`, `CANDIDATE.kind` and `CANDIDATE.matched` (RS4).
 6. **`unknown-ref`'s message gives the number left out** (RS9).
-7. **The fakes' routing** (F21).
+7. **The fakes' routing** (F24).
 
 ## A change to a shared test helper
 
 ADR 0009, Context 9: `graphFake.exec` sent every read with no relationship to `nodeCypherFake`, which refuses `OPTIONAL MATCH`. The trust fragment of `reads.js` adds one, with no relationship.
 - **The change.** A read with `OPTIONAL MATCH` now goes to `pathCypherFake`. It is one condition in `exec`, with a note in the file's header.
-- **Its test.** `test/operations/graph-fake.test.js` gains F21. It failed before the change ("the fake graph database can't read this Cypher (a OPTIONAL clause)…"), and passes after it.
+- **Its test.** `test/operations/graph-fake.test.js` gains F24, numbered after story 13's F21–F23. It failed before the change ("the fake graph database can't read this Cypher (a OPTIONAL clause)…"), and passes after it.
 - **Nothing else moved.** Every other suite under `test/operations/` passes as before (Verification).
 
 ## Edge cases
@@ -112,7 +112,7 @@ operations: an admin agent resolves names through the external CLI: 0 passed, 2 
 operations: concept names: 4 passed, 1 failed, 0 skipped
 ```
 
-**The fake's routing change.** F21 failed before it, and passes after: `operations: the fake graph: 22 passed, 0 failed`. With the change in place, every other suite under `test/operations/` passes as before, run one at a time (2026-11-16):
+**The fake's routing change.** F24 (numbered F21 when this ran) failed before it, and passes after: `operations: the fake graph: 22 passed, 0 failed`. With the change in place, every other suite under `test/operations/` passes as before, run one at a time (2026-11-16):
 - `test/operations/`'s own five suites;
 - `graph/`: 18 suites besides the two new ones, with concept-names passing CN1–CN4 and failing only the new CN5;
 - `rules/` (5 suites).

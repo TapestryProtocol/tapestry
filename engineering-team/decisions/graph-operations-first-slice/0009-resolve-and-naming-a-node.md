@@ -463,7 +463,7 @@ The test plan (`engineering-team/stories/graph-operations-first-slice/9-resolve.
    - `CANDIDATE.kind` is one of `concept`, `superset`, `set` and `node`;
    - `CANDIDATE.matched` lists items of `tapestryKey`, `address`, `name`, `plural`, `slug` and `d-tag`.
 6. **`unknown-ref`'s message gives the number** of candidates the point of view left out. It also says that a node's tapestryKey names it whatever the point of view.
-7. **The fakes.** The Tester's commit makes the routing change of the For the Tester notes in `test/helpers/graphFake.js`, and `test/operations/graph-fake.test.js` gains F21 for it.
+7. **The fakes.** The Tester's commit makes the routing change of the For the Tester notes in `test/helpers/graphFake.js`, and `test/operations/graph-fake.test.js` gains F24 for it, numbered after story 13's F21–F23.
 
 ## Out of scope
 

@@ -105,7 +105,7 @@ Run one at a time on this Mac, each with every service endpoint dead (`test/help
   - `test/operations/resolve.test.js`: 11 passed, 0 failed;
   - `test/operations/graph/resolve-agent-through-cli.test.js`: 2 passed, 0 failed;
   - `test/operations/graph/concept-names.test.js`: 5 passed, CN5 among them.
-- **Every other suite under `test/operations/`** passed as before: its own six suites (F21 among the fake's 22), the 20 under `graph/`, and the 5 under `rules/`, 31 in all with the new ones. `lifecycle/` was left out, as at Test Design.
+- **Every other suite under `test/operations/`** passed as before: its own six suites (F24, numbered F21 when it ran, among the fake's 22), the 20 under `graph/`, and the 5 under `rules/`, 31 in all with the new ones. `lifecycle/` was left out, as at Test Design.
 - **harness-lint:** clean.
 
 ### The live check (Implementation, 2026-11-16, on `a3d689a0`)
