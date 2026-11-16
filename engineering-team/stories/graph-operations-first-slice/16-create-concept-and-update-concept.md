@@ -51,7 +51,7 @@ As the same agent, I want to change a concept's names, slug or description witho
   - a slug that another of this instance's concepts has, naming that concept;
   - a concept that isn't this instance's own: one that came from another author's event (D4);
   - a firmware concept, which a reinstall would rebuild (lifecycle seed-firmware, A10.37, is how those change);
-  - a new singular name for one of the concepts the server finds by name, as the Dictionary's edit refuses it;
+  - a new singular name for one of the concepts the server finds by name, or a new singular name that is one of those names, as the Dictionary's edit refuses both. *(Ruled at Review, 2026-11-15: the owner's answer to review round 1's non-blocking 5, which found only the first refused.)*
   - a call that names no field to change.
 
   The rule behind it is rule 10 as its full text gives it: no two of this instance's own concepts share a slug, or a key, since the key is what the rule keeps elements' JSON apart by. It holds for both operations. create-concept refuses a name whose key another of this instance's concepts already has under a different slug, naming that concept; a concept with the same slug is the repeat (AC3). The rule is defined once: as both operations' guard, and, run over a set of concepts, as a check that names each concept breaking it, for `rules check` (A10.31). It is written into the rules document (`docs/GRAPH_RULES.md`) with what it says, that it refuses a write, and how a check finds what breaks it. Names are not part of it: no rule makes them unique.
@@ -137,6 +137,7 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, booted from im
   - **A rename of a concept whose `names` tag has no plural lands,** and the same rename again answers `unchanged` (UC8). Before, it kept the old singular and recorded an entry each time.
   - **A bad name, plural or description is refused before the rule reads the graph** (CC20, UC9), as Decision 2 says. A refusal that needs the graph, such as `firmware-concept`, still comes after the rule's `slug-in-use`.
   - **AC5's list is one longer: an invisible formatting character is refused** (CN3, CC11b), naming its code point, since it makes a name read as another. The zero-width joiner and non-joiner are allowed between two characters of a script that needs them. A name with no slug is now refused for having "no letter a–z or digit 0–9", which is what a name in another script lacks.
+  - **A rename onto a name the server finds a concept by is refused `name-keyed`** (UC10), as the Dictionary's edit refuses it: the owner's ruling, now in AC7. create-concept is unchanged: a repeat by slug returns the instance's own concept.
   - **Two counts are checked:** each relationship create-concept makes must find its two nodes, and an update must write every node and tag it means to.
 - **Known limits carried forward:**
   - **A concept can't be named in a non-Latin script alone,** since a slug keeps only a–z and 0–9 (Decision 2). Noted on Loom for the rebuild (A10.39).

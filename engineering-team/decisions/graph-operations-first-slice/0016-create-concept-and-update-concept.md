@@ -109,7 +109,7 @@ The list is capped at 10, in that order of `match` and then by address. `moreSim
 - **Steps, in one transaction:**
   1. Refuse `nothing-to-change` (400) when no field is given. Clean and check the given fields (Decision 2).
   2. Take the lock and run the rule again.
-  3. Read the concept by its header's tapestryKey. Refuse `unknown-concept` (404) unless it is a `ConceptHeader` or `ListHeader`, `not-own-concept` (409) unless it is this instance's own, and `firmware-concept` (409) for a firmware concept. Refuse `name-keyed` (409) when the singular name changes and `nameKeyed(<the current singular>)`.
+  3. Read the concept by its header's tapestryKey. Refuse `unknown-concept` (404) unless it is a `ConceptHeader` or `ListHeader`, `not-own-concept` (409) unless it is this instance's own, and `firmware-concept` (409) for a firmware concept. Refuse `name-keyed` (409) when the singular name changes and `nameKeyed(<the current singular>)`. *(Amendment 3.6: or `nameKeyed(<the new singular>)`.)*
   4. Work out the new values. When they equal the current ones, answer `unchanged`, with no changes and no entry.
   5. Otherwise, write in place:
      - **The rename rule.** Build the eight nodes' names, tags and JSON twice, with `conceptNodes`, from the old names and from the new. Both builds keep the concept's own slugs, key, labels and addresses. Each value that differs between the two builds, in a node's `name`, `tapestryValue`, `name` and `names` tags, `description` tags and JSON, is set to the new value, but only where the node still holds the old one. So every value the names made follows the rename, and a value someone changed by hand stays. The slug fields are equal in both builds, so a rename never moves them (AC6). *(Amendment 3.1: a tag with no `value1`, such as a `names` tag with no plural, holds the old one.)*
@@ -251,6 +251,7 @@ The owner chose to wire that end state directly (2026-11-15), so a reinstall lea
    - That makes AC5's list one longer, in its own terms: a name that reads as another. CN3 and CC11b pin it.
 4. **Two counts are checked** (non-blocking 7). Each wiring and membership `MERGE` must find its two nodes (`count(r)` is 1), and update-concept's `writeCopies` must write every row it is given. Either failing throws, and the transaction keeps nothing.
 5. **C3 names `NostrEvent|TapestryNode`** (non-blocking 10), as Implementation note C3 does, so Neo4j can find the header by its uuid index.
+6. **A rename onto a name-keyed name is refused** (Decision 9, step 3; non-blocking 5; the owner's ruling, 2026-11-15). `name-keyed` also refuses a new singular that `nameKeyed` names, as the Dictionary's edit does (`src/api/adoption/editConcept.js`, "so no other concept can take it"). The server finds those concepts by name, the goal lookup by `LIMIT 1`, so a concept renamed onto one could be taken for it once it has a letter. create-concept is unchanged: a repeat by slug returns the instance's own concept. UC10 pins it.
 
 ## Out of scope
 
