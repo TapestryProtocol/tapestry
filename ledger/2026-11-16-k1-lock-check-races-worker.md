@@ -3,8 +3,8 @@
 **Id:** 2026-11-16-k1-lock-check-races-worker
 **Type:** bug
 **Opened:** 2026-11-16 (PR #83's CI, Actions run 43808151504, attempt 2)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16, in #90 (commit 54d03799)
 
 **What was seen.** Attempt 2 of PR #83's stack-free run, at 4df10d9b, ended "Overall: FAIL — 7447 passed, 1 failed, 607 skipped". The one failure was the `operations` suite's K1 (`test/operations/lifecycle/migrate-job.test.js`), "runDetached with waitMs answers { outcome: 'running' } once the wait is up, while the job runs on, holds its lock, and later writes its record". It failed on its last assertion, "the job releases its lock when it ends", at 05:36:51.763Z, 4.1 seconds after its suite began. Attempt 1 ran the same commit and passed K1, with 509 of the `operations` suite's tests passing and none failing. The suite took 124 seconds in attempt 2, against 98 in attempt 1.
 
