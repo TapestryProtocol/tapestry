@@ -22,7 +22,7 @@ const KEY = new RegExp(KEY_PATTERN);
 const CONCEPT_OR_SET = Object.freeze({ code: 'concept-or-set', status: 400, when: 'Neither concept nor set, or both: give one' });
 const UNKNOWN_NODE = Object.freeze({ code: 'unknown-node', status: 404, when: 'A concept or set that names no node of the graph (a change entry is not one); the refusal names which' });
 const NOT_A_CONCEPT = Object.freeze({ code: 'not-a-concept', status: 409, when: "A concept that isn't a concept header (a node labelled ConceptHeader, or ListHeader for one the nostr import brought in); for a set or a superset, the refusal says to pass it as set" });
-const NOT_A_SET = Object.freeze({ code: 'not-a-set', status: 409, when: 'A set that is neither a set nor a superset; for a concept header, the refusal says to pass it as concept, and names its superset' });
+const NOT_A_SET = Object.freeze({ code: 'not-a-set', status: 409, when: 'A set that is neither a set nor a superset with an address (the trust pipeline\'s card sets have none); for a concept header, the refusal says to pass it as concept, and names its superset' });
 
 /** The class thread's relationship types, as firmware names them (as _fields.js takes them). */
 function types() {
@@ -38,7 +38,7 @@ function walkOf(T, { fromConcept, direct }) {
      WHERE h:ConceptHeader OR h:ListHeader
      MATCH (h)-[:${T.INIT}]->(:Superset)${down}-[:${T.TERM}]->(e)`
     : `MATCH (s:TapestryNode {tapestryKey: $key})
-     WHERE s:Set OR s:Superset
+     WHERE (s:Set OR s:Superset) AND s.uuid IS NOT NULL
      MATCH (s)${down}-[:${T.TERM}]->(e)`;
 }
 
@@ -101,19 +101,22 @@ module.exports = {
     const found = await read(
       `MATCH (n:TapestryNode {tapestryKey: $key})
        WHERE NOT n:GraphChange
-       RETURN n.tapestryKey AS key, n:ConceptHeader OR n:ListHeader AS isHeader, n:Superset AS isSuperset, n:Set AS isSet`,
+       RETURN n.tapestryKey AS key, n:ConceptHeader OR n:ListHeader AS isHeader, n:Superset AS isSuperset, n:Set AS isSet,
+              n.uuid IS NOT NULL AS hasAddress`,
       { key },
     );
     if (!found.length) throw refusal(UNKNOWN_NODE.code, `No node of this graph has the tapestryKey ${key}, which ${input} names.`, { input });
     const node = found[0];
+    // A set or a superset has an address, its uuid: the trust pipeline's card sets carry the Set label with none, and
+    // no class-thread links (Amendment 2, after ADR 0028 Amendment 3).
+    const setKind = node.hasAddress ? (node.isSuperset ? 'a superset' : node.isSet ? 'a set' : null) : null;
     const T = types();
     if (concept && !node.isHeader) {
-      const kind = node.isSuperset ? 'a superset' : node.isSet ? 'a set' : null;
-      throw refusal(NOT_A_CONCEPT.code, kind
-        ? `${key} is ${kind}, not a concept header: pass it as set to list its elements.`
+      throw refusal(NOT_A_CONCEPT.code, setKind
+        ? `${key} is ${setKind}, not a concept header: pass it as set to list its elements.`
         : `${key} is not a concept header (a node labelled ConceptHeader, or ListHeader for one the nostr import brought in), so it has no elements to list.`, { input: 'concept' });
     }
-    if (set && !(node.isSet || node.isSuperset)) {
+    if (set && !setKind) {
       if (node.isHeader) {
         const sup = await read(
           `MATCH (h:TapestryNode {tapestryKey: $key})-[:${T.INIT}]->(s:Superset)
@@ -125,7 +128,7 @@ module.exports = {
         const supKey = sup.length && typeof sup[0].key === 'string' ? sup[0].key : null;
         throw refusal(NOT_A_SET.code, `${key} is a concept header, not a set: pass it as concept${supKey ? `, or pass its superset ${supKey} as set` : ''}.`, { input: 'set' });
       }
-      throw refusal(NOT_A_SET.code, `${key} is neither a set nor a superset (a node labelled Set or Superset), so it has no elements to list.`, { input: 'set' });
+      throw refusal(NOT_A_SET.code, `${key} is neither a set nor a superset (a node labelled Set or Superset, with an address; the trust pipeline's card sets have none), so it has no elements to list.`, { input: 'set' });
     }
 
     const walk = walkOf(T, { fromConcept: !!concept, direct });
