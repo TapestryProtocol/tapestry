@@ -14,6 +14,8 @@ const crypto = require('crypto');
 const firmware = require('./firmware');
 const { buildImportCypher, executeCypher } = require('../neo4j/eventSync');
 const dtag = require('../../lib/dtag');
+// The form of a tapestryKey, as the graph operations check it (ADR graph-operations-foundation/0004 Decision 7).
+const { KEY_PATTERN } = require('../../operations/catalog/graph/_nodes');
 
 // ── Relationship type aliases from firmware ──────────────────
 // Use REL.XXX instead of hardcoded strings. These resolve to the
@@ -1916,34 +1918,85 @@ async function handleCreateElement(req, res) {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/normalize/save-schema
-//   Body: { concept: "<name>", schema: { ... JSON Schema object } }
+//   Body: { concept: "<name>", tapestryKey?: "<the header's tapestryKey>", schema: { ... JSON Schema object } }
 //   Replaces the JSON tag on the concept's JSONSchema node and re-publishes.
+//   Which header (graph-operations-foundation #10): with tapestryKey, that header and no other. With the name alone, the
+//   one header of that name; when several share it, the one the instance's Tapestry Assistant wrote, and a refusal when
+//   that isn't exactly one. Never the database's choice. Either way, a concept with no event behind it is refused: this
+//   route signs and publishes, and such a concept hasn't been published (BIBLE §30).
 // ══════════════════════════════════════════════════════════════
+
+const TAPESTRY_KEY = new RegExp(KEY_PATTERN);
+
+/**
+ * The concept header a schema save is for, with its JSON Schema node (graph-operations-foundation #10). Answers
+ * { header: { headerUuid, author, lettered, schemaUuid, schemaLettered, existingJson, slug } } or { status, error }.
+ */
+async function findSchemaHeader({ concept, tapestryKey, taPubkey }) {
+  const rest = `
+    OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
+    OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
+    OPTIONAL MATCH (h)-[:HAS_TAG]->(st:NostrEventTag {type: 'slug'})
+    WITH h, js, head(collect(jt.value)) AS existingJson, head(collect(st.value)) AS slug
+    RETURN h.uuid AS headerUuid, h.pubkey AS author, 'NostrEvent' IN labels(h) AS lettered,
+           js.uuid AS schemaUuid, 'NostrEvent' IN labels(js) AS schemaLettered, existingJson, slug
+    ORDER BY headerUuid, schemaUuid
+  `;
+  // One entry per header: its first schema node, in a fixed order, if it has more than one.
+  const headersOf = (rows) => {
+    const byHeader = new Map();
+    for (const r of rows) if (!byHeader.has(r.headerUuid)) byHeader.set(r.headerUuid, r);
+    return [...byHeader.values()];
+  };
+
+  if (tapestryKey !== undefined && tapestryKey !== null) {
+    if (typeof tapestryKey !== 'string' || !TAPESTRY_KEY.test(tapestryKey)) {
+      return { status: 400, error: `"${tapestryKey}" is not a tapestryKey` };
+    }
+    // Not :TapestryNode, which a node lacks until tapestry-keys runs; the headers are few enough to read by label.
+    const headers = headersOf(await runCypher(`
+      MATCH (h:ListHeader|ClassThreadHeader|ConceptHeader) WHERE h.tapestryKey = $tapestryKey
+      ${rest}
+    `, { tapestryKey }));
+    if (headers.length === 0) return { status: 200, error: `No concept header has the tapestryKey ${tapestryKey}` };
+    if (headers.length > 1) {
+      return { status: 200, error: `More than one node holds the tapestryKey ${tapestryKey} (${headers.map((h) => h.headerUuid).join(', ')}), so it doesn't say which concept is meant` };
+    }
+    return { header: headers[0] };
+  }
+
+  const headers = headersOf(await runCypher(`
+    MATCH (h:NostrEvent)
+    WHERE (h:ListHeader OR h:ClassThreadHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
+      AND h.name = $concept
+    ${rest}
+  `, { concept }));
+  if (headers.length === 0) return { status: 200, error: `Concept "${concept}" not found` };
+  if (headers.length === 1) return { header: headers[0] };
+  const own = headers.filter((h) => h.author === taPubkey);
+  if (own.length === 1) return { header: own[0] };
+  return {
+    status: 200,
+    error: `Concept "${concept}" is the name of ${headers.length} headers (${headers.map((h) => h.headerUuid).join(', ')}), ` +
+      `${own.length === 0 ? "none of them this instance's own" : `${own.length} of them this instance's own`}, ` +
+      "so the save can't tell which one is meant. Name it by its header's tapestryKey.",
+  };
+}
 
 async function handleSaveSchema(req, res) {
   try {
-    const { concept, schema } = req.body;
+    const { concept, schema, tapestryKey } = req.body;
     if (!concept) return res.status(400).json({ success: false, error: 'Missing concept name' });
     if (!schema || typeof schema !== 'object') return res.status(400).json({ success: false, error: 'Missing or invalid schema object' });
 
-    // Find the concept's JSON Schema node + existing json
-    const rows = await runCypher(`
-      MATCH (h:NostrEvent)
-      WHERE (h:ListHeader OR h:ClassThreadHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
-        AND h.name = $concept
-      OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
-      OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
-      OPTIONAL MATCH (h)-[:HAS_TAG]->(st:NostrEventTag {type: 'slug'})
-      RETURN h.uuid AS headerUuid, js.uuid AS schemaUuid,
-             head(collect(jt.value)) AS existingJson, st.value AS slug
-      LIMIT 1
-    `, { concept });
+    // Find the concept's header, its JSON Schema node and the existing json
+    const found = await findSchemaHeader({ concept, tapestryKey, taPubkey: nt().getPublicKey(getPrivkey()) });
+    if (found.error) return res.status(found.status).json({ success: false, error: found.error });
 
-    if (rows.length === 0) {
-      return res.json({ success: false, error: `Concept "${concept}" not found` });
+    const { schemaUuid, headerUuid, slug: conceptSlug, lettered, schemaLettered } = found.header;
+    if (lettered !== true || (schemaUuid && schemaLettered !== true)) {
+      return res.json({ success: false, error: `Concept "${concept}" has no event behind it. This route signs and publishes the schema it saves, so it won't save one for a concept that hasn't been published.` });
     }
-
-    const { schemaUuid, headerUuid, slug: conceptSlug } = rows[0];
     if (!schemaUuid) {
       return res.json({ success: false, error: `Concept "${concept}" has no JSON Schema node. Create one first via normalize skeleton.` });
     }
@@ -1957,7 +2010,7 @@ async function handleSaveSchema(req, res) {
 
     // Read existing word wrapper or build one
     let wordWrapper;
-    const raw = rows[0].existingJson;
+    const raw = found.header.existingJson;
     if (raw) {
       try {
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1992,10 +2045,11 @@ async function handleSaveSchema(req, res) {
     // also runs for every firmware concept during install pass 2 and must
     // not turn unconventional concepts into noise. A fold failure after the
     // successful schema write is surfaced loudly here (no rollback exists;
-    // the hygiene check stands guard).
+    // the hygiene check stands guard). It reconciles the header the save
+    // found, not whichever one has the name (graph-operations-foundation #10).
     let primaryProperty;
     try {
-      const rec = await reconcilePrimaryPropertyForConcept(concept);
+      const rec = await reconcilePrimaryPropertyForConcept(concept, { headerUuid });
       if (rec.success) {
         primaryProperty = { result: rec.result, ...(rec.properties ? { properties: rec.properties } : {}) };
       } else if (rec.code === 'no-primary-property' || rec.code === 'schema-shape' || rec.code === 'pp-unreadable') {
@@ -2039,13 +2093,20 @@ async function handleSaveSchema(req, res) {
 // ADR 0003 d8) so handleSaveSchema can fold it in. Behavior is byte-equivalent
 // for the endpoint; failures carry a discriminated `code` so the fold can map
 // structural non-fits to a non-alarming result while the standalone endpoint
-// keeps its loud named refusals.
-async function reconcilePrimaryPropertyForConcept(concept) {
+// keeps its loud named refusals. Inside a save, `headerUuid` names the header
+// the save found, so the fold reconciles that concept and no other
+// (graph-operations-foundation #10); the standalone endpoint still finds it by
+// name.
+async function reconcilePrimaryPropertyForConcept(concept, { headerUuid } = {}) {
   // The save-schema lookup idiom, extended to the primary-property node.
-  const rows = await runCypher(`
+  const header = headerUuid
+    ? 'MATCH (h:NostrEvent|TapestryNode {uuid: $headerUuid})'
+    : `
     MATCH (h:NostrEvent)
     WHERE (h:ListHeader OR h:ClassThreadHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
-      AND h.name = $concept
+      AND h.name = $concept`;
+  const rows = await runCypher(`
+    ${header}
     OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
     OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
     OPTIONAL MATCH (pp:Property)-[:${REL.CORE_NODE_PRIMARY_PROPERTY}]->(h)
@@ -2053,7 +2114,7 @@ async function reconcilePrimaryPropertyForConcept(concept) {
     RETURN h.uuid AS headerUuid, js.uuid AS schemaUuid, head(collect(DISTINCT jt.value)) AS schemaJson,
            pp.uuid AS ppUuid, head(collect(DISTINCT pt.value)) AS ppJson
     LIMIT 1
-  `, { concept });
+  `, headerUuid ? { headerUuid } : { concept });
 
   if (rows.length === 0) {
     return { success: false, code: 'not-found', error: `Concept "${concept}" not found` };
@@ -5926,7 +5987,7 @@ async function handleApplyEnumerations(req, res) {
       RETURN source.uuid AS sourceUuid, source.name AS sourceName,
              r.sourcePath AS sourcePath, r.destinationPath AS destinationPath,
              targetSchema.uuid AS schemaUuid, targetSchema.name AS schemaName,
-             targetHeader.name AS targetConcept
+             targetHeader.name AS targetConcept, targetHeader.tapestryKey AS targetKey
     `;
 
     const enumEdges = await runCypher(cypher, params);
@@ -6069,7 +6130,7 @@ async function handleApplyEnumerations(req, res) {
     }
 
     for (const edge of enumEdges) {
-      const { sourceUuid, sourceName, sourcePath, destinationPath, schemaUuid, schemaName, targetConcept } = edge;
+      const { sourceUuid, sourceName, sourcePath, destinationPath, schemaUuid, schemaName, targetConcept, targetKey } = edge;
       const path = destinationPath; // for schema navigation
       log.push(`\n── ${sourceName} → ${schemaName} ──`);
       log.push(`  source-path: ${sourcePath || '(slug fallback)'}, destination-path: ${destinationPath}`);
@@ -6221,8 +6282,11 @@ async function handleApplyEnumerations(req, res) {
       }
 
       try {
+        // Saved on the header this schema belongs to, named by its tapestryKey: another header with the concept's name
+        // must never take its place (graph-operations-foundation #10).
+        const named = typeof targetKey === 'string' && TAPESTRY_KEY.test(targetKey) ? { tapestryKey: targetKey } : {};
         const saveRes = await new Promise((resolve, reject) => {
-          const mockReq = { body: { concept: targetConcept, schema } };
+          const mockReq = { body: { concept: targetConcept, ...named, schema } };
           const mockRes = {
             json: (data) => resolve(data),
             status: () => ({ json: (data) => resolve(data) }),

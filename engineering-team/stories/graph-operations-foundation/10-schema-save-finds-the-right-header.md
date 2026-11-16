@@ -88,6 +88,19 @@ One more was settled at the Test Design gate, 2026-11-15:
 
 - **A caller names the header by its tapestryKey.** The test plan first proposed the header's address. The owner chose the tapestryKey: every node has one (ADR graph-operations-foundation/0003), while not every concept is guaranteed an address. The graph operations name a concept the same way (`graph mark-field`'s `concept`). Naming a concept by key can reach one with no event, which the name lookup never could, so AC4 now says what happens then.
 
+## Deviations
+
+- **The request names the header by `tapestryKey`**, the owner's choice at the Test Design gate. The field is optional and documented in `src/api/openapi.yaml`. A value that isn't a tapestryKey answers 400. A key no concept header holds, or one that more than one node holds, answers `success: false`, as a name no header has does today.
+- **"The instance's own" header is the one written by the key the route signs with,** the Tapestry Assistant's, found at runtime (`nt().getPublicKey(getPrivkey())`), as create-concept's own check finds it.
+- **The key lookup reads the concept headers by label** (`ListHeader|ClassThreadHeader|ConceptHeader`), not by `:TapestryNode`, which a node lacks until `tapestry-keys` has run on its instance. Headers are few, so the label scan costs little.
+- **A concept with no event is refused when either its header or its schema node lacks `NostrEvent`.** The name lookup never sees such a header, since it reads only `:NostrEvent` headers, so by name such a concept still answers "not found", as today.
+- **The primary-property fold reconciles the header the save found,** by its address. `reconcilePrimaryPropertyForConcept` takes that as an option. The standalone `POST /api/normalize/reconcile-primary-property` still finds its concept by name (Out of scope).
+- **Pass 2 finds the header by its address,** `39998:<TA>:<slug>` with the TA resolved at runtime, and its schema node with it, as `readInstallState` does. It names the header to save-schema by its tapestryKey. A header with no key yet is sent by name, and the name rule finds the instance's own.
+- **Apply-enumerations names its target header by its tapestryKey,** read from the ENUMERATES edge it already walks.
+- **The concept page reads its header's tapestryKey** in its header query (`ConceptDetail.jsx`), and the Schema tab sends it with both saves. The client sends no key when it has none or is given the `{}` placeholder, so the save falls back to the name.
+- **The routes that make the instance's own concepts on first use still save by name.** Each has just made the concept with the Tapestry Assistant's key, so the name rule finds it.
+- **A header with more than one schema node** has its first by address saved, a fixed choice. Today's code took whichever the database gave first.
+
 ## Linked artifacts
 
 - ADR: none. The owner chose the Standard bug path, with Architecture skipped, on 2026-11-15.

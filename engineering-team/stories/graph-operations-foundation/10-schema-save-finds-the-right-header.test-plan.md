@@ -91,8 +91,9 @@ Skip `event-tagging-firmware-seed`, which calls `localhost:7778` directly. The f
 ## How to run
 
 ```
-# stack-free, with dead endpoints, as on this Mac
-env -u TAPESTRY_CONTAINER BRAINSTORM_BASE_URL=http://127.0.0.1:9 TAPESTRY_PORT=9 MEILI_URL_HOST=http://127.0.0.1:9 \
+# stack-free, with dead endpoints, as on this Mac. Name a container that doesn't exist rather than leaving
+# TAPESTRY_CONTAINER unset: several suites fall back to `tapestry`, the owner's agent-memory instance, when it is unset.
+TAPESTRY_CONTAINER=no-such-container BRAINSTORM_BASE_URL=http://127.0.0.1:9 TAPESTRY_PORT=9 MEILI_URL_HOST=http://127.0.0.1:9 \
   node test/schema-save-finds-the-right-header.test.js
 
 # live: a fresh scratch stack from staging's image (the script's default image is stale)
