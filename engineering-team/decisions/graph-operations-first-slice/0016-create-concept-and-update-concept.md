@@ -65,7 +65,7 @@ It answers the node's tapestryKey. It never signs, publishes, or reads a key fil
 - `nameProblem(name)`: the reason, or null, for a cleaned name that is empty, whose `dtag.slug` is empty, that has a control character (`\p{Cc}`) or a text-direction control (U+202A–U+202E, U+2066–U+2069), or that is longer than 200 characters.
 - `descriptionProblem(text)`: control characters other than line breaks and tabs. A description is trimmed, and one that is empty once trimmed counts as left out.
 
-Both operations refuse a problem with `bad-name` (400) or `bad-description` (400), naming the input, before they read the graph (AC5). *(Amendment 3.2: the guards check nothing when an input has a problem, so this holds for every input. Amendment 3.3: `nameProblem` also refuses an invisible formatting character, and says which letters a slug keeps. Amendment 4.1: any invisible character no script or emoji draws with where it is.)*
+Both operations refuse a problem with `bad-name` (400) or `bad-description` (400), naming the input, before they read the graph (AC5). *(Amendment 3.2: the guards check nothing when an input has a problem, so this holds for every input. Amendment 3.3: `nameProblem` also refuses an invisible formatting character, and says which letters a slug keeps. Amendment 4.1: any invisible character no script or emoji draws with where it is. Amendment 5.1: what counts as invisible, and where one draws something.)*
 
 **3. The eight nodes** (`src/operations/catalog/graph/_concepts.js`, new). `conceptNodes({ names, d, ta, description })` builds each node's `{ uuid, kind, labels, name, tags }` from one set of names:
 - **Addresses.** The header is at `39998:<TA>:<d>`. Each core node is at `39999:<TA>:<d>-<suffix>`, with the suffixes `superset`, `schema`, `primary-property`, `properties`, `property-tree-graph`, `concept-graph` and `core-nodes-graph`. `d` is `dtag.slug(name)`. Core nodes take the header's d-tag, not `oSlugs.singular` (fact 3), so the `concept-graph` tag always names its node. When any of the eight addresses is held by a node, of any label, `d` takes the first free versioning nonce, `<d>~1` to `<d>~99` (`dtag.headerDTag(name, n)`). Past that, it refuses `no-free-address` (409).
@@ -255,7 +255,7 @@ The owner chose to wire that end state directly (2026-11-15), so a reinstall lea
 
 ## Amendment 4 (2026-11-15, at Review round 2) — every invisible character, and the published reason
 
-1. **Every invisible character is refused, except where a script or an emoji draws with it** (Decision 2; R2-1). Amendment 3.3 refused format characters (`\p{Cf}`), but other characters draw nothing too: a variation selector or a Hangul filler inside `beagle` gave a name that reads as beagle at the slug `bea-gle`. The slug isn't the only thing such a character changes. `toKeyName` and `toLabelName` keep it, so `cat` with a variation selector after it reads as cat but has another key. It isn't a repeat, since cat's slug is `feline`, and it isn't `key-in-use` either, so it would be made beside cat. Now:
+1. **Every invisible character is refused, except where a script or an emoji draws with it** (Decision 2; R2-1). *(Superseded by Amendment 5.1, which sets both what counts as invisible and the exceptions.)* Amendment 3.3 refused format characters (`\p{Cf}`), but other characters draw nothing too: a variation selector or a Hangul filler inside `beagle` gave a name that reads as beagle at the slug `bea-gle`. The slug isn't the only thing such a character changes. `toKeyName` and `toLabelName` keep it, so `cat` with a variation selector after it reads as cat but has another key. It isn't a repeat either, since its own slug keeps the character too, and it isn't `key-in-use`, so it would be made beside cat. *(Corrected by Amendment 5.2: this said the reason was cat's slug being `feline`.)* Now:
    - `nameProblem` refuses every default-ignorable code point (`\p{Default_Ignorable_Code_Point}`), naming the first one no script or emoji draws with. That covers the zero-width space, the soft hyphen, the word joiner, the variation selectors, the Hangul fillers and the grapheme joiner.
    - **The exceptions:** a zero-width joiner or non-joiner between two letters of a script other than Latin, or between two emoji, looking past the combining marks, presentation selectors and skin-tone modifiers before it; and a presentation selector (U+FE0E, U+FE0F) right after an emoji. Persian's non-joiner, a Devanagari conjunct, an emoji's presentation and emoji sequences pass.
    - **What it gets wrong, knowingly.** Keycap emoji and tag-sequence flags, such as England's, are refused. A joiner between two letters of a script that doesn't join, such as Hebrew or Cyrillic, passes. Either only matters in a name that also has a letter a–z or a digit, since without one there is no slug.
@@ -263,6 +263,31 @@ The owner chose to wire that end state directly (2026-11-15), so a reinstall lea
    - CN3 and CC22 pin it.
 2. **`bad-name`'s published reason names every problem** (R2-2): a control character, a text-direction control, an invisible character, no slug, more than 200 characters. `/docs`, the command's help and the operations list show it. So does the catalog's create-concept row. CC22 checks the list.
 3. **The two count checks are pinned** (R2-3). CC21 and UC11 make a node the write can't find. Both fail on the code before the checks, and pass on it now.
+
+## Amendment 5 (2026-11-15, at Review round 3) — what draws nothing, exactly
+
+1. **An invisible character is a default-ignorable one, a format character or the braille blank, and each is refused unless it draws something** (Decision 2; R3-1, R3-2). Amendment 4.1's exceptions let three look-alikes through beside emoji:
+   - a selector after an emoji that shows as one anyway, such as a cat face;
+   - a selector after a sign that shows as text anyway, such as `™` with U+FE0E;
+   - a joiner between two emoji that no sequence joins.
+
+   It also refused selectors that scripts draw with. And it accepted again the 32 format characters outside the default-ignorable set, such as U+FFF9, which round 1's rule had refused.
+
+   Now `nameProblem` refuses each character in `\p{Default_Ignorable_Code_Point}` or `\p{Cf}`, and U+2800, naming the first one that draws nothing where it is. A character draws something when it is:
+   - inside one of Unicode's recommended emoji sequences, `\p{RGI_Emoji}`, read with the regex `v` flag: a keycap, a flag, a ZWJ sequence, a sign shown as an emoji;
+   - a zero-width joiner or non-joiner between two letters of a script other than Latin, looking past the combining marks on either side, as in Persian, a Devanagari conjunct or Bengali's ya-phala;
+   - a Mongolian free variation selector after a Mongolian letter, or an ideographic variation selector after an ideograph.
+
+   In a name of Latin letters, digits and spaces, all 4,207 such characters are refused, whether at its start, inside it or at its end. The exception is U+FEFF, which `cleanName` reads as white space and turns into a space.
+   - **What it gets wrong, knowingly.** Each of these matters only in a name that also has a letter a–z or a digit:
+     - a joiner between two letters of a script that doesn't join, such as Hebrew or Cyrillic, passes;
+     - a text-presentation selector after an emoji that has a text form, such as U+231A with U+FE0E, is refused, and so are the standardized variants of math symbols;
+     - the prepended concatenation marks, such as U+0600, and the Egyptian hieroglyph format controls do show, but are refused;
+     - on Node 18, which has no `v` flag, an emoji sequence's invisible characters are refused too. The instance and CI run Node 22.
+   - CN3 pins it, case by case.
+2. **Why a name holding a selector isn't a repeat** (R3-3). Amendment 4.1 gave the reason as cat's slug being `feline`. The real reason is that a create's own slug, `toSlugName` of the name, keeps the character, so a name holding one is never the repeat of a concept without it: beagle with a selector after it was made beside beagle too. Cat's slug being `feline` is why plain `cat` meets `key-in-use` (CC8).
+3. **The control and text-direction reasons name their character** (R3-4). `bad-name`'s published reason now says it names the input, and the character when one is the problem.
+4. **Three parts of the rule are pinned in CN3** (R3-5): a joiner at the start, before a Persian letter; a selector after a Cyrillic letter; and the text-direction reason.
 
 ## Out of scope
 
