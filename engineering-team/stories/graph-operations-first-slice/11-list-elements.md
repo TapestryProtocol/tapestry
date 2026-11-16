@@ -98,6 +98,6 @@ For Architecture, not this gate:
 - The read this one follows, and its paging: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md) (AC5); [ADR graph-operations-foundation/0004](../../decisions/graph-operations-foundation/0004-the-write-path.md), Decision 7
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - The sibling stories in this epic: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md), [28-link-set-and-unlink-set.md](28-link-set-and-unlink-set.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
