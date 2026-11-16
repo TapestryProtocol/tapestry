@@ -11,8 +11,9 @@
  *   node scripts/live-link-checks.js --report   the same, and keep the GitHub issue, as the weekly workflow does
  *
  * With --report it uses the GitHub CLI (`gh`, with GH_TOKEN) on the issue whose title starts "Live link check".
- * A red run opens that issue, or comments on it if it is already open. A green run closes it, if open. The
- * issue links the Actions run, from GITHUB_SERVER_URL, GITHUB_REPOSITORY and GITHUB_RUN_ID.
+ * A red run opens that issue, or comments on it if it is already open. A green run closes it, if open, naming
+ * any link it could not check. A run that dies before it can count says so on the same issue. The issue links
+ * the Actions run, from GITHUB_SERVER_URL, GITHUB_REPOSITORY and GITHUB_RUN_ID.
  * Without --report it never calls gh, so a person's own run never touches GitHub.
  */
 
@@ -52,13 +53,19 @@ function redBody({ dead, skips, counts, run }) {
   return lines.join('\n') + '\n';
 }
 
-function report({ checks, passed, failed, skipped, red }) {
+/** The repository flags for gh, and the open issue this run keeps, if there is one. */
+function issueContext() {
   const repo = process.env.GITHUB_REPOSITORY;
   const where = repo ? ['--repo', repo] : [];
-  const run = runUrl();
-  const counts = `live link checks: ${passed} passed, ${failed} failed, ${skipped} skipped`;
   const listed = JSON.parse(gh(['issue', 'list', ...where, '--state', 'open', '--json', 'number,title', '--limit', '100']) || '[]');
   const open = listed.find((i) => i && typeof i.title === 'string' && i.title.startsWith(MARKER));
+  return { where, open };
+}
+
+function report({ checks, passed, failed, skipped, red }) {
+  const { where, open } = issueContext();
+  const run = runUrl();
+  const counts = `live link checks: ${passed} passed, ${failed} failed, ${skipped} skipped`;
   if (red) {
     const dead = checks.filter((c) => c.outcome === 'fail');
     const body = redBody({ dead, skips: checks.filter((c) => c.outcome === 'skip'), counts, run });
@@ -73,10 +80,30 @@ function report({ checks, passed, failed, skipped, red }) {
       console.log(`opened ${url || 'an issue'}`);
     }
   } else if (open) {
-    const note = `Every link resolves again (${counts}).${run ? ` Run: ${run}` : ''}`;
-    gh(['issue', 'close', String(open.number), ...where, '--comment', note]);
+    // Name any link this run couldn't check: the one the issue was opened for may be among them.
+    const skips = checks.filter((c) => c.outcome === 'skip');
+    const lines = [skips.length
+      ? `No link failed, and every link this run could check resolves again (${counts}). These ${skips.length} could not be checked, so this run can't say whether they resolve:`
+      : `Every link resolves again (${counts}).`];
+    for (const c of skips) lines.push(`- ${c.url} (${c.suite}): ${c.reason}`);
+    if (run) lines.push('', `Run: ${run}`);
+    gh(['issue', 'close', String(open.number), ...where, '--comment', lines.join('\n')]);
     console.log(`closed issue #${open.number}`);
   }
+}
+
+/** With --report, a run that died before it could count still reaches the issue (best effort). */
+function reportCrash(err) {
+  const { where, open } = issueContext();
+  const run = runUrl();
+  const first = String((err && err.message) || err).split('\n')[0];
+  const body = [
+    `The live link checks could not run: ${first}`, '',
+    'No link was counted, so this run says nothing about the links. The next green run closes this issue.',
+    ...(run ? ['', `Run: ${run}`] : []),
+  ].join('\n') + '\n';
+  if (open) gh(['issue', 'comment', String(open.number), ...where, '--body-file', '-'], body);
+  else gh(['issue', 'create', ...where, '--title', `${MARKER} could not run`, '--body-file', '-'], body);
 }
 
 async function main(argv) {
@@ -98,7 +125,11 @@ async function main(argv) {
 // Exit once the output is written: the suites' stack checks leave abort timers pending that would hold the
 // process open for up to 15 s.
 const done = (code) => process.stdout.write('', () => process.exit(code));
-main(process.argv.slice(2)).then(done, (err) => {
+const argv = process.argv.slice(2);
+main(argv).then(done, (err) => {
   console.error(`live link checks: the run itself failed: ${(err && err.stack) || err}`);
+  if (argv.includes('--report')) {
+    try { reportCrash(err); } catch (e) { console.error(`live link checks: could not report that on GitHub either: ${(e && e.message) || e}`); }
+  }
   done(2);
 });

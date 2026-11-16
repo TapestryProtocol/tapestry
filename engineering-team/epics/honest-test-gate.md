@@ -34,7 +34,9 @@ rows in OPEN.md are this one problem.
    `2026-11-16-link-check-fails-during-prod-deploy`. A Bug; the owner chose the design on
    2026-11-16, so it has no ADR.
 
-Anticipated, not yet planned (numbered 2 and 3 until story 2 took the next number, 2026-11-16):
+Anticipated, not yet planned. These were numbered 2 and 3 until story 2 took the next number on 2026-11-16. OPEN.md
+rows 104, 106, 192 and 291, ADR 0001 and story 1 still cite them by those old numbers: there, "story 2" is 3 below
+and "story 3" is 4. Ledger row `2026-11-16-story-numbers-ignore-planned-stories` has the details.
 
 3. **The gate fits a session** — the gate a role runs for its story actually scopes and finishes
    inside one tool call; the full run stays for pre-merge and book close; the Reviewer's gate
