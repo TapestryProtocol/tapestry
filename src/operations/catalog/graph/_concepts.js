@@ -95,7 +95,7 @@ function isFirmware(uuid) {
 }
 
 // ── the refusals ──
-const BAD_NAME = Object.freeze({ code: 'bad-name', status: 400, when: 'A name or a plural that is empty once trimmed, has no slug, has a control character, a text-direction control or an invisible character no script or emoji draws with where it is, or is longer than 200 characters; the refusal names the input and the character' });
+const BAD_NAME = Object.freeze({ code: 'bad-name', status: 400, when: 'A name or a plural that is empty once trimmed, has no slug, has a control character, a text-direction control or an invisible character that draws nothing where it is, or is longer than 200 characters; the refusal names the input, and the character when one is the problem' });
 const BAD_DESCRIPTION = Object.freeze({ code: 'bad-description', status: 400, when: 'A description with a control character other than a line break or a tab' });
 const NOT_INSTALLED = Object.freeze({ code: 'not-installed', status: 409, when: "The firmware isn't installed: the graph lacks the concept-header concept, or a concept a new concept's nodes join, or the instance has no assistant key; the refusal names what is missing" });
 const NO_FREE_ADDRESS = Object.freeze({ code: 'no-free-address', status: 409, when: `Every address the name gives is held, its d-tag and each versioning nonce to ~${MAX_NONCE}` });
