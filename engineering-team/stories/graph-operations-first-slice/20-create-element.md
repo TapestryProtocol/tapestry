@@ -102,6 +102,17 @@ For Architecture, not this gate:
 - **The change entry's shape:** the element made, its concept and set, and the copies.
 - **Where the shared check lives,** and how A10.21, A10.22 and A10.18 call it.
 
+## Deviations
+
+- **`_fields.js` also exports `readJson`,** beside ADR 0020's `conceptsOfNodes`. So `_schemas.js` reads a schema node's json tag, inline or an LMDB reference, exactly as the field mapping reads an element's, not with a copy. Nothing else in `_fields.js` changes.
+- **E1 and E4 also return the node's name and address,** for messages: a refusal names the concept as `"coffee house" (39998:…:coffee-house)`. E4 then answers no row for a key no node has, where the ADR's text answers one row of null.
+- **The rule's `{ concept, json }` message names the concept, not the element** ("The element's JSON doesn't fit the JSON schema of …"), since the item carries no name. create-element's `invalid-fields` refusal is that message, so it carries `rule` but not `input`, as the write path's guard refusals do (ADR graph-operations-foundation/0004 Decision 3). Each problem in it names its field.
+- **`copies` is a sorted list of the node properties the element now carries,** such as `dog_breed`. Decision 14 left its shape open.
+- **The refusals for `set` are worded for create-element** (`_elements.js`'s `say`), not with link-set's messages, whose advice is about linking.
+- **Two things are failures (500), not refusals:** a concept header with no address, and one with no name to make it a key. No graph the operations or the import make has either, and Decision 18 lists no code for them.
+- **The live check's firmware is the image's** (`agent-memory-tapestry:latest`): `scratch-stack.sh` mounts `src/` only. That firmware has no golden retriever concept, so firmware's dog was checked directly, not through a set. It also lacks rule 7's element, which reaches an instance only with a firmware reinstall after the change (ledger row `2026-11-16-rule-seven-awaits-firmware-reinstall`).
+- **Only this story's suites, and those sharing its files, ran on this Mac.** That is the task's rule: the full `npm test` writes to the agent-memory instance. `test/operations.test.js` as a whole, and the route-surface suites (openapi-coverage, admin-action-sweep), run in the PR's CI gate.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)

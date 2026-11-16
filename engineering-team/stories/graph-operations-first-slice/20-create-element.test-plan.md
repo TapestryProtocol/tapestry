@@ -129,3 +129,56 @@ The harness and the seed work before the code exists:
 - A harness run over the seed answers the route with today's 404, and the command with "Unknown operation 'graph create-element'".
 - The 1 MB body of CE26's length refusal passes the harness's body parser.
 - The rule suite's child process runs, and reports the rule as not loaded.
+
+### The live check (Implementation, 2026-11-16)
+
+Run on the Mac Studio, on throwaway instances from `scripts/scratch-stack.sh`, one at a time:
+
+- Each was booted from image `agent-memory-tapestry:latest`, with this branch's `src/` mounted.
+- Each had its own assistant key and no published ports, and was removed afterwards.
+- Every call went through `docker exec` to `127.0.0.1:7778`, a direct-local caller. The agent's alone went through the instance's own nginx.
+- The image's firmware has no golden retriever concept, so firmware's dog was checked directly, not through a set.
+
+1. **L1, elements under a concept and in a set (AC1, AC2).** `graph create-concept` made coffee house and tea house, and `graph link-set` put tea house's superset under coffee house's.
+   - **Blue Bottle,** an element of coffee house: `created`, directly under its superset. Its `concepts` named coffee house alone, fitting.
+   - **Kettle Club,** an element of coffee house made in tea house's superset: `created`, directly in it.
+     - Its `concepts` named coffee house, which it fits, and tea house, which it doesn't: "`teaHouse` is required".
+     - Its `wordTypes` were `word`, `coffeeHouse` and `teaHouse`.
+   - **Spot,** an element of firmware's dog, made with `tapestry graph create-element --fields '{}'`: `created`, recorded as the command's.
+   - **Rex,** a dog with `breed: irishSetter` and no Irish setter set: refused `invalid-fields` by `element-fits-schema`, naming the firmware schema's tie of breed to `wordTypes`.
+   - **Reading them back:** `graph list-elements` for coffee house listed Blue Bottle, Kettle Club and Moth Cafe. `graph history` found Kettle Club's entry by the element, and by tea house's superset, the set it was made in.
+2. **The repeats (AC4).**
+   - Blue Bottle again: `already-exists`, with nothing differing.
+   - kettle club, lowercased, with another description: `already-exists`, with `differs` naming the name's case, and `fields.description` with what it holds.
+3. **L2, two creates at once (AC4).** Two creates of Moth Cafe in parallel: one `created`, with its entry, and one `already-exists`, with the same key. The graph then held one Moth Cafe and one entry.
+4. **L3, a refusal (AC3).** Nameless, with no description: `invalid-fields`, "`coffeeHouse.description` is required". The graph held 3,384 nodes before it and after.
+5. **L4, a reinstall (AC8; Decision 10).** It took 62 s.
+   - Blue Bottle, Moth Cafe and Spot were unchanged: labels, properties, tags and relationships.
+   - Kettle Club's tags, JSON and properties were unchanged too. It gained a direct `HAS_ELEMENT` from coffee house's superset, from pass 1d, since its `z` names coffee house. Nothing pruned it, as Decision 10 foresaw (ledger row `2026-11-16-wire-implicit-prune-depends-on-run`).
+   - Each element still belongs to the same concepts and sets.
+6. **L5, the derive pass's verdicts (Decision 11).** After the reinstall, each element's cached `parentJsonSchemas` gave the verdicts its create answered:
+   - Blue Bottle and Moth Cafe fit coffee house;
+   - Kettle Club fits coffee house and not tea house ("must have required property 'teaHouse'");
+   - Spot fits dog.
+7. **L6, a restore on a fresh instance (AC8).**
+   - `tapestry lifecycle backup` took the graph offline for 19.6 s, and `download-backup` gave a 3.16 MB tar.
+   - On a fresh instance with its own assistant, `upload-backup` held it (`sameInstance` false), and `restore` took the graph offline for 20.7 s.
+   - The instance then answered as the backup's assistant. The four elements had the same keys, labels, properties, tags and relationships as before the backup.
+   - The tar, which held the throwaway assistant's key, was deleted.
+8. **L7, an admin agent (AC8).** A throwaway key was made inside the instance and listed in `adminPubkeys`. It drove `clients/cli`, copied in, through `http://127.0.0.1:80`:
+   - Agent Cafe: `created`, recorded as `admin` with its pubkey;
+   - Agent Cafe again: `already-exists`;
+   - Agent Tea Room, in tea house's superset: `created`;
+   - Agent Nameless, with `--fields '{}'`: refused `invalid-fields` by `element-fits-schema`, and the CLI exited 1.
+
+   Coffee house's history listed the two creates as the agent's, and nothing for the repeat or the refusal. A visitor through nginx got 401.
+9. **L8, the relay (AC1, AC8).** It held 450 events before the first write and after every later one, the reinstall included. No graph operation sent an event.
+
+### The touched suites (Implementation, 2026-11-16)
+
+With every endpoint dead, on the implementation, none failed:
+
+- **This story's suites:** create-element 31, `_schemas.js` 8, the rule 7, the agent 1, graph-rule-firmware 13 (its 4 live checks skipped), graph-rules-builder 26 and firmware-element-sync 21.
+- **The suites that share `_fields.js` and `changes.js`:** fields 8, map-fields 12, mark-field 16, unmark-field 13, fields-agent-through-cli 1, change-entry-fields 3, write-path 13, rules/field-mark-allowed 14, create-concept 23 and lifecycle/tapestry-key-paths 19.
+
+`test/operations.test.js` as a whole, and the route-surface suites, weren't run on this Mac (the task's rule); they run in the PR's CI gate.
