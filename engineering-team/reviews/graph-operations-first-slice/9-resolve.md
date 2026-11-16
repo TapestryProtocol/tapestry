@@ -250,10 +250,15 @@ The code, the tests and the ADR conformance hold, and the full gate is green. Th
 
 ### Quality gates (run by reviewer, not trusted)
 
-- [ ] **The full gate: still queued when this round was written.** PR #92's CI check `stack-free` on `f929861d` (run 43891584502) hadn't started at 15:02 UTC.
+- [x] **The full gate: still queued when this round was written.** PR #92's CI check `stack-free` on `f929861d` (run 43891584502) hadn't started at 15:02 UTC.
   - **Round 1's run** passed on `78b34637`.
   - **Round 2 changes one string of code,** the declaration's description. The 31 suites that load the declaration pass with it here, RV21 rendering it into /docs.
   - **This verdict stands on that run passing.** If it fails, the PR's check shows it, and the story goes back to `Approved`.
+  - **Since then (2026-11-16, after the verdict):**
+    - **The run.** Run 43891584502 was cancelled when the review commit `2c695dc8` was pushed. That push's run, 43892770847, succeeded in 8m35s. `2c695dc8`'s code is `f929861d`'s: the review commit changed only this file and the story's status line.
+    - **The merge.** #93 (A10.13) then merged into staging first, and `7733d7a6` merged staging into this branch. It kept both sides of two test-file conflicts, story 13's first.
+    - **The renumbering.** Story 13's review had added an F24 of its own, so `fa4ef9b1` renumbered this story's test F25, and `c53fb507`, an `adr:` commit, appended a second note to Amendment 1.
+    - **On the merged tree,** all 33 stack-free suites pass.
 - [x] **Run by the Reviewer** on `f929861d`, one at a time, with every endpoint dead. All 31 stack-free suites under `test/operations/` pass:
 
   | Suite | Result |
