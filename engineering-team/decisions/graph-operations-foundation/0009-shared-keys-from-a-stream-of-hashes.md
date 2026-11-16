@@ -127,7 +127,12 @@ We chose **Option B**. It is the only option whose Neo4j memory doesn't depend o
 - **Neo4j:** the fetch window, about 2 MB whatever the size of the graph.
 - **The job's process:** 8 bytes for each key in scope, plus the candidates' rows while they are confirmed. On real graphs that is none, or a handful of keys.
 - **Time:** one streamed read, about 4.5 s at 3.85 million keys. A second read comes only when a key is shared.
-- **With the rule in place,** the first read covers only unlabelled nodes, normally none. Status keeps today's cost: the same full scan for unlabelled keyed nodes that today's rule-in-place query makes, with no grouping after it.
+- **With the rule in place,** the first read covers only unlabelled nodes, normally none. On a graph where no key is shared, status keeps today's cost: the same full scan for unlabelled keyed nodes that today's rule-in-place query makes, with no grouping after it.
+  - While a key is shared with the rule in place, every `lifecycle status` call also makes the second read, of every key in the graph, in the control panel's own process. That is about 4.5 s at 3.85 million keys. The rows it keeps stay few, so memory stays small.
+  - Three things bring the second read on: a held key, two unlabelled nodes sharing a key, or two unlabelled keys that hash alike.
+  - It lasts until the owner deals with the key, which is a state where `tapestry-keys` already reads as not applied.
+
+  *(Corrected at Review round 1, Non-blocking 1. The first text said status keeps today's cost without that exception.)*
 
 ## Consequences
 

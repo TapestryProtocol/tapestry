@@ -100,9 +100,11 @@ function keyHash(value) {
  * their element ids (ADR 0009, amending ADR 0003 Decision 4). Nothing is grouped in Cypher, so neither Neo4j nor the
  * driver ever holds the keys at once: the first read streams the keys in scope through cypherEach, and this process
  * keeps a 53-bit hash of each, 8 bytes a key, in an array sized from `expected`. Hashes equal to a neighbour once
- * sorted are candidates. Only when there is one does a second streamed read, of every key with its node, confirm
- * them by the key itself, dropping two keys that merely hash alike. With the rule in place, the labelled keys are
- * unique already, so the first read covers only unlabelled nodes, each checked against the rule's index (`held`).
+ * sorted are candidates. Only when there is a candidate, or a held key, does a second streamed read, of every key
+ * with its node, confirm them by the key itself, dropping two keys that merely hash alike. With the rule in place, the
+ * labelled keys are unique already, so the first read covers only unlabelled nodes, each checked against the rule's
+ * index (`held`). Then status pays for the second read on every call while a key stays shared: a read of every key,
+ * about 5 s at four million (ADR 0009, corrected at Review round 1).
  */
 async function sharedKeys(system, ruleInPlace, expected = 0) {
   let hashes = new Float64Array(Math.max(HASHES_MIN, Math.ceil(expected * HASHES_SLACK)));
@@ -159,7 +161,8 @@ function keyCountsOf(plan) {
 /**
  * Reads the counts and the schema. Applied needs the rule, so with no rule the whole-graph search for shared keys
  * can't change the answer: it runs only for `apply` ({ full: true }), once, or when the rule is in place, when it
- * reads only the unlabelled nodes. The '{}' count is apply's too.
+ * reads only the unlabelled nodes, and every key once more while one is shared (sharedKeys). The '{}' count is
+ * apply's too.
  */
 async function planKeys(system, { full = false } = {}) {
   const counts = await countKeys(system);
