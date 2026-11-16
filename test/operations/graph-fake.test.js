@@ -48,6 +48,10 @@
  *   F22 elementId() of a relationship is text in Neo4j 5's form, one for each relationship, the same on every read
  *   F23 properties() leaves an integer as the driver leaves one inside a map, while [key, value] pairs give a number
  *   F24 a one-hop read keeps the repertoire for any later relationship; a later node, as trust() adds, still runs
+ *
+ * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9 and For the Tester):
+ *   F25 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
+ *       relationship), runs as Neo4j would: through the path reader, since the one-node reader refuses OPTIONAL MATCH
  */
 
 const fs = require('fs');
@@ -528,6 +532,36 @@ test('F24: a one-hop read keeps the repertoire for any later relationship; a lat
   }
   const alone = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (u:NostrUser {pubkey: m.pubkey}) RETURN type(r) AS type, u.pubkey AS who', { key: k.alice });
   assert(alone.length === 4, `a later node, with no relationship, still runs with no repertoire: alice's four; got ${show(alone)}`);
+});
+
+test('F25: a read of nodes found by their properties, with the trust fragment\'s OPTIONAL MATCH and no relationship, runs as Neo4j would', async () => {
+  const R = require(path.join(ROOT, 'src/operations/reads.js'));
+  const lo = '22'.repeat(32);
+  const hi = '11'.repeat(32);
+  const s = G.emptyState();
+  const add = (labels, props) => { s.nodes.push({ eid: s.nextEid++, labels, props }); return props.tapestryKey; };
+  const own = add(['ListItem', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000001', name: 'Dog', pubkey: TA });
+  add(['ListItem', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000002', name: 'dog', pubkey: lo });
+  const trusted = add(['ListItem', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000003', name: 'dog', pubkey: hi });
+  add(['GraphChange', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000004', name: 'dog' });
+  add(['NostrUser', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000005', pubkey: hi, influence: 0.2 });
+  add(['NostrUser', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000006', pubkey: lo, influence: 0.01 });
+  const file = path.join(tmp('graph-fake-trust-'), 'graph.json');
+  G.writeState(file, s);
+  const fake = G.fakeGraph(file);
+  const match = `MATCH (n:TapestryNode)
+    WHERE NOT n:GraphChange AND toLower(coalesce(n.tapestryValue, n.name)) = toLower($name)`;
+  const params = { name: 'DOG', everyone: false, own: [TA], cutoff: 0.05 };
+  const page = await fake.read(`${match}
+    ${R.trust('n')}
+    WHERE counts
+    RETURN n.tapestryKey AS key
+    ORDER BY key`, params);
+  assert(show(page.map((r) => r.key)) === show([own, trusted]), `the instance's own Dog and the trusted peer's dog count, the peer below the cutoff and the change entry don't; got ${show(page)}`);
+  const counts = await fake.read(`${match}
+    ${R.trust('n')}
+    RETURN count(n) AS seen, count(CASE WHEN counts THEN 1 END) AS kept`, params);
+  assert(show(counts) === show([{ seen: 3, kept: 2 }]), `the counts see 3 and keep 2; got ${show(counts)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
