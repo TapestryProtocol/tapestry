@@ -25,6 +25,9 @@ instance's URL rebuilds the brain on a fresh instance, with no raw Cypher.
 Each story is planned when its task is taken, and is numbered by its Loom task, as the foundation's are (A10.n is story
 n, and its first ADR 000n), because teammates plan them at the same time in different sessions.
 
+9. `stories/graph-operations-first-slice/9-resolve.md` — turn a name, slug or nostr address into the tapestryKeys it
+    could mean, from a point of view, reporting any ambiguity; the resolution every input that names a node will use
+    (Loom A10.9).
 11. `stories/graph-operations-first-slice/11-list-elements.md` — list the elements of a concept or a set, a page at a
     time, from a point of view, the owner's by default; its ADR sets the paging, the point of view and the node shape
     every graph read follows (Loom A10.11).
