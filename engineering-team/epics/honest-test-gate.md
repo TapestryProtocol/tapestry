@@ -28,13 +28,20 @@ rows in OPEN.md are this one problem.
 1. **gate-result-tells-the-truth** — a run's verdict, exit status, progress and skip counts are
    true and readable afterwards, however it was launched or ended. Rows 103, 105, 111, 157, 227,
    235, 263 (plus the runner half of 104/106 and 192). **Approved.**
+2. **live-link-checks-leave-the-pr-gate** — the pull-request gate stops fetching the public
+   internet: the information-for-agents and llms.txt link checks stand down unless switched on, a
+   weekly scheduled run switches them on, and a red run opens a GitHub issue. Ledger row
+   `2026-11-16-link-check-fails-during-prod-deploy`. A Bug; the owner chose the design on
+   2026-11-16, so it has no ADR.
 
-Anticipated, not yet planned:
+Anticipated, not yet planned. These were numbered 2 and 3 until story 2 took the next number on 2026-11-16. OPEN.md
+rows 104, 106, 192 and 291, ADR 0001 and story 1 still cite them by those old numbers: there, "story 2" is 3 below
+and "story 3" is 4. Ledger row `2026-11-16-story-numbers-ignore-planned-stories` has the details.
 
-2. **The gate fits a session** — the gate a role runs for its story actually scopes and finishes
+3. **The gate fits a session** — the gate a role runs for its story actually scopes and finishes
    inside one tool call; the full run stays for pre-merge and book close; the Reviewer's gate
    includes the stack-free run. Rows 83, 181, 271. Likely needs an ADR on gate composition.
-3. **Skip, don't fail** — a suite whose environment is missing reports SKIP with its reason, never
+4. **Skip, don't fail** — a suite whose environment is missing reports SKIP with its reason, never
    FAIL and never a crash. Rows 104/106, 191, 192.
 
 The assertion sweep (rows 59, 60, 108, 109, 126) is `test-suite-hermeticity` #2, in the same book.
@@ -43,6 +50,8 @@ The assertion sweep (rows 59, 60, 108, 109, 126) is `test-suite-hermeticity` #2,
 
 - Rewriting individual assertions — `test-suite-hermeticity`'s territory.
 - Playwright / e2e in CI and the CI job's composition — `test-hermeticity-ci`'s deferred scope.
+  One exception, by the owner's ruling on 2026-11-16: story 2 takes the live link checks out of
+  the pull-request job and gives them a scheduled job of their own.
 - The session tool's own background-completion notice — outside this repo.
 
 ## Decisions

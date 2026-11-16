@@ -44,6 +44,7 @@ const CR = String.fromCharCode(13);
 // something adds its scope here in the same change.
 const WRITE_SCOPES = {
   'publish-image.yml': ['packages'], // pushes the brain images to the package registry
+  'live-link-checks.yml': ['issues'], // opens, comments on and closes its "Live link check" issue (honest-test-gate #2)
 };
 
 const tests = [];

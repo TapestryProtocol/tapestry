@@ -3,8 +3,8 @@
 **Id:** 2026-11-16-launcher-volume-check-matches-temp-path
 **Type:** bug
 **Opened:** 2026-11-16 (PR #83's CI, Actions run 43813017539 at 3f3d76aa)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16, in #91 (commit 5e938e76)
 
 **What was seen.** PR #83's stack-free run at 3f3d76aa ended "Overall: FAIL — 7447 passed, 1 failed, 607 skipped". The one failure was `brains-launcher-service`'s "destroy detaches Caddy first, then removes containers and keeps volumes" (`deploy/launcher/test/compose.test.js`), with the error "destroy must not remove volumes". The same suite passed 139 of 139 in both earlier runs on 4df10d9b, and the commits between them add only a review file and two ledger rows.
 

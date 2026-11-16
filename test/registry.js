@@ -226,6 +226,7 @@ const suites = [
   { file: 'site-trust-signals.test.js' },
   { file: 'llms-txt.test.js' },
   { file: 'information-for-agents.test.js' },
+  { file: 'live-link-checks.test.js' },
   { file: 'tl-membership-method-selector.test.js' },
   { file: 'tl-weighted-sum-method.test.js' },
   { file: 'tl-certainty-method.test.js' },

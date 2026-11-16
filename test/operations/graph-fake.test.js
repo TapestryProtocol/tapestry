@@ -40,6 +40,18 @@
  *   F19 the reads C3, C4, C8 and C9: supersets by IN, held addresses over NostrEvent|TapestryNode, toLower, and a
  *       concept's core nodes over the wiring types, with type(r)
  *   F20 failures.entry fails only a GraphChange's CREATE, so a write's nodes are made before its entry fails
+ *
+ * Story graph-operations-first-slice #13 (ADR graph-operations-first-slice/0013, Decision 2, S2 and S3), over the graph
+ * test/helpers/relationshipsGraph.js seeds:
+ *   F21 a one-hop read from a node found by its tapestryKey reads relationships of every type, out and in, with no type
+ *       or with one in backticks, a relationship from the node to itself in both directions; F14's limits stay
+ *   F22 elementId() of a relationship is text in Neo4j 5's form, one for each relationship, the same on every read
+ *   F23 properties() leaves an integer as the driver leaves one inside a map, while [key, value] pairs give a number
+ *   F24 a one-hop read keeps the repertoire for any later relationship; a later node, as trust() adds, still runs
+ *
+ * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9 and For the Tester):
+ *   F25 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
+ *       relationship), runs as Neo4j would: through the path reader, since the one-node reader refuses OPTIONAL MATCH
  */
 
 const fs = require('fs');
@@ -446,6 +458,110 @@ test('F20: failures.entry fails only a GraphChange\'s CREATE, so a write\'s node
   assert(made && made.rows.length === 1, `the node's CREATE ran; got ${show(made)}`);
   assert(err && /failures\.entry/.test(err.message), `the entry's CREATE failed; got ${err && err.message}`);
   assert(G.readState(c.path).nodes.length === before, 'and the transaction kept nothing');
+});
+
+// ── story graph-operations-first-slice #13: the one-hop reads ──
+const RG = require('../helpers/relationshipsGraph');
+
+test('F21: a one-hop read from a node found by its tapestryKey reads relationships of every type, out and in; F14\'s limits stay', async () => {
+  const seed = RG.seedRelationships();
+  const read = G.readerOver(seed.state);
+  const k = seed.keys;
+  const name = (key) => Object.keys(k).find((n) => k[n] === key) || key;
+  const out = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE m.tapestryKey IS NOT NULL RETURN type(r) AS type, m.tapestryKey AS key ORDER BY type, key', { key: k.hub });
+  const outTypes = [...new Set(out.map((row) => row.type))].sort();
+  assert(show(outTypes) === show(['CITES', 'DEPENDS_ON', 'HAS_TAG', 'MENTIONS']), `with no type, every type out of hub, CITES and MENTIONS among them (neither in the repertoire); got ${show(outTypes)}`);
+  const inn = await read('MATCH (x:TapestryNode {tapestryKey: $key})<-[r]-(m) RETURN type(r) AS type, m.tapestryKey AS key', { key: k.hub });
+  assert(show(inn.map((row) => `${row.type} ${name(row.key)}`).sort()) === show(['CITES citer', 'DEPENDS_ON dependent', 'HAS_ELEMENT holder', 'MENTIONS hub', 'REFERENCES otherTag']), `incoming, the loop among them; got ${show(inn)}`);
+  const loopOut = out.filter((row) => row.key === k.hub);
+  assert(loopOut.length === 1 && loopOut[0].type === 'MENTIONS', `the loop is matched once out; got ${show(loopOut)}`);
+  const typed = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r:`TAGS`]->(m) RETURN m.tapestryKey AS key', { key: k.alice });
+  assert(typed.length === 3 && typed.every((row) => row.key === k.bob), `one type in backticks, TAGS, outside the repertoire: alice's three to bob; got ${show(typed)}`);
+  const typedIn = await read('MATCH (x:TapestryNode {tapestryKey: $key})<-[r:`TAGS`]-(m) RETURN m.tapestryKey AS key', { key: k.alice });
+  assert(show(typedIn.map((row) => row.key)) === show([k.carol]), `in, one type: carol's; got ${show(typedIn)}`);
+  const still = [
+    ['MATCH (x:TapestryNode {tapestryKey: $key})-[:TAGS]->(m) RETURN m.tapestryKey AS key', /TAGS/],
+    ['MATCH (x:TapestryNode {tapestryKey: $key})-[r:TAGS]->(m) RETURN m.tapestryKey AS key', /TAGS/],
+    ['MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m)-[s]->(n) RETURN n.tapestryKey AS key', /no type/],
+    ['MATCH (x:TapestryNode {tapestryKey: $key}) MATCH (x)-[r]->(m) RETURN m.tapestryKey AS key', /no type/],
+    ['MATCH (x:TapestryNode {tapestryKey: $key})-[r]-(m) RETURN m.tapestryKey AS key', /undirected/],
+  ];
+  for (const [q, re] of still) {
+    const err = await refusedWith(read(q, { key: k.alice }));
+    assert(err && /the fake graph can't run this Cypher/.test(err.message) && re.test(err.message), `it still can't run ${q.slice(0, 70)}…, naming why (${re}); got ${err && err.message}`);
+  }
+});
+
+test('F22: elementId() of a relationship is text in Neo4j 5\'s form, one for each relationship, the same on every read', async () => {
+  const seed = RG.seedRelationships();
+  const read = G.readerOver(seed.state);
+  const q = 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) RETURN type(r) AS type, elementId(r) AS rid ORDER BY rid';
+  const first = await read(q, { key: seed.keys.alice });
+  const again = await read(q, { key: seed.keys.alice });
+  assert(first.length === 4 && first.every((row) => typeof row.rid === 'string' && /^5:[0-9a-f-]+:\d+$/.test(row.rid)), `each relationship's id is text, 5:<database id>:<n>; got ${show(first)}`);
+  assert(new Set(first.map((row) => row.rid)).size === 4, `the three TAGS between the same two nodes, and the FOLLOWS, have four ids; got ${show(first)}`);
+  assert(show(first) === show(again), 'the same ids on every read');
+  const after = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE elementId(r) > $after RETURN elementId(r) AS rid ORDER BY rid', { key: seed.keys.alice, after: first[1].rid });
+  assert(show(after.map((row) => row.rid)) === show(first.slice(2).map((row) => row.rid)), `ids compare as text, as a cursor compares them; got ${show(after)}`);
+});
+
+test('F23: properties() leaves an integer as the driver leaves one inside a map, while [key, value] pairs give a number', async () => {
+  const seed = RG.seedRelationships();
+  const read = G.readerOver(seed.state);
+  const rows = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) RETURN type(r) AS type, properties(r) AS map, [k IN keys(r) | [k, r[k]]] AS pairs', { key: seed.keys.alice });
+  const follows = rows.find((row) => row.type === 'FOLLOWS');
+  assert(follows && typeof follows.map.timestamp !== 'number' && follows.map.timestamp !== null, `properties(r): the integer timestamp is not a number, as the driver's toJS leaves a map's Integer; got ${show(follows && follows.map)}`);
+  assert(show(follows.pairs) === show([['timestamp', Number(RG.FOLLOWED_AT)]]), `[k IN keys(r) | [k, r[k]]]: the pairs give the integer as a number, as toJS converts a list's items; got ${show(follows.pairs)}`);
+});
+
+// Review finding 2 (engineering-team/reviews/graph-operations-first-slice/13-list-relationships.md): the repertoire is
+// lifted for the opening one-hop alone, so a later relationship still fails loudly.
+test('F24: a one-hop read keeps the repertoire for any later relationship; a later node, as trust() adds, still runs', async () => {
+  const seed = RG.seedRelationships();
+  const read = G.readerOver(seed.state);
+  const k = seed.keys;
+  const later = [
+    ['a later OPTIONAL MATCH', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (m)-[:TAGS]->(z) RETURN m.tapestryKey AS key, z.tapestryKey AS z'],
+    ['a later MATCH', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE m.tapestryKey IS NOT NULL MATCH (m)-[:TAGS]->(z) RETURN m.tapestryKey AS key'],
+    ['a pattern in WHERE', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) WHERE NOT (m)-[:TAGS]->() RETURN m.tapestryKey AS key'],
+    ['a later relationship with no brackets', 'MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (m)-->(z) RETURN m.tapestryKey AS key'],
+  ];
+  for (const [what, q] of later) {
+    const err = await refusedWith(read(q, { key: k.alice }));
+    assert(err && /the fake graph can't run this Cypher/.test(err.message), `the repertoire still holds for ${what} after the opening one-hop; got ${err ? err.message : 'rows'}`);
+  }
+  const alone = await read('MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m) OPTIONAL MATCH (u:NostrUser {pubkey: m.pubkey}) RETURN type(r) AS type, u.pubkey AS who', { key: k.alice });
+  assert(alone.length === 4, `a later node, with no relationship, still runs with no repertoire: alice's four; got ${show(alone)}`);
+});
+
+test('F25: a read of nodes found by their properties, with the trust fragment\'s OPTIONAL MATCH and no relationship, runs as Neo4j would', async () => {
+  const R = require(path.join(ROOT, 'src/operations/reads.js'));
+  const lo = '22'.repeat(32);
+  const hi = '11'.repeat(32);
+  const s = G.emptyState();
+  const add = (labels, props) => { s.nodes.push({ eid: s.nextEid++, labels, props }); return props.tapestryKey; };
+  const own = add(['ListItem', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000001', name: 'Dog', pubkey: TA });
+  add(['ListItem', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000002', name: 'dog', pubkey: lo });
+  const trusted = add(['ListItem', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000003', name: 'dog', pubkey: hi });
+  add(['GraphChange', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000004', name: 'dog' });
+  add(['NostrUser', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000005', pubkey: hi, influence: 0.2 });
+  add(['NostrUser', 'TapestryNode'], { tapestryKey: '00000000-0000-4000-8000-000000000006', pubkey: lo, influence: 0.01 });
+  const file = path.join(tmp('graph-fake-trust-'), 'graph.json');
+  G.writeState(file, s);
+  const fake = G.fakeGraph(file);
+  const match = `MATCH (n:TapestryNode)
+    WHERE NOT n:GraphChange AND toLower(coalesce(n.tapestryValue, n.name)) = toLower($name)`;
+  const params = { name: 'DOG', everyone: false, own: [TA], cutoff: 0.05 };
+  const page = await fake.read(`${match}
+    ${R.trust('n')}
+    WHERE counts
+    RETURN n.tapestryKey AS key
+    ORDER BY key`, params);
+  assert(show(page.map((r) => r.key)) === show([own, trusted]), `the instance's own Dog and the trusted peer's dog count, the peer below the cutoff and the change entry don't; got ${show(page)}`);
+  const counts = await fake.read(`${match}
+    ${R.trust('n')}
+    RETURN count(n) AS seen, count(CASE WHEN counts THEN 1 END) AS kept`, params);
+  assert(show(counts) === show([{ seen: 3, kept: 2 }]), `the counts see 3 and keep 2; got ${show(counts)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

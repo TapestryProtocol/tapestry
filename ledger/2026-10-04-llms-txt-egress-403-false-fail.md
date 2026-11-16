@@ -25,4 +25,6 @@ full runs on changes that did not touch the suite. The fix shape above should co
 gateway-written 5xx (no answer from the site itself) as "no network" too. Row 172's renewal ritual relies on both
 checks; it does not cover a flaky run.
 
+**2026-11-16, honest-test-gate #2 (#94).** Both link checks are now off unless `TAPESTRY_LIVE_LINK_CHECKS=1` is set, in every `npm test` run, a cloud session's included, so the failure this row records can no longer happen in a run that has not switched them on. Switched on, llms-txt's L1 follows the briefing's rules, through `test/helpers/liveLinkChecks.js`, which replaces its `fetchForLinkCheck`: an egress gateway's own 403 is SKIP with its reason. The row's other half stays open: a check switched on behind a proxy that writes its own 502 or 504 still reads it as the link's answer.
+
 **Pointer:** `test/llms-txt.test.js` (`fetchForLinkCheck`, L1); OPEN.md row 172 (the renewal ritual that relies on L1).

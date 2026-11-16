@@ -32,6 +32,8 @@ line cite inside story 6's dated note at `engineering-team/decisions/done/taggin
 the key, or the new line") invited it. Round 2 asks the line restored and an appended note in an `adr:` commit
 (review `tagging-edges/7-confirm-held-removals.md` § Re-review, round 2, requested 5).
 
+**Seen again, 2026-11-16 (graph-operations-first-slice #9, review round 1, Blocking 3).** Commit `78b34637` (`test: renumber the fake's routing test F21 to F24 …`) changed item 7 of ADR `graph-operations-first-slice/0009`'s Amendment 1 in place, from F21 to F24, in the same commit as the test plan and the story. No rule text changed. As in tagging-edges #7, the ask is to restore the line and append a dated note in an `adr:` commit.
+
 **Pointer:** `engineering-team/reviews/done/duty-menus-and-self-maps/2-duty-menus-pre-nip.md` § Round 3 → Harness friction;
 `git show 427b0123 -- engineering-team/decisions/duty-menus-and-self-maps/0002-the-duty-menus-pre-nip.md`;
 `engineering-team/stories/done/duty-menus-and-self-maps/2-duty-menus-pre-nip.md` § Deviations, fix passes 5–7; related row
