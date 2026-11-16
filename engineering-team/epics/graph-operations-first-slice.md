@@ -33,6 +33,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's
     superset, under another parent, refusing a cycle, and take a set out from under one of its parents, refusing its
     last parent (Loom A10.28).
+41. `stories/graph-operations-first-slice/41-graph-rule-concept.md` — the graph rules as a firmware concept on every
+    instance, one item per rulebook entry, made from the rulebook and the rules' code; the items `rules list-rules`
+    (A10.31) will read (Loom A10.41).
 
 ## Key facts / guardrails
 
