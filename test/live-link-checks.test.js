@@ -58,8 +58,11 @@ const WORKFLOWS = path.join(ROOT, '.github/workflows');
 const GATE_WORKFLOW = path.join(WORKFLOWS, 'test.yml');
 const SWITCH = 'TAPESTRY_LIVE_LINK_CHECKS';
 const MARKER = 'Live link check';
-const RUN_ENV = { GITHUB_SERVER_URL: 'https://github.example', GITHUB_REPOSITORY: 'TapestryProtocol/tapestry', GITHUB_RUN_ID: '424242' };
-const RUN_URL = 'https://github.example/TapestryProtocol/tapestry/actions/runs/424242';
+// A placeholder repository, never the real one: if the fake gh could not run (a temp folder mounted noexec, say),
+// exec would fall through to a real gh later on PATH, and this name, with gh's empty config folder (childEnv), keeps
+// that call from reaching any real repository (review round 1, non-blocking 4).
+const RUN_ENV = { GITHUB_SERVER_URL: 'https://github.example', GITHUB_REPOSITORY: 'live-link-checks-fixture/no-such-repo', GITHUB_RUN_ID: '424242' };
+const RUN_URL = 'https://github.example/live-link-checks-fixture/no-such-repo/actions/runs/424242';
 
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }
@@ -104,7 +107,7 @@ function fakeGh() {
   }
   fs.appendFileSync(process.env.FAKE_GH_LOG, JSON.stringify(entry) + NL);
   if (argv[0] === 'issue' && argv[1] === 'list') process.stdout.write(process.env.FAKE_GH_OPEN || '[]');
-  if (argv[0] === 'issue' && argv[1] === 'create') process.stdout.write('https://github.example/TapestryProtocol/tapestry/issues/99' + NL);
+  if (argv[0] === 'issue' && argv[1] === 'create') process.stdout.write('https://github.example/live-link-checks-fixture/no-such-repo/issues/99' + NL);
 }
 
 let FIX = null;
@@ -116,20 +119,24 @@ function fixtures() {
   const bin = path.join(dir, 'bin');
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env node${NL}'use strict';${NL}(${fakeGh.toString()})();${NL}`, { mode: 0o755 });
-  FIX = { dir, stub, bin, seq: 0 };
+  const ghConfig = path.join(dir, 'gh-config');
+  fs.mkdirSync(ghConfig);
+  FIX = { dir, stub, bin, ghConfig, seq: 0 };
   return FIX;
 }
 function cleanup() { if (FIX) { fs.rmSync(FIX.dir, { recursive: true, force: true }); FIX = null; } }
 
-/** A child's environment: no switch and no GitHub token unless asked, a dead loopback stack, the stub, the fake gh. */
+/** A child's environment: no switch and no GitHub login unless asked, a dead loopback stack, the stub, the fake gh.
+ *  GH_CONFIG_DIR is an empty folder, so a real gh, if one were ever reached, would have no stored login either. */
 function childEnv(extra) {
   const f = fixtures();
   const env = { ...process.env };
-  for (const k of [SWITCH, 'GH_TOKEN', 'GITHUB_TOKEN', 'NODE_OPTIONS']) delete env[k];
+  for (const k of [SWITCH, 'GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'NODE_OPTIONS']) delete env[k];
   return Object.assign(env, RUN_ENV, {
     BRAINSTORM_BASE_URL: 'http://127.0.0.1:9',
     NODE_OPTIONS: `--require=${f.stub}`,
     PATH: `${f.bin}${path.delimiter}${process.env.PATH || ''}`,
+    GH_CONFIG_DIR: f.ghConfig,
   }, extra);
 }
 
@@ -255,8 +262,8 @@ test('A3 switched off, every other test in both suites reports as it does switch
   }
 });
 
-test(`A4 only ${SWITCH}=1 switches the checks on: set to "0" or to "", the briefing's suite still makes no request (AC1)`, () => {
-  for (const value of ['0', '']) {
+test(`A4 only ${SWITCH}=1 switches the checks on: set to "0", "", "true" or "yes", the briefing's suite still makes no request (AC1)`, () => {
+  for (const value of ['0', '', 'true', 'yes']) {
     const r = runSuite('briefing', { value });
     ran(r, `the briefing's suite with ${SWITCH}=${show(value)}`);
     assert(r.requested.length === 0, `with ${SWITCH}=${show(value)}, the suite must make no request; it requested ${r.requested.length}`);
@@ -453,7 +460,7 @@ test('D6 --report leaves other issues alone: with only an unrelated issue #3 ope
   assert(touched3.length === 0, `#3 is left alone; gh calls: ${ghCalls(r)}`);
 });
 
-test('D7 --report when no link could be checked: the run is red and its issue says the links were skipped, linking the run (AC3, AC4)', () => {
+test('D7 --report when no link could be checked: the run is red and its issue says that no link could be checked, linking the run (AC3, AC4)', () => {
   const map = {};
   for (const u of everyUrl()) map[u] = 'neterr';
   const r = runRunner({ map, report: true });
@@ -461,7 +468,9 @@ test('D7 --report when no link could be checked: the run is red and its issue sa
   const made = callsTo(r, 'create');
   assert(made.length === 1, `one issue is opened; gh calls: ${ghCalls(r)}`);
   const body = textOf(made[0]);
-  assert(/skip/i.test(body) && body.includes(RUN_URL), `its body says the links were skipped and links the run (${RUN_URL}); got ${show(body.slice(0, 600))}`);
+  // The words, not the counts line: "0 passed, 0 failed, N skipped" alone doesn't say why the run is red.
+  assert(/no link (?:could|was|were)|could ?not be checked|couldn.t be checked/i.test(body) && body.includes(RUN_URL),
+    `its body says that no link could be checked, and links the run (${RUN_URL}); got ${show(body.slice(0, 600))}`);
 });
 
 // ── AC5: the operations doc, and the ledger row ─────────────────────────────────────────────────────
@@ -485,7 +494,8 @@ test('E1 OPERATIONS.md §15 names both live link checks among what the gate leav
 test('E2 ledger row 2026-11-16-link-check-fails-during-prod-deploy is closed: Status DONE, with a Done line giving the date and the pull request (AC5)', () => {
   const row = fs.readFileSync(ROW, 'utf8');
   assert(/^\*\*Status:\*\* DONE\b/m.test(row), 'the row says **Status:** DONE');
-  assert(/^\*\*Done:\*\* \d{4}-\d{2}-\d{2}\b.*#\d+/m.test(row), 'its Done line gives an ISO date and the pull request (#<n>)');
+  // "in #<n>" or "PR #<n>", so a story's own number (honest-test-gate #2) on the line doesn't count as the pull request.
+  assert(/^\*\*Done:\*\* \d{4}-\d{2}-\d{2}\b.*\b(?:in|PR|pull request) #\d+/im.test(row), 'its Done line gives an ISO date and the pull request ("in #<n>")');
 });
 
 // ── Run ───────────────────────────────────────────────────────────────────────────────────────────────

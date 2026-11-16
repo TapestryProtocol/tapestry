@@ -43,6 +43,18 @@ With no ADR, these tests pin an interface. Each item is the least the acceptance
    `GITHUB_RUN_ID`. Without `--report` it never calls `gh`, so a person's own run never touches GitHub.
 5. **The workflow** is one file under `.github/workflows/`. The tests find it by what it runs, not by its name.
 
+## Amended after Review round 1 (2026-11-16)
+
+The Tester hardened the guard on the review's non-blocking findings 3 and 4. No test was removed or loosened.
+- **No real repository, ever.** `GITHUB_REPOSITORY` is now a placeholder (`live-link-checks-fixture/no-such-repo`),
+  and each child's `GH_CONFIG_DIR` is an empty folder. If the fake `gh` could not run (a temp folder mounted
+  noexec, say), exec would fall through to a real `gh` on PATH; that `gh` now has no login and no real repository
+  to write to.
+- **A4** also tries `"true"` and `"yes"`, so a switch read as truthy, or one that accepts more than `1`, fails.
+- **D7** wants the words that no link could be checked, not just the counts line's "skipped".
+- **E2** wants the pull request as `in #<n>` (or `PR #<n>`), so the story's own `#2` on the Done line doesn't
+  count.
+
 ## Coverage map
 
 | Criterion | Test | Test file | Level |
