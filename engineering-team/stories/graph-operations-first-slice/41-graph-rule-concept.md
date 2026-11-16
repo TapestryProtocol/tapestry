@@ -101,7 +101,7 @@ For Architecture, not this gate:
 - The decision behind it: [ADR graph-rules/0001](../../decisions/graph-rules/0001-graph-rules-tips-and-glossary-entries.md) (Loom A7.6, from P-154)
 - The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md)
 - The operations that will read it: catalog §4 in [docs/GRAPH_OPERATIONS_CATALOG.md](../../../docs/GRAPH_OPERATIONS_CATALOG.md) (A10.31)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0041-graph-rule-concept.md](../../decisions/graph-operations-first-slice/0041-graph-rule-concept.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 
