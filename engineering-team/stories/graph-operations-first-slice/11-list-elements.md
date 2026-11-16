@@ -154,4 +154,4 @@ The relay held 450 events after the boot's firmware install. Seeding through tod
 - The sibling stories in this epic: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md), [28-link-set-and-unlink-set.md](28-link-set-and-unlink-set.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
 - Test plan: [11-list-elements.test-plan.md](11-list-elements.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/11-list-elements.md](../../reviews/graph-operations-first-slice/11-list-elements.md)
