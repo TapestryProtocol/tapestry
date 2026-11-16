@@ -1,6 +1,6 @@
 # Story 16: `graph create-concept` and `update-concept` — make a concept with no event, and change its names, slug or description
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Feature
 **Loom:** A10.16 — https://loom.brainstorm.world/t/A10.16
@@ -154,4 +154,4 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, booted from im
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md](../../decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md)
 - Test plan: [16-create-concept-and-update-concept.test-plan.md](16-create-concept-and-update-concept.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md](../../reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md) (rounds 1–2, 2026-11-15)
