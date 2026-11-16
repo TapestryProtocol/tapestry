@@ -262,3 +262,131 @@ for docs-mode stories, and this is not one.
 
 - [x] Story `**Status:**` flipped to `Done` in place, and its Review line points here.
 - [x] Completion detection performed. The result is reported in the chat, not here.
+
+## Round 2
+
+**Date:** 2026-11-16
+**Delta:** `git diff 4fa7f451..HEAD`: the Tester's guard hardening `9c08fe8b`, the Implementer's fixes `0b2c436b`, three
+ledger rows `12bac940`. Reviewed at `12bac940`, PR #94's head. Round 1's text above is unchanged since `4fa7f451`.
+Every fix below was checked as a fresh claim, my own round-1 wording included.
+
+### Gates (run by the Reviewer)
+
+- The guard at HEAD: 21 passed, 0 failed, 0 skipped (1.4 s), stack-free, the switch unset. Every guard run this round
+  had a recording trap first on PATH, in front of the real `gh`. The trap was never reached.
+- `information-for-agents` 32/0/25 · `llms-txt` 12/0/15 · `workflow-hardening` 27/0 · `ci-test-job` 14/0 ·
+  `stack-free-npm-test` 6/0/1 · `site-trust-signals` 20/0/8 · `brains-launcher-repo` 31/0/0 · `ledger-row-ids` 6/0
+  (the three new ledger files).
+- `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`. L10 lands on `0b2c436b`, which updates the
+  CHANGELOG row. `git diff --check` is clean for `4fa7f451..HEAD` and for `89376a4c...HEAD`.
+- CI, read once (`gh pr view 94`, 16:29Z): head `12bac940`, check `stack-free` COMPLETED SUCCESS (Actions run
+  43905706265, job 133433814015, 16:16:45Z–16:26:26Z). I didn't fetch the log, to keep to one read, so there is no
+  Overall line to quote. `npm run gate:status` here still has no record (ledger
+  `2026-11-16-gate-status-unmet-without-local-gate`).
+
+### Each fix against its finding
+
+| Round-1 finding | The fix | Holds? | Evidence |
+|---|---|---|---|
+| 1 rollout | §15 says the schedule and Run workflow work only from `main` | Yes | `OPERATIONS.md:1048`. One wording point: non-blocking R2-3. |
+| 2 green close with skips | the closing comment names each link it couldn't check | Yes | P1 below. No test pins it: non-blocking R2-6. |
+| 3 weak guard checks | A4 also tries `"true"` and `"yes"`; D7 wants the words; E2 wants `in #<n>` | Yes | Each round-1 survivor is now caught (A4, A4, D7, E2), and each still passes the round-1 guard. D7 and E2 each also admit one input the round-1 guard rejected: non-blocking R2-1. |
+| 4 real repository in the guard | placeholder repository, an empty `GH_CONFIG_DIR`, enterprise tokens removed | Yes | My round-1 premise, tested: with a `gh` that can't run first on PATH, Node's exec runs the next `gh`. In a copy with the fake made non-runnable, the next `gh` (my trap) got 14 calls. Under the round-1 guard they carried `--repo TapestryProtocol/tapestry` and the default config folder. Under the new guard they carry `live-link-checks-fixture/no-such-repo` and an empty config folder. The "no login" half is unverified: non-blocking R2-2. |
+| 5 commit message claim | "answered in the PR body" (coordinator) | Not found | The PR body read at 16:29Z doesn't mention it: non-blocking R2-5. |
+| 6 renumbered stories | the epic maps old numbers to new; a ledger row | Yes | `epics/honest-test-gate.md:37-39`; ledger `2026-11-16-story-numbers-ignore-planned-stories`, which has one wrong sentence: non-blocking R2-4. |
+| 7 stale statements | §3 rewritten; the October note rewritten | Yes | §3 now accounts for all eight workflows. The October note now says the checks are off by default in every `npm test` run and names the helper that replaced `fetchForLinkCheck`. The row's Pointer line still names the old function, but the dated note above it explains, as that row's earlier notes do. Row 172 is left as is, by the choice recorded in Deviations. |
+| 8 flake-history claim | ledger row | Yes | `2026-11-16-ci-gate-flake-history-claim-untrue`. Its three flakes trace to PR #83's runs 43808151504 (two) and 43813017539. |
+| 9 credentials during `npm ci` | `persist-credentials: false` | Yes | `.github/workflows/live-link-checks.yml:33-36`. `workflow-hardening` passes, and nothing in the job uses git credentials. |
+| 10 a crash files no issue | `reportCrash`, with `--report` | Partly | Before counting it works (P3–P6). After counting it reports the wrong thing: blocking R2-1. |
+| Friction 1 | ledger row | Yes | `2026-11-16-harness-docs-say-workflows-retired`. Its citations hold: `harness-def-paths.txt:16-17`, `H2_0-baseline.md:34` and `:46-48`. |
+| Friction 2 | the same row as 6 | Yes | As 6. |
+| Friction 3 | none needed | Yes | The existing row stands. |
+
+### Teeth, and whether anything loosened
+
+49 mutations in a throwaway copy of HEAD, each run against the new guard and, beside it, the round-1 guard
+(`4fa7f451`'s copy):
+
+| Group | Mutations | New guard | Round-1 guard |
+|---|---|---|---|
+| Round 1's set, rewritten for the new code | 35 | 34 caught, by the same tests as before | the same 34 |
+| Round 1's survivors (switch accepts `"true"`; accepts `"yes"`; the no-link issue says nothing about why; the Done line names no PR) | 4 | all 4 caught (A4, A4, D7, E2) | none |
+| Round 2's new code: the green close lists no skipped link; always says every link resolves; the crash isn't reported; it opens a new issue beside the open one; it's reported without `--report`; it exits 0; the checkout keeps credentials; §15 loses the default-branch sentence | 8 | none caught | none |
+| Loosening probes: a no-link issue that says "No link could be checked." and never "skip"; a lower-case `**done:**` label | 2 | none caught | both (D7, E2) |
+
+The one round-1 mutation now missed by both guards removes §15's issue sentence. The guard didn't change there:
+E1 checks for the word "issue", and §15's new crash sentence also says "issue".
+
+### The new runner paths (in the copy, with the stub and a recording fake `gh`)
+
+- **P1, green, two links skipped, #7 open:** exit 0. `gh issue close 7` with "No link failed, and every link this run
+  could check resolves again (live link checks: 31 passed, 0 failed, 2 skipped). These 2 could not be checked, …",
+  then each skipped link with its suite and reason, then the run. #3 untouched.
+- **P2, green, nothing skipped, #7 open:** exit 0. "Every link resolves again (…33 passed, 0 failed, 0 skipped)." and
+  the run.
+- **P3, a suite throws at load, `--report`, no issue open:** exit 2. Opens "Live link check could not run", giving the
+  error's first line only, "No link was counted, …", and the run.
+- **P4, the same with #7 open:** exit 2. One comment on #7, no create, #3 untouched.
+- **P5, the same without `--report`:** exit 2, no `gh` call. Ratified item 4 holds.
+- **P6, the same with `gh issue list` failing:** exit 2, and the log says "could not report that on GitHub either".
+- **P7, red (one 404), `gh issue create` fails once:** exit 2. The crash reporter then opens "Live link check could not
+  run" with "The live link checks could not run: Command failed: gh issue create … No link was counted, so this run
+  says nothing about the links." The run had counted 32 passed and 1 failed, and the dead link appears nowhere on
+  the issue.
+- **P8, green, `gh issue close` fails once, #7 open:** exit 2. #7 stays open, with a comment that the checks "could not
+  run" and that "No link was counted", over a run of 33 passed.
+
+### Findings (round 2)
+
+#### Blocking
+
+1. **`scripts/live-link-checks.js:129-133`, with `:96-107`.** The crash reporter also catches a failure of the report
+   step itself, after the run has counted. It then tells the issue that the checks could not run and that no link
+   was counted. In P7 a red run's dead link never reaches the issue, and the open issue says the run says nothing
+   about the links. In P8 the issue stays open with a false comment over a green run. §15 (`OPERATIONS.md:1048`) and
+   the Deviations promise this report only for "a run that fails before it can count". Round 1 left these cases at a
+   silent exit 2. The fix made them say something untrue on GitHub. Asked change: send only failures from before the
+   count to the "could not run" report. For a failure after counting, either stop at exit 2 as before, or report what
+   was counted (the counts and each dead link). Keep §15 and the Deviations in step.
+2. **`test/live-link-checks.test.js` (the Tester's file).** The crash path calls `gh`, and no guard test reaches it.
+   Four mutations of it survive both guards: it isn't reported at all; it opens a new issue beside the open one; it's
+   reported without `--report`; it exits 0 once reported. The third breaks ratified item 4 ("Without `--report` it
+   never calls `gh`, so a person's own run never touches GitHub") without any test noticing. Asked change: the
+   Tester adds guard tests, failing first where they pin blocking 1's fix. Cover a run that dies before counting:
+   with `--report` and no issue open (one create, titled "Live link check…", linking the run, a non-zero exit); with
+   `--report` and #7 open (one comment on #7, no create); and without `--report` (no `gh` call). Cover a `gh` write
+   that fails after counting (no "No link was counted" text, whatever the fix chooses). Add the rows to the plan's
+   coverage map.
+
+#### Non-blocking
+
+- **R2-1.** "No test was removed or loosened" (`9c08fe8b`, and the plan's amendment) is not quite true. D7 no longer
+  requires "skip": a no-link issue that says "No link could be checked." and never "skip" passes the new guard and
+  fails the round-1 one. E2's new `i` flag admits a lower-case `**done:**` label, with the same split. Neither matters
+  much. To make the claim true, keep D7's old condition beside the new one, and limit E2's case-insensitivity to its
+  `in`/`PR`/`pull request` words.
+- **R2-2.** "That `gh` now has no login" (the plan, `9c08fe8b`) is unverified. On macOS, `gh` can keep its token in
+  the system keychain rather than in its config folder. I didn't run the real `gh` to see whether an empty
+  `GH_CONFIG_DIR` hides that token. What makes a fall-through harmless is the placeholder repository, for as long as
+  that owner name stays unregistered. Setting `GH_HOST` to an unresolvable host in `childEnv` would keep a
+  fall-through off the network altogether.
+- **R2-3.** `OPERATIONS.md:1048`, "a change to it takes effect only there": true for the schedule. But once the file
+  is on `main`, a by-hand run can pick another branch, and then it runs that branch's copy of the workflow.
+- **R2-4.** Ledger row `2026-11-16-story-numbers-ignore-planned-stories` says "none names the epic beside the
+  number". Rows 104, 106 and 192 do ("remains honest-test-gate story 3"). What they don't use is the `#3` form that
+  workflow 1 asks for.
+- **R2-5.** PR #94's body, read at 16:29Z, doesn't answer non-blocking 5. It still says the guard was "written at Test
+  Design and not edited since", which `9c08fe8b` made untrue. It still says "Review: to come", and it doesn't describe
+  round 1's fixes. Update it before the PR is marked ready.
+- **R2-6.** No test pins the green close's list of skipped links (two mutations survive). It would be cheap to add in
+  the same Tester pass as blocking 2.
+
+### Story status
+
+The story is still `**Status:** Done` from round 1. This round was told to write only this file, so it stays.
+Under this verdict, Done rests on a review whose final verdict isn't a pass. Whoever drives round 3 should decide
+whether it goes back to Approved in the meantime.
+
+### Verdict (round 2)
+
+**CHANGES_REQUESTED**
