@@ -125,4 +125,4 @@ For Architecture, not this gate:
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0020-create-element.md](../../decisions/graph-operations-first-slice/0020-create-element.md)
 - Test plan: [20-create-element.test-plan.md](20-create-element.test-plan.md)
-- Review: (filled in after Review)
+- Review: [reviews/graph-operations-first-slice/20-create-element.md](../../reviews/graph-operations-first-slice/20-create-element.md)
