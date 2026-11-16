@@ -215,4 +215,4 @@ The 500,000 nodes had tapestryKeys and no names, as the card sets have, made wit
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0009-resolve-and-naming-a-node.md](../../decisions/graph-operations-first-slice/0009-resolve-and-naming-a-node.md)
 - Test plan: [9-resolve.test-plan.md](9-resolve.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/9-resolve.md](../../reviews/graph-operations-first-slice/9-resolve.md)
