@@ -133,6 +133,15 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, booted from im
 - **An update entry's `was` and `now` for the description are the description tag's**, null when there is none, not the JSON's default for a concept made without one.
 - **The near-match read takes at most 500 candidates by name or slug before it sorts them** (`LIMIT 500` in C8). `moreSimilar` counts within those. A graph with more than 500 concepts sharing a name with the one asked for would under-count; it caps the read, which an unbounded scan wouldn't.
 - **The rename writes node and tag values through the field mapping's S8 statement**, `_fields.js`'s `writeCopies`, reused rather than repeated: tag nodes carry keys too.
+- **What review round 1 changed** (ADR 0016 Amendment 3), with the review's cases added first as a third Tester correction, in a commit of its own:
+  - **A rename of a concept whose `names` tag has no plural lands,** and the same rename again answers `unchanged` (UC8). Before, it kept the old singular and recorded an entry each time.
+  - **A bad name, plural or description is refused before the rule reads the graph** (CC20, UC9), as Decision 2 says. A refusal that needs the graph, such as `firmware-concept`, still comes after the rule's `slug-in-use`.
+  - **AC5's list is one longer: an invisible formatting character is refused** (CN3, CC11b), naming its code point, since it makes a name read as another. The zero-width joiner and non-joiner are allowed between two characters of a script that needs them. A name with no slug is now refused for having "no letter a–z or digit 0–9", which is what a name in another script lacks.
+  - **Two counts are checked:** each relationship create-concept makes must find its two nodes, and an update must write every node and tag it means to.
+- **Known limits carried forward:**
+  - **A concept can't be named in a non-Latin script alone,** since a slug keeps only a–z and 0–9 (Decision 2). Noted on Loom for the rebuild (A10.39).
+  - **The re-check after the lock is pinned by no test.** The fake has no concurrency, and L2 is answered without it. The test plan's L7 is for the next scratch run that touches concepts.
+  - **A create reads every own concept three times** (the guard, the re-check and the repeat). That is fine at today's size; noted on Loom for the rebuild, which makes many in a row.
 
 ## Linked artifacts
 

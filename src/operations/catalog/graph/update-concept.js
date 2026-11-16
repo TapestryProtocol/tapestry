@@ -52,7 +52,8 @@ module.exports = {
     },
   },
   refusals: [K.NOTHING_TO_CHANGE, K.BAD_NAME, K.BAD_DESCRIPTION, K.UNKNOWN_CONCEPT, K.NOT_OWN_CONCEPT, K.FIRMWARE_CONCEPT, K.NAME_KEYED, K.NOT_INSTALLED],
-  guards: [{ rule: 'concept-slug-unique', items: (inputs) => (typeof inputs.slug === 'string' ? [{ concept: inputs.concept, slug: inputs.slug }] : []) }],
+  // No item when an input has a problem: its own refusal comes first (Decision 2).
+  guards: [{ rule: 'concept-slug-unique', items: (inputs) => (typeof inputs.slug === 'string' && !K.anyBadInput(inputs) ? [{ concept: inputs.concept, slug: inputs.slug }] : []) }],
   repeatKey: ['concept', 'name', 'plural', 'slug', 'description'],
 
   async apply(inputs, ctx) {
@@ -134,7 +135,9 @@ module.exports = {
     const missing = [...props, ...tagProps].find((r) => typeof r.key !== 'string');
     if (missing) throw new Error('a node or tag this update writes has no tapestryKey, so it can\'t be changed; run lifecycle migrate first');
     const F = require('./_fields');
-    await F.writeCopies(tx, [...props, ...tagProps]);
+    const rows = [...props, ...tagProps];
+    const written = await F.writeCopies(tx, rows);
+    if (written !== rows.length) throw new Error(`the update wrote ${written} of its ${rows.length} nodes and tags: one went missing while it was written`);
     if (added.length) await E.addTags(tx, h.key, E.tagRows(h.uuid, added, headerTags.length));
     for (const key of removed) await tx.run('MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t', { key });
 

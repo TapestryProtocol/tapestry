@@ -102,13 +102,16 @@ module.exports = {
       const n = built.nodes[role];
       keys[role] = await E.makeNode(tx, { uuid: n.uuid, kind: n.kind, labels: n.labels, name: n.name, tags: n.tags, pubkey: ta, createdAt });
     }
-    const edge = (from, type, to) => tx.run(
-      `MATCH (a:TapestryNode {tapestryKey: $from}) WHERE NOT a:GraphChange
-       MATCH (b:TapestryNode {tapestryKey: $to}) WHERE NOT b:GraphChange
-       MERGE (a)-[r:\`${type}\`]->(b)
-       RETURN count(r) AS n`,
-      { from, to },
-    );
+    const edge = async (from, type, to) => {
+      const { rows } = await tx.run(
+        `MATCH (a:TapestryNode {tapestryKey: $from}) WHERE NOT a:GraphChange
+         MATCH (b:TapestryNode {tapestryKey: $to}) WHERE NOT b:GraphChange
+         MERGE (a)-[r:\`${type}\`]->(b)
+         RETURN count(r) AS n`,
+        { from, to },
+      );
+      if (!rows.length || rows[0].n !== 1) throw new Error(`a ${type} relationship of the new concept found ${rows.length ? rows[0].n : 0} pairs of nodes to join, not 1`);
+    };
     // The types are firmware's, through relAlias: plain names, never input.
     for (const w of built.wiring) await edge(keys[w.from], w.type, keys[w.to]);
     for (const role of K.ROLES) {

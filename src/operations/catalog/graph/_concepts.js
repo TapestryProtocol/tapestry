@@ -125,12 +125,22 @@ function cleanInputs(inputs, { create = false } = {}) {
   return out;
 }
 
-/** The item a create's guard checks: its slug and key, as a repeat (Decision 5); none for a name with a problem. */
+/**
+ * Whether a name, plural or description given has a problem. A guard then checks nothing, so that the input's own
+ * refusal, in apply, comes before anything reads the graph (Decision 2; review round 1).
+ */
+function anyBadInput(inputs) {
+  for (const input of ['name', 'plural']) {
+    if (typeof inputs[input] === 'string' && CN.nameProblem(CN.cleanName(inputs[input]))) return true;
+  }
+  return typeof inputs.description === 'string' && CN.descriptionProblem(inputs.description.trim()) !== null;
+}
+
+/** The item a create's guard checks: its slug and key, as a repeat (Decision 5); none when an input has a problem. */
 function createItems(inputs) {
-  if (typeof inputs.name !== 'string') return [];
+  if (typeof inputs.name !== 'string' || anyBadInput(inputs)) return [];
   const name = CN.cleanName(inputs.name);
-  if (CN.nameProblem(name)) return [];
-  const plural = typeof inputs.plural === 'string' && !CN.nameProblem(CN.cleanName(inputs.plural)) ? CN.cleanName(inputs.plural) : `${name}s`;
+  const plural = typeof inputs.plural === 'string' ? CN.cleanName(inputs.plural) : `${name}s`;
   const names = CN.deriveAllNames(name, plural);
   return [{ slug: names.oSlugs.singular, key: names.oKeys.singular, repeat: true }];
 }
@@ -575,7 +585,7 @@ async function supersetsOf(read, slugs) {
   const uuids = Object.fromEntries(slugs.map((s) => [s, firmwareUuid(s)]));
   const wanted = Object.values(uuids).filter(Boolean);
   const rows = wanted.length ? await read(
-    `MATCH (h)-[:${rel().INIT}]->(s:Superset)
+    `MATCH (h:NostrEvent|TapestryNode)-[:${rel().INIT}]->(s:Superset)
      WHERE h.uuid IN $uuids
      RETURN h.uuid AS concept, s.tapestryKey AS superset`,
     { uuids: wanted },
@@ -680,10 +690,14 @@ function renameRows(facts, d, ta, oldNames, newNames) {
       const n = now[role].tags.find((t) => t[0] === type);
       const cur = node.tags.find((t) => t.type === type);
       if (!w || !n || !cur || same(w, n)) continue;
-      if (cur.value === w[1] && (w[2] === undefined || cur.value1 === w[2])) {
+      // A tag with no value1, such as a names tag with no plural (a header the dlist curation copies can have one),
+      // holds the old value1 too: the concept reads the plural from elsewhere (Decision 4). It gains one only when the
+      // plural changes, so that the concept then holds the new plural whatever its JSON holds (review round 1).
+      const noValue1 = cur.value1 === undefined || cur.value1 === null;
+      if (cur.value === w[1] && (w[2] === undefined || noValue1 || cur.value1 === w[2])) {
         if (typeof cur.key !== 'string') throw new Error(`the ${type} tag of ${node.uuid} has no tapestryKey, so it can't be changed; run lifecycle migrate first`);
         const props = { value: n[1] };
-        if (n[2] !== undefined) props.value1 = n[2];
+        if (n[2] !== undefined && (!noValue1 || n[2] !== w[2])) props.value1 = n[2];
         out.tags.push({ key: cur.key, props });
         changed = true;
       }
@@ -744,7 +758,7 @@ module.exports = {
   ROLES, CORE, FIRMWARE_SLUGS, MEMBERSHIPS, MAX_NONCE, MAX_SIMILAR,
   BAD_NAME, BAD_DESCRIPTION, NOT_INSTALLED, NO_FREE_ADDRESS, UNKNOWN_CONCEPT, NOT_OWN_CONCEPT, FIRMWARE_CONCEPT, NAME_KEYED, NOTHING_TO_CHANGE,
   CONCEPT, SIMILAR, NAMES,
-  rel, assistant, firmwareUuid, isFirmware, cleanInputs, createItems,
+  rel, assistant, firmwareUuid, isFirmware, cleanInputs, anyBadInput, createItems,
   conceptNodes, readJson, headerOf, ownConcepts, headersByKey, rolesOf, answerOf, describeConcept, conceptFacts, nearMatches,
   supersetsOf, addressesOf, freeD, lock, recheck, renameRows, diffPaths,
 };
