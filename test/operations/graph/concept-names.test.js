@@ -13,7 +13,9 @@
  *   CN3 nameProblem names the problem of an empty name, one whose slug is empty, one with a control character or a
  *       text-direction control, and one longer than 200 characters; a name of 200 is fine. (Review rounds 1 and 2) It
  *       names the first invisible character, but not a joiner or selector a script or an emoji draws with, and says
- *       which letters a slug keeps
+ *       which letters a slug keeps. (Round 3) An invisible character passes only inside a recommended emoji sequence,
+ *       as a joiner between two non-Latin letters, or as a Mongolian or ideographic selector; the text-direction and
+ *       control reasons name the character
  *   CN4 descriptionProblem allows line breaks and tabs, and names any other control character
  */
 
@@ -93,6 +95,37 @@ test('CN3: nameProblem names each problem a name can have, and passes a name of 
   ]) {
     assert(L.nameProblem(fine) === null, `nameProblem(${show(fine)}) is null: a script or an emoji draws with these; got ${show(L.nameProblem(fine))}`);
   }
+  // Review round 3 (R3-1, R3-2, R3-5): an invisible character passes only inside one of Unicode's recommended emoji
+  // sequences, as a joiner between two letters of a script other than Latin, or as a selector a script draws with.
+  for (const [bad, cp] of [
+    ['beagle \u{1F431}\uFE0F', 'U+FE0F'], // a selector after an emoji that shows as one anyway
+    ['brand \u2122\uFE0E', 'U+FE0E'], // a selector after a sign that shows as text anyway
+    ['cats \u{1F431}\u200D\u{1F431}', 'U+200D'], // a joiner between two emoji no sequence joins
+    ['bea\uFFF9gle', 'U+FFF9'], // a format character outside the default-ignorable set
+    ['tea\u2800room', 'U+2800'], // the braille blank, which draws as a space
+    ['\u200Cنیم beagle', 'U+200C'], // a joiner at the start, before a Persian letter
+    ['dog соба\uFE0Fка', 'U+FE0F'], // a selector after a Cyrillic letter
+  ]) {
+    const why = L.nameProblem(bad);
+    assert(typeof why === 'string' && /invisible/.test(why) && why.includes(cp), `nameProblem(${show(bad)}) names ${cp}; got ${show(why)}`);
+  }
+  for (const fine of [
+    'one 1\uFE0F\u20E3', // a keycap
+    'england \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', // a tag-sequence flag
+    'brand \u2122\uFE0F', // a sign shown as an emoji
+    'mongolian \u182E\u180B', // a Mongolian free variation selector after a Mongolian letter
+    'kanji \u6F22\u{E0100}', // an ideographic variation selector after a kanji
+    'bengali \u09B0\u200D\u09CD\u09AF', // Bengali's ya-phala: a joiner before a virama
+  ]) {
+    assert(L.nameProblem(fine) === null, `nameProblem(${show(fine)}) is null: a script or an emoji draws with these; got ${show(L.nameProblem(fine))}`);
+  }
+  // The text-direction controls keep their own reason, and both it and the control character's name the character.
+  for (const [bad, cp] of [['bi\u202Edi', 'U+202E'], ['iso\u2066late', 'U+2066']]) {
+    const why = L.nameProblem(bad);
+    assert(typeof why === 'string' && /text-direction/.test(why) && why.includes(cp), `nameProblem(${show(bad)}) gives the text-direction reason, naming ${cp}; got ${show(why)}`);
+  }
+  const ctl = L.nameProblem('bad\u0007name');
+  assert(typeof ctl === 'string' && /control character/.test(ctl) && ctl.includes('U+0007'), `a control character is named; got ${show(ctl)}`);
   const cy = L.nameProblem('собака');
   assert(typeof cy === 'string' && /a–z/.test(cy) && /0–9/.test(cy) && !/no letter or digit/.test(cy), `a Cyrillic name is refused for having no letter a–z or digit 0–9, not for having no letter; got ${show(cy)}`);
 });
