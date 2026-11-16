@@ -9,6 +9,7 @@
 Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items, read)` is that one definition. The write path calls it before a write, and `rules check` (A10.31) will call it over the graph.
 
 **What each entry says:**
+- its name, in its heading: the entry's number and the rule's name in backticks, `` ## <n>. `<name>` ``. A rule with code shares the name with its file;
 - what the rule says;
 - whether it is a graph rule or a letter rule;
 - whether it refuses a write or only reports;
@@ -18,7 +19,11 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - its status: proposed (written, not yet enforced), enforced (the database, a guard or a check enforces it) or retired;
 - its source: the TIP or ADR that brought it in. Whether a rule is agreed is its source's status, not the rule's (ADR graph-rules/0001).
 
-## 1. Every node has a unique tapestryKey
+Each field is a bullet that starts with its label in bold, such as `- **Says:**`, and its text may go on below the bullet on indented lines. The eight labels above appear once in every entry; an entry may add others, such as entry 2's Reserved. A refusal is written as its code in backticks and its status in parentheses, such as `` `cycle` (409) ``, and a rule with code names its file in Enforced by, `src/operations/rules/<name>.js`.
+
+**In the graph.** Firmware installs each entry as an element of the graph rule concept, `39998:<TA>:graph-rule`, on every instance (story graph-operations-first-slice #41, ADR graph-operations-first-slice/0041). The elements are made from this file and each rule's code by `node src/firmware/graph-rules.js`, which writes them into the firmware, and a test fails until it is run again after an entry or a rule's code changes. So a rule is changed here, never in the graph: an install brings each instance's items in line.
+
+## 1. `tapestry-key-unique`
 
 - **Says:** each node has a `tapestryKey`, a random v4 UUID set once and never changed, and no two nodes share one. This is the owner's first core rule (design §7) and D6.
 - **Kind:** a graph rule, for every node, the web of trust's included.

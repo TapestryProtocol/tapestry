@@ -30,7 +30,13 @@ const firmware = require('../api/normalize/firmware');
 const { buildImportCypher, executeCypher } = require('../api/neo4j/eventSync');
 // TA signer for the b-tag emitter (ADR 0034): re-sign the local TA header
 // through the existing runtime TA key path — never a hardcoded key.
-const { loadTAKey, signAndFinalize } = require('../api/normalize/helpers');
+// regenerateJson re-signs an updateElements concept's element in place, as Pass 2's save-schema re-signs each schema
+// (story graph-operations-first-slice #41, ADR 0041 Decision 6).
+const { loadTAKey, signAndFinalize, regenerateJson } = require('../api/normalize/helpers');
+// What Pass 1b does with an element file of a concept whose manifest entry sets updateElements (ADR 0041 Decision 6).
+// Its rows are read with runCypher: /api/neo4j/query's CSV answer can't carry a json tag's value.
+const { planElement } = require('./element-sync');
+const { runCypher } = require('../lib/neo4j-driver');
 // The form of a tapestryKey (ADR graph-operations-foundation/0004 Decision 7): Pass 2 names a header by one only when it has one.
 const TAPESTRY_KEY = new RegExp(require('../operations/catalog/graph/_nodes').KEY_PATTERN);
 // Relationship type aliases used by concept manifests
@@ -133,6 +139,23 @@ function categoryToSlug(category) {
   return category.replace(/s$/, '');
 }
 
+/**
+ * The elements named `name` in the class thread of the concept whose header is at `headerUuid`, found by the header's
+ * address, never by name (ADR graph-operations-first-slice/0041 Amendment 1): [{ uuid, json }], json as the element's
+ * json tag holds it. The walk is create-element's own check for a name the concept already has.
+ */
+async function elementsNamed(headerUuid, name) {
+  if (!headerUuid) return [];
+  const rows = await runCypher(`
+    MATCH (h:NostrEvent|TapestryNode {uuid: $header})-[:${REL.CLASS_THREAD_INITIATION}]->(sup:Superset)
+    MATCH (sup)-[:${REL.CLASS_THREAD_PROPAGATION}*0..5]->()-[:${REL.CLASS_THREAD_TERMINATION}]->(e:NostrEvent|ListItem)
+    WHERE e.name = $name
+    OPTIONAL MATCH (e)-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
+    RETURN e.uuid AS uuid, head(collect(t.value)) AS json
+  `, { header: headerUuid, name });
+  return rows.map((r) => ({ uuid: r.uuid, json: r.json }));
+}
+
 async function pass1_bootstrap(opts = {}) {
   const { dryRun = false } = opts;
   const manifest = firmware.getManifest();
@@ -228,6 +251,9 @@ async function pass1_bootstrap(opts = {}) {
 
       console.log(`  ${slug}/ (${files.length} elements) → "${conceptName}"`);
 
+      // updateElements (graph-rule only): what happened to each of the concept's element files.
+      const synced = entry.updateElements ? { create: 0, update: 0, unchanged: 0, blocked: 0 } : null;
+
       for (const file of files) {
         const filePath = path.join(elemDir, file);
         const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -243,6 +269,38 @@ async function pass1_bootstrap(opts = {}) {
         console.log(`    📝 ${elemSlug} → "${conceptName}"`);
 
         if (dryRun) continue;
+
+        // A concept whose manifest entry sets updateElements keeps its elements in line with their files: one already
+        // there is left as it is, or re-signed in place at its address, never made twice; another author's is never
+        // signed over (story graph-operations-first-slice #41, ADR 0041 Decision 6). Any other concept goes straight on
+        // to create-element, as before.
+        if (synced) {
+          try {
+            const found = await elementsNamed(firmware.conceptUuid(slug), elementName);
+            const plan = planElement({ json: data, found, ta: firmware.getTAPubkey() });
+            synced[plan.action]++;
+            if (plan.action === 'unchanged') {
+              console.log(`       ✓ Already in line (${plan.uuid})`);
+              nodeMap[slug][elemSlug] = plan.uuid;
+              continue;
+            }
+            if (plan.action === 'update') {
+              await loadTAKey();
+              await regenerateJson(plan.uuid, data);
+              console.log(`       🔄 Re-signed in place, as its file now says (${plan.uuid})`);
+              nodeMap[slug][elemSlug] = plan.uuid;
+              continue;
+            }
+            if (plan.action === 'blocked') {
+              console.log(`       ⚠️  Not made: another author's element has the name (${plan.others.join(', ')}), and install never signs over it`);
+              continue;
+            }
+          } catch (err) {
+            console.log(`       ❌ ${err.message}`);
+            errors.push({ slug: elemSlug, error: err.message });
+            continue;
+          }
+        }
 
         try {
           const result = await apiPost('/api/normalize/create-element', {
@@ -262,6 +320,10 @@ async function pass1_bootstrap(opts = {}) {
           console.log(`       ❌ ${err.message}`);
           errors.push({ slug: elemSlug, error: err.message });
         }
+      }
+
+      if (synced && !dryRun) {
+        console.log(`    ${slug}: ${synced.create} to create, ${synced.update} re-signed in place, ${synced.unchanged} already in line, ${synced.blocked} not made (another author's has the name)`);
       }
     }
   }

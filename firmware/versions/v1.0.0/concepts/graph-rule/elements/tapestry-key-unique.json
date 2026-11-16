@@ -1,0 +1,27 @@
+{
+  "word": {
+    "slug": "tapestry-key-unique",
+    "name": "tapestry-key-unique",
+    "title": "Tapestry Key Unique",
+    "description": "Each node has a tapestryKey, a random v4 UUID set once and never changed, and no two nodes share one.",
+    "wordTypes": [
+      "word",
+      "graphRule"
+    ]
+  },
+  "graphRule": {
+    "name": "tapestry-key-unique",
+    "number": 1,
+    "says": "each node has a `tapestryKey`, a random v4 UUID set once and never changed, and no two nodes share one. This is the owner's first core rule (design §7) and D6.",
+    "kind": "a graph rule, for every node, the web of trust's included.",
+    "about": "the graph",
+    "refusesOrReports": "the database refuses a second node with a key another one holds.",
+    "check": "`lifecycle status`'s migrations part counts the nodes with no key, and says whether the uniqueness rule is in place.",
+    "repair": "`lifecycle migrate --migration tapestry-keys` gives every node that lacks a key one, along with the shared label.",
+    "enforcedBy": "- the database: the uniqueness rule `tapestry_key`, on the shared label `TapestryNode`;\n- every path that makes a node: `keyNode`, in `src/lib/tapestry-key-cypher.js`.\n\nBuilt in story graph-operations-foundation #3 (ADR 0003). A change entry is a node too, and gets its key when it is made (ADR 0004 Decision 5).",
+    "status": "enforced",
+    "source": "ADR graph-operations-foundation/0003",
+    "alsoSays": [],
+    "code": null
+  }
+}

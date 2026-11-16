@@ -1,0 +1,38 @@
+{
+  "word": {
+    "slug": "class-thread-acyclic",
+    "name": "class-thread-acyclic",
+    "title": "Class Thread Acyclic",
+    "description": "No set or superset is below itself.",
+    "wordTypes": [
+      "word",
+      "graphRule"
+    ]
+  },
+  "graphRule": {
+    "name": "class-thread-acyclic",
+    "number": 5,
+    "says": "no set or superset is below itself. Following class-thread links down from any node, through any number of links and across concepts, never comes back to it. A class-thread link is `IS_A_SUPERSET_OF`, the class thread's propagation link, from a superset or a set to the set or superset directly under it. Only a node with an address, its `uuid`, counts as a set, a superset or a parent, so a link with an address-less end isn't judged: a node labelled `Set` with no address, such as one of the trust pipeline's card sets, isn't a set of the concept graph (ADR graph-operations-first-slice/0028 Amendment 3). The class thread anomaly (BIBLE §10, rule 9) is an element, not a link, so it breaks nothing here.",
+    "kind": "a graph rule, about the class threads' links.",
+    "about": "the graph",
+    "refusesOrReports": "it refuses the write, before anything changes: `cycle` (409) for a link whose parent is the set itself, or is already below it in the class thread. The refusal names the chain of sets from the set down to the parent, at most twelve of them and then how many more.",
+    "check": "the same `violations` over a set of links that are there names each link on a cycle: walking up the class thread from its parent, one level per read, reaches its set. The walk never uses the link itself, so the guard and the check are one definition. `rules check` (A10.31) will run it over the graph's class-thread links, judging each by where it came from (D15). Today's `POST /api/normalize/add-relationship` doesn't check for a cycle, so it can make one, and so can two link-sets at once that close a loop between four sets (ADR graph-operations-first-slice/0028 Decision 9).",
+    "repair": "`graph unlink-set` takes out a link on the cycle.",
+    "enforcedBy": "the guard of `graph link-set`, which runs the rule again after its write, inside the same transaction. The rule's code is in `src/operations/rules/class-thread-acyclic.js`, and the walk it uses is in `src/operations/catalog/graph/_sets.js`. Built in story graph-operations-first-slice #28 (ADR graph-operations-first-slice/0028).",
+    "status": "enforced",
+    "source": "ADR graph-operations-first-slice/0028",
+    "alsoSays": [],
+    "code": {
+      "file": "src/operations/rules/class-thread-acyclic.js",
+      "summary": "No set or superset is below itself: following class-thread links down from any node never comes back to it.",
+      "refuses": true,
+      "refusals": [
+        {
+          "code": "cycle",
+          "status": 409,
+          "when": "The parent is the set itself, or already below it in the class thread, so the link would make a set its own subset"
+        }
+      ]
+    }
+  }
+}
