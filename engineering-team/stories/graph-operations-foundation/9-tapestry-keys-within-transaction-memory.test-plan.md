@@ -103,6 +103,21 @@ For the design (ADR 0009): a streamed read of all 3,851,244 keys held 2.0 MB.
 
 The Implementer adds the "after" column from LK1 and LK4.
 
+### After the fix
+
+Measured at `ae288385` on 2026-11-16, 01:14–01:23 UTC. This was a fresh scratch stack seeded to staging's shape (booting and seeding took 274 s), the same Neo4j 5.26.10 Community with its 512 MiB limit. All of `node test/operations/lifecycle/shared-keys.test.js` passed with `TAPESTRY_KEYS_LIVE=1`: 12 passed, 0 failed, 0 skipped.
+
+| Check | Before the fix | After the fix |
+|---|---|---|
+| LK1: staging's shape (3,851,244 keys), rule dropped | failed after 6.3 s; the grouping peaked at 464 MB | `done` in 19.6 s, no backup, the rule added and both online. Neo4j's transactions peaked at **2 MB** together, the streamed read among them. The worker peaked at **113 MB**, against 443 MB for a backup's count of the same keys |
+| LK2: keys planted on 2 and 12 nodes, no rule | failed after 6.5 s | named in key order (12 with ten nodes, 2 with two), unchanged, the rule left out: 18.7 s |
+| LK2: the rule in place, an unlabelled node holding a labelled key | not reached | named with both nodes, left unlabelled, the rule stayed: 68.2 s, with its backup (`20261116T012035Z-68c5d670`) |
+| LK3: status on the migrated graph | 3.17–3.38 s | **2.87 s**, applied |
+| LK4: production's shape (2,294,385 nodes unkeyed and unlabelled), no rule | took its backup, then failed at 468 MB after 44.8 s | `done` in 66.2 s: the backup taken, every stripped node keyed and labelled, the rule added, both online. Neo4j's transactions peaked at **28 MB** together; the keys pass's batches were the largest, at 14 MB |
+| LK4: the job's process | 273.5 MB, its backup's count of 1.56 million keys | **274.7 MB**, against 221.3 MB for a backup's count run alone (1.24×; the bound is 1.25×) |
+
+LK4's job peaks where its own backup puts it: 273.5 MB before the fix and 274.7 MB after. A backup's count run alone, the check's yardstick, is smaller (221.3 MB), so the job sits at 1.24× of it, near the 1.25× bound. That ratio comes from the backup inside the job, not from the check, which adds 8 bytes a key, about 12 MB here.
+
 ## Verification
 
 The new tests fail with the current code, each for the reason ADR 0009 changes. Confirmed on 2026-11-16 at `0b25440f`, with this plan's suite, fake and probes uncommitted on top.
