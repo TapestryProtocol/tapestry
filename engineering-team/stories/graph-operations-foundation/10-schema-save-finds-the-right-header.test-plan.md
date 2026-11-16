@@ -32,8 +32,9 @@ All in `test/schema-save-finds-the-right-header.test.js`. "Stack-free" runs in e
 | Criterion | Test | Level |
 |---|---|---|
 | AC1 | **S1a** Pass 2 saves the six shared-name firmware concepts' schemas on `39998:<TA>:<slug>`, while the community's same-named headers (from the manifest, with no schema) come first and then last. Pass 2 logs 0 errors, enriches all six, saves the firmware's schema on each own schema node, and writes nothing to the community's headers | stack-free |
-| AC1 | **S1b** the same when the community's headers have schemas of their own. Those schemas get no write | stack-free |
+| AC1 | **S1b** the same when the community's headers, and those of an author whose addresses sort before the TA's, have schemas of their own, in all six orders. Those schemas get no write | stack-free |
 | AC1 | **S1c** a second header of the TA's own named "tag" (another d tag, with a schema) doesn't take the firmware address's place, in either order | stack-free |
+| AC1 | **S1e** a firmware header with two schema nodes, laid out in either order: Pass 2 saves on the first by address, and its log names that node | stack-free |
 | AC2 | **S2a** apply-enumerations saves the values it enumerated (a superset with two elements, ENUMERATES on `tag.kind`) on the schema its edge points to, while the community's "tag" header (no schema) comes first and then last. It answers `updated: 1` | stack-free |
 | AC2 | **S2b** the same when another author's "tag" header has a schema of its own. That schema gets no write | stack-free |
 | AC2 | **S2c** a second header of the TA's own named "tag", with a schema, doesn't take the enumerated schema's place | stack-free |
@@ -42,10 +43,10 @@ All in `test/schema-save-finds-the-right-header.test.js`. "Stack-free" runs in e
 | AC3 | **S3c** three headers named "tag": the TA's, another author's with a schema, the community's without. In all six orders the save goes to the TA's, nothing else is written, and the answer is the same every time | stack-free |
 | AC3 | **S3d** two headers named "tag", neither the TA's. In both orders the save is refused: no write, no event, and the error names both addresses and the name | stack-free |
 | AC3 | **S3e** three headers named "tag", two of them the TA's. In all six orders it is refused, and the error names all three | stack-free |
-| AC3 | **S3f** both "tag" concepts have a primary property that lags the new schema. In both orders the fold reports `reconciled`, the TA's primary property gets the new field, and the other concept gets no write | stack-free |
+| AC3 | **S3f** three "tag" concepts, whose addresses sort EARLY < TA < OTHER, each have a primary property that lags the new schema. In all six orders the fold reports `reconciled`, the TA's primary property gets the new field, and the others get no write | stack-free |
 | AC3 | **S3g** sentinel: no header has the name. The answer is today's `Concept "…" not found`, and nothing is written | stack-free |
-| AC3 | **S3h** a header with two schema nodes, laid out in either order, has the first by address saved; the second gets no write | stack-free |
-| AC4 | **S4a** the Schema tab (`ui/src/pages/concepts/ConceptSchema.jsx`) still finds its header through the concept page. The page's header query returns `h.tapestryKey AS tapestryKey`, and both of the tab's saves, the visual editor's and raw mode's, send `tapestryKey: concept.tapestryKey`. The tab's schema read orders by address before its `LIMIT 1`, as the save chooses | stack-free (source) |
+| AC3 | **S3h** a header with two schema nodes, laid out in either order, has the first by address saved; the second gets no write, and the fold reconciles the header's primary property against the schema node that was saved | stack-free |
+| AC4 | **S4a** the Schema tab (`ui/src/pages/concepts/ConceptSchema.jsx`) still finds its header through the concept page. The page's header query returns `h.tapestryKey AS tapestryKey`, and both of the tab's saves, the visual editor's and raw mode's, send `tapestryKey: concept.tapestryKey`. The tab's schema read orders by address, ascending, before its `LIMIT 1`, as the save chooses | stack-free (source) |
 | AC4 | **S4b** the client (`ui/src/api/normalize.js`, imported as ESM) sends the `tapestryKey` it is given with `concept` and `schema`, to `/api/normalize/save-schema`. Given none, `{}` or an empty string, it sends today's body, `{ concept, schema }` | stack-free (stubbed fetch) |
 | AC4 | **S4c** a save naming its header by `tapestryKey` lands on that header's schema: the TA's own while another author's same-named header comes first, and each of two TA headers named "tag", in both orders | stack-free |
 | AC4 | **S4d** a `tapestryKey` that no node has: refused with an error; nothing written, nothing published | stack-free |
@@ -53,9 +54,9 @@ All in `test/schema-save-finds-the-right-header.test.js`. "Stack-free" runs in e
 | AC4 | **S4f** sentinel: a concept laid out as `graph create-concept` makes one (addresses, no event: no `NostrEvent` label, no `id`) is refused by its key and by its name; nothing written, nothing published. It passes today, since today's lookup can't find such a concept, and it fails a fix that lets the save sign one | stack-free |
 | AC4 | **S4g** a `tapestryKey` two headers hold, and the `{}` placeholder held by two: each refused, nothing written | stack-free |
 | AC4 | **S4h** a value that isn't a tapestryKey answers 400 and writes nothing: one no node holds, and `{}` held by a single header | stack-free |
-| AC4 | **S4i** a header that came from an event, whose schema node didn't: refused by key and by name, nothing written | stack-free |
-| AC4 | **S5a** before `tapestry-keys` (no node has `TapestryNode`, the keys as `initialize` stamps them): a save by key lands on its header while another author's same-named header comes first, in both orders, and the fold reconciles that header | stack-free |
-| AC3 | **S5b** before `tapestry-keys`, with no keys at all: a save by name lands on the instance's own header, in both orders, and the fold reconciles it | stack-free |
+| AC4 | **S4i** each half of the no-event check on its own: a header from an event whose schema node came from none, and a header from no event whose schema node came from one. Each is refused by key and by name, nothing written | stack-free |
+| AC4 | **S5a** before `tapestry-keys` (no node has `TapestryNode`, the keys as `initialize` stamps them): three "tag" concepts, EARLY < TA < OTHER. In all six orders a save by the TA's key lands on its header, and the fold reconciles that header | stack-free |
+| AC3 | **S5b** before `tapestry-keys`, with no keys at all: the same three concepts. In all six orders a save by name lands on the instance's own header, and the fold reconciles it | stack-free |
 | AC1, AC3 | **L1** on a scratch stack that holds the community's `tag` header, a save by name "tag", and one by the TA's tag header's `tapestryKey`, both answer the TA's own tag schema, and leave the community's header without one. It saves the TA's current schema back, so nothing changes | live |
 | AC5 | **L2** (`SCHEMA_SAVE_INSTALL=1`, on a container whose log shows exactly one install) a second firmware install answers success, and its Pass 2 logs 0 errors. The five tag concepts' own schemas' json tags come out as the first install left them. Every other difference between the two graphs is printed, from story 8's snapshot (`test/helpers/pass3Snapshot.js`), along with whether nostr relay's own schema changed | live |
 
@@ -87,7 +88,7 @@ The draft suggested one cause to check first: the nostr-relay header from `919ba
 - **New helper:** `test/helpers/saveSchemaChild.js`, the child process above. It reuses `test/helpers/pathCypherFake.js` unchanged.
 - **Concept Graph API:** not used by the stack-free tests. The live tests use a scratch container only.
 - **Firmware state:** the stack-free tests read the firmware manifest and the six concepts' `json-schema.json` from `firmware/active`. L2 needs a freshly booted scratch stack (one install in its log) that fetched the community headers in that install.
-- **Fixtures:** none on disk; each test builds its graph. By default every fake node carries the shared label and a tapestryKey in keyNode's form (a version 4 UUID, made from the node's address so a graph is the same every run), as on an instance that has run `tapestry-keys`. A node from an event also carries `NostrEvent`. S5a and S5b lay the graph out as before `tapestry-keys`. Neither has the shared label on any node. S5a's nodes still hold keys, as `POST /api/tapestry-key/initialize` stamps them (`src/api/tapestry-key/index.js:136–141`); S5b's hold none.
+- **Fixtures:** none on disk; each test builds its graph. By default every fake node carries the shared label and a tapestryKey in keyNode's form (a version 4 UUID, made from the node's address so a graph is the same every run), as on an instance that has run `tapestry-keys`. A node from an event also carries `NostrEvent`. S1b, S3f, S5a and S5b add an author whose addresses sort before the TA's (`EARLY`, `00…`). Every other author sorts after it, so without `EARLY`, "first by address" and "the instance's own" always agree, and a lookup by name that orders by address passes by luck (review round 2, Blocking 1). The suite throws at load if that order ever changes. S5a and S5b lay the graph out as before `tapestry-keys`. Neither has the shared label on any node. S5a's nodes still hold keys, as `POST /api/tapestry-key/initialize` stamps them (`src/api/tapestry-key/index.js:136–141`); S5b's hold none.
 - **Dead endpoints:** the suite's child gets a conf file of its own (`BRAINSTORM_CONF_PATH`) whose Neo4j is a closed port. The database driver reads its address only from the conf (`src/lib/neo4j-driver.js`, `src/utils/config.js`). Without one it falls back to `bolt://localhost:7687`, the agent-memory instance on the owner's Mac. The child stubs the driver; the conf only guards against the stub being bypassed.
 
 ## Suites the Implementer runs again
@@ -189,8 +190,39 @@ The four sentinels pass (S3a, S3b, S3g, S4f). So does `stack-free-npm-test` (6 o
 - **Nostr relay's schema and the two moved supersets can't be judged from these runs.** *(Corrected after the review, its non-blocking finding 6.)*
   - **Where they were seen.** Story 8 saw them only on its stack seeded to staging's shape, on its second install (`8-pass-3-finishes-in-minutes.test-plan.md`, Amendment 1).
   - **On a fresh stack,** story 8's review found neither, with the code before this fix (`engineering-team/reviews/graph-operations-foundation/8-pass-3-finishes-in-minutes.md:117`).
-  - **So these runs say nothing either way.** In four installs on two fresh stacks with the fix, nostr relay's schema and every superset's HAS_ELEMENT targets came out the same. That doesn't show the fix removed them, or what causes them. Nothing writes nostr relay's schema except the save (no firmware enumeration targets it), and Pass 2 hadn't failed for it there.
+  - **So these runs say nothing either way.** In four installs on two fresh stacks with the fix, nostr relay's schema and every superset's HAS_ELEMENT targets came out the same. That doesn't show the fix removed them, or what causes them. Pass 1 rebuilds every schema node on each install, and Pass 2's save is the last to write nostr relay's, since no firmware enumeration targets it. Pass 2 hadn't failed for it there.
   - **Filed** as ledger row `2026-11-16-seeded-second-install-differs`, unexplained, until L2 runs on a seeded stack.
 - **Nine nodes' cached Tapestry JSON differs, and has another cause.** They are six supersets of the TA's own (tag, nostr user tag, tag pinning, nostr relay, set, word) and three of the tag concepts' supersets under ADR 0015's literal pubkey. Everything else is the same: every schema's json tag and every superset's elements. A third install matches the second exactly.
   - **The cause.** Pass 3 rebuilds its caches before its own last steps change the graph. That is why a rebuild right after any install changes 439 nodes, and why the first install, which lays down the community-reference edges after its rebuild, differs from the later ones in these nine.
   - **Filed** as ledger row `2026-11-16-install-caches-lag-its-own-graph`, with the runs that show it: an install after a rebuild matches the other stack's second install exactly, and a rebuild after any install lands on the same state.
+
+### After the review (rounds 1 and 2)
+
+Each wrong fix below was applied in place under `src/` or `ui/`, run against the whole suite stack-free, and restored with `git checkout --`. `git status` was clean after each.
+
+**The tests.**
+- **Round 1's findings:** the tests landed with their code fixes in `ab4722b3`.
+- **Round 2's findings:** the tests landed on their own in `8f8ff515`, ahead of any code change, as the review's harness friction 4 asks. They guard code that is already right, so they pass on it. Their red run is the wrong fixes failing them. The suite then read 26 passed, 0 failed, 2 skipped (live).
+
+**What catches each wrong fix:**
+
+| Wrong fix | Caught by |
+|---|---|
+| W3 the fold left looking up by name | S3f, S5a, S5b |
+| W4b Pass 2 finds the header by name, then sends its key | S1b |
+| W8 the key lookup reads `:TapestryNode` | S5a |
+| W9 the tab sends the header's address as `tapestryKey` (in one save, or both) | S4a |
+| W10 the client sends `{}` | S4b |
+| W11 no 400 for a value that isn't a key | S4h |
+| W12 the no-event check reads only the header | S4i |
+| W12b the no-event check reads only the schema node | S4i |
+| W15 no `ORDER BY` in the header lookup | S1e, S3d, S3e, S3h |
+| W17 the fold matches `:TapestryNode` only | S5a, S5b |
+| W18 the fold's `ORDER BY` removed; W18b, reversed | S3h |
+| W19 Pass 2's `ORDER BY` removed | S1e |
+| W20 the tab's read ordered `uuid DESC` | S4a |
+
+**Not re-run live yet.** The new `ORDER BY` lines in the fold, Pass 2 and the tab use Cypher forms that already run on real Neo4j (review round 2, "The `ORDER BY` lines"). The live checks to repeat, when a scratch stack is free or at the first install on staging after merge:
+- L1;
+- the page path;
+- Pass 2's line `40 enriched, 0 skipped, 0 errors`.

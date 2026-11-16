@@ -1,4 +1,4 @@
-# On a stack seeded to staging's shape, a second firmware install changed nostr relay's schema and moved two supersets, for a reason not yet known
+# On a stack seeded to staging's shape, a second firmware install left nostr relay's schema and two supersets different from story 8's baseline, for a reason not yet known
 
 **Id:** 2026-11-16-seeded-second-install-differs
 **Type:** bug
@@ -6,11 +6,11 @@
 **Status:** OPEN
 **Done:** —
 
-**What was seen.** Story 8 seeded a scratch stack to staging's shape with `test/helpers/seedStagingShape.js`: 3.85 million nodes. Its second firmware install (2026-11-15) left a graph that differed from the first install's in two ways. Neither has a known cause:
-- **The TA's own nostr relay schema**, `39999:<TA>:nostr-relay-schema`, came out with a different json tag. Pass 2 didn't fail for nostr relay there, and no firmware enumeration targets it. An install writes a schema's json tag in two places: Pass 1, whose create-concept lays down the starter, and the schema save, from Pass 2 and apply-enumerations.
-- **`tagging-with-specific-tag-superset` and `tapestry-superset` moved** between the HAS_ELEMENT targets of `set-superset` and `superset-superset`.
+**What was seen.** Story 8 seeded a scratch stack to staging's shape with `test/helpers/seedStagingShape.js`: 3.85 million nodes. After its second firmware install (2026-11-15), story 8 compared that graph with its baseline. The baseline came from another, fresh stack, after one install and a rebuild (story 8's test plan, Amendment 1). The seeded stack's graph differed from it in two ways that story 8 couldn't explain. No snapshot of the seeded stack's own first install was taken, so that this stack's first install left it otherwise is an inference:
+- **The TA's own nostr relay schema**, `39999:<TA>:nostr-relay-schema`, had a json tag that differed from the baseline's. Pass 2 didn't fail for nostr relay there, and no firmware enumeration targets it. An install writes a schema's json tag in two places: Pass 1, whose create-concept lays down the starter, and the schema save, from Pass 2 and apply-enumerations.
+- **`tagging-with-specific-tag-superset` and `tapestry-superset` sat under the other superset.** Each was a HAS_ELEMENT target of `set-superset` where the baseline had it under `superset-superset`, or the other way round.
 
-The other differences that install showed were the five tag concepts' failed saves, row `2026-11-15-save-schema-finds-header-by-name`, which story 10 fixed.
+The other differences from the baseline were the five tag concepts' failed saves, row `2026-11-15-save-schema-finds-header-by-name`, which story 10 fixed.
 
 **Where it wasn't seen.** On fresh scratch stacks, neither has appeared:
 - with the code before story 10, in story 8's review (`engineering-team/reviews/graph-operations-foundation/8-pass-3-finishes-in-minutes.md:117`);

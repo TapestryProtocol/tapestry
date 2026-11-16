@@ -21,6 +21,6 @@
 
 **Fix shape.** Rebuild after 3b–3d, not before them: move 3a after them, or rebuild again at the end of Pass 3. Story 8 made a rebuild take seconds, so either is cheap. Check that a rebuild right after an install then changes nothing.
 
-**Not this row.** On its seeded stack, story 8 also saw nostr relay's schema change and `tagging-with-specific-tag-superset` and `tapestry-superset` move between the elements of `set-superset` and `superset-superset`. Neither appears on a fresh stack, before story 10's fix or after it. Those two are row `2026-11-16-seeded-second-install-differs`.
+**Not this row.** On its seeded stack, after a second install, story 8 also found two things differing from its baseline: nostr relay's schema, and where `tagging-with-specific-tag-superset` and `tapestry-superset` sat among the elements of `set-superset` and `superset-superset`. Neither appears on a fresh stack, before story 10's fix or after it. Those two are row `2026-11-16-seeded-second-install-differs`.
 
 **Pointer:** `engineering-team/stories/graph-operations-foundation/10-schema-save-finds-the-right-header.test-plan.md` (Verification, after the fix); `src/firmware/install.js:1198–1259`.

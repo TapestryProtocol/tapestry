@@ -100,6 +100,7 @@ One more was settled at the Test Design gate, 2026-11-15:
 - **The concept page reads its header's tapestryKey** in its header query (`ConceptDetail.jsx`), and the Schema tab sends it with both saves. The client sends no key when it has none or is given the `{}` placeholder, so the save falls back to the name.
 - **The routes that make the instance's own concepts on first use still save by name.** Each has just made the concept with the Tapestry Assistant's key, so the name rule finds it.
 - **A header with more than one schema node** has its first by address saved, a fixed choice. Today's code took whichever the database gave first. After the review (its non-blocking finding 5), the fold, Pass 2's lookup and the Schema tab's read order a header's schema nodes the same way. So such a header is saved, reconciled, logged and shown on the same schema node.
+- **The fold's ordering also reaches the standalone `POST /api/normalize/reconcile-primary-property`,** which is out of scope. Given only a name, its lookup now takes the same-named header whose schema node sorts first by address. Before, it took whichever the database gave first. The choice is deterministic now, and no worse (review round 2, non-blocking finding 12). That route still finds its concept by name; giving it the save's rule is the follow-up the Out of scope section names.
 
 ## Linked artifacts
 
