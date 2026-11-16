@@ -358,6 +358,15 @@ ADR 0028's Amendment 3 refines the reading of a set that Context 3 adopts, and p
 
 **What stays as it is.** The walk from a concept doesn't change: card sets have no class-thread links, so no walk reaches one. Concept headers are read as before.
 
+## Amendment 3 (2026-11-16, at Review) — what review round 1 settled
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/11-list-elements.md`) found these, and round 2's commits make them so:
+1. **A key of `'{}'` is no key.** L3 and L4 leave out `e.tapestryKey = '{}'` wherever they leave out a null key. `'{}'` is the placeholder the codebase reads as no key (ADR graph-operations-foundation/0003). So such a node is neither listed nor counted, as Decision 2 already says of a node with no key, and no cursor can hold it.
+2. **Both instance keys are read as events carry them.** `ownKeys` trims, lowercases and checks the assistant's key as well as the owner's. A key that isn't 64 hex characters is left out.
+3. **The shared cursor refusal names no read's own inputs.** It says a cursor works only with the inputs that made it.
+4. **Decision 2, step 3, as built.** Its last sentence, "Both checks run before the graph is read", holds for everyone's point of view only. For the owner's, `resolvePov` reads the scores (C2) as it resolves, before the cursor is decoded. A cursor that doesn't parse then costs one small read before its 400.
+5. **Consequences, debt 1.** The cutoff's two homes are recorded by `engineering-team/stories/_intake.md`, 2026-06-06, item 2. That item notes a live `graperank.conf` of 0.01, so the verified counts and the API's lists may already disagree. The ledger row `2026-11-16-verified-cutoff-two-homes` is closed as its duplicate.
+
 ## Out of scope
 
 - Everything the story leaves out: implicit members, other points of view, more about each element, naming by name or slug, an order the owner chooses, counts without a list, visitors' reads, today's subgraph route, and `graph history`.

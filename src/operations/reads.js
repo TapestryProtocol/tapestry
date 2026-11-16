@@ -60,7 +60,7 @@ function encodeCursor(read, scope, position) {
 
 /** The position a cursor holds, or the refusal invalid-cursor when it isn't one `read` gave for this `scope`. */
 function decodeCursor(read, scope, cursor, isPosition) {
-  const bad = () => refusal(INVALID_CURSOR.code, `That cursor is not one ${read} gave for this list. A cursor works only with the inputs that made it (the same concept or set, the same direct and the same point of view). Leave it out to start from the first page, or pass the cursor the last page answered.`, { input: 'cursor' });
+  const bad = () => refusal(INVALID_CURSOR.code, `That cursor is not one ${read} gave for this list. A cursor works only with the inputs that made it, so pass it with the same ones. Leave it out to start from the first page, or pass the cursor the last page answered.`, { input: 'cursor' });
   let parsed;
   try { parsed = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8')); } catch { throw bad(); }
   if (!Array.isArray(parsed) || parsed.length !== 3 || parsed[0] !== read || parsed[1] !== scope) throw bad();
@@ -108,18 +108,22 @@ function cutoff() {
   return cutoffRead;
 }
 
-/** The owner's hex pubkey, lowercased as events carry it, or null when the instance has none configured. */
-function ownerKey() {
-  const { getOwnerPubkey } = require('../utils/config');
-  const k = getOwnerPubkey();
+/** A pubkey as events carry it: trimmed, lowercase, 64 hex characters; null for anything else. */
+function hexKey(k) {
   const lower = typeof k === 'string' ? k.trim().toLowerCase() : '';
   return HEX64.test(lower) ? lower : null;
 }
 
-/** The instance's own pubkeys: its assistant's and its owner's. */
+/** The owner's hex pubkey, or null when the instance has none configured. */
+function ownerKey() {
+  const { getOwnerPubkey } = require('../utils/config');
+  return hexKey(getOwnerPubkey());
+}
+
+/** The instance's own pubkeys: its assistant's and its owner's, each as events carry it (a key that isn't one is left out). */
 function ownKeys() {
   const { getOwnerAssistantPubkey } = require('../utils/assistantKeys');
-  return [...new Set([getOwnerAssistantPubkey(), ownerKey()].filter((k) => typeof k === 'string' && k.length > 0))];
+  return [...new Set([hexKey(getOwnerAssistantPubkey()), ownerKey()].filter((k) => k !== null))];
 }
 
 /**

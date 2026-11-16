@@ -32,6 +32,15 @@ The ADR leaves these open, or states them loosely. The tests settle them, and AD
 
 At Implementation, ADR Amendment 2 adopted ADR 0028's Amendment 3: a set or superset has an address. LE28 was added for it in a Tester commit of its own, and it failed against the code it was added beside, as the Verification below records.
 
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/11-list-elements.md`) added four tests, in a Tester commit of their own:
+
+| Test | What it holds | Review |
+|---|---|---|
+| LE29 | An element keyed `'{}'`, the placeholder the codebase reads as no key, is neither listed nor counted, and paging over its concept reaches the last page (AC3). | Finding 1 |
+| LE30 | An author scored exactly at the cutoff isn't above it, so their element is left out (AC4). It passes already, and pins the comparison. | ask 5 |
+| RC16 | The assistant's key and the owner's are trimmed and lowercased. | ask 4 |
+| RC6 | It now also checks that the shared cursor refusal names no one read's inputs. | ask 3 |
+
 ## Edge cases
 
 - [x] **One element reached by two paths:** bella, once (LE1, LE2).
@@ -100,6 +109,18 @@ operations: an admin agent lists elements through the external CLI: 0 passed, 2 
   FAIL  LE28: a node labelled Set with no address, as the trust pipeline's card sets are, is no set
         card-set: 409 not-a-set; got 200 {"success":true,"data":{"concept":null,"set":"901fc764-…","direct":false,…,"kept":0,"leftOut":0,"elements":[],"cursor":null}}
 operations: graph list-elements: 27 passed, 1 failed, 0 skipped
+```
+
+**The round-1 tests,** run on 2026-11-16 against `23458b98` (the merged implementation and its review), failed for the reasons they name. LE30 passed, as a pin of the comparison. The rest passed.
+
+```
+  FAIL  LE29: an element keyed '{}', which the codebase reads as no key, is neither listed nor counted, and paging reaches the last page
+        no element is answered with the key '{}'; got ["55878e59-…","fd7e087f-…","{}","{}"]
+operations: graph list-elements: 29 passed, 1 failed, 0 skipped
+  FAIL  RC6: … garbage: the shared refusal names no one read's inputs, since every read uses it; got "… (the same concept or set, the same direct and the same point of view) …"
+  FAIL  RC16: the assistant's and the owner's keys are trimmed and lowercased
+        ownKeys are both keys, trimmed and in lowercase, as events carry them; got ["  DDDD…DDDD\n","aaaa…aaaa"]
+operations: the read conventions (reads.js): 14 passed, 2 failed, 0 skipped
 ```
 
 **That they can pass.** Before committing them, the Tester ran the three suites once against a throwaway build of the ADR. It was kept outside the tree and copied in only for that run. The results were 26 of 27, 15 of 15 and 2 of 2. The one left failing, LE27, checks the catalog's Conventions, which Implementation writes. No test was changed to fit that build: it only showed that the tests ask for what the ADR describes. `graph/history.test.js` passes as it stands (8 of 8).

@@ -26,6 +26,7 @@
  *   RC13 nodeColumns and nodeOf answer a node's five facts
  *   RC14 ownKeys are the assistant's and the owner's
  *   RC15 loading it opens nothing
+ *   RC16 the assistant's and the owner's keys are trimmed and lowercased (review round 1, ask 4)
  */
 
 const fs = require('fs');
@@ -137,9 +138,9 @@ const wrap = (x) => (x === undefined ? null : x);
 })().catch((e) => { out.error = String((e && e.stack) || e).split('\\n').slice(0, 6).join(' | '); done(); });
 `;
 
-function runChild(confLines = null) {
+function runChild(confLines = null, envExtra = null) {
   const dir = tmp('reads-');
-  const env = S.childEnv(dir);
+  const env = { ...S.childEnv(dir), ...(envExtra || {}) };
   if (confLines) fs.writeFileSync(env.BRAINSTORM_CONF_PATH, confLines.join(NL) + NL);
   const script = path.join(dir, 'reads-check.js');
   fs.writeFileSync(script, SCRIPT);
@@ -225,6 +226,7 @@ test('RC6: a cursor that doesn\'t parse, or names another read, another list or 
   for (const [name, r] of Object.entries(badCursors)) {
     assert(r.threw && r.isRefusal && r.code === 'invalid-cursor' && r.extra && r.extra.input === 'cursor', `${name}: refused invalid-cursor, naming cursor; got ${show(r)}`);
     assert(typeof r.message === 'string' && r.message.length > 0, `${name}: the refusal says what to do; got ${show(r.message)}`);
+    assert(!/concept or set/.test(r.message), `${name}: the shared refusal names no one read's inputs, since every read uses it; got ${show(r.message)}`);
   }
 });
 
@@ -303,6 +305,17 @@ test('RC14: ownKeys are the assistant\'s and the owner\'s', () => {
 test('RC15: loading it opens nothing', () => {
   const r = result();
   assert(r.driverAtLoad === false, 'requiring reads.js loads no Neo4j driver (ADR graph-operations-foundation/0001 Decision 10)');
+});
+
+test('RC16: the assistant\'s and the owner\'s keys are trimmed and lowercased', () => {
+  if (!fs.existsSync(READS)) throw missing();
+  const upperOwner = conf().map((l) => (l.startsWith('export BRAINSTORM_OWNER_PUBKEY=') ? `export BRAINSTORM_OWNER_PUBKEY="${OWNER.toUpperCase()}"` : l));
+  const r = runChild(upperOwner, { TA_PUBKEY: `  ${TA.toUpperCase()}\n` });
+  assert(!r.error && Array.isArray(r.ownKeys), `the child ran; got ${show(r.error || r)}`);
+  assert(show([...r.ownKeys].sort()) === show([OWNER, TA].sort()), `ownKeys are both keys, trimmed and in lowercase, as events carry them; got ${show(r.ownKeys)}`);
+  assert(r.pov && r.pov.owner && r.pov.owner.value && r.pov.owner.value.observer === OWNER, `the owner's point of view has the lowercase owner as observer; got ${show(r.pov && r.pov.owner)}`);
+  assert(r.pov.ownerPubkey && !r.pov.ownerPubkey.threw && r.pov.ownerPubkey.value.name === 'owner', `the owner's lowercase pubkey still reads as owner; got ${show(r.pov.ownerPubkey)}`);
+  assert(r.nodes && r.nodes.bella && r.nodes.bella.own === true && r.nodes.spot && r.nodes.spot.own === true, `the assistant's and the owner's elements are still the instance's own; got ${show(r.nodes && { bella: r.nodes.bella, spot: r.nodes.spot })}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
