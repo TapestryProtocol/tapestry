@@ -1,7 +1,7 @@
 # Test Plan: Story 16 — `graph create-concept` and `update-concept`
 
 **Story:** `engineering-team/stories/graph-operations-first-slice/16-create-concept-and-update-concept.md`
-**ADR:** `engineering-team/decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md` (with Amendment 1, at Test Design)
+**ADR:** `engineering-team/decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md` (with Amendment 1, at Test Design; Amendment 2, at Implementation; and Amendments 3 to 5, at review rounds 1 to 3)
 **Date:** 2026-11-15
 
 Every suite is stack-free. It runs the real catalog in a child process (`test/helpers/operationsHarness.js`), over the fake graph (`test/helpers/graphFake.js`), with every service endpoint dead, and with the harness's spy on everything that signs or reads a key. The stack-free suites can't reach five things: Neo4j's own locking, the concept-graph routes, a firmware reinstall, a restore, and the relay. The live check covers those on a scratch stack (below).
@@ -173,3 +173,10 @@ On the code at `8c6234a5` (round 3's PASS), with dead endpoints: concept names 3
 - **Refused there, and passed by them:** the keycap, the tag-sequence flag, the Mongolian selector, the ideographic selector, and the ya-phala.
 - **Refused there already:** the joiner at the start and the selector after a Cyrillic letter. They pin parts of the rule that, changed, failed no test (R3-5).
 - **The reasons:** neither the text-direction reason nor the control character's names its character there.
+
+### The touched suites (review round 3's fixes, and staging merged in, 2026-11-15)
+
+With every endpoint dead:
+- **On `c2dcf3dc`,** before the merge, this story's suites gave create-concept 23, update-concept 11 and concept names 4, none failing.
+- **On the merge `68784154`,** staging at `490edbda` with A10.28's #77 and A10.11's #76: `test/operations.test.js` 500 passed, 0 failed. `test/pass-3-finishes-in-minutes.test.js` 8 passed and 8 live checks skipped, and the route-surface suites were unchanged. Review round 4 got the same on Node 24 and Node 22.
+- **The merge of `ab888938`** (#78, the rulebook's Status and Source) touched no code or test. Its gate is recorded in the next commit's message.

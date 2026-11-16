@@ -154,4 +154,4 @@ This ran on a throwaway instance from `scripts/scratch-stack.sh`, booted from im
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md](../../decisions/graph-operations-first-slice/0016-create-concept-and-update-concept.md)
 - Test plan: [16-create-concept-and-update-concept.test-plan.md](16-create-concept-and-update-concept.test-plan.md)
-- Review: [engineering-team/reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md](../../reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md) (rounds 1–2, 2026-11-15)
+- Review: [engineering-team/reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md](../../reviews/graph-operations-first-slice/16-create-concept-and-update-concept.md) (rounds 1–4, 2026-11-15)
