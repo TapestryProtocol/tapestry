@@ -238,3 +238,66 @@ The asks are all text:
 The code, the tests and the ADR conformance hold, and the full gate is green. The story stays `Approved` this round.
 
 **CHANGES_REQUESTED**
+
+---
+
+## Round 2 (2026-11-16, on `f929861d`)
+
+**Diff:** `git diff 7e732506..f929861d`, all on PR #92:
+- `e576a982` (`adr:`), the ADR's item 7 restored, with a note;
+- `bf9b1ab1` (`test:`), the test plan's count;
+- `922a548a` and `f929861d` (`impl:`), the record, the catalog and the declaration's description.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] **The full gate: still queued when this round was written.** PR #92's CI check `stack-free` on `f929861d` (run 43891584502) hadn't started at 15:02 UTC.
+  - **Round 1's run** passed on `78b34637`.
+  - **Round 2 changes one string of code,** the declaration's description. The 31 suites that load the declaration pass with it here, RV21 rendering it into /docs.
+  - **This verdict stands on that run passing.** If it fails, the PR's check shows it, and the story goes back to `Approved`.
+- [x] **Run by the Reviewer** on `f929861d`, one at a time, with every endpoint dead. All 31 stack-free suites under `test/operations/` pass:
+
+  | Suite | Result |
+  |---|---|
+  | resolve | 22 / 22 |
+  | `resolve.js` | 11 / 11 |
+  | the agent suite | 2 / 2 |
+  | the fake | 22 / 22 |
+  | concept names | 5 / 5 |
+  | create-concept | 23 / 23 |
+  | update-concept | 11 / 11 |
+
+- [x] **harness-lint:** clean.
+- [ ] **Not re-checked live.** No scratch stack was booted for this round. The fix changes records, docs and one description string; RV21 renders that string into /docs.
+
+### Each ask, checked from the tree
+
+Every ask was checked from commands and the raw output, not from memory, including the wording round 1 suggested:
+
+| Round 1 | The fix | How it was checked |
+|---|---|---|
+| Blocking 1 | The Evidence gains a paragraph on the three failed scripted checks (story :131–137), and AC6's sign-in is rewritten (:181–188) | **The counts:** 54 and 52 from `live-check-1.json`, 10 and 9 from `live-check-2.json`, and each FAIL's detail.<br>**The peer's score when the kind-30000 check ran:** `live-check.js`, where `setInfluence(0.01)` is at :147, before the check at :169.<br>**The CLI's path:** `clients/cli/src/main.js:122–124` and `operations.js:32`, `:41`.<br>**The call by hand:** the session's tool output. |
+| Blocking 2 | AC2 names the one candidate whose author and `own` were read, live cat (:155) | `live-check-2.js:64` is the only check that reads `own`. No result file or tool output shows the kind-30000 candidate's author. |
+| Blocking 3 | Item 7 is restored, with a dated note after it, in `adr:` commit `e576a982` | `git diff 171a093f f929861d` on the ADR shows only the note's added line. |
+| 4 | The test plan says eight headers (`:67`); Deviations gains a line (story :215); the catalog's sentence (`:13`) and §1's row (`:56`) are corrected | `test/helpers/resolveGraph.js` makes eight `header(` calls, and `fish` has no slug. "without regard to case or extra white space" is gone from both the catalog and the declaration. |
+
+**Found while checking, and fixed before this verdict.** `922a548a`'s new text claimed two things the raw output doesn't show:
+- **That the first pass's kind-30000 check answered `kept 0` and `leftOut 1`.** It recorded only an empty list; those numbers are the second pass's.
+- **That the admin's call by hand answered `live dog`'s candidates.** Its output was cut off before them; it showed a successful answer for `live dog`.
+
+`f929861d` narrows both, and cites `operations.js:41`, where the CLI throws its message.
+
+**Beyond the asks.** The declaration's description, which /docs shows (`src/operations/catalog/graph/resolve.js:28`), held the same sentence as the catalog and is corrected the same way. RV21 and RV22 pass with it.
+
+**Scope.** Round 2 changed five files, all of them for the asks above and the records they name.
+
+### Findings
+
+**Blocking:** none.
+
+**Non-blocking:** none new. Round 1's findings 5–12 stand as records, with their ledger rows.
+
+### Verdict
+
+Every ask landed and was checked from the tree, and all 31 suites pass on `f929861d`. The full gate passed on round 1's code, and its run on round 2's was queued at writing (Quality gates). The story is `Done` in this commit.
+
+**PASS**

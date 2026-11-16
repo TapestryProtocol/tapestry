@@ -1,6 +1,6 @@
 # Story 9: `graph resolve` — turn a name, slug or nostr address into tapestryKeys
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.9 — https://loom.brainstorm.world/t/A10.9
