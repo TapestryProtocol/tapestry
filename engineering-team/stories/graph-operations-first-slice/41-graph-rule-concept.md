@@ -1,0 +1,108 @@
+# Story 41: The graph rules as a concept on every instance, made from the rulebook
+
+**Status:** Approved
+**Created:** 2026-11-15
+**Type:** Feature
+**Loom:** A10.41 — https://loom.brainstorm.world/t/A10.41
+
+## Background
+
+The owner wants one place to read the concept graph's rules, inside a Tapestry instance (Loom P-155: "I would like to have one place where all of the Rules are stored. Where should that be and in what format? Where else and how else but as a concept inside a Tapestry instance! One candidate instance would be david.tapestry.ninja.").
+
+ADR graph-rules/0001 (Loom A7.6) settled what that concept holds and where its words come from:
+
+- **A graph rule** is one sentence that a graph or an event meets or breaks: a program can check it and answer pass or fail. It either refuses a write or only reports (Decision 1).
+- **Each rule's wording is written once, in the rulebook,** `docs/GRAPH_RULES.md`. Anything else that shows the rules, the graph rule concept included, "is made from the rulebook, never kept by hand" (Decision 5).
+- **Each entry has a status and a source** (Decision 6): proposed, enforced or retired, and the TIP or ADR that brought it in.
+- **The concept's name is "graph rule"** (Decision 10), narrower than the general `rule` concept one author keeps on avi.tapestry.ninja.
+
+Loom's done-when for A10.41: "firmware installs the concept on a fresh instance with one item for each rule in the rulebook, made from the rulebook and the rules' code rather than by hand."
+
+What the story starts from:
+
+- **The rulebook has six entries,** all enforced and all about the graph. None is about events yet. Each entry gives what the rule says, its kind, whether it refuses or reports, its check, its repair, what enforces it, its status and its source. Two say more: entry 2 lists the relationship types it reserves, and entry 3 gives its naming convention.
+- **Five of the six have code,** one file each under `src/operations/rules/`. Each file declares the rule's name, a one-line summary, whether it refuses, and its refusals, each with a code, a status and when it happens. The rulebook's entries list the same refusal codes. Entry 1, "Every node has a unique tapestryKey", is enforced by the database and by every path that makes a node. It has no rule file, so it has no name.
+- **Firmware installs each element of a concept from a file of its own** (BIBLE §7). Today those files are written by hand. The relationship type concept's 14 elements are the precedent, and rule 2, `relationship-type-allowed`, reads what it allows from them. Firmware signs each concept and element as the instance's assistant and keeps them in the instance's own relay.
+- **A reinstall doesn't change an element that is already there.** It rebuilds each firmware concept's header from its definition (OPEN.md row 8), but its element step skips an element whose name the concept already has: create-element refuses it as "already exists". So a changed element file never reaches an instance that installed the earlier one.
+- **No instance has the concept yet.** None of the local instance's 46 concepts is for rules. Nor is any of david.tapestry.ninja's 51, read on 2026-11-15 by the session that drafted A10.41.
+- **The rules operations will read it.** Once A10.31 is built, `rules list-rules` answers from these items, and `rules check` names the item each violation breaks (catalog §4).
+
+The story sits in this epic as story 41, numbered by its Loom task like the rest of block A10. Unlike the epic's other stories, it adds no graph operation. It gives the rules operations (A10.31) the items they will read.
+
+## User-facing description
+
+As the owner of an instance, or anyone who reads its concept graph, I want to read the graph's rules in the graph itself, one item per rule, so that I can see what the graph holds itself to without opening the code.
+
+As a teammate who writes or changes a rule, I want the graph's items to follow the rulebook and the rule's code, with no second copy to keep, so that the graph never says something the rulebook doesn't.
+
+As an agent, I want to find each rule by its name, so that once `rules check` lands, a violation can name the rule it breaks.
+
+## Acceptance criteria
+
+- [ ] **AC1 — The concept is installed.** Given a fresh instance, when firmware is installed, then the graph holds the graph rule concept, `39998:<TA>:graph-rule`, named "graph rule" (plural "graph rules"), with its eight core nodes like every firmware concept. Its description says what a graph rule is, in ADR graph-rules/0001's words. The fresh-instance check runs on a scratch stack, never on a shared or private instance.
+- [ ] **AC2 — One item for each entry in the rulebook.** On the same instance, the concept has exactly one element for each entry in the rulebook, and no others: six today, entry 1 included. Each validates against the concept's JSON Schema, and each is found by its rule's name, such as `relationship-type-allowed`.
+- [ ] **AC3 — What an item says.** Each item holds its entry's fields as the rulebook writes them, each as a field of its own:
+  - its name;
+  - what it says;
+  - whether it is about the graph or about events;
+  - whether it refuses a write or only reports;
+  - its check, its repair, and what enforces it;
+  - its status and its source;
+  - anything else its entry says, such as entry 2's reserved types.
+
+  An item whose rule has code also holds what the code declares: its summary, whether it refuses, and each refusal's code, status and when. Entry 1's item, with no code behind it, holds the rulebook's fields only.
+- [ ] **AC4 — Made, not kept.** When an entry's wording or a rule's code changes, the item says the new thing after firmware is installed again. Nobody writes an item, or any copy of one, by hand. The rulebook and the code can't drift apart unseen: a test fails, naming the rule, when:
+  - a rule file has no entry in the rulebook;
+  - an entry names a rule file that isn't there;
+  - an entry and its code disagree on whether the rule refuses a write, or on its refusal codes and their statuses.
+- [ ] **AC5 — A reinstall brings an instance in line, and leaves the rest alone.** Given an instance whose firmware was installed from an older rulebook, when firmware is installed again, then its items match the rulebook as it now is. A new entry gains an item, and a changed entry's item changes. Every item keeps its address, so whatever points to it still does. Nothing outside the concept changes because of it (BIBLE §30), and every other firmware concept comes out of the install as it does today.
+- [ ] **AC6 — It reads like any concept.** `GET /api/concept-graph/summaries` lists the concept with its six elements, `graph list-elements` (A10.11) pages through them, and the concept's page in the UI lists them. The rulebook says that its entries are installed as this concept, and BIBLE §7 lists it among firmware's concepts.
+
+## Concepts touched
+
+The handles use this instance's assistant pubkey (`GET /api/assistant/pubkey`). It differs on every instance, so it is never written into code.
+
+- `39998:<TA>:graph-rule` — graph rule (new): the concept this story adds, and its items.
+- `39998:<TA>:relationship-type` — relationship type (read, unchanged): the precedent for a firmware concept whose elements a rule reads.
+- `39998:<TA>:concept-header` — concept header (read): the new header becomes one of its elements, as every firmware concept's does.
+- This changes firmware's concept definitions, so firmware must be reinstalled (AGENTS.md §6).
+
+## Out of scope
+
+- **`rules list-rules` and `rules check`** reading the items (A10.31).
+- **Links from a rule to the TIP that brought it in, or to the glossary words it uses.** Each needs its relationship type declared first, since rule 2 refuses undeclared types. Neither the TIP concept nor a glossary entry concept exists yet (Loom P-49, and the glossary proposal).
+- **New rules.** BIBLE §10's eleven rules and design §7's draft core rules enter the rulebook one at a time, each in its own change, as ADR graph-rules/0001 says.
+- **A rule file for entry 1,** which would let `rules check` run it. Its entry gets a name here (open question 1), not code.
+- **Editing a rule in the graph.** Rules are changed in the rulebook. An item someone edits in the graph is put back by the next reinstall (AC5).
+- **Which items count when other authors publish graph rule items of their own.** Publishing stays open to anyone (principle 2). Which items a point of view reads is for A10.31, at read time.
+- **Moving the rulebook under `protocols/`**, or into the TIPs.
+- **Getting the concept onto david.tapestry.ninja.** It arrives when that instance runs a release with this change and its firmware is reinstalled (deploy/RUNBOOK.md). Merging to staging and shipping to production wait for the owner's OK (the book's frame).
+
+## Open questions
+
+Resolved at this gate, as proposed (the owner's approval, 2026-11-15):
+
+1. **What is entry 1 called?** Every item needs a name to be found by (AC2), and TIPs cite rules by name (ADR graph-rules/0001, Decision 5), but entry 1, the unique tapestryKey, had none. *Resolved:* `tapestry-key-unique`, alongside `concept-slug-unique`, written into the rulebook's entry 1.
+2. **Which book?** The first slice's frame covers the operations Avi's brain rebuild needs, and it doesn't name the graph rules. *Resolved:* the story stays in this epic and its open book, since it feeds the catalog's `rules list-rules` (A10.31).
+3. **Existing instances (AC5).** The done-when names only a fresh instance. *Resolved:* a reinstall also brings an existing instance's items in line. Otherwise david.tapestry.ninja would keep its rules as they stood at its first install, since a reinstall skips elements that are already there.
+
+For Architecture, not this gate:
+
+- **How the items are made** from the rulebook and the code: at install time, or as files firmware reads that a check keeps in line. Also how the rulebook's Markdown becomes fields.
+- **The concept's schema:** field names, whether text is Markdown or plain, and room for what an entry says beyond the usual fields. One word needs settling. The rulebook's "Kind" calls a rule about the graph "a graph rule" and a rule about events "a letter rule", yet the concept as a whole is named "graph rule". An item's kind field needs another word, such as Loom's "about the graph or about events".
+- **Each item's address,** so it stays put across reinstalls and A10.31 can name it.
+- **What a reinstall does with an item whose entry has left the rulebook.** The ADR retires a rule rather than removing its entry, so this should be rare.
+- **Whether firmware's usual signed path suits these items,** and which category and sets, if any, the concept gets.
+
+## Linked artifacts
+
+- Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
+- Epic: [engineering-team/epics/graph-operations-first-slice.md](../../epics/graph-operations-first-slice.md)
+- The decision behind it: [ADR graph-rules/0001](../../decisions/graph-rules/0001-graph-rules-tips-and-glossary-entries.md) (Loom A7.6, from P-154)
+- The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md)
+- The operations that will read it: catalog §4 in [docs/GRAPH_OPERATIONS_CATALOG.md](../../../docs/GRAPH_OPERATIONS_CATALOG.md) (A10.31)
+- ADR: (filled in after Architecture phase)
+- Test plan: (filled in after Test Design phase)
+- Review: (filled in after Review phase)
+
+Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
