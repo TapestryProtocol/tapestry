@@ -264,3 +264,63 @@ Round 1's two blocking items are fixed. So are the three optional ones that were
 
 - No story to mark Done, and no book to check (0-intake `:39`).
 - Commit: left to the session that launched this round, which asked for the file to stay uncommitted. A suggested message: `review: main-guard-actions-policy — round 2, changes requested (harness-self-improvement, doc lane)`.
+
+## Round 3
+
+**Date:** 2026-11-16 (UTC; the round ran from about 21:46Z, just after the fix commit, to about 21:51Z)
+**Diff:** `git diff 1a5fb525..cc80f971` on `docs/main-guard-actions-policy`: one commit, `cc80f971`, over `1a5fb525`, the round-2 review's commit. Four files, 4 insertions and 3 deletions:
+- `ledger/2026-11-16-epicless-doc-lane-review-folder.md` (`:9`)
+- `ledger/2026-11-16-main-guard-blocked-by-github-policy.md` (`:29`)
+- `ledger/2026-10-28-repo-move-follow-ups.md` (`:56`, new)
+- `OPEN.md` (row 28, `:61`)
+
+`1a5fb525` adds exactly round 2's 82 lines, and the fix commit leaves this file as round 2 wrote it. The branch still has no upstream and no PR.
+**Asked:** re-review the fixes for R2-B1, R2-N1, R2-N2 and R2-F1.
+**Method:** as in round 2. Each changed statement is checked as a fresh claim. That includes the R2-B1 sentence, which takes up this review's suggested wording (`roles/reviewer.md`, rule 10).
+
+### Quality gates (round 3, run by reviewer)
+
+- [x] `bash scripts/harness-lint.sh` at `cc80f971`: `harness-lint: clean (0 violations)`, exit 0. L15 accepts the three ledger files' names and header fields, and OPEN.md's table. Run again with this section in place: still clean, exit 0.
+- [x] `git diff --check 1a5fb525..cc80f971`: no output, exit 0.
+- [x] **OPEN.md, read directly.** It has one freeze marker (`highest-number=343`), and 343 is the table's highest id, which is what `test/ledger-row-ids.test.js`'s real-table test asks. That suite wasn't run: it spawns `scripts/session-start.sh`, whose curl probes `localhost` (`:46–47`). Row 28 has seven cells before and after the edit.
+- [x] **The two file-reading suites: not re-run.** Nothing they read changed after `7cb12f82`: `git diff --name-only 7cb12f82..cc80f971 -- OPERATIONS.md .github .claude test` prints nothing. So round 2's 27 of 27 and 14 of 14 stand.
+- [x] **The verdict parse (OPEN.md row 28).** `awk -f scripts/lib/review-verdict.awk` on this file's committed versions prints `PASS` at `587425f9`, and `CR` at `1a5fb525` and `cc80f971`. With this section in place it prints `PASS`, this round's verdict (checked after writing, and no heading or bold line after the verdict carries the other token).
+- [x] GitHub API: no calls this round.
+- [ ] `npm test`: not run, for round 1's reason. `npm run gate:status` still finds no records.
+- [ ] Independent checker: not applied, because this session can't start one.
+- [x] Nothing else written to the repo. This file is the only change in the worktree.
+
+### Round-2 items
+
+| Item | The fix | Checked against | Holds? |
+|---|---|---|---|
+| R2-B1 | The meta row, `:9`: the change behind the row's review "touched the guard's workflow, `.github/rulesets/`, OPERATIONS.md §4 and `/cycle-prod`, and no active epic owns any of them. The guard's last change before it (`cb6c8b82`) and the rulesets' commit (`c8b24d87`) had no epic, and `workflow-hardening`, which last changed six of the eight workflows, is retired under `reviews/done/`." | <br>• `git show --stat 3c874499`: it touched those four, plus the CHANGELOG and the ledger row. <br>• Neither `cb6c8b82`'s message nor `c8b24d87`'s names an epic, story or book. `cb6c8b82` cites only PRs and issues (#446, #515, #516, #488, #510), and no story, epic or audit cites either commit. <br>• Before `3c874499`, §4's only changes are `6c5fd738` and `c8b24d87` (`git log -L` over the section). Neither has an epic. <br>• `/cycle-prod`'s one epic commit is `ffcf0f8a`, `deploy-safety-gate` #2, and that epic is Done. The later ones name PRs and rows, not epics. <br>• `e596b6de` (`workflow-hardening` #1) is the last commit on six of the eight workflows. The other two are the guard (`cb6c8b82`, then `3c874499`) and `live-link-checks.yml` (`honest-test-gate` #2) | Yes |
+| R2-N1 | The guard row, `:29`: "Until 2026-12-02, apart from scheduled brownouts like the one above, GitHub only reports what its default policy would block" | The brownout is in the row's own "What was seen" (`:14`), and the second bullet (`:31`) already counts a run during one | Yes |
+| R2-N2 | The repo-move row, `:56`: a dated sub-item under item 1 | <br>• The two ruleset ids and their rule types match round 1's call 2 exactly: 27080672 has `pull_request` and `required_status_checks`, and 27080689 has `deletion` and `non_fast_forward`. The coordinator reports the same from a fresh read. <br>• "Item 1's owner action looks done" is hedged. "Whoever closes it re-checks OPEN.md row 14, as item 1 asks" matches item 1's owner action (`:20`). <br>• It nests under item 1 (four spaces, under a two-space item) and leaves `:55` as history. The row stays OPEN for its other items | Yes |
+| R2-F1 | OPEN.md row 28, `:61`: a "5th occurrence" note in its Pointer cell | <br>• The parser scans only lines that start with `#` or contain bold markers (`review-verdict.awk:15`). At `587425f9` it prints `PASS` on this file. <br>• The 4th occurrence's fix worked because its line happened to hold bold text. `reviews/done/list-headers-disposition/5-disposition-on-me-rows.md:191` reads "Not applicable: the verdict is CHANGES_REQUESTED, and the story stays Approved", with "Approved" in bold. So "works only when that line is bold" holds. <br>• "No tool read the wrong verdict" holds. Lint's review check skips a non-numbered review after its INFO line (`harness-lint.sh:110–112`), and `harness-stats.sh` reads only `[0-9]*-*.md` (`:67`). <br>• The note adds no `\|`, and the row keeps its seven cells | Yes. One phrase is tied to the moment: R3-N1 |
+
+### Findings (round 3)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R3-N1. OPEN.md row 28 (`:61`): "and the file now parses `CR`" is true only until this round lands.** With round 3 in place, this file parses as its last round's verdict. The note is dated, so a reader can place it. **Optional:** "and after round 2 the file parsed `CR`".
+
+#### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+None new. Round 2's R2-F1 is now on OPEN.md row 28.
+
+### Verdict (round 3)
+
+**PASS**
+
+The R2-B1 sentence now says only true things: what the change touched, that no active epic owns any of it, and the commits that show it. The other three round-2 items are in and hold. Every blocking item from rounds 1 and 2 is closed, so the change can merge as it stands: three commits, `3c874499`, `7cb12f82` and `cc80f971`. The ledger row `2026-11-16-main-guard-blocked-by-github-policy` stays open by design until its close condition is met.
+
+### On PASS (same commit)
+
+- [x] No story to mark Done: the doc lane has none (0-intake step 3).
+- [x] Completion detection: done. A doc-lane change opens no book (0-intake `:39`), and the result goes in the chat, not in this file.
+- [ ] Commit: left to the session that launched this round, which asked for the file to stay uncommitted. A suggested message: `review: main-guard-actions-policy round 3 — PASS (harness-self-improvement, doc lane)`.
