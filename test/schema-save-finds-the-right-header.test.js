@@ -13,6 +13,7 @@
  *   S1a Pass 2 saves the six shared-name firmware concepts' schemas on the instance's own headers (theirs have none)  [AC1]
  *   S1b the same when the other authors' headers have schemas; those are left as they were                       [AC1]
  *   S1c a second header of the instance's own with the same name doesn't take the firmware address's place        [AC1]
+ *   S1e a firmware header with two schema nodes: the first by address is saved, and Pass 2's log names it          [AC1]
  *   S2a apply-enumerations saves on the schema it enumerated (another author's same-named header has no schema)   [AC2]
  *   S2b the same when that header has a schema of its own; it is left as it was                                  [AC2]
  *   S2c a second header of the instance's own with the same name doesn't take the enumerated schema's place       [AC2]
@@ -23,7 +24,8 @@
  *   S3e several share the name, two are the instance's own: nothing changes; the error names them                 [AC3]
  *   S3f the primary-property record brought up to date in the same call is the saved concept's                   [AC3]
  *   S3g sentinel: no header has the name — today's answer                                                          [AC3]
- *   S3h a header with two schema nodes has the first by address saved, in either storage order                   [AC3]
+ *   S3h a header with two schema nodes has the first by address saved, and the fold reconciles against it         [AC3]
+ *   (S1b, S3f, S5a and S5b include an author whose addresses sort before the TA's: EARLY < TA < OTHER.)
  *   S4a the Schema tab's two saves send the tapestryKey of the header the page shows                               [AC4]
  *   S4b the client sends the tapestryKey it is given, and without one sends today's body                           [AC4]
  *   S4c a save that names its header by tapestryKey lands on that header's schema                                 [AC4]
@@ -32,7 +34,7 @@
  *   S4f sentinel: a concept with no event (graph create-concept's) is refused, by key or by name; nothing signed  [AC4]
  *   S4g a tapestryKey two concept headers hold, or a "{}" placeholder: nothing changes                             [AC4]
  *   S4h a value that isn't a tapestryKey answers 400 and changes nothing                                           [AC4]
- *   S4i a header from an event whose schema node came from none is refused, by key or by name                    [AC4]
+ *   S4i a concept whose header or schema node, but not both, came from no event is refused, by key or by name     [AC4]
  *   S5a before tapestry-keys (no TapestryNode label): a save by key lands on its header; the fold reconciles it   [AC4]
  *   S5b before tapestry-keys, no keys at all: a save by name lands on the instance's own header                  [AC3]
  *
@@ -84,6 +86,11 @@ const nt = require(path.join(ROOT, 'node_modules/nostr-tools'));
 const TA = nt.getPublicKey(Uint8Array.from(Buffer.from(TA_PRIVKEY, 'hex')));
 // Another author, with no part in the firmware.
 const OTHER = 'ab'.repeat(32);
+// An author whose addresses sort before the TA's. On an instance the TA's pubkey is random, so "the first by address"
+// and "the instance's own" needn't agree; every other author here sorts after the TA, so without this one a lookup by
+// name that orders by address would land on the instance's own by luck (review round 2, Blocking 1).
+const EARLY = '00'.repeat(32);
+if (!(EARLY < TA && TA < OTHER)) throw new Error(`the fixtures need EARLY < TA < OTHER; the TA is ${TA}`);
 
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(FIRMWARE, 'manifest.json'), 'utf8'));
 /** The firmware concepts whose name a community header shares, as the manifest names them (story 10, Background). */
@@ -263,18 +270,39 @@ t('S1a (AC1): Pass 2 saves the six shared-name concepts\' schemas on the instanc
 });
 
 t('S1b (AC1): the same when the other authors\' same-named headers have schemas of their own, which are left as they were', () => {
-  for (const order of ['theirs first', 'own first']) {
-    const own = (g) => Object.fromEntries(SHARED.map((c) => [c.slug, g.concept({ author: TA, dTag: c.slug, name: c.name, schema: STARTER })]));
-    const theirs = (g) => Object.fromEntries(SHARED.map((c) => [c.slug, g.concept({ author: c.community.author, dTag: c.community.dTag, name: c.name, list: true, schema: { type: 'object', properties: { theirs: { type: 'string' } } } })]));
-    const { graph, made } = build(order === 'theirs first' ? [['theirs', theirs], ['own', own]] : [['own', own], ['theirs', theirs]]);
+  // The community's headers sort after the TA's; EARLY's sort before it, as another author's may on any instance.
+  const theirSchema = { type: 'object', properties: { theirs: { type: 'string' } } };
+  const parts = [
+    ['own', (g) => Object.fromEntries(SHARED.map((c) => [c.slug, g.concept({ author: TA, dTag: c.slug, name: c.name, schema: STARTER })]))],
+    ['theirs', (g) => Object.fromEntries(SHARED.map((c) => [c.slug, g.concept({ author: c.community.author, dTag: c.community.dTag, name: c.name, list: true, schema: theirSchema })]))],
+    ['early', (g) => Object.fromEntries(SHARED.map((c) => [c.slug, g.concept({ author: EARLY, dTag: c.slug, name: c.name, list: true, schema: theirSchema })]))],
+  ];
+  for (const order of permutations(parts)) {
+    const { graph, made } = build(order);
+    const label = `order ${order.map(([n]) => n).join(', ')}`;
     const out = child({ kind: 'pass2', graph });
     const pass2 = out.results[0];
-    assert(pass2.errors.length === 0, `[${order}] Pass 2 must log no errors; it logged ${pass2.errors.length}: ${why(out, pass2.errors)}`);
+    assert(pass2.errors.length === 0, `[${label}] Pass 2 must log no errors; it logged ${pass2.errors.length}: ${why(out, pass2.errors)}`);
     for (const c of SHARED) {
       const saved = savedJson(out, made.own[c.slug].schema);
-      assert(saved && same(saved.jsonSchema, stored(c.firmwareSchema)), `[${order}] ${c.slug}'s schema on ${made.own[c.slug].header} must be the firmware's; ${saved ? `it is ${short(saved.jsonSchema)}` : 'nothing was saved there'}`);
+      assert(saved && same(saved.jsonSchema, stored(c.firmwareSchema)), `[${label}] ${c.slug}'s schema on ${made.own[c.slug].header} must be the firmware's; ${saved ? `it is ${short(saved.jsonSchema)}` : 'nothing was saved there'}`);
     }
-    untouched(out, Object.values(made.theirs).flatMap((x) => x.all), `[${order}] the other authors' headers and their schemas`);
+    untouched(out, [...Object.values(made.theirs), ...Object.values(made.early)].flatMap((x) => x.all), `[${label}] the other authors' headers and their schemas`);
+  }
+});
+
+t('S1e (AC1): a firmware header with two schema nodes has the first by address saved, and Pass 2\'s log names that one', () => {
+  for (const order of ['in order', 'reversed']) {
+    const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: TAG.name, schema: STARTER, twoSchemas: order })]]);
+    const out = child({ kind: 'pass2', graph });
+    const pass2 = out.results[0];
+    assert(pass2.errors.length === 0 && pass2.updated.includes('tag'), `[${order}] Pass 2 must enrich tag with no errors; it answered ${why(out, pass2)}`);
+    const saved = savedJson(out, made.own.schema);
+    assert(saved && same(saved.jsonSchema, stored(TAG.firmwareSchema)), `[${order}] the firmware's tag schema must be saved on the first schema node by address, ${made.own.schema}`);
+    untouched(out, [made.own.secondSchema], `[${order}] the header's second schema node`);
+    const logged = out.log.filter((l) => /Schema enriched/.test(l));
+    assert(logged.some((l) => l.includes(`(${made.own.schema})`)) && !logged.some((l) => l.includes(`(${made.own.secondSchema})`)),
+      `[${order}] Pass 2's log must name the schema node the save wrote, ${made.own.schema}; it logged ${short(logged)}`);
   }
 });
 
@@ -421,9 +449,12 @@ t('S3e (AC3): when several headers share the name and two are the instance\'s ow
 
 t('S3f (AC3): the primary-property record the save brings up to date in the same call is the saved concept\'s own', () => {
   // Both primary properties lag the new schema (they lack `color`), so the fold reconciles whichever concept it reads.
+  // OTHER's addresses sort after the TA's and EARLY's before them, so neither storage order nor address order can
+  // stand in for "the concept the save found".
   const lagging = { key: 'tag', title: 'tag', type: 'object', required: [], properties: { name: { type: 'string' } } };
   const parts = [
     ['other', (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER, pp: lagging })],
+    ['early', (g) => g.concept({ author: EARLY, dTag: 'tag', name: 'tag', schema: STARTER, pp: lagging })],
     ['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: lagging })],
   ];
   for (const order of permutations(parts)) {
@@ -435,7 +466,7 @@ t('S3f (AC3): the primary-property record the save brings up to date in the same
     assert(fold && fold.result === 'reconciled', `${label}: the fold must reconcile the instance's own primary property; it reported ${short(fold)}`);
     const pp = savedJson(out, made.own.pp);
     assert(pp && pp.property && pp.property.properties && pp.property.properties.color, `${label}: ${made.own.pp} must be brought up to date with the saved schema; ${pp ? `it holds ${short(pp.property)}` : 'nothing was written there'}`);
-    untouched(out, made.other.all, `${label}: the other author's concept, its schema and its primary property`);
+    untouched(out, [...made.other.all, ...made.early.all], `${label}: the other authors' concepts, their schemas and their primary properties`);
   }
 });
 
@@ -447,12 +478,18 @@ t('S3g (AC3, sentinel): with no header of that name, a save by name does what it
   assert(out.writes.length === 0, `nothing may be written; ${out.writes.length} write(s)`);
 });
 
-t('S3h (AC3): a header with two schema nodes has the first by address saved, in either storage order', () => {
+t('S3h (AC3): a header with two schema nodes has the first by address saved, and the fold reconciles against that one, in either storage order', () => {
+  const lagging = { key: 'tag', title: 'tag', type: 'object', required: [], properties: { name: { type: 'string' } } };
   for (const order of ['in order', 'reversed']) {
-    const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, twoSchemas: order })]]);
+    const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: lagging, twoSchemas: order })]]);
     const out = byName(graph);
     assertSavedOn(out, made.own.schema, `[${order}]`);
     untouched(out, [made.own.secondSchema], `[${order}] the header's second schema node, ${made.own.secondSchema}`);
+    // The second schema node still holds the starter, with no properties; only the saved one gives the fold `color`.
+    const fold = out.results[0].body.primaryProperty;
+    assert(fold && fold.result === 'reconciled', `[${order}] the fold must reconcile against the schema node the save wrote; it reported ${short(fold)}`);
+    const pp = savedJson(out, made.own.pp);
+    assert(pp && pp.property && pp.property.properties && pp.property.properties.color, `[${order}] ${made.own.pp} must follow the saved schema node; ${pp ? `it holds ${short(pp.property)}` : 'nothing was written there'}`);
   }
 });
 
@@ -469,7 +506,7 @@ t('S4a (AC4): both of the Schema tab\'s saves, visual and raw, send the tapestry
   }
   // The tab shows the schema the save writes: of a header's schema nodes, the first by address.
   const read = tab.slice(tab.indexOf('MATCH (js:JSONSchema)'), tab.indexOf('LIMIT 1', tab.indexOf('MATCH (js:JSONSchema)')));
-  assert(/ORDER BY\s+(js\.)?uuid\b/.test(read), `the tab's schema read must order by address, as the save chooses, before its LIMIT 1; it reads: ${short(read.replace(/\s+/g, ' '), 300)}`);
+  assert(/ORDER BY\s+(js\.)?uuid\b(?!\s+DESC)/i.test(read), `the tab's schema read must order by address, ascending, as the save chooses, before its LIMIT 1; it reads: ${short(read.replace(/\s+/g, ' '), 300)}`);
 });
 
 t('S4b (AC4): the client sends the tapestryKey it is given with the concept and the schema, and without one sends today\'s body', async () => {
@@ -574,40 +611,48 @@ t('S4h (AC4): a value that isn\'t a tapestryKey answers 400 and changes nothing,
   }
 });
 
-t('S4i (AC4): a concept whose header came from an event but whose schema node didn\'t is refused, by key or by name', () => {
-  const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, eventlessSchema: true })]]);
-  assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: made.own.key, schema: NEW_SCHEMA } }), 'by its tapestryKey');
-  assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', schema: NEW_SCHEMA } }), 'by its name');
+t('S4i (AC4): a concept whose header or schema node, but not both, came from no event is refused, by key or by name', () => {
+  // Each half of the check on its own: the header from an event and the schema node from none, and the other way round.
+  for (const [label, shape] of [['the schema node came from no event', { eventlessSchema: true }], ['the header came from no event', { eventless: true, eventlessSchema: false }]]) {
+    const { graph, made } = build([['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, ...shape })]]);
+    assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: made.own.key, schema: NEW_SCHEMA } }), `${label}, by its tapestryKey`);
+    assertNothingChanged(child({ kind: 'saveSchema', graph, body: { concept: 'tag', schema: NEW_SCHEMA } }), `${label}, by its name`);
+  }
 });
 
 // Before tapestry-keys: production's state until the migration runs there (story 3). No node has the shared label.
 const LAGGING_PP = { key: 'tag', title: 'tag', type: 'object', required: [], properties: { name: { type: 'string' } } };
 
+// Three concepts named "tag", whose addresses sort EARLY < TA < OTHER, each with a primary property behind the new schema.
+const SHARED_TAG_PARTS = [
+  ['other', (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP })],
+  ['early', (g) => g.concept({ author: EARLY, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP })],
+  ['own', (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP })],
+];
+
 t('S5a (AC4, before tapestry-keys): a save by tapestryKey still lands on its header, and the fold reconciles that header', () => {
-  for (const order of ['other first', 'own first']) {
-    const other = (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
-    const own = (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
-    const { graph, made } = build(order === 'other first' ? [['other', other], ['own', own]] : [['own', own], ['other', other]], { migrated: false });
+  for (const order of permutations(SHARED_TAG_PARTS)) {
+    const { graph, made } = build(order, { migrated: false });
+    const label = `order ${order.map(([n]) => n).join(', ')}`;
     assert(graph.nodes.every((n) => !n.labels.includes('TapestryNode')), 'the fixture must have no TapestryNode label anywhere');
     const out = child({ kind: 'saveSchema', graph, body: { concept: 'tag', tapestryKey: made.own.key, schema: NEW_SCHEMA } });
-    assertSavedOn(out, made.own.schema, `[${order}]`);
+    assertSavedOn(out, made.own.schema, `[${label}]`);
     const fold = out.results[0].body.primaryProperty;
-    assert(fold && fold.result === 'reconciled', `[${order}] the fold must reconcile the header the save found; it reported ${short(fold)}`);
-    untouched(out, made.other.all, `[${order}] the other author's concept`);
+    assert(fold && fold.result === 'reconciled', `[${label}] the fold must reconcile the header the save found; it reported ${short(fold)}`);
+    untouched(out, [...made.other.all, ...made.early.all], `[${label}] the other authors' concepts`);
   }
 });
 
 t('S5b (AC3, before tapestry-keys, no keys at all): a save by name still lands on the instance\'s own header, and the fold reconciles it', () => {
-  for (const order of ['other first', 'own first']) {
-    const other = (g) => g.concept({ author: OTHER, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
-    const own = (g) => g.concept({ author: TA, dTag: 'tag', name: 'tag', schema: STARTER, pp: LAGGING_PP });
-    const { graph, made } = build(order === 'other first' ? [['other', other], ['own', own]] : [['own', own], ['other', other]], { migrated: false, keyed: false });
+  for (const order of permutations(SHARED_TAG_PARTS)) {
+    const { graph, made } = build(order, { migrated: false, keyed: false });
+    const label = `order ${order.map(([n]) => n).join(', ')}`;
     assert(graph.nodes.every((n) => n.props.tapestryKey === undefined), 'the fixture must have no tapestryKey anywhere');
     const out = byName(graph);
-    assertSavedOn(out, made.own.schema, `[${order}]`);
+    assertSavedOn(out, made.own.schema, `[${label}]`);
     const fold = out.results[0].body.primaryProperty;
-    assert(fold && fold.result === 'reconciled', `[${order}] the fold must reconcile the instance's own primary property; it reported ${short(fold)}`);
-    untouched(out, made.other.all, `[${order}] the other author's concept`);
+    assert(fold && fold.result === 'reconciled', `[${label}] the fold must reconcile the instance's own primary property; it reported ${short(fold)}`);
+    untouched(out, [...made.other.all, ...made.early.all], `[${label}] the other authors' concepts`);
   }
 });
 
