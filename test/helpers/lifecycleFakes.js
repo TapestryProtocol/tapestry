@@ -39,7 +39,8 @@
  *   ADR 0009's shared-keys reads (story graph-operations-foundation #9). A key in scope is any key but null and '{}',
  *   numbers included, as Neo4j's `IS NOT NULL AND <> '{}'` reads them, so rows carry each key with its own type:
  *     tapestryKey <> '{}' and elementId(        the holders: { k, id } for every node whose key is in scope (an
- *                                            `IN $<param>` narrows it to those keys). Logged 'shared-holders'.
+ *                                            `IN $<param>` narrows it to those keys, and a label test, NOT <v>:TapestryNode
+ *                                            or a positive one, to those nodes). Logged 'shared-holders'.
  *     NOT <v>:TapestryNode, tapestryKey <> '{}' and EXISTS {   the first read with the rule in place: { k, held } for
  *                                            each unlabelled node whose key is in scope, held when a labelled node has
  *                                            the same key (and type). Logged 'shared-keys-unlabelled'.
@@ -471,7 +472,11 @@ function fakeSystem(stateFile) {
           const idCol = asName(/elementId\s*\([^)]*\)\s+AS\s+([A-Za-z_]\w*)/i, 'id');
           const inParam = asName(/tapestryKey\s+IN\s+\$([A-Za-z_]\w*)/i, null);
           const only = inParam ? [].concat(params[inParam] || []) : null;
-          const rows = g.nodes.filter((n) => inScope(n.key) && (!only || only.includes(n.key))).map((n) => ({ [keyCol]: n.key, [idCol]: n.eid }));
+          // The query's own label test, as Neo4j would apply it (review round 1, Non-blocking 2): NOT <v>:TapestryNode
+          // keeps the unlabelled nodes, (<v>:TapestryNode) or WHERE/AND <v>:TapestryNode the labelled ones.
+          const labelledQuery = /\(\s*[A-Za-z_]\w*\s*:\s*TapestryNode\b|\b(?:WHERE|AND)\s+[A-Za-z_]\w*\s*:\s*TapestryNode\b/i.test(q);
+          const byLabel = unlabelledQuery ? (n) => !n.labels.includes('TapestryNode') : labelledQuery ? (n) => n.labels.includes('TapestryNode') : () => true;
+          const rows = g.nodes.filter((n) => inScope(n.key) && byLabel(n) && (!only || only.includes(n.key))).map((n) => ({ [keyCol]: n.key, [idCol]: n.eid }));
           note('shared-holders', { rows: rows.length });
           return rows;
         }

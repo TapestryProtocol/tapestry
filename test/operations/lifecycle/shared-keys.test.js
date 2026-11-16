@@ -17,6 +17,8 @@
  *   SK6  two different keys with the same keyHash: confirmed by the second read, and neither is named [ADR D3, D5]
  *   SK7  the number 1 and the string '1' are two keys, not one                                              [ADR D5]
  *   SK8  status on a migrated graph: applied, its check one streamed read of unlabelled keys, nothing more    [AC5]
+ *   SK9  keys outnumbering what the counts said (made meanwhile): the hash array grows, and a shared key past
+ *        its first 1,024 rows is still found                                                               [ADR D1]
  *
  * Live: only with TAPESTRY_CONTAINER naming a scratch container (tapestry-scratch…) and TAPESTRY_KEYS_LIVE=1, on
  * staging's shape. Never the shared stack: every check drops the rule, and LK2 and LK4 rewrite keys and labels.
@@ -26,7 +28,8 @@
  *        node without the label holding a labelled node's key: named, left alone                                [AC3]
  *   LK3  status on the migrated graph answers in under 5 s (today's code: 3.2–3.4 s), applied                    [AC5]
  *   LK4  production's shape (every second user, every card set and card unkeyed): backup, every node keyed and
- *        labelled, rule and index online; transactions < 64 MB                                          [AC2, AC4]
+ *        labelled, rule and index online; transactions < 64 MB; after its backup, the job's process grows by
+ *        no more than 8 bytes a key plus 64 MB (AC4 as restated at review round 1)                    [AC2, AC4]
  *
  *   node test/operations/lifecycle/shared-keys.test.js                                       # stack-free only
  *   TAPESTRY_CONTAINER=$(SCRATCH_IMAGE=agent-memory-tapestry:latest bash scripts/scratch-stack.sh up)
@@ -269,13 +272,42 @@ test('SK8: on a migrated graph, status reads tapestry-keys as applied; its check
   assert(reads(inst, 'shared-holders').length === 0, 'with nothing to confirm, nothing more is read');
 });
 
+test('SK9: when the keys the check reads outnumber what the counts said, as keys made while it reads do, its array of hashes grows and still finds shared keys past its first 1,024 rows (ADR 0009 Decision 1; review round 1, Non-blocking 3)', async () => {
+  const keys = require(MIGRATIONS).byName('tapestry-keys');
+  // 3,000 keys where the counts say there are none, so the array starts at its smallest (1,024) and must grow twice.
+  const rows = Array.from({ length: 3000 }, (_, i) => ({ k: uuid(100000 + i), id: `4:stub:${i}` }));
+  rows[1500].k = 'k-mid'; rows[1600].k = 'k-mid';
+  rows[2500].k = 'k-late'; rows[2999].k = 'k-late';
+  const reads = [];
+  const stub = {
+    async cypher(q) {
+      if (/^\s*SHOW\s/i.test(q)) return [];
+      if (/count\s*\(/i.test(q)) return [{ nodes: 0, withLabel: 0, withoutKey: 0, placeholders: 0 }];
+      throw new Error(`the stub doesn't know this read: ${q}`);
+    },
+    async cypherEach(q, params, onRow) {
+      const withIds = /elementId\s*\(/i.test(q);
+      reads.push(withIds ? 'holders' : 'keys');
+      for (const r of rows) onRow(withIds ? { k: r.k, id: r.id } : { k: r.k });
+    },
+  };
+  const plan = await keys.plan(stub, { full: true });
+  const shared = plan.details.sharedKeys;
+  assert(reads.join() === 'keys,holders', `the check streamed the keys, then the candidates' holders; got ${show(reads)}`);
+  assert(Array.isArray(shared) && shared.length === 2 && shared[0].key === 'k-late' && shared[1].key === 'k-mid',
+    `both shared keys are found, in key order, though they come after row 1,024: k-late (rows 2,500 and 2,999) and k-mid (1,500 and 1,600); got ${show(shared)}`);
+  assert(shared[0].count === 2 && show(shared[0].nodes) === show(['4:stub:2500', '4:stub:2999']) && shared[1].count === 2 && show(shared[1].nodes) === show(['4:stub:1500', '4:stub:1600']),
+    `each with its count and its nodes; got ${show(shared)}`);
+});
+
 // ── Live, on a scratch stack in staging's shape ──────────────────────────────────────────────────────────────────
 
 const LIVE_FLAG = 'TAPESTRY_KEYS_LIVE';
 const STAGING_SHAPE = { all: 3500000, cardSets: 370000 };
 const TX_BOUND_MB = 64;       // AC4: an eighth of the scratch stack's 512 MB
 const STATUS_SECONDS = 5;     // AC5: today's code took 3.17–3.38 s on the migrated staging shape (2026-11-16, docker exec and the CLI's start included)
-const LK4_WORKER_SLACK = 1.25; // LK4's job takes its own backup, whose count of the keys is the yardstick
+const HASH_BYTES = 8;          // AC4 on AC2's graph (restated at review round 1): the check's 8 bytes a key …
+const CHECK_MARGIN_MB = 64;    // … plus this, over the peak the job's own backup leaves
 let liveWhy = null;
 
 function liveSkip() {
@@ -359,7 +391,8 @@ function stopProbes(tag) {
   const tx = JSON.parse(live.sh(`cat /tmp/tx-${tag}.out`).trim().split('\n').pop());
   const w = live.sh(`for i in $(seq 1 40); do [ -s /tmp/worker-${tag}.out ] && break; sleep 0.5; done; cat /tmp/worker-${tag}.out; true`, 60).trim();
   const m = w.match(/peakKB=(\d+)/);
-  return { txPeakMB: tx.peakAllMB, txSamples: tx.samples, txTop: tx.queries.slice(0, 3), workerKB: m ? Number(m[1]) : null };
+  const b = w.match(/afterBackupKB=(\d+)/);
+  return { txPeakMB: tx.peakAllMB, txSamples: tx.samples, txTop: tx.queries.slice(0, 3), workerKB: m ? Number(m[1]) : null, afterBackupKB: b ? Number(b[1]) : null };
 }
 
 test('LK1: [live, staging\'s shape] with the rule dropped, tapestry-keys answers done with no backup and adds the rule and the index, both online; Neo4j\'s transactions together stay under 64 MB, and the job\'s process peaks no higher than a backup\'s count of the same keys (AC1, AC4)', () => {
@@ -437,7 +470,7 @@ test('LK3: [live] on the migrated graph, lifecycle status reads tapestry-keys as
   assert(s.seconds < STATUS_SECONDS, `status answers in under ${STATUS_SECONDS} s on 3.85 million nodes; it took ${s.seconds} s`);
 });
 
-test('LK4: [live, production\'s shape] with every second user and every card set and card unkeyed and unlabelled, and no rule, tapestry-keys takes its backup, keys and labels every node, and adds the rule and the index, both online; Neo4j\'s transactions together stay under 64 MB (AC2, AC4)', () => {
+test('LK4: [live, production\'s shape] with every second user and every card set and card unkeyed and unlabelled, and no rule, tapestry-keys takes its backup, keys and labels every node, and adds the rule and the index, both online; Neo4j\'s transactions together stay under 64 MB, and after its backup the job\'s process grows by no more than 8 bytes a key plus 64 MB (AC2, AC4)', () => {
   const why = liveSkip();
   if (why) return skipLive(why);
   cs('DROP CONSTRAINT tapestry_key IF EXISTS');
@@ -460,8 +493,11 @@ test('LK4: [live, production\'s shape] with every second user and every card set
   assert(liveStatus().entry.applied === true, 'status reads tapestry-keys as applied');
   assert(probes.txSamples > 0 && probes.txPeakMB < TX_BOUND_MB,
     `Neo4j's transactions together stay under ${TX_BOUND_MB} MB through the run (AC4); the peak was ${probes.txPeakMB} MB: ${short(probes.txTop)}`);
-  assert(probes.workerKB !== null && probes.workerKB <= yardstick.peakKB * LK4_WORKER_SLACK,
-    `the job's process, whose own backup counts the keys first, peaks within ${LK4_WORKER_SLACK}× of a backup's count of them (AC4): ${probes.workerKB} kB against ${yardstick.peakKB} kB`);
+  assert(probes.workerKB !== null && probes.afterBackupKB !== null,
+    `the probe read the job's peak at the end and when the job moved on to planning after its backup; got ${short(probes)}`);
+  const budgetKB = Math.ceil((HASH_BYTES * yardstick.keys) / 1024) + CHECK_MARGIN_MB * 1024;
+  assert(probes.workerKB <= probes.afterBackupKB + budgetKB,
+    `after its backup, the job's process grows by no more than ${HASH_BYTES} bytes a key plus ${CHECK_MARGIN_MB} MB (AC4, restated at review round 1): it peaked at ${probes.workerKB} kB, against ${probes.afterBackupKB} kB when the backup was done and a budget of ${budgetKB} kB for ${yardstick.keys} keys`);
 });
 
 module.exports = { run: () => S.run() };

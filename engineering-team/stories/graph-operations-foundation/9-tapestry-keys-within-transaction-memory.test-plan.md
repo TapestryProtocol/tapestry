@@ -21,12 +21,13 @@ All of it is in one suite, `test/operations/lifecycle/shared-keys.test.js`. `tes
 | | SK5: with the rule in place, two unlabelled nodes sharing a key no labelled node holds are named, and both are left unlabelled | stack-free |
 | | LK2: keys planted on 2 and on 12 nodes are named and left unchanged, and the rule is left out. Then, with the rule in place, a node without the label holding a labelled node's key is named and left unlabelled, the rule stays, and status reads not applied until the probe is gone | live |
 | AC4 — it doesn't depend on the limit | SK1, SK2, SK4, SK5, SK7, SK8: no grouping query is ever sent (`shared-keys-grouped` never logged), and every read the check makes goes through `cypherEach` | stack-free |
-| | LK1 and LK4: `SHOW TRANSACTIONS`, summed and sampled every 200 ms, stays under 64 MB through the run. LK1: the job's process peaks (`VmHWM`) no higher than a backup's count of the same keys, measured in a process of its own just before. LK4: within 1.25× of it, since that job's own backup is the same count | live |
+| | LK1 and LK4: `SHOW TRANSACTIONS`, summed and sampled every 200 ms, stays under 64 MB through the run. LK1: the job's process peaks (`VmHWM`) no higher than a backup's count of the same keys, measured in a process of its own just before. LK4 *(amended at Review round 1; see Amendment 1)*: after the job's own backup, its process grows by no more than 8 bytes a key plus 64 MB, measured from its `VmHWM` when the job moves on to `planning` after the backup | live |
 | AC5 — nothing else changes | SK8: on a migrated graph, status reads applied, with one streamed read of the unlabelled keys (none) and nothing more | stack-free |
 | | LK3: status on the migrated graph answers in under 5 s, applied. On the same scratch stack today's code took 3.17–3.38 s, counting `docker exec` and the command's start; story 3's 1.2–1.4 s was on another machine state | live |
 | | Every lifecycle suite that exists today, unchanged, must still pass: `migrate.test.js` M1–M27 (M7 and M27 cover the shared-key report and its words), `migrate-job.test.js` K1–K6, `status.test.js`, `backup`, `backup-job`, `restore`, `download-backup`, `list-backups`, `upload-backup`, `cache-counts` and `tapestry-key-paths`. They pass on today's code with this plan's fake: 152 tests | stack-free |
 | ADR 0009, Decisions 3 and 5 | SK6: two different keys with the same `keyHash` are confirmed by the second read, and neither is named; the rule is added. Also: `keyHash` is exported, and is Decision 5's cyrb53 | stack-free |
 | | SK7: the number `1` and the string `'1'` are two keys, as Neo4j compares them. Neither is named, the rule is added, and `keyHash(1) !== keyHash('1')` | stack-free |
+| ADR 0009, Decision 1 | SK9 *(Amendment 1)*: `plan` through a stub whose counts say nothing is there, with 3,000 keys. The hash array starts at 1,024 and must grow twice, and the shared keys past row 1,024 are still found, with their counts and nodes | stack-free |
 
 ## Edge cases
 
@@ -63,6 +64,22 @@ All of it is in one suite, `test/operations/lifecycle/shared-keys.test.js`. `tes
 - **Story 8's seeder** (`test/helpers/seedStagingShape.js`) keeps adding the rule itself. It seeds staging's state, as it was, independently of the code under test, and the live checks run the migration themselves (story, Out of scope: the test plan's call).
 - **Concept Graph API and firmware:** not used. No concept is touched. The scratch stack installs firmware when it boots, and no reinstall is needed.
 - **The collision search,** run once to find the SK6 pair: hash `collide-<i in base 36>` for i < 240,000,000 into a `Float64Array` with ADR 0009 Decision 5's `keyHash`, sort a copy numerically, and take equal neighbours. Then rescan for the indices that give each value.
+
+### Amendment 1 (Review round 1, 2026-11-16)
+
+The review's Blocking 1 and its Non-blocking 2 and 3, with the owner's ruling on AC4.
+
+- **LK4's check of the job's process, restated** (story AC4, its second bullet restated at the owner's ruling).
+  - **Why.** On production's shape, the job's own backup counts the keys first and sets the job's peak. Before the fix that peak was already 1.20× of the yardstick, a backup's count run alone, so the 1.25× bound measured the backup. Two runs of the same fixed code gave 1.24× and 1.33×.
+  - **How.** `workerPeak.sh` now also prints `afterBackupKB`: the worker's peak at the first sample where the run's file shows a stage past `backup`. That is the `planning` the job writes again just before the check (`_jobs.js` `runMigrateJob`).
+  - **What LK4 asserts.** It asserts that the probe saw both values. Then it asserts the final peak ≤ `afterBackupKB` + 8 bytes × the keys counted before the run + 64 MB (`HASH_BYTES`, `CHECK_MARGIN_MB`). LK1, whose job takes no backup, keeps its bound: lower than a backup's count of the same keys.
+- **The fake's holders read applies the query's label tests.** `NOT <v>:TapestryNode` keeps the unlabelled nodes, and a positive test keeps the labelled ones (Non-blocking 2).
+  - Before, a holders read narrowed to unlabelled nodes with the rule in place passed every stack-free case. On Neo4j it drops a held key's labelled holder.
+  - Now SK4 fails on it. Checked by applying that narrowing to the code: SK4 failed, 8 passed and 1 failed. The code was then restored.
+- **SK9, the growth path** (Non-blocking 3). It is a direct test of `plan` through a stub, with no harness.
+  - Checked by deleting the growth block: SK9 failed, 8 passed and 1 failed. The code was then restored.
+  - All 9 stack-free cases pass on the implementation at `ae288385`.
+- **The live checks run twice** on a fresh scratch stack, and both runs are recorded under Verification (Blocking 1).
 
 ## How to run
 
