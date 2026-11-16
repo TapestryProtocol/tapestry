@@ -221,3 +221,150 @@ Everything else holds:
 
 - As this session was instructed, this review is written but not committed, and the story's Status stays Approved. Both are for the launching session.
 - After the fix, the re-review should check BIBLE's and the changelog's new wording against `element-sync.js` and `install.js` as fresh claims.
+
+---
+
+## Round 2
+
+**Date:** 2026-11-16
+**Diff:** `git diff 8ae0a022..HEAD`, HEAD `f6394513`. It holds two commits and 13 files, +372 −20:
+- `5994f9c5` (tests): ADR 0041 Amendment 2, GP12–GP15, and IS4–IS9 with their child process, `test/helpers/pass1bChild.js`, plus the test plan's update;
+- `f6394513` (fixes).
+
+`8ae0a022` is round 1's report. The owner chose to fix the blocking finding and non-blocking 1–5, 7 and 8, and to leave 6 (the UI page) for staging.
+
+### Quality gates, round 2
+
+Round 1's rules applied: no full gate, and nothing touched the `tapestry` container. Every run had `TAPESTRY_CONTAINER` unset, plus a dead conf through `BRAINSTORM_CONF_PATH`.
+- [ ] **`npm test`** was not run, as in round 1. The full gate is the pull request's CI.
+- [x] **The story's suites:**
+  - `graph-rules-builder: 26 passed, 0 failed, 0 skipped`;
+  - `graph-rule-firmware: 13 passed, 0 failed, 4 skipped`;
+  - `firmware-element-sync: 20 passed, 0 failed, 0 skipped`.
+- [x] **`node test/operations.test.js`:** `operations: 509 passed, 0 failed, 4 skipped`. This includes the five rules suites, which read the rulebook.
+- [x] **`node src/firmware/graph-rules.js --check`:** exit 0, all six items current.
+- [x] **`bash scripts/harness-lint.sh`:** `harness-lint: clean (0 violations)` before this section was added (see the close-out for after).
+- [x] **What carries over from round 1:**
+  - In `src/`, only `src/firmware/graph-rules.js` changed. install.js and element-sync.js are round 1's, so round 1's neighbouring runs and live check still apply.
+  - No element file changed, so what an install puts in the graph is round 1's. For the same reason I booted no scratch instance this round.
+  - GF13 is the only suite that pins BIBLE §7's text.
+
+### Round 1's findings, as handled
+
+| Round 1 | Now | How I checked |
+|---|---|---|
+| Blocking 1, BIBLE §7 | Fixed: BIBLE, the changelog, and the ADR's Option A and Consequences, corrected in place and recorded in Amendment 2.1 | Each new sentence re-derived from the code (next table) |
+| 1, the parser's silent slips | Fixed (Amendment 2.2) | Probes below: each of round 1's slips is now a problem |
+| 2, "e.g." ends a description | Fixed (Amendment 2.3) | GP15; probes below |
+| 3, the labels weren't named | Fixed: the preamble lists all eight | Against `graph-rules.js:27–36`. The new list has wording slips (non-blocking 3 below) |
+| 4, no test runs the branch | Fixed: IS4–IS9 | Mutation runs below; one gap (non-blocking 1 below) |
+| 5, the LMDB entry | Recorded in the story's Known limits and OPEN.md row 137, with the pointer for A10.31 | Read |
+| 6, the UI page | Left for staging by the owner, and recorded in Known limits | — |
+| 7, BIBLE's category lines | Fixed | Each line checked against the manifest by script: every count and member matches, including the 11 concepts with no category |
+| 8, the ledger pointer | Fixed: in the story and in the ledger row | Read. The row's grep still finds `src/api/normalize/index.js:1790` |
+
+### The new wording, checked as fresh claims
+
+| Where | Claim | Holds? |
+|---|---|---|
+| `BIBLE.md:408` | Each element the assistant signed is re-signed in place, at the same address, whenever its JSON in the graph differs from its file, and left alone while they match | Yes. `planElement` compares the stored JSON with the file's as values (`element-sync.js:56`). An update calls `regenerateJson(plan.uuid, data)` (`install.js:289`), which keeps the d tag. An unchanged element signs nothing (IS5). If two of the assistant's elements share a name, only the first by address is compared (Amendment 1.2); that's too rare to need saying in BIBLE. |
+| same paragraph | They differ when the file has changed, and also when someone has edited the element in the graph: the install puts that edit back | Yes: round 1's live check, install 2, `set-has-a-parent` |
+| same paragraph | Another author's element is never signed over, and no element is deleted | Yes: IS7, ES7 and ES8, and nothing on the path deletes |
+| `manifest.json:623` | an install re-signs the instance's own element in place whenever its JSON in the graph differs from its file, so it also puts back an edit made in the graph | Yes |
+| ADR 0041 `:34`, `:159`, and Amendment 2 | The corrected sentences, the format rules, where a sentence ends, and the stubbed test | Yes, against the code. The one exception: Amendment 2.2's "a name in backticks" is narrower than what the code refuses (non-blocking 3) |
+| `docs/GRAPH_RULES.md:22–27` | The format list | The Labels, Refusals and Code bullets hold. The Headings and Fields bullets have slips (non-blocking 3) |
+| `docs/GRAPH_RULES.md:29` | an install … puts back any edit made to one in the graph | Too broad: only the item's JSON is put back (non-blocking 3) |
+
+### The parser's new rules
+
+Neither today's rulebook nor a correctly written new entry fails:
+
+| Input | Result |
+|---|---|
+| today's rulebook, with LF or with CRLF line endings | six items, no problem, the six descriptions unchanged |
+| a proposed entry 7 | seven items, no problem |
+| an entry 7 using every allowed shape: an empty bullet continued below it, nested bullets, a blank line and an indented paragraph inside a field, a tab-indented line, and an extra label | no problem; each field reads as written |
+| an entry 7 with code, using a fixture rule file | no problem |
+| "e.g. Dogs, i.e. Every kind" inside a Says' first sentence | the description is the whole first sentence |
+
+Round 1's slips, and the edges of the new rules:
+
+| Input | Result |
+|---|---|
+| a heading without the full stop, or `` ## Rule 7: `…` `` | the heading is a problem, and so is each of its field lines |
+| entry 7 under `## Letter rules`, as `### 7.` | each of its field lines is a problem |
+| `---` between entries; an unindented note; `- **Example**: …` | a problem naming the entry |
+| a Says hard-wrapped onto an unindented line | a problem, since the documented format wants continuation lines indented |
+| a `## Retired rules` section, with prose and plain bullets | no problem |
+| `` ## How `rules check` reads this file `` | a problem: anything in backticks makes a heading that isn't an entry's a problem (non-blocking 3) |
+| a field line given as an example, in a fenced block in the preamble | a problem, since fenced blocks aren't recognized. That fails loudly, and today's preamble has none |
+| a Says whose second sentence starts with a code span | the description runs on into the second sentence ("Every set has a name. rules check reports one without."). This follows Amendment 2.3's capital-letter rule, and GP15's fourth case pins it |
+
+### Do the new tests catch what they claim?
+
+Each regression was applied on its own to a copy of HEAD, made with `git archive` in the scratchpad. Nothing in the repo changed.
+
+| Regression | Tests that fail |
+|---|---|
+| none (the baseline) | none: 20 of 20 pass |
+| M1: a `blocked` element falls through to create-element | IS4, IS7 |
+| M2: an `unchanged` element is re-signed | IS5, IS6 |
+| M3: a failed lookup falls through to create-element | IS4, IS8 |
+| M4: the lookup gets the concept's name instead of its header's address | IS3, IS9 |
+| M5: every concept takes the `updateElements` path | IS8, IS9 |
+| M6: an update signs nothing | IS2, IS6 |
+| M7: an update re-signs the first row found instead of the planned address | **none** |
+| M8: the JSON is compared as text, not as values | ES3, ES5, ES8, IS5, IS6 |
+| M9: an element only another author has is re-signed | ES7, ES10, IS6, IS7 |
+| M10: the branch runs during a dry run (no test claims to catch this) | none |
+| graph-rules.js as it was at round 1 | GP12, GP13, GP14, GP15 |
+| each of the four parser changes undone on its own | GP12, GP13, GP14 and GP15 respectively; removing the abbreviation skip alone fails GP15 |
+
+Every regression a test claims to catch fails that test. M7 isn't claimed by any test, but it's the gap that matters (non-blocking 1).
+
+### Findings, round 2
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. **`test/firmware-element-sync.test.js:177–184`, `test/helpers/pass1bChild.js:59–66`** — No scenario puts another author's element beside a changed element of the assistant's, so M7 passes all twenty tests.
+   - With another author's element listed first, M7 would re-sign that author's event under the assistant's key. That's the property Decision 6 and BIBLE state.
+   - ES8 pins which element `planElement` chooses, but not whether install uses that choice.
+
+   Optional improvement: add a case that lists another author's element first and the assistant's, holding other JSON, second, and use it for `field-mark-allowed`. In the scratch copy, the correct code still passes 20 of 20 with that case, and M7 fails IS6.
+2. **`test/firmware-element-sync.test.js:193`, and its comment at `:173`** — The child's `NEO4J_URI` is never read.
+   - The driver reads its address only from the conf file (`src/utils/config.js:19`). So if the stub were ever bypassed, the driver would connect to `bolt://localhost:7687`. On this Mac, that's the agent-memory instance's published port. I checked that the config reader resolves that address under the child's environment, without connecting.
+   - Today the stub covers every path: Pass 1 has no lazy requires, and none of the modules that load the npm driver directly are in its require graph.
+   - My runs were safe because they inherited my own dead conf; a plain run of the suite wouldn't have it.
+
+   Optional improvement: give the child a dead conf through `BRAINSTORM_CONF_PATH`, as `test/schema-save-finds-the-right-header.test.js:216–219` does, and correct the comment. Ledger `2026-11-14-harness-points-tests-at-agent-memory` covers this class of hazard.
+3. **`docs/GRAPH_RULES.md:23`, `:24`, `:29`** — Three wording slips in the new preamble:
+   - Line 23 says another level-2 heading "doesn't name a rule in backticks", but the code refuses anything in backticks there (`graph-rules.js:81–82`). Amendment 2.2 and the story's Deviations also say "a name". Either say "has nothing in backticks", or check the backticked text against `KEBAB`. A mis-headed entry's field lines are caught either way (see the probes).
+   - Line 24 says a field "starts with its label in bold, then a colon". That reads as `**Says**:`, which is exactly the form the parser refuses. Say "its label and a colon, both in bold".
+   - Line 29 says an install "puts back any edit made to one in the graph". It puts back the item's JSON only. `regenerateJson` keeps every other tag, and the import keeps the node's relationships and other properties; in round 1's live check, each re-signed item kept its `HAS_ELEMENT`. Say "any change made to one's JSON in the graph".
+4. **`src/firmware/install.js:271`** — Nothing checks that a dry run stays out of the new branch (M10). Optional improvement: a dry-run case in the child that expects no lookups and nothing signed.
+
+### Verdict, round 2
+
+**PASS**
+
+The blocking finding is resolved:
+- BIBLE §7, the manifest's changelog and ADR 0041 now say what install does: it compares an item's JSON in the graph with its file, re-signs it while they differ, and so puts back an edit made in the graph.
+- I re-derived each sentence from `element-sync.js` and `install.js`, and round 1's live check showed the behaviour.
+
+The other fixes hold:
+- Every slip from round 1 is now a problem.
+- No correctly written entry fails, and today's rulebook makes the same six items as before.
+- GP12–GP15 and IS4–IS9 each fail on every regression they claim to catch.
+
+The four non-blocking items are worth doing, and none of them stops the merge:
+- the first two strengthen the tests' protection (against signing over another author's element, and against reaching the agent-memory instance);
+- the third is three small wording fixes;
+- the fourth is optional.
+
+### Close-out, round 2
+
+- **The story's Status** is the coordinator's to flip, in the review commit. With this section added, harness-lint's L1 check reads this review as passed, and it flags the story's `Approved` status until the flip.
+- **Completion detection** goes to the coordinator, not into this file.
+- **Re-checks:** if the non-blocking wording is changed, the next reader should check the new sentences against `graph-rules.js` and `install.js` as fresh claims, as this round did.

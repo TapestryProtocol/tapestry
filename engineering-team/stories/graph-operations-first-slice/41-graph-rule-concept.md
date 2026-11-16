@@ -1,6 +1,6 @@
 # Story 41: The graph rules as a concept on every instance, made from the rulebook
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-15
 **Type:** Feature
 **Loom:** A10.41 — https://loom.brainstorm.world/t/A10.41
