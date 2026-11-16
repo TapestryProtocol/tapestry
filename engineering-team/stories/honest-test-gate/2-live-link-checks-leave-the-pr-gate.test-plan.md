@@ -55,6 +55,23 @@ The Tester hardened the guard on the review's non-blocking findings 3 and 4. No 
 - **E2** wants the pull request as `in #<n>` (or `PR #<n>`), so the story's own `#2` on the Done line doesn't
   count.
 
+## Amended after Review round 2 (2026-11-16)
+
+Round 2 found that a `gh` failure after the run has counted set off the crash report, and that no test reached the
+crash path. The Tester added five tests and restored two checks round 1's amendment had loosened.
+- **D8 and D9.** With `--report`, a run whose suite fails to load exits 2. It opens one issue saying the checks
+  could not run, or comments that on the open #7. The stub's `LINK_STUB_CRASH` makes the named suite throw as it
+  loads.
+- **D10.** Without `--report`, that run exits 2 and calls no `gh` (ratified interface item 4).
+- **D11.** It pins round 2's blocking 1. When `gh` fails after the run has counted, the run exits non-zero and
+  posts no "could not run" report. That covers a red run whose issue create fails, and a green run whose close
+  fails (the fake `gh`'s `FAKE_GH_FAIL`). It fails on the round-2 code, which does post one.
+- **D12.** A green close names each link it could not check.
+- **D7** again wants the word "skip" as well as the words that no link could be checked. **E2** is case-sensitive
+  again, so a lower-case `**done:**` label doesn't count.
+- The comment on the placeholder repository no longer claims a fallen-through `gh` has no login. A `gh` that keeps
+  its token in the system keychain may still be logged in, and the placeholder is what keeps such a call harmless.
+
 ## Coverage map
 
 | Criterion | Test | Test file | Level |
@@ -78,6 +95,11 @@ The Tester hardened the guard on the review's non-blocking findings 3 and 4. No 
 | AC4 | D5 green, #7 open: #7 closed, with a comment that the links resolve again, linking the run | same | same |
 | AC4 | D6 only an unrelated #3 open: the run opens its own issue and leaves #3 alone | same | same |
 | AC3, AC4 | D7 no link could be checked: red, and the issue says the links were skipped, linking the run | same | same |
+| AC4 | D8 a suite that fails to load, with `--report`: exit 2, and one issue saying the checks could not run, linking the run | same | same, with the stub's `LINK_STUB_CRASH` |
+| AC4 | D9 the same while #7 is open: a comment on #7, and no second issue | same | same |
+| AC3 | D10 the same without `--report`: exit 2, and no `gh` call | same | same |
+| AC4 | D11 `gh` failing after the run has counted (a red run's create, or a green run's close): a non-zero exit, and no "could not run" report | same | same, with the fake `gh`'s `FAKE_GH_FAIL` |
+| AC4 | D12 green with two links skipped while #7 is open: the closing comment names both | same | runner and fake `gh` |
 | AC5 | E1 OPERATIONS.md §15 names both suites, the switch, the weekly run, running by hand, and the issue | same | structural |
 | AC5 | E2 the ledger row: `**Status:** DONE`, and a Done line with an ISO date and `#<n>` | same | structural |
 

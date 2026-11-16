@@ -33,6 +33,8 @@
  *               switch
  *   D1–D7  AC4  --report opens an issue, comments on the open one, closes it once green, opens none when
  *               green, leaves other issues alone, and says why when no link could be checked
+ *   D8–D12 AC4  a run that dies before it counts reports that (and calls no gh without --report); a gh call
+ *               that fails after counting posts no "could not run"; a green close names the links it skipped
  *   E1–E2  AC5  OPERATIONS.md §15 says where the link checks went; the ledger row is closed
  *
  * The Implementer edits the two suites, OPERATIONS.md and the ledger row, and adds the runner and the
@@ -59,8 +61,9 @@ const GATE_WORKFLOW = path.join(WORKFLOWS, 'test.yml');
 const SWITCH = 'TAPESTRY_LIVE_LINK_CHECKS';
 const MARKER = 'Live link check';
 // A placeholder repository, never the real one: if the fake gh could not run (a temp folder mounted noexec, say),
-// exec would fall through to a real gh later on PATH, and this name, with gh's empty config folder (childEnv), keeps
-// that call from reaching any real repository (review round 1, non-blocking 4).
+// exec would fall through to a real gh later on PATH, and this name keeps that call from reaching any real repository
+// (review round 1, non-blocking 4). gh's config folder is empty too (childEnv), though a gh that keeps its token in
+// the system keychain may still be logged in; the placeholder is what makes such a call harmless.
 const RUN_ENV = { GITHUB_SERVER_URL: 'https://github.example', GITHUB_REPOSITORY: 'live-link-checks-fixture/no-such-repo', GITHUB_RUN_ID: '424242' };
 const RUN_URL = 'https://github.example/live-link-checks-fixture/no-such-repo/actions/runs/424242';
 
@@ -82,6 +85,15 @@ function fetchStub() {
     try { const h = new URL(u).hostname; return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'; } catch { return false; }
   };
   const failed = (code) => { const e = new TypeError('fetch failed'); e.cause = Object.assign(new Error(code), { code }); return e; };
+  // LINK_STUB_CRASH names a file (a path suffix) that throws as it loads, to make the run die before it counts.
+  if (process.env.LINK_STUB_CRASH) {
+    const Module = require('module');
+    const compile = Module.prototype._compile;
+    Module.prototype._compile = function crashingCompile(src, file) {
+      if (String(file).endsWith(process.env.LINK_STUB_CRASH)) src = "throw new Error('stub: this suite fails to load');" + src;
+      return compile.call(this, src, file);
+    };
+  }
   globalThis.fetch = async function stubFetch(input) {
     const url = typeof input === 'string' ? input : (input && input.url) || String(input);
     if (loopback(url)) throw failed('ECONNREFUSED');
@@ -106,6 +118,11 @@ function fakeGh() {
     try { entry.body = src === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(src, 'utf8'); } catch (e) { entry.bodyError = e.message; }
   }
   fs.appendFileSync(process.env.FAKE_GH_LOG, JSON.stringify(entry) + NL);
+  // FAKE_GH_FAIL names an issue subcommand (create, comment, close) that fails, after the call is recorded.
+  if (argv[0] === 'issue' && process.env.FAKE_GH_FAIL && argv[1] === process.env.FAKE_GH_FAIL) {
+    process.stderr.write(`fake gh: issue ${argv[1]} fails on purpose` + NL);
+    process.exit(1);
+  }
   if (argv[0] === 'issue' && argv[1] === 'list') process.stdout.write(process.env.FAKE_GH_OPEN || '[]');
   if (argv[0] === 'issue' && argv[1] === 'create') process.stdout.write('https://github.example/live-link-checks-fixture/no-such-repo/issues/99' + NL);
 }
@@ -126,8 +143,8 @@ function fixtures() {
 }
 function cleanup() { if (FIX) { fs.rmSync(FIX.dir, { recursive: true, force: true }); FIX = null; } }
 
-/** A child's environment: no switch and no GitHub login unless asked, a dead loopback stack, the stub, the fake gh.
- *  GH_CONFIG_DIR is an empty folder, so a real gh, if one were ever reached, would have no stored login either. */
+/** A child's environment: no switch and no GitHub token unless asked, a dead loopback stack, the stub, the fake gh.
+ *  GH_CONFIG_DIR is an empty folder, so a real gh, if one were ever reached, has no stored config of its own. */
 function childEnv(extra) {
   const f = fixtures();
   const env = { ...process.env };
@@ -178,13 +195,15 @@ function runSuite(which, { on = false, value, map = {} } = {}) {
 }
 
 /** Runs the weekly run's entry point in a child, as the workflow would, but with the fakes. */
-function runRunner({ map = {}, report = false, open = '[]' } = {}) {
+function runRunner({ map = {}, report = false, open = '[]', crash, ghFail } = {}) {
   need(RUNNER, "the weekly run's entry point, story AC3");
   const f = fixtures();
   const seq = ++f.seq;
   const fetchLog = path.join(f.dir, `fetch-${seq}.log`);
   const ghLog = path.join(f.dir, `gh-${seq}.log`);
   const env = childEnv({ LINK_STUB_LOG: fetchLog, LINK_STUB_MAP: show(map), FAKE_GH_LOG: ghLog, FAKE_GH_OPEN: open });
+  if (crash) env.LINK_STUB_CRASH = crash;
+  if (ghFail) env.FAKE_GH_FAIL = ghFail;
   const r = spawnSync(process.execPath, [RUNNER, ...(report ? ['--report'] : [])], { cwd: ROOT, env, encoding: 'utf8', timeout: 240000 });
   const run = finish(r, fetchLog, ghLog);
   const m = /^live link checks: (\d+) passed, (\d+) failed, (\d+) skipped\b/m.exec(run.stdout);
@@ -468,9 +487,61 @@ test('D7 --report when no link could be checked: the run is red and its issue sa
   const made = callsTo(r, 'create');
   assert(made.length === 1, `one issue is opened; gh calls: ${ghCalls(r)}`);
   const body = textOf(made[0]);
-  // The words, not the counts line: "0 passed, 0 failed, N skipped" alone doesn't say why the run is red.
-  assert(/no link (?:could|was|were)|could ?not be checked|couldn.t be checked/i.test(body) && body.includes(RUN_URL),
-    `its body says that no link could be checked, and links the run (${RUN_URL}); got ${show(body.slice(0, 600))}`);
+  // The words as well as the counts line: "0 passed, 0 failed, N skipped" alone doesn't say why the run is red.
+  assert(/skip/i.test(body) && /no link (?:could|was|were)|could ?not be checked|couldn.t be checked/i.test(body) && body.includes(RUN_URL),
+    `its body says that the links were skipped, that no link could be checked, and links the run (${RUN_URL}); got ${show(body.slice(0, 600))}`);
+});
+
+// Added after review round 2: the run that dies before it counts, and a gh call that fails after it has counted.
+const LLMS_SUITE = 'test/llms-txt.test.js';
+const couldNotRun = (e) => /could not run|no link was counted/i.test(textOf(e));
+
+test('D8 --report when a suite fails to load: the run exits 2 and opens one issue, titled "Live link check…", saying the checks could not run and linking the run (AC4)', () => {
+  const r = runRunner({ report: true, crash: LLMS_SUITE });
+  assert(r.status === 2, `a run that dies before it counts exits 2; got ${r.status} ${r.stderr.slice(-300)}`);
+  const made = callsTo(r, 'create');
+  assert(made.length === 1, `one issue is opened; gh calls: ${ghCalls(r)}`);
+  assert(titleOf(made[0]).startsWith(MARKER), `its title starts "${MARKER}"; got ${show(titleOf(made[0]))}`);
+  assert(couldNotRun(made[0]) && textOf(made[0]).includes(RUN_URL), `its body says the checks could not run, and links the run (${RUN_URL}); got ${show(textOf(made[0]).slice(0, 600))}`);
+  assert(callsTo(r, 'comment').length === 0 && callsTo(r, 'close').length === 0, `nothing is commented on or closed; gh calls: ${ghCalls(r)}`);
+});
+
+test('D9 --report when a suite fails to load while issue #7 is open: the run comments on #7 that the checks could not run, and opens no second issue (AC4)', () => {
+  const r = runRunner({ report: true, crash: LLMS_SUITE, open: OPEN_7 });
+  assert(r.status === 2, `a run that dies before it counts exits 2; got ${r.status}`);
+  assert(callsTo(r, 'create').length === 0, `no second issue is opened; gh calls: ${ghCalls(r)}`);
+  const said = callsTo(r, 'comment').filter((e) => issueOf(e) === '7');
+  assert(said.length === 1 && couldNotRun(said[0]) && textOf(said[0]).includes(RUN_URL), `one comment on #7 says the checks could not run, and links the run; gh calls: ${ghCalls(r)}`);
+  assert(callsTo(r, 'close').length === 0, `nothing is closed; gh calls: ${ghCalls(r)}`);
+});
+
+test('D10 without --report, a run whose suite fails to load exits 2 and never calls gh (AC3; ratified interface 4)', () => {
+  const r = runRunner({ crash: LLMS_SUITE });
+  assert(r.status === 2, `a run that dies before it counts exits 2; got ${r.status}`);
+  assert(r.gh.length === 0, `without --report the runner never calls gh, even when it dies; it made ${r.gh.length} call(s): ${ghCalls(r)}`);
+});
+
+test('D11 when gh fails after the run has counted, the run exits non-zero and posts no "could not run" report: a red run whose issue create fails, and a green run whose close fails (AC4)', () => {
+  const u = onlyBriefing()[0];
+  const red = runRunner({ map: { [u]: 404 }, report: true, ghFail: 'create' });
+  assert(red.status !== 0 && red.status !== null, `a red run whose issue create fails exits non-zero; got ${red.status}`);
+  const tried = callsTo(red, 'create');
+  assert(tried.length >= 1 && textOf(tried[0]).includes(u), `the run tried to open the issue with its real result (${u}); gh calls: ${ghCalls(red)}`);
+  const falseReports = red.gh.filter((e) => e.argv[0] === 'issue' && ['create', 'comment'].includes(e.argv[1]) && couldNotRun(e));
+  assert(falseReports.length === 0, `a run that counted must not then report that it could not run; gh calls: ${ghCalls(red)}`);
+  const green = runRunner({ report: true, open: OPEN_7, ghFail: 'close' });
+  assert(green.status !== 0 && green.status !== null, `a green run whose close fails exits non-zero; got ${green.status}`);
+  const greenFalse = green.gh.filter((e) => e.argv[0] === 'issue' && ['create', 'comment'].includes(e.argv[1]) && couldNotRun(e));
+  assert(greenFalse.length === 0, `a green run whose close fails must not leave a "could not run" comment on #7; gh calls: ${ghCalls(green)}`);
+});
+
+test('D12 --report with two links skipped and none failing while issue #7 is open: the closing comment names both links it could not check (AC4)', () => {
+  const [a, b] = onlyBriefing();
+  const r = runRunner({ map: { [a]: 'neterr', [b]: 'neterr' }, report: true, open: OPEN_7 });
+  assert(r.status === 0, `skips with no failure leave the run green (exit 0); got ${r.status}`);
+  assert(callsTo(r, 'close').some((e) => issueOf(e) === '7'), `#7 is closed; gh calls: ${ghCalls(r)}`);
+  const words = [...callsTo(r, 'comment'), ...callsTo(r, 'close')].filter((e) => issueOf(e) === '7').map(textOf).join(NL);
+  assert(words.includes(a) && words.includes(b), `the closing comment names both skipped links (${a}, ${b}); got ${show(words.slice(0, 800))}`);
 });
 
 // ── AC5: the operations doc, and the ledger row ─────────────────────────────────────────────────────
@@ -495,7 +566,7 @@ test('E2 ledger row 2026-11-16-link-check-fails-during-prod-deploy is closed: St
   const row = fs.readFileSync(ROW, 'utf8');
   assert(/^\*\*Status:\*\* DONE\b/m.test(row), 'the row says **Status:** DONE');
   // "in #<n>" or "PR #<n>", so a story's own number (honest-test-gate #2) on the line doesn't count as the pull request.
-  assert(/^\*\*Done:\*\* \d{4}-\d{2}-\d{2}\b.*\b(?:in|PR|pull request) #\d+/im.test(row), 'its Done line gives an ISO date and the pull request ("in #<n>")');
+  assert(/^\*\*Done:\*\* \d{4}-\d{2}-\d{2}\b.*\b(?:in|PR|pull request) #\d+/m.test(row), 'its Done line gives an ISO date and the pull request ("in #<n>")');
 });
 
 // ── Run ───────────────────────────────────────────────────────────────────────────────────────────────
