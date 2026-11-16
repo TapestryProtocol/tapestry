@@ -221,6 +221,7 @@ Each wrong fix below was applied in place under `src/` or `ui/`, run against the
 | W18 the fold's `ORDER BY` removed; W18b, reversed | S3h |
 | W19 Pass 2's `ORDER BY` removed | S1e |
 | W20 the tab's read ordered `uuid DESC` | S4a |
+| W29 Pass 2 finds its header by name among the TA's own headers, ordered by address (review round 3, non-blocking finding 13) | S1c, whose twin's d tag now sorts both before the slug and after it |
 
 **Not re-run live yet.** The new `ORDER BY` lines in the fold, Pass 2 and the tab use Cypher forms that already run on real Neo4j (review round 2, "The `ORDER BY` lines"). The live checks to repeat, when a scratch stack is free or at the first install on staging after merge:
 - L1;

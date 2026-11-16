@@ -307,16 +307,21 @@ t('S1e (AC1): a firmware header with two schema nodes has the first by address s
 });
 
 t('S1c (AC1): a second header of the instance\'s own named "tag" doesn\'t take the place of 39998:<TA>:tag', () => {
-  for (const order of ['twin first', 'firmware first']) {
-    const firmwareTag = (g) => g.concept({ author: TA, dTag: 'tag', name: TAG.name, schema: STARTER });
-    const twin = (g) => g.concept({ author: TA, dTag: 'tag-made-by-hand', name: TAG.name, schema: { type: 'object', properties: { twin: { type: 'string' } } } });
-    const { graph, made } = build(order === 'twin first' ? [['twin', twin], ['firmwareTag', firmwareTag]] : [['firmwareTag', firmwareTag], ['twin', twin]]);
-    const out = child({ kind: 'pass2', graph });
-    const pass2 = out.results[0];
-    assert(pass2.errors.length === 0, `[${order}] Pass 2 must log no errors; it logged ${pass2.errors.length}: ${why(out, pass2.errors)}`);
-    const saved = savedJson(out, made.firmwareTag.schema);
-    assert(saved && same(saved.jsonSchema, stored(TAG.firmwareSchema)), `[${order}] the firmware's tag schema must be saved on 39998:<TA>:tag's schema; ${saved ? `it is ${short(saved.jsonSchema)}` : 'nothing was saved there'}`);
-    untouched(out, made.twin.all, `[${order}] the instance's other header named "tag"`);
+  // The twin's d tag sorts before the slug and after it, so address order can't stand in for the firmware address
+  // (review round 3, non-blocking finding 13).
+  for (const twinTag of ['a-tag-made-by-hand', 'tag-made-by-hand']) {
+    for (const order of ['twin first', 'firmware first']) {
+      const label = `${twinTag}, ${order}`;
+      const firmwareTag = (g) => g.concept({ author: TA, dTag: 'tag', name: TAG.name, schema: STARTER });
+      const twin = (g) => g.concept({ author: TA, dTag: twinTag, name: TAG.name, schema: { type: 'object', properties: { twin: { type: 'string' } } } });
+      const { graph, made } = build(order === 'twin first' ? [['twin', twin], ['firmwareTag', firmwareTag]] : [['firmwareTag', firmwareTag], ['twin', twin]]);
+      const out = child({ kind: 'pass2', graph });
+      const pass2 = out.results[0];
+      assert(pass2.errors.length === 0, `[${label}] Pass 2 must log no errors; it logged ${pass2.errors.length}: ${why(out, pass2.errors)}`);
+      const saved = savedJson(out, made.firmwareTag.schema);
+      assert(saved && same(saved.jsonSchema, stored(TAG.firmwareSchema)), `[${label}] the firmware's tag schema must be saved on 39998:<TA>:tag's schema; ${saved ? `it is ${short(saved.jsonSchema)}` : 'nothing was saved there'}`);
+      untouched(out, made.twin.all, `[${label}] the instance's other header named "tag"`);
+    }
   }
 });
 
