@@ -3,8 +3,8 @@
 **Id:** 2026-11-15-tapestry-keys-exceeds-transaction-memory
 **Type:** bug
 **Opened:** 2026-11-15 (story graph-operations-foundation #8, Test Design)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-16 — story graph-operations-foundation #9 (ADR `graph-operations-foundation/0009`), TapestryProtocol/tapestry#79. The read that held the memory was the check for keys held by more than one node: with no rule, one grouping of every key at 394 bytes a key, about 1.5 GB on staging's shape. It now streams the keys and keeps a 53-bit hash of each in the job's process, so Neo4j holds about 2 MB whatever the graph's size. On a scratch stack in staging's shape under the 512 MB limit, `tapestry-keys` finished in four runs on staging's shape (about 19 s) and on production's (about 67 s, after its backup), adding the rule and the index, both online. The fix shape's first bullet, reading production's limit before the run, was left open at story 9's planning gate; the migration no longer depends on that limit.
 
 **What was seen.** A scratch stack had its transaction limit at 512 MB (`BRAINSTORM_NEO4J_TX_MAX_MB=512`, `scripts/scratch-stack.sh`). It was seeded to staging's shape: 3,851,244 nodes, every one already keyed and labelled `TapestryNode`. `docker exec tapestry-scratch tapestry lifecycle migrate --migration tapestry-keys` answered after 7 s, before adding the rule:
 

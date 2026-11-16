@@ -188,7 +188,7 @@ One fresh scratch stack, seeded to staging's shape (booting took 98 s and the se
 | LK3: status on the migrated graph | 3.25 s | 3.06 s |
 | LK4: production's shape | `done` in 69.1 s; 2,294,385 nodes keyed and labelled. Neo4j 28 MB. Process 290.5 MB, against **286.4 MB** when the backup was done: the check added **4.1 MB** of a 77.7 MB budget | `done` in 66.8 s. Neo4j 28 MB. Process 281.4 MB, against **281.2 MB**: **0.2 MB** added |
 
-The review round's own run (at `12f6ada8`, under the bound since restated) put LK4's job at 298.9 MB. With the restated bound, all three runs agree: once the backup is done, the check adds a few MB at most to the process.
+The review round's own run, at `12f6ada8` under the bound since restated, put LK4's job at 298.9 MB. It predates the probe's `afterBackupKB`, so only the two runs above measure the restated bound. Both agree that once the backup is done, the check adds a few MB at most to the process, and so do the Reviewer's two round-2 runs (in the review).
 
 **Each read the check makes, after the fix** (AC4's third bullet; the review's Non-blocking 4). These were timed at the boundary between the migration and Neo4j with the session's instrumented `plan`, in a process of its own inside the container. `SHOW TRANSACTIONS` was sampled beside them. Neo4j's transactions peaked at **2 MB** together in every case.
 
