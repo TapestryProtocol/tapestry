@@ -28,10 +28,11 @@ async function getExistingWordJson(node) {
   if (existing?.data?.word) return existing.data;
 
   const rows = await runCypher(`
-    MATCH (n { uuid: $uuid })-[:HAS_TAG]->(tag { type: 'json' })
+    MATCH (n) WHERE elementId(n) = $elementId
+    MATCH (n)-[:HAS_TAG]->(tag { type: 'json' })
     RETURN tag.value AS value
     LIMIT 1
-  `, { uuid: node.uuid });
+  `, { elementId: node.elementId });
 
   if (rows.length === 0 || !rows[0].value) return null;
   const raw = rows[0].value;
@@ -83,7 +84,7 @@ function deriveSlug(name) {
 }
 
 async function deriveSet(node) {
-  const { uuid, tapestryKey, name, labels } = node;
+  const { uuid, tapestryKey, name, labels, elementId } = node;
   const isSuperset = labels.includes('Superset');
 
   const base = await getExistingWordJson(node) || {};
@@ -110,55 +111,65 @@ async function deriveSet(node) {
   }
 
   // ── Graph queries (return tapestryKey only — slugs resolved from LMDB) ──
+  // Each starts from the set itself, by its element id: a direct lookup, where a match on its uuid with no label read
+  // every node in the graph (graph-operations-foundation #8).
 
   const directElements = await runCypher(`
-    MATCH (s { uuid: $uuid })-[:HAS_ELEMENT]->(e)
+    MATCH (s) WHERE elementId(s) = $elementId
+    MATCH (s)-[:HAS_ELEMENT]->(e)
     RETURN e.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const indirectElements = await runCypher(`
-    MATCH (s { uuid: $uuid })-[:IS_A_SUPERSET_OF*1..10]->(child)-[:HAS_ELEMENT]->(e)
+    MATCH (s) WHERE elementId(s) = $elementId
+    MATCH (s)-[:IS_A_SUPERSET_OF*1..10]->(child)-[:HAS_ELEMENT]->(e)
     WHERE NOT (s)-[:HAS_ELEMENT]->(e)
     RETURN DISTINCT e.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const directChildSets = await runCypher(`
-    MATCH (s { uuid: $uuid })-[:IS_A_SUPERSET_OF]->(child)
+    MATCH (s) WHERE elementId(s) = $elementId
+    MATCH (s)-[:IS_A_SUPERSET_OF]->(child)
     RETURN child.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const indirectChildSets = await runCypher(`
-    MATCH (s { uuid: $uuid })-[:IS_A_SUPERSET_OF*2..10]->(child)
+    MATCH (s) WHERE elementId(s) = $elementId
+    MATCH (s)-[:IS_A_SUPERSET_OF*2..10]->(child)
     WHERE NOT (s)-[:IS_A_SUPERSET_OF]->(child)
     RETURN DISTINCT child.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const directParentSets = await runCypher(`
-    MATCH (parent)-[:IS_A_SUPERSET_OF]->(s { uuid: $uuid })
+    MATCH (s) WHERE elementId(s) = $elementId
+    MATCH (parent)-[:IS_A_SUPERSET_OF]->(s)
     RETURN parent.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const indirectParentSets = await runCypher(`
-    MATCH (parent)-[:IS_A_SUPERSET_OF*2..10]->(s { uuid: $uuid })
-    WHERE NOT (parent)-[:IS_A_SUPERSET_OF]->(s { uuid: $uuid })
+    MATCH (s) WHERE elementId(s) = $elementId
+    MATCH (parent)-[:IS_A_SUPERSET_OF*2..10]->(s)
+    WHERE NOT (parent)-[:IS_A_SUPERSET_OF]->(s)
     RETURN DISTINCT parent.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const directElementOf = await runCypher(`
-    MATCH (parent)-[:HAS_ELEMENT]->(n { uuid: $uuid })
+    MATCH (n) WHERE elementId(n) = $elementId
+    MATCH (parent)-[:HAS_ELEMENT]->(n)
     RETURN parent.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   const indirectElementOf = await runCypher(`
-    MATCH (parent)-[:HAS_ELEMENT]->(n { uuid: $uuid })
+    MATCH (n) WHERE elementId(n) = $elementId
+    MATCH (parent)-[:HAS_ELEMENT]->(n)
     MATCH (ancestor)-[:IS_A_SUPERSET_OF*1..10]->(parent)
-    WHERE NOT (ancestor)-[:HAS_ELEMENT]->(n { uuid: $uuid })
+    WHERE NOT (ancestor)-[:HAS_ELEMENT]->(n)
     RETURN DISTINCT ancestor.tapestryKey AS tapestryKey
-  `, { uuid });
+  `, { elementId });
 
   // JSON Schemas — via element membership (explicit HAS_ELEMENT + implicit z-tag)
   const schemaRows = await runCypher(`
-    MATCH (n { uuid: $uuid })
+    MATCH (n) WHERE elementId(n) = $elementId
     OPTIONAL MATCH (n)<-[:HAS_ELEMENT]-(parentSet)
           <-[:IS_A_SUPERSET_OF*0..10]-(sup:Superset)
           <-[:IS_THE_CONCEPT_FOR]-(h1:ConceptHeader)
@@ -173,7 +184,7 @@ async function deriveSet(node) {
     RETURN DISTINCT js.uuid AS schemaUuid, js.tapestryKey AS schemaTapestryKey,
            ch.name AS conceptName, ch.tapestryKey AS conceptTapestryKey,
            head(collect(jt.value)) AS schemaJson
-  `, { uuid });
+  `, { elementId });
 
   // ── Build graphContext first (before validation) ──
   const now = Math.floor(Date.now() / 1000);
