@@ -129,7 +129,7 @@ This ran on a throwaway instance booted from image `agent-memory-tapestry:latest
   - **Another author's element with a rule's name stops firmware making its own** (ADR 0041 Consequences). Install logs it and signs nothing over it.
   - **An item whose entry leaves the rulebook stays on instances that have it.** Nothing deletes it.
   - **After a re-sign, an item's LMDB entry keeps its earlier words.** Pass 3's derive builds each entry on top of the one already there (`src/lib/derivers/word.js:43–44`). So after a rule changes, the item's json tag has the new words and its LMDB entry the old, as after every re-sign: Pass 2's schema saves, and the element page's save. Whatever reads the rules should read the json tag, as `relationship-type-allowed` does; that includes `rules list-rules` and `rules check` (A10.31). OPEN.md row 137, the LMDB doctrine row, now notes this case.
-  - **AC6's UI page hasn't been opened.** A scratch instance has no published ports. The page lists elements with the same class-thread walk GL2 read live (`ConceptElements.jsx:67–72`), so the risk is low. Open it on staging once this ships.
+  - **AC6's UI page, since opened on staging.** A scratch instance has no published ports, so the live checks read the concept through the API. On 2026-11-16, after #86 reached staging and staging's firmware was reinstalled, the concept's elements page on staging.brainstorm.world listed its six items, each explicit, implicit and valid against the schema, with no console errors. OPEN.md row `2026-11-16-graph-rule-ui-page-unchecked` is closed.
 
 ## Linked artifacts
 
