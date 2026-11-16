@@ -1,6 +1,6 @@
 # Graph Rules
 
-**Status:** Draft. This rulebook was started on 2026-11-14 by story graph-operations-foundation #4 (ADR graph-operations-foundation/0004 Decision 12). It holds the rules that are built, one entry each, as the design's §7 asks: "Write each rule into the rules document (§7) as its guard or check is built." Once ratified it moves under `protocols/`, next to `protocols/drafts/tapestry-concepts.md`, and BIBLE §10 shrinks to a pointer (design §7, "Where it lands").
+**Status:** Draft. This rulebook was started on 2026-11-14 by story graph-operations-foundation #4 (ADR graph-operations-foundation/0004 Decision 12). It holds one entry per rule: each rule that is built, as the design's §7 asks ("Write each rule into the rules document (§7) as its guard or check is built."), and, since ADR graph-rules/0001, rules that are proposed but not yet enforced. That ADR also says what may be written here and what goes elsewhere. Once ratified it moves under `protocols/`, next to `protocols/drafts/tapestry-concepts.md`, and BIBLE §10 shrinks to a pointer (design §7, "Where it lands").
 
 **How a rule is built.** Each rule is defined once and used two ways (design D3):
 - as a guard inside each write that could break it;
@@ -14,7 +14,9 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - whether it refuses a write or only reports;
 - how a check finds what breaks it;
 - how a repair fixes it;
-- where it is enforced: by the database, a guard or a check.
+- where it is enforced: by the database, a guard or a check;
+- its status: proposed (written, not yet enforced), enforced (its guard or check is built) or retired;
+- its source: the TIP or ADR that brought it in. Whether a rule is agreed is its source's status, not the rule's (ADR graph-rules/0001).
 
 ## 1. Every node has a unique tapestryKey
 
@@ -28,6 +30,8 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
   - every path that makes a node: `keyNode`, in `src/lib/tapestry-key-cypher.js`.
 
   Built in story graph-operations-foundation #3 (ADR 0003). A change entry is a node too, and gets its key when it is made (ADR 0004 Decision 5).
+- **Status:** enforced.
+- **Source:** ADR graph-operations-foundation/0003.
 
 ## 2. `relationship-type-allowed`
 
@@ -44,6 +48,8 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - **Check:** the same `violations` over a set of relationships names each one that breaks it. `rules check` (A10.31) will run it over the graph, judging each relationship by where it came from (D15). A relationship an import recorded is a peer's claim, not one of the owner's writes.
 - **Repair:** none yet.
 - **Enforced by:** the guards of `graph add-relationship` and `graph remove-relationship`. The rule's code is in `src/operations/rules/relationship-type-allowed.js`. Built in story graph-operations-foundation #4 (ADR 0004).
+- **Status:** enforced.
+- **Source:** ADR graph-operations-foundation/0004.
 
 ## 3. `field-mark-allowed`
 
@@ -64,3 +70,5 @@ Its code is one file, `src/operations/rules/<name>.js`, whose `violations(items,
 - **Check:** the same `violations` over every current mark names each mark whose field has changed type, lost its property node, or now collides. `rules check` (A10.31) will run it over the graph.
 - **Repair:** `graph unmark-field` takes a broken mark out, with its copies; `graph map-fields` brings a concept's copies in line with its marks.
 - **Enforced by:** the guard of `graph mark-field`. The rule's code is in `src/operations/rules/field-mark-allowed.js`, and the mapping it guards is in `src/operations/catalog/graph/_fields.js`. Built in story graph-operations-foundation #5 (ADR 0005).
+- **Status:** enforced.
+- **Source:** ADR graph-operations-foundation/0005.
