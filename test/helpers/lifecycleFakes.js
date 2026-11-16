@@ -32,10 +32,22 @@
  *                                            Neo4j refuses it, while two TapestryNode nodes hold one key.
  *   apoc.periodic.iterate naming TapestryNode and tapestryKey   Decision 4's keys pass: the label on each node without
  *                                            it, and randomUUID() for each key that is null or '{}'. It must call
- *                                            randomUUID(). With the rule in place, a node whose key another labelled
- *                                            node holds fails, as its batch would.
+ *                                            randomUUID(), and leaves alone a node whose key is in its $skip. With
+ *                                            the rule in place, a node whose key another labelled node holds fails,
+ *                                            as its batch would.
  *   apoc.periodic.iterate with REMOVE <v>:NostrEvent   Decision 5's pass: off every NostrEvent node with no id and a tag.
- *   tapestryKey, collect( and > 1            shared keys: rows { k, c, ids } of real keys held by more than one node.
+ *   ADR 0009's shared-keys reads (story graph-operations-foundation #9). A key in scope is any key but null and '{}',
+ *   numbers included, as Neo4j's `IS NOT NULL AND <> '{}'` reads them, so rows carry each key with its own type:
+ *     tapestryKey <> '{}' and elementId(        the holders: { k, id } for every node whose key is in scope (an
+ *                                            `IN $<param>` narrows it to those keys). Logged 'shared-holders'.
+ *     NOT <v>:TapestryNode, tapestryKey <> '{}' and EXISTS {   the first read with the rule in place: { k, held } for
+ *                                            each unlabelled node whose key is in scope, held when a labelled node has
+ *                                            the same key (and type). Logged 'shared-keys-unlabelled'.
+ *     tapestryKey IS NOT NULL and <> '{}', with no NOT <v>:TapestryNode   the first read with no rule: { k } for every
+ *                                            node whose key is in scope. Logged 'shared-keys-read'.
+ *   tapestryKey, collect( and > 1            story 3's shared keys, grouped in one query: rows { k, c, ids } of real
+ *                                            keys held by more than one node. Logged 'shared-keys-grouped', so a suite
+ *                                            can fail on it (ADR 0009 replaced it).
  *   TapestryNode, tapestryKey > $… and LIMIT  Decision 10's walk: the labelled keys after $after, sorted, one page.
  *   NOT <v>:TapestryNode and tapestryKey IS NOT NULL   the keys of nodes without the label, as rows.
  *   .id IS NULL and HAS_TAG                  the event-less nodes: count(...) of them, or rows of their uuid; with
@@ -404,7 +416,11 @@ function fakeSystem(stateFile) {
         }
         if (/TapestryNode/.test(q) && /tapestryKey/.test(q)) {
           if (!/randomUUID\s*\(\s*\)/.test(q)) { note('unknown'); throw new Error(`the keys pass must give keys with Cypher's randomUUID(): ${q}`); }
-          let targets = g.nodes.filter((n) => !n.labels.includes('TapestryNode') || n.key === null || n.key === undefined || n.key === '{}');
+          // `AND NOT coalesce(n.tapestryKey, '') IN $skip`: a key in the skip list (shared, with the rule in place) is left
+          // alone, so no batch fails on it (Decision 4; honoured since graph-operations-foundation #9's SK5).
+          const skip = /\bIN\s+\$skip\b/.test(q) ? [].concat(params.skip || []) : [];
+          let targets = g.nodes.filter((n) => (!n.labels.includes('TapestryNode') || n.key === null || n.key === undefined || n.key === '{}')
+            && !skip.includes(n.key === null || n.key === undefined ? '' : n.key));
           let failed = 0;
           const errors = {};
           if (s.failures.keysPassFailsOnce > 0) {
@@ -444,11 +460,39 @@ function fakeSystem(stateFile) {
 
       // ── Node-level reads (ADR 0003 Decisions 4, 5, 7 and 10) ──
       if (isNodeGraph(g)) {
+        // ADR 0009 (story graph-operations-foundation #9): the shared-keys check's streamed reads. A key in scope is any
+        // key but null and '{}', with its own type, as `n.tapestryKey IS NOT NULL AND n.tapestryKey <> '{}'` reads it.
+        const notPlaceholder = /tapestryKey\s*<>\s*'\{\}'/.test(q);
+        const unlabelledQuery = /NOT\s+[A-Za-z_]\w*\s*:\s*TapestryNode/.test(q);
+        const inScope = (k) => k !== null && k !== undefined && k !== '{}';
+        const asName = (re, fallback) => { const m = q.match(re); return m ? m[1] : fallback; };
+        const keyCol = asName(/\.\s*tapestryKey\s+AS\s+([A-Za-z_]\w*)/i, 'k');
+        if (notPlaceholder && /elementId\s*\(/i.test(q) && !isCount && !/collect\s*\(/i.test(q)) {
+          const idCol = asName(/elementId\s*\([^)]*\)\s+AS\s+([A-Za-z_]\w*)/i, 'id');
+          const inParam = asName(/tapestryKey\s+IN\s+\$([A-Za-z_]\w*)/i, null);
+          const only = inParam ? [].concat(params[inParam] || []) : null;
+          const rows = g.nodes.filter((n) => inScope(n.key) && (!only || only.includes(n.key))).map((n) => ({ [keyCol]: n.key, [idCol]: n.eid }));
+          note('shared-holders', { rows: rows.length });
+          return rows;
+        }
+        if (notPlaceholder && unlabelledQuery && /EXISTS\s*\{/i.test(q) && !isCount) {
+          const heldCol = asName(/\}\s*AS\s+([A-Za-z_]\w*)/i, 'held');
+          const labelled = g.nodes.filter((n) => n.labels.includes('TapestryNode') && inScope(n.key));
+          const rows = g.nodes.filter((n) => !n.labels.includes('TapestryNode') && inScope(n.key))
+            .map((n) => ({ [keyCol]: n.key, [heldCol]: labelled.some((m) => m.key === n.key) }));
+          note('shared-keys-unlabelled', { rows: rows.length });
+          return rows;
+        }
+        if (notPlaceholder && !unlabelledQuery && /tapestryKey\s+IS\s+NOT\s+NULL/i.test(q) && !isCount && !/collect\s*\(/i.test(q)) {
+          const rows = g.nodes.filter((n) => inScope(n.key)).map((n) => ({ [keyCol]: n.key }));
+          note('shared-keys-read', { rows: rows.length });
+          return rows;
+        }
         if (/tapestryKey/.test(q) && /collect\s*\(/i.test(q) && />\s*1\b/.test(q)) {
           const by = new Map();
           for (const n of g.nodes) if (realKey(n.key)) by.set(n.key, [...(by.get(n.key) || []), n.eid]);
           const rows = [...by.entries()].filter(([, ids]) => ids.length > 1).map(([k, ids]) => ({ k, c: ids.length, ids: ids.slice(0, 10) }));
-          note('shared-keys');
+          note('shared-keys-grouped');
           return rows.slice(0, limitOf());
         }
         if (/TapestryNode/.test(q) && /tapestryKey\s*>\s*\$/.test(q) && /\bLIMIT\b/i.test(q)) {
