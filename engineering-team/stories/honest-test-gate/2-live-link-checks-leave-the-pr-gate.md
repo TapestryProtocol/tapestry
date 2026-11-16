@@ -46,9 +46,11 @@ link showing up as a GitHub issue, so that link rot is still caught.
   live link checks are off and how to switch them on. Every other test in both suites runs and reports as it
   does today.
 - [ ] **AC2. Switched on, the checks are today's checks.** Given the live link checks switched on, in any run
-  (a person's own or the scheduled one), when the two suites run, then each link check behaves as it does
-  today. A 2xx passes. A network failure, or a cloud egress gateway's own 403, is SKIP with its reason. Any
-  other status fails, naming the link and the status.
+  (a person's own or the scheduled one), when the two suites run, then each link check follows the rules the
+  briefing's check follows today. A 2xx passes. A network failure, or a cloud egress gateway's own 403, is SKIP
+  with its reason. Any other status fails, naming the link and the status. For llms.txt's check this is a
+  change, by the owner's ruling at the Test Design gate (2026-11-16): today it reads an egress 403 as a dead
+  link, and its skips give no reason (ledger row `2026-10-04-llms-txt-egress-403-false-fail`).
 - [ ] **AC3. A weekly run, and the same run on demand.** Given the weekly schedule, or a person starting the
   same run by hand from GitHub, when it runs, then it runs both suites with the live link checks switched on,
   and its log shows how many links passed, failed and were skipped. It ends red if any link check fails, and
@@ -90,5 +92,5 @@ that was down for a minute leaves no open issue behind.
 
 - ADR: none. Architecture is skipped: a Bug under Standard, with the design chosen by the owner from ledger
   row `2026-11-16-link-check-fails-during-prod-deploy`'s options on 2026-11-16.
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/honest-test-gate/2-live-link-checks-leave-the-pr-gate.test-plan.md`
 - Review: (filled in after Review phase)
