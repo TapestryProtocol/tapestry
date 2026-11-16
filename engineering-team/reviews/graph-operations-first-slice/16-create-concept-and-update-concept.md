@@ -353,3 +353,138 @@ None.
 **PASS**
 
 Both blocking findings are fixed and pinned. Each non-blocking one is fixed or filed acceptably. The tests fail before the fixes and pass after them, the mutations that matter make them fail, and every stack-free gate is clean. The three new findings are follow-ups. Before this reaches staging, the conflict in the fake must be resolved in a merge commit and the gate re-run on it, as the coordinator plans.
+
+---
+
+## Round 3 — 2026-11-15 (HEAD 67ef81c4)
+
+**Diff checked:** `git diff e10251ad..67ef81c4`: three commits, 9 files, 148 lines added and 20 removed. They follow round 2's verdict and the staging merge, at the owner's request that R2-1 to R2-3 be fixed before this merges.
+- `ab825276` (test): CN3's new cases, CC21, CC22 and UC11, and the test plan: a fourth Tester correction.
+- `fd98f590` (adr): Amendment 4, its marks on Decision 2 and Amendment 3.3, the corrected sentence in 3.2, and one Deviations line in the story.
+- `67ef81c4` (impl): `strayInvisible` in `src/lib/conceptNames.js`, `bad-name`'s `when` in `_concepts.js`, the catalog's create-concept row, and the test plan's run record.
+
+I checked every change as a new claim, round 2's suggested wording included. The independent check before the commit (workflow 5, P13) was not applied.
+
+### Gates (run by the reviewer at `67ef81c4`)
+
+- [ ] **`npm test`: not run,** for round 1's reason: on this Mac the full gate writes to the owner's agent-memory instance. `npm run gate:status` is not quoted (ledger `2026-11-15-gate-status-shows-another-commits-run`, still open). No GitHub calls were made, and nothing was pushed.
+- [x] **The stack-free operations gate:** **387 passed, 0 failed, 0 skipped, exit 0,** in 59 s.
+  - It ran on Node 24.18.0, with a clean tree apart from the untracked `node_modules` link, and every endpoint dead: Neo4j, Redis, Meilisearch, both base URLs and `TAPESTRY_PORT` at port 9, and `TAPESTRY_CONTAINER=no-such-container`.
+  - This story's suites: create-concept 23, update-concept 11, concept names 4, the rule 5, the fake graph 21, the agent 1, none failed. The test plan records 387.
+- [x] **The route-surface suites.**
+  - They and their three helpers are unchanged since round 1's base: `git diff 0b1d2a26 HEAD` on the nine files is empty. Their only hosts are `127.0.0.1` servers they start on port 0, and "docker" appears only in the name `.dockerignore`.
+  - Run one at a time, endpoints dead: openapi-coverage 13/0/0, default-deny-mutations 14/0/0, admin-action-sweep 9/0/0, admin-action-sweep-access 13/0/0, close-unauth-write-surface 14/0/0, external-cli 53/0/0.
+- [x] **`test/pass-3-finishes-in-minutes.test.js`,** from staging: **8 passed, 0 failed, 8 skipped, exit 0.**
+  - I traced its docker calls before running it. Each of its eight live checks opens with `liveOrSkip()` (`pass-3-finishes-in-minutes.test.js:241-248`), which asks `scratchRefusal()`. That returns at `test/helpers/scratchLoopback.js:23` for a name that doesn't start with `tapestry-scratch`, before any `http()` call.
+  - `http()` and `sh()` throw through `assertScratch()` before they spawn anything (`scratchLoopback.js:35`, `:41`, `:63`). The suite's one direct `docker` spawn (`pass-3-finishes-in-minutes.test.js:437`) is in L4, after its own `liveOrSkip()`. Its stack-free checks spawn only `node`.
+  - Its note gave the refusal: "TAPESTRY_CONTAINER is 'no-such-container', not a scratch container".
+- [x] **Red before green,** in scratch copies under the scratchpad, never in the worktree:
+  - **HEAD's tree with `e10251ad`'s `src/`:** concept names 3/1 (CN3: U+FE0F inside beagle, "got null"), create-concept 21/2 (CC22 and CC8), update-concept 11/0. These are the test plan's figures.
+  - **The key argument.** CC22's answer on that code, read by code point: `created` at `39998:<TA>:cat~1`, its slug and key `cat` + U+FE0F, no near match, and a `concept-created` entry. A key that reads as cat's but isn't is not `key-in-use`, so the name was made beside cat.
+  - **CC8 is collateral.** It fails on "no second cat was made": the nonce CC22's request takes in the suite's shared run. With that one request taken out of the suite, CC8 passes on the same code, and the only failure is CC22's ("request cat-selector never ran").
+  - **HEAD's tree with `52ca6e8a`'s `src/`:** CC21 and UC11 each answer 200, beside round 1's and round 2's own cases (CN3; CC8, CC11b, CC20, CC22; UC8, UC9, UC10).
+  - **What those two 200s leave,** by a probe of their set-ups on that code. The create kept all eight nodes, with no membership edge from the JSON-schema concept's superset to the new schema node. The rename set bird's header name to parrot while its `names` tag still held bird, and recorded an entry. At HEAD both answer 500 and change nothing.
+- [x] **Mutations** of HEAD's code: eighteen, one at a time, in a scratch copy restored after each, each run against the suites that reach it (concept names, create-concept, update-concept).
+  - **Each of these fails a test:**
+    - the set back to `\p{Cf}` (CN3, CC22);
+    - a selector passing after anything (CN3, CC22), or never (CN3);
+    - every joiner refused, or a joiner joining Latin letters too (CN3);
+    - nothing looked past before a joiner, or not the combining marks, or not the skin-tone modifiers (CN3);
+    - the end of a name not checked (CN3);
+    - the first invisible character named, not the stray one (CN3);
+    - no invisible check at all (CN3, CC11b, CC22);
+    - `bad-name`'s round-2 `when` (CC22);
+    - either count check removed (CC21; UC11).
+  - **Four fail no test** (R3-5):
+    - a joiner at the start of a name, accepted when the character after it joins (`conceptNames.js:52-54`);
+    - a selector accepted after a non-Latin letter too (`:55`);
+    - text-direction controls given the invisible reason (`:105`);
+    - `BEFORE_JOINER_RE` without its explicit U+FE0E and U+FE0F (`:37`). That one changes nothing, since both are `\p{M}`.
+- [x] **Probes.** `nameProblem` at HEAD and at `e10251ad`, with every string built from code points, and every default-ignorable code point tried in seven contexts. Also two runs of the real catalog over the suites' seed. Their results are cited below as "the probe".
+- [x] **The phases kept to their lanes.**
+  - `ab825276` touches only `test/` and the test plan, and `fd98f590` only the ADR and the story.
+  - `67ef81c4` touches `src/`, the catalog and the test plan's run record, as `aee7b472` did, and no `test/`.
+  - `git diff e10251ad fd98f590 -- src/ bin/ docs/ firmware/ clients/ ui/` is empty. The test commit came before the amendment that records what it pins.
+- [x] **Code points.** I scanned for format characters (`\p{Cf}`), default-ignorable code points, C0 and C1 controls other than tab, LF and CR, U+00A0, U+2028 and U+2029:
+  - **This diff's nine files:** nothing.
+  - **`src/` and `test/`** (1,147 text files, one binary skipped): the only text-direction control is the older U+202E at `test/dictionary-resync-concept.test.js:253`.
+  - **The rest of the wider scan.** Adding default-ignorable code points to round 2's set flags 104 lines in all. 96 hold U+FE0F, each after an emoji, and seven are round 2's U+200B and U+200D lines. None is in a file this story's commits touched. One flagged file, `src/api/normalize/index.js`, changed after the base in non-merge commits, but those are graph-operations-foundation #8's, from the staging merge, and its five flagged lines date from March 2026.
+  - **This review:** nothing, scanned after writing.
+- [x] **The merge with staging.**
+  - **The tip moved again.** `origin/staging` moved during this review, from `28b55c6a` to `a282b2b7` (PR #75, one ADR): another session fetched into the shared refs at 20:55.
+  - **No conflict.** `git merge-tree --write-tree` against either tip writes a tree with no conflict.
+  - **The merged tree,** `a40ec8ec` with `a282b2b7`, in a scratch copy: the operations gate gives **432 passed, 0 failed, exit 0**. This story's suites are unchanged, and staging's list-elements (28) and read conventions (15) pass.
+  - **Round 2's condition holds.** `e10251ad` resolved the fake's conflict by union: its doc comment and its allowlist hold `toLower` and also `labels`, `elementId` and `id` (`test/helpers/nodeCypherFake.js:15-16`, `:132`).
+- [x] `bash scripts/harness-lint.sh`: clean, 0 violations, after this section was written.
+
+### Round-2 findings, re-checked
+
+| Round 2 | Disposition | Check |
+|---|---|---|
+| **R2-1**: other invisible characters | Fixed, for every case it named | `strayInvisible` (`conceptNames.js:44-61`) refuses every default-ignorable code point (`:32`), except a joiner between two non-Latin letters or emoji, found by looking back past marks, selectors and skin tones (`:49-54`), and a selector right after an emoji (`:55-56`). The probe: inside beagle, U+FE0F, U+3164, U+115F, U+1160, U+FFA0 and U+034F are refused. So are a joiner between accented Latin letters, precomposed or combining, and the Vietnamese case, and the stray joiner after a needed one is named U+200D. Of all 4,174 default-ignorable code points, none passes inside, before or after a Latin word but U+FEFF, which `cleanName` turns into a visible space. The three records it named are rewritten. CN3 and CC22 pin it, red at `e10251ad`. The new records claim a little more than the code does (R3-1 to R3-3). |
+| **R2-2**: `bad-name`'s published `when` | Fixed | `_concepts.js:98` names every problem. /docs (`src/operations/openapi.js:50`), the command's help (`cli.js:65`) and the operations list print it, each from the refusals `src/operations/index.js:67` builds. The catalog's create-concept row (`docs/GRAPH_OPERATIONS_CATALOG.md:62`) now names text-direction controls and invisible characters. CC22 checks the list, and round 2's text fails it. Its new last clause claims more than the refusals do (R3-4). |
+| **R2-3**: two checks pinned by nothing | Fixed, except at the start of a name | CC21 and UC11 fail on `52ca6e8a` and pass at HEAD, and either count check removed fails its test. CN3's joiner after a Persian letter pins the end of a name. White space no longer has a term of its own to drop: the rule now says what may stand beside a joiner. The start of a name is still pinned by nothing (R3-5): round 2's own suggestion named only the end. |
+| Amendment 3.2's sentence (round 2's note on NB1) | Fixed | ADR:247. Re-derived, not recognised. update-concept refuses in Decision 9's order: step 1's inputs, then the lock and the re-check, then step 3's refusals (`update-concept.js:63-87`). Its guard runs before `apply`. |
+
+### Spec, ADR and concept graph
+
+- **Spec.** AC5's approved list holds, and so does the longer one in the Deviations, within the limits in R3-1. The other criteria are as round 2 found them, and their tests pass.
+- **ADR.** Amendment 4's three items match the code, except the claims in R3-1 to R3-4. Its marks on Decision 2 (ADR:68) and Amendment 3.3 (ADR:248) are in place. There is no new dependency: `conceptNames.js` still requires only `dtag.js`, and Node 24 supports every Unicode property it uses.
+- **Concept graph and house rules.**
+  - No handle, concept definition or firmware changed, so no reinstall is needed.
+  - The TA is never hardcoded, and no `LEGACY_*` constant is touched. No tooling was added.
+  - The added lines hold no debug output, no TODO and no 64-hex literal.
+- **Invariants.** Unchanged since round 1. The rule concerns the names an owner or admin types, and gates nobody's publishing.
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R3-1. `src/lib/conceptNames.js:49-56`: the exceptions still let a few invisible characters through where they draw nothing, and the records don't list them.**
+   - **Measured at HEAD,** through the real catalog over the suites' seed. Each pair made two concepts that read alike, each at its own address, with no near match between them:
+     - beagle, a space and U+1F431 (a cat face), and the same with U+FE0F after it. The face shows as an emoji by default, so the selector changes nothing.
+     - `brand` and U+2122 (the trade mark sign), and the same with U+FE0E after it. The sign shows as text by default.
+     - cats, a space and two U+1F431, and the same with U+200D between them. No emoji sequence joins two cat faces, so they show as two either way.
+   - **Where it can happen.** Only beside an emoji, or a sign Unicode counts as pictographic such as U+00A9, U+00AE or U+2122, or between two non-Latin letters, which is the recorded limit. In a name of Latin letters, digits and spaces, every default-ignorable character is refused, but U+FEFF, which `cleanName` turns into a space.
+   - **What the records say.** Amendment 4.1 says every invisible character is refused except where a script or an emoji draws with it (ADR:258). Its known limits (ADR:261) list the keycaps, the tag flags and a joiner between letters of a script that doesn't join. These three cases are missing.
+   - **Three refusals are missing from the limits too.** A script draws with each of these, and each was accepted at `e10251ad`: a Mongolian free variation selector (U+180B after U+182E), an ideographic variation selector (U+E0100 after a kanji), and Bengali's ya-phala (U+09B0, U+200D, U+09CD). Like the recorded ones, they only matter in a name that also has a–z or 0–9.
+   - **Outside the rule.** U+2800, the braille blank, is neither default-ignorable nor white space to `cleanName`. `tea` + U+2800 + `room` reads as tea room, and was made beside it, at `tea-room~1`. That was so at `e10251ad` too.
+   - **Why it doesn't block.** AC5's list holds, every case rounds 1 and 2 named is closed, and only the owner and admins name concepts.
+   - **A follow-up could do any of these:** list these cases in Amendment 4.1's limits; allow a selector only where it changes an emoji's presentation; or compare names for the repeat and near matches with these characters removed.
+2. **R3-2. `src/lib/conceptNames.js:32`: 32 format characters that round 2's code refused are accepted now, and no record says so.**
+   - Unicode keeps 32 format characters out of the default-ignorable set, the set a program draws as nothing when it doesn't support a character:
+     - the prepended concatenation marks: U+0600–U+0605, U+06DD, U+070F, U+0890, U+0891, U+08E2, U+110BD and U+110CD;
+     - the interlinear annotation characters, U+FFF9–U+FFFB;
+     - the Egyptian hieroglyph format controls, U+13430–U+1343F.
+   - **Measured.** `e10251ad` refuses each of them between `bea` and `gle`, and HEAD accepts all 32. Through the catalog, `bea` + U+FFF9 + `gle` was refused there and is made at HEAD, at `bea-gle`.
+   - **Why it doesn't block.** Outside that set, a character is meant to show, so these likely don't give round 1's case.
+   - **The records.** Amendment 3.3's mark says format characters "were too narrow a set" (ADR:248), and Amendment 4.1 reads as if its set contained the old one. It doesn't. Say so, or test `\p{Cf}` as well, keeping the exceptions.
+3. **R3-3. ADR:258: Amendment 4.1 gives the wrong reason that `cat` + U+FE0F isn't a repeat.**
+   - It says "It isn't a repeat, since cat's slug is `feline`". But at `e10251ad`, `beagle` + U+FE0F, whose concept's slug is beagle, was made beside it too, at `beagle~1`. So was `mouse` + U+FE0F, at `mouse~1`.
+   - A create compares its own slug, `toSlugName` of the name (`create-concept.js:75`, `:80`), and that holds the selector. So a name holding one is never a repeat of a concept without it. Cat's slug being feline is why plain `cat` meets `key-in-use` (CC8).
+   - The argument's conclusion stands, as CC22's answer at `e10251ad` shows. The reason should be that the name's own slug holds the selector too.
+4. **R3-4. `src/operations/catalog/graph/_concepts.js:98`: the published reason says each refusal names the character.**
+   - It ends "the refusal names the input and the character". Only the invisible-character reason names one (`conceptNames.js:107`). The control-character and text-direction reasons don't (`:104`, `:105`).
+   - /docs, the command's help and the list publish this text. Say "and, for an invisible character, which one", or name the code point in the other two reasons.
+5. **R3-5. Three parts of the rule are pinned by nothing (R2-3's residue).**
+   - **The start of a name** (`conceptNames.js:52-54`). A joiner at the start, accepted whenever the character after it joins, fails no test. CN3's start case, U+200C before `beagle` (`concept-names.test.js:65`), is refused for its Latin neighbour anyway. A joiner at the start, before a Persian letter, would pin it; HEAD refuses it (the probe).
+   - **A selector only after an emoji** (`:55`). Accepted after a non-Latin letter too, it fails no test, since CN3's selectors follow a Latin letter or an emoji. A selector after a Cyrillic letter would pin it.
+   - **The text-direction reason** (`:105`). With that check dropped, those controls are still refused, with the invisible reason, and no test fails: CN3 and CC11 only ask for a reason. Amendment 4.1 says they keep their own reason (ADR:262), and that CN3 and CC22 pin it (ADR:263).
+   - **One redundancy.** `BEFORE_JOINER_RE`'s explicit U+FE0E and U+FE0F (`:37`) add nothing, since both are `\p{M}`.
+
+### Harness friction
+
+1. **One new; two known ones recurred.**
+   - **New as friction: a merge check's tip can move under it.** Worktrees share the remote-tracking refs, and another session's fetch moved `origin/staging` during rounds 2 and 3. This round's brief named `28b55c6a`, and the tip was `a282b2b7` by the time the merge was checked. A merge check should name by sha the tip it ran against, as this one does. This commit holds the review alone, so no OPEN.md row is added here.
+   - `npm run gate:status` can't be quoted on this Mac.
+   - The trap in ledger `2026-10-07-on-pass-heading-reads-as-verdict`: this round ends at its verdict, with no heading after it.
+
+### Verdict (round 3)
+
+**PASS**
+
+R2-1 and R2-2 are fixed, and R2-3 is fixed except at the start of a name. The tests fail before the fixes and pass after them, the mutations that matter make them fail, and every stack-free gate is clean, on the branch and on its merge with staging's tip. The five new findings are follow-ups: R3-1 and R3-2 are a gap and an unrecorded regression in the same rule, R3-3 and R3-4 are wording, and R3-5 is three missing test cases. The story stays `Done`.
