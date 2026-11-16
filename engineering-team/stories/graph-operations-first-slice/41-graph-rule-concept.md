@@ -94,6 +94,35 @@ For Architecture, not this gate:
 - **What a reinstall does with an item whose entry has left the rulebook.** The ADR retires a rule rather than removing its entry, so this should be rare.
 - **Whether firmware's usual signed path suits these items,** and which category and sets, if any, the concept gets.
 
+## Evidence
+
+### The live check (Implementation, 2026-11-16)
+
+This ran on a throwaway instance booted from image `agent-memory-tapestry:latest`, with fresh volumes and no published ports, never on a shared or private instance. It had this branch's `src/` mounted. Before the instance's first install, its graph held no concept, and this branch's firmware was copied into it (see Deviations). By criterion:
+
+- **AC1, AC2, AC3 and AC6 pass.**
+  - The first install, which took 85 s, created the concept and logged `graph-rule: 6 to create`.
+  - `test/graph-rule-firmware.test.js` against the instance passed 17 of 17.
+  - GL1: `summaries` lists `39998:<TA>:graph-rule` as "graph rule" with six elements, and it has the eight core nodes relationship-type has.
+  - GL2: each item is at an address of the instance's own, `39999:<TA>:<name>-1b2c3b2d`, and holds its committed file's JSON.
+  - GL3: `tapestry graph list-elements` gives the six.
+  - The concept's page in the UI wasn't opened, since a scratch instance has no published ports. The page reads the same concept graph.
+- **AC4 passes.** After an item's file changed, its JSON in the graph said the new words.
+- **AC5 passes.** Every install took about 63 s and logged its outcome for the concept. A whole-graph fingerprint (every node with an address, its labels and tags, and every relationship) was compared before and after each install:
+  - **No change** (GL4, then again): `0 to create, 0 re-signed in place, 6 already in line`. Every item kept its address and its event, and no relationship changed. The rest of the graph changed only as every reinstall changes it: the 44 tag nodes of the headers a reinstall re-signs get new addresses.
+  - **One item's file changed** (class-thread-acyclic's `says`): `1 re-signed in place, 5 already in line`. That item kept its address, got a new event and kept its 5 relationships, and the other five kept their events. Beyond the 44, the only node that changed was that item. Its 4 tag nodes were re-keyed too, as regenerateJson re-keys them on every re-sign.
+  - **A seventh entry's file added:** `1 to create, 6 already in line`. Beyond the 44, the graph gained that item, its 4 tags and its one `HAS_ELEMENT`, and nothing else changed.
+
+## Deviations
+
+- **ADR 0041 gained Amendment 1 at Test Design.** It pins the shapes the tests read: the script's three parts and their problems, `planElement`'s arguments and answers, and how the schema states Decision 2's values. It also says install finds the concept's header by its address, never by name. That is what Pass 2 began doing while this story was in Architecture (graph-operations-foundation #10, TapestryProtocol/tapestry#80).
+- **The rulebook's preamble says more than Decision 8 listed.** As well as "In the graph", it now describes the format the script reads: a field's bold label, its indented continuation lines, how a refusal is written, and that a rule with code names its file.
+- **The live check put this branch's firmware into the scratch instance by hand.** `scripts/scratch-stack.sh` mounts only `src/`, so the firmware would have come from the image, which predates this branch. Mounting a copy of the firmware from the session's temporary folder failed: Docker Desktop doesn't share that folder, so the mount came up empty and the control panel exited. So the check booted the instance with `src/` mounted, copied the branch's firmware in, and restarted the control panel before the first install. The instance's first install therefore included the graph rule concept. Giving the stock script a firmware mount is a possible follow-up.
+- **Known limits, carried forward:**
+  - **create-element still finds its concept by name,** as it does for every firmware concept. #80 fixed that for schema saves only. Another author's header named "graph rule" could take the instance's own header's place when the items are first made. An update finds the header by its address, so it isn't affected.
+  - **Another author's element with a rule's name stops firmware making its own** (ADR 0041 Consequences). Install logs it and signs nothing over it.
+  - **An item whose entry leaves the rulebook stays on instances that have it.** Nothing deletes it.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
