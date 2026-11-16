@@ -8,6 +8,9 @@
  *
  * What the graph operations add (AC5):
  *   cleanName(text)          trimmed, each run of white space inside it one space
+ *   textProblem(text)        why a trimmed text can't name anything, or null: empty, a control character, a
+ *                            text-direction control, or an invisible character that draws nothing where it is
+ *                            (nameProblem's first four checks; a ref is checked with this alone, ADR 0009)
  *   nameProblem(name)        why a cleaned name can't be a concept's name, or null: empty, no slug, a control
  *                            character, a text-direction control, an invisible character that draws nothing
  *                            where it is, or longer than MAX_NAME (refused, never cut)
@@ -114,15 +117,26 @@ function cleanName(text) {
   return typeof text === 'string' ? text.replace(/\s+/g, ' ').trim() : '';
 }
 
+/**
+ * Why a trimmed text can't name anything, in words, or null: it is empty, or holds a character that can make it read
+ * as another (nameProblem's first four checks, worded as it words them; ADR graph-operations-first-slice/0009
+ * Decision 6). A ref is checked with this alone: the length and slug rules are for making a concept's name.
+ */
+function textProblem(text) {
+  if (typeof text !== 'string' || !text) return 'it is empty once trimmed';
+  const control = text.match(CONTROL_RE);
+  if (control) return `it contains a control character, ${codePoint(control[0])}`;
+  const bidi = text.match(BIDI_RE);
+  if (bidi) return `it contains a text-direction control, ${codePoint(bidi[0])}, which can make it read differently from what it is`;
+  const invisible = strayInvisible(text);
+  if (invisible) return `it contains an invisible character, ${codePoint(invisible)}, which would make it read as another name: its slug, key and labels would hold the character too`;
+  return null;
+}
+
 /** Why a cleaned name can't be a concept's name, in words, or null. */
 function nameProblem(name) {
-  if (typeof name !== 'string' || !name) return 'it is empty once trimmed';
-  const control = name.match(CONTROL_RE);
-  if (control) return `it contains a control character, ${codePoint(control[0])}`;
-  const bidi = name.match(BIDI_RE);
-  if (bidi) return `it contains a text-direction control, ${codePoint(bidi[0])}, which can make it read differently from what it is`;
-  const invisible = strayInvisible(name);
-  if (invisible) return `it contains an invisible character, ${codePoint(invisible)}, which would make it read as another name: its slug, key and labels would hold the character too`;
+  const why = textProblem(name);
+  if (why) return why;
   if (name.length > MAX_NAME) return `it is ${name.length} characters long, more than ${MAX_NAME}; a name is refused rather than cut`;
   if (!dtag.slug(name)) return 'it has no letter a–z or digit 0–9, so it would have no slug: a slug keeps only those, with accents dropped';
   return null;
@@ -135,4 +149,4 @@ function descriptionProblem(text) {
   return null;
 }
 
-module.exports = { MAX_NAME, toSlugName, toKeyName, toTitleName, toLabelName, deriveAllNames, cleanName, nameProblem, descriptionProblem };
+module.exports = { MAX_NAME, toSlugName, toKeyName, toTitleName, toLabelName, deriveAllNames, cleanName, textProblem, nameProblem, descriptionProblem };

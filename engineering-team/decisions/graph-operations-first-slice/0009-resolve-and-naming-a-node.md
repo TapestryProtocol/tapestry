@@ -447,6 +447,28 @@ Until an operation adopts refs, its node inputs take tapestryKeys only, and an a
 
 **Branches.** A new feature, for `staging` only. It reaches `main` through the normal promotion, and no long-lived sandbox branch needs a port.
 
+## Amendment 1 (2026-11-16, at Test Design) — what the Tester's readings settle
+
+The test plan (`engineering-team/stories/graph-operations-first-slice/9-resolve.test-plan.md`) reads the decisions this way, and the suites hold the Implementer to it:
+
+1. **A refusal carries its candidates.** `src/operations/refusal.js` copies only `rule` and `input` into a refusal's extra fields (`refusal.js:11`). So `ambiguous-ref` couldn't carry `candidates` and `more`, as Decision 5 says it does.
+   - **The change.** `refusal.js` also copies `candidates`, when it is a list, and `more`, when it is true or false. The route then answers them beside `error` and `code`, as it does `input`.
+   - **Nothing else changes.** No operation that refuses today passes either field.
+   - **Changed files** gain `src/operations/refusal.js`.
+2. **`refInput(description)` gives `{ schema, description }`,** with `REF_INPUT`'s schema and no `required`. Whether an input is required is the adopting operation's to say.
+3. **`readingsOf` answers `family` and `readings`.** `family` is `key`, `address` or `name`. The suites read nothing else it answers.
+4. **The answer's `ref` is the ref as given, trimmed.** The name in `readings` is the cleaned one, so `'  dog   breed  '` answers `ref: 'dog   breed'` and `readings: [{ as: 'name', value: 'dog breed' }]`.
+5. **The schemas' lists:**
+   - `READING.as` is one of `tapestryKey`, `address`, `name` and `slug`;
+   - `CANDIDATE.kind` is one of `concept`, `superset`, `set` and `node`;
+   - `CANDIDATE.matched` lists items of `tapestryKey`, `address`, `name`, `plural`, `slug` and `d-tag`.
+6. **`unknown-ref`'s message gives the number** of candidates the point of view left out. It also says that a node's tapestryKey names it whatever the point of view.
+7. **The fakes.** The Tester's commit makes the routing change of the For the Tester notes in `test/helpers/graphFake.js`, and `test/operations/graph-fake.test.js` gains F21 for it.
+
+**Note, 2026-11-16 (at Review, round 1, Blocking 3).** Item 7's test is now F24. Commit `78b34637` renumbered it after story 13's F21–F23 (A10.13, `graph list-relationships`), which merge first. No decision changes.
+
+**Note, 2026-11-16 (at the merge with staging, after #93).** Item 7's test is now F25. Story 13's review added an F24 of its own (#93), so commit `fa4ef9b1` moved this test once more. No decision changes.
+
 ## Out of scope
 
 - **Everything the story leaves out:**

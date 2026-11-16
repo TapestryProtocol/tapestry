@@ -5,7 +5,9 @@
  * declaration never under-documents what it refuses (ADR graph-operations-foundation/0001 Decisions 2 and 4).
  *
  * `extra` adds fields to the refusal's answer beside `error` and `code`: the rule a guard's refusal comes from
- * (`rule`), or the input it is about (`input`) (ADR graph-operations-foundation/0004 Decision 3).
+ * (`rule`), or the input it is about (`input`) (ADR graph-operations-foundation/0004 Decision 3); and, for a ref that
+ * names more than one node, the `candidates` it names, a list, and whether there are `more` of them, true or false
+ * (ADR graph-operations-first-slice/0009 Decision 5 and Amendment 1).
  */
 
 const EXTRA_FIELDS = Object.freeze(['rule', 'input']);
@@ -18,6 +20,8 @@ class Refusal extends Error {
     this.isRefusal = true;
     this.extra = {};
     for (const k of EXTRA_FIELDS) if (extra && typeof extra[k] === 'string') this.extra[k] = extra[k];
+    if (extra && Array.isArray(extra.candidates)) this.extra.candidates = extra.candidates;
+    if (extra && typeof extra.more === 'boolean') this.extra.more = extra.more;
   }
 }
 
