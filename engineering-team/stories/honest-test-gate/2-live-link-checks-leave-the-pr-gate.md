@@ -110,6 +110,10 @@ Judgment calls made in Implementation, too small for an ADR (the story has none)
   ledger row's note no longer limits itself to the pull-request gate. Loose ends from the review are ledger rows
   `2026-11-16-ci-gate-flake-history-claim-untrue`, `2026-11-16-story-numbers-ignore-planned-stories` and
   `2026-11-16-harness-docs-say-workflows-retired`.
+- **After review round 2** (its blocking 1). The "could not run" report fires only when the suites fail before
+  anything is counted. A `gh` call that fails after counting exits 2 and posts nothing more, so a dead link is never
+  hidden behind a false "no link was counted". OPERATIONS.md §15 now says the schedule runs `main`'s copy, while a
+  by-hand run can pick a branch.
 - **Left as found, and flagged for the owner.** §15's "zero recorded-flake history" was already untrue on
   2026-11-16 (K1 and the launcher's destroy test, fixed in #90 and #91); this story only adds the link checks to
   the paragraph's excluded live classes. OPEN.md row 172 still says llms-txt's L1 checks the links on every

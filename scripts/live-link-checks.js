@@ -107,8 +107,19 @@ function reportCrash(err) {
 }
 
 async function main(argv) {
+  const reporting = argv.includes('--report');
   process.env[links.SWITCH] = '1';
-  for (const file of SUITES) await require(path.join(ROOT, file)).run();
+  try {
+    for (const file of SUITES) await require(path.join(ROOT, file)).run();
+  } catch (err) {
+    // The run died before it could count. Only this failure is reported as "could not run": a gh call that fails
+    // later, after counting, goes to the top level and exits 2 without posting anything that isn't true.
+    console.error(`live link checks: the run failed before it could count: ${(err && err.stack) || err}`);
+    if (reporting) {
+      try { reportCrash(err); } catch (e) { console.error(`live link checks: could not report that on GitHub either: ${(e && e.message) || e}`); }
+    }
+    return 2;
+  }
   const checks = links.recorded;
   const count = (outcome) => checks.filter((c) => c.outcome === outcome).length;
   const passed = count('pass');
@@ -118,18 +129,15 @@ async function main(argv) {
   console.log(`\nlive link checks: ${passed} passed, ${failed} failed, ${skipped} skipped`);
   for (const c of checks.filter((x) => x.outcome === 'fail')) console.log(`  dead: ${c.url} answered ${c.status} (${c.suite})`);
   if (passed + failed === 0) console.log('  no link could be checked: every one was skipped, so this run is red');
-  if (argv.includes('--report')) report({ checks, passed, failed, skipped, red });
+  if (reporting) report({ checks, passed, failed, skipped, red });
   return red ? 1 : 0;
 }
 
 // Exit once the output is written: the suites' stack checks leave abort timers pending that would hold the
 // process open for up to 15 s.
 const done = (code) => process.stdout.write('', () => process.exit(code));
-const argv = process.argv.slice(2);
-main(argv).then(done, (err) => {
-  console.error(`live link checks: the run itself failed: ${(err && err.stack) || err}`);
-  if (argv.includes('--report')) {
-    try { reportCrash(err); } catch (e) { console.error(`live link checks: could not report that on GitHub either: ${(e && e.message) || e}`); }
-  }
+main(process.argv.slice(2)).then(done, (err) => {
+  // Here the run had counted, and something after it failed, such as a gh call. Its counts are already printed.
+  console.error(`live link checks: the run failed after counting: ${(err && err.stack) || err}`);
   done(2);
 });
