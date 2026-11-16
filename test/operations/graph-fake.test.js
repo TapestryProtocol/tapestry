@@ -50,7 +50,7 @@
  *   F24 a one-hop read keeps the repertoire for any later relationship; a later node, as trust() adds, still runs
  *
  * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9 and For the Tester):
- *   F24 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
+ *   F25 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
  *       relationship), runs as Neo4j would: through the path reader, since the one-node reader refuses OPTIONAL MATCH
  */
 
@@ -534,7 +534,7 @@ test('F24: a one-hop read keeps the repertoire for any later relationship; a lat
   assert(alone.length === 4, `a later node, with no relationship, still runs with no repertoire: alice's four; got ${show(alone)}`);
 });
 
-test('F24: a read of nodes found by their properties, with the trust fragment\'s OPTIONAL MATCH and no relationship, runs as Neo4j would', async () => {
+test('F25: a read of nodes found by their properties, with the trust fragment\'s OPTIONAL MATCH and no relationship, runs as Neo4j would', async () => {
   const R = require(path.join(ROOT, 'src/operations/reads.js'));
   const lo = '22'.repeat(32);
   const hi = '11'.repeat(32);
