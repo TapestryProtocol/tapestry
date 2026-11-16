@@ -33,6 +33,8 @@ Amendment 1 to the ADR pins the shapes these tests read. It covers the script's 
 | AC5 | GF6 every other concept in its old order · GF7 only graph-rule sets `updateElements` | `test/graph-rule-firmware.test.js` | unit (files) |
 | AC5 | GL4 a second install with no change signs nothing new for the items | `test/graph-rule-firmware.test.js` | live (scratch, `GRAPH_RULE_INSTALL=1`) |
 | AC5 | The live check below, steps 3 and 4: a changed entry, and a new one | manual, at Implementation | live (scratch) |
+| AC2, AC3 (review round 1, ADR Amendment 2.2 and 2.3) | GP12 an unindented line after a field is a problem · GP13 a heading with a name in backticks that isn't an entry's · GP14 a field line outside any entry · GP15 a first sentence never ends at e.g. or i.e. | `test/graph-rules-builder.test.js` | unit (fixtures) |
+| AC5 (review round 1, ADR Amendment 2.4) | IS4 to IS9: the real `pass1_bootstrap`, run in a child with its dependencies stubbed (`test/helpers/pass1bChild.js`). It covers create, unchanged, re-sign, another author's, a failed lookup, the header by address, and every other concept as before | `test/firmware-element-sync.test.js` | unit (stubbed install) |
 | AC6 — it reads like any concept | GB10 the rulebook's preamble · GF13 BIBLE §7 | both | unit (docs) |
 | AC6 | GL1 summaries lists it · GL3 `graph list-elements` gives the six items | `test/graph-rule-firmware.test.js` | live (scratch) |
 
@@ -112,3 +114,18 @@ firmware-element-sync: 0 passed, 14 failed, 0 skipped
   FAIL  IS2 … it takes regenerateJson and loadTAKey from the helpers (Decision 6); it takes "loadTAKey, signAndFinalize"
   FAIL  IS3 … install.js requires ../lib/neo4j-driver …
 ```
+
+### Review round 1's cases (2026-11-16)
+
+Added at Review, in a commit of their own before the fixes, for ADR 0041 Amendment 2:
+- **GP12 to GP15 fail** against the round-1 code, because the parser and the first-sentence rule aren't changed yet:
+
+  ```
+  FAIL  GP12 … a --- separator between entries: a problem naming "alpha-rule"; the problems are []
+  FAIL  GP13 … the heading "## 3 `gamma-rule`": a problem naming "gamma-rule"; the problems are []
+  FAIL  GP14 … a field line under "## Letter rules" is a problem with rule null that names its label; got []
+  FAIL  GP15 … word.description is "No beta (e.g. a superset) is below itself."; got "No beta (e.g."
+  graph-rules-builder: 22 passed, 4 failed, 0 skipped
+  ```
+
+- **IS4 to IS9 pass** against the round-1 code: they pin install behaviour the review checked by hand, so a regression fails in CI (`firmware-element-sync: 20 passed, 0 failed, 0 skipped`).

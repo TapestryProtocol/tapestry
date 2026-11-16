@@ -34,6 +34,10 @@
  *        or twice, text before the first field                                                                    [AC2]
  *   GP10 another level-2 heading ends the entry before it and isn't an entry                                       [AC2]
  *   GP11 a letter rule is about events                                                                             [AC3]
+ *   GP12 a non-blank line after a field that isn't indented is a problem, so it never joins the field (Amendment 2.2) [AC2]
+ *   GP13 a level-2 heading with a name in backticks that isn't an entry's heading is a problem (Amendment 2.2)     [AC2]
+ *   GP14 a field line outside any entry is a problem (Amendment 2.2)                                               [AC2]
+ *   GP15 a Says' first sentence ends at a full stop and a capital letter, never at e.g. or i.e. (Amendment 2.3)    [AC3]
  */
 
 const fs = require('fs');
@@ -405,6 +409,56 @@ t('GP11 (AC3): a letter rule is about events', () => {
   const r = build(builder(), fixture({ text: rulebook(letter) }));
   assert(r.problems.length === 0, `a letter rule is a good entry; got ${short(r.problems)}`);
   assert(graphRule(r.items, 'alpha-rule').about === 'events', `about is "events"; got ${show(graphRule(r.items, 'alpha-rule').about)}`);
+});
+
+// ── Review round 1: the stricter format, and where a first sentence ends (ADR 0041 Amendment 2.2 and 2.3) ──────────
+
+t("GP12 (AC2, AC3): a non-blank line after a field that isn't indented is a problem naming the entry, so it never joins the field", () => {
+  const b = builder();
+  const cases = [
+    ['a --- separator between entries', rulebook([...ENTRY_ALPHA, '', '---']), 'alpha-rule'],
+    ['a stray note after an entry', rulebook(ENTRY_ALPHA, [...ENTRY_BETA, '', 'Note: rules 1 and 2 share nothing.']), 'beta-rule'],
+    ['a label with its colon outside the bold', rulebook([...ENTRY_ALPHA, '- **Example**: an alpha that breaks it.']), 'alpha-rule'],
+    ['a plain bullet among the fields', rulebook(swap(ENTRY_ALPHA, '- **Check:** a check counts the alphas.', '- a check counts the alphas.')), 'alpha-rule'],
+  ];
+  for (const [what, text, rule] of cases) {
+    const r = build(b, fixture({ text }));
+    expectProblem(r.problems, rule, null, what);
+  }
+  const indented = build(b, fixture({ text: rulebook([...ENTRY_ALPHA.slice(0, -1), '- **Source:** ADR test/0001.', '', '  A paragraph that belongs to Source.']) }));
+  assert(indented.problems.length === 0, `an indented paragraph after a field is still that field's; got ${short(indented.problems)}`);
+  assert(graphRule(indented.items, 'alpha-rule').source === 'ADR test/0001.\n\nA paragraph that belongs to Source', `it joins the field, dedented; got ${show(graphRule(indented.items, 'alpha-rule').source)}`);
+});
+
+t('GP13 (AC2): a level-2 heading that holds a name in backticks but isn\'t an entry\'s heading is a problem naming the name', () => {
+  const b = builder();
+  for (const heading of ['## 3 `gamma-rule`', '## Rule 3: `gamma-rule`', '## The `gamma-rule` rule']) {
+    const r = build(b, fixture({ text: rulebook(ENTRY_ALPHA, ENTRY_BETA, [heading, '', 'Words about gamma.']) }));
+    expectProblem(r.problems, 'gamma-rule', null, `the heading "${heading}"`);
+  }
+});
+
+t('GP14 (AC2): a field line outside any entry — in the preamble, or under a heading that isn\'t an entry\'s — is a problem', () => {
+  const b = builder();
+  const under = build(b, fixture({ text: rulebook(ENTRY_ALPHA, ENTRY_BETA, ['## Letter rules', '', '### 3. `gamma-rule`', '', '- **Says:** every gamma is signed.', '- **Kind:** a letter rule, about gammas.']) }));
+  assert(under.problems.some((p) => p.rule === null && /Says/.test(p.message)), `a field line under "## Letter rules" is a problem with rule null that names its label; got ${short(under.problems, 800)}`);
+  const preamble = build(b, fixture({ text: rulebook().replace('The preamble.', 'The preamble.\n\n- **Says:** a field line in the preamble.') }));
+  assert(preamble.problems.some((p) => p.rule === null && /Says/.test(p.message)), `a field line in the preamble is a problem with rule null that names its label; got ${short(preamble.problems, 800)}`);
+});
+
+t("GP15 (AC3): a Says' first sentence ends at a full stop and a capital letter, never at e.g. or i.e.", () => {
+  const b = builder();
+  const cases = [
+    ['- **Says:** no beta (e.g. a superset) is below itself. More words.', 'No beta (e.g. a superset) is below itself.'],
+    ['- **Says:** every beta (i.e. Every one) is fine. More words.', 'Every beta (i.e. Every one) is fine.'],
+    ['- **Says:** no beta is below itself', 'No beta is below itself'],
+    ['- **Says:** no beta is below itself. it says so twice.', 'No beta is below itself. it says so twice.'],
+  ];
+  for (const [line, want] of cases) {
+    const r = build(b, fixture({ text: rulebook(ENTRY_ALPHA, swap(ENTRY_BETA, '- **Says:** no beta is below itself.', line)) }));
+    const got = r.items.find((i) => i.name === 'beta-rule').json.word.description;
+    assert(got === want, `${line}: word.description is ${show(want)}; got ${show(got)}`);
+  }
 });
 
 async function run() {
