@@ -58,6 +58,11 @@
  *     IS_THE_CORE_GRAPH_FOR and IS_THE_CONCEPT_GRAPH_FOR; and toLower in both read fakes (C8).
  * C3, C4, C8 and C9 are reads the two read fakes run; C7 is the MERGE above, and C10 is S8.
  *
+ * Story graph-operations-first-slice #13 (ADR graph-operations-first-slice/0013, Decision 2, S2 and S3) adds the
+ * one-hop reads from a node found by its tapestryKey (ONE_HOP_FROM_KEY below), which the path fake runs over
+ * relationships of every type, with elementId() and properties() (test/helpers/pathCypherFake.js), when nothing later in
+ * the statement names another relationship.
+ *
  * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9) sends a read with an OPTIONAL
  * MATCH and no relationship to test/helpers/pathCypherFake.js, not to the one-node reader, which refuses OPTIONAL
  * MATCH: graph resolve finds nodes by their properties, then tests trust with reads.js's fragment, whose OPTIONAL MATCH
@@ -318,6 +323,22 @@ const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_
   // ADR graph-operations-first-slice/0016's C9: a concept's core nodes, by the wiring types today's create-concept makes.
   'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR']);
 
+/**
+ * ADR graph-operations-first-slice/0013's one-hop reads (story graph-operations-first-slice #13): a statement that opens
+ * with one relationship, held in a variable, of no named type or of one type in backticks, from a node found by its
+ * tapestryKey to a bare node, and names no other relationship. They read relationships of every type, so the path fake
+ * runs them with no repertoire (`types: null`). A relationship with no variable, a type outside backticks, a second
+ * hop, or any relationship later in the statement (LATER_RELATIONSHIP: a later MATCH, OPTIONAL MATCH or pattern in
+ * WHERE) keeps the repertoire, so the fake still refuses a type it doesn't read (review 13, finding 2; F24).
+ */
+const ONE_HOP_FROM_KEY = /^\s*MATCH\s*\(\s*\w+\s*:\s*TapestryNode\s*\{\s*tapestryKey\s*:\s*\$\w+\s*\}\s*\)\s*(?:-\s*\[\s*\w+\s*(?::\s*`[A-Za-z][A-Za-z0-9_]*`\s*)?\]\s*->|<-\s*\[\s*\w+\s*(?::\s*`[A-Za-z][A-Za-z0-9_]*`\s*)?\]\s*-)\s*\(\s*\w+\s*\)\s*(?:WHERE|WITH|RETURN|OPTIONAL)\b/i;
+/** A relationship pattern anywhere in the rest of a statement: -[…]-, -->, <-- or --. */
+const LATER_RELATIONSHIP = /-\s*\[|\]\s*-|--/;
+const isOneHopFromKey = (bare) => {
+  const m = ONE_HOP_FROM_KEY.exec(bare);
+  return Boolean(m) && !LATER_RELATIONSHIP.test(bare.slice(m.index + m[0].length));
+};
+
 /** Story 4's declared types' read: from a header found by uuid, through IS_THE_CONCEPT_FOR to HAS_ELEMENT, with no keys(). */
 const isDeclaredTypesRead = (bare) => /\bHAS_ELEMENT\b/.test(bare) && /\bIS_THE_CONCEPT_FOR\b/.test(bare)
   && /\{\s*uuid\s*:\s*\$\w+\s*\}/.test(bare) && !/\bkeys\s*\(/i.test(bare);
@@ -491,6 +512,7 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   const optional = /\bOPTIONAL\s+MATCH\b/i.test(bare);
   if (!writes && !hasRel && !optional) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
+  if (!writes && isOneHopFromKey(bare)) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
   if (writes && !write) throw new Error(`a read must write nothing; it sent: ${oneLine(q).slice(0, 300)}`);
   if (/\bCREATE\s*\(\s*\w+\s*:\s*[A-Za-z_:\s]*\bGraphChange\b/.test(bare)) return createEntry(s, q, params);

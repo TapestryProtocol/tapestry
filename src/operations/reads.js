@@ -2,18 +2,24 @@
 /**
  * The read conventions (story graph-operations-first-slice #11, ADR graph-operations-first-slice/0011 Decision 1):
  * what every read shares, defined once, so the reads after graph list-elements (A10.7–A10.14) page, filter and answer a
- * node the same way.
+ * node the same way. C5 and C6 (story #13, ADR graph-operations-first-slice/0013 Decision 1) do the same for a
+ * relationship, so graph list-relationships and the relationship reads after it (graph walk, graph describe-node) answer
+ * and judge one the same way. C4, where reads sit, is ADR 0011's and has no code here.
  *
  *   C1 paging          LIMIT_INPUT, CURSOR_INPUT, INVALID_CURSOR, scopeOf, encodeCursor, decodeCursor, pageOf
  *   C2 point of view   POV_INPUT, UNKNOWN_POV, POV, resolvePov, trust, trustParams, ownKeys
  *   C3 a node          NODE, nodeColumns, nodeOf
+ *   C5 a relationship  RELATIONSHIP, relationshipColumns, relationshipOf
+ *   C6 judging one     trust(v, keep)
  *
  * C1. A read that answers a list takes `limit` (1 to 200, 50 by default) and `cursor`, and answers its items with
- * `cursor`, null on the last page. Items come in an order that never changes for an item: tapestryKey ascending,
- * unless the read is about time. The query fetches limit + 1 rows, the checked whole number written into its text (the
- * driver sends a JavaScript number as a float). A cursor is the base64url of JSON [read, scope, position]: the read's
- * '<group> <name>', a fingerprint of the inputs that choose the list, and the last item's sort key. One that doesn't
- * parse, or names another read, another list or a position that isn't one, is refused invalid-cursor.
+ * `cursor`, null on the last page. Items come in an order that never changes for an item, which each read's ADR names:
+ * tapestryKey ascending for a list of nodes, unless the read is about time (history, newest first); for a list of
+ * relationships, out before in, then by type, the other node's tapestryKey and elementId (ADR 0013). The query fetches
+ * limit + 1 rows, the checked whole number written into its text (the driver sends a JavaScript number as a float). A
+ * cursor is the base64url of JSON [read, scope, position]: the read's '<group> <name>', a fingerprint of the inputs
+ * that choose the list, and the last item's sort key. One that doesn't parse, or names another read, another list or a
+ * position that isn't one, is refused invalid-cursor.
  *
  * C2. A read that can include other authors' nodes takes `pov`: owner (the default; the owner's own pubkey means the
  * same) or everyone; any other is refused unknown-pov for now. A node counts when the point of view is everyone, when
@@ -24,6 +30,18 @@
  *
  * C3. A node is answered as { tapestryKey, name, address, author, own }. A read may add facts of its own beside them,
  * never rename or drop one.
+ *
+ * C5. A relationship is answered as { type, direction, from, to, node, properties }. Its direction is out when it runs
+ * from the node the read is about and in when it runs to it; from and to are the tapestryKeys of the nodes it runs from
+ * and to (with type, what graph remove-relationship takes); node is the node at its other end, answered as C3; and
+ * properties is what it records about itself, keys sorted, {} for most. A relationship from a node to itself has from
+ * and to alike: a read that lists both directions answers it once, as out. Its elementId comes back as rid, for a
+ * read's cursor, and is never answered (design D6). A read may add facts beside these six, never rename or drop one.
+ *
+ * C6. No relationship records its author, so a relationship counts when the node at its other end counts by C2's test,
+ * and the node the read is about is never left out, since the caller named it. trust(v, keep) carries the variables
+ * named in keep through its WITH, so a relationship read judges m and keeps r: trust('m', ['r']). When relationships
+ * come to record who made them, this widens here, and callers stay as they are.
  *
  * It opens nothing at load (ADR graph-operations-foundation/0001 Decision 10): the config, the assistant's key and the
  * hash are required when first called.
@@ -141,12 +159,18 @@ async function resolvePov(read, value) {
   throw refusal(UNKNOWN_POV.code, `This instance can't read from the point of view of ${v}. It reads from its owner's point of view (pov=owner, the default) or from everyone's (pov=everyone); other points of view are to come.`, { input: 'pov' });
 }
 
-/** The trust test for node variable `v`, as a fragment of a read's Cypher; its parameters are trustParams(pov). */
-function trust(v) {
+/**
+ * The trust test for node variable `v`, as a fragment of a read's Cypher; its parameters are trustParams(pov). Its WITH
+ * carries `v`, `counts` and the variables named in `keep`, such as the relationship a read judges by `v` (C6).
+ */
+function trust(v, keep = []) {
   if (!VARIABLE.test(String(v))) throw new Error(`trust: ${JSON.stringify(v)} is not a Cypher variable name`);
+  if (!Array.isArray(keep)) throw new Error(`trust: keep is a list of Cypher variable names; got ${JSON.stringify(keep)}`);
+  for (const k of keep) if (!VARIABLE.test(String(k))) throw new Error(`trust: ${JSON.stringify(k)} is not a Cypher variable name`);
   const u = `u_${v}`;
+  const carried = [...new Set([...keep.map(String), String(v)])].join(', ');
   return `OPTIONAL MATCH (${u}:NostrUser {pubkey: ${v}.pubkey})
-     WITH ${v}, coalesce($everyone OR ${v}.pubkey IS NULL OR ${v}.pubkey IN $own OR ${u}.influence > $cutoff, false) AS counts`;
+     WITH ${carried}, coalesce($everyone OR ${v}.pubkey IS NULL OR ${v}.pubkey IN $own OR ${u}.influence > $cutoff, false) AS counts`;
 }
 
 /** The parameters trust(v) reads, for a resolved point of view. */
@@ -187,11 +211,58 @@ function nodeOf(row, own) {
   };
 }
 
+// ── C5 a relationship, answered ──
+
+const RELATIONSHIP = {
+  type: 'object',
+  required: ['type', 'direction', 'from', 'to', 'node', 'properties'],
+  properties: {
+    type: { type: 'string', description: 'Its type' },
+    direction: { type: 'string', enum: ['out', 'in'], description: 'out when it runs from the node the read is about, in when it runs to it' },
+    from: { type: 'string', description: 'The tapestryKey of the node it runs from' },
+    to: { type: 'string', description: 'The tapestryKey of the node it runs to' },
+    node: NODE,
+    properties: { type: 'object', description: 'What it records about itself, keys sorted; {} for most' },
+  },
+};
+
+/**
+ * The RETURN items that give relationship variable `r`'s facts and those of node variable `m`, the node at its other
+ * end. What `r` records comes as [key, value] pairs, so the driver converts each value as an item of a list: an
+ * integer inside a map would stay a driver Integer (ADR 0013, Context 7).
+ */
+function relationshipColumns(r, m) {
+  if (!VARIABLE.test(String(r))) throw new Error(`relationshipColumns: ${JSON.stringify(r)} is not a Cypher variable name`);
+  return `type(${r}) AS type, elementId(${r}) AS rid, [k IN keys(${r}) | [k, ${r}[k]]] AS properties, ${nodeColumns(m)}`;
+}
+
+/**
+ * A relationship, answered, from a row of relationshipColumns(r, m): `key` is the tapestryKey of the node the read is
+ * about, `direction` is 'out' or 'in' from it, and `own` is the instance's own keys.
+ */
+function relationshipOf(row, { key, direction, own }) {
+  if (direction !== 'out' && direction !== 'in') throw new Error(`relationshipOf: direction is out or in; got ${JSON.stringify(direction)}`);
+  const pairs = Array.isArray(row && row.properties)
+    ? row.properties.filter((p) => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string')
+    : [];
+  pairs.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const other = row.tapestryKey;
+  return {
+    type: row.type,
+    direction,
+    from: direction === 'out' ? key : other,
+    to: direction === 'out' ? other : key,
+    node: nodeOf(row, own),
+    properties: Object.fromEntries(pairs),
+  };
+}
+
 module.exports = {
   LIMIT_INPUT, CURSOR_INPUT, POV_INPUT,
   INVALID_CURSOR, UNKNOWN_POV,
-  NODE, POV,
+  NODE, POV, RELATIONSHIP,
   scopeOf, encodeCursor, decodeCursor, pageOf,
   resolvePov, trust, trustParams, ownKeys,
   nodeColumns, nodeOf,
+  relationshipColumns, relationshipOf,
 };

@@ -26,6 +26,13 @@
  * Anything else (UNWIND, CALL, UNION, a write, a path variable, an undirected relationship, a relationship with no
  * type, arithmetic, a map literal, another function) throws "the fake graph can't run this Cypher", naming what it
  * met, so a test that fails on the fake's limits says so.
+ *
+ * Story graph-operations-first-slice #13 (ADR graph-operations-first-slice/0013) adds the relationship reads:
+ *   - `types: null` lifts the repertoire. A relationship may then name any type, or none, and one with no type
+ *     matches every type. test/helpers/graphFake.js passes it for ADR 0013's one-hop reads only.
+ *   - elementId(x) of a node or a relationship: text in Neo4j 5's form, `5:<database id>:<n>`, fixed for its life.
+ *   - properties(x) of a node or a relationship: its map, with an integer left as the driver leaves one inside a map
+ *     ({ $int: '<digits>' } here, a neo4j Integer there), since toJS converts a list's items but returns a map as it is.
  */
 
 const KEYWORDS = new Set(['MATCH', 'OPTIONAL', 'WHERE', 'WITH', 'RETURN', 'ORDER', 'BY', 'SKIP', 'LIMIT', 'AS', 'DISTINCT',
@@ -34,7 +41,9 @@ const KEYWORDS = new Set(['MATCH', 'OPTIONAL', 'WHERE', 'WITH', 'RETURN', 'ORDER
   'DETACH', 'REMOVE', 'FOREACH', 'YIELD', 'LOAD', 'USE', 'SHOW', 'EXPLAIN', 'PROFILE', 'ON']);
 const CLAUSE_WORDS = ['UNION', 'CALL', 'UNWIND', 'MERGE', 'CREATE', 'SET', 'DELETE', 'DETACH', 'REMOVE', 'FOREACH', 'YIELD', 'LOAD', 'USE', 'SHOW', 'EXPLAIN', 'PROFILE'];
 const AGGREGATES = new Set(['count', 'collect']);
-const FUNCTIONS = new Set(['keys', 'head', 'size', 'coalesce', 'tostring', 'tolower', 'labels', 'type']);
+const FUNCTIONS = new Set(['keys', 'head', 'size', 'coalesce', 'tostring', 'tolower', 'labels', 'type', 'elementid', 'properties']);
+/** The database id in the fake's elementIds (ADR 0013, Context 8: Neo4j 5's form is 5:<database id>:<n>). */
+const FAKE_DATABASE_ID = '00000000-0000-4000-8000-00000000fa4e';
 
 const oneLine = (q) => String(q).replace(/\s+/g, ' ').trim();
 function cantRun(why, q) {
@@ -104,6 +113,7 @@ function parse(q) {
   const name = () => { const t = take(); if (t && t.t === 'kw' && t.raw) return t.raw; if (!t || t.t !== 'id') throw cantRun(`expected a name, met ${desc(t)}`, q); return t.v; };
   const labelAlternatives = () => { const alts = [name()]; while (isOp('|')) { take(); alts.push(name()); } return alts; };
   const types = new Set();
+  let untyped = false;
 
   // ── patterns ──
   function mapLiteral() {
@@ -146,8 +156,8 @@ function parse(q) {
     op(']');
     op('-');
     if (dir === 'out') { if (!isOp('>')) throw cantRun('an undirected relationship', q); take(); } else if (isOp('>')) throw cantRun('a relationship with two arrows', q);
-    if (!ts) throw cantRun('a relationship with no type', q);
-    for (const t of ts) types.add(t);
+    // A relationship with no type matches every type, where the caller lifts the repertoire (runPathQuery).
+    if (!ts) untyped = true; else for (const t of ts) types.add(t);
     if (v && (min !== 1 || max !== 1)) throw cantRun('a variable on a variable-length relationship', q);
     return { v, types: ts, dir, min, max };
   }
@@ -288,7 +298,7 @@ function parse(q) {
     throw cantRun(`a ${desc(peek())} clause`, q);
   }
   if (!clauses.length || clauses[clauses.length - 1].k !== 'return') throw cantRun('no RETURN', q);
-  return { clauses, types };
+  return { clauses, types, untyped };
 }
 
 // ── evaluation, with Cypher's three-valued logic ──
@@ -406,6 +416,16 @@ function evaluate(e, env, ctx) {
         case 'tolower': if (x === null || x === undefined) return null; if (typeof x !== 'string') throw new Error('Type mismatch: toLower() of something that is not a string'); return x.toLowerCase();
         case 'labels': if (x === null || x === undefined) return null; if (!ctx.isNode.has(x)) throw new Error('labels() of something that is not a node'); return [...x.labels];
         case 'type': if (x === null || x === undefined) return null; if (!ctx.isRel.has(x)) throw new Error('type() of something that is not a relationship'); return x.type;
+        // Story graph-operations-first-slice #13 (ADR 0013): a relationship's id, and its map as the driver leaves it.
+        case 'elementid':
+          if (x === null || x === undefined) return null;
+          if (!ctx.isNode.has(x) && !ctx.isRel.has(x)) throw new Error('Type mismatch: elementId() of something that is not a node or a relationship');
+          return `5:${FAKE_DATABASE_ID}:${x.eid}`;
+        case 'properties':
+          if (x === null || x === undefined) return null;
+          if (ctx.isNode.has(x) || ctx.isRel.has(x)) return { ...x.props };
+          if (typeof x === 'object' && !Array.isArray(x)) return x;
+          throw new Error('Type mismatch: properties() of something that is not a map, a node or a relationship');
         default: throw cantRun(`the function ${e.fn}()`, ctx.q);
       }
     }
@@ -501,7 +521,7 @@ function candidates(np, env, ctx) {
 function* steps(node, rp, used, ctx) {
   const adj = rp.dir === 'out' ? ctx.out : ctx.inc;
   const far = (r) => ctx.byEid.get(rp.dir === 'out' ? r.to : r.from);
-  const next = (n, path) => (adj.get(n.eid) || []).filter((r) => rp.types.includes(r.type) && !used.has(r) && !path.includes(r));
+  const next = (n, path) => (adj.get(n.eid) || []).filter((r) => (rp.types === null || rp.types.includes(r.type)) && !used.has(r) && !path.includes(r));
   function* dfs(n, path) {
     if (path.length >= rp.min) yield [n, path];
     if (path.length >= rp.max) return;
@@ -558,13 +578,17 @@ function toJs(x, ctx) {
  * @param {{ nodes: object[], rels: object[] }} state
  * @param {string} cypher
  * @param {object} params
- * @param {{ types: Iterable<string> }} opts  the relationship types it may read over
+ * @param {{ types: Iterable<string>|null }} opts  the relationship types it may read over; null for every type, with
+ *   relationships of no type matching each (ADR graph-operations-first-slice/0013's one-hop reads)
  */
 function runPathQuery(state, cypher, params = {}, { types } = {}) {
   const q = String(cypher);
   const plan = parse(q);
-  const allowed = new Set(types || []);
-  for (const t of plan.types) if (!allowed.has(t)) throw cantRun(`a read over ${t}, a relationship type it doesn't read paths over (it reads ${[...allowed].join(', ')})`, q);
+  if (types !== null) {
+    if (plan.untyped) throw cantRun('a relationship with no type', q);
+    const allowed = new Set(types || []);
+    for (const t of plan.types) if (!allowed.has(t)) throw cantRun(`a read over ${t}, a relationship type it doesn't read paths over (it reads ${[...allowed].join(', ')})`, q);
+  }
   const ctx = context(state, params, q);
   let rows = [{}];
   for (const c of plan.clauses) {
