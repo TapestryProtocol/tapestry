@@ -24,4 +24,6 @@ A startup failure can't be rerun (`gh run rerun`: "This workflow run cannot be r
 
 Whichever is chosen, OPERATIONS.md §4 and `/cycle-prod` should say what a `main-source-guard` startup failure means, and that a new pull-request event (closing and reopening) is the only way to run it again.
 
+**Chosen, 2026-11-16: the first option.** The owner sets an Actions policy, `allow-pull-request-target-for-main-source-guard`, in Settings → Actions → Policies. It names `guard-main-source.yml` by its path and allows that workflow `pull_request_target`, so the guard keeps its trigger and its protection. Moving the guard to `workflow_run` was the alternative: GitHub runs that event only from main's copy too, but the guard would need a write scope to post its check, and could first be tried only after its own promotion. `.github/rulesets/allow-pull-request-target-for-main-source-guard.json` is the policy's definition, and OPERATIONS.md §4 and `/cycle-prod` now say what a startup failure means. Close this row once a real PR into `main` has run the guard with the policy in place.
+
 **Pointer:** `.github/workflows/guard-main-source.yml`; OPERATIONS.md §4, "Branch protection rulesets"; OPEN.md row 155; #96's checks and comments; GitHub's guide, `https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target`.
