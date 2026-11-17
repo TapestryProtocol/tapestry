@@ -104,6 +104,12 @@ For Architecture, not this gate:
 - **A start node named twice,** and nodes with no tapestryKey, which list-relationships neither lists nor counts.
 - **The test fakes,** which read relationships of a few named types only, one step at a time.
 
+## Deviations
+
+- **`walk()` also throws for a `types` list that is empty or longer than `MAX_TYPES`,** as it throws for a `from` of the wrong length, and when `read` isn't a function or `pov` isn't a resolved point of view. ADR 0014 Decision 1 named the other throws. Each is a programming error, which the inputs' schemas refuse first for graph walk.
+- **The step statement checks its direction, its types and its `LIMIT` again before writing them into Cypher's text,** as list-relationships checks its type again. The walk has checked them already, so these checks are for a caller that skips it.
+- **The /docs text and the `complete` description give the bound as "10,000",** grouped from `BOUND` with no locale data, so they change with it.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and "Reads stay behind sign-in" bullets)
