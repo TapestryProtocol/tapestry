@@ -42,6 +42,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     within a bound; the walk search (A10.8) will call (Loom A10.14).
 16. `stories/graph-operations-first-slice/16-create-concept-and-update-concept.md` — make a concept with its eight core
     nodes and no event, and change its names, slug or description (Loom A10.16).
+18. `stories/graph-operations-first-slice/18-property-operations.md` — add, change and remove a concept's properties,
+    or make them match a whole JSON Schema, with no event, the concept's schema following from its properties; the
+    first write on a concept gives the fields its schema already lists their property nodes, and each write reports
+    the elements that stop fitting (Loom A10.18).
 20. `stories/graph-operations-first-slice/20-create-element.md` — make an element of a concept, or of a set in its class
     thread, with no event, its fields checked against the concept's schema; brings BIBLE §10's rule 4 into the
     rulebook as one check the later element writes reuse (Loom A10.20).
