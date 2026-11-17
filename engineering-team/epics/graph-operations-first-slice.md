@@ -39,6 +39,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 20. `stories/graph-operations-first-slice/20-create-element.md` — make an element of a concept, or of a set in its class
     thread, with no event, its fields checked against the concept's schema; brings BIBLE §10's rule 4 into the
     rulebook as one check the later element writes reuse (Loom A10.20).
+21. `stories/graph-operations-first-slice/21-update-node.md` — change one of this instance's own elements' name,
+    description or fields, with no event, each section it changes checked against its concept's schema; brings the
+    check that refuses a node from someone else's event (D4), which merge-nodes and delete-node will reuse (Loom A10.21).
 27. `stories/graph-operations-first-slice/27-create-set.md` — make a set under a concept's superset or another set,
     with no event, safe to repeat by name under the parent; the last write the rebuild waits on (Loom A10.27).
 28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's
