@@ -108,6 +108,7 @@ For Architecture, not this gate:
 - **The person-node and placeholder-node messages** are worded in `_nodes.js` for any write that tests whose node it is, so they name no operation but `raw delete-node`.
 - **A tag with no tapestryKey stops the delete** with an error naming `lifecycle migrate`, as update-node stops on one.
 - **`holds-elements` says "more than 10,000 other nodes"** when D2 reaches its limit.
+- **update-node's description names its two new refusals** (review round 1, finding 8): a sentence in its first paragraph, beside its refusal list. ADR Decision 4's note said nothing else in update-node changes.
 - **A fourth hollow letter** (a kick-back to test design). `test/helpers/fieldGraph.js`'s letters got a `created_at`, as Amendment 1 item 5 gave three others: the test plan's "Added at implementation", commit `80189eb3`.
 
 ## Evidence
@@ -168,6 +169,19 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
   - it was refused the stranger's node (`not-own-node`), the set (`made-elsewhere`) and firmware's rover (`firmware-node`);
   - a visitor through nginx got 401.
 - **L9,** the read-only counts on staging and production, waits for the owner's yes for each server.
+
+### Review round 1's fixes (2026-11-17)
+
+The review passed with eight non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 3 records what changed.
+- **The tests came first,** in `5f4d7f77`. DN35, DN36 and DN39 failed on the code at `e8dac240`, each for the finding it pins. DN16, DN29, DN37 and DN38 guard what the code already did; each failed alone when a scratch edit took its guard out of `delete-node.js`. The test plan's "Added at review round 1" has the failures.
+- **The fixes** pass them all, each suite alone with every endpoint dead:
+  - delete-node 40 passed, 0 failed;
+  - the shared suite 13;
+  - update-node 41, and its agent 1;
+  - the write path 13;
+  - `openapi-coverage` 13.
+- **One slip on the way:** an edit to update-node's description dropped a closing quote. Every update-node suite failed until it was put back.
+- **The live check wasn't run again.** No live check met a node with two `HAS_TAG`s to one tag, a neighbour with no key, or store data that isn't JSON. The comments changed no code that ran.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`

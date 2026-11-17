@@ -423,3 +423,23 @@ Decision 6 asked the live check to say which error Neo4j 5.26 gives a statement 
   L4a and L4b saw exactly that, three times each, with no 500.
 - **The second try stays** as Decision 6 has it, with DN18 to DN20. It is now a safety net for any statement that does fail with `EntityNotFound`; none is known. It is harmless when unused.
 - **What this changes:** nothing in the code. Decision 6's first bullet holds through the lock and the read after it, not through the second try.
+
+## Amendment 3 (2026-11-17, at review round 1; the owner chose to fix the review's non-blocking findings before the PR) — what the review found
+
+The review passed, with eight non-blocking findings from an independent check. The owner chose to fix them before the PR. What changed:
+1. **A tag is read and deleted once** (Decision 9; finding 1), however many `HAS_TAG`s run to it from the node. A second one had made the count check fail every time. DN35 pins it.
+2. **A relationship with a node that has no tapestryKey stops the delete** (Decisions 9 and 12; finding 2), with an error naming `lifecycle migrate`, as a tag with none already did.
+   - The entry names each other end by its tapestryKey, so such a relationship couldn't be put back from the entry alone (AC6).
+   - Only a graph `lifecycle migrate` hasn't keyed has such nodes.
+   - DN36 pins it.
+3. **`stored` is what the store holds, as it holds it** (Decision 12; Amendment 1, item 4; finding 8), read with `tapestry-resolve`'s `resolveValue`, parse or not. It is null when the entry is missing. Data that isn't JSON is no longer recorded as null. DN39 pins it.
+4. **Tests for what the code already did,** each failing alone when its guard is taken out:
+   - Decision 10's count check (DN37, through the fake's new `failures.shrinkBeforeDetach`);
+   - Decision 7's lock order, and word's header left out (DN16, through the fake's log, which now names a lock's keys);
+   - a relationship between the node and its own tag (DN38);
+   - Amendment 1 item 3's double count (DN29).
+5. **Comments and wording** (findings 3 and 8):
+   - `write.js`, `delete-node.js` and the fake graph now say what Amendment 2 found: the second try is a safety net;
+   - `_nodes.js` names delete-node among its callers;
+   - update-node's description names its two new refusals.
+6. **The ledger** (finding 7): OPEN.md row `2026-11-17-own-test-reads-pubkey-as-author` is closed for the writes' half, and row `2026-11-17-reads-own-person-placeholder` holds the reads' half.

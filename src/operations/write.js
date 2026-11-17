@@ -13,12 +13,13 @@
  * The change and its entry are kept together or not at all. The context carries nothing that signs or publishes
  * (Decision 10): graph writes never sign (design D1).
  *
- * When the first attempt fails because a node it waited for was deleted by another write meanwhile (Neo4j's
- * Neo.ClientError.Statement.EntityNotFound), the write runs once more, from the start, in a new transaction; a second
- * failure is thrown, and no other error is tried again (story graph-operations-first-slice #26, AC2; ADR
- * graph-operations-first-slice/0026 Decision 6). So the second of two deletes of one node answers already-gone, and a
- * write of a node a delete removed answers unknown-node. Running it again is safe: its work does nothing outside its
- * transaction, and `at` is taken again.
+ * When the first attempt fails with Neo4j's Neo.ClientError.Statement.EntityNotFound, the error a statement gets when a
+ * node it needs was deleted by another write meanwhile, the write runs once more, from the start, in a new transaction.
+ * A second failure is thrown, and no other error is tried again (story graph-operations-first-slice #26, AC2; ADR
+ * graph-operations-first-slice/0026 Decision 6 and Amendment 2). It is a safety net: Neo4j 5.26 gives a lock statement
+ * that waited for a deleted node no error, and the read after the lock sees the node gone, so two deletes of one node,
+ * and a write of a node a delete removed, already answer already-gone and unknown-node without it. Running a write again
+ * is safe: its work does nothing outside its transaction, and `at` is taken again.
  */
 
 const graph = require('./graph');
@@ -27,8 +28,8 @@ const { recordChange } = require('./changes');
 const { refusal } = require('./refusal');
 
 const CHANGE_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
-// What Neo4j gives a statement that waited for a node's lock while another transaction deleted the node (ADR 0026
-// Decision 6).
+// What Neo4j gives a statement when a node it needs was deleted by another transaction meanwhile (ADR 0026 Decision 6;
+// a lock statement that waited for the node gets no error, Amendment 2).
 const VANISHED = 'Neo.ClientError.Statement.EntityNotFound';
 
 /** Run a write through the path; resolves the answer's data. Once more when its first attempt met a vanished node. */

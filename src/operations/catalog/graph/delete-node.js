@@ -183,7 +183,8 @@ module.exports = {
     if (!K.assistant()) throw refusal(NOT_INSTALLED.code, "This instance has no assistant key, so it can't tell its own nodes from another author's, or firmware's own: the firmware isn't installed. Install it first (POST /api/firmware/install), then try again. Nothing changed.");
 
     // 2. The lock on the node (Decision 7): two deletes of one node, and a delete beside an update of it, go one at a
-    // time. One that waited while the other deleted the node runs again from the start (the write path, Decision 6).
+    // time. Neo4j 5.26 lets a lock statement that waited for a node another transaction deleted go on with no error, and
+    // the read after it sees the node gone, so the second answers already-gone (ADR Amendment 2).
     await S.lockNode(tx, key);
 
     // 3. Whose node it is (Decision 4); no node is a repeat, or unknown-node (Decision 3).
@@ -228,8 +229,11 @@ module.exports = {
     // 7. It, read whole (Decision 9): its tags first, so a relationship between it and its tag is read under the tag.
     const mine = await relationshipsOf(read, key);
     const tags = [];
+    const tagKeys = new Set();
     for (const t of mine.filter((r) => r.direction === 'out' && r.type === 'HAS_TAG' && Array.isArray(r.labels) && r.labels.includes('NostrEventTag'))) {
       if (typeof t.tapestryKey !== 'string') throw new Error(`a tag of ${labelOf(facts)} has no tapestryKey, so it can't be deleted with it; run lifecycle migrate first`);
+      if (tagKeys.has(t.tapestryKey)) continue; // a second HAS_TAG to one tag: the tag is read and deleted once (Amendment 3)
+      tagKeys.add(t.tapestryKey);
       const rels = await relationshipsOf(read, t.tapestryKey);
       if (rels.some((r) => r.direction === 'in' && r.type === 'HAS_TAG' && r.tapestryKey !== key)) continue; // another node has it too: it stays
       const [whole] = await read(U0, { key: t.tapestryKey });
@@ -242,6 +246,13 @@ module.exports = {
     const others = new Set();
     const ownKeys = R.ownKeys();
     const endOf = (r) => R.nodeOf({ tapestryKey: r.tapestryKey, name: r.name, address: r.address, author: r.author }, ownKeys);
+    // Amendment 3: the entry names each other end by its tapestryKey, so a node with none would leave a relationship
+    // that couldn't be put back from the entry alone (AC6).
+    const keyed = (r) => {
+      if (typeof r.tapestryKey !== 'string' || !r.tapestryKey) {
+        throw new Error(`${labelOf(facts)} has a ${r.type} relationship with a node that has no tapestryKey, so its change entry couldn't name that node to put the relationship back; run lifecycle migrate first. Nothing was deleted`);
+      }
+    };
     const relOf = (from, r, tag) => ({
       type: r.type,
       direction: r.direction,
@@ -258,14 +269,16 @@ module.exports = {
         if (seen.has(r.id)) continue;
         seen.add(r.id);
         if (r.direction === 'in' && r.type === 'HAS_TAG' && r.tapestryKey === key) continue; // its HAS_TAG from the node
+        keyed(r);
         removed.push(relOf(t.key, r, { key: t.key, type: props.type }));
         rels.push({ type: r.type, direction: r.direction, other: r.tapestryKey, properties: sortKeys(r.properties) });
         if (r.tapestryKey !== key && !ownTags.has(r.tapestryKey)) others.add(r.tapestryKey);
       }
       const record = { labels: [...(Array.isArray(t.node._labels) ? t.node._labels : [])].sort(), properties: props };
       if (typeof props.value === 'string' && props.value.startsWith('lmdb:')) {
-        const got = F.readJson(props.value);
-        record.stored = got.problem ? null : got.json;
+        // What the store holds, as it holds it, parse or not; null when its entry is missing (Amendment 3).
+        const { resolveValue } = require('../../../lib/tapestry-resolve');
+        record.stored = resolveValue(props.value);
       }
       record.relationships = rels;
       return record;
@@ -274,6 +287,7 @@ module.exports = {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
       if (ownTags.has(r.tapestryKey)) continue; // a relationship with one of its own tags is the tag's
+      keyed(r);
       removed.push(relOf(key, r, null));
       recorded.push({ type: r.type, direction: r.direction, other: r.tapestryKey, properties: sortKeys(r.properties) });
       if (r.tapestryKey !== key) others.add(r.tapestryKey);

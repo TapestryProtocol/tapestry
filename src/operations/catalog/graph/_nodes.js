@@ -7,7 +7,7 @@
  *
  * It also holds the one test of whose node a node is (story graph-operations-first-slice #21, AC5; ADR
  * graph-operations-first-slice/0021 Decision 3 and Amendment 1), for every write that must leave someone else's node
- * as its author wrote it (design D4): graph update-node now, and merge-nodes (A10.25), delete-node (A10.26) and
+ * as its author wrote it (design D4): graph update-node and delete-node (A10.26) now, and merge-nodes (A10.25) and
  * copy-node (A10.24) when they are built.
  *
  *   factsOf(key, node)                a node read whole, its properties and _labels, as whoseNode answers it
