@@ -40,6 +40,8 @@
  *   F19 the reads C3, C4, C8 and C9: supersets by IN, held addresses over NostrEvent|TapestryNode, toLower, and a
  *       concept's core nodes over the wiring types, with type(r)
  *   F20 failures.entry fails only a GraphChange's CREATE, so a write's nodes are made before its entry fails
+ *   (Story graph-operations-first-slice #26's D6, a node's own delete, and failures.vanish and failures.entityNotFound
+ *   are held by test/operations/graph/delete-node.test.js's DN0, beside the plan's other statements.)
  *
  * Story graph-operations-first-slice #13 (ADR graph-operations-first-slice/0013, Decision 2, S2 and S3), over the graph
  * test/helpers/relationshipsGraph.js seeds:

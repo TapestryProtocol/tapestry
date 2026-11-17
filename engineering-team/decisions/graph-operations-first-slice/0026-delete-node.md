@@ -383,3 +383,63 @@ For `already-gone`, it says when the node was deleted, by whom and through which
 - The read conventions' `own` for person nodes and placeholders: a ledger row.
 - Hiding or muting another author's node (catalog §10, question 5).
 - Bulk deletes.
+
+## Amendment 1 (2026-11-17, at test design; approved by the owner with the test plan) — the statements, the cap's two counts, and a third hollow letter
+
+Test design wrote the statements the ADR names, and found where they refine it. The test plan gives each statement whole, and the fake graph runs them. DN0 holds the fake to them.
+
+1. **The reads are one-hop statements from a node found by its tapestryKey:**
+   - D2, the class-thread links out, with `type(r) IN $types`;
+   - D3, the counts out and in;
+   - D4, the relationships out and in.
+
+   D4 answers each relationship's `elementId`, so one read twice is kept once: a link from the node to itself, or one between the node and its tag. Each tag is read whole with U0, and its relationships with D4.
+2. **The tags are deleted one at a time, with C11:** `MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t`, the statement update-concept already uses. Then the node goes with Decision 10's second statement.
+   - This replaces Decision 10's first statement and its `NOT EXISTS`.
+   - A tag that another node has too is told from D4's reads: it has a `HAS_TAG` from a node other than this one. It stays, as Decision 9 says.
+3. **The cap is checked twice** (Decision 8).
+   - **First, on D3's counts** for the node's own relationships, before anything is read whole. A link from the node to itself counts twice there, so a node at exactly 10,000 with such a link is refused.
+   - **Then on the relationships read,** the tags' among them, each counted once.
+4. **`stored` is the value the store held** for an `lmdb:` reference, as `F.readJson` resolves it: the object, not its text. It is null when the store's entry is missing.
+5. **A third hollow letter.** The Implementation notes name `propertyNode` and `ruleElement`. `loner` in `test/helpers/createElementGraph.js` is a third: a `NostrEvent` with an id and no `created_at`, which update-node's UN26 refuses. It gets a `created_at` too.
+   - `held` in `test/helpers/conceptGraph.js` ("not a concept": an id, no pubkey, no kind) reads as a placeholder by Decision 4's mark.
+   - No write tests whose node `held` is, so it stays as it is.
+   - *(At implementation: `test/helpers/fieldGraph.js`'s letters, which update-node's UN40 changes, had none either, and got one too; the test plan's "Added at implementation".)*
+6. **The fake graph learns three things:**
+   - D6's node delete;
+   - `failures.vanish`, which deletes a node, with the tags only it has, and commits another transaction's entry, as if that transaction had done it while this one waited;
+   - `failures.entityNotFound`, which fails a number of first statements.
+
+   Each failure fails a transaction's first statement with Neo4j's `Neo.ClientError.Statement.EntityNotFound`.
+
+## Amendment 2 (2026-11-17, at implementation; approved by the owner at the implementation gate) — what Neo4j 5.26 does in the race
+
+Decision 6 asked the live check to say which error Neo4j 5.26 gives a statement that waited for a node's lock while another transaction deleted the node. **It gives none.**
+- **The probe (L4c).** Inside the scratch stack, one transaction deleted a node with `DETACH DELETE` and held it. A second ran `S.lockNode`'s statement on that node, and waited. When the first committed, the second's statement went on and answered `count(n) = 1`, with no error.
+- **So the races resolve on the lock alone.** The statement after the lock is a read, and under Neo4j's read-committed isolation it sees the node gone:
+  - for two deletes of one node, `whoseNode` answers null, and the repeat answers `already-gone`;
+  - for an update-node beside a delete, `requireOwn` answers `unknown-node`.
+
+  L4a and L4b saw exactly that, three times each, with no 500.
+- **The second try stays** as Decision 6 has it, with DN18 to DN20. It is now a safety net for any statement that does fail with `EntityNotFound`; none is known. It is harmless when unused.
+- **What this changes:** nothing in the code. Decision 6's first bullet holds through the lock and the read after it, not through the second try.
+
+## Amendment 3 (2026-11-17, at review round 1; the owner chose to fix the review's non-blocking findings before the PR) — what the review found
+
+The review passed, with eight non-blocking findings from an independent check. The owner chose to fix them before the PR. What changed:
+1. **A tag is read and deleted once** (Decision 9; finding 1), however many `HAS_TAG`s run to it from the node. A second one had made the count check fail every time. DN35 pins it.
+2. **A relationship with a node that has no tapestryKey stops the delete** (Decisions 9 and 12; finding 2), with an error naming `lifecycle migrate`, as a tag with none already did.
+   - The entry names each other end by its tapestryKey, so such a relationship couldn't be put back from the entry alone (AC6).
+   - Only a graph `lifecycle migrate` hasn't keyed has such nodes.
+   - DN36 pins it.
+3. **`stored` is what the store holds, as it holds it** (Decision 12; Amendment 1, item 4; finding 8), read with `tapestry-resolve`'s `resolveValue`, parse or not. It is null when the entry is missing. Data that isn't JSON is no longer recorded as null. DN39 pins it.
+4. **Tests for what the code already did,** each failing alone when its guard is taken out:
+   - Decision 10's count check (DN37, through the fake's new `failures.shrinkBeforeDetach`);
+   - Decision 7's lock order, and word's header left out (DN16, through the fake's log, which now names a lock's keys);
+   - a relationship between the node and its own tag (DN38);
+   - Amendment 1 item 3's double count (DN29).
+5. **Comments and wording** (findings 3 and 8):
+   - `write.js`, `delete-node.js` and the fake graph now say what Amendment 2 found: the second try is a safety net;
+   - `_nodes.js` names delete-node among its callers;
+   - update-node's description names its two new refusals.
+6. **The ledger** (finding 7): OPEN.md row `2026-11-17-own-test-reads-pubkey-as-author` is closed for the writes' half, and row `2026-11-17-reads-own-person-placeholder` holds the reads' half.

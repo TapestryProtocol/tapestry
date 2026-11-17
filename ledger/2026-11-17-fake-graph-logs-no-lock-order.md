@@ -17,4 +17,6 @@ Left out of review round 1's fixes: the fake is a shared helper, which parallel 
 - In UN13, assert the header locks' keys in sorted order, over a node in two concepts whose keys sort the other way from the order `conceptsOfNodes` returns them.
 - The same check would serve create-element's and link-set's locks.
 
+**2026-11-17, story graph-operations-first-slice #26 review round 1:** the fake now logs a lock's keys: a copies statement's log entry carries `keys`. delete-node's DN16 reads them to check its lock order; UN13 still only counts, so this row stays open for it.
+
 **Pointer:** `engineering-team/reviews/graph-operations-first-slice/21-update-node.md` (non-blocking 6); `test/helpers/graphFake.js` (`fakeGraph`'s `tx.run`).

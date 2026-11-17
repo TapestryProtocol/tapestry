@@ -1,6 +1,6 @@
 # Story 26: `graph delete-node` — delete one of this instance's own elements, with its relationships and tags, recorded so a mistake can be undone, and never a node from someone else's event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.26 — https://loom.brainstorm.world/t/A10.26
@@ -97,7 +97,100 @@ For Architecture, not this gate:
 - **A cap on what one call removes,** for a node with very many relationships, as the field mapping caps at 10,000 elements.
 - **The answer's shape, the change entry's, and the refusals' codes and statuses.**
 
+## Deviations
+
+- **delete-node reads the node with U0 and calls `factsOf`,** not `whoseNode`. One read then gives both the facts and the properties its entry records (ADR Decision 4's `factsOf`).
+- **`_nodes.js` exports `labelOf`,** so delete-node names a node in its messages as `requireOwn` does.
+- **`relationships` lists the tags' relationships before the node's own.** The tags are read first, so a relationship between the node and one of its tags is read under the tag (Decision 9).
+- **already-gone's `letterRemains` and `cacheRemains`** are worked out from the node its entry recorded: its id, and the derive step's stamp. Decision 11 gives the two for a delete only.
+- **already-gone's note names the entry's id,** beside when, by whom and through which operation.
+- **`NOT_OWN_NODE`'s `when` gains a sentence:** a person node or a placeholder is refused by the two new codes instead.
+- **The person-node and placeholder-node messages** are worded in `_nodes.js` for any write that tests whose node it is, so they name no operation but `raw delete-node`.
+- **A tag with no tapestryKey stops the delete** with an error naming `lifecycle migrate`, as update-node stops on one.
+- **`holds-elements` says "more than 10,000 other nodes"** when D2 reaches its limit.
+- **update-node's description names its two new refusals** (review round 1, finding 8): a sentence in its first paragraph, beside its refusal list. ADR Decision 4's note said nothing else in update-node changes.
+- **A fourth hollow letter** (a kick-back to test design). `test/helpers/fieldGraph.js`'s letters got a `created_at`, as Amendment 1 item 5 gave three others: the test plan's "Added at implementation", commit `80189eb3`.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-17)
+
+Run on this Mac, each with every service endpoint dead. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The new and changed suites,** each alone:
+  - `test/operations/graph/delete-node.test.js`: 35 passed, 0 failed;
+  - `delete-node-agent-through-cli.test.js`: 1 passed, 0 failed;
+  - `update-node-shared.test.js`: 13 passed, 0 failed.
+- **The whole operations runner,** `test/operations.test.js`, which is stack-free and runs every suite under `test/operations/`: 806 passed, 0 failed, 4 skipped.
+  - The 4 skipped are `lifecycle/shared-keys.test.js`'s live tests, which run only against a named scratch container.
+  - Its first pass, with the code in, failed update-node's UN40 alone: a fourth hollow letter, fixed as a kick-back to test design (Deviations; the test plan's "Added at implementation").
+- **The route-surface suites,** with every endpoint on a dead port: `openapi-coverage` 13 passed, `admin-action-sweep` 9, `admin-action-sweep-access` 13, `admin-action-sweep-named` 6; none failed.
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-17, on `608bf8ae`)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The script and every call's request and answer are in this worktree's `tmp/live-check-26/` (ignored by git): `live.js`, `report-main.json` and `report-restored.json`.
+- **The instance.**
+  - It booted from image `agent-memory-tapestry:latest` with this branch's `src/` mounted.
+  - The image's firmware differed from the branch's (digests `e6118e628f71` and `fe62d06d0f54`). The branch's was copied in, the control panel restarted, and the firmware installed again; the digests then matched.
+  - The branch's `bin/tapestry.js` and `clients/cli` were copied in.
+- **Keys.** The instance had its own assistant key. Three throwaway keys were made: the owner's, an admin's for the agent, and a stranger's. The owner and the admin were set in `/etc/brainstorm.conf`.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The agent's and the visitor's went through the instance's nginx.
+- **Afterwards** it was removed, after a second, fresh boot for the restore. Each `down` checked first that the container mounted this worktree's `src/`.
+
+**By check, 31 of 33 passed. The two that failed tested my own script's premises, not delete-node:**
+- **L1:** Snoopy, made by create-element in `live beagle`:
+  - deleted with its tags, `letterRemains: false`, its `HAS_ELEMENT` from the superset among the relationships removed, and gone in Neo4j with its tags;
+  - its entry, by `local`, records the node whole;
+  - the same delete again was `already-gone`, naming the first entry;
+  - history by Snoopy gave the delete, then the create; history by the superset found the delete.
+- **L2:** Live Rex, the assistant's letter, made by today's signing `POST /api/normalize/create-element` in firmware's dog, was deleted.
+  - `hasLetter` and `letterRemains` were true, and the note named `export retract` and a re-import's new node.
+  - The relay held as many events after the delete as before it.
+  - *L2d failed on its premise:* it looked for an `AUTHORS` from the assistant's person node among Live Rex's relationships. The signing route imports with normalize's own direct import, which makes no `NostrUser` link; only the nostr import does (`eventSync.js:234–236`). Live Rex had one relationship, its `HAS_ELEMENT`, and that is what was removed and recorded. The person node exists, and stays.
+- **L3, the refusals:**
+  - a stranger's lettered node, made with Cypher: `not-own-node`, naming the stranger, and kept;
+  - a set: `made-elsewhere`, naming `graph delete-set`;
+  - a superset: `made-elsewhere`, naming `graph delete-concept`;
+  - firmware's rover: `firmware-node`, naming its file;
+  - the assistant's person node: `person-node`;
+  - an `e` tag's placeholder, made with the import's own statement: `placeholder-node`;
+  - a node with a `HAS_ELEMENT` to another: `holds-elements`, naming it;
+  - a tag: `not-an-element`.
+- **L4, at once:**
+  - **Two deletes of one node,** three times: each pair answered one `deleted` and one `already-gone`.
+  - **A delete beside an update-node of the node,** three times: the delete went each time. The update answered `updated` twice, having gone first, and `unknown-node` once. Never a 500.
+  - *L4c failed on its premise:* it expected Neo4j's `EntityNotFound`, and Neo4j gave no error at all. A lock statement that waited for a node another transaction deleted answered `count(n) = 1`. So the races resolve on the lock and the read after it, and the write path's second try never ran. ADR Amendment 2 records this.
+- **L5:** a node the derive step cached (`POST /api/tapestry-key/derive/:key`) was deleted with `cacheRemains: true`, the note naming `cache rebuild`. `GET /api/tapestry-key/:key` still answered its cached copy.
+- **L6:** after a firmware reinstall, the three deleted nodes were still gone and their entries still there.
+- **L7:** backup `20261117T140615Z-30dee424` (4.6 MB: 3,442 nodes, 3,911 relationships) was uploaded to a fresh instance and restored. The transaction and counts matched exactly. The deleted nodes were still gone, their entries there, and the other nodes back.
+- **L8, an admin agent through nginx and the external CLI:**
+  - it made Agent Pup, deleted it (recorded as the agent's), and deleted it again (`already-gone`, naming the agent);
+  - its history gave the delete, then the create;
+  - it was refused the stranger's node (`not-own-node`), the set (`made-elsewhere`) and firmware's rover (`firmware-node`);
+  - a visitor through nginx got 401.
+- **L9,** the read-only counts on staging and production, waits for the owner's yes for each server.
+
+### Review round 1's fixes (2026-11-17)
+
+The review passed with eight non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 3 records what changed.
+- **The tests came first,** in `5f4d7f77`. DN35, DN36 and DN39 failed on the code at `e8dac240`, each for the finding it pins. DN16, DN29, DN37 and DN38 guard what the code already did; each failed alone when a scratch edit took its guard out of `delete-node.js`. The test plan's "Added at review round 1" has the failures.
+- **The fixes** pass them all, each suite alone with every endpoint dead:
+  - delete-node 40 passed, 0 failed;
+  - the shared suite 13;
+  - update-node 41, and its agent 1;
+  - the write path 13;
+  - `openapi-coverage` 13.
+- **One slip on the way:** an edit to update-node's description dropped a closing quote. Every update-node suite failed until it was put back.
+- **The live check wasn't run again.** No live check met a node with two `HAS_TAG`s to one tag, a neighbour with no key, or store data that isn't JSON. The comments changed no code that ran.
+
+### Staging merged in (2026-11-17, on `4214c10d`)
+
+Before the implementation PR, staging was merged into the branch. It brought in search (A10.8), A10.20.a's ADR, and PR #124's merge.
+- **One conflict,** in `test/helpers/graphFake.js`'s header: story 8's paragraph and story 26's. Both were kept.
+- **The suites both branches touch** pass, each alone with every endpoint dead: delete-node 40, the shared suite 13, the fake graph 31, search 34, the search index 7, and the write path 13.
+- **The whole operations runner:** 859 passed, 0 failed, 4 skipped. The 4 skipped are `lifecycle/shared-keys.test.js`'s live tests.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/26-delete-node.test-plan.md`
+- Review: `engineering-team/reviews/graph-operations-first-slice/26-delete-node.md`
