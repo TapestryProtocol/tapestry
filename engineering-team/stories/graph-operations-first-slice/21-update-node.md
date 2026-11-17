@@ -118,5 +118,5 @@ For Architecture, not this gate:
 - The field marks it carries: [stories/graph-operations-foundation/5-field-mapping.md](../graph-operations-foundation/5-field-mapping.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0021-update-node.md](../../decisions/graph-operations-first-slice/0021-update-node.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [21-update-node.test-plan.md](21-update-node.test-plan.md)
 - Review: (filled in after Review phase)
