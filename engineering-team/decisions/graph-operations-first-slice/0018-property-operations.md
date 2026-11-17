@@ -426,3 +426,33 @@ A change made while catching up has `catchUp: true`. `CHANGE` in `changes.js` do
 - **update-concept renaming the pieces** (Consequences).
 - **Today's routes** and the UI's property editor (D15).
 - **The properties set's members.** Nothing makes property nodes its elements today, and this ADR doesn't start.
+
+## Amendment 1 (2026-11-17, at Test Design) — what the suites pin beyond the Decision
+
+The suites pin these, where the Decision left them open or said two things. They are `test/operations/graph/add-property.test.js`, `update-property.test.js`, `remove-property.test.js`, `set-schema.test.js` and `properties-agent-through-cli.test.js`, over `test/helpers/propertyGraph.js`.
+
+1. **`filledIn` is top-level in every answer.** Every write fills in what the frame lacks (Decision 3), so each answers `filledIn`. `caughtUp` holds only `added`, `changed` and `removed`. Decision 14 put `filledIn` in `caughtUp` for three of the writes.
+2. **A current schema that isn't wrapped is refused `not-wrapped`.** The story's correction says so, and add-property, update-property and remove-property refuse it with 409. Decision 6 listed it under `unreadable-schema`, which covers the rest of its list: a schema that can't be read, isn't an object, doesn't compile, or breaks Decision 4. set-schema refuses `not-wrapped` with 400, and only for its own input.
+3. **The statuses:**
+   - **404:** `unknown-concept`, `unknown-property`;
+   - **409:** `not-own-concept`, `firmware-concept`, `not-installed`, `no-schema`, `no-primary-property`, `not-wrapped` (a concept's current schema), `unreadable-schema`, `tangled-tree`, `not-own-node`, `bad-parent`, `name-in-use`, `has-properties`, `marked-field`, `no-free-address`;
+   - **400:** `bad-name`, `bad-type`, `bad-description`, `bad-schema`, `schema-too-large` (set-schema's and add-property's alike), `nothing-to-change`, `not-wrapped` (set-schema's input), and the rule's `invalid-fields`.
+4. **The answers' fields.**
+   - **A property:** `{ property, concept, field, path, parent, address, type, required, description, schema, hasLetter }`. `parent` is null at the top level, and `description` is null when there is none.
+   - **`elements`:** `{ judged, notJudged: { count, missing, unreadable }, stoppedFitting: { count, elements: [{ node, name, address, problems: [{ path, message }] }] }, alreadyNotFitting, stillHold: { count, elements: [{ node, name, address }] }, before, limit, beyond }`.
+     - `stillHold` is always there, and empty for add-property and update-property.
+     - `before` is null, or `{ problem }`.
+   - **update-property's `changed`** names each input that changed something: `type`, `required`, `description` or `schema`.
+   - **remove-property's `removed`** puts the property named first, then each under it. `removal` is null for `removed`, and for `already-gone` it is the entry: `{ id, at, by, operation }`.
+   - **The lists** in `caughtUp`, and set-schema's `added`, `changed` and `removed`, hold one property each. Those in `removed` are as they were.
+5. **A change is marked `catchUp: true` only when catching up made it.** A write's own changes have no `catchUp`.
+6. **The lock is the write's first write, not its first read** (Decision 11). Decision 7 has `not-installed` read the graph before the lock, so "before they read anything" can't hold. The suites pin that the lock on the concept's header, set then cleared, is the first statement that writes.
+7. **`parent` can't name the concept's primary property** (`bad-parent`), as the story's AC7 says, since it isn't a field. A top-level field leaves `parent` out.
+8. **The `repeatKey`s:**
+   - add-property: `[concept, name, type, required, description, parent, schema]`;
+   - update-property: `[property, type, required, description, schema]`;
+   - remove-property: `[property]`;
+   - set-schema: `[concept, schema]`.
+9. **The fake learns nothing new.** Every statement Decision 7's steps need is one `test/helpers/graphFake.js` already runs: reads over paths, the node and tag creates, an edge's MERGE, the copies, the tag and node deletes, and the lock. The Implementer keeps to those shapes. The suites' seed, `test/helpers/propertyGraph.js`, is new.
+10. **The report's agreement with the rule** (Decision 9) is pinned by AP7. It runs the rule's `{ node, concept }` form over the final graph, in a child process. AP7 passes only once story 42's build has the rule read tapestryJson.
+11. **Found at Test Design, and not changed here.** The concept page's Properties tab shows a Required column from `property.required`, which it reads as the field's own flag (`ui/src/pages/concepts/ConceptProperties.jsx:50–58`). In this ADR's view, as in firmware's `property` schema, `property.required` is an object's list of required children. So the tab marks an object that has required children, and not a required leaf. Ledger row `2026-11-17-properties-tab-misreads-required`.
