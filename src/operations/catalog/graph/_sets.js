@@ -30,8 +30,19 @@
  *   peerClaim(read, parentNode, setNode)           a peer's letter that claims the link, or null (Decision 7)
  *   ownLetters(read, parentNode, setNode)          the instance's own letters that still name the parent (Decision 7)
  *   describe(node)                                 "<name>" (<tapestryKey>), for messages
+ *
+ * And what the set writes share (story graph-operations-first-slice #27, ADR graph-operations-first-slice/0027):
+ * graph create-set now, and graph delete-set (A10.17) and move-element (A10.23) when they are built.
+ *   requireParent(tx, parent)                      unknown-node, then not-a-parent, as link-set reads a parent (Decision 4)
+ *   linkUnder(tx, parent, set)                     one class-thread link from parent to set, by link-set's MERGE (Decision 11)
+ *   setJson({ name, slug, description, others })   a set's word-wrapper JSON, as firmware's set files hold it (Decision 9)
+ *   setTags({ d, name, setConcept, parent, description, json })  the tags of the letter a set write would sign (Decision 10)
+ *   findSetRepeat(read, { parent, name, ta, address })  R7: this instance's own set under parent the call repeats (Decision 7)
+ *   setDiffers(repeat, { name, description })      each input given that differs from what the repeated set holds
+ *   describeSet({ key, address, name, slug, description, parents, hasLetter })  a set as an answer gives it (Decision 13)
  */
 
+const CN = require('../../../lib/conceptNames');
 const { refusal } = require('../../refusal');
 const N = require('./_nodes');
 
@@ -447,6 +458,113 @@ async function ownLetters(read, parentNode, setNode) {
   return [{ address: setNode.uuid, says: `its s tag still names ${parentNode.uuid} as a parent, which the graph no longer has it under; export nostr (A10.34) is what sends a letter that matches` }];
 }
 
+// ── making a set (ADR graph-operations-first-slice/0027) ──
+/**
+ * Decision 4: refuse unknown-node, naming parent, unless `parent` names a node; then not-a-parent unless it is a
+ * superset or a set, naming a concept header's superset as the key to pass. These are the reads and the words
+ * requireEnds uses on link-set's parent, so the two accept and refuse the same nodes. → the parent node, as R1 reads it
+ */
+async function requireParent(tx, parent) {
+  await N.requireNodes(tx, [['parent', parent]]);
+  const read = (cypher, params) => tx.read(cypher, params);
+  const node = await nodeOf(read, parent);
+  if (!node) throw new Error('the parent went missing after it was found');
+  if (kindOf(node) === 'other') throw refusal(NOT_A_PARENT.code, say.notAParent(node, await supersetOf(read, parent)), { input: 'parent' });
+  return node;
+}
+
+/** Decision 11: one class-thread link from the node keyed `parent` to the node keyed `set`, by link-set's MERGE. */
+async function linkUnder(tx, parent, set) {
+  const { PROP } = aliases();
+  const { rows } = await tx.run(
+    `MATCH (a:TapestryNode {tapestryKey: $from}) WHERE NOT a:GraphChange
+     MATCH (b:TapestryNode {tapestryKey: $to}) WHERE NOT b:GraphChange
+     MERGE (a)-[r:\`${PROP}\`]->(b)
+     RETURN count(r) AS n`,
+    { from: parent, to: set },
+  );
+  if (!rows.length || rows[0].n !== 1) throw new Error(`the new set's ${PROP} found ${rows.length ? rows[0].n : 0} pairs of nodes to join, not 1`);
+}
+
+/**
+ * A set's word-wrapper JSON (Decision 9), keys in the order firmware's set files hold them: its word block (the-set-of-
+ * <slug>, "The set of <name>", "The Set of <Title>"), whose wordTypes list word, set, then the key of each other concept
+ * the set is an element of, sorted (D10: membership is the edges); then its set section, holding its slug, name, title
+ * and, when given, its description. No value is made up.
+ */
+function setJson({ name, slug, description = null, others = [] }) {
+  const title = CN.toTitleName(name);
+  const rest = [...new Set((Array.isArray(others) ? others : []).filter((k) => typeof k === 'string' && k && k !== 'word' && k !== 'set'))].sort();
+  const word = { slug: `the-set-of-${slug}`, name: `The set of ${name}`, title: `The Set of ${title}`, wordTypes: ['word', 'set', ...rest] };
+  const section = { slug, name, title, ...(typeof description === 'string' && description ? { description } : {}) };
+  return { word, set: section };
+}
+
+/** The tags of the letter a set write would sign (Decision 10), today's create-set's then json: d, name, z, s, description when given, json. */
+function setTags({ d, name, setConcept, parent, description = null, json }) {
+  return [['d', d], ['name', name], ['z', setConcept], ['s', parent], ...(typeof description === 'string' && description ? [['description', description]] : []), ['json', json]];
+}
+
+/**
+ * R7 (Decision 7): this instance's own set directly under the node keyed `parent` that the call repeats: one labelled
+ * Set and not Superset, with an address, made by the assistant, with a letter or without, whose name, lowercased, is the
+ * name lowercased, or that sits at the address the name and parent give, with or without a nonce. Of several, the one
+ * at the plain address, then the lowest tapestryKey. Another author's set is never one. → { key, uuid, name, hasLetter,
+ * description, json, parents } or null
+ */
+async function findSetRepeat(read, { parent, name, ta, address }) {
+  const { PROP } = aliases();
+  const rows = await read(
+    `MATCH (p:TapestryNode {tapestryKey: $parent})-[:${PROP}]->(s:Set)
+     WHERE NOT s:Superset AND NOT s:GraphChange AND s.uuid IS NOT NULL AND s.pubkey = $ta
+       AND (toLower(s.name) = $name OR s.uuid = $address OR s.uuid STARTS WITH $nonced)
+     WITH DISTINCT s
+     OPTIONAL MATCH (s)-[:HAS_TAG]->(d:NostrEventTag {type: 'description'})
+     OPTIONAL MATCH (s)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
+     OPTIONAL MATCH (u)-[:${PROP}]->(s)
+     RETURN s.tapestryKey AS key, s.uuid AS uuid, s.name AS name, s.id IS NOT NULL AS hasLetter,
+            head(collect(DISTINCT d.value)) AS description, head(collect(DISTINCT j.value)) AS json,
+            collect(DISTINCT u.tapestryKey) AS parents`,
+    { parent, ta, name: name.toLowerCase(), address, nonced: `${address}~` },
+  );
+  const found = rows.filter((r) => typeof r.key === 'string');
+  found.sort((a, b) => (a.uuid === address ? 0 : 1) - (b.uuid === address ? 0 : 1) || a.key.localeCompare(b.key));
+  const r = found[0];
+  if (!r) return null;
+  const parents = [...new Set((Array.isArray(r.parents) ? r.parents : []).filter((k) => typeof k === 'string'))].sort();
+  return {
+    key: r.key,
+    uuid: typeof r.uuid === 'string' ? r.uuid : null,
+    name: typeof r.name === 'string' ? r.name : null,
+    hasLetter: r.hasLetter === true,
+    description: typeof r.description === 'string' && r.description ? r.description : null,
+    json: r.json === undefined ? null : r.json,
+    parents,
+  };
+}
+
+/** Each input given that differs from what the repeated set holds (Decision 7): the name, case included; the description, when one is given. */
+function setDiffers(repeat, { name, description }) {
+  const out = [];
+  if (repeat.name !== name) out.push({ input: 'name', given: name, holds: repeat.name });
+  const held = typeof repeat.description === 'string' && repeat.description ? repeat.description : null;
+  if (typeof description === 'string' && description !== held) out.push({ input: 'description', given: description, holds: held });
+  return out;
+}
+
+/** A set as an answer gives it (Decision 13). */
+function describeSet({ key, address = null, name = null, slug = null, description = null, parents = [], hasLetter = false }) {
+  return {
+    tapestryKey: key,
+    address: typeof address === 'string' && address ? address : null,
+    name: typeof name === 'string' ? name : null,
+    slug: typeof slug === 'string' && slug ? slug : null,
+    description: typeof description === 'string' && description ? description : null,
+    parents: [...parents],
+    hasLetter: hasLetter === true,
+  };
+}
+
 module.exports = {
   UNKNOWN_SET_OR_PARENT,
   NOT_A_SET,
@@ -471,4 +589,11 @@ module.exports = {
   firmwarePrunes,
   peerClaim,
   ownLetters,
+  requireParent,
+  linkUnder,
+  setJson,
+  setTags,
+  findSetRepeat,
+  setDiffers,
+  describeSet,
 };

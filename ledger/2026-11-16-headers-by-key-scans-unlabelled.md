@@ -11,7 +11,8 @@
 Who calls it:
 - `graph create-element` reads with it once per create, for the named concept, and once more when other concepts' class threads reach its target;
 - the rebuild (A10.39) makes every element with it;
-- create-concept calls it too, for its near matches and its answer.
+- create-concept calls it too, for its near matches and its answer;
+- `graph create-set` reads with it once per create, for each concept other than set whose class thread reaches the set concept's superset: word, on firmware 1.0.0 (story graph-operations-first-slice #27, review round 1, non-blocking finding 4).
 
 The cost is unmeasured. A fresh scratch stack has no `tapestry_key` constraint at all (the A10.9 notes), so it can't show the difference.
 
