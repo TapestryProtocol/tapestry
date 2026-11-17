@@ -107,6 +107,6 @@ For Architecture, not this gate:
 - The node with no event, the names it checks, and the repeat and lock it follows: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md) (ADR 0016); [20-create-element.md](20-create-element.md) (ADR 0020)
 - The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md) (entries 5 to 7)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0027-create-set.md](../../decisions/graph-operations-first-slice/0027-create-set.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
