@@ -375,6 +375,16 @@ app.use(authMiddleware);
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
 
+  // graph search's full-text index (graph-operations-first-slice ADR 0008 Decision 1), on an existing instance after a
+  // deploy and on a fresh one alike. Made as the ones above are: not awaited, never rejecting, and changing no data; it
+  // fills by itself, and graph search answers search-not-ready until it is online.
+  require('../src/lib/graph-search-index').ensureSearchIndexOnBoot({
+    runWrite: (cypher, params) => require('../src/lib/neo4j-driver').writeCypher(cypher, params),
+    runRead: (cypher, params) => require('../src/lib/neo4j-driver').runCypher(cypher, params),
+    log: (line) => console.log(line),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  });
+
   // Reconcile recurring schedules into BullMQ Job Schedulers (story #22 / ADR 0019).
   // Replaces the in-process setInterval scheduler. Requires the queue, so it is
   // gated on TASK_QUEUE_ENABLED and runs after initTaskQueue + api.register.

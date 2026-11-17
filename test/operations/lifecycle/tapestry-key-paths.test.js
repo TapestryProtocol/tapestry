@@ -29,6 +29,8 @@
  *   G17  the control panel calls it at start, without waiting on it
  *   G18  every line naming :NostrEvent alone is classified: kept with why, or written with a label sets share (round 2)
  *   G19  no walk to elements or subsets, and no z-tag scan, ends on :NostrEvent alone (round 2; live check, finding 1)
+ *   G20  an index of any type, FULLTEXT among them, makes no node, while a node made beside one is still a site (story
+ *        graph-operations-first-slice #8: graph search's index)
  */
 
 const fs = require('fs');
@@ -524,6 +526,16 @@ async function run() {
   console.log(`${NL}operations: tapestry keys on every node: ${pass} passed, ${fail} failed`);
   return { pass, fail, failures };
 }
+
+test('G20: an index of any type, FULLTEXT among them, makes no node, while a node made beside one is still a site (graph-operations-first-slice #8)', () => {
+  for (const kind of ['', 'FULLTEXT ', 'RANGE ', 'TEXT ', 'POINT ', 'VECTOR ', 'LOOKUP ']) {
+    const q = `CREATE ${kind}INDEX some_index IF NOT EXISTS FOR (n:TapestryNode) ON ${kind === 'FULLTEXT ' ? 'EACH [n.name, n.value]' : '(n.name)'}`;
+    assert(C.nodeSites(q).length === 0, `${kind || 'a plain '}INDEX makes no node; got ${show(C.nodeSites(q).map((x) => x.clause))}`);
+  }
+  const both = "CREATE FULLTEXT INDEX graph_search_text IF NOT EXISTS FOR (n:TapestryNode) ON EACH [n.name]\nCREATE (m:TapestryNode {name: 'x'})";
+  const sites = C.nodeSites(both);
+  assert(sites.length === 1 && sites[0].variable === 'm', `the node CREATE beside it is still a site; got ${show(sites.map((x) => x.clause))}`);
+});
 
 module.exports = { run };
 

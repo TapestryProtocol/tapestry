@@ -247,14 +247,23 @@ async function candidatesOf(read, readings, { kind = null, pov, after = null, li
   return { seen, kept, rows: rows.map((r) => ({ ...r, byKey: family === 'key', byAddress: family === 'address' })) };
 }
 
+/**
+ * A node's kind, from a row with its address and its isHeader, isSuperset and isSet columns: a concept header is a
+ * concept; a superset or a set with an address is one; anything else is a node. graph search answers a match's kind by
+ * this too (ADR graph-operations-first-slice/0008 Decision 6).
+ */
+function kindOf(row) {
+  const hasAddress = typeof (row && row.address) === 'string' && row.address.length > 0;
+  return row && row.isHeader === true ? 'concept'
+    : hasAddress && row.isSuperset === true ? 'superset'
+      : hasAddress && row.isSet === true ? 'set'
+        : 'node';
+}
+
 /** A candidate, answered from one of candidatesOf's rows: a node's five facts (reads.js, C3), its kind, how it matched. */
 function candidateOf(row, own) {
   const node = R.nodeOf(row, own);
-  const kind = row.isHeader === true ? 'concept'
-    : node.address !== null && row.isSuperset === true ? 'superset'
-      : node.address !== null && row.isSet === true ? 'set'
-        : 'node';
-  return { ...node, kind, matched: WAYS.filter(([column]) => row[column] === true).map(([, way]) => way) };
+  return { ...node, kind: kindOf(row), matched: WAYS.filter(([column]) => row[column] === true).map(([, way]) => way) };
 }
 
 // ── naming a node in a later operation (Decision 5) ──
@@ -292,5 +301,5 @@ module.exports = {
   REF_INPUT, KIND_INPUT, refInput,
   BAD_REF, UNKNOWN_REF, AMBIGUOUS_REF,
   READING, CANDIDATE,
-  readingsOf, candidatesOf, candidateOf, resolveOne,
+  readingsOf, candidatesOf, candidateOf, kindOf, resolveOne,
 };

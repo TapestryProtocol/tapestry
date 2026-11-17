@@ -23,7 +23,7 @@
  * fake stores as an integer, { $int: '<digits>' } (what a neo4j.int written by graphFake.js's S8 becomes), reads as a
  * JavaScript number, as toJS converts a neo4j Integer.
  *
- * Anything else (UNWIND, CALL, UNION, a write, a path variable, an undirected relationship, a relationship with no
+ * Anything else (UNWIND, a CALL other than graph search's below, UNION, a write, a path variable, an undirected relationship, a relationship with no
  * type, arithmetic, a map literal, another function) throws "the fake graph can't run this Cypher", naming what it
  * met, so a test that fails on the fake's limits says so.
  *
@@ -33,6 +33,16 @@
  *   - elementId(x) of a node or a relationship: text in Neo4j 5's form, `5:<database id>:<n>`, fixed for its life.
  *   - properties(x) of a node or a relationship: its map, with an integer left as the driver leaves one inside a map
  *     ({ $int: '<digits>' } here, a neo4j Integer there), since toJS converts a list's items but returns a map as it is.
+ *
+ * Story graph-operations-first-slice #8 (ADR graph-operations-first-slice/0008, Decision 4's S1) adds graph search's read:
+ *   - a first clause `CALL db.index.fulltext.queryNodes(<name>, <query>) YIELD node [AS v], score [AS s]`, its rows from
+ *     test/helpers/fulltextFake.js's queryNodes over the state's `fulltextIndexes`. No other procedure, and no CALL
+ *     after the first clause;
+ *   - the aggregate sum: 0 over no rows, as Neo4j's;
+ *   - the predicate EXISTS { MATCH <paths> [WHERE …] }: true when the paths match, extending the row's bindings;
+ *   - two speedups that change no answer. A path whose first node is unbound but whose last node is bound is matched
+ *     from its last node back. A node pattern with one label and a property map is found through an index of both.
+ *     So a read that joins thousands of rows to their tags, or to their authors, runs in moments.
  */
 
 const KEYWORDS = new Set(['MATCH', 'OPTIONAL', 'WHERE', 'WITH', 'RETURN', 'ORDER', 'BY', 'SKIP', 'LIMIT', 'AS', 'DISTINCT',
@@ -40,8 +50,9 @@ const KEYWORDS = new Set(['MATCH', 'OPTIONAL', 'WHERE', 'WITH', 'RETURN', 'ORDER
   'THEN', 'ELSE', 'END', 'STARTS', 'ENDS', 'CONTAINS', 'UNION', 'CALL', 'UNWIND', 'MERGE', 'CREATE', 'SET', 'DELETE',
   'DETACH', 'REMOVE', 'FOREACH', 'YIELD', 'LOAD', 'USE', 'SHOW', 'EXPLAIN', 'PROFILE', 'ON']);
 const CLAUSE_WORDS = ['UNION', 'CALL', 'UNWIND', 'MERGE', 'CREATE', 'SET', 'DELETE', 'DETACH', 'REMOVE', 'FOREACH', 'YIELD', 'LOAD', 'USE', 'SHOW', 'EXPLAIN', 'PROFILE'];
-const AGGREGATES = new Set(['count', 'collect']);
+const AGGREGATES = new Set(['count', 'collect', 'sum']);
 const FUNCTIONS = new Set(['keys', 'head', 'size', 'coalesce', 'tostring', 'tolower', 'labels', 'type', 'elementid', 'properties']);
+const { queryNodes } = require('./fulltextFake');
 /** The database id in the fake's elementIds (ADR 0013, Context 8: Neo4j 5's form is 5:<database id>:<n>). */
 const FAKE_DATABASE_ID = '00000000-0000-4000-8000-00000000fa4e';
 
@@ -231,6 +242,15 @@ function parse(q) {
       kw('END');
       return { k: 'case', whens, otherwise };
     }
+    if (t.t === 'id' && t.v.toUpperCase() === 'EXISTS' && isOp('{', 1)) {
+      take(); take();
+      kw('MATCH');
+      const paths = [pathPattern()];
+      while (isOp(',')) { take(); paths.push(pathPattern()); }
+      const where = isKw('WHERE') ? (take(), expr()) : null;
+      op('}');
+      return { k: 'exists', paths, where };
+    }
     if (t.t === 'id' && isOp('(', 1)) {
       const fn = take().v.toLowerCase(); take();
       if (fn === 'count' && isOp('*')) { take(); op(')'); return { k: 'agg', fn: 'count', star: true }; }
@@ -279,6 +299,29 @@ function parse(q) {
   // ── the query ──
   const clauses = [];
   while (p < toks.length) {
+    if (isKw('CALL')) {
+      if (clauses.length) throw cantRun('a CALL after the first clause', q);
+      take();
+      const proc = [name()];
+      while (isOp('.')) { take(); proc.push(name()); }
+      const procName = proc.join('.');
+      if (procName.toLowerCase() !== 'db.index.fulltext.querynodes') throw cantRun(`the procedure ${procName} (it calls db.index.fulltext.queryNodes only)`, q);
+      op('(');
+      const args = [];
+      if (!isOp(')')) { args.push(expr()); while (isOp(',')) { take(); args.push(expr()); } }
+      op(')');
+      if (args.length !== 2) throw cantRun(`db.index.fulltext.queryNodes with ${args.length} arguments (it reads the index's name and the query)`, q);
+      kw('YIELD');
+      const yields = [];
+      do {
+        if (yields.length) take();
+        const col = name();
+        if (col !== 'node' && col !== 'score') throw cantRun(`YIELD ${col} (db.index.fulltext.queryNodes yields node and score)`, q);
+        yields.push({ col, alias: isKw('AS') ? (take(), name()) : col });
+      } while (isOp(','));
+      clauses.push({ k: 'call', args, yields });
+      continue;
+    }
     if (isKw('OPTIONAL') || isKw('MATCH')) {
       const optional = isKw('OPTIONAL') ? (take(), true) : false;
       kw('MATCH');
@@ -310,7 +353,7 @@ function context(state, params, q) {
   const push = (m, k, v) => { if (!m.has(k)) m.set(k, []); m.get(k).push(v); };
   for (const r of rels) { push(out, r.from, r); push(inc, r.to, r); }
   for (const n of nodes) for (const k of Object.keys(byProp)) if (typeof n.props[k] === 'string') push(byProp[k], n.props[k], n);
-  return { nodes, byEid, out, inc, byProp, isNode: new Set(nodes), isRel: new Set(rels), params: params || {}, q };
+  return { nodes, byEid, out, inc, byProp, byLabelProp: new Map(), isNode: new Set(nodes), isRel: new Set(rels), params: params || {}, q, state };
 }
 
 const hasLabels = (node, sets) => sets.every((alts) => alts.some((l) => node.labels.includes(l)));
@@ -429,6 +472,7 @@ function evaluate(e, env, ctx) {
         default: throw cantRun(`the function ${e.fn}()`, ctx.q);
       }
     }
+    case 'exists': return matchPaths(e.paths, env, ctx).some((x) => !e.where || evaluate(e.where, x, ctx) === true);
     case 'agg': throw cantRun('an aggregate where Cypher reads none (outside a WITH or RETURN item)', ctx.q);
     default: throw cantRun(`an expression it can't read (${e.k})`, ctx.q);
   }
@@ -440,6 +484,10 @@ function aggregate(a, rows, ctx) {
   if (a.star) return rows.length;
   let vals = rows.map((env) => evaluate(a.e, env, ctx)).filter((x) => x !== null && x !== undefined);
   if (a.distinct) { const seen = new Map(); for (const v of vals) if (!seen.has(identity(v, ctx))) seen.set(identity(v, ctx), v); vals = [...seen.values()]; }
+  if (a.fn === 'sum') {
+    if (vals.some((v) => typeof v !== 'number')) throw new Error('Type mismatch: sum() of something that is not a number');
+    return vals.reduce((x, y) => x + y, 0);
+  }
   return a.fn === 'count' ? vals.length : vals;
 }
 /** An item that holds an aggregate, over one group's rows: each aggregate computed, then the rest as written. */
@@ -516,7 +564,46 @@ function candidates(np, env, ctx) {
     const v = evaluate(x, env, ctx);
     return typeof v === 'string' ? (ctx.byProp[k].get(v) || []) : [];
   }
+  // One label and a property map, such as the trust fragment's (u:NostrUser {pubkey: …}): an index of both, made
+  // once a read, so each row looks its node up rather than reading every node. nodeFits still checks every part.
+  const one = np.labels.find((alts) => alts.length === 1);
+  if (one && np.map.length) {
+    const [k, x] = np.map[0];
+    const v = evaluate(x, env, ctx);
+    if (v === null || v === undefined) return [];
+    if (typeof v === 'object' && !Array.isArray(v)) return ctx.nodes;
+    const key = `${one[0]}|${k}`;
+    if (!ctx.byLabelProp.has(key)) {
+      const m = new Map();
+      for (const n of ctx.nodes) {
+        if (!n.labels.includes(one[0])) continue;
+        const pv = plainValue(n.props[k]);
+        if (pv === null || pv === undefined) continue;
+        const id = JSON.stringify(pv);
+        if (!m.has(id)) m.set(id, []);
+        m.get(id).push(n);
+      }
+      ctx.byLabelProp.set(key, m);
+    }
+    return ctx.byLabelProp.get(key).get(JSON.stringify(v)) || [];
+  }
   return ctx.nodes;
+}
+
+/** A path read from its other end: its nodes and relationships reversed, each relationship pointing the other way. */
+function reversedPath(path) {
+  return {
+    nodes: [...path.nodes].reverse(),
+    rels: [...path.rels].reverse().map((r) => ({ ...r, dir: r.dir === 'out' ? 'in' : 'out' })),
+  };
+}
+/** The path to match: from its last node back, when that node is bound and its first isn't (the same rows, sooner). */
+function oriented(path, env) {
+  if (!path.rels.length) return path;
+  const first = path.nodes[0];
+  const last = path.nodes[path.nodes.length - 1];
+  const bound = (np) => !!np.v && np.v in env;
+  return !bound(first) && bound(last) ? reversedPath(path) : path;
 }
 function* steps(node, rp, used, ctx) {
   const adj = rp.dir === 'out' ? ctx.out : ctx.inc;
@@ -534,7 +621,7 @@ function matchPaths(paths, env, ctx) {
   const out = [];
   const walkPath = (pi, e, used) => {
     if (pi === paths.length) { out.push(e); return; }
-    const path = paths[pi];
+    const path = oriented(paths[pi], e);
     const bindNode = (np, node, cur) => {
       if (!nodeFits(np, node, cur, ctx)) return null;
       if (!np.v) return cur;
@@ -592,7 +679,18 @@ function runPathQuery(state, cypher, params = {}, { types } = {}) {
   const ctx = context(state, params, q);
   let rows = [{}];
   for (const c of plan.clauses) {
-    if (c.k === 'match') {
+    if (c.k === 'call') {
+      const next = [];
+      for (const env of rows) {
+        const [index, query] = c.args.map((a) => evaluate(a, env, ctx));
+        for (const hit of queryNodes(state, index, query)) {
+          const e = { ...env };
+          for (const y of c.yields) e[y.alias] = y.col === 'node' ? hit.node : hit.score;
+          next.push(e);
+        }
+      }
+      rows = next;
+    } else if (c.k === 'match') {
       const next = [];
       for (const env of rows) {
         const found = matchPaths(c.paths, env, ctx).filter((e) => !c.where || evaluate(c.where, e, ctx) === true);
