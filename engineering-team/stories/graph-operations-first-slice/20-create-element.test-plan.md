@@ -221,3 +221,12 @@ With every endpoint dead (`TAPESTRY_PORT=9` and `TAPESTRY_CONTAINER=no-such-cont
 `node src/firmware/graph-rules.js --check` finds the 7 items current, and `bash scripts/harness-lint.sh` is clean.
 
 No live check was run again. The fixes are a refusal before anything is read past the concept's header, a comparison and documents, and the fake graph covers each.
+
+### The Tester correction for review round 2 (2026-11-16)
+
+Review round 2's non-blocking finding 5: SC9 pinned two of the ledger row's four splits. It now pins the other two, both against the real derive step:
+
+- **JSON with no word block,** under create-concept's schema: the derive step drops the JSON, so it judges `{}` with its defaults and says invalid; this check judges the JSON and says it fits.
+- **A word block with no `slug`,** under firmware's `validation-tool` schema: the derive step fills the slug in and says valid; this check says "`word.slug` is required".
+
+Both pass already, since they pin what the code does: `_schemas.js` 9 passed, 0 failed.

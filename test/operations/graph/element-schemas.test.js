@@ -25,10 +25,11 @@
  *   SC6 fits gives true, false (with the problems) or null (with why) for a concept and JSON
  *   SC7 loading _schemas.js opens nothing: no ajv, LMDB, Neo4j driver or store until first called
  *   SC8 the fake graph runs E1–E4 as the ADR writes them, answering as Neo4j would
- *   SC9 (review round 1, ADR 0020 Amendment 1, item 1) the real derive step beside this check, its database, store
- *       and resolver stubbed: they agree under create-concept's schema and firmware dog's, and split as Amendment 1
- *       says under firmware word's schema, which requires the derive step's graphContext, and under a schema that
- *       forbids extra top-level keys
+ *   SC9 (review rounds 1 and 2, ADR 0020 Amendment 1, item 1) the real derive step beside this check, its database,
+ *       store and resolver stubbed: for a full word block they agree under create-concept's schema and firmware dog's,
+ *       and split as Amendment 1 says under firmware word's schema, which requires the derive step's graphContext, and
+ *       under a schema that forbids extra top-level keys; they split too for JSON with no word block, and for a word
+ *       block missing a field the derive step fills in (the ledger row's other splits)
  */
 
 const fs = require('fs');
@@ -313,7 +314,7 @@ stub('src/lib/tapestry-resolve', { isLmdbRef: () => false, resolveValue: () => n
   return Object.fromEntries(out.cases.map((c) => [c.label, c]));
 }
 
-test('SC9: the real derive step beside this check: agreeing under create-concept\'s and firmware dog\'s schemas, split as Amendment 1 says under word\'s and one that limits top-level keys', () => {
+test('SC9: the real derive step beside this check: for a full word block, agreeing under create-concept\'s and firmware dog\'s schemas, split as Amendment 1 says under word\'s and one that limits top-level keys; split too with no word block, or a missing word field', () => {
   needSchemas();
   const fw = (c) => fs.readFileSync(path.join(ROOT, `firmware/versions/v1.0.0/concepts/${c}/json-schema.json`), 'utf8');
   const beagleSchema = JSON.stringify({ jsonSchema: { $schema: 'https://json-schema.org/draft/2020-12/schema', type: 'object', required: ['beagle'], properties: { beagle: { type: 'object', required: ['name', 'slug', 'description'], properties: { name: { type: 'string' }, slug: { type: 'string' }, description: { type: 'string' } } } } } });
@@ -325,6 +326,8 @@ test('SC9: the real derive step beside this check: agreeing under create-concept
     { label: 'dog outside it', schema: fw('dog'), json: { word: { slug: 'dog--fido', name: 'dog: Fido', title: 'Dog: Fido', wordTypes: ['word', 'dog'] }, dog: { name: 'Fido', slug: 'fido', breed: 'goldenRetriever' } } },
     { label: 'word', schema: fw('word'), json: { word: { slug: 'word--lexeme', name: 'word: Lexeme', title: 'Word: Lexeme', wordTypes: ['word'] } } },
     { label: 'closed top', schema: JSON.stringify({ jsonSchema: { type: 'object', properties: { word: {}, beagle: {} }, additionalProperties: false } }), json: beagle('a dog') },
+    { label: 'no word block', schema: beagleSchema, json: { beagle: { name: 'Max', slug: 'max', description: 'a dog' } } },
+    { label: 'a word default', schema: fw('validation-tool'), json: { word: { name: 'checker', wordTypes: ['word', 'validationTool'] } } },
   ]);
   for (const [label, want] of [['beagle fits', true], ['beagle misses', false], ['dog in its set', true], ['dog outside it', false]]) {
     const c = r[label];
@@ -334,6 +337,10 @@ test('SC9: the real derive step beside this check: agreeing under create-concept
   assert(w.derive === true && w.fits === false && w.problems.some((p) => /graphContext/.test(p)), `firmware word's schema: the derive step, which adds its own graphContext, says valid; this check, on the stored JSON, says graphContext is required (Amendment 1, item 1); got derive ${show(w.derive)}, check ${show(w.problems)}`);
   const t = r['closed top'];
   assert(t.derive === false && t.fits === true, `a schema that forbids extra top-level keys: the derive step's graphContext breaks it, the stored JSON doesn't; got derive ${show(t.derive)} ${show(t.deriveErrors)}, check ${show(t.fits)}`);
+  const n = r['no word block'];
+  assert(n.derive === false && n.fits === true, `JSON with no word block, under create-concept's schema: the derive step drops the JSON and judges {} with its defaults, this check judges the JSON (review round 2); got derive ${show(n.derive)} ${show(n.deriveErrors)}, check ${show(n.fits)}`);
+  const d = r['a word default'];
+  assert(d.derive === true && d.fits === false && d.problems.some((p) => /word\.slug/.test(p)), `a word block with no slug, under validation-tool's schema: the derive step fills the slug in, this check finds it missing (review round 2); got derive ${show(d.derive)}, check ${show(d.problems)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
