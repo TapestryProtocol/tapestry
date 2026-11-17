@@ -34,6 +34,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 13. `stories/graph-operations-first-slice/13-list-relationships.md` — list a node's relationships, in and out, each
     with the way it points, a page at a time, from a point of view; its ADR sets how a relationship is answered and
     judged, for graph walk and describe-node (Loom A10.13).
+14. `stories/graph-operations-first-slice/14-walk.md` — follow chosen relationship types out from one or more nodes, up
+    to a depth, from a point of view, each node reached once with a shortest path, nearest first, a page at a time,
+    within a bound; the walk search (A10.8) will call (Loom A10.14).
 16. `stories/graph-operations-first-slice/16-create-concept-and-update-concept.md` — make a concept with its eight core
     nodes and no event, and change its names, slug or description (Loom A10.16).
 20. `stories/graph-operations-first-slice/20-create-element.md` — make an element of a concept, or of a set in its class
