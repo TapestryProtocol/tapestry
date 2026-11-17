@@ -76,6 +76,11 @@
  * with C5. A CREATE's SET clause is looked for only after its node's pattern, so the label Set in
  * `CREATE (n:ListItem:Set {…})` is read as a label, as Neo4j reads it, not as a SET clause.
  *
+ * Story graph-operations-first-slice #8 (ADR graph-operations-first-slice/0008, Decision 4) adds graph search's reads.
+ * Its S1 opens with `CALL db.index.fulltext.queryNodes(…)`, which test/helpers/pathCypherFake.js runs over the full-text
+ * index test/helpers/fulltextFake.js keeps, from the state's `fulltextIndexes`. Its S0, `SHOW FULLTEXT INDEXES …`, is
+ * answered from the same list. A state with no `fulltextIndexes` has no full-text index.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -85,6 +90,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { runQuery } = require('./nodeCypherFake');
 const { runPathQuery, plainProps, isNeoInt } = require('./pathCypherFake');
+const { showFulltextIndexes } = require('./fulltextFake');
 const { keyNode } = require('../../src/lib/tapestry-key-cypher');
 
 const oneLine = (q) => String(q).replace(/\s+/g, ' ').trim();
@@ -533,7 +539,11 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   // A read of nodes with an OPTIONAL MATCH and no relationship, as reads.js's trust fragment adds to one, goes to the
   // path reader: the one-node reader refuses OPTIONAL MATCH (story graph-operations-first-slice #9, ADR 0009 Context 9).
   const optional = /\bOPTIONAL\s+MATCH\b/i.test(bare);
-  if (!writes && !hasRel && !optional) return { rows: readOneNode(s, q, params), counters: zero() };
+  // graph search's S0 (story graph-operations-first-slice #8, ADR 0008 Decision 4): the full-text indexes the state has.
+  if (!writes && /^\s*SHOW\s+FULLTEXT\s+INDEXES\b/i.test(bare)) return { rows: showFulltextIndexes(s, q, params), counters: zero() };
+  // Its S1 opens with a CALL, which only the path reader runs, whether or not a relationship follows.
+  const calls = /^\s*CALL\b/i.test(bare);
+  if (!writes && !hasRel && !optional && !calls) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
   if (!writes && (isOneHopFromKey(bare) || isStepFromKeys(bare))) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };

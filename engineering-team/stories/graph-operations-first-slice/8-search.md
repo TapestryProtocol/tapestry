@@ -193,5 +193,5 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - Field marks: [ADR graph-operations-foundation/0005](../../decisions/graph-operations-foundation/0005-field-mapping.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0008-search.md](../../decisions/graph-operations-first-slice/0008-search.md) (and its Amendment 5 to [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md))
-- Test plan: (filled in after Test Design phase)
+- Test plan: [8-search.test-plan.md](8-search.test-plan.md)
 - Review: (filled in after Review phase)
