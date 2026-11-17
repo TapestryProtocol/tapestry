@@ -14,7 +14,8 @@
  * what order, what is counted, and what is refused. How search reads the index, checks a match and cuts a passage is
  * the Implementer's.
  *
- *   SR1  a word in an element's field finds it, with that field; a word in a concept's description finds the concept
+ *   SR1  a word in an element's field finds it, with that field; a word in a concept's description finds the concept,
+ *        and so does its plural, which is one level down in its JSON
  *   SR2  whole words only, ignoring case: og finds nothing though "dog" is in a statement; DOG finds it; hardcod nothing
  *   SR3  a field's name is no text: statement finds only the rule whose statement holds the word; strength and
  *        wordTypes find nothing, though every rule's JSON names them
@@ -32,7 +33,8 @@
  *        marked …; a long field is never answered whole, a short one is
  *   SR12 no match comes with a path: search packages no walk yet (Decision 8)
  *   SR13 best first: a match with every word before one with some, even at a lower score; then the higher score; then
- *        the lower tapestryKey
+ *        the lower tapestryKey. A text holding a word's form holds that word, so a q holding a word and its own plural
+ *        or singular has matches holding every word
  *   SR14 the cursors page through every match once, in order; every page counts the whole list
  *   SR15 a limit of 0 or 201 is refused naming limit
  *   SR16 a cursor for other words, another kind, concept or point of view, or another read, is refused invalid-cursor;
@@ -165,6 +167,7 @@ function main() {
     get('nothing', 'owner', { q: 'nosuchwordanywhere' }),
     get('header', 'owner', { q: 'header', ...all }),
     get('concept-word', 'owner', { q: 'concept', ...all }),
+    get('mice', 'owner', { q: 'mice', ...all }),
     // the words
     get('stop', 'owner', { q: '  is it decided and still in force  ', ...all }),
     get('only-stop', 'owner', { q: 'the', ...all }),
@@ -183,6 +186,8 @@ function main() {
     // the order
     get('tiers', 'owner', { q: 'alphaword betaword', ...all }),
     get('ties', 'owner', { q: 'gammaword deltaword', ...all }),
+    get('tier-forms', 'owner', { q: 'alphaword alphawords betaword', ...all }),
+    get('relay-pair', 'owner', { q: 'relay relays', ...all }),
     get('limit-0', 'owner', { q: 'epsilonword', limit: 0 }),
     get('limit-201', 'owner', { q: 'epsilonword', limit: 201 }),
     get('page-1', 'owner', { q: 'epsilonword', pov: 'everyone', limit: 3 }),
@@ -255,7 +260,7 @@ function pagesOf(file, params, { most = 20 } = {}) {
 
 // ── AC1: what a word finds ──
 
-test('SR1: a word in an element\'s field finds it, with that field; a word in a concept\'s description finds the concept', () => {
+test('SR1: a word in an element\'s field finds it, with that field; a word in a concept\'s description finds the concept, and so does its plural', () => {
   const { a, k } = main();
   const hard = ok(a, 'hardcode');
   assert(show(namesOf(k, hard)) === show(['ruleTa']), `hardcode finds the rule whose statement holds it, and nothing else; got ${show(namesOf(k, hard))}`);
@@ -265,6 +270,9 @@ test('SR1: a word in an element\'s field finds it, with that field; a word in a 
   assert(show(namesOf(k, repo)) === show(['docHeader']) && repo.matches[0].kind === 'concept', `repository finds the document concept by its description; got ${show(repo.matches)}`);
   const spec = ok(a, 'specification');
   assert(show(namesOf(k, spec)) === show(['ruleHeader']) && spec.matches[0].kind === 'concept', `specification finds the rule concept by its description; got ${show(spec.matches)}`);
+  const mice = ok(a, 'mice');
+  assert(show(namesOf(k, mice)) === show(['mouseHeader']) && mice.matches[0].kind === 'concept', `mice finds the mouse concept by its plural, which is no form of its name; got ${show(namesOf(k, mice))}`);
+  assert(mice.matches[0].field === 'conceptHeader.oNames.plural' && mice.matches[0].passage === 'mice', `it matched in conceptHeader.oNames.plural, a field one level down in its JSON; got ${show({ field: mice.matches[0].field, passage: mice.matches[0].passage })}`);
 });
 
 test('SR2: whole words only, ignoring case: og finds nothing though "dog" is in a statement; DOG finds it; hardcod finds nothing', () => {
@@ -388,13 +396,20 @@ test('SR12: no match comes with a path: search packages no walk yet', () => {
 
 // ── AC3: the order, and paging ──
 
-test('SR13: best first: every word before some, even at a lower score; then the higher score; then the lower tapestryKey', () => {
+test('SR13: best first: every word before some, even at a lower score; then the higher score; then the lower tapestryKey; a word\'s form holds the word, so a word and its own plural can both be held', () => {
   const { a, k } = main();
   const tiers = ok(a, 'tiers');
   assert(show(namesOf(k, tiers)) === show(['tierBoth', 'tierAlpha4', 'tierAlpha1']), `tierBoth holds both words though tierAlpha4 scores higher; then the higher score; got ${show(namesOf(k, tiers))}`);
   assert(show(tiers.matches.map((m) => m.words)) === show([['alphaword', 'betaword'], ['alphaword'], ['alphaword']]), `the words each holds; got ${show(tiers.matches.map((m) => m.words))}`);
   const ties = ok(a, 'ties');
   assert(show(namesOf(k, ties)) === show(['tieC', 'tieA', 'tieB']), `tieC scores higher; tieA and tieB score the same and come by tapestryKey (${FIXED_KEYS.tieA} < ${FIXED_KEYS.tieB}); got ${show(namesOf(k, ties))}`);
+  // A word and its own plural are two words, and a text holding either form holds both (Decision 3).
+  const forms = ok(a, 'tier-forms');
+  assert(show(namesOf(k, forms)) === show(['tierBoth', 'tierAlpha4', 'tierAlpha1']), `alphaword alphawords betaword: tierBoth holds every word, alphawords by its singular, so it comes first though tierAlpha4 scores higher; got ${show(namesOf(k, forms))}`);
+  assert(show(forms.matches.map((m) => m.words)) === show([['alphaword', 'alphawords', 'betaword'], ['alphaword', 'alphawords'], ['alphaword', 'alphawords']]), `a text holding alphaword holds alphawords too; got ${show(forms.matches.map((m) => m.words))}`);
+  const pair = ok(a, 'relay-pair');
+  sameSet(k, pair, ['ruleRelay', 'ruleRelays'], 'relay relays');
+  assert(pair.matches.every((m) => show(m.words) === show(['relay', 'relays'])), `relay relays: each rule holds both words, by one form or the other; got ${show(pair.matches.map((m) => m.words))}`);
 });
 
 test('SR14: the cursors page through every match once, in order; every page counts the whole list', () => {

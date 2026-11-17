@@ -48,7 +48,11 @@ function segments(text) {
   return out;
 }
 
-/** A word's forms: itself and, for three letters or more, its plain English plural or singular (Decision 2). */
+/**
+ * A word's forms: itself and, for three letters or more, its plain English plural or singular (Decision 2). A word
+ * ending in `es` drops it only when it has five letters or more, so the stem left has three at least: `uses` gives
+ * `use`, never `us`.
+ */
 function formsOf(w) {
   const out = [w];
   if (/^\p{L}{3,}$/u.test(w)) {
@@ -144,20 +148,28 @@ function passageOf(text, at) {
   return `${start > 0 ? CUT : ''}${text.slice(start, end)}${end < text.length ? CUT : ''}`;
 }
 
-/** Each form, mapped to the word it is a form of. */
-function ownerOf(list, forms) {
-  const owner = new Map();
-  for (const w of list) for (const f of forms[w] || [w]) if (!owner.has(f)) owner.set(f, w);
-  return owner;
+/**
+ * Each form, mapped to every word it is a form of. In `relay relays`, "relay" and "relays" are each a form of both
+ * words, so a text holding either holds both (Decision 3).
+ */
+function ownersOf(list, forms) {
+  const owners = new Map();
+  for (const w of list) {
+    for (const f of forms[w] || [w]) {
+      if (!owners.has(f)) owners.set(f, []);
+      if (!owners.get(f).includes(w)) owners.get(f).push(w);
+    }
+  }
+  return owners;
 }
 
 /**
  * Whether a text may hold a form: a whole word, lowercased, is a part of the lowercased text, so a text that holds none
  * of the forms as a part is never split into words. This only spares work; it decides nothing.
  */
-const mayHold = (text, owner) => {
+const mayHold = (text, owners) => {
   const lower = text.toLowerCase();
-  for (const f of owner.keys()) if (lower.includes(f)) return true;
+  for (const f of owners.keys()) if (lower.includes(f)) return true;
   return false;
 };
 
@@ -167,11 +179,11 @@ const mayHold = (text, owner) => {
  * holds none is no match: the index found it only by a JSON key, or the word section's boilerplate.
  */
 function holds(row, list, forms) {
-  const owner = ownerOf(list, forms);
+  const owners = ownersOf(list, forms);
   const held = new Set();
   for (const t of textsOf(row)) {
-    if (!mayHold(t.text, owner)) continue;
-    for (const s of segments(t.text)) if (owner.has(s.w)) held.add(owner.get(s.w));
+    if (!mayHold(t.text, owners)) continue;
+    for (const s of segments(t.text)) for (const w of owners.get(s.w) || []) held.add(w);
     if (held.size === list.length) break;
   }
   return { held, every: held.size === list.length };
@@ -183,16 +195,17 @@ function holds(row, list, forms) {
  * the most of them, the first on a tie; its passage.
  */
 function check(row, list, forms) {
-  const owner = ownerOf(list, forms);
+  const owners = ownersOf(list, forms);
   const held = new Set();
   let best = null;
   for (const t of textsOf(row)) {
-    if (!mayHold(t.text, owner)) continue;
-    const hits = segments(t.text).filter((s) => owner.has(s.w));
+    if (!mayHold(t.text, owners)) continue;
+    const hits = segments(t.text).filter((s) => owners.has(s.w));
     if (!hits.length) continue;
-    for (const h of hits) held.add(owner.get(h.w));
-    const distinct = new Set(hits.map((h) => owner.get(h.w))).size;
-    if (!best || distinct > best.distinct) best = { field: t.field, text: t.text, at: hits[0].at, distinct };
+    const here = new Set();
+    for (const h of hits) for (const w of owners.get(h.w)) here.add(w);
+    for (const w of here) held.add(w);
+    if (!best || here.size > best.distinct) best = { field: t.field, text: t.text, at: hits[0].at, distinct: here.size };
   }
   if (!best) return null;
   return { words: list.filter((w) => held.has(w)), field: best.field, passage: passageOf(best.text, best.at) };

@@ -189,6 +189,7 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - **A match's concepts with no name come last,** after the named ones, by tapestryKey. Decision 6 orders them by name.
 - **`bad-query` reuses `textProblem`'s words** for a control, text-direction or invisible character, as `graph resolve`'s `bad-ref` does. Its sentence about an invisible character speaks of a name's slug, key and labels.
 - **`not-a-concept` for a superset or a set** tells the caller to pass the header of the concept it belongs to; for any other node, that it is no concept header.
+- **A word ending in `es` drops it only when it has five letters or more,** so the stem left has three letters at least: `uses` gives `use`, never `us`, and `axes` gives `axe`. Decision 2 says only that a word ending in `es` drops that too. The review found it unrecorded (non-blocking 3).
 
 ## Evidence
 

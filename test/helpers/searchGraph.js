@@ -12,13 +12,15 @@
  * section), a name tag, a d tag holding its slug and a z tag naming its concept. Its texts, as Decision 3 reads them,
  * are its name and its section's fields. The word section's slug, name, title and wordTypes are not texts.
  *
- * Two concepts:
+ * Three concepts:
  *   ruleHeader 'rule' (a description tag, 'One sentence a specification commits to.', and the same in its JSON, plural
  *     'rules') -IS_THE_CONCEPT_FOR-> ruleSuperset 'rules' ('Every rule there is.') -IS_A_SUPERSET_OF-> mustSet
  *     'obligations' ('The rules that bind.'); mustSet -HAS_ELEMENT-> ruleMust; every other rule under ruleSuperset.
  *   docHeader 'document' (no description tag; 'A file in a repository.' in its JSON, plural 'documents')
  *     -IS_THE_CONCEPT_FOR-> docSuperset 'documents' ('Every document there is.') -HAS_ELEMENT-> docLong, ruleDoc.
  *   ruleDoc is an element of both: ruleSuperset -HAS_ELEMENT-> ruleDoc too.
+ *   mouseHeader 'mouse' (no description tag; 'A small rodent.' in its JSON, plural 'mice'), a header alone. Its plural
+ *     is no form of its name, so only its JSON's conceptHeader.oNames.plural, a field one level down, holds 'mice'.
  *
  * The rules, by statement (each strength MUST unless given):
  *   ruleTa        'Resolve each TA pubkey at runtime, and never hardcode it.'      name 'Pubkey at runtime'
@@ -153,6 +155,8 @@ function seedSearch({ owner = S.OWNER, ta = S.TA, unscored = false, index = 'onl
   tag(ruleHeader, 'description', 'One sentence a specification commits to.');
   const docHeader = add('docHeader', ['NostrEvent', 'ListHeader', 'ConceptHeader', 'TapestryNode'], { kind: 39998, uuid: `39998:${ta}:document`, name: 'document', pubkey: ta });
   tag(docHeader, 'json', headerJson('documents', 'A file in a repository.', 'document'));
+  const mouseHeader = add('mouseHeader', ['NostrEvent', 'ListHeader', 'ConceptHeader', 'TapestryNode'], { kind: 39998, uuid: `39998:${ta}:mouse`, name: 'mouse', pubkey: ta });
+  tag(mouseHeader, 'json', headerJson('mice', 'A small rodent.', 'mouse'));
   const setJson = (section, name, description) => JSON.stringify({ word: { slug: name, name, title: name, wordTypes: ['word', section] }, [section]: { name, description } });
   const ruleSuperset = add('ruleSuperset', ['NostrEvent', 'ListItem', 'Superset', 'TapestryNode'], { kind: 39999, uuid: `39999:${ta}:rules`, name: 'rules', pubkey: ta });
   tag(ruleSuperset, 'json', setJson('superset', 'rules', 'Every rule there is.'));
