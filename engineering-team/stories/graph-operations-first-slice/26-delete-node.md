@@ -1,6 +1,6 @@
 # Story 26: `graph delete-node` — delete one of this instance's own elements, with its relationships and tags, recorded so a mistake can be undone, and never a node from someone else's event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.26 — https://loom.brainstorm.world/t/A10.26
@@ -172,4 +172,4 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/26-delete-node.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/graph-operations-first-slice/26-delete-node.md`
