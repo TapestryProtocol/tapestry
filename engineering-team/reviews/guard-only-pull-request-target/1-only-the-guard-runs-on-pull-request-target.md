@@ -286,3 +286,128 @@ any wording suggested here (`roles/reviewer.md` step 10).
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+## Round 2
+
+**Date:** 2026-11-17 (UTC)
+**Diff:** `git show 925d5677`, the fixes on top of this review's round 1 commit `15a64cdd`. Reviewed at HEAD
+`925d5677`, working tree clean. `origin/staging` is now 17 commits past `ed18d8e1`, and none of those commits touches a
+file this branch changes: `git diff --stat ed18d8e1 origin/staging` on those paths is empty, so the merge has nothing
+to collide on.
+
+### Quality gates (re-run, not trusted)
+
+- [x] **Scoped gate**, with round 1's command and capture: **exit 0, `TOTAL_FAIL=0`**. 50 passed, 0 failed:
+  `workflow-hardening` 36/0 (round 1's 34, plus S20 and R7) and `ci-test-job` 14/0. This matches the commit message.
+- [ ] **Full `npm test`:** not run, for round 1's reason. `npm run gate:status` again answers "no gate run records in
+  …/tmp/gate-runs" (exit 2).
+- [x] **Mutation probes:** 41 mutants. Round 1's 21 are all caught now, its 3 survivors included. 20 new ones target
+  the helpers, R7, the policy definition and §18.4's steps. Overall, 37 are caught and 4 survive. Table below.
+- [x] **harness-lint:** clean on the fix commit, and again with this section and the story's Done flip in the tree.
+
+### AC verdict table (the ACs as amended at round 1)
+
+| AC | Handles | Verdict | Evidence |
+|---|---|---|---|
+| AC-1 | S18 | Met | S18 now pins the finding's whole pointer, including the file path, and the list matching whole file names (`old-guard-main-source.yml`). Round 1's two surviving mutants of the rule now fail S18. |
+| AC-2 | S17, S19 | Met | Unchanged. Its mutants are caught as in round 1. |
+| AC-3, amended to add the definition clause | R5, R6, R7, S20, M2 | Met | R7 is green on the real definition. Of 9 changes to the definition, R7 catches 7. The other 2 (`disabled`, and a glob `exclude`) are Non-blocking R2-1. |
+| AC-4, amended to "an Actions policy that names its path and allows it the event" | D5, claims check | Met | §18.4 re-derived claim by claim below. D5 now pins the procedure; step 1 alone is not pinned (Non-blocking R2-2). |
+
+The ACs are the implementer's amended text. Each amendment carries a note naming its round 1 source (story:44 and
+:48–50). The owner's Gate B verdict ratifies them as amended.
+
+### Round 1's items, re-derived as fresh claims
+
+| Item | What changed | Re-derived against | Resolved |
+|---|---|---|---|
+| Blocking 1 | Step 1 (OPERATIONS.md:1208) | The guide's warning, its "only ever inspected as data and never executed" rule, and the four § "Hardening" controls; the guard's file | Yes |
+| Blocking 2 | Step 3 (OPERATIONS.md:1210): GitHub "may refuse", "since its docs don't say" | §18.4 ¶1, §4's third bullet, the README (:72), the guide's § "How the default policy works" | Yes |
+| Blocking 3 | Step 3, and the list's comment (`test/workflow-hardening.test.js:61–66`); AC-4 amended | The definition's rule (JSON:12–14), OPERATIONS.md:122, README:65, "About Actions policies" | Yes |
+| Blocking 4 | GUARD SUITE (`test/workflow-hardening.test.js:31–35`) | `WRITE_SCOPES`' comment (:50–52), the list's comment, §18.4 step 2 | Yes: the three now agree |
+| Non-blocking 1 | D5 pins "To add a workflow to the list", `workflow_path` and `.github/rulesets/` (:899–900) | Deleting the whole procedure, or step 3 alone, now fails D5 | Yes, though step 1 alone isn't pinned (R2-2) |
+| Non-blocking 2 | R7, `policyDefinitionsIn`, `allowsPullRequestTarget` and S20; §18.4's last paragraph and the README reworded; AC-3 amended | 9 changes to the definition and 9 mutants of the helpers and R7 | Yes, with two blind spots (R2-1) |
+| Non-blocking 3 | S18 (:661–676) | Round 1's two surviving mutants of the rule | Yes |
+| Non-blocking 4 | The header's paths, now under `stories/done/` (:4–5) | Both files exist there | Yes |
+
+### New sentences, re-derived
+
+| Claim (location) | Checked against | Holds? |
+|---|---|---|
+| Step 1: a workflow on the event "never runs a pull request's code, and treats any it checks out as data only" | The guide: checked-out code is "only ever inspected as data and never executed" | Yes |
+| Step 1: the hardening applies to every workflow on the list, "whether or not it checks out code" | The guide's § "Hardening": "These apply whether or not your workflow checks out pull request code" | Yes |
+| Step 1: the four controls (token and secrets, caches filled from trusted events, isolated runners, general protections such as against command injection) | The guide's four § "Hardening" items, in that order | Yes |
+| Step 1: the guard "checks out nothing, its token only reads, it uses no secret and no cache, it runs on a GitHub-hosted runner, and it passes `github.head_ref` to its script through `env:`" | `.github/workflows/guard-main-source.yml`: no checkout, cache or `secrets.`; `permissions: contents: read` (:28–29); `runs-on: ubuntu-latest`; `HEAD_REF` set under `env:` and read as `$HEAD_REF` | Yes. "Meets it" holds in substance: strictly, a job that reads nothing needs only `permissions: {}`, but in a public repository `contents: read` grants only what is public. The guard is outside this story's files. |
+| Step 3: give the workflow a policy that names its path in `workflow_path` and allows the event, with its definition in `.github/rulesets/`, and the owner sets the live one to match | R7; the README's recreate commands | Yes |
+| Step 3: the existing policy allows `pull_request_target` "and no other event", so a path there suits only a workflow on that event alone; any other needs its events allowed, or a policy of its own | JSON:12–14; §4 ("and on no other event"); "About Actions policies", where event rules control "which events are permitted" | Yes |
+| Step 3: without a covering policy GitHub "may refuse" the workflow, "since its docs don't say" | ¶1 of the same section; the guide | Yes, and it now agrees with ¶1 |
+| Last paragraph (OPERATIONS.md:1212): the test fails on a listed file that is gone, off the event, or not named (by its exact path, with the event allowed) in a definition, "so a rename of the guard changes the list and the definition together" | R6 and R7; the mutants | Yes. R7 checks one direction, each listed file in a definition, which keeps the README's rename window green (both paths in `include`) |
+| README: "Nothing applies them" and "One test reads them" (R7) (README:5–8) | `git grep rulesets -- test scripts .claude bin src lib`: only R7 reads the folder; the `ci-test-job` match is message text | Yes |
+| The list's comment (:61–66) | §18.4 steps 2 and 3 | Yes |
+| GUARD SUITE: a story that changes the workflows touches this file "only to add its own entry to `WRITE_SCOPES` or `PULL_REQUEST_TARGET_FILES`" and never loosens a checker; a new rule "leaves the existing checks and their tests as they are" | `WRITE_SCOPES`' comment; §18.4 step 2; this round changes only this story's own tests (S18, D5) and adds S20 and R7 | Yes |
+| `policyDefinitionsIn`: the rulesets' own files have no event rule | Their rule types: `pull_request` and `required_status_checks`; `deletion` and `non_fast_forward` | Yes |
+| `allowsPullRequestTarget` and S20: "An empty include means every workflow to GitHub" | GitHub's REST reference for Actions policies: `include` is an "Array of workflow file paths or glob patterns to include. An empty array includes all workflows not matched by an excluded pattern" | Yes |
+| `allowsPullRequestTarget`: a definition counts when it "names the path itself in workflow_path's include, doesn't exclude it" | The same reference: `exclude` takes glob patterns too, and `enforcement` can be `disabled` | Partly (R2-1) |
+
+### Evidence (round 2)
+
+| # | Check | How | Result |
+|---|---|---|---|
+| R2-E1 | Scoped gate | Round 1's command and capture | 50 passed, 0 failed; `TOTAL_FAIL=0`; `EXIT=0` |
+| R2-E2 | Run record | `npm run gate:status` | No record, exit 2 |
+| R2-E3 | Mutants | One temporary dot-prefixed copy in `test/`; definition and OPERATIONS.md variants as scratch copies outside the repo; all deleted; `git status` clean afterwards | 41 run: 37 caught, 4 survive |
+| R2-E4 | GitHub's REST reference | "REST API endpoints for GitHub Actions policies", one read-only fetch | `include` and `exclude` take glob patterns; an empty `include` covers every workflow; `~ALL`; omitting `workflow_path` targets all; `enforcement` is `disabled`, `active` or `evaluate` |
+| R2-E5 | The guide | Round 1's copy, fetched earlier today, re-read locally | Step 1's sentences, as above |
+| R2-E6 | The guard's properties | The workflow file | As above |
+| R2-E7 | Readers of `.github/rulesets/` | `git grep` | R7 only |
+| R2-E8 | Staging collisions | `git diff --stat ed18d8e1 origin/staging` on this branch's paths | Empty |
+| R2-E9 | Old wording left anywhere | `git grep` for round 1's flagged phrases, outside reviews | None |
+| R2-E10 | harness-lint | Before and after this section | Clean (0 violations) both times |
+| R2-E11 | Verdict parse | `awk -f scripts/lib/review-verdict.awk` on this file | PASS |
+
+Round 2's new mutants (36 tests pass on the unmutated copy; each row lists the tests that failed):
+
+| Mutant | Caught by |
+|---|---|
+| `allowsPullRequestTarget` always true / always false | S20 / S20, R7 |
+| `include` not checked / an empty `include` counted as every workflow | S20 / S20 |
+| `exclude` ignored / the allowed event not checked | S20 / S20 |
+| `policyDefinitionsIn` returns `[]` | R7 |
+| `policyDefinitionsIn` keeps every JSON file | survives, with no effect: the rulesets' files name no workflow path |
+| R7 looks up the bare file name instead of the path | R7 |
+| the definition names another file / allows only `push` / excludes the guard's path / has an empty `include` / has `~ALL` / has a glob `include` / is deleted | R7 each time |
+| the definition's `enforcement` is `disabled` | survives |
+| the definition excludes the guard by a glob (`.github/workflows/guard-*.yml`) | survives |
+| §18.4 loses step 3 | D5 |
+| §18.4 loses step 1 | survives |
+
+Round 1's 21 mutants, re-run, are all caught. A list naming `gone.yml` or `test.yml` now fails both R6 and R7.
+
+### Findings (round 2)
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. (R2-1) **R7 doesn't read two parts of a definition that GitHub does** (`allowsPullRequestTarget`,
+   `test/workflow-hardening.test.js:383–395`).
+   - It ignores `enforcement`, so a definition set to `disabled` still counts.
+   - It matches `exclude` by exact path, while GitHub's reference says `exclude` takes glob patterns, so a definition
+     whose `exclude` globs the guard out still counts.
+   - Both survived as mutants. The helper's comment ("lets the workflow at this path run", "doesn't exclude it")
+     claims more than it checks. The docs' wording ("names, by its exact path, with `pull_request_target` allowed")
+     still holds.
+   - Optional: count only `enforcement: "active"` definitions, and don't count one whose `exclude` has any entry
+     that isn't a plain path.
+2. (R2-2) **No test holds step 1**, which was round 1's Blocking 1 fix. Deleting it leaves D5 green.
+   - Optional: D5 also checks that §18.4 says a workflow on the event never runs a pull request's code.
+
+#### Harness friction
+None new. Round 1's two known items still apply.
+
+### Close-out (left uncommitted, as asked)
+- [x] Story `**Status:**` set to `Done` in place.
+- [x] Completion detection: reported in the chat, not in this file.
+
+### Verdict (round 2)
+**PASS**

@@ -1,6 +1,6 @@
 # Story 1: Only the main-source guard runs on `pull_request_target`
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Bug *(Light lane: workflows/light-profile.md, Implementer + Reviewer, one human stop at
 Gate B. No irreversibility trigger fires: one rule in a test file, and docs. Scoped gate:
