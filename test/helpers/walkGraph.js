@@ -20,6 +20,14 @@
  *   inward   inward -INWARD-> tie1, then tie1 -OUTWARD-> inward              (out before in: OUTWARD)
  *   pair     tie1 -SAME-> pair twice, recording { n: 1 } and { n: 2 }       (one of them, the same each time)
  *
+ * The tie-break's order, with fixed keys too (ORDER_KEYS, ordP1 < ordP2): ord0 -LINKS-> ordP1 and ordP2. ordX is reached
+ * from both a step later, by ordP2 -AAA-> (made first) and by ordP1 -ZZZ->: the lesser parent comes before the type,
+ * so ordP1's. ordY is reached in from ordP1, the lesser parent, by ordY -BACK-> ordP1 (made first), and out from ordP2
+ * by ordP2 -FWD-> ordY: out comes before the parent, so ordP2's.
+ *
+ * Met again a step later: rm0 -CITES-> rmLo (a peer scored 0.01) and rmA; rm0 -HAS_TAG-> rmTag; then rmA -CITES-> rmLo
+ * and rmTag -REFERENCES-> rmA. From rm0 both ways, rmLo and rmTag are met at step 1, and met again from rmA at step 2.
+ *
  * The point of view: pov0 -CITES-> povLo (a peer scored 0.01) -CITES-> povLoKid; povHi (0.2) -CITES-> povHiKid; povAnon
  * (no author); povNoUser (a pubkey with no NostrUser); povNoScore (a NostrUser with no influence); povOwned (the
  * owner's). And povStart (the peer scored 0.01) -CITES-> povStartKid.
@@ -61,6 +69,11 @@ const TIE_KEYS = Object.freeze({
   shared: fixedKey(301), twin: fixedKey(302), inward: fixedKey(303), pair: fixedKey(304),
   far: fixedKey(401),
 });
+/** The tie-break's order (review 14, non-blocking 1): fixed keys, ordP1 < ordP2. */
+const ORDER_KEYS = Object.freeze({
+  ord0: fixedKey(501), ordP1: fixedKey(511), ordP2: fixedKey(512), ordX: fixedKey(521), ordY: fixedKey(522),
+});
+const FIXED_KEYS = Object.freeze({ ...TIE_KEYS, ...ORDER_KEYS });
 
 /** The class thread's three types, as a walk along it names them. */
 const THREAD_TYPES = Object.freeze(['IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF', 'HAS_ELEMENT']);
@@ -76,7 +89,7 @@ function builder(ta) {
   const eids = {};
   const add = (name, labels, props, { keyed = true } = {}) => {
     const p = { ...props };
-    if (keyed && p.tapestryKey === undefined) p.tapestryKey = TIE_KEYS[name] || crypto.randomUUID();
+    if (keyed && p.tapestryKey === undefined) p.tapestryKey = FIXED_KEYS[name] || crypto.randomUUID();
     const n = { eid: s.nextEid++, labels, props: p };
     s.nodes.push(n);
     if (name) {
@@ -141,6 +154,30 @@ function seedWalk({ owner = S.OWNER, admin = S.ADMIN, ta = S.TA, unscored = fals
   const pair = item('pair');
   link(tie1, 'SAME', pair, { n: 1 });
   link(tie1, 'SAME', pair, { n: 2 });
+
+  // ── the tie-break's order: the parent before the type, and out before a lesser parent ──
+  const ord0 = item('ord0');
+  const ordP1 = item('ordP1');
+  const ordP2 = item('ordP2');
+  link(ord0, 'LINKS', ordP2);
+  link(ord0, 'LINKS', ordP1);
+  const ordX = item('ordX');
+  link(ordP2, 'AAA', ordX);
+  link(ordP1, 'ZZZ', ordX);
+  const ordY = item('ordY');
+  link(ordY, 'BACK', ordP1);
+  link(ordP2, 'FWD', ordY);
+
+  // ── met again a step later: a node left out and a tag node ──
+  const rm0 = item('rm0');
+  const rmLo = item('rmLo', { pubkey: PEERS.lo });
+  const rmA = item('rmA');
+  const rmTag = tagNode('rmTag', 'e', 'rmA');
+  link(rm0, 'CITES', rmLo);
+  link(rm0, 'CITES', rmA);
+  link(rm0, 'HAS_TAG', rmTag);
+  link(rmA, 'CITES', rmLo);
+  link(rmTag, 'REFERENCES', rmA);
 
   // ── the point of view ──
   const pov0 = item('pov0');
@@ -226,4 +263,4 @@ function seedBound({ leaves = 10000, ta = S.TA, owner = S.OWNER } = {}) {
   };
 }
 
-module.exports = { seedWalk, seedBound, PEERS, TIE_KEYS, THREAD_TYPES, CLASS_THREAD, BOTH, fixedKey };
+module.exports = { seedWalk, seedBound, PEERS, TIE_KEYS, ORDER_KEYS, THREAD_TYPES, CLASS_THREAD, BOTH, fixedKey };

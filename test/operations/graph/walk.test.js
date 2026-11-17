@@ -52,6 +52,10 @@
  *   W28 100 start nodes, sent as 100 repeated keys through the route's own query parser, are walked from
  *   W29 one step both ways with no types meets the nodes list-relationships lists for the same node
  *   W30 its inputs and answer are walk.js's and reads.js's, and the catalog says how a walk is answered and paged
+ *
+ * Added after review 14 (its non-blocking 1 and 2):
+ *   W31 a node left out, or a tag node passed by, is met once: meeting it again a step later counts it no more
+ *   W32 the tie-break's order: the parent before the type, and out before in even against a lesser parent
  */
 
 const fs = require('fs');
@@ -60,7 +64,7 @@ const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const S = require('../../helpers/graphOpsSuite');
 const { writeState } = require('../../helpers/graphFake');
-const { seedWalk, seedBound, PEERS, TIE_KEYS, THREAD_TYPES, CLASS_THREAD, BOTH } = require('../../helpers/walkGraph');
+const { seedWalk, seedBound, PEERS, TIE_KEYS, ORDER_KEYS, THREAD_TYPES, CLASS_THREAD, BOTH } = require('../../helpers/walkGraph');
 
 const { ROOT, OWNER, ADMIN, TA, assert, show, tmp } = S;
 const { test, run } = S.makeSuite('operations: graph walk');
@@ -196,6 +200,9 @@ function main() {
     get('pov-stranger', 'owner', { from: k.pov0, pov: PEERS.stranger }),
     get('pov-admin', 'owner', { from: k.pov0, pov: ADMIN }),
     get('pov-house', 'owner', { from: k.pov0, pov: 'house' }),
+    // the tie-break's order, and nodes met again a step later (review 14)
+    get('order', 'owner', { from: k.ord0, depth: 2, ...all }),
+    get('remeet', 'owner', { from: k.rm0, depth: 2, limit: 200 }),
     // tag nodes and the filter
     get('tags-none', 'owner', { from: k.tagged, depth: 2, ...all }),
     get('tags-typed', 'owner', { from: k.tagged, types: ['HAS_TAG', 'REFERENCES'], depth: 2, ...all }),
@@ -798,6 +805,26 @@ test('W30: its inputs and answer are walk.js\'s and reads.js\'s, and the catalog
   for (const word of ['path', 'complete', 'finished', 'kept', 'leftOut', 'tagsLeftOut', 'cursor']) assert(row.includes(word), `§1's walk row gives the answer as built, mentioning ${word}; got ${show(row)}`);
   const reads = (text.split(/\n## 1\. Graph reads\n/)[1] || '').split(/\n## /)[0];
   assert(reads.includes('src/operations/walk.js'), '§1 says search calls walk\'s engine, src/operations/walk.js');
+});
+
+// Review 14, non-blocking 2: nothing else in the seed meets a node it left out, or a tag node it passed by, a second time.
+test('W31: a node left out, or a tag node passed by, is met once: meeting it again a step later counts it no more', () => {
+  const { a, k } = main();
+  const d = ok(a, 'remeet');
+  assert(show(d.nodes.map(placed)) === show(want(k, { rmA: 1 })), `from rm0 both ways: only rmA; got ${show(describe(k, d.nodes))}`);
+  assert(d.leftOut === 1 && d.tagsLeftOut === 1, `rmLo (0.01) and rmTag are met at step 1 and again from rmA at step 2, and each counts once; got ${show({ leftOut: d.leftOut, tagsLeftOut: d.tagsLeftOut })}`);
+  assert(d.kept === 1 && d.complete === true && d.finished === 2, `kept 1, complete, both steps finished; got ${show({ kept: d.kept, complete: d.complete, finished: d.finished })}`);
+});
+
+// Review 14, non-blocking 1: W6 tests each of the tie-break's keys alone; this tests the order between them.
+test('W32: the tie-break\'s order: the parent before the type, and out before in even against a lesser parent', () => {
+  const { a, k } = main();
+  const d = ok(a, 'order');
+  assert(Object.keys(ORDER_KEYS).every((n) => k[n] === ORDER_KEYS[n]), 'the order nodes carry the seed\'s fixed keys');
+  assert(show(d.nodes.map(placed)) === show(want(k, { ordP1: 1, ordP2: 1, ordX: 2, ordY: 2 })), `from ord0 both ways: ordP1 and ordP2 in one step, ordX and ordY in two; got ${show(describe(k, d.nodes))}`);
+  checkPaths(k, d);
+  assert(show(pathText(k, byName(k, d, 'ordX'))) === show(['out LINKS ord0->ordP1', 'out ZZZ ordP1->ordX']), `ordX, by ordP2's AAA or ordP1's ZZZ, goes through ordP1: the lesser parent before the lesser type; got ${show(pathText(k, byName(k, d, 'ordX')))}`);
+  assert(show(pathText(k, byName(k, d, 'ordY'))) === show(['out LINKS ord0->ordP2', 'out FWD ordP2->ordY']), `ordY, in from ordP1 or out from ordP2, goes out from ordP2: out before in, though ordP1 is the lesser parent; got ${show(pathText(k, byName(k, d, 'ordY')))}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
