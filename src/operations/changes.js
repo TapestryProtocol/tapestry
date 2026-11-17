@@ -30,13 +30,14 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * graph-operations-foundation/0005 Decision 12). A concept's add name, slug, field, was and now (story
  * graph-operations-first-slice #16, ADR graph-operations-first-slice/0016 Decision 10). An element's add field, was and
  * now, whose values are the field's JSON, and a rename's was and now (story graph-operations-first-slice #21, ADR
- * graph-operations-first-slice/0021 Decision 18).
+ * graph-operations-first-slice/0021 Decision 18). A deleted node's add nodes, the other ends of its relationships, and
+ * was, the node as it was (story graph-operations-first-slice #26, ADR graph-operations-first-slice/0026 Decision 12).
  */
 const CHANGE = Object.freeze({
   type: 'object',
   required: ['change'],
   properties: {
-    change: { type: 'string', description: "What it did, such as 'relationship-added', 'node-renamed' or 'field-changed'" },
+    change: { type: 'string', description: "What it did, such as 'relationship-added', 'node-renamed', 'field-changed' or 'node-deleted'" },
     type: { type: 'string', description: "A relationship's type" },
     from: { type: 'string', description: 'The tapestryKey of the node a relationship runs from, of the superset or set an element was made in, or of the parent a set was made under' },
     to: { type: 'string', description: 'The tapestryKey of the node it runs to' },
@@ -45,10 +46,10 @@ const CHANGE = Object.freeze({
     concept: { type: 'string', description: "The tapestryKey of the concept header the change is about" },
     field: { type: 'string', description: "The field the change is about: the field a mark is for, a concept's name, plural, slug or description, or an element's field" },
     property: { type: 'string', description: 'The node property a mark carries, <concept key>_<field>, such as dog_breed' },
-    nodes: { type: 'array', items: { type: 'string' }, description: "The tapestryKeys of the nodes the change touched: those whose copy it set or removed, or a concept's nodes it made or renamed" },
+    nodes: { type: 'array', items: { type: 'string' }, description: "The tapestryKeys of the nodes the change touched: those whose copy it set or removed, a concept's nodes it made or renamed, or, for a deleted node, the nodes at the other end of its relationships and its tags'" },
     name: { type: 'string', description: "A concept's singular name, an element's name, or a set's, when the change made it" },
     slug: { type: 'string', description: "A concept's slug, an element's, or a set's, when the change made it" },
-    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none" },
+    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none. For a deleted node, the node as it was: { labels, properties, concepts, relationships, tags }, each tag with its own labels, properties and relationships, and stored, the JSON the store held for an lmdb: value" },
     now: { description: "What it holds after the change: as was, for a concept or an element; null when the change took it out" },
   },
 });

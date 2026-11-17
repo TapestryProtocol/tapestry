@@ -124,7 +124,7 @@ module.exports = {
       },
     },
   },
-  refusals: [NOTHING_TO_CHANGE, X.BAD_NAME, BAD_FIELDS, NOT_INSTALLED, UNKNOWN_NODE, N.NOT_OWN_NODE, MADE_ELSEWHERE, FIRMWARE_NODE, NOT_AN_ELEMENT, F.UNKNOWN_CONCEPT, X.RESERVED_KEY, NOT_ITS_CONCEPT, CONCEPT_NEEDED, UNREADABLE_JSON, NO_SECTION, NAME_IN_USE],
+  refusals: [NOTHING_TO_CHANGE, X.BAD_NAME, BAD_FIELDS, NOT_INSTALLED, UNKNOWN_NODE, N.NOT_OWN_NODE, N.PERSON_NODE, N.PLACEHOLDER_NODE, MADE_ELSEWHERE, FIRMWARE_NODE, NOT_AN_ELEMENT, F.UNKNOWN_CONCEPT, X.RESERVED_KEY, NOT_ITS_CONCEPT, CONCEPT_NEEDED, UNREADABLE_JSON, NO_SECTION, NAME_IN_USE],
   // The rule's refusals are listed through the guard, but its items are empty: the JSON it judges is built from the
   // graph, inside the write, so apply runs the rule on it after the locks (ADR 0021 Decision 11, as ADR 0020 Option A).
   guards: [{ rule: 'element-fits-schema', items: () => [] }],

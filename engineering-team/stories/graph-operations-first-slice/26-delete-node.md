@@ -97,6 +97,34 @@ For Architecture, not this gate:
 - **A cap on what one call removes,** for a node with very many relationships, as the field mapping caps at 10,000 elements.
 - **The answer's shape, the change entry's, and the refusals' codes and statuses.**
 
+## Deviations
+
+- **delete-node reads the node with U0 and calls `factsOf`,** not `whoseNode`. One read then gives both the facts and the properties its entry records (ADR Decision 4's `factsOf`).
+- **`_nodes.js` exports `labelOf`,** so delete-node names a node in its messages as `requireOwn` does.
+- **`relationships` lists the tags' relationships before the node's own.** The tags are read first, so a relationship between the node and one of its tags is read under the tag (Decision 9).
+- **already-gone's `letterRemains` and `cacheRemains`** are worked out from the node its entry recorded: its id, and the derive step's stamp. Decision 11 gives the two for a delete only.
+- **already-gone's note names the entry's id,** beside when, by whom and through which operation.
+- **`NOT_OWN_NODE`'s `when` gains a sentence:** a person node or a placeholder is refused by the two new codes instead.
+- **The person-node and placeholder-node messages** are worded in `_nodes.js` for any write that tests whose node it is, so they name no operation but `raw delete-node`.
+- **A tag with no tapestryKey stops the delete** with an error naming `lifecycle migrate`, as update-node stops on one.
+- **`holds-elements` says "more than 10,000 other nodes"** when D2 reaches its limit.
+- **A fourth hollow letter** (a kick-back to test design). `test/helpers/fieldGraph.js`'s letters got a `created_at`, as Amendment 1 item 5 gave three others: the test plan's "Added at implementation", commit `80189eb3`.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-17)
+
+Run on this Mac, each with every service endpoint dead. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The new and changed suites,** each alone:
+  - `test/operations/graph/delete-node.test.js`: 35 passed, 0 failed;
+  - `delete-node-agent-through-cli.test.js`: 1 passed, 0 failed;
+  - `update-node-shared.test.js`: 13 passed, 0 failed.
+- **The whole operations runner,** `test/operations.test.js`, which is stack-free and runs every suite under `test/operations/`: 806 passed, 0 failed, 4 skipped.
+  - The 4 skipped are `lifecycle/shared-keys.test.js`'s live tests, which run only against a named scratch container.
+  - Its first pass, with the code in, failed update-node's UN40 alone: a fourth hollow letter, fixed as a kick-back to test design (Deviations; the test plan's "Added at implementation").
+- **The route-surface suites,** with every endpoint on a dead port: `openapi-coverage` 13 passed, `admin-action-sweep` 9, `admin-action-sweep-access` 13, `admin-action-sweep-named` 6; none failed.
+- **harness-lint:** clean.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/26-delete-node.test-plan.md`
