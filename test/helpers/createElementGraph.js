@@ -224,7 +224,9 @@ async function seedCreateElement() {
   named('otherWord', (await todays('word', 'words', { author: OTHER, edit: anyObject })).conceptHeader);
   named('graphContextConcept', (await todays('graph context', 'graph contexts', { edit: anyObject })).conceptHeader);
 
-  named('loner', add(['NostrEvent', 'ListItem', 'TapestryNode'], { uuid: `39999:${TA}:loner`, kind: 39999, pubkey: TA, name: 'loner', id: hex('loner') }));
+  // Lettered, so it has a created_at, as every import gives an event (ADR graph-operations-first-slice/0026 Decision 4: a
+  // NostrEvent with none is a placeholder).
+  named('loner', add(['NostrEvent', 'ListItem', 'TapestryNode'], { uuid: `39999:${TA}:loner`, kind: 39999, pubkey: TA, name: 'loner', id: hex('loner'), created_at: 1763000000 }));
   named('G', add(['GraphChange', 'TapestryNode'], { at: '2026-01-01T00:00:00.000Z', byRole: 'owner', byPubkey: C.OWNER, operation: 'graph add-relationship', keys: [], changes: '[]' }));
 
   return {

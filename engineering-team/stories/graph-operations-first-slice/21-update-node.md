@@ -1,6 +1,6 @@
 # Story 21: `graph update-node` — change an element's name, description or fields, with no event, its changed sections checked against their concepts' schemas, and never a node from someone else's event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.21 — https://loom.brainstorm.world/t/A10.21
@@ -107,6 +107,116 @@ For Architecture, not this gate:
 - **The change entry's shape:** each field changed, with what it was and is, as update-concept's `concept-updated` records a concept's, and the copies.
 - **The refusals' codes and statuses.**
 
+## Deviations
+
+- **`copies` reads the node again after the mapping.** `mapNodes` returns only what it changed, and ADR 0021 Decision 14's `copies` is the node properties it *now* carries. So update-node reads its judged concepts' marks (`F.marksOf`) and the node itself after the write, and lists the marked properties it has. That is two more reads.
+- **The JSON tags are written only when the JSON changed.** Decision 13 writes them on every update. A rename of a node whose JSON holds no value the old name gave writes only its name, tapestryValue and name tags, and leaves a json tag held in the store (`lmdb:<key>`) as it was.
+- **`changedElsewhere` takes `{ conceptUuids, labels, uuid }`,** not the uuids alone (ADR Implementation notes): Amendment 1's labels, and the address a `Set` label needs, come with them.
+- **update-node declares its own `bad-fields`, `unknown-node` and `not-installed`,** worded for it; it reuses `bad-name` and `reserved-key` from `_elements.js`, `unknown-concept` from `_fields.js`, and `not-own-node` from `_nodes.js`.
+- **Two refusals name another input:**
+  - a description given two ways names `description`;
+  - `no-section` names `concept` when it was given, else `fields` when it was given, else `description`. *(Review round 1 added the last case, and ADR Amendment 2 puts the rule in Decision 20. It had named `fields` for a call that gave only `description`.)*
+- **`not-an-element` says which case it is:** no concept reaches the node, or only word's does.
+- **`firmwareElements` skips an element file whose JSON doesn't parse,** and keeps the first file when two give one address, as install's own create would find the first.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-17, on the code committed as `aee05dc7`, since rebased onto staging as `6ec2c3a1`; the rebase brought in docs only)
+
+Run on this Mac one at a time, each with every service endpoint dead. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The new suites:**
+  - `test/operations/graph/update-node.test.js`: 37 passed, 0 failed;
+  - `update-node-shared.test.js`: 7 passed, 0 failed;
+  - `update-node-agent-through-cli.test.js`: 1 passed, 0 failed.
+- **Every other stack-free suite under `test/operations/`** passed: the 6 at its top level, the 25 others under `graph/`, and the 6 under `rules/`, 40 with the new ones. That includes create-element's three, whose `findRepeat` now calls `repeatsOf`. `lifecycle/` was left out, since some of its suites reach the container.
+- **The route-surface suites,** with every endpoint on a dead port: `openapi-coverage` 13 passed, `admin-action-sweep` 9, `admin-action-sweep-access` 13, `admin-action-sweep-named` 6; none failed.
+- **The scoped gate:** record `20261117T031440Z-34420-84dc`, PASS, 158 passed, 0 failed, 14 suites. It ran over `dff6a1ca` with the implementation not yet committed: the record says `dirty: true` and counts 7 changed files (`dirtyCount: 7`), without naming them. `aee05dc7`, committed a minute later, has 7 files (03:14:40Z, then 03:15:51Z). *(Corrected at review round 1, non-blocking 7: this line had said the gate ran on `aee05dc7`. Corrected again at round 2, R2-4: the record counts the files and doesn't list them.)*
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-17, on `aee05dc7`, the same code as `6ec2c3a1`)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The scripts, and every call's request and answer, are in this worktree's `tmp/live-check-21/` (ignored by git) and the session's scratchpad.
+- **The instance.**
+  - It booted from image `agent-memory-tapestry:latest` with this branch's `src/` mounted.
+  - The image's firmware differed from the branch's (digests `e6118e628f71` and `fe62d06d0f54`), so the branch's was copied in and installed.
+  - The branch's `bin/tapestry.js` and `clients/cli` were copied in.
+- **Keys.** The instance had its own assistant key. Four throwaway keys were made: the owner's, an admin's for the agent, a peer's and a stranger's. The owner and the admin were set in `/etc/brainstorm.conf`.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The agent's, the stranger's and the visitor's went through the instance's nginx.
+- **Afterwards** it was removed, after a second, fresh boot for the restore.
+
+**The seed:**
+- `live beagle`, with `graph create-concept`;
+- Snoopy, Lucky, Mover and six twins, with `graph create-element`;
+- `live mentors`, with `graph create-element` in firmware's relationship type;
+- `live hound`, with today's create-concept route and its property tree, its `description` marked with `graph mark-field`, and its element Rex;
+- Peer Pup, a peer's lettered element of live beagle, made with Cypher.
+
+**By check:**
+- **L1.**
+  - **A field:** `field-changed` with `was` "A beagle who flies." and `now` "A beagle who flew.".
+  - **A rename:** `Snoopy  Ace` was answered as `Snoopy Ace`, `changed: ["name"]`; the same rename again was `unchanged`, with `change: null`.
+  - **In Neo4j:** the name, tapestryValue and name tag are Snoopy Ace; the address and the `d` tag are as create-element made them. Its `liveBeagle` section holds that name and the slug `snoopy-ace`, and its word slug is `live-beagle--snoopy-ace`.
+  - **A `__proto__` field,** given as JSON text, is an own field of the section.
+  - **list-elements** lists Snoopy by its new name.
+  - **history:** the three updates, newest first, then the create.
+  - **create-element with the name Snoopy** answered `already-exists` with Snoopy, its `differs` holding "Snoopy Ace".
+  - **The internal command** changed Lucky, recorded as `local`.
+- **L2.**
+  - **Three rounds of two renames onto one name at once:** each answered `[200, 409]`, `updated` and `name-in-use`, and left one element of the name.
+  - **A rename and a create-element of Racer at once:** the create made it (200, `created`), and the rename was refused `name-in-use` (409): one Racer.
+- **L3.**
+  - **Firmware's dog rover:** 409 `firmware-node`, naming `concepts/dog/elements/rover.json`.
+  - **A firmware reinstall,** twice: each left the 12 changed nodes with no difference in labels, properties (the cache's stamp aside), tags or links.
+  - **The cache.** The reinstall's derive pass stamped Snoopy (`tapestryJsonUpdatedAt` 1794886528). A change after it answered `cacheOutOfDate: true`, and `GET /api/tapestry-key/<Snoopy>` still held the old description, "by the agent" (Decision 16, the owner's answer, open question 4).
+  - **Firmware's addresses:** all 83 firmware element files have a node at the address `firmwareElements()` gives them (after the restart below).
+  - **A graph rule,** tapestry-key-unique: 409 `made-elsewhere`, naming the rulebook.
+- **L4.** Backup `20261117T033948Z-0eb08aa4`, a 5.8 MB tar, was uploaded to a fresh instance and restored. It brought each of the 12 changed nodes back with its key, name, JSON, tags and links.
+- **L5.** Peer Pup: 409 `not-own-node`, which named the peer's pubkey, said it came from an event the peer signed, and named copy-node. The node was left as it was.
+- **L6,** the admin agent through nginx and the external CLI:
+  - its change, recorded as the agent's;
+  - its rename, then the same again, `unchanged`;
+  - a description taken out: exit 1, `invalid-fields` from `element-fits-schema`, "`liveBeagle.description` is required";
+  - Lucky onto Snoopy's name: `name-in-use`, naming Snoopy;
+  - Peer Pup: `not-own-node`;
+  - the history: its two updates, each its own;
+  - a visitor through nginx: 401; the stranger, signed in: 403 (rechecked by hand, below).
+- **L7.** The relay held 461 events before the updates and 461 after. The change entries went from 13 to 26.
+- **L8.**
+  - **live mentors,** an own element of firmware's relationship type: its alias changed. word's class thread reaches it, and word was reported in `concepts`, never judged for refusal.
+  - **Rex:** its description changed, and `liveHound_description` followed onto the node in the same write.
+
+**Three scripted checks failed, on the scripts' own mistakes, and each was rechecked.** The main phase ran 32 checks and 30 passed.
+- **L3b, firmware's addresses.**
+  - **The first pass reported 0 files.** The command run inside the container printed the config loader's log lines before its JSON, so the script parsed nothing.
+  - **Rechecked with a marker:** 83 files, 76 with a node at their address. The 7 without were the graph rule concept's files.
+  - **The cause.** The control panel had cached the image's 40-concept manifest at boot, before the branch's firmware was copied in, so the install used it and made no graph rule concept.
+  - **After `supervisorctl restart brainstorm`** and a second install, which reported 41 concepts: 83 of 83, and the 12 nodes again unchanged. Ledger row `2026-11-17-scratch-firmware-copy-needs-restart` records the recipe's gap.
+- **L6h, the stranger.** The script looked for the CLI's "isn't among the operations" message. In fact the stranger's key was signed in, and the central check refused it with "Only the owner or an admin can do this.", which has no code; the CLI prints no status. A call by hand through nginx, with the stranger's session cookie, answered 403 with that body (`tmp/live-check-21/live21-l6h-by-hand.txt`).
+- **L4a, the backup.** The first run read the answer's `backup`, an object, as its id, so its download fetched nothing. The backup itself was taken (`20261117T033908Z-aee0bf8d`). After the fix, the backup phase ran again: 2 of 2.
+
+### Review round 1's fixes (2026-11-17, on `53bac579`)
+
+The review passed with seven non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 2 records what changed. The suites ran on this Mac as above, one at a time, each with every service endpoint dead.
+- **UN42–UN44,** a test for each of the three code fixes, failed on the code at `6b6429be` (update-node: 37 passed, 3 failed) and pass at `53bac579` (40 passed, 0 failed). The test plan's "Added at review round 1" has the failures.
+- **The 44 suites listed above:** the 40 stack-free suites under `test/operations/` and the 4 route-surface suites. Every one passed: 512 tests, 0 failed. They include update-node-shared's 7, update-node's agent suite's 1, and create-element's 33.
+- **harness-lint:** clean.
+- **The live check wasn't run again.** Every live call's section was one of its JSON's own keys, which the fixed code reads as before. No live call gave `description` both ways or met `no-section`.
+
+### Review round 2's fixes, and staging merged in (2026-11-17, on `8e9c62ad`)
+
+Round 2 (`67ce03db`) passed, with four non-blocking findings. They were fixed after it, in `ab8c1bc6`, `eff6e493` and `21b06100`, and **not reviewed again**:
+- **R2-1:** the ADR's bullet on a letter imported again, corrected against the code (`writeVerbs.js`, `DListOverview.jsx`, `eventSync.js`); ledger row `2026-11-17-reading-page-edit-restores-old-name`.
+- **R2-2:** `bad-fields`' published text says "once trimmed".
+- **R2-3:** UN45. It passes on the code as it was, and a scratch mutation trimming every text field in `fields` fails it alone (the test plan's "Added at review round 2").
+- **R2-4:** this story's gate line says the record counts the files.
+
+Then `origin/staging` at `8c2ea9bc` was merged in, with #114 (create-set) and #115 (walk). The one conflict, in `src/operations/changes.js`, keeps staging's `name` and `slug` descriptions, which add a set's, and this branch's `was` and `now`.
+
+On the merge, run on this Mac one at a time, each with every service endpoint dead (`TAPESTRY_PORT=9` and `TAPESTRY_CONTAINER=no-such-container` too):
+- **49 suites:** every suite under `test/operations/` but `lifecycle/` (45, with create-set's 2 and walk's 3), and the 4 route-surface suites. Every one passed: 595 tests, 0 failed.
+- **Among them:** update-node 41, update-node-shared 7, the agent suite 1, create-element 33, create-set 35, walk 32, and the fake graph 27.
+- **harness-lint:** clean.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
@@ -118,5 +228,5 @@ For Architecture, not this gate:
 - The field marks it carries: [stories/graph-operations-foundation/5-field-mapping.md](../graph-operations-foundation/5-field-mapping.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0021-update-node.md](../../decisions/graph-operations-first-slice/0021-update-node.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [21-update-node.test-plan.md](21-update-node.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/21-update-node.md](../../reviews/graph-operations-first-slice/21-update-node.md)

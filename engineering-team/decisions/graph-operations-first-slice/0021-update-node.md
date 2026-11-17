@@ -87,7 +87,7 @@ We chose **Option A**. It changes only what the call asks, keeps `own` one defin
    - `nothing-to-change` (400) when none of `name`, `description` and `fields` is given;
    - the name (`bad-name`);
    - `fields` that isn't a JSON object or its text (`bad-fields`);
-   - `description` beside `fields.description`: `bad-fields` when both are given and differ;
+   - `description` beside `fields.description`: `bad-fields` when both are given and differ once trimmed, and the field then takes the trimmed text (Amendment 2);
    - the assistant's key: `not-installed` (409) when there is none. The tests of Decisions 3, 4 and 10 all need it.
 2. Lock the node (Decision 5).
 3. Whose node it is (Decision 3): `unknown-node` (404), then `not-own-node` (409).
@@ -112,7 +112,7 @@ We chose **Option A**. It changes only what the call asks, keeps `own` one defin
 
 Nothing is written before step 12, so every refusal leaves the graph as it was.
 
-**3. Whose node it is: one test, in `_nodes.js`** (AC5).
+**3. Whose node it is: one test, in `_nodes.js`** (AC5). *(Amended by ADR graph-operations-first-slice/0026 Decision 4: a person node (`NostrUser`) and a placeholder the import made are never the instance's own, whatever a read answers. `requireOwn` refuses them `person-node` and `placeholder-node`, before `not-own-node`.)*
 - **`whoseNode(read, key)`** reads U0 and returns `{ key, uuid, name, author, hasLetter, own }`, or null when no node has the key. A change entry never has it. `own` is the read conventions' own: `R.nodeOf({ tapestryKey, author }, R.ownKeys()).own`, computed by that very function, so a node counts as the instance's own in a write exactly when a read answers `own: true` for it. That means a null author, or one of the assistant's and the owner's keys.
 - **`requireOwn(read, key, { input })`** answers that, or throws:
   - `unknown-node` (404), naming the input;
@@ -159,7 +159,7 @@ Nothing is written before step 12, so every refusal leaves the graph as it was.
 - `reserved-key` (409) when its key is `word` or `graphContext`;
 - `not-its-concept` (409) when it isn't one of the node's judged concepts, listing those.
 
-When `fields` or `description` is given and `concept` isn't, the node's one judged concept is the one. With more than one, the call is refused `concept-needed` (409), listing each concept and its key. The section is the JSON's value under that concept's key. When it isn't an object, `no-section` (409) is the refusal: `graph add-to-concept` (A10.22) gives a node another concept's section.
+When `fields` or `description` is given and `concept` isn't, the node's one judged concept is the one. With more than one, the call is refused `concept-needed` (409), listing each concept and its key. The section is the JSON's value under that concept's key, among the JSON's own keys (Amendment 2). When it isn't an object, `no-section` (409) is the refusal: `graph add-to-concept` (A10.22) gives a node another concept's section.
 
 **7. The node, read** (U1). Its address, name, tapestryValue and cache stamp, and every tag, each with its tapestryKey, type and value.
 - **Its JSON** is the value of its `json` tags, read with `F.readJson`.
@@ -242,7 +242,7 @@ The stamp is a fact of the graph, so this needs no read of the store. A store th
 |---|---|---|
 | `nothing-to-change` | 400 | None of `name`, `description` and `fields` is given |
 | `bad-name` | 400 | The name is empty once trimmed, has no slug, has a control, text-direction or invisible character, or is longer than 200 characters |
-| `bad-fields` | 400 | `fields` isn't a JSON object or its text; it gives a `name` or `slug` that is neither the node's name (or the slug it gives) nor what the section holds, or takes either out; `description` and `fields.description` differ; or the JSON would be longer than 1,000,000 characters |
+| `bad-fields` | 400 | `fields` isn't a JSON object or its text; it gives a `name` or `slug` that is neither the node's name (or the slug it gives) nor what the section holds, or takes either out; `description` and `fields.description` differ once trimmed (Amendment 2); or the JSON would be longer than 1,000,000 characters |
 | `not-installed` | 409 | The instance has no assistant key, so it can't tell its own nodes or firmware's |
 | `unknown-node` | 404 | `node` names no node (a change entry is not one) |
 | `not-own-node` | 409 | The node came from another author's event, or records another author (D4; Decision 3) |
@@ -254,7 +254,7 @@ The stamp is a fact of the graph, so this needs no read of the store. A store th
 | `not-its-concept` | 409 | `concept` isn't one of the node's concepts |
 | `concept-needed` | 409 | `fields` or `description` with no `concept`, and the node belongs to more than one |
 | `unreadable-json` | 409 | The node's JSON can't be read, or its json tags differ |
-| `no-section` | 409 | The node's JSON has no section for the concept |
+| `no-section` | 409 | The node's JSON has no section for the concept among its own keys. It names `concept` when the call gave it, else `fields` when the call gave it, else `description` (Amendment 2) |
 | `name-in-use` | 409 | Another of the instance's own elements of one of the node's concepts has the new name, or sits at the address it gives |
 | `invalid-fields` | 400 | The rule's: a changed section doesn't fit its concept's schema, every problem listed |
 | `no-schema` | 409 | The rule's: a concept whose section changed has no schema that can be read or compiled |
@@ -272,6 +272,16 @@ Beyond AC6's list: `not-installed` is a mechanic create-element has too. AC6 ask
 - **An element with no word block, under a schema that requires `word`, can't change** until its JSON has one. Firmware's dog schema is one such. Rule 4 judges the stored JSON (story fact 9), and update-node edits sections, not the word block. Today's create-element route made such elements. `rules repair` is where they get a word block.
 - **The cache is stale after a change** (Decision 16) until A10.36, and so is the node's JSON page.
 - **A rename doesn't move the address,** so create-element with the old name answers the renamed element (Decision 9), and its `differs` names the name.
+- **A letter imported again can undo an update** (Amendment 2, carried over from ADR 0016 for elements; corrected at review round 2).
+  - **The route.** `POST /api/neo4j/event-update` deletes a node's tags and imports its event from the relay (`src/api/neo4j/eventSync.js:348–390`). The import sets the node's `name` from the letter's `name` tag (`:227–230`), but not its `tapestryValue`. OPEN.md row 138 names the route as a repair tool.
+  - **The reading page reaches it through a new letter.**
+    - Its `edit` builds the letter from the relay's newest one, and replaces the `name` tag only when the page itself renames (`ui/src/pages/reading/writeVerbs.js:267–268`, judged at `:251` against the graph's name). Then it calls the route (`:280`).
+    - So a text edit there, after update-node renamed one of the instance's own lettered elements, puts back the old `name` and name tag, beside the new tapestryValue and JSON: ledger row `2026-11-17-reading-page-edit-restores-old-name`.
+    - The page edits only an element whose letter the assistant signed (`:258–259`).
+  - **The DList page's buttons** call the route only while `GET /api/neo4j/event-check` doesn't answer `in_sync` for the list's header (`ui/src/pages/lists/DListOverview.jsx:227–233`), and the check compares only the ids (`eventSync.js:116–117`).
+    - Three of the buttons import only the header (`:83`, `:104`), which update-node never changes.
+    - The fourth, "Import + expand + import N items as elements", is shown while the header is missing from Neo4j. It imports the header (`:129`) and then each of the list's items from the relay (`:156`), so it would bring back an updated item's old letter.
+  - **Either way,** an import destroys locally authored state, which principle 4 (BIBLE §30) rules out. The answer's `letterOutOfDate` warns of it. Keeping a newer local version over an older letter is for provenance (design §5, question 2) and `export nostr` (A10.34), as ADR 0016 says for concepts.
 - **Element writes in one concept, and updates of one node, go one at a time** (Decision 5). That is fine at this scale.
 - **A concept's other rules aren't checked:** a relationship type's `alias`, which `relationship-type-allowed` reads, and `x-tapestry.unique` beyond the name. They are concept-dependent rules (design §7), as the story leaves them.
 
@@ -356,3 +366,26 @@ What changes:
 2. **A `Set` label counts only on a node with an address,** as `_sets.js`'s `kindOf` reads a set (ADR 0028 Amendment 3). The trust pipeline's card sets, labelled `Set` with no address, stay `not-an-element`.
 3. **U0 reads the whole node,** with the statement `_sets.js`'s R1 uses: `MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange RETURN n`. The fake graph already runs it. So `whoseNode` answers the node's labels too: `{ key, uuid, name, author, hasLetter, labels, own }`.
 4. **Decision 20's `made-elsewhere` row** reads: the node is a concept header, a core node, a property, a set or a graph rule, by its concepts or by its role labels.
+
+## Amendment 2 (2026-11-17, at Review round 1; the owner chose to fix the findings before the PR) — what the review found
+
+The review passed, with seven non-blocking findings. Three changed the code, each with a test; the rest are recorded here and in the ledger. Decisions 1, 6 and 20 and the Consequences were edited in place to match, each naming this amendment.
+
+1. **A section is one of the JSON's own keys** (Decision 6; non-blocking 1).
+   - An inherited key counts as no section, so a concept keyed `__proto__` gives `no-section`.
+   - Before, `oldJson['__proto__']` read `Object.prototype`, an object. The call answered `updated`, and recorded a change it never stored.
+   - The section's values before the change, for `changed`, and its slug, for the rename, are read the same way. UN42 pins it.
+   - create-concept can make a concept with that key: ledger row `2026-11-17-concept-key-can-be-proto`.
+2. **`description` and `fields.description` are compared as `description` is read, trimmed** (Decision 1; non-blocking 2).
+   - Given both ways, they are one value when they're the same once trimmed, and the field takes the trimmed text. Two that differ once trimmed are still `bad-fields`, and the message says so.
+   - Before, the trimmed `description` was compared with the field as given, so the same text with white space around it, given both ways, was refused. UN43 pins it.
+   - `fields.description` given alone is a field like any other, kept as given. UN45 pins it. *(Added at review round 2, R2-3, which found that no test pinned it.)*
+   - `bad-fields`' published text, which the listing, `/docs` and the command's help show, says the same. *(Review round 2, R2-2: it had said "with different values".)*
+3. **`no-section` names the input the call gave** (Decision 20; non-blocking 3): `concept` when it was given, else `fields` when it was given, else `description`. UN44 pins it.
+4. **What Decision 3's test answers for a node that isn't a letter** (non-blocking 4).
+   - `whoseNode` reads `pubkey` as the author, as Decision 3 says. So an `e`-tag placeholder, which the import makes as `NostrEvent {id, uuid}` with no `pubkey` (`src/api/neo4j/eventSync.js:268–270`), answers `own: true` and `hasLetter: true`.
+   - The owner's and the assistant's `NostrUser` nodes answer `own: true` too.
+   - update-node can't reach either: neither has a section to change, so `not-an-element` or `unreadable-json` refuses it. merge-nodes (A10.25) and delete-node (A10.26) can, and must decide before they call `requireOwn`: ledger row `2026-11-17-own-test-reads-pubkey-as-author`.
+5. **The Consequences gain a letter imported again** (non-blocking 5), carried over from ADR 0016 for elements. *(Corrected at review round 2, R2-1. The DList page's buttons don't run after a publish. The reading page reaches the loss through a new letter: ledger row `2026-11-17-reading-page-edit-restores-old-name`.)*
+6. **No suite checks Decision 5's lock order** (non-blocking 6). UN13 counts the header locks, but the fake graph logs no statement's parameters, so it can't see their keys: ledger row `2026-11-17-fake-graph-logs-no-lock-order`.
+7. **The story's Evidence placed the scoped gate on the wrong commit** (non-blocking 7). The story now says it ran on the uncommitted implementation over `dff6a1ca`.
