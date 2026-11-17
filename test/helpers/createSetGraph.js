@@ -27,7 +27,10 @@
  *                 Odd Ones gives, named 'Odd Ones!'); nonceSet (own, at Nonce's address with ~1, named 'Nonce Set');
  *                 twinNonced (own, 'Twin', at ~2, the lowest key) and twinPlain (own, 'Twin', at the plain address, the
  *                 highest key); echoHigh (own, 'Echo', at ~1, the highest key) and echoLow (own, 'Echo', at ~2, the
- *                 lowest key); peerNamed ('Peer Named', OTHER's); hounds (an own superset named 'Hounds').
+ *                 lowest key); peerNamed ('Peer Named', OTHER's); hounds (an own superset named 'Hounds', labelled
+ *                 Superset and Set both, as the old concept-graph setup labels by z tag); linkedIn ('Linked In', own,
+ *                 under lap pets and under beagleSuperset, at the address lap pets gives it: a set only its name finds
+ *                 under beagleSuperset, as one link-set put there).
  *   addresses     elsewhere ('Elsewhere', own, under lapPets: the name under another parent); moved ('Moved', own, at
  *                 the address the name and beagleSuperset give, but under lapPets only); heldNode (a node that isn't a
  *                 set, at the address the name Held and beagleSuperset give); setCrowd0 to setCrowd99 (nodes at the
@@ -170,8 +173,10 @@ async function seedCreateSet(opts = {}) {
   named('echoHigh', aSet(beagleSup, { uuid: setAddress('Echo', bUuid, 1), name: 'Echo', tapestryKey: 'ffffffff-ffff-4fff-bfff-fffffffffff4' }));
   named('echoLow', aSet(beagleSup, { uuid: setAddress('Echo', bUuid, 2), name: 'Echo', tapestryKey: '00000000-0000-4000-8000-000000000012' }));
   named('peerNamed', aSet(beagleSup, { uuid: `39999:${OTHER}:${dtag.childDTag('Peer Named', bUuid)}`, name: 'Peer Named', author: OTHER }));
-  const hounds = named('hounds', add(['ListItem', 'Superset', 'TapestryNode'], { uuid: `39999:${TA}:hounds-superset`, kind: 39999, pubkey: TA, name: 'Hounds', tapestryValue: 'Hounds', created_at: 1763000000 }));
+  const hounds = named('hounds', add(['ListItem', 'Superset', 'Set', 'TapestryNode'], { uuid: `39999:${TA}:hounds-superset`, kind: 39999, pubkey: TA, name: 'Hounds', tapestryValue: 'Hounds', created_at: 1763000000 }));
   link(beagleSup, 'IS_A_SUPERSET_OF', hounds);
+  const linkedIn = named('linkedIn', aSet(lapPets, { uuid: setAddress('Linked In', lapPets.props.uuid), name: 'Linked In' }));
+  link(beagleSup, 'IS_A_SUPERSET_OF', linkedIn);
 
   // ── addresses ──
   named('elsewhere', aSet(lapPets, { uuid: setAddress('Elsewhere', lapPets.props.uuid), name: 'Elsewhere' }));

@@ -137,6 +137,9 @@ function main() {
       b('rep-nonce', 'Nonce'),
       b('rep-twin', 'Twin'),
       b('rep-echo', 'Echo'),
+      b('rep-linked', 'Linked In'),
+      b('rep-linked-case', 'linked in'),
+      b('rep-odd-desc', 'Odd Ones', 'odd ones out'),
       b('peer-named', 'Peer Named'),
       b('hounds', 'Hounds'),
       b('elsewhere', 'Elsewhere'),
@@ -325,21 +328,29 @@ test('CS11: differs names the name when it differs at all, case included, and a 
 
 test('CS12: the repeat is found among the parent\'s direct sets, by name or by the address the name gives, nonce or not; the plain address wins, then the lowest key', async () => {
   const { k } = await main();
+  const one = [k.beagleSuperset];
   const cases = [
-    ['rep-show-dogs', k.showDogs, [], true, 'dogs for shows'],
-    ['rep-puppies', k.puppies, [{ input: 'description', given: 'small ones', holds: 'young ones' }], false, 'young ones'],
-    ['rep-odd', k.oddOnes, [{ input: 'name', given: 'Odd Ones', holds: 'Odd Ones!' }], false, null],
-    ['rep-nonce', k.nonceSet, [{ input: 'name', given: 'Nonce', holds: 'Nonce Set' }], false, null],
-    ['rep-twin', k.twinPlain, [], false, null],
-    ['rep-echo', k.echoLow, [], false, null],
+    ['rep-show-dogs', k.showDogs, [], true, 'dogs for shows', one],
+    ['rep-puppies', k.puppies, [{ input: 'description', given: 'small ones', holds: 'young ones' }], false, 'young ones', one],
+    ['rep-odd', k.oddOnes, [{ input: 'name', given: 'Odd Ones', holds: 'Odd Ones!' }], false, null, one],
+    ['rep-odd-desc', k.oddOnes, [{ input: 'name', given: 'Odd Ones', holds: 'Odd Ones!' }, { input: 'description', given: 'odd ones out', holds: null }], false, null, one],
+    ['rep-nonce', k.nonceSet, [{ input: 'name', given: 'Nonce', holds: 'Nonce Set' }], false, null, one],
+    ['rep-twin', k.twinPlain, [], false, null, one],
+    ['rep-echo', k.echoLow, [], false, null, one],
+    // Linked In sits at the address lap pets gives it, so under beagle's superset only its name finds it: the case of a
+    // set link-set put there, or firmware's, whose address its name doesn't give (review round 1, blocking 1).
+    ['rep-linked', k.linkedIn, [], false, null, sorted([k.beagleSuperset, k.lapPets])],
+    ['rep-linked-case', k.linkedIn, [{ input: 'name', given: 'linked in', holds: 'Linked In' }], false, null, sorted([k.beagleSuperset, k.lapPets])],
   ];
-  for (const [id, want, differs, hasLetter, description] of cases) {
+  for (const [id, want, differs, hasLetter, description, parents] of cases) {
     const d = await ok(id);
     assert(d.outcome === 'already-exists' && d.change === null && d.set.tapestryKey === want, `${id}: already-exists with ${want} (Decision 7); got ${show(d.set)}`);
     assert(show(d.differs) === show(differs), `${id}: differs ${show(differs)}; got ${show(d.differs)}`);
     assert(d.set.hasLetter === hasLetter && d.set.description === description, `${id}: the set as it holds itself, hasLetter ${hasLetter} and description ${show(description)}; got ${show(d.set)}`);
-    assert(show(d.set.parents) === show([k.beagleSuperset]), `${id}: its parents; got ${show(d.set.parents)}`);
+    assert(show(d.set.parents) === show(parents), `${id}: every superset and set it is directly under, by tapestryKey (Decision 13); got ${show(d.set.parents)}`);
   }
+  const g = await graph();
+  assert(C.nodesAt(g, G.setAddress('Linked In', (await main()).u.beagleSuperset)).length === 0, 'no second Linked In was made at the address the name and beagle\'s superset give');
 });
 
 test('CS13: what isn\'t the repeat: another author\'s set, a superset of the name, the name under another parent, a set no longer under it, a node at the address', async () => {
@@ -491,7 +502,8 @@ RETURN s.tapestryKey AS key, s.uuid AS uuid, s.name AS name, s.id IS NOT NULL AS
     `R7 answers the lettered Show Dogs, its description and its parents; got ${show(dogs)}`);
   assert(show(show7(r7('Odd Ones'))) === show([k.oddOnes]), `R7 finds Odd Ones! by the address the name gives; got ${show(r7('Odd Ones'))}`);
   assert(show(show7(r7('Nonce'))) === show([k.nonceSet]), `R7 finds Nonce Set at the address with a nonce; got ${show(r7('Nonce'))}`);
-  assert(r7('Peer Named').length === 0 && r7('Hounds').length === 0 && r7('Moved').length === 0, 'R7 finds no peer\'s set, no superset, and no set that is no longer under the parent');
+  assert(show(show7(r7('Linked In'))) === show([k.linkedIn]), `R7 finds Linked In by its name alone: its address is lap pets'; got ${show(r7('Linked In'))}`);
+  assert(r7('Peer Named').length === 0 && r7('Hounds').length === 0 && r7('Moved').length === 0, 'R7 finds no peer\'s set, no superset (Hounds is labelled Set too), and no set that is no longer under the parent');
 });
 
 test('CS20: _sets.js holds the set writes\' shared pieces, and the set\'s letter has the ADR\'s shape', () => {
@@ -500,8 +512,8 @@ test('CS20: _sets.js holds the set writes\' shared pieces, and the set\'s letter
   for (const f of ['requireParent', 'linkUnder', 'setJson', 'setTags', 'findSetRepeat', 'setDiffers', 'describeSet']) {
     assert(typeof X[f] === 'function', `_sets.js exports ${f} (ADR 0027 Implementation notes); got ${typeof X[f]}`);
   }
-  const j = X.setJson({ name: 'Toy Beagles', slug: 'toy-beagles', description: 'small ones', others: ['word', 'zoo', 'collection'] });
-  assert(show(j) === show(setJson('Toy Beagles', 'small ones', ['collection', 'zoo'])), `setJson: word block and set section, wordTypes word, set, then the others sorted, word not twice (Decision 9); got ${show(j)}`);
+  const j = X.setJson({ name: 'Toy Beagles', slug: 'toy-beagles', description: 'small ones', others: ['beta', 'word', 'gamma', 'alpha', 'set'] });
+  assert(show(j) === show(setJson('Toy Beagles', 'small ones', ['alpha', 'beta', 'gamma'])), `setJson: word block and set section, wordTypes word, set, then the others sorted, word and set not twice (Decision 9); got ${show(j)}`);
   const bare = X.setJson({ name: 'Bare', slug: 'bare', others: [] });
   assert(show(bare) === show(setJson('Bare')), `setJson with no description leaves it out; got ${show(bare)}`);
   const t = X.setTags({ d: 'toy-beagles-12345678', name: 'Toy Beagles', setConcept: G.SET_CONCEPT, parent: '39999:p:parent', description: 'small ones', json: '{}' });

@@ -18,7 +18,7 @@ The stack-free suites can't reach five things: Neo4j's own locking (two calls at
 |---|---|---|---|
 | AC1: make a set | **CS1** one keyed set under beagle's superset, no `NostrEvent`, its name its tapestryValue, no `id`; the answer's set (key, address, name, slug, description, parents, no letter), its `threads`, its `set-created` entry, the backup note. **CS2** today's address (`dtag.childDTag(name, <parent's uuid>)`), the tags `d`, `name`, `z`, `s`, `description` and `json` in order with the import's tag uuids. **CS4** its two links, and nothing else wired. **CS5** `graph history` by the set and by the parent; `graph list-elements` on the set concept and `graph list-relationships` on the parent list it. **CS6** a set under a set. **CS7** `threads` for a set two concepts' class threads reach. **CS9** a name trimmed and collapsed; a description left out or blank; a name of 200 characters. **CS15** nothing signed. | `test/operations/graph/create-set.test.js` | integration (fake) |
 | AC2: its JSON and rule 4 | **CS3** the JSON is firmware's set-file shape, keys in Decision 9's order, and fits the set concept's schema, read from firmware's own file; word, which reaches the set concept's superset, is reported as not fitting (`graphContext`) and doesn't stop it. **CS29** a set concept whose schema asks more: `invalid-fields` from `element-fits-schema`, naming `set.color`. **CS30** `no-schema` for a missing schema and one that doesn't parse. **CS33** another concept above the set concept's superset joins `wordTypes` (D10) and `concepts` (with no schema: `fits: null`, saying why). **CS20** `setJson`'s shape. | `create-set.test.js` | integration (fake); unit |
-| AC3: safe to repeat | **CS10** `already-exists`, `change: null`, the same set, one node and one entry; `threads` still given; no `concepts`, `copies`, `skipped` or `note`. **CS11** `differs`: the name's case, a description given that differs; a description left out isn't compared. **CS12** found among the parent's direct sets by name (today's lettered Show Dogs, add-subset's Puppies) or by the address the name gives, nonce or not (Odd Ones!, Nonce Set); the plain address wins (Twin), then the lowest key (Echo). **CS13** no repeat: another author's set (the owner's answer 2), a superset of the name, the name under another parent, a set at the address no longer under the parent and a node at the address (both the next nonce). **CS14** each transaction takes the lock first; the lock is on the parent. **CS20** `setDiffers`. **L5** two calls at once. | `create-set.test.js`; live | integration (fake); unit; live |
+| AC3: safe to repeat | **CS10** `already-exists`, `change: null`, the same set, one node and one entry; `threads` still given; no `concepts`, `copies`, `skipped` or `note`. **CS11** `differs`: the name's case, a description given that differs; a description left out isn't compared. **CS12** found among the parent's direct sets by name alone (Linked In, at the address lap pets gives it, as stored and in another case; review round 1), by name and address both (today's lettered Show Dogs, add-subset's Puppies), or by the address the name gives, nonce or not (Odd Ones!, Nonce Set); the plain address wins (Twin), then the lowest key (Echo). A description given to a set that has none differs with `holds: null` (Odd Ones!), and a repeated set's `parents` are all its parents (Linked In's two). **CS13** no repeat: another author's set (the owner's answer 2), a superset of the name, the name under another parent, a set at the address no longer under the parent and a node at the address (both the next nonce). **CS14** each transaction takes the lock first; the lock is on the parent. **CS20** `setDiffers`. **L5** two calls at once. | `create-set.test.js`; live | integration (fake); unit; live |
 | AC4: what it refuses | **CS22** `unknown-node` for a key no node has and for a change entry's. **CS23** `not-a-parent` for an element, a concept header (naming its superset's key: the owner's answer 3), a card set with no address, a node of no concept. **CS24** `bad-name`, six ways. **CS25** `bad-description`. **CS26** `no-free-address`. **CS27** inputs. **CS8** a firmware concept's superset, another author's superset and another author's set each take a set; so does a set no class thread reaches. **CS28** the refusal run changes nothing and records nothing. **CS31** `not-installed`, with no assistant key and with no set concept superset. **CS32** a write whose entry can't be recorded keeps nothing. | `create-set.test.js` | integration (fake) |
 | AC5: one reading of a set | **CS34** over thirteen candidate parents, create-set and link-set accept the same seven and refuse the same six, with the same status, code, input and words. **CS20** `_sets.js` exports `requireParent`, `linkUnder`, `setJson`, `setTags`, `findSetRepeat`, `setDiffers` and `describeSet`, the pieces ADR 0027's Implementation notes put there for delete-set and move-element. | `create-set.test.js` | integration (fake); unit |
 | AC6: it lasts | **CS4** nothing is wired that a reinstall would judge (one parent link, one registration). **CS33** marks: a mark on the set concept's `slug` reaches the set in the same write as `set_slug`, and the entry records the copy (Decision 12). **L6** reinstall, **L7** restore. | `create-set.test.js`; live | integration (fake); live |
@@ -33,7 +33,7 @@ The stack-free suites can't reach five things: Neo4j's own locking (two calls at
 - [x] **A name of 200 characters** is made (CS9); one of 201 is refused (CS24).
 - [x] **Card sets.** CS23 and CS34: a node labelled `Set` with no address is refused, as link-set refuses one (ADR 0028 Amendment 3).
 - [x] **A set no longer under the parent.** CS13: Moved sits at the address the name and beagle's superset give, but is under lap pets only. It isn't the repeat, and the new set takes `~1`.
-- [x] **A superset of the name.** CS13: Hounds, a superset under beagle's superset, isn't the repeat: only sets count.
+- [x] **A superset of the name.** CS13: Hounds, a superset under beagle's superset, isn't the repeat: only sets count. It is labelled `Set` too, as the old concept-graph setup labels by `z` tag, so R7's `NOT s:Superset` is what leaves it out (review round 1).
 - [x] **The fake runs the ADR's two new reads.** CS19 runs R6 and R7 as the ADR writes them, against the seed. It passes already.
 - [ ] **Two creates at once on Neo4j:** the fake runs one transaction at a time, so this is live check L5.
 
@@ -115,6 +115,27 @@ Implementation found what Test Design missed: the fake graph couldn't run `makeN
 - **The correction.** The owner approved it as a kick-back to the Tester (2026-11-17), as the node-primitives precedent did. `test/helpers/graphFake.js`'s `createEntry` now looks for SET only after the node's pattern, and the fake's header says so. No test's assertions changed.
 - **Its reach.** Every suite under `test/operations/` ran with it and with the implementation, through the scoped gate (`test/helpers/gateRunner.js`, label `a1027-create-set`), with the service endpoints dead. The result was PASS: 51 of 51 suites, 620 passed, 0 failed and 4 skipped (`lifecycle/shared-keys`' live checks, which need a scratch container named). create-set's own suite passed 35 of 35, and the agent's 1 of 1.
 
+### The Tester correction for review round 1 (2026-11-17)
+
+Review round 1 found six breaks of the real code that no test caught. One was blocking: no case found a set by its name alone, since every set the tests found by name also sat at the address its name gives. The owner approved the correction (2026-11-17). No code changed.
+
+- **The seed** gains Linked In, an own set under lap pets and under beagle's superset, at the address lap pets gives it. Hounds is labelled `Set` as well as `Superset`.
+- **CS12** gains Linked In as stored and in another case, both `already-exists` with its two parents, and Odd Ones! given a description, which differs with `holds: null`. It also checks that no second Linked In is made.
+- **CS19** checks that R7 finds Linked In by its name alone, and that Hounds, now labelled `Set`, is left out.
+- **CS20**'s other keys come in an order that reversing doesn't sort.
+
+Each break, applied to a full copy of the code (a `git archive` of `92564632`, whose code is `70a1edce`'s, with these tests), one at a time:
+
+| Broken | Caught by |
+|---|---|
+| none (the baseline) | — (35 passed) |
+| R7 without its name match (`_sets.js`) | CS12: rep-linked makes a second Linked In |
+| R7's name match made case-sensitive | CS12 |
+| R7 without `NOT s:Superset` | CS13: Hounds is taken for the repeat |
+| `differs` skips a description when the set has none | CS12: rep-odd-desc |
+| a repeat answers `[parent]` as its `parents` (`create-set.js`) | CS12: rep-linked |
+| `wordTypes` reversed instead of sorted | CS20 |
+
 ### The live check (Implementation, 2026-11-17)
 
 Run on the Mac Studio, on throwaway instances from `scripts/scratch-stack.sh`, one at a time:
@@ -137,7 +158,7 @@ Run on the Mac Studio, on throwaway instances from `scripts/scratch-stack.sh`, o
 4. **L4, the installed schemas (AC2).** Champions' `concepts`: set, which it fits, and word, which it doesn't. Besides `graphContext`, the installed word schema's conditions on `wordTypes` don't match a set's `["word", "set"]`, which firmware's own set files carry too. That is reported, never refused (ADR 0020 Amendment 1).
 5. **L5, two at once (AC3).** Two create-sets of Twin Race in parallel: one `created` and one `already-exists`, with the same key. The graph then held one node at the address and one more entry.
 6. **L6, a reinstall (AC6; Decision 16).** It took 70 s.
-   - Champions, Puppy Champions and Twin Race were unchanged: labels, properties, tags and relationships, `set-superset`'s `HAS_ELEMENT` included. A set's membership in `set` survives a reinstall, so Decision 16's contingency doesn't arise. The ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` gains this.
+   - Champions, Puppy Champions and Twin Race were unchanged: labels, properties, tags and relationships, `set-superset`'s `HAS_ELEMENT` included. A set's membership in `set` came through the reinstall. By the code (review round 1; ADR 0027 Amendment 1), pass 1e takes it out and Pass 3's `wire-implicit-elements` puts it back from the set's `z` tag. The ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` records both.
    - Winner, the element create-element made in Champions, gained a direct `HAS_ELEMENT` from beagle show's superset, from pass 1d, since its `z` names beagle show. ADR 0020 Decision 10 expects that, and it isn't create-set's.
 7. **L7, a restore on a fresh instance (AC6).**
    - `tapestry lifecycle backup` took the graph offline for 21.2 s, and `download-backup` gave a 3.1 MB tar.
