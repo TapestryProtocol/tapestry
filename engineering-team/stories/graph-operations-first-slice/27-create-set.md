@@ -1,6 +1,6 @@
 # Story 27: `graph create-set` — make a set under a concept's superset or another set, with no event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.27 — https://loom.brainstorm.world/t/A10.27

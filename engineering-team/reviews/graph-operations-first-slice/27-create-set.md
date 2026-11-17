@@ -307,3 +307,118 @@ _Not applicable: the book has no PRD._
 **The fix** is the Tester's, and needs no code: one seeded set at another address, and two cases. Non-blocking 1–3 fit in the same round, and the rest are optional.
 
 **Next round.** I'll run the new cases against the two name-match breaks, run the operations suites again, and check the plan's corrected AC3 row as a fresh claim.
+
+## Round 2 — 2026-11-16 (HEAD 867be196)
+
+**Diff:** `git diff 92564632..867be196`: the two commits after round 1's review (`92564632`, which also gave the story its link to this review):
+- `32d7274a`: the Tester's correction for round 1, which the owner approved.
+  - The seed gains Linked In and labels Hounds `Set` too.
+  - CS12 gains `rep-linked`, `rep-linked-case` and `rep-odd-desc`, and checks each case's parents.
+  - CS19 checks R7 on Linked In and on Hounds, and CS20's other keys come in a new order.
+  - The test plan corrects its AC3 row, its Hounds edge case and its L6 wording, and records a break table.
+- `867be196`: the docs. The pass 1e ledger row's paragraph is rewritten, ADR 0027 gains Amendment 1, and the headers-by-key row lists create-set as a caller.
+
+`src/` is as `70a1edce` left it: `git diff 70a1edce 867be196 -- src/` is empty. Round 1's Non-blocking 5 was left out, as optional. I checked each fix as a fresh claim, with commands, this review's own round-1 wording included (role step 10).
+
+### Quality gates (round 2)
+
+The same dead endpoints as round 1. Nothing touched docker, `:7778`, the `tapestry` container or a `tapestry-scratch` one.
+
+- [ ] **`npm test`:** not run, for round 1's reason. It runs as the pull request's CI check.
+- [x] **The scoped gate:** all 51 suites under `test/operations/`, with the label `a1027-review-r2`, on `867be196` with a clean tree. `npm run gate:status -- --label a1027-review-r2` answers:
+
+  `20261117T040941Z-47433-90f6 [a1027-review-r2] started 2026-11-17T04:09:41.179Z on 867be196 — PASS, exit 0, 620 passed, 0 failed, 4 skipped, 51/51 suites`
+
+  - create-set gives 35 passed, and its agent suite 1. The new cases sit inside existing tests (CS12, CS19 and CS20), so no count moves.
+  - The 4 skips are again `lifecycle/shared-keys`' live checks.
+- [x] **`bash scripts/harness-lint.sh`:** `harness-lint: clean (0 violations)`, exit 0, before this section was added. With this round's verdict, its L1 check expects the story's status to be `Done`, which the coordinator sets in the review commit.
+- [x] **The merge:** `git merge-tree --write-tree origin/staging HEAD` is clean. Staging is still at `b0a8537a`, and none of its files overlaps this branch's.
+
+### The breaks, run again
+
+I ran round 1's 37 breaks again, one at a time, in a copy of `867be196` made with `git archive` in the scratchpad. All 37 are now caught. These are the six round 1 found uncaught:
+
+| Broken | Round 2: fails | Why, from the failure message | The plan's table (`:131–137`) |
+|---|---|---|---|
+| R7 without its name match (`_sets.js:520`) | CS12 | `rep-linked` makes a new set at `…:linked-in-…` instead of answering Linked In | CS12 |
+| R7's name match made case-sensitive (`:520`) | CS12 | — | CS12 |
+| R7 without `NOT s:Superset` (`:519`) | CS13 | `hounds` answers Hounds instead of making a new set | CS13 |
+| `differs` skips a description the set lacks (`:551`) | CS12 | `rep-odd-desc` loses its `holds: null` entry | CS12 |
+| a repeat answers `[parent]` as its `parents` (`create-set.js:207`) | CS12 | `rep-linked` gets one parent of its two | CS12 |
+| `wordTypes` reversed instead of sorted (`_sets.js:497`) | CS20 | — | CS20 |
+
+The other 31 are caught by the same tests as in round 1. One gains a catcher: `differs` ignoring the name's case now also fails CS12, through `rep-linked-case`. link-set's own suite still doesn't catch the three `requireParent` breaks, as round 1 expected.
+
+### Round 1's findings, checked again
+
+| Round 1 | The fix | Checked by | Holds |
+|---|---|---|---|
+| Blocking 1, the repeat by name | Linked In, at the address lap pets gives it (`createSetGraph.js:178–179`); `rep-linked` and `rep-linked-case` (CS12); CS19's R7 check; the AC3 row | Both name-match breaks now fail CS12, and round 1's probe is now one of the suite's own cases. The AC3 row, read against the cases | Yes |
+| Non-blocking 1, the ledger paragraph | the row's paragraph (`ledger/2026-11-15-reinstall-drops-a-supersets-own-membership.md:20–31`), and ADR 0027 Amendment 1 (`:314–326`) | Each cited line, re-read: `install.js:650`, `:810`, `:828–829`, `:856`, `:862–866`, `:900`, `:1289–1295` and `:1291–1292`; `index.js:5874`, `:5886–5893` and `:5900–5903`. Also pass 1d's z-tag match (`install.js:680–681`, `:694–695`) | Yes, but for one overstated phrase: Non-blocking R2-1 |
+| Non-blocking 2, `NOT s:Superset` | Hounds labelled `Set` too (`createSetGraph.js:176`); the plan's edge case (`:36`) | The break now fails CS13, and CS19's copy of R7 leaves Hounds out | Yes |
+| Non-blocking 3, three smaller gaps | `rep-odd-desc`; each case's parents; CS20's other keys, `beta, word, gamma, alpha, set` | Each break now fails: CS12, CS12 and CS20 | Yes |
+| Non-blocking 4, the headers-by-key row | create-set among its callers (`ledger/2026-11-16-headers-by-key-scans-unlabelled.md:15`) | `create-set.js:224–225`: once per create, since a repeat has returned by then (`:201–216`). It reads nothing when no other concept reaches set's superset (`_concepts.js:445`) | Yes |
+| Non-blocking 5, the fake's `SET` search | left out, as optional | — | Accepted as optional |
+
+### The corrected claims, checked as fresh claims
+
+1. **The AC3 row** (plan `:21`). Each case it names exists and does what the row says:
+   - Linked In is found by its name alone, as stored and in another case. Its uuid is the address lap pets gives it (`createSetGraph.js:178`), so under beagle's superset R7 can only match it by name;
+   - Show Dogs and Puppies are found by name and by address; Odd Ones! and Nonce Set by address alone;
+   - the plain address wins (Twin), then the lowest key (Echo);
+   - `rep-odd-desc` gives `holds: null`, and Linked In answers its two parents.
+2. **The Hounds edge case** (plan `:36`). Hounds now carries `Set` (`createSetGraph.js:176`), so R7's `(s:Set)` matches it, and only `NOT s:Superset` leaves it out. The break shows exactly that.
+3. **The break table** (plan `:118–137`). Each row matches this round's runs. The "why" of the two rows that give one matches the failure messages.
+4. **The L6 wording** (plan `:161`). It says what was seen, and labels the mechanism a reading, citing Amendment 1. It matches the code.
+5. **The ledger paragraph** (`:20–31`). It keeps what was seen apart from what was read and not run, and each cited line does what the paragraph says. One phrase overstates: Non-blocking R2-1.
+6. **Amendment 1** (ADR `:314–326`):
+   - Decision 16's pass 1d does run before pass 1e (`install.js:650`, `:810`);
+   - Pass 3 calls `wire-implicit-elements` at `:1291`, and that check needs a path ending in a `HAS_ELEMENT` (`index.js:5886–5893`);
+   - CS2 holds the `z` tag: the break that drops it fails CS2 and CS20;
+   - a Pass 3 failure is caught, and the install goes on (`install.js:1289–1295`).
+
+   One phrase overstates, as in the ledger: Non-blocking R2-1.
+7. **The headers-by-key row** (`:15`): see the table above.
+
+### Findings (round 2)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **"Every set" overstates which sets a reinstall takes out of `set`.** The phrases are at ADR 0027 `:319` ("which is every set") and `:324`, and in the ledger row at `2026-11-15-reinstall-drops-a-supersets-own-membership.md:23` and `:29–30`.
+   - **Why it's too broad.** Pass 1d registers a node under a concept only when its `z` tag names that concept's own header address (`install.js:680–681`, `:694–695`). Another author's superset or set names its own author's set concept. So a set made under one has no `set-superset -HAS_ELEMENT-> parent` link on this instance. Pass 1e then leaves that set's registration alone, and a failed Pass 3 can't cost it.
+   - **Which sets those are.** AC4 lets any author's parent take a set (story `:50`), and CS8 makes such sets.
+   - **Where the phrase came from.** Round 1's own wording was already too broad: Non-blocking 1 said "(any set, and the supersets firmware and create-concept make)".
+   - **Its effect** errs toward caution, so nothing is at risk from it.
+   - **Optional:** scope the three sentences to a set whose parent is this instance's own, as firmware's, create-concept's, create-set's and add-subset's nodes are. Then add that a set under another author's superset or set has no such path.
+2. **Round 1's Non-blocking 5 stays open, as optional.**
+
+#### Harness friction
+
+1. **Round 1's item 1 isn't filed yet.** Neither `OPEN.md` nor `ledger/` has a row for it since round 1. It's the coordinator's to file, as a `meta` row.
+2. Nothing new.
+
+### On PASS (round 2, same commit)
+
+- [x] Story `**Status:**` flipped to `Done` in place: the coordinator does it in this review's commit, as the launching session asked.
+- [x] Completion detection performed: the result is in the chat, not in this file.
+
+### Verdict (round 2)
+
+**PASS**
+
+**What holds.**
+- Round 1's blocking finding is fixed. Two cases now find a set that only its name can find, and both of round 1's name-match breaks fail them. Round 1's probe is now one of the suite's own cases.
+- Round 1's Non-blocking 1–4 are each fixed, and each holds when checked as a fresh claim. Non-blocking 5 was optional.
+- All 37 of round 1's breaks of the real code are now caught, and the plan's break table matches this round's runs.
+- No code changed. The 51 operations suites are green on `867be196`, and the merge with staging is clean.
+- Across both rounds:
+  - create-set does what ADR 0027 and its Amendment 1 decided;
+  - every criterion has tests that fail when it breaks;
+  - the live check covers what the fake can't;
+  - nothing signs.
+
+**Still to come:** the full gate, in the pull request's CI. Non-blocking R2-1 is an optional wording fix.
