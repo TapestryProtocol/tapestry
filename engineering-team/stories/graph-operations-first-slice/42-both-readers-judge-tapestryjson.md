@@ -22,7 +22,7 @@ What today's instance does, that this story changes:
   Their verdicts split, as the ledger row `2026-11-16-derive-step-and-rule-check-split` lists, and test SC9 pins four of the splits.
 - **They judge different concepts.** The rule judges each concept whose class thread reaches the node. The derive step judges each concept header whose class thread reaches it within ten links, and each one the node's `z` tags name.
 - **Every element of `word` reads as broken.** Firmware's `word` schema requires `graphContext`, which only the derive step builds.
-  - Judged as `json` tags, all 83 of firmware's element files fail it, each only for `graphContext` (measured 2026-11-17).
+  - Judged as `json` tags, all 83 of firmware's element files fail it, each only for `graphContext` (measured 2026-11-17, on firmware's files). On an installed instance, `word`'s elements also fail install's wordType conditionals (the owner's ruling, under Open questions).
   - Firmware puts seventeen concepts under `word`. On the local instance, `word` has 503 elements.
   - `graph create-set` reports on every create that the new set doesn't fit `word`. `rules check` (A10.31) would report every one of those 503.
 - **Not every node has tapestryJson yet.** On the local instance, 80 of 485 list items, 9 of 53 supersets and 9 of 49 concept headers have none (2026-11-17). An element `graph create-element` makes has none until a derive pass runs.
@@ -34,7 +34,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 
 ## Acceptance criteria
 
-- [ ] **AC1 — The rule judges a node's tapestryJson.** Take a node whose tapestryJson and `json` tag differ. When the rule checks it as it stands, it judges the tapestryJson. For example, a node whose tapestryJson has its `graphContext` fits firmware's `word` schema, whatever its `json` tag holds. A node whose tapestryJson lacks a field its concept requires doesn't fit, even when its `json` tag has the field.
+- [ ] **AC1 — The rule judges a node's tapestryJson.** Take a node whose tapestryJson and `json` tag differ. When the rule checks it as it stands, it judges the tapestryJson. For example, a node whose tapestryJson has its `graphContext` fits `word`'s schema as firmware's file has it, whatever its `json` tag holds; as a firmware install leaves that schema, no element fits it yet (the owner's ruling, under Open questions). A node whose tapestryJson lacks a field its concept requires doesn't fit, even when its `json` tag has the field.
 - [ ] **AC2 — A node with no tapestryJson yet.** When the rule checks an element that has no tapestryJson, it gives one finding for the node, saying it has no tapestryJson yet. It gives no finding for each of its concepts' schemas, and it doesn't fall back to the `json` tag.
 - [ ] **AC3 — One verdict, from both readers.** For a node the derive step has built, its cached verdicts and the rule's check of the same node agree on each concept:
   - on whether it fits, doesn't fit, or can't be checked;
@@ -80,9 +80,10 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 - None that block planning.
 - The full test gate writes to the stack it finds, and on the Mac Studio that is the agent-memory instance. So the Tester and Implementer run only the suites they touch there, and the pull request's CI runs the full gate. AC1 to AC4's live checks run on a scratch stack (`scripts/scratch-stack.sh`).
 
-**Narrowed at review round 2** (the owner's ruling, 2026-11-17). The live check found that a firmware install leaves `word` a schema that no element fits, for defects older than this story. So three of the story's promises didn't hold on an instance. The owner narrowed the story to what it builds: one verdict, judged on tapestryJson, with nothing failed for the `graphContext` the derive step builds.
+**Narrowed at review round 2** (the owner's ruling, 2026-11-17). The live check found that a firmware install leaves `word` a schema that no element fits, for defects older than this story. So four of the story's promises didn't hold on an instance. The owner narrowed the story to what it builds: one verdict, judged on tapestryJson, with nothing failed for the `graphContext` the derive step builds.
 - **AC4's last sentence** first said a set made by `graph create-set` reports `word` as waiting, not failing. It does report `word` as waiting, but the schema an install leaves still fails the set, for install's wordType conditionals (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`).
 - **AC3's first case** first said a node fits firmware's `word` schema once its `graphContext` is built. That holds for firmware's file. Under the installed schema, none of the live check's 430 list items with a `word` verdict fits it, and both readers agree on each.
+- **AC1's example** first said a node whose tapestryJson has its `graphContext` fits firmware's `word` schema, the claim AC3's first case made. It too holds for firmware's file only. Review round 2's list of what didn't hold missed it. Review round 3 found it, and with the owner's go-ahead (2026-11-17) it is narrowed the same way.
 - **The User-facing description** first promised that the elements of `word` stop reading as broken. They stop reading as broken for `graphContext`. They still read as broken for the conditionals, and the Properties Set nodes also for the set fields the word deriver doesn't build (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
 - **ADR 0042's and the test plan's live-check item,** that the derive step's `parentJsonSchemas` say the set fits `word`, narrows the same way: nothing `word` finds in the set is about `graphContext` (Evidence, LC2).
 - **The older defects become Loom tasks of their own:** install's wordType conditionals, the Properties Set nodes, and a diagnosis of the other failing concepts. In all, 679 of the live check's 1,169 verdicts fail (Evidence). `rules check` (A10.31) waits for those tasks, since it would report each failing verdict.
@@ -103,7 +104,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
   - the rulebook says `add-to-concept` and the property operations "will call" the check.
 
   ajv's wrapper errors, such as an `if`/`then` that requires `graphContext`, are still not set aside (non-blocking 7). No firmware schema needs it.
-- **AC4's example was first scoped to firmware's `word` file here,** on the Implementer's word. The owner's ruling now narrows it, with AC3's first case and the User-facing description (Open questions).
+- **AC4's example was first scoped to firmware's `word` file here,** on the Implementer's word. The owner's ruling now narrows it, with AC1's example, AC3's first case and the User-facing description (Open questions).
 - **Round 3, from review round 2:**
   - a stored `derivedAt` that no Date can hold gives a finding with the number and no date, where the check threw;
   - CE34 and UN46 reach `waiting: true` through `graph create-element` and `graph update-node`.
