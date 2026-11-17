@@ -202,6 +202,21 @@ The review passed with seven non-blocking findings, and the owner chose to fix t
 - **harness-lint:** clean.
 - **The live check wasn't run again.** Every live call's section was one of its JSON's own keys, which the fixed code reads as before. No live call gave `description` both ways or met `no-section`.
 
+### Review round 2's fixes, and staging merged in (2026-11-17, on `8e9c62ad`)
+
+Round 2 (`67ce03db`) passed, with four non-blocking findings. They were fixed after it, in `ab8c1bc6`, `eff6e493` and `21b06100`, and **not reviewed again**:
+- **R2-1:** the ADR's bullet on a letter imported again, corrected against the code (`writeVerbs.js`, `DListOverview.jsx`, `eventSync.js`); ledger row `2026-11-17-reading-page-edit-restores-old-name`.
+- **R2-2:** `bad-fields`' published text says "once trimmed".
+- **R2-3:** UN45. It passes on the code as it was, and a scratch mutation trimming every text field in `fields` fails it alone (the test plan's "Added at review round 2").
+- **R2-4:** this story's gate line says the record counts the files.
+
+Then `origin/staging` at `8c2ea9bc` was merged in, with #114 (create-set) and #115 (walk). The one conflict, in `src/operations/changes.js`, keeps staging's `name` and `slug` descriptions, which add a set's, and this branch's `was` and `now`.
+
+On the merge, run on this Mac one at a time, each with every service endpoint dead (`TAPESTRY_PORT=9` and `TAPESTRY_CONTAINER=no-such-container` too):
+- **49 suites:** every suite under `test/operations/` but `lifecycle/` (45, with create-set's 2 and walk's 3), and the 4 route-surface suites. Every one passed: 595 tests, 0 failed.
+- **Among them:** update-node 41, update-node-shared 7, the agent suite 1, create-element 33, create-set 35, walk 32, and the fake graph 27.
+- **harness-lint:** clean.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
