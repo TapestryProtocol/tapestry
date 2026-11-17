@@ -412,7 +412,7 @@ Test design wrote the statements the ADR names, and found where they refine it. 
 
    Each failure fails a transaction's first statement with Neo4j's `Neo.ClientError.Statement.EntityNotFound`.
 
-## Amendment 2 (2026-11-17, at implementation; for the owner's approval at the implementation gate) — what Neo4j 5.26 does in the race
+## Amendment 2 (2026-11-17, at implementation; approved by the owner at the implementation gate) — what Neo4j 5.26 does in the race
 
 Decision 6 asked the live check to say which error Neo4j 5.26 gives a statement that waited for a node's lock while another transaction deleted the node. **It gives none.**
 - **The probe (L4c).** Inside the scratch stack, one transaction deleted a node with `DETACH DELETE` and held it. A second ran `S.lockNode`'s statement on that node, and waited. When the first committed, the second's statement went on and answered `count(n) = 1`, with no error.
