@@ -48,6 +48,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 21. `stories/graph-operations-first-slice/21-update-node.md` — change one of this instance's own elements' name,
     description or fields, with no event, each section it changes checked against its concept's schema; brings the
     check that refuses a node from someone else's event (D4), which merge-nodes and delete-node will reuse (Loom A10.21).
+26. `stories/graph-operations-first-slice/26-delete-node.md` — delete one of this instance's own elements, with its
+    relationships and tags, the whole node kept in its change entry so a mistake can be undone; teaches the shared test
+    of whose node it is the person nodes and placeholders the import makes (Loom A10.26).
 27. `stories/graph-operations-first-slice/27-create-set.md` — make a set under a concept's superset or another set,
     with no event, safe to repeat by name under the parent; the last write the rebuild waits on (Loom A10.27).
 28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's
