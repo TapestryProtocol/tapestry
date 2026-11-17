@@ -242,7 +242,8 @@ function nodeSites(cypher) {
   let m;
   while ((m = re.exec(text))) {
     const after = text.slice(m.index + m[0].length);
-    if (/^\s*(CONSTRAINT|INDEX|OR\s+REPLACE|DATABASE|ALIAS|USER|ROLE)\b/i.test(after)) continue;
+    // An index of any type (CREATE FULLTEXT INDEX …, graph search's: story graph-operations-first-slice #8) makes no node.
+    if (/^\s*(CONSTRAINT|(?:(?:FULLTEXT|RANGE|TEXT|POINT|VECTOR|LOOKUP|BTREE)\s+)?INDEX|OR\s+REPLACE|DATABASE|ALIAS|USER|ROLE)\b/i.test(after)) continue;
     if (/\bON\s+$/i.test(text.slice(Math.max(0, m.index - 6), m.index))) continue; // ON CREATE / ON MATCH
     CLAUSE_END.lastIndex = 0;
     const rest = after.replace(/^\s+/, '');

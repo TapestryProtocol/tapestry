@@ -15,11 +15,14 @@
  * C1. A read that answers a list takes `limit` (1 to 200, 50 by default) and `cursor`, and answers its items with
  * `cursor`, null on the last page. Items come in an order that never changes for an item, which each read's ADR names:
  * tapestryKey ascending for a list of nodes, unless the read is about time (history, newest first); for a list of
- * relationships, out before in, then by type, the other node's tapestryKey and elementId (ADR 0013). A walk is the one
- * exception: nearest first, by steps from a start node and then tapestryKey, so a change between pages that alters a
- * node's steps can move it (ADR 0014; ADR 0011, Amendment 4). The query fetches limit + 1 rows, the checked whole
- * number written into its text (the driver sends a JavaScript number as a float); a walk reads its whole walk instead,
- * and pages it. A cursor is the base64url of JSON [read, scope, position]: the read's '<group> <name>', a fingerprint
+ * relationships, out before in, then by type, the other node's tapestryKey and elementId (ADR 0013). A walk and a
+ * search are the two exceptions. A walk answers nearest first, by steps from a start node and then tapestryKey, so a
+ * change between pages that alters a node's steps can move it (ADR 0014; ADR 0011, Amendment 4). A search answers best
+ * first: a match holding every word, then the higher score, then tapestryKey, so a change between pages that alters a
+ * score can move a match (ADR graph-operations-first-slice/0008; ADR 0011, Amendment 5). The query fetches limit + 1
+ * rows, the checked whole number written into its text (the driver sends a JavaScript number as a float); a walk reads
+ * its whole walk instead, and a search its bound, and each pages what it read. A cursor is the base64url of JSON
+ * [read, scope, position]: the read's '<group> <name>', a fingerprint
  * of the inputs that choose the list, and the last item's sort key. One that doesn't parse, or names another read,
  * another list or a position that isn't one, is refused invalid-cursor.
  *

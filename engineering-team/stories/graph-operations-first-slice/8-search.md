@@ -1,6 +1,6 @@
 # Story 8: `graph search` — find concepts and elements by the words in their names and fields, best first, each match with the field it matched in and a passage, from a point of view
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.8 — https://loom.brainstorm.world/t/A10.8
@@ -181,6 +181,101 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - **The test fakes,** which run none of a full-text index's queries.
 - **Walk's code isn't on staging yet** (A10.14). If the build needs it before A10.14 merges, the build stops at the implementation gate rather than copying it.
 
+## Deviations
+
+- **`search-not-ready` is 409, not 503.** The foundation allows a refusal only a 4xx status (ADR graph-operations-foundation/0001, Decision 4), so with 503 the catalog left search out. The owner chose 409 on 2026-11-17, and ADR 0008's Amendment 1 records it, with SR27 and SR33 corrected to match.
+- **The node-site guard learned typed indexes.** `tapestry-key-paths`' G4 read `CREATE FULLTEXT INDEX … FOR (n:TapestryNode)` as a node made without its key. `test/helpers/cypherSites.js` now skips an index of any type, and G20 pins it, a Tester correction in its own commit.
+- **A passage near the end of its text starts earlier.** Decision 6 starts a passage 60 characters before the first word. When that would leave it short of 200 characters at the text's end, it starts as far back as the 200 allow, so a passage is as long as the text lets it be.
+- **A match's concepts with no name come last,** after the named ones, by tapestryKey. Decision 6 orders them by name.
+- **`bad-query` reuses `textProblem`'s words** for a control, text-direction or invisible character, as `graph resolve`'s `bad-ref` does. Its sentence about an invisible character speaks of a name's slug, key and labels.
+- **`not-a-concept` for a superset or a set** tells the caller to pass the header of the concept it belongs to; for any other node, that it is no concept header.
+- **A word ending in `es` drops it only when it has five letters or more,** so the stem left has three letters at least: `uses` gives `use`, never `us`, and `axes` gives `axe`. Decision 2 says only that a word ending in `es` drops that too. The review found it unrecorded (non-blocking 3).
+
+## Evidence
+
+### The live check (Implementation, 2026-11-17 UTC, on the code of `3c22acd7`)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one.
+
+- **The instance.** It booted from image `agent-memory-tapestry` with this branch's `src/` mounted, and firmware installed. `lifecycle migrate --migration tapestry-keys` put `tapestry_key` in place.
+  - The image's own `bin/control-panel.js` has no search hook, so a fresh boot has no `graph_search_text`.
+  - The check copied this branch's control panel in and restarted it (supervisor's `brainstorm`). That is the upgrade an existing instance gets at its next deploy.
+  - The branch's `clients/cli` was copied in for the agent.
+- **Keys.** The instance made its own assistant key at boot. A throwaway owner key and a throwaway admin key for the agent were made inside it, and only their public keys left it.
+- **Afterwards** it was removed, with its keys.
+- **The seed.** A brain the size of Avi's, written by raw Cypher. The measurement scripts built it from this repo's own markdown (ADR 0008, Context 6):
+  - 946 documents, with their titles, descriptions and headings;
+  - 3,576 rules, with their statements and strengths;
+  - 300 decision records;
+  - 4,822 elements under three concepts, in all 22,532 nodes and 23,005 relationships. One author in ten is a pubkey with no score.
+- **How each answer was judged.** The check read every node's name, description tag and JSON. For each query it found the matches again in JavaScript by ADR 0008's rules: Unicode's words, stop words, plurals, values and not keys, and the owner's point of view's test. It compared search's whole list, page by page, with that.
+- **The result.** It made 48 checks, and all passed.
+  - Two earlier runs stopped on mistakes in the check script: a supervisor program it named wrong, and an offload word the rule's name also held.
+  - One earlier run found the timing gap under AC7 below, which `3c22acd7` fixed.
+
+**By criterion:**
+
+- **AC1: passes.** The check ran nine queries from both points of view, 18 searches in all, and each answered exactly the matches the independent scan found, with the same kept and left-out counts:
+  - `firmware reinstall`: 111 kept, 11 left out;
+  - `hardcode TA pubkey`: 314 and 24;
+  - `d-tag`: 750 and 71;
+  - `relays`: 459 and 45;
+  - `is it decided and still in force`: 201 and 20;
+  - `statement`: 21 and 4;
+  - `kind:39999`: 319 and 22;
+  - `graperank`: 25 and 3;
+  - `trusted list`: 675 and 80.
+
+  Lucene's analyzer and the JavaScript check agreed on every one. `statement` is a field of every rule, and it found only the 25 nodes whose values say it, each with the word in its passage.
+- **AC2: passes.**
+  - A rule was found by a word of its statement that only it holds (`empirically`), with `rule.statement` and a passage holding the word.
+  - A document was found by a word of one of its headings (`graduating`), with `document.headings` and that heading as its passage.
+  - A decision record was found by a word of its title (`isreply`).
+- **AC3: passes.** For `firmware reinstall`, every match holding both words came before those holding one. The agent paged a narrowed search, five at a time, with the cursor: ten matches over two pages, none twice.
+- **AC4: passes.** `concept` set to the rule concept's header answered only that concept's elements.
+- **AC5: passes.** From the owner's point of view, the unscored author's nodes were left out. From everyone's, nothing was, and the owner's kept and left out added up to everyone's kept.
+- **AC6: passes.**
+  - Before the index existed, and with it dropped, search answered 409 `search-not-ready`, saying it isn't there.
+  - The agent asking for `--kind property` got exit 1, `invalid-input`.
+- **AC7: passes.**
+  - **The upgrade.** The control panel's restart made `graph_search_text` over the existing graph, online about 10.7 s after the restart (the control panel's own start included), as Decision 1 defines it. It logged `[graph-search] index graph_search_text created`.
+  - **Nothing rewritten.** The counts of nodes (22,532), node properties (82,431), relationships (23,005) and relationship properties (19) were the same before and after. Dropped, and the control panel restarted, the index was made again, with the counts again unchanged.
+  - **The timings.** Searches at Avi's size, through the route, at the median of three warm runs:
+
+    | Search | Median | Slowest of four |
+    |---|---|---|
+    | `firmware reinstall` | 107 ms | |
+    | `point of view` | 112 ms | |
+    | `is it decided and still in force` | 112 ms | |
+    | `hardcode TA pubkey` | 122 ms | |
+    | `map location hints` | 128 ms | |
+    | `must` | 131 ms | |
+    | `d-tag unique` | 161 ms | |
+    | `rule` | 184 ms | |
+    | `statement` | 71 ms | |
+    | `the` | 212 ms | 216 ms |
+
+    Every search was under a second.
+  - **The timing gap `3c22acd7` fixed.** Before it, in the control panel, a search reading about 4,000 nodes took 0.9 to 1.1 s. A `require` once a row in `_search.js`'s JSON reader cost that process about half a second; the same code took about 0.3 s in a fresh process.
+  - **The command.** The internal command answered what the route answers.
+  - **The agent.** With its own key, through nginx and the external CLI unchanged, the agent:
+    - got its `whoami` (an admin);
+    - found the rule by a word of its statement;
+    - resolved `rule` to its concept;
+    - paged a search within it;
+    - and was refused a kind there isn't.
+  - **An offload.** After the owner offloaded one rule's JSON to the LMDB store (`POST /api/tapestry-key/offload`), every answer counted `offloaded: 1`. A word only its statement held, which had found it before, no longer did. Its name still found it.
+
+### The scoped gate
+
+Every suite under `test/operations/`, with every endpoint dead, on `3c22acd7`, the full `npm test` never being run on this Mac:
+
+```
+20261117T060733Z-68282-73b4 [a10-8-impl-final] started 2026-11-17T06:07:33.497Z on 3c22acd7 — PASS, exit 0, 763 passed, 0 failed, 4 skipped, 60/60 suites
+```
+
+The 4 skips are the shared-keys check's, as before.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Race and "Reads stay behind sign-in" bullets)
@@ -193,5 +288,5 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - Field marks: [ADR graph-operations-foundation/0005](../../decisions/graph-operations-foundation/0005-field-mapping.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0008-search.md](../../decisions/graph-operations-first-slice/0008-search.md) (and its Amendment 5 to [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md))
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [8-search.test-plan.md](8-search.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-first-slice/8-search.md](../../reviews/graph-operations-first-slice/8-search.md)

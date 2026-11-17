@@ -59,6 +59,17 @@
  * test/helpers/walkGraph.js seeds:
  *   F26 a walk's step from every node a list of tapestryKeys names reads relationships of every type, out and in, with
  *       no type or with types in backticks; a later relationship, and a read of a set's parents, keep the repertoire
+ *
+ * Story graph-operations-first-slice #8 (ADR graph-operations-first-slice/0008, Decision 4, S0 and S1), over the graph
+ * test/helpers/searchGraph.js seeds and the full-text index test/helpers/fulltextFake.js keeps:
+ *   F27 db.index.fulltext.queryNodes reads the state's index: Unicode's words, ignoring case, a phrase's words in a row,
+ *       phrases joined by OR and grouped by ( ), its label and properties only, a score higher for more matches and
+ *       fewer words and the same for the same text; a missing index throws as Neo4j does; other syntax is refused
+ *   F28 search's S1 runs: the CALL's rows joined to their tags' nodes, sum(), EXISTS { MATCH … } from a row's bindings,
+ *       and the trust fragment, as Neo4j would
+ *   F29 SHOW FULLTEXT INDEXES answers the state's indexes, with YIELD, WHERE and RETURN; a state with none answers none
+ *   F30 the speedups change no answer: a path matched from its bound end, and a node found by its label and a
+ *       property, give the rows a full scan gives
  */
 
 const fs = require('fs');
@@ -599,6 +610,96 @@ test('F26: a walk\'s step from the nodes a list of tapestryKeys names reads ever
   assert(later && /the fake graph can't run this Cypher/.test(later.message), `a later relationship keeps the repertoire after a step's opening; got ${later ? later.message : 'rows'}`);
   const parents = await refusedWith(read('MATCH (c:TapestryNode)<-[:NOT_ONE_THE_FAKE_KNOWS]-(u:TapestryNode) WHERE c.tapestryKey IN $keys AND NOT u:GraphChange RETURN u.tapestryKey AS key', { keys: [k.set1] }));
   assert(parents && /the fake graph can't run this Cypher/.test(parents.message), `a read of a set's parents (a typed relationship with no variable, a labelled node) keeps the repertoire; got ${parents ? parents.message : 'rows'}`);
+});
+
+// ── story graph-operations-first-slice #8: graph search's reads ──
+const SG = require('../helpers/searchGraph');
+const FF = require('../helpers/fulltextFake');
+
+test('F27: db.index.fulltext.queryNodes reads the state\'s index as the standard analyzer would, and refuses what search never writes', async () => {
+  const s = G.emptyState({ fulltextIndexes: [{ name: 'ix', labelsOrTypes: ['TapestryNode'], properties: ['name', 'value'] }] });
+  const add = (labels, props) => { const n = { eid: s.nextEid++, labels, props }; s.nodes.push(n); return n; };
+  const a = add(['TapestryNode'], { tapestryKey: 'a', name: 'The d-tag of a DOG' });
+  const b = add(['TapestryNode'], { tapestryKey: 'b', value: 'dog dog dog' });
+  const c = add(['TapestryNode'], { tapestryKey: 'c', name: 'a dog' });
+  add(['TapestryNode'], { tapestryKey: 'd', slug: 'dog' });
+  add(['NostrUser'], { name: 'dog' });
+  const hits = (query) => FF.queryNodes(s, 'ix', query).map((h) => h.node.props.tapestryKey);
+  assert(show(hits('"og"')) === '[]', `og is no word of "dog"; got ${show(hits('"og"'))}`);
+  assert(show(hits('"dog"').sort()) === show(['a', 'b', 'c']), `a word matches whatever its case, in the index's properties and label only; got ${show(hits('"dog"'))}`);
+  assert(show(hits('"d-tag"')) === show(['a']) && show(hits('"tag dog"')) === '[]', `a phrase matches its words in a row only; got ${show([hits('"d-tag"'), hits('"tag dog"')])}`);
+  assert(show(hits('("og") OR ("d-tag" OR "nothing")')) === show(['a']), `OR joins phrases, ( ) groups them; got ${show(hits('("og") OR ("d-tag" OR "nothing")'))}`);
+  assert(show(hits('"x\\"y" OR "a\\\\b"')) === '[]', 'escaped quotes and backslashes are read inside a phrase');
+  const scores = Object.fromEntries(FF.queryNodes(s, 'ix', '"dog"').map((h) => [h.node.props.tapestryKey, h.score]));
+  assert(scores.b > scores.c && scores.c > scores.a, `more matches and fewer words score higher; got ${show(scores)}`);
+  const twin = add(['TapestryNode'], { tapestryKey: 'e', name: 'a dog' });
+  const again = Object.fromEntries(FF.queryNodes(s, 'ix', '"dog"').map((h) => [h.node.props.tapestryKey, h.score]));
+  assert(again.e === again.c && twin, `the same text scores the same; got ${show(again)}`);
+  const missing = await refusedWith(Promise.resolve().then(() => G.exec(s, "CALL db.index.fulltext.queryNodes('nope', '\"x\"') YIELD node RETURN node.tapestryKey AS k", {})));
+  assert(missing && missing.code === 'Neo.ClientError.Procedure.ProcedureCallFailed' && /no such fulltext schema index: nope/.test(missing.message), `a missing index throws as Neo4j does; got ${missing && missing.message}`);
+  for (const bad of ['dog', '"dog" AND "cat"', '"dog"~2', '+"dog"', '"dog']) {
+    const e = await refusedWith(Promise.resolve().then(() => FF.queryNodes(s, 'ix', bad)));
+    assert(e && /the fake full-text index can't read this query/.test(e.message), `${bad}: syntax search never writes is refused by name; got ${e && e.message}`);
+  }
+  const proc = await refusedWith(Promise.resolve().then(() => G.exec(s, 'CALL db.labels() YIELD label RETURN label', {})));
+  assert(proc && /the fake graph can't run this Cypher/.test(proc.message), `another procedure is refused; got ${proc && proc.message}`);
+});
+
+test('F28: search\'s S1 runs: the CALL\'s rows joined to their tags\' nodes, sum(), EXISTS { MATCH … } from a row\'s bindings, and the trust fragment', async () => {
+  const R = require(path.join(ROOT, 'src/operations/reads.js'));
+  const seed = SG.seedSearch();
+  const read = G.readerOver(seed.state);
+  const k = seed.keys;
+  const name = (key) => Object.keys(k).find((n) => k[n] === key) || key;
+  const s1 = (within) => `CALL db.index.fulltext.queryNodes('graph_search_text', $lucene) YIELD node AS x, score
+    OPTIONAL MATCH (p:TapestryNode)-[:HAS_TAG]->(x) WHERE x:NostrEventTag AND x.type IN ['json', 'name', 'description']
+    WITH CASE WHEN x:NostrEventTag THEN p ELSE x END AS n, score
+    WHERE n IS NOT NULL AND NOT n:NostrEventTag AND NOT n:GraphChange ${within}
+    WITH n, sum(score) AS score
+    ${R.trust('n', ['score'])}
+    WITH n, score, counts ORDER BY score DESC, n.tapestryKey LIMIT 5001
+    OPTIONAL MATCH (n)-[:HAS_TAG]->(j:NostrEventTag {type: 'json'})
+    RETURN n.tapestryKey AS tapestryKey, head(collect(j.value)) AS json, score, counts`;
+  const params = { lucene: '("iotaword" OR "iotawords") OR ("epsilonword")', everyone: false, own: [TA, S.OWNER], cutoff: 0.05 };
+  const all = await read(s1(''), params);
+  const got = all.map((r) => `${name(r.tapestryKey)}${r.counts ? '' : ' (out)'}`).sort();
+  assert(show(got) === show(['povAnon', 'povHi', 'povLo (out)', 'povNoScore (out)', 'povNoUser (out)', 'povOwner', 'povTa', 'ruleDoc', 'ruleMust']), `each hit is its node, once, never a tag node or the change entry; the trust test as Neo4j's; got ${show(got)}`);
+  const doc = all.find((r) => r.tapestryKey === k.ruleDoc);
+  assert(typeof doc.score === 'number' && doc.score > 0 && typeof doc.json === 'string' && doc.json.includes('iotaword'), `a node's scores summed over its texts, and its json tag read; got ${show(doc)}`);
+  const within = await read(s1('AND EXISTS { MATCH (:TapestryNode {tapestryKey: $concept})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..]->()-[:HAS_ELEMENT]->(n) }'), { ...params, concept: k.docHeader });
+  assert(show(within.map((r) => name(r.tapestryKey))) === show(['ruleDoc']), `EXISTS keeps the document concept's elements only; got ${show(within.map((r) => name(r.tapestryKey)))}`);
+  const none = await read("MATCH (n:TapestryNode {tapestryKey: $key}) OPTIONAL MATCH (n)-[:HAS_TAG]->(t:NostrEventTag {type: 'no-such-type'}) RETURN sum(size(t.value)) AS n", { key: k.ruleDoc });
+  assert(show(none) === show([{ n: 0 }]), `sum over no values is 0, as Neo4j's; got ${show(none)}`);
+});
+
+test('F29: SHOW FULLTEXT INDEXES answers the state\'s indexes, with YIELD, WHERE and RETURN; a state with none answers none', async () => {
+  const on = G.readerOver(SG.seedSearch().state);
+  const filling = G.readerOver(SG.seedSearch({ index: 'populating' }).state);
+  const gone = G.readerOver(SG.seedSearch({ index: 'missing' }).state);
+  const q = "SHOW FULLTEXT INDEXES YIELD name, state, populationPercent WHERE name = 'graph_search_text' RETURN state, populationPercent";
+  assert(show(await on(q, {})) === show([{ state: 'ONLINE', populationPercent: 100 }]), `an online index; got ${show(await on(q, {}))}`);
+  assert(show(await filling(q, {})) === show([{ state: 'POPULATING', populationPercent: 45 }]), `a filling one; got ${show(await filling(q, {}))}`);
+  assert(show(await gone(q, {})) === '[]', 'none');
+  const all = await on('SHOW FULLTEXT INDEXES', {});
+  assert(all.length === 1 && show(all[0].properties) === show(['name', 'tapestryValue', 'value']) && all[0].type === 'FULLTEXT', `every column with no YIELD; got ${show(all)}`);
+  assert(show(await on('SHOW FULLTEXT INDEXES YIELD name WHERE name = $n RETURN name AS index', { n: 'graph_search_text' })) === show([{ index: 'graph_search_text' }]), 'a parameter in WHERE, an alias in RETURN');
+});
+
+test('F30: the speedups change no answer: a path matched from its bound end, and a node found by its label and a property, give a full scan\'s rows', async () => {
+  const seed = SG.seedSearch();
+  const read = G.readerOver(seed.state);
+  const k = seed.keys;
+  // From the bound end (x bound, p not) and from the start (p bound first): the same pairs.
+  const back = await read("MATCH (x:TapestryNode {tapestryKey: $key}) OPTIONAL MATCH (p:TapestryNode)-[:HAS_TAG]->(t) WHERE t.type = 'json' AND p = x RETURN p.tapestryKey AS p, t.type AS type", { key: k.ruleDoc });
+  const forth = await read("MATCH (p:TapestryNode {tapestryKey: $key}) OPTIONAL MATCH (p)-[:HAS_TAG]->(t) WHERE t.type = 'json' RETURN p.tapestryKey AS p, t.type AS type", { key: k.ruleDoc });
+  assert(show(back) === show(forth) && forth.length === 1, `matched from either end; got ${show([back, forth])}`);
+  const parents = await read('MATCH (t:NostrEventTag) WHERE t.type = $type MATCH (p:TapestryNode)-[:HAS_TAG]->(t) RETURN p.tapestryKey AS p ORDER BY p', { type: 'json' });
+  const direct = seed.state.rels.filter((r) => r.type === 'HAS_TAG' && seed.state.nodes.find((n) => n.eid === r.to).props.type === 'json').map((r) => seed.state.nodes.find((n) => n.eid === r.from).props.tapestryKey).sort();
+  assert(show(parents.map((r) => r.p)) === show(direct), `each json tag's node, found back from the tag; got ${parents.length} for ${direct.length}`);
+  const users = await read('MATCH (n:TapestryNode {tapestryKey: $key}) OPTIONAL MATCH (u:NostrUser {pubkey: $pk}) RETURN n.tapestryKey AS n, u.influence AS influence', { key: k.povHi, pk: SG.PEERS.hi });
+  assert(show(users) === show([{ n: k.povHi, influence: 0.2 }]), `a NostrUser found by its label and pubkey; got ${show(users)}`);
+  const nobody = await read('MATCH (n:TapestryNode {tapestryKey: $key}) OPTIONAL MATCH (u:NostrUser {pubkey: $pk}) RETURN u.influence AS influence', { key: k.povHi, pk: SG.PEERS.nouser });
+  assert(show(nobody) === show([{ influence: null }]), `none for a pubkey with no NostrUser; got ${show(nobody)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
