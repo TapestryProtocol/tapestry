@@ -373,3 +373,110 @@ What blocks now is what the live check found. On an installed instance, these do
 - the story's headline outcome, that the elements of word stop reading as broken.
 
 The cause is a defect in install that predates this story. The code is right, but the story's record narrows its own acceptance criteria on the Implementer's word. The owner's decision, recorded as story 16's correction was, clears it. Non-blocking 1 is the one I'd fix in the same round, since it is new in this round's code.
+
+## Round 3 — 2026-11-17 (HEAD 7f40c848)
+
+**Diff:** `git diff bc1dcb40..HEAD`, where `bc1dcb40` is round 2's review commit. Four commits:
+- `8e2482bc`: the story, with the owner's ruling recorded (the Product Owner's lane);
+- `15d541c0`: EFS11, CE34 and UN46, and the test plan's record of them (the Tester's lane);
+- `638fee86`: the fix to the check form's `derivedAt` (`element-fits-schema.js:73–82`), and a Deviations bullet;
+- `7f40c848`: the Evidence corrected, and the ledger.
+
+Under `src/`, `638fee86` changes only `element-fits-schema.js`. No test file changed after `15d541c0`. `7f40c848` touches no file under `src/` or `test/`.
+
+**The owner's ruling**, as the coordinator reports it: to round 2's question, "Narrow story 42's promise, or widen it to fix install's conditionals?", David answered "Narrow it" (2026-11-17, 20:31 UTC). The Loom tasks for the older defects aren't filed yet: he hasn't picked among the three candidates.
+
+### Quality gates (round 3, run by reviewer)
+
+- [x] **The touched suites, through the gate engine.** I ran the same 15 suites, the same way: one at a time first, with the endpoints dead, then through `runGate`. `npm run -s gate:status -- --label a10-20-b-story-42-review-3` reads:
+  `20261117T231911Z-33423-3f23 [a10-20-b-story-42-review-3] started 2026-11-17T23:19:11.358Z on 7f40c848 — PASS, exit 0, 243 passed, 0 failed, 12 skipped, 15/15 suites`
+  - **What's new:** element-fits-schema is 11/0 (EFS11 new), create-element 34/0 (CE34) and update-node 42/0 (UN46). Every other count is round 2's.
+  - **The Implementer's record** `20261117T204508Z-64465-9fc3` (label `a10-20-b-story-42-round-3`) ran on `638fee86` with 8 files dirty, the 8 that `7f40c848` commits: 243 passed, 0 failed, 12 skipped, 15 suites. That is what the Evidence says.
+- [x] **The full gate (`npm test`) was not run here,** for round 1's reason. The PR's CI runs it, stack-free.
+- [x] **The new cases fail without what they pin:**
+  - **EFS11.** On `15d541c0` (round 3's tests over round 2's source), extracted into a scratch directory: element-fits-schema is 10/1, with "case wordFar failed: {"error":"Invalid time value"}".
+  - **CE34 and UN46.** I took `a5204027`'s source, from before this story (`9db5ade4`'s is the same), and overlaid HEAD's two test files. The story changed no test helper. create-element is 32/2 (CE6, CE34) and update-node 40/2 (UN7, UN46). Each of CE34 and UN46 gets `word` at `fits: false`, for "`graphContext` is required", and no `waiting`.
+  - **What they pin.** With the set-aside dropped but `waiting` still answered, `word` would be `fits: false, waiting: false`, and both tests would still fail. So they pin the set-aside through each write's answer, not just the field.
+- [x] `node src/firmware/graph-rules.js --check` finds the files current. `bash scripts/harness-lint.sh` is clean, 0 violations.
+- [x] **My probe of the fixed check form** ran the real rule at HEAD, with a fake read and a scratch LMDB, over stored `derivedAt` values that msgpack can hold even though JSON can't:
+  - 1e13 and 1e306 give the finding with the number and no date;
+  - NaN, Infinity and the string "1794935902" give the finding with no `derivedAt`;
+  - a fitting node with 1e13 gives nothing;
+  - none of them throws.
+- [x] **The records.** I read `tmp/live-check-42/hand-calls.md` against the Evidence. I spot-checked seven of its outputs against the session transcript the coordinator named: the digests, the copy and second install, run 1, the installed schema's 83 `allOf` entries, run 2, `gc-examples.js`'s count of 43, and run 3. Each appears in a tool result at the "answered at" time the file gives. I didn't boot a scratch stack.
+
+### Round 2's findings
+
+| Round 2 | Disposition |
+|---|---|
+| Blocking 1: the promised outcome didn't hold on an instance, and its narrowing wasn't put to the owner | **Fixed for what it listed.** The owner ruled, and the story records the ruling the way stories 16 and 20 record theirs: a bold-lead note under Open questions, with the owner and the date, and what each promise first said, the AC text rewritten in place (`:83–88`). The three reworded promises hold against the records (below). The Evidence says LC2's planned item didn't hold (`:141`), and gives the failing tally by concept (`:156–166`). One promise the ruling's rewording missed is round 3's blocking 1. |
+| Non-blocking 1: an out-of-range `derivedAt` threw | Fixed at `element-fits-schema.js:73–82`. EFS11 pins it, and my probe agrees. |
+| Non-blocking 2: counts and descriptions | Fixed: 44 Properties Set nodes, with run 2's 43 explained; 1,140 "then" errors as 1,096 plus 44; LC7c's premise as `live.js` has it; the full list of records; and both bug rows corrected. |
+| Non-blocking 3: records not kept | Fixed as far as possible after the fact. `hand-calls.md` has the hand calls and each run's output, and my spot-check agrees. The record now has three runs, and run 2 made "live hound 156289". The hand-calls row's fix shape gains "give each run's report its own name". One gap in the durable record is left (round 3's non-blocking 3). |
+| Non-blocking 4: no `waiting: true` through create-element or update-node | Fixed: CE34 and UN46, which fail on the source from before this story. |
+| Harness friction 1: round 1's friction items not in their rows | Fixed: occurrences added to `2026-09-28-live-and-evidence-runs-unrecorded`, `2026-10-07-on-pass-heading-reads-as-verdict` and `2026-11-14-harness-points-tests-at-agent-memory`, and to `2026-11-16-live-check-hand-calls-unsaved`. |
+| Harness friction 2: planning measured on firmware's files | Fixed: the new `meta` row `2026-11-17-instance-claims-measured-on-firmware-files`. |
+
+### Each promise, against the records
+
+| Promise | Records | Holds? |
+|---|---|---|
+| User-facing description (`:33`): the readers never contradict each other; a write stops reporting a node as broken for `graphContext` | LC3; LC7b, 1,169 verdicts agreeing; LC1a, CS3, CE34, UN46 | Yes |
+| AC3's first case (`:44`): firmware's file fits a node once its `graphContext` is built; the schema an install leaves fits no element yet | SC9's `word` case (the file); LC7c, none of 430 fitting; the Reverse `then` at `src/api/normalize/index.js:6103–6114` | Yes |
+| AC4's last sentence (`:53`): waiting, never failing for `graphContext`; under the file, nothing more; under an install, the conditionals too | LC1a and LC1b (installed: waiting, four conditional problems, none about `graphContext`); CS3 (the file: `fits: null`, waiting, no problems) | Yes |
+| The ruling note (`:83–88`) | Evidence; `report.json` | Yes. The Loom tasks are still to be filed (non-blocking 2) |
+| **AC1's example** (`:37`): "a node whose tapestryJson has its `graphContext` fits firmware's `word` schema, whatever its `json` tag holds" | EFS8's wordFull (the file: it fits); LC7c (installed: none of 430 fits) | **Not on an instance** |
+
+**Would Done now say anything false?** Yes, AC1's example, on an instance (blocking 1). Nothing else in the story does.
+- **ADR 0042 still states two of the narrowed promises** (non-blocking 1). It is a decision record, not the story.
+- **The Background's bullet at `:24–27`** describes the instance before this story. The ruling note corrects the promise it led to.
+
+### Findings (round 3)
+
+#### Blocking
+
+1. **AC1's example is the claim the owner's ruling narrowed in AC3, left as it was** (`42-both-readers-judge-tapestryjson.md:37`).
+   - **What it says:** "a node whose tapestryJson has its `graphContext` fits firmware's `word` schema, whatever its `json` tag holds."
+   - **Where it holds:** under firmware's file. EFS8's wordFull fits it.
+   - **Where it doesn't:** under the schema an install leaves, which no element fits. LC7c shows none of 430, and the Reverse conditionals mean none can. That is what AC3's first case now says of the same phrase, "which a node fits once its `graphContext` is built".
+   - **Why it blocks.** Done would carry an AC example that no installed instance shows. That is what round 2 blocked on in AC3's parenthesis. Round 2's list of what didn't hold missed AC1's example, and the rewording followed that list. This round checks the rewording as a fresh claim.
+   - **Asked change.** Apply the owner's ruling to AC1's example as it was applied to AC3's first case; for example, "fits `word`'s schema as firmware's file has it, whatever its `json` tag holds". Then add AC1 to the ruling note, whose "So three of the story's promises didn't hold on an instance" (`:83`) becomes four. It needs no new decision: the option the owner chose rewords the story's promises so that they hold.
+
+#### Non-blocking
+
+1. **ADR 0042 still states two promises the ruling narrowed.**
+   - **Where:** Decision 4's example, "So a set made by create-set reports `word` as `{ fits: null, waiting: true, problems: [], … }`" (`0042-both-readers-judge-tapestryjson.md:122`), and the Consequences line "The writes stop reporting `word` as failing on every set" (`:166`).
+   - **The epic's practice.** It ties a correction to its ADR: story 16's was "with ADR 0016", and story 20's "with ADR 0020 Amendment 1". This story added pointer lines under ADRs 0020 and 0027 for the same reason.
+   - **Optional improvement:** a pointer line under each, to the story's ruling note. The same pointer could sit beside the Background's bullet (`:24–27`).
+2. **The third follow-up has no home yet.**
+   - **What's recorded.** The ruling note (`:88`) says the older defects "become Loom tasks of their own", and that `rules check` (A10.31) waits for them.
+   - **What's missing.** Two of them have ledger rows. "A diagnosis of the other failing concepts" has none. That is 247 failing verdicts outside `word`: `graph` 132, `validation tool` 44, `core nodes graph` 44, `relationship` 22, `concept graph` 3 and `json schema` 2. And the A10.31 dependency is recorded only in story 42's prose.
+   - **Why it doesn't hold the verdict.** The Loom tasks wait on David's pick, a step outside this diff, and a book close would harvest the note.
+   - **Optional, best before merge:** a ledger row for the diagnosis, naming the A10.31 dependency, standing for its Loom task as the other two rows do.
+3. **The Evidence's account of run 1 leaves out what found the defect** (`:135`, `:170–171`).
+   - **What `hand-calls.md` shows:**
+     - before the script's fault stopped it, run 1 failed LC1, LC2 and LC3 on their first premises, for install's conditionals: `word` waiting with no problems, the set fitting `word`, and no finding for any concept;
+     - LC1 to LC3's premises, and LC7c's, were rewritten before run 2, with LC1 split into LC1a and LC1b.
+   - **What the Evidence says instead:**
+     - "The first two runs showed a fault in the script and a premise of LC7c set too broadly";
+     - "Its LC7c, first written as "no `word` verdict mentions `graphContext`"", which is LC7c's second premise. Its first, "every element of `word` fits `word`'s schema", never ran.
+   - **Why it matters.** `hand-calls.md` is ignored by git, so the story's Evidence is the durable record (ledger row `2026-11-16-live-check-hand-calls-unsaved`).
+   - **Optional improvement:** say both in the Evidence.
+
+#### Harness friction
+
+1. **Round 2's ask listed the promises to narrow from a reading of the story, and missed one.** AC1's example uses the phrase AC3's first case did, and the rewording followed the list. An ask to narrow a story's promises could quote a search of the story for each narrowed phrase, so the list is complete. Here, "fits firmware's `word` schema" appears at `:37`, and appeared at `:44`. If it recurs, it is a `meta` row.
+
+The optional independent check was not applied in this round either.
+
+### On PASS (round 3, same commit)
+
+- [ ] Not applicable: this round requests changes. The story's `**Status:**` stays `Approved`, and completion detection waits for a passing round.
+
+### Verdict (round 3)
+
+**CHANGES_REQUESTED**
+
+The owner's ruling is recorded the way the epic records an owner's correction, and the three promises it rewords hold against the live check's records. Round 2's four non-blocking findings and both harness-friction items are fixed, each new test fails without what it pins, and the 15 touched suites pass (243 passed, 12 live skips).
+
+One promise the rewording missed blocks. AC1's example says a node with its graphContext fits firmware's word schema, which no installed instance shows. It is the claim the ruling narrowed in AC3, and round 2 should have listed it. Applying the owner's ruling to that one sentence, and counting it in the ruling note, clears it, with no new decision. The three non-blocking findings are optional, though the ledger row for the third follow-up is the one I'd add before merge.
