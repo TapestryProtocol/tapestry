@@ -121,4 +121,4 @@ None.
 ## Linked artifacts
 - ADR: none (Light Design note above; no trigger).
 - Test plan: the Edge-case and AC→handle lines above (Light: the story file carries them).
-- Review: `engineering-team/reviews/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md`
+- Review: `engineering-team/reviews/done/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md`

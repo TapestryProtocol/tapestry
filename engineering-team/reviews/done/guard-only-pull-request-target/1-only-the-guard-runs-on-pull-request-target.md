@@ -5,7 +5,7 @@
 **Diff:** `git diff ed18d8e1..8994805a` on `fix/guard-only-pull-request-target`. `ed18d8e1` is `origin/staging`.
 `32d6ae8f` is the intake (book, epic, story) and `8994805a` the implementation. Reviewed at HEAD `8994805a`, working
 tree clean.
-**Story:** `engineering-team/stories/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md`
+**Story:** `engineering-team/stories/done/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md`
 (no ADR: Design note). **Book:** `engineering-team/audits/guard-only-pull-request-target/book.md` (acceptance frame).
 
 ## Quality gates (run by reviewer, not trusted)
