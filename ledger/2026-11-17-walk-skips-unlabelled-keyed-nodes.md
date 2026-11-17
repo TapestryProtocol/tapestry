@@ -17,6 +17,9 @@
 - label the far end in S2, `(m:TapestryNode)`, so a walk never reaches what it can't walk on from. That changes which nodes walk and list-relationships answer; or
 - drop the label from S1 and from S2's frontier match, and seek by key alone. The `tapestry_key` index is on the label, so every step would then scan.
 
-For search, in an amendment to ADR 0008: S1's label on `p` only filters, since the join starts from the hit, so dropping it would find such a node through its tags at no cost. Finding it by its own name would still need the label, which the index is on.
+For search, in an amendment to ADR 0008: S1's label on `p` only filters, since the join starts from the hit.
+- **Dropping that label** would find, through their labelled tags, the nodes `lifecycle migrate` leaves unlabelled because they share a key.
+- **A node the old initialize route keyed** has unlabelled tags too, so only migrate makes it findable. That route keys every node with a `uuid` or `id`, tags included, and labels none (`src/api/tapestry-key/index.js:114–119`, `:136–141`).
+- **By its own name,** a node is found only with the label, which the index is on.
 
 **Pointer:** `engineering-team/reviews/graph-operations-first-slice/14-walk.md` (Findings, non-blocking 4); `engineering-team/reviews/graph-operations-first-slice/8-search.md` (Findings, note 5).
