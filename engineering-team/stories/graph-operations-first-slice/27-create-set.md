@@ -108,5 +108,5 @@ For Architecture, not this gate:
 - The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md) (entries 5 to 7)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0027-create-set.md](../../decisions/graph-operations-first-slice/0027-create-set.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [27-create-set.test-plan.md](27-create-set.test-plan.md)
 - Review: (filled in after Review phase)

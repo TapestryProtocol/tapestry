@@ -1,0 +1,107 @@
+# Test Plan: Story 27 — `graph create-set`
+
+**Story:** `engineering-team/stories/graph-operations-first-slice/27-create-set.md`
+**ADR:** `engineering-team/decisions/graph-operations-first-slice/0027-create-set.md`
+**Date:** 2026-11-16
+
+Every suite is stack-free:
+
+- It runs the real catalog in a child process (`test/helpers/operationsHarness.js`), over the fake graph (`test/helpers/graphFake.js`).
+- Every service endpoint is dead.
+- The harness's spy watches everything that signs or reads a key.
+
+The stack-free suites can't reach five things: Neo4j's own locking (two calls at once), a firmware reinstall, a restore, nginx, and the relay. The live check covers those on a scratch stack (below).
+
+## Coverage map
+
+| Criterion | Tests | File | Level |
+|---|---|---|---|
+| AC1: make a set | **CS1** one keyed set under beagle's superset, no `NostrEvent`, its name its tapestryValue, no `id`; the answer's set (key, address, name, slug, description, parents, no letter), its `threads`, its `set-created` entry, the backup note. **CS2** today's address (`dtag.childDTag(name, <parent's uuid>)`), the tags `d`, `name`, `z`, `s`, `description` and `json` in order with the import's tag uuids. **CS4** its two links, and nothing else wired. **CS5** `graph history` by the set and by the parent; `graph list-elements` on the set concept and `graph list-relationships` on the parent list it. **CS6** a set under a set. **CS7** `threads` for a set two concepts' class threads reach. **CS9** a name trimmed and collapsed; a description left out or blank; a name of 200 characters. **CS15** nothing signed. | `test/operations/graph/create-set.test.js` | integration (fake) |
+| AC2: its JSON and rule 4 | **CS3** the JSON is firmware's set-file shape, keys in Decision 9's order, and fits the set concept's schema, read from firmware's own file; word, which reaches the set concept's superset, is reported as not fitting (`graphContext`) and doesn't stop it. **CS29** a set concept whose schema asks more: `invalid-fields` from `element-fits-schema`, naming `set.color`. **CS30** `no-schema` for a missing schema and one that doesn't parse. **CS33** another concept above the set concept's superset joins `wordTypes` (D10) and `concepts` (with no schema: `fits: null`, saying why). **CS20** `setJson`'s shape. | `create-set.test.js` | integration (fake); unit |
+| AC3: safe to repeat | **CS10** `already-exists`, `change: null`, the same set, one node and one entry; `threads` still given; no `concepts`, `copies`, `skipped` or `note`. **CS11** `differs`: the name's case, a description given that differs; a description left out isn't compared. **CS12** found among the parent's direct sets by name (today's lettered Show Dogs, add-subset's Puppies) or by the address the name gives, nonce or not (Odd Ones!, Nonce Set); the plain address wins (Twin), then the lowest key (Echo). **CS13** no repeat: another author's set (the owner's answer 2), a superset of the name, the name under another parent, a set at the address no longer under the parent and a node at the address (both the next nonce). **CS14** each transaction takes the lock first; the lock is on the parent. **CS20** `setDiffers`. **L5** two calls at once. | `create-set.test.js`; live | integration (fake); unit; live |
+| AC4: what it refuses | **CS22** `unknown-node` for a key no node has and for a change entry's. **CS23** `not-a-parent` for an element, a concept header (naming its superset's key: the owner's answer 3), a card set with no address, a node of no concept. **CS24** `bad-name`, six ways. **CS25** `bad-description`. **CS26** `no-free-address`. **CS27** inputs. **CS8** a firmware concept's superset, another author's superset and another author's set each take a set; so does a set no class thread reaches. **CS28** the refusal run changes nothing and records nothing. **CS31** `not-installed`, with no assistant key and with no set concept superset. **CS32** a write whose entry can't be recorded keeps nothing. | `create-set.test.js` | integration (fake) |
+| AC5: one reading of a set | **CS34** over thirteen candidate parents, create-set and link-set accept the same seven and refuse the same six, with the same status, code, input and words. **CS20** `_sets.js` exports `requireParent`, `linkUnder`, `setJson`, `setTags`, `findSetRepeat`, `setDiffers` and `describeSet`, the pieces ADR 0027's Implementation notes put there for delete-set and move-element. | `create-set.test.js` | integration (fake); unit |
+| AC6: it lasts | **CS4** nothing is wired that a reinstall would judge (one parent link, one registration). **CS33** marks: a mark on the set concept's `slug` reaches the set in the same write as `set_slug`, and the entry records the copy (Decision 12). **L6** reinstall, **L7** restore. | `create-set.test.js`; live | integration (fake); live |
+| AC7: it reaches agents | **CS21** 401, 403 and 415, and the command's refusal is the route's. **CS15** an admin's create is the admin's, and the command's is the command's. **CS16** listed with its guard, `repeatKey`, inputs and every refusal, and `/docs`. **CS17** the change fields' descriptions. **CS18** the catalog's §2 row. **CS35** no new module requires a signer. **XS1** an admin agent through the external CLI, with no change to it: a set under beagle's superset, its repeat, a set under that set, a header refused with its superset's key, an element put in the new set with `graph create-element`, and the set's history. **L8** nginx. | `create-set.test.js`, `test/operations/graph/create-set-agent-through-cli.test.js`; live | integration (fake); live |
+
+## Edge cases
+
+- [x] **The lock's target.** CS14 runs the declaration's `apply` over the fake in a child, recording each statement's parameters, since the fake's log keeps none. The first two statements must lock `parent`, for a create and for a refusal (not-a-parent) alike (Decision 5). The fake isn't changed for this.
+- [x] **The lock's order.** CS14: in every transaction of the main run, the first two statements are the lock, set and removed, before any read.
+- [x] **The entry can't be written.** CS32: the node and its tags aren't kept (ADR 0004 Decision 3).
+- [x] **Inputs.** CS27: a missing input, the wrong type, an unknown input, a `parent` that isn't a tapestryKey, and a description of 10,001 characters.
+- [x] **A name of 200 characters** is made (CS9); one of 201 is refused (CS24).
+- [x] **Card sets.** CS23 and CS34: a node labelled `Set` with no address is refused, as link-set refuses one (ADR 0028 Amendment 3).
+- [x] **A set no longer under the parent.** CS13: Moved sits at the address the name and beagle's superset give, but is under lap pets only. It isn't the repeat, and the new set takes `~1`.
+- [x] **A superset of the name.** CS13: Hounds, a superset under beagle's superset, isn't the repeat: only sets count.
+- [x] **The fake runs the ADR's two new reads.** CS19 runs R6 and R7 as the ADR writes them, against the seed. It passes already.
+- [ ] **Two creates at once on Neo4j:** the fake runs one transaction at a time, so this is live check L5.
+
+## Test infrastructure
+
+- **Framework:** Node's own runner, through each suite's `run()`.
+  - Every suite under `test/operations/` is found by `test/operations.test.js` (ADR graph-operations-foundation/0001 Decision 12), so `test/registry.js` gains no line.
+- **The fake graph needs nothing new.**
+  - R6 and R7 run on the path fake as the ADR writes them (CS19).
+  - Every other statement create-set uses is one the fake already runs: R1 and R2, the lock's S8 shape, C4, C5 and C6, the relationship MERGE, E1 and E2, and `mapNodes`' reads and S8.
+  - Neither `graphFake.js` nor `pathCypherFake.js` changes, so the parallel A10.14 and A10.21 branches' edits to them don't meet this one.
+- **Fixtures:**
+  - `test/helpers/createSetGraph.js` (new) starts from story 20's `createElementGraph.js` seed, itself built on story 16's `conceptGraph.js`. Its header says what it adds:
+    - the set concept, with firmware's own JSON schema, a primary property with a `slug` field node, and the first set of neo4j properties;
+    - word, with firmware's own JSON schema, above the set concept's superset;
+    - a parent of each kind;
+    - the repeat's near-misses;
+    - held and crowded addresses;
+    - a probe set for the parity run.
+
+    Options: `mark`, `above`, `strict`, `schema` and `noSetConcept`.
+  - `createElementGraph.js`, `conceptGraph.js` and `fieldGraph.js` don't change.
+- **Firmware state:** none. The suites read firmware's files (`firmware/versions/v1.0.0/concepts/set/json-schema.json`, `…/word/json-schema.json`) and never install anything.
+
+## How to run
+
+Run only the suites this story touches, one at a time, with the service endpoints dead. Never run the full `npm test` on this Mac: about 40 suites write to the local instance, the live agent-memory instance. The full gate is the pull request's CI run.
+
+```
+export NEO4J_URI=bolt://127.0.0.1:9 REDIS_HOST=127.0.0.1 REDIS_PORT=9 BRAINSTORM_BASE_URL=http://127.0.0.1:9 TAPESTRY_BASE=http://127.0.0.1:9 MEILI_URL_HOST=http://127.0.0.1:9
+node test/operations/graph/create-set.test.js
+node test/operations/graph/create-set-agent-through-cli.test.js
+```
+
+At Implementation, also re-run the suites that read the files it changes:
+
+- `graph/{link-set,unlink-set,sets-agent-through-cli}`, `rules/class-thread-acyclic` and `rules/set-has-a-parent`, which use `_sets.js`;
+- `graph/create-element`, `change-entry-fields` and `write-path`, which use `changes.js`.
+
+## The live check (at Implementation, on `scripts/scratch-stack.sh`, never the agent-memory instance)
+
+Take the scratch stack only when the shared notes say it is free, and write a line there when you take it and when you take it down. The container is always named `tapestry-scratch`.
+
+- **L1.** Make a concept with `graph create-concept`, a set under its superset, the same call again, and a set under that set. Read them back through `graph list-elements` on the set concept, `graph list-relationships` on each parent, and the concept-graph routes (`/api/concept-graph/node/<handle>/neighbors`).
+- **L2.** A concept header as `parent` is refused, with its superset's key.
+- **L3.** An element made in the new set with `graph create-element`.
+- **L4.** The set's JSON is checked by the real set concept's schema, as installed; its `concepts` names set and word.
+- **L5.** Two create-sets of one name under one parent at once (two `docker exec` calls in parallel) make one set and one entry.
+- **L6.** A firmware reinstall. For each set: its tags, its JSON, its link from its parent, and its registration under the set concept, compared before and after (Decision 16). If the registration is gone, stop and ask the owner.
+- **L7.** A backup, restored on a fresh scratch stack, brings each set back with its key.
+- **L8.** An admin agent with its own key, through nginx and the external CLI: create, create again, create under the new set, the header refusal, an element in the set.
+- **L9.** The relay holds as many events after every write as before the first.
+
+## Verification
+
+The new tests fail with the current code, and for the right reason: what they test isn't written yet. The one test that passes, CS19, holds the fake to the ADR's two new reads, which it already runs. A throwaway check also confirmed the suites' wiring against what exists today:
+
+- link-set, over CS34's thirteen candidates, accepts seven and refuses six (four `not-a-parent`, two `unknown-node`);
+- the AFTER run's three reads answer 200;
+- the route answers 404 until create-set exists;
+- CS14's recorder captures an `apply`'s statements and its refusal.
+
+Confirmed 2026-11-16 on the code at `e26eb36a` (staging after ADR PR #109, before any implementation), with this commit's tests:
+
+```
+operations: graph create-set: 1 passed, 34 failed, 0 skipped
+        src/operations/catalog/graph/create-set.js does not exist yet (ADR graph-operations-first-slice/0027 Decision 1)
+        PASS  CS19: the fake graph runs R6 and R7 as the ADR writes them, answering as Neo4j would
+operations: an admin agent makes sets through the external CLI: 0 passed, 1 failed, 0 skipped
+        src/operations/catalog/graph/create-set.js does not exist yet (ADR graph-operations-first-slice/0027 Decision 1): the external CLI exited 2: 'graph create-set' isn't among the operations npub12x… may call on http://127.0.0.1:59645: it may not exist there, or it may be the owner's only.
+```
