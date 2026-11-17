@@ -11,10 +11,14 @@
  * keyword only 2020-12 has is ignored by both. Each schema gets a new Ajv, so an $id never clashes.
  *
  * What it checks is an element's stored JSON, its json tag. The derive step checks another document, its own `base`:
- * the cached JSON, with its graphContext added and word defaults filled in, against the concepts a z tag names too. So
- * the two verdicts agree under a schema that neither requires nor forbids graphContext and doesn't limit an element's
- * top-level keys, as every schema create-concept writes does; firmware's word schema, which requires graphContext,
- * splits them (ADR graph-operations-first-slice/0020 Amendment 1; test SC9 runs both).
+ * the cached JSON, with its graphContext added and word defaults filled in, against the concepts a z tag names too.
+ * For an element whose word block has its slug, name and wordTypes, as every element create-element writes has, the
+ * two verdicts agree on each concept both judge, under a schema that neither requires nor forbids graphContext and
+ * doesn't limit the element's top-level keys, as every schema create-concept writes does; firmware's word schema,
+ * which requires graphContext, splits them. JSON with no word block, or a word block missing a field the derive step
+ * fills in, may split them under other schemas too, create-concept's own among them (ADR
+ * graph-operations-first-slice/0020 Amendment 1; ledger row 2026-11-16-derive-step-and-rule-check-split; test SC9 runs
+ * both).
  *
  *   schemaOf(read, concept)       E1 → { schema, node, label, header: true }, or { problem, label, header }, where
  *                                 header is false when the key names no concept header

@@ -17,9 +17,10 @@ Both read a schema the same way, so they agree under most schemas. They split:
 - under firmware's `word` schema, which requires `graphContext`;
 - under a schema that forbids extra top-level keys;
 - for JSON with no word block;
+- for a word block missing a field the derive step fills in (`word.slug`, `word.name` or `word.wordTypes`), such as under firmware's `validation-tool` schema, which requires `word.slug`;
 - where the two judge different concepts.
 
-Test SC9 (`test/operations/graph/element-schemas.test.js`) runs both on these schemas.
+Test SC9 (`test/operations/graph/element-schemas.test.js`) runs both, and pins the first four of these splits.
 
 It matters now only to the writes that judge elements already made:
 - `rules check` (A10.31) will report every element of the `word` concept as missing `graphContext`;
