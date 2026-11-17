@@ -80,10 +80,18 @@
  * statements) adds:
  *   - D6, a node's own delete: `MATCH (n:TapestryNode {tapestryKey: $p}) WHERE NOT n:GraphChange DETACH DELETE n`,
  *     beside C11's tag delete, each taking every relationship of what it deletes with it;
- *   - two failures for the write path's second try, each at a transaction's first statement, as Neo4j's
- *     Neo.ClientError.Statement.EntityNotFound: failures.vanish { key, add } is another transaction that deleted the
- *     node keyed `key`, with the tags only it has, and committed `add`'s nodes (its change entry) while this one waited
- *     for its lock; failures.entityNotFound, a count, fails that many first statements with nothing else changed.
+ *   - two failures for the write path's second try (Decision 6), each failing a transaction's first statement with
+ *     Neo4j's Neo.ClientError.Statement.EntityNotFound. Neo4j 5.26 gives a lock statement that waited for a node
+ *     another transaction deleted no error (ADR 0026 Amendment 2), so these stand for a statement that would fail so:
+ *     failures.vanish { key, add } also does what that other transaction did, deleting the node keyed `key`, with the
+ *     tags only it has, and committing `add`'s nodes (its change entry); failures.entityNotFound, a count, fails that
+ *     many first statements with nothing else changed.
+ *   Review round 1 (Amendment 3) adds:
+ *   - failures.shrinkBeforeDetach, a tapestryKey: just before a transaction's first DETACH DELETE, one relationship of
+ *     that node, not a HAS_TAG, goes from the transaction's graph, as a remove-relationship committed between the
+ *     delete's reads and its delete would take it (Decision 7's gap). It fires once;
+ *   - a lock or copies statement's entry in the log names its rows' keys (`keys`), so a suite can read which nodes a
+ *     write locked, and in what order.
  * D1 to D4, delete-node's reads, are reads the two read fakes already run.
  *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
@@ -607,8 +615,9 @@ function fakeGraph(stateFile) {
       const committed = readState(stateFile);
       const s = copy(committed);
       const log = [];
-      // failures.vanish and failures.entityNotFound fail the first statement (story graph-operations-first-slice #26):
-      // what they change is in `committed`, which the rollback below keeps.
+      // failures.vanish and failures.entityNotFound fail the first statement (story graph-operations-first-slice #26),
+      // standing for a statement Neo4j would fail with EntityNotFound: what they change is in `committed`, which the
+      // rollback below keeps.
       let started = false;
       const first = () => {
         if (started) return;
@@ -621,8 +630,24 @@ function fakeGraph(stateFile) {
           throw entityNotFound();
         }
       };
+      // failures.shrinkBeforeDetach (review round 1): a relationship of the node goes just before the first DETACH DELETE.
+      const shrink = () => {
+        const target = committed.failures && committed.failures.shrinkBeforeDetach;
+        if (!target) return;
+        delete committed.failures.shrinkBeforeDetach;
+        if (s.failures) delete s.failures.shrinkBeforeDetach;
+        const node = s.nodes.find((n) => n.props.tapestryKey === target);
+        const r = node && s.rels.find((x) => (x.from === node.eid || x.to === node.eid) && x.type !== 'HAS_TAG');
+        if (r) s.rels = s.rels.filter((x) => x !== r);
+      };
+      const entryOf = (call, cypher, params) => {
+        const kind = KIND(cypher);
+        const e = { call, kind, query: oneLine(cypher).slice(0, 200) };
+        if (kind === 'copies' && params && Array.isArray(params.rows)) e.keys = params.rows.map((row) => (row && typeof row === 'object' ? row.key : null));
+        return e;
+      };
       const tx = {
-        async run(cypher, params) { log.push({ call: 'tx.run', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params, { write: true }); },
+        async run(cypher, params) { log.push(entryOf('tx.run', cypher, params)); first(); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
         async read(cypher, params) { log.push({ call: 'tx.read', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params).rows; },
       };
       try {

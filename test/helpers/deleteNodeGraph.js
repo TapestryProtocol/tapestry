@@ -31,6 +31,12 @@
  *     holder          made here, an element of beagle, with HAS_ELEMENT to heldBelow (made here, beagle)
  *     holder7         made here, an element of beagle, with HAS_ELEMENT to below0 … below6 (keys.below)
  *     selfHeld        made here, an element of beagle, with HAS_ELEMENT to itself: a link to itself is no node below it
+ *   review round 1's cases (ADR Amendment 3)
+ *     doubleTagged    made here, an element of beagle, with a second HAS_TAG to its name tag
+ *     unkeyedLinked   made here, an element of beagle, which a node with no tapestryKey CITES
+ *     selfRef         made here, an element of beagle, whose a tag names its own address and REFERENCES it
+ *     storedText      made here, an element of beagle, stamped, its json tag lmdb:<its tapestryKey>: a suite stores
+ *                     STORED_TEXT, data that isn't JSON, under that key
  *   repeats (Decision 3)
  *     goneKey         no node: a node-deleted change, recorded by graph merge-nodes as ADMIN at GONE_AT, records its
  *                     deletion (keys.goneEntry is that entry)
@@ -42,6 +48,8 @@
  *     crowdedByTags   9,999 of its own (HAS_ELEMENT, 9,997 RELATED_TO in, and HAS_TAG to its one tag), and two more
  *                     through that tag, which REFERENCES capTarget1 and capTarget2: 10,001 in all
  *     full            10,000: HAS_ELEMENT and 9,999 RELATED_TO in
+ *     fullLoop        10,000 too: HAS_ELEMENT, 9,998 RELATED_TO in, and a RELATED_TO to itself, which the first count
+ *                     counts twice (Amendment 1, item 3)
  */
 
 const crypto = require('crypto');
@@ -60,6 +68,7 @@ const hex = (x) => crypto.createHash('sha256').update(String(x)).digest('hex');
 const GONE_AT = '2026-11-10T09:00:00.000Z';
 const PERSON = '9a'.repeat(32);
 const E_ID = hex('an event the graph does not hold');
+const STORED_TEXT = 'stored, and not JSON';
 const STORED_JSON = Object.freeze({
   word: { slug: 'beagle--stored', name: 'beagle: Stored', title: 'Beagle: Stored', wordTypes: ['word', 'beagle'] },
   beagle: { name: 'Stored', slug: 'stored', description: 'its JSON is in the store' },
@@ -176,6 +185,27 @@ async function seedDeleteNode() {
   const selfHeld = named('selfHeld', element('Self Held').node);
   link(selfHeld, 'HAS_ELEMENT', selfHeld);
 
+  // ── review round 1's cases ──
+  const doubled = element('Double Tagged');
+  named('doubleTagged', doubled.node);
+  link(doubled.node, 'HAS_TAG', doubled.tags.name);
+  const unkeyed = element('Unkeyed Linked');
+  named('unkeyedLinked', unkeyed.node);
+  const keyless = add(['ListItem'], { name: 'a node no migrate has keyed' });
+  delete keyless.props.tapestryKey;
+  link(keyless, 'CITES', unkeyed.node);
+  const selfD = dtag.childDTag('Self Ref', BEAGLE.uuid);
+  const selfRef = element('Self Ref', { tags: [['d', selfD], ['name', 'Self Ref'], ['z', BEAGLE.uuid], ['json', jsonOf('Self Ref')], ['a', `39999:${TA}:${selfD}`]] });
+  named('selfRef', selfRef.node);
+  keys.selfRefATag = selfRef.tags.a.props.tapestryKey;
+  link(selfRef.tags.a, 'REFERENCES', selfRef.node);
+  const storedTextKey = crypto.randomUUID();
+  named('storedText', element('Stored Text', {
+    key: storedTextKey,
+    tags: [['d', dtag.childDTag('Stored Text', BEAGLE.uuid)], ['name', 'Stored Text'], ['z', BEAGLE.uuid], ['json', `lmdb:${storedTextKey}`]],
+    extraProps: { tapestryJsonUpdatedAt: 1763000004 },
+  }).node);
+
   // ── a deletion another operation recorded ──
   keys.goneKey = crypto.randomUUID();
   keys.neighborKey = crypto.randomUUID();
@@ -213,6 +243,9 @@ async function seedCrowded() {
   link(byTags.tags.note, 'REFERENCES', named('capTarget1', add(['NostrEvent', 'TapestryNode'], { uuid: `39999:${OTHER}:cap-one`, kind: 39999, pubkey: OTHER })));
   link(byTags.tags.note, 'REFERENCES', named('capTarget2', add(['NostrEvent', 'TapestryNode'], { uuid: `39999:${OTHER}:cap-two`, kind: 39999, pubkey: OTHER })));
   many(named('full', element('Full', { tags: [] }).node), 9999);
+  const fullLoop = named('fullLoop', element('Full Loop', { tags: [] }).node);
+  many(fullLoop, 9998);
+  link(fullLoop, 'RELATED_TO', fullLoop);
   return seed;
 }
 
@@ -239,4 +272,4 @@ function storedData(dir, key) {
   return JSON.parse(line);
 }
 
-module.exports = { TA, OTHER, OWNER, ADMIN, PERSON, E_ID, GONE_AT, STORED_JSON, seedDeleteNode, seedCrowded, storeEntries, storedData };
+module.exports = { TA, OTHER, OWNER, ADMIN, PERSON, E_ID, GONE_AT, STORED_JSON, STORED_TEXT, seedDeleteNode, seedCrowded, storeEntries, storedData };

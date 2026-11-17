@@ -51,6 +51,12 @@
  *   DN32 a visitor gets 401, a stranger 403, a text/plain body 415; the command's refusal is the route's
  *   DN33 the refusal run changed nothing and recorded nothing
  *   DN34 the new and changed modules require nothing that signs, publishes or reads a key
+ *   (review round 1; ADR Amendment 3) DN16 reads which nodes each delete locked, from the fake's log, and adds an
+ *        element of word alone; DN29 adds a node of 10,000 with a link to itself, which the first count counts twice;
+ *        DN35 a node with two HAS_TAGs to one tag is deleted, the tag once; DN36 a relationship to a node with no
+ *        tapestryKey stops the delete, naming lifecycle migrate; DN37 a relationship gone between the reads and the
+ *        delete rolls the delete back; DN38 a relationship between the node and its own tag is listed once, from the
+ *        tag, and recorded under it; DN39 data the store holds that isn't JSON is recorded as it was held
  */
 
 const fs = require('fs');
@@ -172,7 +178,7 @@ function main() {
   if (MAIN) return MAIN;
   MAIN = (async () => {
     const { file, dir, k } = await fresh();
-    D.storeEntries(dir, [[k.stored, D.STORED_JSON]]);
+    D.storeEntries(dir, [[k.stored, D.STORED_JSON], [k.storedText, D.STORED_TEXT]]);
     const before = S.readState(file);
     const { a } = runOn(file, [
       post('max', 'owner', { node: k.walkerMax }),
@@ -185,6 +191,10 @@ function main() {
       post('self-held', 'owner', { node: k.selfHeld }),
       post('admin', 'admin', { node: k.gizmo }),
       post('gone', 'owner', { node: k.goneKey }),
+      post('double', 'owner', { node: k.doubleTagged }),
+      post('unkeyed', 'owner', { node: k.unkeyedLinked }),
+      post('self-ref', 'owner', { node: k.selfRef }),
+      post('stored-text', 'owner', { node: k.storedText }),
       { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
     ], { spy: true, cli: [{ id: 'cli', argv: ['graph', 'delete-node', '--node', k.handy] }] });
     return { a, k, file, dir, before, after: S.readState(file) };
@@ -575,22 +585,37 @@ test('DN15: the catalog\'s §2 rows give delete-node as built, refusing what Dec
 });
 
 // ── Decision 7: the locks ──
-test('DN16: each delete locks the node first, then each of its concepts\' headers, before it deletes; a repeat locks the node alone', async () => {
+test('DN16: each delete locks the node first, then each of its concepts\' headers in tapestryKey order, before it deletes; word\'s header is left out; a repeat locks the node alone', async () => {
   needDecl();
-  const { file, k } = await fresh();
+  // dog's and pet's headers keyed so that their tapestryKey order (pet first) differs from the order the class thread
+  // reaches them in (review round 1, finding 5).
+  const PET = '00000000-0000-4000-8000-0000000000a1';
+  const DOG = 'ffffffff-ffff-4fff-8fff-fffffffffff1';
+  const { file, k } = await fresh(D.seedDeleteNode, (s, keys) => {
+    const rekey = (name, key) => { s.nodes.find((n) => n.props.tapestryKey === keys[name]).props.tapestryKey = key; keys[name] = key; };
+    rekey('dog', DOG);
+    rekey('pet', PET);
+  });
   const from = S.readState(file).log.length;
-  const { a } = runOn(file, [post('max', 'owner', { node: k.walkerMax }), post('again', 'owner', { node: k.walkerMax })]);
-  assert(a.req('max').status === 200 && a.req('max').body.data.outcome === 'deleted' && a.req('again').body.data.outcome === 'already-gone', `the path under test ran: deleted, then already-gone; got ${show([a.req('max').body, a.req('again').body]).slice(0, 400)}`);
+  const { a } = runOn(file, [post('max', 'owner', { node: k.walkerMax }), post('again', 'owner', { node: k.walkerMax }), post('word', 'owner', { node: k.wordOnly })]);
+  assert(a.req('max').status === 200 && a.req('max').body.data.outcome === 'deleted' && a.req('again').body.data.outcome === 'already-gone' && a.req('word').body.data.outcome === 'deleted',
+    `the path under test ran: deleted, already-gone, deleted; got ${show(['max', 'again', 'word'].map((id) => a.req(id).body)).slice(0, 500)}`);
   const txns = transactions(S.readState(file).log, from);
-  assert(txns.length === 2 && txns.every((t) => t.end === 'commit'), `one committed transaction for each call; got ${show(txns.map((t) => t.end))}`);
-  const [del, again] = txns.map((t) => t.steps);
+  assert(txns.length === 3 && txns.every((t) => t.end === 'commit'), `one committed transaction for each call; got ${show(txns.map((t) => t.end))}`);
+  const locksBefore = (steps) => {
+    const firstDetach = steps.findIndex((x) => x.kind === 'detach');
+    return { firstDetach, writes: steps.slice(0, firstDetach < 0 ? steps.length : firstDetach).filter((x) => x.call === 'tx.run') };
+  };
+  const [del, again, word] = txns.map((t) => t.steps);
   assert(del[0] && del[0].kind === 'copies' && del[1] && del[1].kind === 'copies', `the delete starts with the node's lock, set and removed, before any read; got ${show(del.slice(0, 3))}`);
-  const firstDetach = del.findIndex((x) => x.kind === 'detach');
-  assert(firstDetach > 0, `the delete deletes; got ${show(del.map((x) => x.kind))}`);
-  const writesBefore = del.slice(0, firstDetach).filter((x) => x.call === 'tx.run');
-  assert(writesBefore.length === 6 && writesBefore.every((x) => x.kind === 'copies'), `before it deletes, it writes only locks: the node's and dog's and pet's headers, six statements (Decision 7); got ${show(writesBefore.map((x) => x.kind))}`);
+  const d = locksBefore(del);
+  assert(d.firstDetach > 0 && d.writes.every((x) => x.kind === 'copies'), `before it deletes, it writes only locks (Decision 7); got ${show(d.writes.map((x) => x.kind))}`);
+  const keys = d.writes.map((x) => (Array.isArray(x.keys) ? x.keys.join(',') : null));
+  assert(show(keys) === show([k.walkerMax, k.walkerMax, PET, PET, DOG, DOG]), `the node's lock, then pet's header, then dog's: their tapestryKey order (Decision 7); got ${show(keys)}`);
+  const w = locksBefore(word);
+  assert(w.firstDetach > 0 && show(w.writes.map((x) => (x.keys || []).join(','))) === show([k.wordOnly, k.wordOnly]), `an element of word alone locks only itself: word's header, keyed word, is left out (Decision 7); got ${show(w.writes)}`);
   const againWrites = again.filter((x) => x.call === 'tx.run');
-  assert(againWrites.length === 2 && againWrites.every((x) => x.kind === 'copies'), `the repeat writes only the node's lock; got ${show(againWrites)}`);
+  assert(againWrites.length === 2 && againWrites.every((x) => x.kind === 'copies' && (x.keys || []).join(',') === k.walkerMax), `the repeat writes only the node's lock; got ${show(againWrites)}`);
 });
 
 // ── Decision 6: the write path's second try ──
@@ -720,8 +745,11 @@ test('DN29: more than 10,000 relationships is refused too-many-relationships, by
   needDecl();
   const { file, k } = await fresh(D.seedCrowded);
   const before = S.readState(file);
-  const { a } = runOn(file, [post('crowded', 'owner', { node: k.crowded }), post('by-tags', 'owner', { node: k.crowdedByTags }), post('full', 'owner', { node: k.full })]);
+  const { a } = runOn(file, [post('crowded', 'owner', { node: k.crowded }), post('by-tags', 'owner', { node: k.crowdedByTags }), post('full', 'owner', { node: k.full }), post('full-loop', 'owner', { node: k.fullLoop })]);
   const after = S.readState(file);
+  const loop = a.req('full-loop');
+  assert(loop.status === 409 && loop.body.code === 'too-many-relationships' && /10,?001/.test(err(loop.body)) && nodeByKey(after, k.fullLoop),
+    `fullLoop, 10,000 with a link to itself, is refused: the first count counts that link twice (Amendment 1, item 3); got ${loop.status} ${show(loop.body).slice(0, 300)}`);
   for (const id of ['crowded', 'by-tags']) {
     const x = a.req(id);
     assert(x.status === 409 && x.body.code === 'too-many-relationships' && /10,?001/.test(err(x.body)) && /10,?000/.test(err(x.body)), `${id}: refused, naming its 10,001 and the cap (Decision 8); got ${x.status} ${show(x.body).slice(0, 300)}`);
@@ -768,6 +796,59 @@ test('DN33: the refusal run changed nothing and recorded nothing', async () => {
   const after = S.readState(file);
   assert(entriesIn(after).length === entriesIn(before).length, `no change entry was recorded; ${entriesIn(before).length} before, ${entriesIn(after).length} after`);
   assert(show(after.nodes) === show(before.nodes) && show(after.rels) === show(before.rels), 'and the graph is as it was: every refusal comes before anything is deleted (Decision 2)');
+});
+
+// ── review round 1's cases (ADR Amendment 3) ──
+test('DN35: a node with two HAS_TAGs to one tag is deleted, that tag once', async () => {
+  const { k, before, after } = await main();
+  const d = await ok('double');
+  const n0 = nodeByKey(before, k.doubleTagged);
+  const tagKeys = [...new Set(tagsOf(before, n0).map((t) => t.props.tapestryKey))];
+  assert(d.outcome === 'deleted' && d.tags === tagKeys.length && tagKeys.length === 4, `deleted, with its four tags counted once each (finding 1); got ${show({ o: d.outcome, t: d.tags })}`);
+  assert(!nodeByKey(after, k.doubleTagged) && tagKeys.every((key) => !nodeByKey(after, key)), 'it and its tags are gone');
+  assert(changeOf(d).was.tags.length === 4 && !(d.relationships || []).some((r) => r.type === 'HAS_TAG'), `the entry records each tag once, and no HAS_TAG to its own tags is a relationship removed; got ${show(changeOf(d).was.tags.length)}`);
+});
+
+test('DN36: a relationship to a node with no tapestryKey stops the delete, naming lifecycle migrate, and nothing changes', async () => {
+  needDecl();
+  const { a, k, after } = await main();
+  const x = a.req('unkeyed');
+  assert(x.status === 500 && /lifecycle migrate/.test(String(x.body && x.body.error)), `a node an unkeyed node links to can't be recorded whole, so it stops (finding 2): 500 naming lifecycle migrate; got ${x.status} ${show(x.body).slice(0, 300)}`);
+  assert(nodeByKey(after, k.unkeyedLinked) && after.rels.some((r) => r.type === 'CITES' && r.to === nodeByKey(after, k.unkeyedLinked).eid), 'and the node, and the CITES to it, are still there');
+});
+
+test('DN37: a relationship gone between the reads and the delete rolls the delete back, and it isn\'t tried again', async () => {
+  needDecl();
+  const { file, k } = await fresh(D.seedDeleteNode, (s, keys) => { s.failures = { shrinkBeforeDetach: keys.lucky }; });
+  const before = S.readState(file);
+  const { a } = runOn(file, [post('shrunk', 'owner', { node: k.lucky })]);
+  const after = S.readState(file);
+  const x = a.req('shrunk');
+  const txns = transactions(after.log, before.log.length);
+  assert(x.status === 500 && /changed while it was being deleted/.test(String(x.body && x.body.error)), `the counts differ from what was read: 500, saying the node changed (Decision 10; finding 4); got ${x.status} ${show(x.body).slice(0, 300)}`);
+  assert(txns.length === 1 && txns[0].end === 'rollback', `one attempt, rolled back; got ${show(txns.map((t) => t.end))}`);
+  assert(show(after.nodes) === show(before.nodes) && show(after.rels) === show(before.rels), 'and nothing changed: lucky and every relationship of its are as they were');
+});
+
+test('DN38: a relationship between the node and its own tag is listed once, from the tag, and recorded under the tag', async () => {
+  const { k } = await main();
+  const d = await ok('self-ref');
+  const hits = (d.relationships || []).filter((r) => r.type === 'REFERENCES');
+  assert(d.outcome === 'deleted' && hits.length === 1 && hits[0].from === k.selfRefATag && hits[0].to === k.selfRef && hits[0].direction === 'out' && hits[0].tag && hits[0].tag.key === k.selfRefATag && hits[0].tag.type === 'a',
+    `its a tag's REFERENCES to it, once, from the tag (Decision 9; finding 6); got ${show(hits)}`);
+  const w = changeOf(d).was;
+  const aTag = w.tags.find((t) => t.properties.tapestryKey === k.selfRefATag);
+  assert(!w.relationships.some((r) => r.type === 'REFERENCES') && aTag && aTag.relationships.some((r) => r.type === 'REFERENCES' && r.direction === 'out' && r.other === k.selfRef),
+    `recorded under the tag, not among the node's own; got ${show({ own: w.relationships, tag: aTag && aTag.relationships })}`);
+  assert(!changeOf(d).nodes.includes(k.selfRef), `and the node isn't among the other ends; got ${show(changeOf(d).nodes)}`);
+});
+
+test('DN39: data the store holds for an lmdb: value that isn\'t JSON is recorded as it was held', async () => {
+  const { k, dir } = await main();
+  const d = await ok('stored-text');
+  const jsonTag = changeOf(d).was.tags.find((t) => t.properties.type === 'json');
+  assert(d.outcome === 'deleted' && jsonTag && jsonTag.stored === D.STORED_TEXT, `stored is what the store held, parse or not (finding 8); got ${show(jsonTag)}`);
+  assert(D.storedData(dir, k.storedText) === D.STORED_TEXT, 'and the store still holds it');
 });
 
 test('DN34: the new and changed modules require nothing that signs, publishes or reads a key', () => {

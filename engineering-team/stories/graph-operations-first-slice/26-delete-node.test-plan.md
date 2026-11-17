@@ -145,6 +145,26 @@ Check `docker ps` and the shared notes before taking `tapestry-scratch`, note it
 
 - **A fourth hollow letter.** The whole operations runner, once the code was in, failed update-node's UN40 alone: `test/helpers/fieldGraph.js` builds every letter with no `id` and no `created_at`, so Decision 4 read its rover as a placeholder, `placeholder-node`. Every import gives an event a `created_at`, so its `event()` builder gives one too. That is item 5's fix for one more seed. Its ten suites pass with it: update-node, map-fields, the fake graph, fields, fields' agent, create-element, element schemas, mark-field, unmark-field and the rule `field-mark-allowed`.
 
+## Added at review round 1 (the owner chose to fix the review's non-blocking findings before the PR; ADR Amendment 3)
+
+**Three tests fail on the code at `e8dac240`,** each for the finding it pins:
+- **DN35** (finding 1): a node with two `HAS_TAG`s to one tag is deleted, that tag once. It failed with 500: "5 nodes and 6 relationships went, where 6 and 6 were read".
+- **DN36** (finding 2): a relationship to a node with no tapestryKey stops the delete with a 500 naming `lifecycle migrate`, and nothing changes. It got 200 `deleted`.
+- **DN39** (finding 8): data the store holds for an `lmdb:` value that isn't JSON is recorded as it was held. It got `stored: null`.
+
+**Four tests guard what the code already does.** Each passes on that code, and each failed alone when its guard was taken out of `delete-node.js` by a scratch edit (restored with `git checkout`):
+- **DN16** (finding 5): it reads, from the fake's log, which nodes each delete locked. dog's and pet's headers are keyed so their tapestryKey order differs from the order the class thread reaches them in. An element of word alone locks only itself. Without the sort, it failed, and so did DN8, which reads the concepts' order.
+- **DN29** (finding 6): fullLoop, 10,000 relationships with a link to itself, is refused, as Amendment 1 item 3 says. Without the first count, it failed.
+- **DN37** (finding 4): a relationship gone between the reads and the delete (`failures.shrinkBeforeDetach`) answers 500 after one attempt, and nothing changes. Without the count check, it failed.
+- **DN38** (finding 6): a relationship between the node and its own tag is listed once, from the tag, and recorded under it. When the tag's loop skipped it, it failed.
+
+**Infrastructure:**
+- **The seed** adds doubleTagged, unkeyedLinked (and the keyless node that CITES it), selfRef, storedText and, in `seedCrowded()`, fullLoop.
+- **The fake graph** logs a lock or copies statement's keys, and learns `failures.shrinkBeforeDetach`.
+- **Its comments** say what Amendment 2 found: Neo4j 5.26 fails no statement in the race, so its two `EntityNotFound` failures stand for a statement that would (finding 3, for the fake's part).
+
+**Beside them,** these pass unchanged: the fake graph 27, the shared suite 13, the agent suite 1, update-node 41, and the write path 13.
+
 ## Verification
 
 The new tests fail with the current code. Confirmed on 2026-11-17, on `A10.26-delete-node` at `823edb29`, with this phase's tests and helpers, each suite alone with every endpoint dead:
