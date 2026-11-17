@@ -9,7 +9,7 @@
 **What was seen.** Each concept's Properties Set core node ("the set of properties for the concept of …") has `wordTypes` `["word", "set", "propertiesSet"]`, but carries the label `ListItem` and no `Set`.
 - **The deriver it gets.** The derive engine picks a deriver by label (`labelPriority`, `src/lib/tapestry-derive.js:39`), so the node gets the word deriver, which builds no `elements`, `childSets` or `parentSets`.
 - **What `word`'s schema asks.** Its set conditional requires those three fields in `graphContext` whenever `wordTypes` contains `set`. So the node's tapestryJson is never fully realized, and both readers say so, in agreement.
-- **How many.** On the scratch stack after a derive pass: 43 nodes, one for each concept, each with three such errors, 132 in all.
+- **How many.** On the scratch stack after a derive pass: 44 nodes, one for each concept, each with three such errors, 132 in all, and each with the set conditional's "then" error. The run before, with one concept fewer, counted 43 nodes and 129 errors.
 
 **Why it matters now.** Since story 42, `rules check` (A10.31) would report each of them under `word`. The problem is in the deriver's choice, or in the node's labels, not in what the rule judges.
 

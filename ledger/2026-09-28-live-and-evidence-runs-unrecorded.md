@@ -28,5 +28,7 @@ template gains an "Evidence" section, and evidence runs are taken on the committ
 The review's "Before shipping" list asked for both. Nothing required the record, so the close cannot tell whether the
 second check ran. The follow-up is ledger `2026-10-11-instance-scripts-live-check-unrecorded`.
 
+**Seen again, 2026-11-17 (story `graph-operations-first-slice` #42's review round 1, blocking 1).** The ADR and the test plan asked for a live check on a scratch stack. Phase 4 asks for no record of it before Review, and CI is stack-free, so every gate read green with the check unrun. The Reviewer blocked on it, and round 2 ran it and recorded it in the story's Evidence. Its record then fell short in the ways ledger row `2026-11-16-live-check-hand-calls-unsaved` names.
+
 **Pointer:** `engineering-team/reviews/done/tagging-edges/2-gap-filling-pass-and-backfill.md` § Harness friction 1–2;
 `test/tagging-edges-live.test.js`; `engineering-team/workflows/4-implementation.md`.

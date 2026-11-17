@@ -110,26 +110,37 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 
 ## Evidence
 
-### The suites (round 2, 2026-11-17)
+### The suites (round 3, 2026-11-17)
 
-Run on this Mac, each with every service endpoint dead. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
-- **The gate engine, over the 15 suites this story touches and their neighbours,** at `d1b18ccd` with round 2's fixes in: PASS, 240 passed, 0 failed, 12 live skips (record `20261117T173248Z-23396-c2ad`). Before round 2, at `6ba85124`: 239 passed (records `20261117T165844Z-73843-1a76`, and the reviewer's own `20261117T170855Z-77871-5a99`).
+Run on this Mac, each with every service endpoint dead, Neo4j's through a conf file whose address is a closed port. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The gate engine, over the 15 suites this story touches and their neighbours,** on `638fee86`, with only this Evidence's and the ledger's edits uncommitted: PASS, 243 passed, 0 failed, 12 live skips (record `20261117T204508Z-64465-9fc3`). EFS11, CE34 and UN46 are the three new.
+- **Before:**
+  - at round 2, on `d1b18ccd` with its fixes in: 240 passed (record `20261117T173248Z-23396-c2ad`, and the reviewer's own `20261117T175622Z-56825-2e81`);
+  - at round 1, on `6ba85124`: 239 passed (records `20261117T165844Z-73843-1a76`, and the reviewer's own `20261117T170855Z-77871-5a99`).
 - **harness-lint** is clean, and `node src/firmware/graph-rules.js --check` finds rule 7's file current.
 
 ### The live check (round 2, 2026-11-17, on `6ead878a`)
 
-It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The script and every call's request and answer are in this worktree's `tmp/live-check-42/` (ignored by git): `live.js`, `report.json`, `pass-3.log` and `graph-rule-firmware.log`.
-- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `4610d6d4fdc8` and `06c0aa2b2e7f`). The branch's was copied in, the control panel restarted, and the firmware installed again, after which the digests matched.
+Round 3 didn't run it again. Its one code change is what a finding says for a `derivedAt` no Date can hold, and the check's 444 entries had none: the check form ran over each of them without throwing (LC7b).
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The records are in this worktree's `tmp/live-check-42/` (ignored by git):
+- `live.js`, the check, and `report.json`, its third run's report, with every call's request and answer;
+- `hand-calls.md`: the calls made by hand and each run's output, transcribed at review round 3 from the session's own tool output (the firmware digests, copy, restart and install; the three runs; `gc-examples.js`'s output);
+- `up.log`, the instance's boot, and `gc-examples.js`;
+- `pass-3.log`, `seed.log`, `pass-3-staging-shape.log` and `graph-rule-firmware.log`, the live suites.
+
+- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `4610d6d4fdc8` and `06c0aa2b2e7f`). The branch's was copied in, the control panel restarted, and the firmware installed again, after which the digests matched (`hand-calls.md`).
 - **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The rule's check form ran inside the container, with the app's own modules, store and database, as `rules check` will run it.
 
-**By check, 14 of 14 passed** (the second run of `live.js`; the first showed a fault in the script, and a premise of LC7c set too broadly, below):
+**By check, 14 of 14 passed** on the third run of `live.js` (`report.json`). The first two runs showed a fault in the script and a premise of LC7c set too broadly (below).
 - **LC1a (AC4).** `graph create-set` under firmware dog's superset reports:
   - the set concept fitting, with `waiting: false`;
   - `word` with `waiting: true`, its problems about `graphContext` set aside.
-- **LC1b.** What `word` still finds in the new set's JSON is install's wordType conditionals alone, four problems, a defect that predates this story (Deviations; its ledger row).
+- **LC1b.** What `word` still finds in the new set's JSON is install's wordType conditionals alone, four problems, a defect that predates this story (the owner's ruling, under Open questions; its ledger row).
 - **LC2 and LC3 (AC3).** The set derived by `POST /api/tapestry-key/derive/:key` has entries in today's shape. It fits the set concept, and nothing `word` finds is about the `graphContext` the derive step built. The rule's check of the set, on the stored tapestryJson, agrees with the cache on every concept, in the same words.
+  - **What didn't hold.** ADR 0042 and the test plan expected its `parentJsonSchemas` to say the set fits `word`. They don't: `word` is `valid: false`, for the four conditional problems LC1b names (the owner's ruling, under Open questions).
 - **LC4 (AC2).**
-  - `graph create-concept` made "live hound", and `graph create-element` made Rex in it, fitting and waiting for nothing.
+  - `graph create-concept` made "live hound 218062", and `graph create-element` made Rex in it, fitting and waiting for nothing.
   - Rex keeps its json tag node (ADR 0020a Decision 9).
   - Before a derive, the rule's check gives one `invalid-fields` finding, marked `missing`, naming no concept.
   - After a derive it finds nothing, and the cache says Rex fits.
@@ -137,12 +148,28 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - **LC6.** The relay's event count was the same before and after: none of these writes signed.
 - **LC7a.** `POST /api/tapestry-key/derive-all/ListItem`: 444 derived, 0 errors, in 1.8 s.
 - **LC7b (AC3, over real firmware).** Over all 444 list items with an entry, 1,169 verdicts, the cache and the rule agree on every one.
-- **LC7c.** No cached `word` verdict says `graphContext` is missing, the split this story ends. What `word` does find: 1,096 wordType-conditional errors and 1,140 "then" errors (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`). There were also 132 set-field errors on the 43 Properties Set nodes, which are derived as words (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
+- **LC7c.** No cached `word` verdict says "`graphContext` is required", the split this story ends. None names `graphContext` except for the three set fields below. What `word` does find, on all 430 of its list items:
+  - 1,096 wordType-conditional errors, each with its "then" error (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`);
+  - on the 44 Properties Set nodes, one for each concept, which are derived as words: 132 set-field errors, three each, and the set conditional's "then" error on each (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
+
+  So the 1,140 "then" errors are those 1,096 and these 44.
+- **The failing verdicts, by concept** (`report.json`, `agreement.tally`). 679 of the 1,169 fail, and `rules check` (A10.31) would report each:
+  - `word`, 430 of 430;
+  - `graph`, 132 of 132;
+  - `validation tool`, 44 of 44;
+  - `core nodes graph`, 44 of 44;
+  - `relationship`, 22 of 22;
+  - `concept graph`, 3 of 44;
+  - `json schema`, 2 of 44;
+  - one each in the hound concepts of runs 2 and 3: each run's Rex, whose entry LC5 put without its description on purpose, and which LC7a's derive pass rebuilt from that entry.
+
+  The other 490 fit: every verdict in twelve concepts, and the rest of `json schema`'s and `concept graph`'s. Only `word`'s failures are diagnosed (the two ledger rows); the others' causes are not yet.
 - **LC8 (AC5).** After the reinstall, rule 7's item in the graph says it judges a node's fully realized tapestryJson, and which writes will call it.
 
-**What the first run showed:**
-- **A fault in the script:** it read `create-concept`'s answer as `concept.tapestryKey`, not `concept.conceptHeader`, so `create-element` was refused `missing-input`.
-- **LC7c, first written as "no `word` verdict mentions `graphContext`":** it counted the Properties Set nodes' set fields as the old split. It now counts only "`graphContext` is required".
+**What the first two runs showed** (each run's output is in `hand-calls.md`):
+- **Run 1 stopped early, on a fault in the script.** It read `create-concept`'s answer as `concept.tapestryKey`, not `concept.conceptHeader`, so `create-element` was refused `missing-input`, and the script then failed on a Cypher call missing its parameter. Its concept, "live hound", has no elements. Run 2's report overwrote its report.
+- **Run 2 passed 13 of 14.** From it on, each run names its concept and set with its run number: run 2's are "live hound 156289" and "live show dogs 156289". Its LC7c, first written as "no `word` verdict mentions `graphContext`", counted the Properties Set nodes' set fields as the old split: 129 errors on 43 nodes. It now fails on any "`graphContext` is required", and on any other `graphContext` error outside the three set fields. Run 3's report overwrote run 2's.
+- **Each run adds a concept,** and with it a Properties Set node among its core nodes. So run 3 counts 44 Properties Set nodes, where run 2 and `gc-examples.js`, run between them, count 43.
 
 **The live suites, on the same instance** (`TAPESTRY_CONTAINER=tapestry-scratch`):
 - **`test/pass-3-finishes-in-minutes.test.js` on the small graph** (3,571 nodes): 12 passed, 0 failed.
