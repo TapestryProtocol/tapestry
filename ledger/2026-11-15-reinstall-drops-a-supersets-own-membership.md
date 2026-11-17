@@ -17,8 +17,15 @@
 
 **Pointer:** `engineering-team/stories/graph-operations-first-slice/16-create-concept-and-update-concept.test-plan.md` (the live check, L3); `src/firmware/install.js` pass 1e.
 
-**More that doesn't fit (2026-11-17, story graph-operations-first-slice #27's live check, L6).** The same path exists for every set: its parent is itself an element of `set`, so `set-superset -HAS_ELEMENT-> parent -IS_A_SUPERSET_OF-> set` is a two-link path pass 1e would count. Yet:
-- three sets `graph create-set` made, each with that path, kept `set-superset`'s direct `HAS_ELEMENT` through a reinstall;
-- firmware's own sets on the agent-memory instance, reinstalled many times, still have theirs.
+**A set's membership in `set`, seen and read (2026-11-17, story graph-operations-first-slice #27).**
+- **Seen** (its live check, L6). Three sets `graph create-set` made kept `set-superset`'s direct `HAS_ELEMENT` through a reinstall. Firmware's own sets on the agent-memory instance, reinstalled many times, still have theirs.
+- **Read, not run** (its review, round 1). Pass 1e does take that membership out, and Pass 3 puts it back:
+  - **Pass 1e** counts paths that mix the two link types (`src/firmware/install.js:856`). So `set-superset -HAS_ELEMENT-> parent -IS_A_SUPERSET_OF-> set` counts, since a set's parent is itself an element of `set`, and the pass deletes the set's direct link (`:862–866`).
+  - **Pass 3's `wire-implicit-elements`** (`install.js:1291`) then wires it again from the set's `z` tag. It counts a node as wired only when a path ends in a `HAS_ELEMENT` into it (`src/api/normalize/index.js:5886–5893`), and a set's other way in ends in `IS_A_SUPERSET_OF`.
+  - **This row's superset case is the opposite.** `superset-superset -HAS_ELEMENT-> set-superset -HAS_ELEMENT-> tea-house-superset` ends in a `HAS_ELEMENT`, so Pass 3 counts it as wired, and the membership stays lost.
 
-Whatever pass 1e does, it doesn't drop a set's membership in `set`.
+  So the set case fits this row's suspected cause, rather than arguing against it.
+- **What follows.**
+  - A set stays in `set` only because Pass 3 runs to the end. A Pass 3 failure is caught and logged while the install goes on (`install.js:1289–1295`), and such a reinstall leaves its sets out of `set`.
+  - A fix of this row's shape, pass 1e counting only class-thread paths, leaves sets alone. A change to `wire-implicit-elements`' check could drop every set's membership.
+  - To confirm the reading on a scratch reinstall, read its output: `set: pruned N HAS_ELEMENT …` (`install.js:900`), then `Implicit elements wired: N` (`:1292`).
