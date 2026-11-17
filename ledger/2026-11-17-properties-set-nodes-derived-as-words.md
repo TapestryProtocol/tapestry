@@ -11,7 +11,7 @@
 - **What `word`'s schema asks.** Its set conditional requires those three fields in `graphContext` whenever `wordTypes` contains `set`. So the node's tapestryJson is never fully realized, and both readers say so, in agreement.
 - **How many.** On the scratch stack after a derive pass: 44 nodes, one for each concept, each with three such errors, 132 in all, and each with the set conditional's "then" error. The run before, with one concept fewer, counted 43 nodes and 129 errors.
 
-**Why it matters now.** Since story 42, `rules check` (A10.31) would report each of them under `word`. The problem is in the deriver's choice, or in the node's labels, not in what the rule judges.
+**Why it matters now.** Since story 42, `rules check` (A10.31) would report each of them under `word`. The problem is in the deriver's choice, or in the node's labels, not in what the rule judges. `rules check` waits for this fix (the owner's ruling at story 42's review round 2, in its Open questions).
 
 **Fix shape** (a decision for whoever takes it):
 - the derive engine picks the set deriver for a node whose `wordTypes` contains `set`;

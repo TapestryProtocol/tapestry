@@ -17,4 +17,10 @@
 - **Say where each number came from.** Planning names the source of each measured fact: firmware's files, a scratch stack, or a named instance on a date. A reader can then tell a file's fact from an instance's.
 - **A home for it:** workflow 1's or workflow 2's grounding steps, beside AGENTS.md's orientation ladder.
 
-**Pointer:** `engineering-team/reviews/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md` (round 2, Harness friction 2); `engineering-team/stories/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md` (Background; Open questions, the owner's ruling).
+**Another occurrence, 2026-11-17 (story 42's review round 3, harness friction 1).**
+- **What it was.** AC1's example said a node with its `graphContext` "fits firmware's `word` schema". That is the claim AC3's first case made, from the same measurement on firmware's file.
+- **Why the narrowing missed it.** Round 2's ask listed the promises to narrow from a reading of the story, and missed this one. Round 3 caught it by checking the rewording as a claim of its own.
+- **A search finds more.** Round 4 searched for the narrowed phrases, and found two more, in ADR 0042's and ADR 0020a's live-check notes.
+- **Fix shape, added:** an ask to narrow a story's promises quotes a search of the story and its ADRs for each narrowed phrase, so its list is complete.
+
+**Pointer:** `engineering-team/reviews/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md` (round 2, Harness friction 2; round 3, Harness friction 1); `engineering-team/stories/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md` (Background; Open questions, the owner's ruling).

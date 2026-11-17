@@ -17,7 +17,7 @@
 
 On the scratch stack after a derive pass, all 430 list items with a cached `word` verdict failed it, with 1,096 such errors, each with its "then" error. The pass's 1,140 "then" errors also count the set conditional's 44, one on each Properties Set node (ledger row `2026-11-17-properties-set-nodes-derived-as-words`). Two days earlier, OPEN.md row 219 saw the Health Audit fail on nearly every concept; this was its second dominant error.
 
-**Why it matters now.** Story 42 made the rule and the derive step judge every node's tapestryJson against the installed schemas, and they agree. So `rules check` (A10.31) would report every element of `word` for these conditionals, and so would the property operations' reports (A10.18).
+**Why it matters now.** Story 42 made the rule and the derive step judge every node's tapestryJson against the installed schemas, and they agree. So `rules check` (A10.31) would report every element of `word` for these conditionals, and so would the property operations' reports (A10.18). `rules check` waits for this fix (the owner's ruling at story 42's review round 2, in its Open questions).
 
 **Fix shape** (a decision for whoever takes it):
 - skip the conditionals when the destination path is `word.wordTypes` itself;
