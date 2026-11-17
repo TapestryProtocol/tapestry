@@ -147,5 +147,5 @@ For Architecture, not this gate (each answered in ADR 0018):
 - The rule the reports call: ADR [0020](../../decisions/graph-operations-first-slice/0020-create-element.md) and [0020a](../../decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md](../../decisions/graph-operations-first-slice/0018-property-operations.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [18-property-operations.test-plan.md](18-property-operations.test-plan.md)
 - Review: (filled in after Review phase)
