@@ -98,6 +98,6 @@ For Architecture, not this gate:
 - **The answer's shape, the change entry's, and the refusals' codes and statuses.**
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)

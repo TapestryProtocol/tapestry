@@ -112,7 +112,7 @@ We chose **Option A**. It changes only what the call asks, keeps `own` one defin
 
 Nothing is written before step 12, so every refusal leaves the graph as it was.
 
-**3. Whose node it is: one test, in `_nodes.js`** (AC5).
+**3. Whose node it is: one test, in `_nodes.js`** (AC5). *(Amended by ADR graph-operations-first-slice/0026 Decision 4: a person node (`NostrUser`) and a placeholder the import made are never the instance's own, whatever a read answers. `requireOwn` refuses them `person-node` and `placeholder-node`, before `not-own-node`.)*
 - **`whoseNode(read, key)`** reads U0 and returns `{ key, uuid, name, author, hasLetter, own }`, or null when no node has the key. A change entry never has it. `own` is the read conventions' own: `R.nodeOf({ tapestryKey, author }, R.ownKeys()).own`, computed by that very function, so a node counts as the instance's own in a write exactly when a read answers `own: true` for it. That means a null author, or one of the assistant's and the owner's keys.
 - **`requireOwn(read, key, { input })`** answers that, or throws:
   - `unknown-node` (404), naming the input;
