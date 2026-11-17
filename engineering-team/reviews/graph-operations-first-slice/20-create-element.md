@@ -447,3 +447,141 @@ Each fix was checked as a fresh claim, from commands, this review's own round-1 
 **What is asked.** One sentence of rule 7's Says, and its echo in `_schemas.js`'s header, still claim agreement where the two readers split. Fixing it is the Implementer's work, since Amendment 1, which the owner approved, already states the conditions.
 
 - [ ] _On PASS: not applicable. The verdict is CHANGES_REQUESTED, so the story stays `**Status:** Approved`._
+
+## Round 3 — 2026-11-16 (HEAD e607aa61)
+
+**Diff:** `git diff b761b09c..e607aa61`: the three commits after round 2's review (`b761b09c`).
+- `9347aaad`: ADR 0020's edits. Decision 2's step 3 and Decision 18's table gain `reserved-key`, and Amendment 1's firmware claim is scoped, with a dated note;
+- `66c80d37`: SC9's two new cases;
+- `e607aa61`: rule 7's Says and its firmware element, `_schemas.js`'s header, the ledger row, the story's note and the plan's record.
+
+Under `src/`, this round changes only `_schemas.js`'s header comment, so no running code changed. Each changed sentence was re-derived from commands, round 2's suggested scopes included (role step 10).
+
+### Quality gates (round 3)
+
+- [ ] **The full gate:** not run here, for round 1's reason (ledger row `2026-11-14-harness-points-tests-at-agent-memory`). It runs as the pull request's CI check, with the route-surface suites.
+- [x] **Run by the Reviewer** on `e607aa61`, one suite at a time, with round 1's dead endpoints. All 22 pass, with round 2's counts:
+
+  | Suite | Result line |
+  |---|---|
+  | `test/operations/graph/create-element.test.js` | 33 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/element-schemas.test.js` | 9 passed, 0 failed, 0 skipped |
+  | `test/operations/rules/element-fits-schema.test.js` | 7 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/elements-agent-through-cli.test.js` | 1 passed, 0 failed, 0 skipped |
+  | `test/graph-rule-firmware.test.js` | 13 passed, 0 failed, 4 skipped (GL1–GL4, the live checks) |
+  | `test/graph-rules-builder.test.js` | 26 passed, 0 failed, 0 skipped |
+  | `test/firmware-element-sync.test.js` | 21 passed, 0 failed, 0 skipped |
+  | `test/operations/graph-fake.test.js` | 26 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/fields.test.js` | 8 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/map-fields.test.js` | 12 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/mark-field.test.js` | 16 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/unmark-field.test.js` | 13 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/fields-agent-through-cli.test.js` | 1 passed, 0 failed, 0 skipped |
+  | `test/operations/change-entry-fields.test.js` | 3 passed, 0 failed, 0 skipped |
+  | `test/operations/write-path.test.js` | 13 passed, 0 failed, 0 skipped |
+  | `test/operations/rules/field-mark-allowed.test.js` | 14 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/create-concept.test.js` | 23 passed, 0 failed, 0 skipped |
+  | `test/operations/lifecycle/tapestry-key-paths.test.js` | 19 passed, 0 failed |
+  | `test/operations/graph/list-relationships.test.js` | 26 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/resolve.test.js` | 22 passed, 0 failed, 0 skipped |
+  | `test/operations/resolve.test.js` | 11 passed, 0 failed, 0 skipped |
+  | `test/operations/graph/concept-names.test.js` | 5 passed, 0 failed, 0 skipped |
+
+- [x] **`node src/firmware/graph-rules.js --check`:** the 7 items are current (exit 0).
+- [x] **`bash scripts/harness-lint.sh`:** clean (0 violations) before this section was added. With this section's verdict, its L1 check expects the story's status to be Done, which the session sets in the review commit.
+
+### Round 2's findings, checked again
+
+| Round 2 | The fix | Checked by | Holds |
+|---|---|---|---|
+| Blocking 1, the agreement sentence | `docs/GRAPH_RULES.md:123`, its element (`element-fits-schema.json:15`) and `_schemas.js:13–21`: scoped to an element whose word block has its slug, name and wordTypes | the real derive step beside the check, in a probe; reading `word.js` and create-element's write path | Yes, for what it now states. Two narrow cases it leaves unstated: Non-blocking R3-1 and R3-2 |
+| Non-blocking 1, the firmware claim | ADR 0020 `:276`, scoped, with a dated note | round 2's probe of the 83 firmware element files, and its scan | Yes |
+| Non-blocking 2, the ledger row | `ledger/2026-11-16-derive-step-and-rule-check-split.md:20` | `word.js:78–82`, and `validation-tool`'s schema | Yes |
+| Non-blocking 3, the story's note | `20-create-element.md:91` | round 2's scan: every firmware schema requires only `word` and its own key, except `word`'s | Yes |
+| Non-blocking 4, the ADR's pointers | Decision 2's step 3 (`:66`), Decision 18's row (`:184`), Amendment 1's "Who else" | the code's order (`create-element.js:110–117`) | Yes |
+| Non-blocking 5, SC9 | two cases (`element-schemas.test.js:329–330`, `:340–343`) | a mutant derive step for each split | Yes |
+
+### The six questions
+
+1. **Does the new agreement sentence say only what holds?** For what it states, yes.
+   - **"As every element create-element writes has" holds on every path that writes.**
+     - `elementJson` gives the word block a slug `<concept slug>--<slug>`, a name `<singular>: <name>`, and wordTypes starting with `word` (`_elements.js:292`).
+     - That JSON is the only one create-element stores (`create-element.js:152–153`, written in step 9).
+     - A repeat writes nothing, and `reserved-key` keeps any section off the `word` key.
+     - With such a block, the derive step's defaults (`word.js:78–82`) change nothing.
+   - **"On each concept both judge" is right, read as each concept for which both give a fits verdict.**
+     - The derive step judges each ConceptHeader whose class thread reaches the node within ten links, and each one a `z` tag names, once for each schema node (`word.js:102–117`).
+     - The rule judges each concept whose class thread reaches the node. Where the derive step gives `valid: false` (a schema that doesn't parse or compile), or two verdicts (two schema nodes), the rule gives `no-schema`.
+   - **The probe:** the real `deriveWord`, stubbed as SC9 stubs it. Under create-concept's schema, with a full word block and a fresh cache, both say the element fits.
+   - **Two cases it leaves unstated,** both narrow:
+     - a cache left stale by a json-tag edit (Non-blocking R3-1);
+     - a schema that says something about `graphContext` without requiring or forbidding it (Non-blocking R3-2).
+2. **GB3 and `--check`.** GB3's first sentence is unchanged: "an element's JSON fits the JSON schema of each concept it belongs to." graph-rules-builder passes 26, and the element's `word.description` didn't change. `--check` is clean.
+3. **The ADR edits hold.**
+   - Decision 2's step 3 (`:66`) names `reserved-key` after `made-elsewhere` and before `no-superset`, the code's order (`create-element.js:110–117`).
+   - Decision 18's row (`:184`) gives it 409, as `_elements.js:59` does.
+   - Amendment 1's claim (`:276`) is now scoped to a full word block, which round 2's probe of all 83 firmware element files and its scan bear out. The dated note says when the claim was scoped, and why.
+   - "Who else" now says what was done.
+4. **SC9 pins four splits, and each of its four assertions fails on its own when its split stops holding.** Each mutant derive step was swapped into the real suite by a resolver redirect under `/private/tmp`, with the repository untouched:
+
+   | Mutant derive step | The split it removes | SC9 fails on |
+   |---|---|---|
+   | validates without its own `graphContext` | firmware `word`'s | "firmware word's schema: … got derive false" |
+   | ajv's `removeAdditional`, on a copy of `base` | a schema that forbids extra top-level keys | "a schema that forbids extra top-level keys: … got derive true" |
+   | keeps a json tag that has no word block | JSON with no word block | "JSON with no word block … got derive true" |
+   | fills in no default slug | a word block missing a field the derive step fills in | "a word block with no slug … got derive false" |
+
+   With the real derive step, SC9 passes.
+5. **The ledger row and the story's note say what holds.**
+   - The row's new split (`:20`) is the derive step's three defaults, with `validation-tool`'s `word.slug` as its example.
+   - "Pins the first four of these splits" (`:23`) matches SC9's four cases.
+   - The note (`:91`) names `word` and the eleven `made-elsewhere` concepts. Round 2's scan found those are all the exceptions.
+6. **What the fixes broke, and what else blocks: nothing found.** The 22 suites pass, and the round changes no running code. `reserved-key` is the only refusal code of that name in the catalog.
+
+### Findings (round 3)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **The agreement also needs the derive step's cache to be current.** This applies to `docs/GRAPH_RULES.md:123`, `_schemas.js:13–21` and ADR 0020 `:276`.
+   - The derive step judges its cached JSON when there is one with a word block (`word.js:44`). Nothing refreshes that cache when the json tag changes:
+     - today's save-element-json (`regenerateJson`, `src/api/normalize/index.js:60`) and set-json-tag (`handleSetJsonTag`, `:4791`) re-sign and re-import, and leave the cache as it was;
+     - only `src/api/strfry/tapestryBrainWrite.js:103` removes an entry before deriving;
+     - `deriveByKey` and `deriveAll` (`src/lib/tapestry-derive.js`) don't, and the store has no bulk clear.
+   - **The probe:** create-concept's schema, with a full word block in both documents. The json tag has lost its description; the cache still has it. The derive step says valid, and this check says "`beagle.description` is required".
+   - **This is OPEN.md row 139,** open since 2026-08-05. The row says "Whether other write paths (e.g. `save-element-json`) hit the same staleness is unaudited". This round answers that: both routes do.
+
+   Optional: point the ledger row (and the sentence, if wanted) at row 139, and add this answer to row 139.
+2. **"Neither requires nor forbids `graphContext`" is narrower than what's needed.** This applies in the same three places.
+   - A schema can split the two without requiring or forbidding `graphContext`: one that types it (`{"properties": {"graphContext": {"type": "string"}}}`), or one that keys a dependency on it. The probe gives the derive step invalid and the check fits, for both.
+   - No firmware schema but `word`'s mentions `graphContext`, and neither does any schema create-concept writes.
+
+   Optional: "says nothing about `graphContext`".
+
+#### Harness friction
+
+1. Nothing new. The gate's friction is round 1's.
+
+### Verdict (round 3)
+
+**PASS**
+
+**What holds.**
+- **Round 2's blocking finding is fixed.** The agreement sentence in the rule's definition, its firmware copy and `_schemas.js`'s header is now scoped to the elements create-element writes, and it names where else the two can split. Within that scope it holds, apart from the two narrow cases above. One of those is a known derive-step bug, already on the ledger.
+- **Round 2's five non-blocking findings are each fixed.** SC9 now pins all four splits, and each of its assertions catches its own.
+- **Across the three rounds:**
+  - create-element does what ADR 0020 and Amendment 1 decided;
+  - every criterion and refusal has a test;
+  - the live check's record covers what the fake can't;
+  - nothing signs;
+  - and the 22 suites pass.
+
+**Still to come:** the full gate in the pull request's CI. Once the change is on staging, the firmware reinstall that ledger row `2026-11-16-rule-seven-awaits-firmware-reinstall` asks for.
+
+## On PASS (same commit)
+
+- [x] Story `**Status:**` set to `Done` in place, in this review's commit.
+- [x] Completion detection performed. The result is in the chat, not in this file.

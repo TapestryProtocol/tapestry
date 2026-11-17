@@ -1,6 +1,6 @@
 # Story 20: `graph create-element` — make an element of a concept, or of a set in its class thread, with no event and with its fields checked against the concept's schema
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.20 — https://loom.brainstorm.world/t/A10.20
