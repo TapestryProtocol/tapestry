@@ -188,6 +188,8 @@ const SCENARIO = {
   'concept-slug-unique': 'other-only',
   'class-thread-acyclic': 'throws',
   'set-has-a-parent': 'own-same+other',
+  // Rule 7, joined with story graph-operations-first-slice #20 (ADR graph-operations-first-slice/0020 Decision 12).
+  'element-fits-schema': 'own-reordered',
 };
 const runs = new Map();
 function runPass1b(scenario = SCENARIO) {
@@ -247,7 +249,7 @@ t('IS8: a lookup that fails is recorded as an error, the element isn\'t created 
   const r = runPass1b();
   assert(r.errors.some((e) => e.slug === 'class-thread-acyclic'), `an error is recorded for class-thread-acyclic; got ${show(r.errors)}`);
   assert(!r.createElement.includes('class-thread-acyclic'), 'it isn\'t created after a failed lookup');
-  assert(r.lookups.length === 6, `all six elements were looked up, the ones after the failure included; got ${r.lookups.length}`);
+  assert(r.lookups.length === Object.keys(SCENARIO).length, `all ${Object.keys(SCENARIO).length} elements were looked up, the ones after the failure included; got ${r.lookups.length}`);
 });
 
 t('IS9: every lookup finds the header by its address, and every other concept installs as before: create-element for each element file, no lookup', () => {
@@ -266,7 +268,7 @@ t('IS9: every lookup finds the header by its address, and every other concept in
 });
 
 t("IS10: with another author's element read first, the assistant's that differs is the one re-signed, never the other's", () => {
-  const others = { 'tapestry-key-unique': 'own-reordered', 'relationship-type-allowed': 'own-reordered', 'concept-slug-unique': 'own-reordered', 'class-thread-acyclic': 'own-reordered', 'set-has-a-parent': 'own-reordered' };
+  const others = { 'tapestry-key-unique': 'own-reordered', 'relationship-type-allowed': 'own-reordered', 'concept-slug-unique': 'own-reordered', 'class-thread-acyclic': 'own-reordered', 'set-has-a-parent': 'own-reordered', 'element-fits-schema': 'own-reordered' };
   const r = runPass1b({ ...others, 'field-mark-allowed': 'other-first+own-changed' });
   const re = r.regenerateJson.map((x) => x.uuid);
   assert(show(re) === show([own('field-mark-allowed')]), `one re-sign, at the assistant's ${own('field-mark-allowed')}, though another author's row came first; got ${show(re)}`);

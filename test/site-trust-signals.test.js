@@ -51,6 +51,7 @@ const ESTATE_HOSTS = [
   'brainstorm.world',
   'brainstorm.nosfabrica.com',
   'brainstorm-staging.nosfabrica.com',
+  'brainstorm-staging.relay.tools',
   // R&D UI — nous-clawds4/tapestry
   'tapestry.brainstorm.world',
   'staging.brainstorm.world',

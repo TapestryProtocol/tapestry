@@ -13,7 +13,9 @@
  * write use this one module. Like _nodes.js, it opens nothing when it loads: what it reads with (firmware, the
  * assistant's key, the LMDB store, the Neo4j driver) is required when first called.
  *
+ *   readJson(raw)                            a json tag's value, read: { json }, or { json: null, problem }
  *   conceptOf(read, key)                     the concept a header's tapestryKey names, or null
+ *   conceptsOfNodes(read, keys)              the concept headers whose class thread reaches each node
  *   propertyNodeOf(read, concept, field)     the tapestryKey of the field's node in the concept's tree, or null
  *   firstSetOf(read)                         the first set, { uuid, key }, or null when the firmware isn't installed
  *   marksOf(read, { concept })               every mark, found back to its concept; one concept's when asked
@@ -377,6 +379,26 @@ async function mapConcept(tx, concept, { only = null, fields = null, strays = fa
 }
 
 /**
+ * The concept headers whose class thread reaches each node in `keys`, read from the node back to each header →
+ * [{ concept, key }], each pair once. A node no class thread reaches has no row. mapNodes reads with it, and so does the
+ * rule element-fits-schema's check of an element as it stands (ADR graph-operations-first-slice/0020 Decision 12).
+ */
+async function conceptsOfNodes(read, keys) {
+  const wanted = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string' && k))];
+  if (!wanted.length) return [];
+  const T = types();
+  const rows = await read(
+    `MATCH (e:TapestryNode)
+     WHERE e.tapestryKey IN $keys AND NOT e:GraphChange
+     MATCH (e)<-[:${T.TERM}]-()<-[:${T.PROP}*0..]-(:Superset)<-[:${T.INIT}]-(h)
+     WHERE h:ConceptHeader OR h:ListHeader
+     RETURN DISTINCT h.tapestryKey AS concept, e.tapestryKey AS key`,
+    { keys: wanted },
+  );
+  return rows.filter((r) => typeof r.concept === 'string' && typeof r.key === 'string').map((r) => ({ concept: r.concept, key: r.key }));
+}
+
+/**
  * The mapping of a write's nodes: each node in `keys` brought in line with the marks of every concept it is an element
  * of (found through the class-thread walk, read from the node back to each concept header), and nothing else. Every
  * element write the new operations add later (create-element, update-node, add-to-concept) calls it inside its own
@@ -388,15 +410,7 @@ async function mapNodes(tx, keys) {
   const wanted = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string' && k))];
   if (!wanted.length) return out;
   const read = (cypher, params) => tx.read(cypher, params);
-  const T = types();
-  const rows = await read(
-    `MATCH (e:TapestryNode)
-     WHERE e.tapestryKey IN $keys AND NOT e:GraphChange
-     MATCH (e)<-[:${T.TERM}]-()<-[:${T.PROP}*0..]-(:Superset)<-[:${T.INIT}]-(h)
-     WHERE h:ConceptHeader OR h:ListHeader
-     RETURN DISTINCT h.tapestryKey AS concept, e.tapestryKey AS key`,
-    { keys: wanted },
-  );
+  const rows = await conceptsOfNodes(read, wanted);
   const byConcept = new Map();
   for (const r of rows) {
     if (typeof r.concept !== 'string' || typeof r.key !== 'string') continue;
@@ -460,7 +474,9 @@ module.exports = {
   say,
   tooManyElements,
   markType,
+  readJson,
   conceptOf,
+  conceptsOfNodes,
   propertyNodeOf,
   firstSetOf,
   marksOf,

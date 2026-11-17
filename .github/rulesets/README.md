@@ -20,7 +20,8 @@ public API on 2026-11-11. One difference: `restrict-deletions` adds `feat/tags`,
 and drops `feature-relay-discovery` and `feature-tapestry-discovery`, which no longer exist.
 
 The policy file is written from GitHub's REST reference for Actions policies (API version 2026-03-10), for the choice
-recorded in `ledger/2026-11-16-main-guard-blocked-by-github-policy.md`.
+recorded in `ledger/2026-11-16-main-guard-blocked-by-github-policy.md`. It matches the live policy, which the owner
+created on 2026-11-17: its settings page showed the same name, enforcement, path and allowed event.
 
 ## Apply
 
