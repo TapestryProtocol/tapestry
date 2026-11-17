@@ -383,3 +383,30 @@ For `already-gone`, it says when the node was deleted, by whom and through which
 - The read conventions' `own` for person nodes and placeholders: a ledger row.
 - Hiding or muting another author's node (catalog §10, question 5).
 - Bulk deletes.
+
+## Amendment 1 (2026-11-17, at test design; approved by the owner with the test plan) — the statements, the cap's two counts, and a third hollow letter
+
+Test design wrote the statements the ADR names, and found where they refine it. The test plan gives each statement whole, and the fake graph runs them. DN0 holds the fake to them.
+
+1. **The reads are one-hop statements from a node found by its tapestryKey:**
+   - D2, the class-thread links out, with `type(r) IN $types`;
+   - D3, the counts out and in;
+   - D4, the relationships out and in.
+
+   D4 answers each relationship's `elementId`, so one read twice is kept once: a link from the node to itself, or one between the node and its tag. Each tag is read whole with U0, and its relationships with D4.
+2. **The tags are deleted one at a time, with C11:** `MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t`, the statement update-concept already uses. Then the node goes with Decision 10's second statement.
+   - This replaces Decision 10's first statement and its `NOT EXISTS`.
+   - A tag that another node has too is told from D4's reads: it has a `HAS_TAG` from a node other than this one. It stays, as Decision 9 says.
+3. **The cap is checked twice** (Decision 8).
+   - **First, on D3's counts** for the node's own relationships, before anything is read whole. A link from the node to itself counts twice there, so a node at exactly 10,000 with such a link is refused.
+   - **Then on the relationships read,** the tags' among them, each counted once.
+4. **`stored` is the value the store held** for an `lmdb:` reference, as `F.readJson` resolves it: the object, not its text. It is null when the store's entry is missing.
+5. **A third hollow letter.** The Implementation notes name `propertyNode` and `ruleElement`. `loner` in `test/helpers/createElementGraph.js` is a third: a `NostrEvent` with an id and no `created_at`, which update-node's UN26 refuses. It gets a `created_at` too.
+   - `held` in `test/helpers/conceptGraph.js` ("not a concept": an id, no pubkey, no kind) reads as a placeholder by Decision 4's mark.
+   - No write tests whose node `held` is, so it stays as it is.
+6. **The fake graph learns three things:**
+   - D6's node delete;
+   - `failures.vanish`, which deletes a node, with the tags only it has, and commits another transaction's entry, as if that transaction had done it while this one waited;
+   - `failures.entityNotFound`, which fails a number of first statements.
+
+   Each failure fails a transaction's first statement with Neo4j's `Neo.ClientError.Statement.EntityNotFound`.

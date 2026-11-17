@@ -99,5 +99,5 @@ For Architecture, not this gate:
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/26-delete-node.test-plan.md`
 - Review: (filled in after Review phase)

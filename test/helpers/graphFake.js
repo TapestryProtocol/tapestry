@@ -76,6 +76,16 @@
  * with C5. A CREATE's SET clause is looked for only after its node's pattern, so the label Set in
  * `CREATE (n:ListItem:Set {…})` is read as a label, as Neo4j reads it, not as a SET clause.
  *
+ * Story graph-operations-first-slice #26 (ADR graph-operations-first-slice/0026, Decisions 6 and 10; its test plan's
+ * statements) adds:
+ *   - D6, a node's own delete: `MATCH (n:TapestryNode {tapestryKey: $p}) WHERE NOT n:GraphChange DETACH DELETE n`,
+ *     beside C11's tag delete, each taking every relationship of what it deletes with it;
+ *   - two failures for the write path's second try, each at a transaction's first statement, as Neo4j's
+ *     Neo.ClientError.Statement.EntityNotFound: failures.vanish { key, add } is another transaction that deleted the
+ *     node keyed `key`, with the tags only it has, and committed `add`'s nodes (its change entry) while this one waited
+ *     for its lock; failures.entityNotFound, a count, fails that many first statements with nothing else changed.
+ * D1 to D4, delete-node's reads, are reads the two read fakes already run.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -510,18 +520,47 @@ function createTags(s, query, params) {
   return { rows: countAlias ? [{ [countAlias]: rows.length }] : [], counters };
 }
 
-/** C11: MATCH (t:NostrEventTag… {tapestryKey: $p}) DETACH DELETE t, for a tag node only. */
+/**
+ * C11: MATCH (t:NostrEventTag… {tapestryKey: $p}) DETACH DELETE t, for a tag node only; and story
+ * graph-operations-first-slice #26's D6, a node's own delete: MATCH (n:TapestryNode {tapestryKey: $p}) WHERE NOT
+ * n:GraphChange DETACH DELETE n. Each takes every relationship of the nodes it deletes with them.
+ */
 function deleteTag(s, q, params) {
-  const m = oneLine(q).match(new RegExp(`^MATCH\\s*\\(\\s*(\\w+)\\s*${LABELS_TEXT}\\{\\s*tapestryKey\\s*:\\s*\\$(\\w+)\\s*\\}\\s*\\)\\s*DETACH\\s+DELETE\\s+(\\w+)\\s*;?$`, 'i'));
-  if (!m || m[4] !== m[1]) throw cantRun("a DETACH DELETE it can't read (C11 is MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t)", q);
+  const m = oneLine(q).match(new RegExp(`^MATCH\\s*\\(\\s*(\\w+)\\s*${LABELS_TEXT}\\{\\s*tapestryKey\\s*:\\s*\\$(\\w+)\\s*\\}\\s*\\)\\s*(?:WHERE\\s+NOT\\s+(\\w+)\\s*:\\s*GraphChange\\s+)?DETACH\\s+DELETE\\s+(\\w+)\\s*;?$`, 'i'));
+  if (!m || m[5] !== m[1] || (m[4] && m[4] !== m[1])) throw cantRun("a DETACH DELETE it can't read (C11 is MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t; D6 is MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange DETACH DELETE n)", q);
   const labels = labelsIn(m[2]);
-  if (!labels.some((alts) => alts.length === 1 && alts[0] === 'NostrEventTag')) throw cantRun('a DETACH DELETE of something other than a tag node (C11 names :NostrEventTag)', q);
-  const gone = s.nodes.filter((n) => n.props.tapestryKey === params[m[3]] && hasLabels(n, labels));
+  const tagOnly = labels.some((alts) => alts.length === 1 && alts[0] === 'NostrEventTag');
+  const notEntry = Boolean(m[4]);
+  if (!tagOnly && !notEntry) throw cantRun('a DETACH DELETE of something other than a tag node (C11 names :NostrEventTag) that could also take a change entry (D6 says WHERE NOT n:GraphChange)', q);
+  const gone = s.nodes.filter((n) => n.props.tapestryKey === params[m[3]] && hasLabels(n, labels) && !(notEntry && n.labels.includes('GraphChange')));
   const eids = new Set(gone.map((n) => n.eid));
   const rels = s.rels.filter((r) => eids.has(r.from) || eids.has(r.to));
   s.nodes = s.nodes.filter((n) => !eids.has(n.eid));
   s.rels = s.rels.filter((r) => !rels.includes(r));
   return { rows: [], counters: { ...zero(), nodesDeleted: gone.length, relationshipsDeleted: rels.length } };
+}
+
+/** The error Neo4j gives a statement that waited for a node's lock while another transaction deleted the node. */
+function entityNotFound() {
+  return Object.assign(new Error("Unable to load NODE: another transaction deleted it while this one waited for its lock (the fake graph's failures)"), { code: 'Neo.ClientError.Statement.EntityNotFound' });
+}
+
+/** failures.vanish's other transaction, over the committed state: the node keyed `key` and the tags only it has go, and `add`'s nodes come. */
+function vanish(state, { key, add = [] }) {
+  const node = state.nodes.find((n) => n.props.tapestryKey === key && !n.labels.includes('GraphChange'));
+  const gone = new Set();
+  if (node) {
+    gone.add(node.eid);
+    for (const r of state.rels) {
+      if (r.from !== node.eid || r.type !== 'HAS_TAG') continue;
+      const t = state.nodes.find((n) => n.eid === r.to);
+      const shared = state.rels.some((x) => x.type === 'HAS_TAG' && x.to === r.to && x.from !== node.eid);
+      if (t && t.labels.includes('NostrEventTag') && !shared) gone.add(t.eid);
+    }
+  }
+  state.nodes = state.nodes.filter((n) => !gone.has(n.eid));
+  state.rels = state.rels.filter((r) => !gone.has(r.from) && !gone.has(r.to));
+  for (const n of add) state.nodes.push({ eid: state.nextEid++, labels: [...n.labels], props: { ...n.props } });
 }
 
 /** Run one statement over state `s` (changed in place); { rows, counters }. */
@@ -568,9 +607,23 @@ function fakeGraph(stateFile) {
       const committed = readState(stateFile);
       const s = copy(committed);
       const log = [];
+      // failures.vanish and failures.entityNotFound fail the first statement (story graph-operations-first-slice #26):
+      // what they change is in `committed`, which the rollback below keeps.
+      let started = false;
+      const first = () => {
+        if (started) return;
+        started = true;
+        const f = committed.failures || {};
+        if (f.vanish) { vanish(committed, f.vanish); delete f.vanish; throw entityNotFound(); }
+        if (Number.isInteger(f.entityNotFound) && f.entityNotFound > 0) {
+          f.entityNotFound -= 1;
+          if (!f.entityNotFound) delete f.entityNotFound;
+          throw entityNotFound();
+        }
+      };
       const tx = {
-        async run(cypher, params) { log.push({ call: 'tx.run', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); return exec(s, cypher, params, { write: true }); },
-        async read(cypher, params) { log.push({ call: 'tx.read', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); return exec(s, cypher, params).rows; },
+        async run(cypher, params) { log.push({ call: 'tx.run', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params, { write: true }); },
+        async read(cypher, params) { log.push({ call: 'tx.read', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params).rows; },
       };
       try {
         const result = await work(tx);
