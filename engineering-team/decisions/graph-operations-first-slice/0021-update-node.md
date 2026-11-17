@@ -143,7 +143,7 @@ Nothing is written before step 12, so every refusal leaves the graph as it was.
   - `set`: A10.21.a (the owner's answer, open question 1);
   - `graph-rule`: the rulebook.
 
-  A node is refused when one of its concepts' headers sits at the firmware address of one of these slugs (`firmware.conceptUuid`, as `X.madeElsewhere` matches). The first in the list names the operation. So a concept's superset, an element of `superset` and of `set`, names update-concept.
+  A node is refused when one of its concepts' headers sits at the firmware address of one of these slugs (`firmware.conceptUuid`, as `X.madeElsewhere` matches) *(widened by Amendment 1: or when it carries one of these nodes' role labels)*. The first in the list names the operation. So a concept's superset, an element of `superset` and of `set`, names update-concept.
 - **`firmware-node`** (409). `X.firmwareElements()` works out, once per process, the address install gives each of the active firmware's element files (fact 8), mapped to the file's path. A node at one of those addresses is refused, naming its file. A firmware reinstall can make it again as its file says, and firmware changes through `lifecycle seed-firmware` (A10.37). An element of a firmware concept that firmware's files don't define is another matter: one of the owner's own relationship types, say, sits at no such address and changes like any other.
   - The name is derived from `install.js:262–266`, copied, since install doesn't export it. If install's changes, this must follow (as `_sets.js` says of its own copy of `categoryToSlug`).
 - **`not-an-element`** (409) when the node has no judged concept. Either no concept's class thread reaches it, or only word's does. There is no section to change and no schema to check against (D9). `graph add-to-concept` (A10.22) makes a node an element.
@@ -246,7 +246,7 @@ The stamp is a fact of the graph, so this needs no read of the store. A store th
 | `not-installed` | 409 | The instance has no assistant key, so it can't tell its own nodes or firmware's |
 | `unknown-node` | 404 | `node` names no node (a change entry is not one) |
 | `not-own-node` | 409 | The node came from another author's event, or records another author (D4; Decision 3) |
-| `made-elsewhere` | 409 | The node is a concept header, a core node, a property, a set or a graph rule, which another operation changes (Decision 4) |
+| `made-elsewhere` | 409 | The node is a concept header, a core node, a property, a set or a graph rule, which another operation changes, by its concepts or its role labels (Decision 4; Amendment 1) |
 | `firmware-node` | 409 | The node is one of firmware's own elements (Decision 4) |
 | `not-an-element` | 409 | No concept but `word` reaches the node |
 | `unknown-concept` | 404 | `concept` names no concept header |
@@ -336,3 +336,23 @@ Beyond AC6's list: `not-installed` is a mechanic create-element has too. AC6 ask
 - The cache's rebuild (A10.36) and the derive step's preference for its copy (OPEN.md row 139).
 - Concept-dependent rules (design §7), today's save-element-json and set-json-tag routes (D15), and their field mapping (A10.5.a).
 - Publishing (A10.34), refs as inputs (A10.9.a), and bulk updates.
+
+## Amendment 1 (2026-11-16, at test design; for the owner's approval with the test plan) — the nodes another operation changes, told by their role labels too
+
+The test seed showed a gap in Decision 4, which found these nodes by their concepts alone.
+- **A header today's create-concept route made** isn't an element of the concept-header concept until a firmware reinstall wires it (pass 1d½). Today's route makes only the core nodes elements of their firmware concepts (ADR 0016, fact 3).
+- **A set today's create-set route made** isn't an element of the set concept until a reinstall's pass 1d wires it.
+- **So update-node would answer `not-an-element`** for either one, and point to add-to-concept, which is the wrong operation.
+
+What changes:
+1. **`made-elsewhere` also reads the node's role labels,** after its concepts, in this order:
+   - `ConceptHeader` or `ListHeader`: `graph update-concept`;
+   - `Superset`: `graph update-concept`;
+   - `JSONSchema`: `graph set-schema` (A10.18);
+   - `Property`: `graph update-property` (A10.18);
+   - `Set`: A10.21.a.
+
+   These are the labels the import, today's routes and create-concept give such nodes (BIBLE §9; ADR 0016 Decision 3; ADR 0028 Decision 5). A node with no event takes its labels from a fixed list, never from input (`_eventless.js`'s `LABELS`). A primary property its concepts don't yet reach names `graph update-property`, a property's operation; the concept test comes first, and names update-concept, as Decision 4 does.
+2. **A `Set` label counts only on a node with an address,** as `_sets.js`'s `kindOf` reads a set (ADR 0028 Amendment 3). The trust pipeline's card sets, labelled `Set` with no address, stay `not-an-element`.
+3. **U0 reads the whole node,** with the statement `_sets.js`'s R1 uses: `MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange RETURN n`. The fake graph already runs it. So `whoseNode` answers the node's labels too: `{ key, uuid, name, author, hasLetter, labels, own }`.
+4. **Decision 20's `made-elsewhere` row** reads: the node is a concept header, a core node, a property, a set or a graph rule, by its concepts or by its role labels.
