@@ -19,6 +19,21 @@
  *   describeElement({ key, address, name, slug, concept, parents, hasLetter })  an element as the answer gives it (Decision 14)
  *   link(tx, from, to)                                one HAS_ELEMENT from a superset or set to the element (Decision 10)
  *
+ * graph update-node adds (story graph-operations-first-slice #21; ADR graph-operations-first-slice/0021, Decisions 4,
+ * 8–10 and 17, and Amendment 1):
+ *   CHANGED_ELSEWHERE, changedElsewhere({ conceptUuids, labels, uuid })  the nodes another operation changes, by
+ *                                                     their concepts, then by their role labels, and the operation each
+ *                                                     refusal names; say.changedElsewhere words it
+ *   firmwareElements(), firmwareElementOf(uuid)       the address install gives each firmware element file, and the file
+ *   repeatsOf(read, { concept, name, authors, address })  every element of the concept the name repeats, by those
+ *                                                     authors: E3 with e.pubkey IN $authors; findRepeat is its first
+ *                                                     with the assistant alone
+ *   mergeSection(section, fields)                     the fields merged into a section: each given value in its place
+ *                                                     or at the end, a null taking a field out, an object replaced whole
+ *   renamedJson(json, { was, now })                   a rename's JSON: each section's name and slug, and the word block's
+ *                                                     name, title and slug, where they held what the old name gave
+ *   CONCEPTS                                          the schema of an answer's concepts, each with whether it fits
+ *
  * Like _nodes.js and _sets.js, it opens nothing when it loads: firmware, the assistant's key and the LMDB store are
  * required when first called. It never signs, publishes or reads a key.
  */
@@ -84,6 +99,56 @@ const MADE_ELSEWHERE = Object.freeze({
   'graph-rule': 'the rulebook',
 });
 
+/**
+ * The nodes graph update-node leaves to another operation (ADR 0021 Decision 4), in the order the refusal is chosen:
+ * [firmware slug of the concept, the operation the refusal names, what such a node is]. A node is one when one of its
+ * concepts' headers sits at that slug's firmware address, or (Amendment 1) when it carries the role label such a node
+ * carries (CHANGED_BY_LABEL), since today's routes make a concept's header and a set before a reinstall wires them in.
+ */
+const CHANGED_ELSEWHERE = Object.freeze([
+  ['concept-header', 'graph update-concept', 'a concept header'],
+  ['superset', 'graph update-concept', "a concept's superset"],
+  ['primary-property', 'graph update-concept', "a concept's primary property"],
+  ['properties-set', 'graph update-concept', "a concept's properties set"],
+  ['property-tree-graph', 'graph update-concept', "a concept's property tree graph"],
+  ['concept-graph', 'graph update-concept', "a concept's concept graph"],
+  ['core-nodes-graph', 'graph update-concept', "a concept's core nodes graph"],
+  ['json-schema', 'graph set-schema (A10.18)', "a concept's JSON schema"],
+  ['property', 'graph update-property (A10.18)', 'a property'],
+  ['set', 'A10.21.a', 'a set'],
+  ['graph-rule', 'the rulebook', 'a graph rule'],
+]);
+/** The role labels that make a node one of those, in order, and the slug each stands for (Amendment 1, item 1). */
+const CHANGED_BY_LABEL = Object.freeze([
+  [['ConceptHeader', 'ListHeader'], 'concept-header'],
+  [['Superset'], 'superset'],
+  [['JSONSchema'], 'json-schema'],
+  [['Property'], 'property'],
+  [['Set'], 'set'],
+]);
+
+/**
+ * Whether another operation changes this node → { slug, operation, what, by: 'concept' | 'label' }, or null. Its
+ * concepts are read first, by their headers' firmware addresses; then its labels. A Set label counts only on a node
+ * with an address, as _sets.js's kindOf reads a set (Amendment 1, item 2).
+ */
+function changedElsewhere({ conceptUuids = [], labels = [], uuid = null } = {}) {
+  const firmware = require('../../../api/normalize/firmware');
+  const have = new Set((Array.isArray(conceptUuids) ? conceptUuids : []).filter((u) => typeof u === 'string' && u));
+  for (const [slug, operation, what] of CHANGED_ELSEWHERE) {
+    const at = firmware.conceptUuid(slug);
+    if (at && have.has(at)) return { slug, operation, what, by: 'concept' };
+  }
+  const ls = Array.isArray(labels) ? labels : [];
+  for (const [names, slug] of CHANGED_BY_LABEL) {
+    if (!names.some((l) => ls.includes(l))) continue;
+    if (slug === 'set' && !(typeof uuid === 'string' && uuid)) continue;
+    const [, operation, what] = CHANGED_ELSEWHERE.find(([x]) => x === slug);
+    return { slug, operation, what, by: 'label' };
+  }
+  return null;
+}
+
 /** The firmware slug and operation of a concept whose elements another operation makes, by its header's address; or null. */
 function madeElsewhere(uuid) {
   if (typeof uuid !== 'string' || !uuid) return null;
@@ -136,6 +201,14 @@ const say = {
   },
   tooLong(length) {
     return `With these fields, the element's JSON would be ${count(length)} characters long, more than the ${count(MAX_JSON)} an element's json tag holds. Nothing changed.`;
+  },
+  /** graph update-node's made-elsewhere (ADR 0021 Decision 4): `label` names the node, `hit` is changedElsewhere's. */
+  changedElsewhere(label, { slug, operation, what }) {
+    if (slug === 'set') return `${label} is ${what}. update-node doesn't change sets yet: A10.21.a teaches it, once graph create-set (A10.27) has landed, since a set's name is checked among its siblings under its parent, not among all sets. Nothing changed.`;
+    if (slug === 'graph-rule') return `${label} is ${what}, made from the rulebook, docs/GRAPH_RULES.md, and each rule's code by node src/firmware/graph-rules.js, and installed by firmware: a rule is changed in the rulebook, never in the graph. Nothing changed.`;
+    if (slug === 'json-schema') return `${label} is ${what}. A concept's schema changes through its properties, with ${operation} or the other property operations, so that its property tree and its schema stay one. Nothing changed.`;
+    if (slug === 'property') return `${label} is ${what}, which ${operation} changes, with the property tree it hangs in and the schema made from it. Nothing changed.`;
+    return `${label} is ${what}. Its names follow its concept's, which ${operation} changes: a concept's names, slug and description, and the names its core nodes take from them. Nothing changed. Use ${operation} with the concept's header.`;
   },
 };
 
@@ -227,22 +300,40 @@ async function whereTo(read, { concept, superset, set }) {
  * the assistant's. → { key, uuid, name, hasLetter, json, parents } or null
  */
 async function findRepeat(read, { concept, name, ta, address }) {
+  const all = await repeatsOf(read, { concept, name, authors: [ta], address });
+  return all[0] || null;
+}
+
+/**
+ * E3 for any authors (ADR 0021 Decision 10): every element of the concept, anywhere in its class thread, by one of
+ * `authors`, whose name, lowercased, is the name lowercased, or that sits at `address` with or without a nonce; sorted
+ * as findRepeat takes them, the plain address first, then the lowest key. With no address (a header that has none),
+ * by name alone. → [{ key, uuid, name, hasLetter, json, parents }]
+ */
+async function repeatsOf(read, { concept, name, authors, address }) {
+  const list = (Array.isArray(authors) ? authors : []).filter((a) => typeof a === 'string' && a);
+  if (!list.length || typeof concept !== 'string' || !concept) return [];
+  const at = typeof address === 'string' && address ? address : null;
   const { INIT, PROP, TERM } = S.aliases();
   const rows = await read(
     `MATCH (h:TapestryNode {tapestryKey: $key})-[:${INIT}]->(:Superset)-[:${PROP}*0..]->()-[:${TERM}]->(e:TapestryNode)
-     WHERE e.pubkey = $ta AND NOT e:GraphChange AND (toLower(e.name) = $name OR e.uuid = $address OR e.uuid STARTS WITH $nonced)
+     WHERE e.pubkey IN $authors AND NOT e:GraphChange AND (toLower(e.name) = $name OR e.uuid = $address OR e.uuid STARTS WITH $nonced)
      WITH DISTINCT e
      OPTIONAL MATCH (e)-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
      OPTIONAL MATCH (p)-[:${TERM}]->(e)
      RETURN e.tapestryKey AS key, e.uuid AS uuid, e.name AS name, e.id IS NOT NULL AS hasLetter, head(collect(DISTINCT t.value)) AS json, collect(DISTINCT p.tapestryKey) AS parents`,
-    { key: concept, ta, name: name.toLowerCase(), address, nonced: `${address}~` },
+    { key: concept, authors: list, name: String(name).toLowerCase(), address: at, nonced: at ? `${at}~` : null },
   );
   const found = rows.filter((r) => typeof r.key === 'string');
-  found.sort((a, b) => (a.uuid === address ? 0 : 1) - (b.uuid === address ? 0 : 1) || a.key.localeCompare(b.key));
-  const r = found[0];
-  if (!r) return null;
-  const parents = [...new Set((Array.isArray(r.parents) ? r.parents : []).filter((k) => typeof k === 'string'))].sort();
-  return { key: r.key, uuid: typeof r.uuid === 'string' ? r.uuid : null, name: typeof r.name === 'string' ? r.name : null, hasLetter: r.hasLetter === true, json: r.json === undefined ? null : r.json, parents };
+  found.sort((a, b) => (a.uuid === at ? 0 : 1) - (b.uuid === at ? 0 : 1) || a.key.localeCompare(b.key));
+  return found.map((r) => ({
+    key: r.key,
+    uuid: typeof r.uuid === 'string' ? r.uuid : null,
+    name: typeof r.name === 'string' ? r.name : null,
+    hasLetter: r.hasLetter === true,
+    json: r.json === undefined ? null : r.json,
+    parents: [...new Set((Array.isArray(r.parents) ? r.parents : []).filter((k) => typeof k === 'string'))].sort(),
+  }));
 }
 
 /**
@@ -317,6 +408,120 @@ async function link(tx, from, to) {
   if (!rows.length || rows[0].n !== 1) throw new Error(`the new element's ${TERM} found ${rows.length ? rows[0].n : 0} pairs of nodes to join, not 1`);
 }
 
+// ── firmware's own elements (ADR 0021 Decision 4) ──
+/**
+ * The name install gives an element file (src/firmware/install.js:262–266, copied, since install doesn't export it;
+ * if install's changes, this must follow): word.name after its last colon, else the section's name, else word.slug,
+ * trimmed as today's create-element route trims a name.
+ */
+function installName(data) {
+  if (!isObject(data)) return null;
+  const word = isObject(data.word) ? data.word : {};
+  const key = Object.keys(data).filter((k) => k !== 'word')[0];
+  const section = key && isObject(data[key]) ? data[key] : {};
+  const raw = typeof word.name === 'string' && word.name.includes(':')
+    ? word.name.split(':').pop()
+    : (typeof section.name === 'string' && section.name) || (typeof word.slug === 'string' && word.slug) || null;
+  const name = typeof raw === 'string' ? raw.trim() : '';
+  return name || null;
+}
+
+let firmwareElementsCache = null;
+/**
+ * The address install gives each element file of the active firmware: 39999:<TA>:<childDTag(name, 39998:<TA>:<slug>)>,
+ * today's create-element's d-tag for the file's name under its concept's firmware header (fact 8), mapped to the
+ * file's path in the firmware, such as concepts/dog/elements/rover.json. Worked out once per process; empty, and not
+ * kept, when the instance has no assistant key.
+ */
+function firmwareElements() {
+  if (firmwareElementsCache) return firmwareElementsCache;
+  const { getOwnerAssistantPubkey } = require('../../../utils/assistantKeys');
+  const ta = getOwnerAssistantPubkey();
+  const out = new Map();
+  if (!ta) return out;
+  const fs = require('fs');
+  const path = require('path');
+  const firmware = require('../../../api/normalize/firmware');
+  const root = firmware.firmwareDir();
+  for (const c of firmware.getManifest().concepts || []) {
+    if (!isObject(c) || typeof c.slug !== 'string' || typeof c.dir !== 'string') continue;
+    const dir = path.join(root, c.dir, 'elements');
+    if (!fs.existsSync(dir)) continue;
+    const base = String(c.dir).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/$/, '');
+    for (const file of fs.readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
+      let data = null;
+      try { data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')); } catch { continue; }
+      const name = installName(data);
+      if (!name) continue;
+      const address = `39999:${ta}:${dtag.childDTag(name, `39998:${ta}:${c.slug}`)}`;
+      if (!out.has(address)) out.set(address, path.posix.join(base, 'elements', file));
+    }
+  }
+  firmwareElementsCache = out;
+  return out;
+}
+
+/** The firmware file whose element sits at `uuid`, such as concepts/dog/elements/rover.json; or null. */
+function firmwareElementOf(uuid) {
+  if (typeof uuid !== 'string' || !uuid) return null;
+  return firmwareElements().get(uuid) || null;
+}
+
+// ── a change to an element's JSON (ADR 0021 Decisions 8 and 9) ──
+/**
+ * The fields merged into a section → a new section: each field given takes the value given, in its place, or at the
+ * end when the section lacks it; one given as null is taken out; an object or a list is replaced whole. Built with
+ * Object.fromEntries, so a field called __proto__ stays an own field. `fields` is [[field, value]], in order.
+ */
+function mergeSection(section, fields) {
+  const m = new Map(Object.entries(isObject(section) ? section : {}));
+  for (const [field, value] of fields) {
+    if (value === null) m.delete(field);
+    else m.set(field, value);
+  }
+  return Object.fromEntries(m);
+}
+
+/** A value that held what the old name made, with the new one in its place: `v` itself, or its ending after `sep`. */
+function follow(v, was, now, sep) {
+  if (typeof v !== 'string' || was === now) return v;
+  if (v === was) return now;
+  if (v.endsWith(`${sep}${was}`)) return `${v.slice(0, v.length - was.length)}${now}`;
+  return v;
+}
+
+/**
+ * A rename's JSON (Decision 9) → { json, sections }: in each top-level value that is an object, other than word and
+ * graphContext, a name equal to the old name takes the new one, and a slug equal to the slug the old name gives takes
+ * the slug the new one gives; in the word block, name and title equal to the old name or ending with ": <old name>",
+ * and a slug equal to the old slug or ending with "--<old slug>", follow likewise. Every other value stays, in its
+ * order. `sections` lists the keys of the sections it changed.
+ */
+function renamedJson(json, { was, now }) {
+  const oldSlug = dtag.slug(was);
+  const newSlug = dtag.slug(now);
+  const sections = [];
+  const out = Object.entries(isObject(json) ? json : {}).map(([key, value]) => {
+    if (!isObject(value) || key === 'graphContext') return [key, value];
+    if (key === 'word') {
+      return [key, Object.fromEntries(Object.entries(value).map(([k, v]) => {
+        if (k === 'name' || k === 'title') return [k, follow(v, was, now, ': ')];
+        if (k === 'slug') return [k, follow(v, oldSlug, newSlug, '--')];
+        return [k, v];
+      }))];
+    }
+    let changed = false;
+    const section = Object.fromEntries(Object.entries(value).map(([k, v]) => {
+      if (k === 'name' && v === was && was !== now) { changed = true; return [k, now]; }
+      if (k === 'slug' && v === oldSlug && oldSlug !== newSlug) { changed = true; return [k, newSlug]; }
+      return [k, v];
+    }));
+    if (changed) sections.push(key);
+    return [key, section];
+  });
+  return { json: Object.fromEntries(out), sections };
+}
+
 /** The answer's schemas. */
 const ELEMENT = Object.freeze({
   type: 'object',
@@ -339,10 +544,27 @@ const PROBLEM = Object.freeze({
     message: { type: 'string', description: 'What is wrong, in words' },
   },
 });
+/** An answer's concepts (ADR 0021 Decision 17): each concept a node belongs to, and whether its JSON fits that concept's schema. */
+const CONCEPTS = Object.freeze({
+  type: 'array',
+  description: "Each concept the node belongs to, and whether its JSON fits that concept's schema",
+  items: {
+    type: 'object',
+    required: ['concept', 'key', 'fits', 'problems', 'problem'],
+    properties: {
+      concept: { type: 'string', description: "The tapestryKey of the concept's header" },
+      key: { type: 'string', nullable: true, description: "The concept's key, the section its fields go in" },
+      fits: { type: 'boolean', nullable: true, description: "Whether the node's JSON fits the concept's schema; null when the concept has no schema to check against" },
+      problems: { type: 'array', items: PROBLEM, description: 'Each problem with its JSON under that schema' },
+      problem: { type: 'string', nullable: true, description: 'Why there is no schema to check against' },
+    },
+  },
+});
 
 module.exports = {
   MAX_JSON, MAX_NONCE, FIELDS_INPUT, MADE_ELSEWHERE, RESERVED_KEYS, ELEMENT, PROBLEM,
   BAD_NAME, BAD_FIELDS, MADE_ELSEWHERE_REFUSAL, NO_SUPERSET, NOT_INSTALLED, UNKNOWN_SET, NOT_A_SET, NOT_IN_CLASS_THREAD, NO_FREE_ADDRESS, RESERVED_KEY,
   say, conceptLabel, cleanName, parseFields, madeElsewhere, conceptsReaching, whereTo, findRepeat, differsOf, freeAddress,
   elementJson, elementTags, describeElement, link,
+  CHANGED_ELSEWHERE, CHANGED_BY_LABEL, CONCEPTS, changedElsewhere, firmwareElements, firmwareElementOf, repeatsOf, mergeSection, renamedJson,
 };

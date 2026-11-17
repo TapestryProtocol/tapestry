@@ -107,6 +107,18 @@ For Architecture, not this gate:
 - **The change entry's shape:** each field changed, with what it was and is, as update-concept's `concept-updated` records a concept's, and the copies.
 - **The refusals' codes and statuses.**
 
+## Deviations
+
+- **`copies` reads the node again after the mapping.** `mapNodes` returns only what it changed, and ADR 0021 Decision 14's `copies` is the node properties it *now* carries. So update-node reads its judged concepts' marks (`F.marksOf`) and the node itself after the write, and lists the marked properties it has. That is two more reads.
+- **The JSON tags are written only when the JSON changed.** Decision 13 writes them on every update. A rename of a node whose JSON holds no value the old name gave writes only its name, tapestryValue and name tags, and leaves a json tag held in the store (`lmdb:<key>`) as it was.
+- **`changedElsewhere` takes `{ conceptUuids, labels, uuid }`,** not the uuids alone (ADR Implementation notes): Amendment 1's labels, and the address a `Set` label needs, come with them.
+- **update-node declares its own `bad-fields`, `unknown-node` and `not-installed`,** worded for it; it reuses `bad-name` and `reserved-key` from `_elements.js`, `unknown-concept` from `_fields.js`, and `not-own-node` from `_nodes.js`.
+- **Two refusals name another input:**
+  - a description given two ways names `description`;
+  - `no-section` names `concept` when it was given, else `fields`.
+- **`not-an-element` says which case it is:** no concept reaches the node, or only word's does.
+- **`firmwareElements` skips an element file whose JSON doesn't parse,** and keeps the first file when two give one address, as install's own create would find the first.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)

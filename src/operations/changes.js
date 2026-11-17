@@ -28,26 +28,28 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * One change in an entry: what it did, and the tapestryKeys it touches in node, from, to, concept or nodes. A field
  * mapping's changes add concept, field, property and nodes (story graph-operations-foundation #5, ADR
  * graph-operations-foundation/0005 Decision 12). A concept's add name, slug, field, was and now (story
- * graph-operations-first-slice #16, ADR graph-operations-first-slice/0016 Decision 10).
+ * graph-operations-first-slice #16, ADR graph-operations-first-slice/0016 Decision 10). An element's add field, was and
+ * now, whose values are the field's JSON, and a rename's was and now (story graph-operations-first-slice #21, ADR
+ * graph-operations-first-slice/0021 Decision 18).
  */
 const CHANGE = Object.freeze({
   type: 'object',
   required: ['change'],
   properties: {
-    change: { type: 'string', description: "What it did, such as 'relationship-added'" },
+    change: { type: 'string', description: "What it did, such as 'relationship-added', 'node-renamed' or 'field-changed'" },
     type: { type: 'string', description: "A relationship's type" },
     from: { type: 'string', description: 'The tapestryKey of the node a relationship runs from, or of the superset or set an element was made in' },
     to: { type: 'string', description: 'The tapestryKey of the node it runs to' },
     node: { type: 'string', description: 'The tapestryKey of a node the change is about' },
     count: { type: 'integer', minimum: 1, description: 'How many, when the change removed more than one thing alike, or touched the nodes it names' },
     concept: { type: 'string', description: "The tapestryKey of the concept header the change is about" },
-    field: { type: 'string', description: "The field the change is about: the field a mark is for, or a concept's name, plural, slug or description" },
+    field: { type: 'string', description: "The field the change is about: the field a mark is for, a concept's name, plural, slug or description, or an element's field" },
     property: { type: 'string', description: 'The node property a mark carries, <concept key>_<field>, such as dog_breed' },
     nodes: { type: 'array', items: { type: 'string' }, description: "The tapestryKeys of the nodes the change touched: those whose copy it set or removed, or a concept's nodes it made or renamed" },
     name: { type: 'string', description: "A concept's singular name, or an element's name, when the change made it" },
     slug: { type: 'string', description: "A concept's slug, or an element's, when the change made it" },
-    was: { type: 'string', nullable: true, description: "A concept's field before the change (null when it had none)" },
-    now: { type: 'string', nullable: true, description: "A concept's field after the change (null when the change removed it)" },
+    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none" },
+    now: { description: "What it holds after the change: as was, for a concept or an element; null when the change took it out" },
   },
 });
 

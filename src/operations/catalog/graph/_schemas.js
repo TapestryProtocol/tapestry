@@ -26,7 +26,10 @@
  *   fits(read, concept, json)     { fits: true | false | null, problems, problem }; null with no schema to check against
  *   judge(read)                   a checker for one call, which reads and compiles each concept's schema once
  *   checkElements(read, items)    run the rule element-fits-schema over the items and throw its first finding, with
- *                                 rule set, as the write path does: the one call each element write makes in apply
+ *                                 rule set, as the write path does: the one call each element write makes in apply.
+ *                                 With { every: true }, one refusal names every finding: its code the first's (graph
+ *                                 update-node, whose change can break more than one concept's section; ADR
+ *                                 graph-operations-first-slice/0021 Decision 11)
  *   listProblems(problems)        the problems in words, at most 20 and then how many more
  *
  * It opens nothing when it loads (ADR graph-operations-foundation/0001 Decision 10): ajv, firmware's relationship names
@@ -176,15 +179,18 @@ async function fits(read, concept, json) {
 /**
  * Run the rule element-fits-schema over `items` and throw its first finding as the write path throws a guard's, with
  * `rule` set (as _concepts.js's recheck does): each element write calls it in apply, once it has built the JSON it
- * would store (Decisions 12 and 16).
+ * would store (Decisions 12 and 16). With `every`, the refusal's message joins every finding's, so a change that
+ * breaks two concepts' sections names the problems of both; its code is the first finding's (ADR 0021 Decision 11).
  */
-async function checkElements(read, items) {
+async function checkElements(read, items, { every = false } = {}) {
   const { findRule } = require('../../rules');
   const { refusal } = require('../../refusal');
   const rule = findRule('element-fits-schema');
   if (!rule) throw new Error("the rule element-fits-schema isn't loaded");
   const found = await rule.violations(items, read);
-  if (found && found.length) throw refusal(found[0].code, found[0].message, { rule: rule.name });
+  if (!found || !found.length) return;
+  const message = every ? found.map((x) => x.message).join(' ') : found[0].message;
+  throw refusal(found[0].code, message, { rule: rule.name });
 }
 
 module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, checkElements };
