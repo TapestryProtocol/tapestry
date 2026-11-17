@@ -1,6 +1,6 @@
 # Story 14: `graph walk` — follow chosen relationship types out from one or more nodes, up to a depth, each node reached once with the path that reached it
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.14 — https://loom.brainstorm.world/t/A10.14
@@ -104,6 +104,95 @@ For Architecture, not this gate:
 - **A start node named twice,** and nodes with no tapestryKey, which list-relationships neither lists nor counts.
 - **The test fakes,** which read relationships of a few named types only, one step at a time.
 
+## Evidence
+
+### The live check (Implementation, 2026-11-17 UTC, on the code of the implementation commit, `c211051e`)
+
+This ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one.
+- **The instance.** It booted from image `agent-memory-tapestry` with this branch's `src/` mounted, and firmware installed. `lifecycle migrate --migration tapestry-keys` put `tapestry_key` in place, and the check added `nostrUser_pubkey`, as a real instance has them. The branch's `clients/cli` was copied in, on the instance's own nostr-tools 2.10.4 and ajv 8.18.0, the CLI's versions.
+- **Keys.** The instance made its own assistant key at boot. A throwaway owner key, a throwaway admin key for the agent and a peer's key were made inside it, and only their public keys left it.
+- **Afterwards** it was removed, with its keys.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, a direct-local caller. The agent's went through the instance's nginx.
+- **How each answer was judged.** The check read the whole graph: every node's key, labels and author, every relationship, and every NostrUser's influence. It walked the graph again in JavaScript by ADR 0014's rules, keeping only distances and counts. For each walk it compared, across every page:
+  - the nodes and each one's steps with that independent walk, each node once and nearest first;
+  - `kept`, `leftOut` and `tagsLeftOut`;
+  - each path, step by step, against the relationships the graph holds.
+
+  It made 137 checks, and all passed. Two earlier boots stopped on mistakes in the check script, never on the walk: an element with no description, which the new concept's schema requires, and an agent's walk compared with one read from another point of view.
+
+**The seed:**
+- walk gadget, made by `graph create-concept`. Sets a and b below its superset were made with Cypher, since create-set isn't on staging yet. `graph create-element` made gadget one, two and deep: one directly in the superset, one in set a and one in set b.
+- With Cypher: a peer's element under the superset, with a node of the assistant's behind it (CITES), and the peer's NostrUser.
+- With Cypher: a graph the size of Avi's brain, 1,000 nodes and 8,000 typed relationships, 1,000 of each of eight types, between random pairs.
+- With Cypher: two hubs, one with 12,000 LINKS out and one with 9,999.
+
+At the end the graph held 26,328 nodes and 33,806 relationships.
+
+**By criterion:**
+- **AC1: passes.** Out along the class thread from the header, at depths 1 to 4, the walk reached 1, 4, 6 and 7 nodes; gadget deep was 4 steps away, its path running through both sets. Each of these walks reached exactly what the independent walk reached: in from gadget deep; both ways from the header, at depths 2 and 3; from three elements at once; and along HAS_TAG.
+- **AC2: passes.** Every path of every walk ran from its start to its node along relationships the graph holds, at the least number of steps.
+- **AC3: passes.** Along HAS_TAG the walk reached the header's 6 tag nodes, which have no author, so the owner's point of view counts them. With no types it passed the same 6 by and counted them. Both ways from the header to depth 3, it passed 431 tag nodes by.
+- **AC4: passes.**
+  - **The peer at 0.2:** the walk stepped onto the peer's element, and on to the node behind it.
+  - **Then 0.01, with no write between:** the element was left out (`leftOut` one more), and nothing behind it was reached.
+  - `everyone` stepped onto both. The owner's own pubkey walked as the default. A stranger's was refused `unknown-pov`. A start by the peer at 0.01 was answered and walked from.
+- **AC5: passes.**
+  - **The Avi-size graph, both ways with no types, depth 3:** 943 nodes, complete, in 19 pages of 50 at 191 ms median (344 ms at most, 3.8 s in all), or 5 pages of 200 at 189 ms. To depth 10: 999 nodes, 5 pages of 200 at 339 ms median and 474 ms at most. Out along two types to depth 5: 14 nodes, 144 ms.
+  - **The hub of 12,000** stopped short before its first step (`complete` false, `finished` 0, no nodes), in 57 ms. Both hubs at once, 21,999 relationships, stopped short too.
+  - **The hub of 9,999** was complete: every leaf once, in 50 pages of 200, at 70 ms median, 86 ms at most and 3.6 s in all.
+  - **The bound stays 10,000.** A page at the bound took 70 ms, and an Avi-size walk with no types stayed under it to depth 10, so nothing called for raising or lowering it.
+- **AC6: passes.** A key no node has, and a change entry's, got 404 `unknown-node`, naming `from`. Depth 11, a malformed type, `direction=OUT` and 101 starts got `invalid-input`, each naming its input.
+- **AC7: passes.**
+  - `tapestry graph walk` in the instance, with `--from` and `--types` repeated, answered what the route answered.
+  - **The admin agent,** with its own key, through nginx and the external CLI:
+    - `whoami` exited 0 with the agent's own pubkey, not the owner's;
+    - it walked from the header to its elements 2 a page, to its last cursor, getting each node once and in order, as the route answers from the owner's point of view;
+    - it walked in from two elements, with `--from` and `--types` repeated;
+    - it was refused a key no node has (exit 1, `unknown-node`).
+  - A visitor through nginx got 401.
+  - The relay held 450 events before and after the walks. The graph held 4 change entries before and after: the concept's and its three elements'.
+
+### The suites (Implementation, 2026-11-17 UTC)
+
+Each ran on its own on the Mac Studio, never the full `npm test`, with every endpoint dead:
+
+| Suite | Passed |
+|---|---|
+| `test/operations/walk.test.js` | 11 of 11 |
+| `test/operations/graph/walk.test.js` | 30 of 30 |
+| `test/operations/graph/walk-agent-through-cli.test.js` | 2 of 2 |
+| `test/operations/graph-fake.test.js` | 27 of 27 |
+| `test/operations/reads.test.js` | 21 of 21 |
+| `test/operations/graph/list-relationships.test.js` | 26 of 26 |
+| `test/operations/graph/list-relationships-agent-through-cli.test.js` | 2 of 2 |
+| `test/operations/graph/list-elements.test.js` | 30 of 30 |
+| `test/operations/graph/link-set.test.js` | 21 of 21 |
+| `test/operations/resolve.test.js` | 11 of 11 |
+| `test/operations/graph/history.test.js` | 8 of 8 |
+| `test/openapi-coverage.test.js` | 13 of 13 |
+| `test/admin-action-sweep.test.js` | 9 of 9 |
+
+- **A scoped gate** over the same 13 suites recorded PASS, 211 passed, on `c211051e` (`npm run gate:status -- --label a10-14-walk-impl-committed`).
+- **The catalog loads.** A script doing what `test/operations.test.js`'s L1 and L4 check found the catalog loads 22 operations with no problems, and that loading it and the route table requires no driver, LMDB or Redis module.
+- **The full gate** runs in the pull request's CI.
+
+### After the review (2026-11-17 UTC)
+
+The review passed with nothing blocking ([14-walk.md](../../reviews/graph-operations-first-slice/14-walk.md)). Its three non-blocking asks were then fixed on this branch:
+1. **The tie-break's order** is tested. W32 walks from ord0 to ordX, which it reaches through the lesser parent though that parent's type is the greater, and to ordY, which it reaches out from the greater parent rather than in from the lesser. With `walk.js` comparing the type before the parent, W32 fails.
+2. **A node met again a step later** is tested. W31 walks from rm0, whose left-out neighbour and tag node are met again from rmA at step 2, and each counts once. Without either of the two lines that add them to what the walk has met, W31 fails.
+3. **The bound's wording** now says what it counts, in /docs, in `complete`'s description and in the catalog's row: the relationships a walk reads to nodes it hasn't met yet. Relationships back to nodes it has met cost work the bound doesn't count, and no walk through a dense cluster, such as the trust pipeline's FOLLOWS, was timed. So search (A10.8) times one before it leans on the bound (a memo on A10.8).
+
+The four notes the review recorded stand as it gives them. The 13 suites passed again afterwards, `graph/walk.test.js` with 32 of 32: a scoped gate recorded PASS, 213 passed, on `1f595135` with the fix's six files in place before their commit (`npm run gate:status -- --label a10-14-walk-after-review`), and the reviewer's round 2 gate on `14c451ae` itself gave the same (`a10-14-walk-review-round2`).
+
+Round 2 of the review ([14-walk.md](../../reviews/graph-operations-first-slice/14-walk.md), "Round 2") found the three fixes right, and one older gap, note 8: `complete`'s description read as if the bound were one step's. It and the matching sentence in /docs now say a walk stops when its next step would take it past the bound, which counts the whole walk.
+
+## Deviations
+
+- **`walk()` also throws for a `types` list that is empty or longer than `MAX_TYPES`,** as it throws for a `from` of the wrong length, and when `read` isn't a function or `pov` isn't a resolved point of view. ADR 0014 Decision 1 named the other throws. Each is a programming error, which the inputs' schemas refuse first for graph walk.
+- **The step statement checks its direction, its types and its `LIMIT` again before writing them into Cypher's text,** as list-relationships checks its type again. The walk has checked them already, so these checks are for a caller that skips it.
+- **The /docs text and the `complete` description give the bound as "10,000",** grouped from `BOUND` with no locale data, so they change with it.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and "Reads stay behind sign-in" bullets)
@@ -115,5 +204,5 @@ For Architecture, not this gate:
 - Loom memo #113 (how an edge's author is read), from [the list-elements review](../../reviews/graph-operations-first-slice/11-list-elements.md), finding 9
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0014-walk.md](../../decisions/graph-operations-first-slice/0014-walk.md) (and its Amendment 4 to [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md))
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [14-walk.test-plan.md](14-walk.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-first-slice/14-walk.md](../../reviews/graph-operations-first-slice/14-walk.md)

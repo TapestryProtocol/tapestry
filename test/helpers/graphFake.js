@@ -63,6 +63,10 @@
  * relationships of every type, with elementId() and properties() (test/helpers/pathCypherFake.js), when nothing later in
  * the statement names another relationship.
  *
+ * Story graph-operations-first-slice #14 (ADR graph-operations-first-slice/0014, Decision 1, S2) adds a walk's step
+ * from every node the walk is at, found by a list of tapestryKeys (STEP_FROM_KEYS below), which the path fake runs the
+ * same way.
+ *
  * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9) sends a read with an OPTIONAL
  * MATCH and no relationship to test/helpers/pathCypherFake.js, not to the one-node reader, which refuses OPTIONAL
  * MATCH: graph resolve finds nodes by their properties, then tests trust with reads.js's fragment, whose OPTIONAL MATCH
@@ -343,6 +347,21 @@ const isOneHopFromKey = (bare) => {
   return Boolean(m) && !LATER_RELATIONSHIP.test(bare.slice(m.index + m[0].length));
 };
 
+/**
+ * ADR graph-operations-first-slice/0014's step of a walk (story graph-operations-first-slice #14, Decision 1's S2): a
+ * statement that opens with one relationship, held in a variable, of no named type or of types in backticks joined by
+ * |, from a node with no property map to a bare node, and then WHERE that first node's tapestryKey IN a list parameter:
+ * every node the walk is at. Like a one-hop read it reads relationships of every type, so the path fake runs it with no
+ * repertoire, and like one it keeps the repertoire for any relationship later in the statement. A relationship with no
+ * variable or a labelled node at its far end (_sets.js's read of a set's parents) keeps the repertoire too (F26).
+ */
+const BACKTICKED_TYPES = '(?::\\s*`[A-Za-z][A-Za-z0-9_]*`(?:\\s*\\|\\s*`[A-Za-z][A-Za-z0-9_]*`)*\\s*)?';
+const STEP_FROM_KEYS = new RegExp(`^\\s*MATCH\\s*\\(\\s*(\\w+)\\s*:\\s*TapestryNode\\s*\\)\\s*(?:-\\s*\\[\\s*\\w+\\s*${BACKTICKED_TYPES}\\]\\s*->|<-\\s*\\[\\s*\\w+\\s*${BACKTICKED_TYPES}\\]\\s*-)\\s*\\(\\s*\\w+\\s*\\)\\s*WHERE\\s+\\1\\s*\\.\\s*tapestryKey\\s+IN\\s+\\$\\w+\\b`, 'i');
+const isStepFromKeys = (bare) => {
+  const m = STEP_FROM_KEYS.exec(bare);
+  return Boolean(m) && !LATER_RELATIONSHIP.test(bare.slice(m.index + m[0].length));
+};
+
 /** Story 4's declared types' read: from a header found by uuid, through IS_THE_CONCEPT_FOR to HAS_ELEMENT, with no keys(). */
 const isDeclaredTypesRead = (bare) => /\bHAS_ELEMENT\b/.test(bare) && /\bIS_THE_CONCEPT_FOR\b/.test(bare)
   && /\{\s*uuid\s*:\s*\$\w+\s*\}/.test(bare) && !/\bkeys\s*\(/i.test(bare);
@@ -516,7 +535,7 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   const optional = /\bOPTIONAL\s+MATCH\b/i.test(bare);
   if (!writes && !hasRel && !optional) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
-  if (!writes && isOneHopFromKey(bare)) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
+  if (!writes && (isOneHopFromKey(bare) || isStepFromKeys(bare))) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
   if (writes && !write) throw new Error(`a read must write nothing; it sent: ${oneLine(q).slice(0, 300)}`);
   if (/\bCREATE\s*\(\s*\w+\s*:\s*[A-Za-z_:\s]*\bGraphChange\b/.test(bare)) return createEntry(s, q, params);
