@@ -9,7 +9,9 @@
 **What was seen.** Two sessions under the same GitHub account promoted the same bundle, on the owner's word in each session, without either seeing the other.
 - **#116** was opened at 04:39:29Z by the A10.14 session (graph walk), from `promote/graph-walk-and-create-set-2026-11-17`, pinned at staging's `8c2ea9bc`.
 - **#117** was opened later by the A10.27 session (graph create-set). Before opening it, that session looked for an open promotion with `gh pr list --base main --head staging`. That doesn't list a promotion from a `promote/*` branch, the head ledger row `2026-11-17-promotion-pr-head-moves-with-staging` now recommends. It then replaced #117 with **#118**, from `promote/create-set-and-walk-2026-11-17`, pinned at the same `8c2ea9bc`.
-- **Both sessions** ran the safe-to-merge check, which turned SAFE at 05:08:12 once production's search-index refresh finished. #116 merged at 05:08:11. #118's merge command, 12 seconds later, found it already merged: GitHub marks a PR merged once its head is in the base.
+- **Both sessions** ran the safe-to-merge check against production, which reported unsafe (`QUEUE_TASK_RUNNING`) while its search-index refresh ran.
+  - #116's check saw SAFE at 05:08:09, on its third attempt, and #116 merged at 05:08:11, pinned with `--match-head-commit 8c2ea9bc`.
+  - #118's check saw SAFE at 05:08:12. Its merge command, at 05:08:25, found it already merged: GitHub marks a PR merged once its head is in the base, so #118 added no commit to main.
 - **Nothing wrong shipped,** because both pins named one commit. With different pins, or one of them unpinned, the second merge would have shipped a second bundle on the first one's approval.
 
 **Why it matters.** Each promotion's approval covers one bundle, and two open promotions into main split that check. Each one's description, safe-to-merge verdict and smoke test then describe a merge that another session may make first. The sessions that start parallel build sessions are also the ones likeliest to finish them close together and promote.
