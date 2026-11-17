@@ -404,6 +404,7 @@ Test design wrote the statements the ADR names, and found where they refine it. 
 5. **A third hollow letter.** The Implementation notes name `propertyNode` and `ruleElement`. `loner` in `test/helpers/createElementGraph.js` is a third: a `NostrEvent` with an id and no `created_at`, which update-node's UN26 refuses. It gets a `created_at` too.
    - `held` in `test/helpers/conceptGraph.js` ("not a concept": an id, no pubkey, no kind) reads as a placeholder by Decision 4's mark.
    - No write tests whose node `held` is, so it stays as it is.
+   - *(At implementation: `test/helpers/fieldGraph.js`'s letters, which update-node's UN40 changes, had none either, and got one too; the test plan's "Added at implementation".)*
 6. **The fake graph learns three things:**
    - D6's node delete;
    - `failures.vanish`, which deletes a node, with the tags only it has, and commits another transaction's entry, as if that transaction had done it while this one waited;

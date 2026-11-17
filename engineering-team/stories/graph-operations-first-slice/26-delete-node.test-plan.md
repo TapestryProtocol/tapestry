@@ -141,6 +141,10 @@ Check `docker ps` and the shared notes before taking `tapestry-scratch`, note it
 - **L8:** an admin agent through nginx and the external CLI.
 - **L9:** with the owner's yes for each server, read-only counts on staging and production of `NostrEvent` nodes with no `created_at`, and of how many of them a tag references (ADR Consequences).
 
+## Added at implementation (a kick-back to test design)
+
+- **A fourth hollow letter.** The whole operations runner, once the code was in, failed update-node's UN40 alone: `test/helpers/fieldGraph.js` builds every letter with no `id` and no `created_at`, so Decision 4 read its rover as a placeholder, `placeholder-node`. Every import gives an event a `created_at`, so its `event()` builder gives one too. That is item 5's fix for one more seed. Its ten suites pass with it: update-node, map-fields, the fake graph, fields, fields' agent, create-element, element schemas, mark-field, unmark-field and the rule `field-mark-allowed`.
+
 ## Verification
 
 The new tests fail with the current code. Confirmed on 2026-11-17, on `A10.26-delete-node` at `823edb29`, with this phase's tests and helpers, each suite alone with every endpoint dead:
