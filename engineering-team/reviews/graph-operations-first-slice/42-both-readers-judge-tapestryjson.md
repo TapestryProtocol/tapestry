@@ -222,3 +222,154 @@ The optional independent check (workflow 5, "Optional: an independent check befo
 **CHANGES_REQUESTED**
 
 The code does what ADR 0042 decides, and the reviewer-run touched suites are green (239 passed, 12 live skips). Each of AC1 to AC5 has a stack-free test that fails without the code, and GB3's change is a legitimate fixture update. One thing blocks: the live check this story's ADR, plan and Open questions require has no record. Without it, nothing has run the rewritten derive step against a real Neo4j and LMDB, Pass 3's time limits are unchecked, and AC5's rule 7 in the graph is unseen. CI can't fill the gap, since its job is stack-free. A recorded live check, or the owner's recorded decision to run it on staging after merge, clears it. The seven non-blocking findings are optional, though number 2 is cheapest to fix in this round, before the reinstall installs the text.
+
+## Round 2 — 2026-11-17 (HEAD `4b3632a5`)
+
+**Diff:** `git diff 73239a2f..HEAD`, where `73239a2f` is round 1's review commit. Three commits:
+- `d1b18ccd`: the Tester's cases for round 1's findings, and the test plan's record of them;
+- `6ead878a`: the fixes;
+- `4b3632a5`: the live check's record, the story's new `## Evidence` and two Deviations bullets, and two new ledger rows.
+
+`4b3632a5` touches no file under `src/` or `test/`. No file under `src/` changed between `6ba85124` and `d1b18ccd`.
+
+### Quality gates (round 2, run by reviewer)
+
+- [x] **The touched suites, through the gate engine.** I ran the same 15 suites as round 1, the same way: one at a time first, with the endpoints dead, then through `runGate`. `npm run -s gate:status -- --label a10-20-b-story-42-review-2` reads:
+  `20261117T175622Z-56825-2e81 [a10-20-b-story-42-review-2] started 2026-11-17T17:56:22.194Z on 4b3632a5 — PASS, exit 0, 240 passed, 0 failed, 12 skipped, 15/15 suites`
+  - element-schemas is 14/0, with SC14 new. Every other suite's count is round 1's.
+  - The 12 skips are the same live tests.
+- [x] **The full gate (`npm test`) was not run here,** for round 1's reason. The PR's CI runs it, stack-free.
+- [x] **The new cases fail without their fixes.** I extracted `d1b18ccd` (round 2's tests over round 1's source) into a scratch directory and ran the suites:
+  - element-schemas: 12/2. SC14 got `{"threw":"a transient failure"}`. SC12's case "a set entry with an old artifact" got the cache's `valid: false`, for `x-tapestry`.
+  - element-fits-schema: 9/1. EFS8's finding has no `derivedAt`.
+  - create-set, create-element and update-node pass, as the plan says: the answer validation in CS3, CE6 and UN7 is a guard.
+- [x] `node src/firmware/graph-rules.js --check` finds the files current. `bash scripts/harness-lint.sh` is clean, 0 violations.
+- [x] **The live check's records.** I read `tmp/live-check-42/live.js`, and every record beside it, against the Evidence, claim by claim: `report.json`, `pass-3.log`, `pass-3-staging-shape.log`, `graph-rule-firmware.log`, `seed.log`, `up.log` and `gc-examples.js`.
+  - **I didn't boot a scratch stack to run it again.** The records settle every claim except those non-blocking 2 and 3 name.
+  - **The timeline holds**, in local time:
+    - the tests and fixes were committed at 12:32 and 12:33;
+    - `up.log` booted `tapestry-scratch` from this worktree's `src/` at 12:35;
+    - `report.json` was written at 12:40, and the suites' logs by 12:46;
+    - the Evidence was committed at 12:47.
+
+### Round 1's findings
+
+| Round 1 | Disposition |
+|---|---|
+| Blocking 1: the live check had no record | **Resolved.** The check is real. It covers every item of ADR 0042's and the test plan's live-check lists, and the logs bear out its numbers. One planned item didn't hold, for a reason this story doesn't own; that is round 2's blocking 1. |
+| Non-blocking 1: the judge keeps a failed read | Fixed at `_schemas.js:198–209`. SC14 pins it. |
+| Non-blocking 2: "Enforced by" said "call" | Fixed at `docs/GRAPH_RULES.md:132`, with the element file regenerated. LC8 finds "will call when they are built" in the graph. |
+| Non-blocking 3: test gap | Half fixed. CS3, CE6 and UN7 validate each answer's `concepts` against the declared schema. No create-element or update-node case reaches `waiting: true` yet (round 2's non-blocking 4). |
+| Non-blocking 4: set.js judged one document and stored another | Fixed at `set.js:200–209`. SC12's new case pins it. |
+| Non-blocking 5: ADR 0020a Decision 5 had no home | Fixed. The check form's findings carry `derivedAt` (`element-fits-schema.js:73–84`), §7's Check says so, and EFS8 and LC5 pin it. The fix brings a new edge (round 2's non-blocking 1). |
+| Non-blocking 6: stale pointer | Fixed at `_schemas.js:8–10`, and in the comments on SC5 and `DERIVE`. |
+| Non-blocking 7: wrapper errors | Deferred, with its reason in Deviations: no firmware schema needs it. Accepted. |
+
+### The live check, item by item
+
+| Asked for (ADR 0042 `:221–227`; test plan `:70–76`) | Where | Result |
+|---|---|---|
+| create-set reports `word` as waiting | LC1a | Holds: `waiting: true`, and no problem about `graphContext`. But `fits` is `false`, not `null`: four conditional problems are left |
+| derive gives the set `parentJsonSchemas` saying it fits `word` | LC2 | Doesn't hold: `word` is `valid: false`, for the same four problems. For `word`, LC2 checks only that none of them is about `graphContext` |
+| the rule's check of the set agrees on each concept | LC3 | Holds: the same four problems, in the same words |
+| a node with no entry gives one `missing` finding | LC4c | Holds |
+| after a reinstall, rule 7's element carries §7's new words | LC8; GL1–GL4 | Holds |
+| the relay's event count is unchanged | LC6 | Holds: 465 before and after |
+| L5a passes on the small graph | `pass-3.log` | Holds |
+| L3 and L4 meet their limits | `pass-3-staging-shape.log` | Holds: at most 63 ms by key; Pass 3 in 10 s |
+
+The check also goes beyond those lists:
+- **LC5** checks AC1 live, with `derivedAt` 1700000000.
+- **LC7** is a derive pass over all 444 list items: 1,169 verdicts, on which the cache and the rule agree every time. That is AC3 over real firmware.
+
+### What the live check found: my judgment
+
+**AC4's example on an installed instance.** The diagnosis is right:
+- **I traced it.** The manifest's `concept-headers` enumeration sends each concept's key to `word.wordTypes`, with `enforce-wordType-conditionals: true` (`firmware/versions/v1.0.0/manifest.json:405–408`). With that destination, the Reverse `then` that `generateWordTypeConditionals` builds (`src/api/normalize/index.js:6103–6114`) requires `wordTypes` to equal a string `const`, which no array does.
+- **It predates this story.** The generator dates from `5fab44fe` (2026-03-29).
+- **The set-aside works on the instance.** LC1a's `word` has `waiting: true` and nothing about `graphContext`. Only the conditionals' problems are left.
+
+But the handling isn't complete, and that is round 2's blocking 1. The story's promised outcome doesn't hold on an instance, and its narrowing hasn't been put to the owner.
+
+**LC7c's narrowed premise is legitimate in substance, and disclosed:**
+- **What it now leaves out** are the set conditional's errors on the Properties Set nodes, which the word deriver builds with no set fields. Both readers agree on them (LC7b), and they have their own ledger row.
+- **What it still catches.** It still fails on any "`graphContext` is required", and on any other `graphContext` error outside the three set fields.
+- **Real sets are fine:** L5a shows on its own that they carry their set fields.
+
+The record of it is imprecise, though (non-blocking 2 and 3).
+
+### Findings (round 2)
+
+#### Blocking
+
+1. **The story's promised outcome doesn't hold on an installed instance, and its narrowing hasn't been put to the owner.**
+   - **What doesn't hold:**
+     - **AC4's last sentence** (`42-both-readers-judge-tapestryjson.md:53`): "So a set made by `graph create-set` reports `word` as waiting, not failing." LC1a gives `fits: false, waiting: true`, with four problems.
+     - **AC3's** "which a node fits once its `graphContext` is built" (`:44`). None of the 430 list items with a `word` verdict does, under the installed schema.
+     - **The User-facing description** (`:33`): "the elements of `word` stop reading as broken." LC7c: all 430 list items with a `word` verdict fail it.
+     - **The plan's "saying it fits `word`"** (LC2, in the table above).
+     - **Beyond `word`,** the same tally has these failing too: `graph` 132 of 132, `validation tool` 44 of 44, `core nodes graph` 44 of 44, `relationship` 22 of 22, `concept graph` 3 of 44 and `json schema` 2 of 44 (`report.json`, `agreement.tally`). In all, 679 of the 1,169 verdicts fail, 2 of them on elements of the live check's own concepts. The Evidence mentions only `word`'s, and `rules check` (A10.31) will report each one.
+   - **What the story does instead.** The Deviations bullet at `:99` scopes AC4's example to firmware's file, on the Implementer's word.
+   - **Why it blocks:**
+     - **The epic's practice.** In this epic, an AC sentence that turns out wrong is corrected with the owner's approval, and the correction is recorded in the story. Story 16 did it for AC6's last sentence, as "Corrected at Architecture (the owner's approval, 2026-11-15, …)" (`16-create-concept-and-update-concept.md:92`), and story 20 as "Added at review round 1 (the owner's approval, …)" (`20-create-element.md:91`).
+     - **It's a scope call.** Whether story 42 closes with its headline outcome waiting on another fix, or takes that fix in, is the owner's decision.
+     - **Done would say something false.** A pass flips the story to Done, and Done would then say the story delivered "the elements of `word` stop reading as broken", which no installed instance will show.
+   - **Asked change:**
+     - **Put it to the owner.** If the owner has already ruled, recording that ruling is all this needs. Either the story closes with that outcome waiting on ledger rows `2026-11-17-word-wordtypes-conditionals-contradict-themselves` and `2026-11-17-properties-set-nodes-derived-as-words`, each of whose fixes then needs a firmware reinstall, or it takes the conditionals fix in.
+     - **Record the decision in the story** as story 16 did, with the owner's approval and its date, covering AC4's last sentence, AC3's parenthesis and the User-facing description, as the owner rules.
+     - **In the Evidence:** say plainly that the plan's "saying it fits `word`" didn't hold (LC2), and give the tally of failing verdicts by concept from `report.json`, so A10.31 knows what `rules check` will report.
+
+#### Non-blocking
+
+1. **`src/operations/rules/element-fits-schema.js:76–78`: a `derivedAt` outside the Date range throws.**
+   - **Why.** `typeof gc.derivedAt === 'number'` lets NaN, Infinity, or any number of about 8.64e12 or more through, and `new Date(derivedAt * 1000).toISOString()` then throws a RangeError. The date string is built before the concept loop, so it throws for a node that fits, too.
+   - **My probe** ran the real rule at HEAD, with a fake read and a scratch LMDB. A node whose stored `derivedAt` is 1e13 makes `violations` throw "RangeError: Invalid time value", whether or not the node fits. One whose `derivedAt` is 1794935902 gives a finding with its `derivedAt`.
+   - **Why it matters.** One odd entry ends the whole call, so `rules check` (A10.31) over a graph would stop at it. The derive step writes a valid `derivedAt`. But an entry the offload routes put in holds whatever the letter's `json` tag held, until the node is next derived, and anyone may publish that.
+   - **Optional improvement:** give the date only for a finite `derivedAt` within the Date range, and the number alone otherwise. Add an EFS8 case with 1e13.
+2. **The record's counts and descriptions are off.**
+   - **"43 Properties Set nodes"** (`42-both-readers-judge-tapestryjson.md:130`). The ledger row `2026-11-17-properties-set-nodes-derived-as-words.md:12` also says "43 nodes … each with three such errors, 132 in all", but 43 × 3 is 129. `report.json` gives 44 in two ways: the `properties set` concept has 44 elements, and the 1,140 "then" errors are 1,096 failures of the Reverse conditionals plus 44 failures of the set conditional.
+   - **Not all 1,140 "then" errors are the wordType conditionals'**, as `:130` and the conditionals' ledger row (`2026-11-17-word-wordtypes-conditionals-contradict-themselves.md:18`) have it: 44 of them are the set conditional's.
+   - **LC7c's new premise** is described as counting "only "`graphContext` is required"" (`:135`). `live.js:189` also fails on any other `graphContext` error outside the three set fields, which is stricter than the record says.
+   - **The Evidence's list of records** (`:111`) leaves out `pass-3-staging-shape.log`, which L3's and L4's claims rest on, and `seed.log`, `up.log` and `gc-examples.js`.
+   - **Optional improvement:** correct each, in the story and in both ledger rows.
+3. **Some records weren't kept.**
+   - **The first run's `report.json`** was overwritten by the second's.
+   - **An unexplained element.** The second run's tally has a failing verdict for an element of the first run's concept, "live hound 156289" (`report.json`, `agreement.tally`). A create-element refused `missing-input`, as the record says the first run's was, can't have made it. Something the record doesn't name made it.
+   - **Unsaved hand calls:**
+     - `gc-examples.js`'s output, the basis for "on the Properties Set nodes";
+     - the firmware digests, the copy of the branch's firmware, the restart and the second install.
+   - **Optional improvement:** say what made the element, keep each run's report under its own name, and save the hand calls (ledger row `2026-11-16-live-check-hand-calls-unsaved`).
+4. **The other half of round 1's non-blocking 3.**
+   - **The gap.** No create-element or update-node case reaches `waiting: true`. The plan's AC4 row (`42-both-readers-judge-tapestryjson.test-plan.md:24`) still narrows the ADR's "an element created in a set under `word`'s thread" without saying so.
+   - **The live check doesn't reach it either:** Rex isn't under `word`'s thread.
+   - **Optional**, as in round 1.
+
+#### Harness friction
+
+1. **Round 1's three harness-friction items haven't reached their rows.** `git diff 73239a2f..HEAD -- ledger/` adds only the two new bug rows. The rows to update are:
+   - `2026-09-28-live-and-evidence-runs-unrecorded`;
+   - `2026-10-07-on-pass-heading-reads-as-verdict`;
+   - `2026-11-14-harness-points-tests-at-agent-memory`.
+2. **Planning measured a schema fact against firmware's files, not an installed instance.**
+   - The story's Background (`:25`) and ADR 0020a's fact 6 measured "each only for `graphContext`" on firmware's element files, against firmware's `word` file.
+   - An installed `word` schema has 83 `allOf` entries where the file has one, by the conditionals' ledger row; they come from the enumeration at `manifest.json:405–408`. So the story promised an outcome on an instance that the installed schema can't give, and only the live check found it.
+   - A `meta` row should say that a story's claims about what an instance does are measured on an instance: a scratch stack, where the local one is precious.
+
+The optional independent check was not applied in this round either.
+
+### On PASS (round 2, same commit)
+
+- [ ] Not applicable: this round requests changes. The story's `**Status:**` stays `Approved`.
+
+### Verdict (round 2)
+
+**CHANGES_REQUESTED**
+
+Round 1's blocking finding is resolved. The live check is real, covers every item ADR 0042 and the test plan list, and its records bear out its numbers. Of round 1's seven non-blocking findings, five are fixed, one is half fixed and one is knowingly deferred. Each of the three code fixes is pinned by a test that fails without it, and the 15 touched suites pass (240 passed, 12 live skips).
+
+What blocks now is what the live check found. On an installed instance, these don't hold:
+- AC4's last sentence;
+- AC3's "fits once its graphContext is built";
+- the story's headline outcome, that the elements of word stop reading as broken.
+
+The cause is a defect in install that predates this story. The code is right, but the story's record narrows its own acceptance criteria on the Implementer's word. The owner's decision, recorded as story 16's correction was, clears it. Non-blocking 1 is the one I'd fix in the same round, since it is new in this round's code.
