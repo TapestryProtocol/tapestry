@@ -18,7 +18,9 @@ Both read a schema the same way, so they agree under most schemas. They split:
 - under a schema that forbids extra top-level keys;
 - for JSON with no word block;
 - for a word block missing a field the derive step fills in (`word.slug`, `word.name` or `word.wordTypes`), such as under firmware's `validation-tool` schema, which requires `word.slug`;
-- where the two judge different concepts.
+- where the two judge different concepts;
+- when the derive step's cache is stale: it judges its cached copy first, and today's save-element-json and set-json-tag (`src/api/normalize/index.js`) change a json tag without clearing that copy. This is OPEN.md row 139. Review round 3 of story 20 answers that row's open question: both routes hit the stale cache, and only `src/api/strfry/tapestryBrainWrite.js` clears an entry before deriving;
+- under a schema that says anything about `graphContext`, not only one that requires or forbids it, for example one that types it, or keys a dependency on it.
 
 Test SC9 (`test/operations/graph/element-schemas.test.js`) runs both, and pins the first four of these splits.
 
