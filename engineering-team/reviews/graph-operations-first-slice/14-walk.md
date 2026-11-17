@@ -245,3 +245,23 @@ The read matches its story, ADR 0014 (with ADR 0013's C5 and C6 and ADR 0011's A
 Findings 1–3 are small and optional, before or soon after the merge. The verdict stands on the 13-suite run above, and it needs the pull request's CI to be green before merging.
 
 **PASS**
+
+## Round 2: the non-blocking fixes (14c451ae)
+
+Checked as fresh claims (roles/reviewer.md step 10), under round 1's constraints. `git diff 1f595135 14c451ae` touches six files. In `src/` only the two description strings at `src/operations/catalog/graph/walk.js:38` and `:64` change; the engine is unchanged.
+
+- Gate, on the committed tree: `20261117T041911Z-98476-ee3f [a10-14-walk-review-round2] started 2026-11-17T04:19:11.076Z on 14c451ae — PASS, exit 0, 213 passed, 0 failed, 0 skipped, 13/13 suites`. `graph/walk.test.js` passes 32 of 32, and the other twelve suites as in round 1.
+- Finding 1, fixed. W32 walks the `ord0` group, on fixed keys (ordP1 < ordP2). ordX comes through ordP1's ZZZ, not ordP2's AAA, so the parent comes before the type. ordY comes out from ordP2, not in from the lesser ordP1, so out comes before a lesser parent. My trace of the seed agrees.
+  - Comparing the type before the parent at `walk.js:111` fails W32 alone.
+  - A new change puts the parent before the direction: the incoming statement sees what the outgoing one reached, and replaces it when its parent's key is less. It failed W32 on each of three runs, and W6 on two of them (W6's set1 and set3 keys are random). So that case is now pinned, by W32.
+- Finding 2, fixed. W31 walks from `rm0`, both ways, to depth 2. rmLo (scored 0.01) is left out and rmTag passed by at step 1, then both are met again from rmA at step 2. It answers rmA, `leftOut` 1 and `tagsLeftOut` 1. Dropping `walk.js:177` alone, `:178` alone, or both, fails W31 alone each time.
+- Finding 3, fixed, with one leftover.
+  - The `/docs` paragraph (`:38`) and the catalog row (`docs/GRAPH_OPERATIONS_CATALOG.md:71`) now say what the code counts (`walk.js:100–102`, `:161`): relationships to nodes the walk hasn't met, those to tag nodes and to nodes left out included, with relationships back to nodes it has met passed over. Relationships to unkeyed nodes, `'{}'` and change entries go uncounted too, but no read counts those as nodes.
+  - `complete`'s description (`:64`), "its next step would have read more than 10,000 relationships to nodes it hadn't met", names the right relationships but reads as one step's count. The bound is the walk's: W20's walk reads 1, then a step of exactly 10,000, and stops short. The phrase predates the fix, and round 1 missed it. This is new non-blocking note 8. Optional wording: "its next step would have taken it past 10,000 relationships read to nodes it hadn't met".
+- The lines added to the story ("After the review") and the test plan are true.
+  - The cited gate `a10-14-walk-after-review` reads `20261117T040926Z-47211-0253 … PASS, exit 0, 213 passed, 0 failed, 0 skipped, 13/13 suites`, with `graph/walk.test.js` at 32 of 32 in its record. It ran on `1f595135+dirty`, with six files uncommitted: the record keeps only that count, which matches the fix commit's six files. The gate above, on `14c451ae` itself, gives the same numbers.
+  - W31 needs only one of the two lines missing to fail, not both: stronger than they claim.
+  - Not checked here: the "memo on A10.8", which lives on Loom (this review makes no external requests), and "the Tester added", which git can't tell apart from the one fix commit.
+- Round 1's other 21 changes still fail the suites.
+
+None of the three fixes is wrong, so the verdict above stands.
