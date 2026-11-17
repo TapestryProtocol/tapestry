@@ -52,6 +52,11 @@
  * Story graph-operations-first-slice #9 (ADR graph-operations-first-slice/0009, Context 9 and For the Tester):
  *   F25 a read of nodes found by their properties, with reads.js's trust fragment (an OPTIONAL MATCH of a node, no
  *       relationship), runs as Neo4j would: through the path reader, since the one-node reader refuses OPTIONAL MATCH
+ *
+ * Story graph-operations-first-slice #14 (ADR graph-operations-first-slice/0014, Decision 1, S2), over the graph
+ * test/helpers/walkGraph.js seeds:
+ *   F26 a walk's step from every node a list of tapestryKeys names reads relationships of every type, out and in, with
+ *       no type or with types in backticks; a later relationship, and a read of a set's parents, keep the repertoire
  */
 
 const fs = require('fs');
@@ -562,6 +567,36 @@ test('F25: a read of nodes found by their properties, with the trust fragment\'s
     ${R.trust('n')}
     RETURN count(n) AS seen, count(CASE WHEN counts THEN 1 END) AS kept`, params);
   assert(show(counts) === show([{ seen: 3, kept: 2 }]), `the counts see 3 and keep 2; got ${show(counts)}`);
+});
+
+test('F26: a walk\'s step from the nodes a list of tapestryKeys names reads every type, out and in; later relationships keep the repertoire', async () => {
+  const R = require(path.join(ROOT, 'src/operations/reads.js'));
+  const WG = require('../helpers/walkGraph');
+  const seed = WG.seedWalk();
+  const read = G.readerOver(seed.state);
+  const k = seed.keys;
+  const name = (key) => Object.keys(k).find((n) => k[n] === key) || key;
+  const step = (arrow, rel) => `MATCH (x:TapestryNode)${arrow === 'out' ? `-${rel}->` : `<-${rel}-`}(m)
+    WHERE x.tapestryKey IN $frontier
+      AND NOT m:GraphChange AND m.tapestryKey IS NOT NULL AND m.tapestryKey <> '{}'
+      AND NOT m.tapestryKey IN $known
+    WITH x, r, m, (NOT $tags AND m:NostrEventTag) AS hidden
+    ${R.trust('m', ['x', 'r', 'hidden'])}
+    RETURN x.tapestryKey AS parent, ${R.relationshipColumns('r', 'm')}, hidden, counts
+    LIMIT 100`;
+  const params = { frontier: [k.header, k.set2], known: [k.header, k.set2], tags: false, everyone: true, own: [TA], cutoff: 0.05 };
+  const seen = (rows) => rows.map((r) => `${name(r.parent)} ${r.type} ${name(r.tapestryKey)}${r.hidden ? ' (tag)' : ''}`).sort();
+  const out = await read(step('out', '[r]'), params);
+  assert(show(seen(out)) === show(['header HAS_TAG headerTagD (tag)', 'header HAS_TAG headerTagName (tag)', 'header IS_THE_CONCEPT_FOR superset', 'set2 IS_A_SUPERSET_OF set3']), `out with no type, from header and set2: every type, the nodes met left out (set2's loop to itself), tag nodes flagged; got ${show(seen(out))}`);
+  const inn = await read(step('in', '[r]'), params);
+  assert(show(seen(inn)) === show(['header CITES elem3', 'set2 IS_A_SUPERSET_OF set1']), `in with no type: elem3's CITES and set1's IS_A_SUPERSET_OF; got ${show(seen(inn))}`);
+  const typed = await read(step('out', '[r:`IS_THE_CONCEPT_FOR`|`MENTIONS`|`NOT_ONE_THE_FAKE_KNOWS`]'), { ...params, known: [k.header], tags: true });
+  assert(show(seen(typed)) === show(['header IS_THE_CONCEPT_FOR superset', 'set2 MENTIONS set2']), `types in backticks, one of them outside the fake's repertoire, read only those types; got ${show(seen(typed))}`);
+  assert(out.every((r) => typeof r.rid === 'string' && Array.isArray(r.properties)), 'each row carries its elementId and its [key, value] pairs');
+  const later = await refusedWith(read(`MATCH (x:TapestryNode)-[r]->(m) WHERE x.tapestryKey IN $frontier OPTIONAL MATCH (m)-[:NOT_ONE_THE_FAKE_KNOWS]->(z) RETURN m.tapestryKey AS key`, params));
+  assert(later && /the fake graph can't run this Cypher/.test(later.message), `a later relationship keeps the repertoire after a step's opening; got ${later ? later.message : 'rows'}`);
+  const parents = await refusedWith(read('MATCH (c:TapestryNode)<-[:NOT_ONE_THE_FAKE_KNOWS]-(u:TapestryNode) WHERE c.tapestryKey IN $keys AND NOT u:GraphChange RETURN u.tapestryKey AS key', { keys: [k.set1] }));
+  assert(parents && /the fake graph can't run this Cypher/.test(parents.message), `a read of a set's parents (a typed relationship with no variable, a labelled node) keeps the repertoire; got ${parents ? parents.message : 'rows'}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

@@ -115,5 +115,5 @@ For Architecture, not this gate:
 - Loom memo #113 (how an edge's author is read), from [the list-elements review](../../reviews/graph-operations-first-slice/11-list-elements.md), finding 9
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0014-walk.md](../../decisions/graph-operations-first-slice/0014-walk.md) (and its Amendment 4 to [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md))
-- Test plan: (filled in after Test Design phase)
+- Test plan: [14-walk.test-plan.md](14-walk.test-plan.md)
 - Review: (filled in after Review phase)
