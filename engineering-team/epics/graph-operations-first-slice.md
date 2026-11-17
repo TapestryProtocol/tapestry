@@ -25,6 +25,9 @@ instance's URL rebuilds the brain on a fresh instance, with no raw Cypher.
 Each story is planned when its task is taken, and is numbered by its Loom task, as the foundation's are (A10.n is story
 n, and its first ADR 000n), because teammates plan them at the same time in different sessions.
 
+8. `stories/graph-operations-first-slice/8-search.md` — find concepts and elements by the words in their names and
+    fields, best first, each match with the field it matched in and a passage, from a point of view; the read the rerun
+    of Avi's race (A10.40) waits on (Loom A10.8).
 9. `stories/graph-operations-first-slice/9-resolve.md` — turn a name, slug or nostr address into the tapestryKeys it
     could mean, from a point of view, reporting any ambiguity; the resolution every input that names a node will use
     (Loom A10.9).
