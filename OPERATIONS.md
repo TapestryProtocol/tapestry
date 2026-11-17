@@ -3,7 +3,7 @@
 > **Audience:** the active team running this fork at `tapestry.brainstorm.world`.
 > **Prerequisite reading:** [BIBLE.md](./BIBLE.md) — what tapestry *is* and how it works. This file documents the specifics of *our* deployment that aren't useful to other operators forking the codebase.
 
-**Last updated:** 2026-11-16
+**Last updated:** 2026-11-17
 
 ---
 
@@ -98,7 +98,7 @@ The first deploy to a new droplet takes 5–15 minutes (the strfry C++ Redis pat
 
 These are the **deploy** workflows (push-triggered). The others are the pull-request **test gate** and the live link checks' weekly run (both in [§15](#15-ci-test-gate-prs-to-stagingmain)), the main-source guard (`guard-main-source.yml`), and the brain-image publisher (`publish-image.yml`, [§18](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments)).
 
-Every workflow follows three rules that `npm test` holds: actions pinned to a commit, declared token permissions, and a named environment on each deploy job. See [§18](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments).
+Every workflow follows four rules that `npm test` holds: actions pinned to a commit, declared token permissions, a named environment on each deploy job, and no `pull_request_target` trigger outside the main-source guard. See [§18](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments).
 
 ---
 
@@ -120,7 +120,7 @@ Two rulesets (Settings → Rules → Rulesets) protect the long-lived branches, 
 
 - It finds the guard by its path, so a PR that moves or renames `guard-main-source.yml` changes the policy too. Until the rename is on `main`, the policy lists both paths, since `main`'s copy at the old path is the one that runs.
 - Its rule lists the only events a workflow it covers may run on, so it keeps that path. With no path it would cover every workflow, and every other one would stop: the deploys, the image publisher, the test gate and the weekly link checks.
-- It says nothing about other workflows. GitHub's docs don't say whether the default block still applies to the repository's other workflows once this policy exists, so a new `pull_request_target` workflow needs its own review against GitHub's guide, and its own decision about the policy.
+- It says nothing about other workflows. GitHub's docs don't say whether the default block still applies to the repository's other workflows once this policy exists, so a new `pull_request_target` workflow needs its own review against GitHub's guide, and its own decision about the policy. `test/workflow-hardening.test.js` holds that line in the repo: it fails any workflow but the guard that runs on the event ([§18.4](#184-pull_request_target-the-main-source-guard-only)).
 
 **When `main-source-guard` ends in `startup_failure`.** The run has no job and no log: GitHub refused to start the workflow, and the PR waits on a check that never came. On 2026-11-16 a scheduled brownout of the default policy above did this to three runs, and held promotion #96 for about two hours ([ledger row](./ledger/2026-11-16-main-guard-blocked-by-github-policy.md)). The run's annotation names the cause. First see that the policy is still there and still names the guard's path; Policy insights, under Policies, lists the runs a policy blocked. A startup failure can't be re-run (`gh run rerun` answers "This workflow run cannot be retried"). Once the cause is gone, close the PR and reopen it: that is a new `pull_request_target` event, and the guard runs again. Taking the check out of the ruleset is the owner's decision, not a way past the block.
 
@@ -1133,7 +1133,7 @@ Once `tapestry_key` is online, backups count keys by walking its index 50,000 at
 
 ## 18. Workflow rules: pinned actions, token permissions, deploy environments
 
-Every file in `.github/workflows/` follows three rules. `test/workflow-hardening.test.js` reads the folder on every `npm test` and fails, naming the file and the rule, when one is broken. That includes a workflow added later (story `workflow-hardening` #1).
+Every file in `.github/workflows/` follows four rules. `test/workflow-hardening.test.js` reads the folder on every `npm test` and fails, naming the file and the rule, when one is broken. That includes a workflow added later (story `workflow-hardening` #1; the fourth rule, story `guard-only-pull-request-target` #1).
 
 ### 18.1. Pinned actions
 
@@ -1198,3 +1198,15 @@ GitHub creates an environment the first time a job names it, empty and with no r
 A target whose repository-level secrets are deleted before its branch has the line fails its next deploy: the job names no environment and finds no secret.
 
 A new target is set up this way from the start: [§6.2](#62-github-setup). The `ninja` box's own setup is step 7 of Handover 1 in [deploy/RUNBOOK.md](./deploy/RUNBOOK.md).
+
+### 18.4. `pull_request_target`: the main-source guard only
+
+Only the files listed in `PULL_REQUEST_TARGET_FILES`, in `test/workflow-hardening.test.js`, run on `pull_request_target`. Today that is `guard-main-source.yml` alone. The event runs a workflow in the base repository's context, with a token that can write, next to a pull request's code. That is why GitHub's guide "Securely using pull_request_target" warns about it, and why GitHub blocks it by default in public repositories from 2026-12-02. The repo's Actions policy, `allow-pull-request-target-for-main-source-guard` ([§4](#4-branch-protection-rulesets)), allows the event for the guard's path. GitHub's docs don't say whether the default block still stops any other workflow once that policy exists. So the test holds the line: it fails any other workflow that runs on the event, whichever way its `on:` names it (story `guard-only-pull-request-target` #1).
+
+To add a workflow to the list:
+
+1. Review it against GitHub's guide. A workflow on this event never runs a pull request's code, and treats any it checks out as data only. The guide's hardening applies to every workflow on the list, whether or not it checks out code: a least-privilege token and only the secrets it needs, caches filled only from trusted events, isolated runners, and the general protections, such as against command injection. The guard meets it: it checks out nothing, its token only reads, it uses no secret and no cache, it runs on a GitHub-hosted runner, and it passes `github.head_ref` to its script through `env:`.
+2. Add its file name to `PULL_REQUEST_TARGET_FILES`, with a comment saying why it needs the event.
+3. In the same PR, give it an Actions policy that names its path in `workflow_path` and allows it the event, in a definition in `.github/rulesets/`, and have the owner set the live policy to match. The existing policy allows the files it covers `pull_request_target` and no other event, so adding a path there suits only a workflow that runs on that event alone. A workflow that also runs on other events needs those allowed too, or a policy of its own: the owner's decision. Without a policy that covers it, GitHub may refuse to start the workflow from 2026-12-02, since its docs don't say whether the default block covers a workflow no policy names.
+
+The test holds the list against the folder and the definitions: it fails when the list names a file that is gone or no longer runs on the event, or one that no Actions policy definition in `.github/rulesets/` names, by its exact path, with `pull_request_target` allowed. So a rename of the guard changes the list and the definition together. The live policy is the owner's to change to match (§4).
