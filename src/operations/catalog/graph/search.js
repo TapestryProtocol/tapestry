@@ -188,14 +188,17 @@ module.exports = {
     const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
     const best = [...rows].sort((a, b) => (b.score - a.score) || cmp(a.tapestryKey, b.tapestryKey));
     const complete = best.length <= X.BOUND;
+    // Every row read is judged for the order and the counts; only the page's matches are checked whole, for their
+    // field and passage.
     const matches = [];
     for (const row of best.slice(0, X.BOUND)) {
-      const m = X.check(row, words, forms);
-      if (m) matches.push({ row, ...m, every: m.words.length === words.length ? 1 : 0, score: row.score, tapestryKey: row.tapestryKey });
+      const h = X.holds(row, words, forms);
+      if (h.held.size) matches.push({ row, every: h.every ? 1 : 0, score: row.score, tapestryKey: row.tapestryKey });
     }
     const kept = matches.filter((m) => m.row.counts === true).sort(X.order);
     const listed = after ? kept.filter((m) => X.after(m, after)) : kept;
-    const page = R.pageOf(listed, limit, (last) => R.encodeCursor(READ, scope, [last.every, last.score, last.tapestryKey]));
+    const paged = R.pageOf(listed, limit, (last) => R.encodeCursor(READ, scope, [last.every, last.score, last.tapestryKey]));
+    const page = { items: paged.items.map((m) => ({ ...m, ...X.check(m.row, words, forms) })), cursor: paged.cursor };
     const concepts = await conceptsOf(read, page.items.map((m) => m.tapestryKey), T);
     const off = await read("MATCH (t:NostrEventTag {type: 'json'}) WHERE t.value STARTS WITH 'lmdb:' RETURN count(t) AS n", {});
 

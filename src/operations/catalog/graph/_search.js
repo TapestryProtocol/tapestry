@@ -7,7 +7,8 @@
  *   words(q)                     { q, words, forms }, or the refusal bad-query
  *   luceneOf(words, forms)       the query for db.index.fulltext.queryNodes: each form a quoted phrase, all joined by OR
  *   textsOf(row)                 a node's texts, each { field, text }: its name, its description tag, its JSON's strings
- *   check(row, words, forms)     { words, field, passage } when one of its texts holds a word, else null
+ *   holds(row, words, forms)     { held, every }: the words a row holds, read only until it holds them all
+ *   check(row, words, forms)     { words, field, passage } when one of its texts holds a word, else null: for a page
  *   passageOf(text, at)          at most PASSAGE characters of text, from LEAD before index `at`, … at a cut end
  *   order(a, b)                  every word first, then the higher score, then the lower tapestryKey
  *   isPosition(p)                a cursor's position: [every, score, tapestryKey]
@@ -84,12 +85,17 @@ function luceneOf(list, forms) {
   return list.map((w) => `(${(forms[w] || [w]).map(phrase).join(' OR ')})`).join(' OR ');
 }
 
-/** A json tag's value, read, LMDB references resolved; null when it can't be read. */
+let readJsonOnce = null;
+/**
+ * A json tag's value, read, LMDB references resolved; null when it can't be read. The reader is required once, on
+ * first use, not once a row: a require in this loop cost the control panel half a second at the size of Avi's brain
+ * (the live check, 2026-11-17).
+ */
 function jsonOf(raw) {
   if (raw === null || raw === undefined) return null;
   try {
-    const { readJson } = require('./_fields');
-    return readJson(raw).json;
+    if (!readJsonOnce) readJsonOnce = require('./_fields').readJson;
+    return readJsonOnce(raw).json;
   } catch {
     return null;
   }
@@ -138,17 +144,50 @@ function passageOf(text, at) {
   return `${start > 0 ? CUT : ''}${text.slice(start, end)}${end < text.length ? CUT : ''}`;
 }
 
-/**
- * The check (Decision 3): a row is a match when one of its texts holds a word, or one of its forms. A node the index
- * found only by a JSON key, or the word section's boilerplate, is no match. → { words, field, passage } or null: the
- * words it holds, in q's order; the field of the text holding the most of them, the first on a tie; its passage.
- */
-function check(row, list, forms) {
+/** Each form, mapped to the word it is a form of. */
+function ownerOf(list, forms) {
   const owner = new Map();
   for (const w of list) for (const f of forms[w] || [w]) if (!owner.has(f)) owner.set(f, w);
+  return owner;
+}
+
+/**
+ * Whether a text may hold a form: a whole word, lowercased, is a part of the lowercased text, so a text that holds none
+ * of the forms as a part is never split into words. This only spares work; it decides nothing.
+ */
+const mayHold = (text, owner) => {
+  const lower = text.toLowerCase();
+  for (const f of owner.keys()) if (lower.includes(f)) return true;
+  return false;
+};
+
+/**
+ * The words a row holds, for the order and the counts (Decision 3), read only as far as needed: its texts in order,
+ * stopping once it holds every word. → { held, every }: the words held, and whether they are all of them. A row that
+ * holds none is no match: the index found it only by a JSON key, or the word section's boilerplate.
+ */
+function holds(row, list, forms) {
+  const owner = ownerOf(list, forms);
+  const held = new Set();
+  for (const t of textsOf(row)) {
+    if (!mayHold(t.text, owner)) continue;
+    for (const s of segments(t.text)) if (owner.has(s.w)) held.add(owner.get(s.w));
+    if (held.size === list.length) break;
+  }
+  return { held, every: held.size === list.length };
+}
+
+/**
+ * The check (Decision 3), whole, for a match on the page: a row is a match when one of its texts holds a word, or one
+ * of its forms. → { words, field, passage } or null: the words it holds, in q's order; the field of the text holding
+ * the most of them, the first on a tie; its passage.
+ */
+function check(row, list, forms) {
+  const owner = ownerOf(list, forms);
   const held = new Set();
   let best = null;
   for (const t of textsOf(row)) {
+    if (!mayHold(t.text, owner)) continue;
     const hits = segments(t.text).filter((s) => owner.has(s.w));
     if (!hits.length) continue;
     for (const h of hits) held.add(owner.get(h.w));
@@ -179,5 +218,5 @@ function after(item, position) {
 
 module.exports = {
   BOUND, MAX_Q, PASSAGE, LEAD, STOP_WORDS, BAD_QUERY,
-  segments, formsOf, words, luceneOf, textsOf, passageOf, check, order, isPosition, after,
+  segments, formsOf, words, luceneOf, textsOf, passageOf, holds, check, order, isPosition, after,
 };
