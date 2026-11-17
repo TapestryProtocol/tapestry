@@ -1,6 +1,6 @@
 # Story 27: `graph create-set` — make a set under a concept's superset or another set, with no event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.27 — https://loom.brainstorm.world/t/A10.27
@@ -97,6 +97,18 @@ For Architecture, not this gate:
 - **How create-set shares link-set's reading of a set and a parent** (`_sets.js`), so delete-set and move-element can use it (AC5).
 - **The would-be `s` tag** goes stale when unlink-set takes the set out from under its first parent (ADR 0028, Consequences 2). Nothing here changes that: export (A10.34) reads a set's parents from its links.
 
+## Deviations
+
+Small judgment calls made in Implementation, inside ADR 0027:
+
+- **R6, and the read of `threads`, live in `create-set.js`,** not `_sets.js`: only create-set uses them. `_sets.js` gains exactly the seven functions the ADR's Implementation notes name.
+- **Three refusals reuse existing entries, worded for a set:** `bad-name` and `no-free-address` are `_elements.js`'s, and `bad-description` is `_concepts.js`'s. `not-installed` and `unknown-node` are create-set's own, since their `when` differs: a missing set concept, and `parent` alone.
+- **The `concepts` entry for the set concept has the key `set`, Decision 9's fixed section key.** Each other concept's key is read from its header (`K.headersByKey`).
+- **`threads` is ordered by tapestryKey in code-unit order,** not `localeCompare`.
+- **`_sets.js` now requires `src/lib/conceptNames.js` when it loads,** for `setJson`'s title. That module opens nothing.
+- **A description given as blank text is treated as left out:** it isn't compared in `differs`, as a description not given isn't.
+- **The live check's firmware is the image's** (`agent-memory-tapestry:latest`): `scripts/scratch-stack.sh` mounts `src/` only.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
@@ -108,5 +120,5 @@ For Architecture, not this gate:
 - The rulebook: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md) (entries 5 to 7)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0027-create-set.md](../../decisions/graph-operations-first-slice/0027-create-set.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [27-create-set.test-plan.md](27-create-set.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/27-create-set.md](../../reviews/graph-operations-first-slice/27-create-set.md)

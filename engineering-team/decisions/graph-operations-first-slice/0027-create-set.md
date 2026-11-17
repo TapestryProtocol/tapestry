@@ -310,3 +310,17 @@ A create records `{ change: 'set-created', node: <the set>, from: <the parent>, 
 - **A rule that set slugs are unique** (`x-tapestry.unique` in the set concept's schema).
 - **delete-set (A10.17) and move-element (A10.23)** themselves. This ADR gives them a lock and a reading to use.
 - **Publishing a set** (`export nostr`, A10.34).
+
+## Amendment 1 (2026-11-17, at review round 1; the owner's approval) — what keeps a set in `set` through a reinstall
+
+Decision 16 says a reinstall's pass 1d MERGEs a set's registration again from its `z` tag. Pass 1d runs before pass 1e (`src/firmware/install.js:650`, `:810`), so it can't put back what 1e takes out.
+
+- **What the code does,** read end to end (review round 1, not run):
+  - pass 1e removes the registration of a set whose parent is itself an element of this instance's `set`: a set under this instance's own superset or set. A set under another author's superset or set (AC4) has no such path, so the prune leaves it alone;
+  - Pass 3's `wire-implicit-elements` (`install.js:1291`) wires it again from the set's `z` tag, since the set's other way in ends in `IS_A_SUPERSET_OF`, not `HAS_ELEMENT`.
+- **What was seen.** The live check's reinstall (L6) left every registration in place, as that reading predicts.
+- **What follows.**
+  - The `z` tag naming the set concept (Decision 10) is what keeps a set in `set` through a reinstall, and CS2 holds that tag.
+  - A reinstall whose Pass 3 fails leaves those sets out of `set` until the next one, since install logs that failure and goes on (`install.js:1289–1295`). Ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` records it, for whoever changes pass 1e or Pass 3.
+
+Nothing in create-set changes.

@@ -68,6 +68,10 @@
  * MATCH: graph resolve finds nodes by their properties, then tests trust with reads.js's fragment, whose OPTIONAL MATCH
  * of a NostrUser names no relationship.
  *
+ * Story graph-operations-first-slice #27 (ADR graph-operations-first-slice/0027, Decision 10) makes a node labelled Set
+ * with C5. A CREATE's SET clause is looked for only after its node's pattern, so the label Set in
+ * `CREATE (n:ListItem:Set {…})` is read as a label, as Neo4j reads it, not as a SET clause.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -257,7 +261,7 @@ function createEntry(s, query, params) {
     const val = valueOf(e, params, q);
     if (val !== null) { props[k] = val; propertiesSet++; }
   }
-  const set = q.match(/\bSET\b([\s\S]*?)(?=\bRETURN\b|\bWITH\b|$)/i);
+  const set = q.slice(m.index + m[0].length).match(/\bSET\b([\s\S]*?)(?=\bRETURN\b|\bWITH\b|$)/i);
   if (set) {
     for (const a of splitTop(set[1])) {
       const am = a.match(new RegExp(`^${esc(v)}\\.([A-Za-z_]\\w*)\\s*=\\s*([\\s\\S]+)$`));
