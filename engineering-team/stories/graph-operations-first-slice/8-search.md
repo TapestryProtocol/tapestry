@@ -181,6 +181,15 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - **The test fakes,** which run none of a full-text index's queries.
 - **Walk's code isn't on staging yet** (A10.14). If the build needs it before A10.14 merges, the build stops at the implementation gate rather than copying it.
 
+## Deviations
+
+- **`search-not-ready` is 409, not 503.** The foundation allows a refusal only a 4xx status (ADR graph-operations-foundation/0001, Decision 4), so with 503 the catalog left search out. The owner chose 409 on 2026-11-17, and ADR 0008's Amendment 1 records it, with SR27 and SR33 corrected to match.
+- **The node-site guard learned typed indexes.** `tapestry-key-paths`' G4 read `CREATE FULLTEXT INDEX … FOR (n:TapestryNode)` as a node made without its key. `test/helpers/cypherSites.js` now skips an index of any type, and G20 pins it, a Tester correction in its own commit.
+- **A passage near the end of its text starts earlier.** Decision 6 starts a passage 60 characters before the first word. When that would leave it short of 200 characters at the text's end, it starts as far back as the 200 allow, so a passage is as long as the text lets it be.
+- **A match's concepts with no name come last,** after the named ones, by tapestryKey. Decision 6 orders them by name.
+- **`bad-query` reuses `textProblem`'s words** for a control, text-direction or invisible character, as `graph resolve`'s `bad-ref` does. Its sentence about an invisible character speaks of a name's slug, key and labels.
+- **`not-a-concept` for a superset or a set** tells the caller to pass the header of the concept it belongs to; for any other node, that it is no concept header.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Race and "Reads stay behind sign-in" bullets)
