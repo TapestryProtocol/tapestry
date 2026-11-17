@@ -50,7 +50,8 @@
  *   SR25 q refusals: none, missing-input; spaces, punctuation only, a control character, a text-direction control or an
  *        invisible character, bad-query; 301 characters, invalid-input; 300 characters answer
  *   SR26 an input search doesn't take is refused unknown-input
- *   SR27 the index not ready: populating or missing answers 503 search-not-ready, saying which and how far it has filled
+ *   SR27 the index not ready: populating or missing answers 409 search-not-ready, saying which and how far it has filled
+ *        (409, not 503: a refusal's status is a 4xx; ADR 0008 Amendment 1)
  *   SR28 a node whose JSON is offloaded is found by its name, and the answer counts such nodes
  *   SR29 the bound: 5,001 matches answer complete false, the 5,000 best counted, pages of 50 by default and of 200 at
  *        most; 5,000 matches answer complete true
@@ -560,12 +561,12 @@ test('SR26: an input search doesn\'t take is refused unknown-input', () => {
   refused(a, 'unknown-input', 400, 'unknown-input', 'foo');
 });
 
-test('SR27: the index not ready: populating or missing answers 503 search-not-ready, saying which and how far it has filled', () => {
+test('SR27: the index not ready: populating or missing answers 409 search-not-ready, saying which and how far it has filled', () => {
   const populating = seedSearch({ index: 'populating' });
   const missing = seedSearch({ index: 'missing' });
-  const p = refused(runOver(fileOf(populating), [get('x', 'owner', { q: 'hardcode' })]), 'x', 503, 'search-not-ready');
+  const p = refused(runOver(fileOf(populating), [get('x', 'owner', { q: 'hardcode' })]), 'x', 409, 'search-not-ready');
   assert(/45/.test(p.error) && /popul|fill/i.test(p.error), `the refusal says the index is still filling, and how far: 45%; got ${show(p.error)}`);
-  const m = refused(runOver(fileOf(missing), [get('x', 'owner', { q: 'hardcode' })]), 'x', 503, 'search-not-ready');
+  const m = refused(runOver(fileOf(missing), [get('x', 'owner', { q: 'hardcode' })]), 'x', 409, 'search-not-ready');
   assert(/graph_search_text/.test(m.error) && /(not|n't) (there|made|yet)|missing|no (such )?index|(doesn't|does not) exist/i.test(m.error), `the refusal says the index isn't there; got ${show(m.error)}`);
 });
 
@@ -630,7 +631,7 @@ test('SR33: it is listed for an admin with its inputs and refusals, and has its 
   assert(e.kind === 'read' && e.method === 'GET' && e.access === 'owner-and-admins' && e.route === ROUTE && e.command === 'tapestry graph search', `a GET read for the owner and admins; got ${show({ kind: e.kind, method: e.method, access: e.access, route: e.route, command: e.command })}`);
   assert(show(Object.keys(e.inputs).sort()) === show(INPUTS), `its inputs: q, kind, concept, pov, limit and cursor; got ${show(Object.keys(e.inputs))}`);
   const codes = e.refusals.map((x) => `${x.code}:${x.status}`);
-  for (const c of ['bad-query:400', 'unknown-node:404', 'not-a-concept:409', 'search-not-ready:503', 'unknown-pov:400', 'invalid-cursor:400', 'missing-input:400', 'unknown-input:400', 'invalid-input:400', 'sign-in-required:401', 'not-allowed:403']) {
+  for (const c of ['bad-query:400', 'unknown-node:404', 'not-a-concept:409', 'search-not-ready:409', 'unknown-pov:400', 'invalid-cursor:400', 'missing-input:400', 'unknown-input:400', 'invalid-input:400', 'sign-in-required:401', 'not-allowed:403']) {
     assert(codes.includes(c), `its refusals include ${c}; got ${show(codes)}`);
   }
   const child = spawnSync(process.execPath, ['-e', `

@@ -314,7 +314,7 @@ A `concept` that names no node refuses `unknown-node`, and one that names a node
 | `not-a-concept` | 409 | a `concept` that isn't a concept header, saying what it is (a superset or a set: pass the concept it belongs to) |
 | `unknown-pov` | 400 | C2's |
 | `invalid-cursor` | 400 | C1's |
-| `search-not-ready` | 503 | the index isn't there, or isn't online yet; the message says which, how far it has filled, and that it fills by itself after the control panel starts |
+| `search-not-ready` | 503, now 409 (Amendment 1) | the index isn't there, or isn't online yet; the message says which, how far it has filled, and that it fills by itself after the control panel starts |
 | `unknown-input` | 400 | an input search doesn't take (the declaration layer's) |
 
 Three hundred characters keep the Lucene query under Lucene's 1,024 clauses: at most 150 words, each with at most three forms.
@@ -419,6 +419,13 @@ Three hundred characters keep the Lucene query under Lucene's 1,024 clauses: at 
 - **The refusals,** including `search-not-ready` while the index is dropped.
 
 Take the stack down afterwards, and note it in the shared notes.
+
+## Amendment 1 (2026-11-17, at Implementation) — `search-not-ready` is 409
+
+Decision 7 gave `search-not-ready` the status 503. The foundation's declaration rule allows a refusal only a 4xx status (ADR graph-operations-foundation/0001, Decision 4; `src/operations/declaration.js:169`), so with 503 the catalog left search out, as a problem. The owner chose 409 Conflict on 2026-11-17: the request conflicts with the index's present state. The repo already uses 409 for such refusals, such as `not-a-concept` and `ambiguous-ref`. The foundation's rule is unchanged.
+
+- `search-not-ready` is 409. What it says doesn't change: whether the index is missing or still filling, how far it has filled, and that it fills by itself after the control panel starts.
+- Tests SR27 and SR33 expect 409, which the Tester changed with the owner's approval. The test plan says so too.
 
 ## Out of scope
 
