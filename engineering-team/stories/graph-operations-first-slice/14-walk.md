@@ -180,10 +180,12 @@ Each ran on its own on the Mac Studio, never the full `npm test`, with every end
 
 The review passed with nothing blocking ([14-walk.md](../../reviews/graph-operations-first-slice/14-walk.md)). Its three non-blocking asks were then fixed on this branch:
 1. **The tie-break's order** is tested. W32 walks from ord0 to ordX, which it reaches through the lesser parent though that parent's type is the greater, and to ordY, which it reaches out from the greater parent rather than in from the lesser. With `walk.js` comparing the type before the parent, W32 fails.
-2. **A node met again a step later** is tested. W31 walks from rm0, whose left-out neighbour and tag node are met again from rmA at step 2, and each counts once. Without the two lines that add them to what the walk has met, W31 fails.
+2. **A node met again a step later** is tested. W31 walks from rm0, whose left-out neighbour and tag node are met again from rmA at step 2, and each counts once. Without either of the two lines that add them to what the walk has met, W31 fails.
 3. **The bound's wording** now says what it counts, in /docs, in `complete`'s description and in the catalog's row: the relationships a walk reads to nodes it hasn't met yet. Relationships back to nodes it has met cost work the bound doesn't count, and no walk through a dense cluster, such as the trust pipeline's FOLLOWS, was timed. So search (A10.8) times one before it leans on the bound (a memo on A10.8).
 
-The four notes the review recorded stand as it gives them. The 13 suites passed again afterwards, `graph/walk.test.js` with 32 of 32: a scoped gate recorded PASS, 213 passed (`npm run gate:status -- --label a10-14-walk-after-review`).
+The four notes the review recorded stand as it gives them. The 13 suites passed again afterwards, `graph/walk.test.js` with 32 of 32: a scoped gate recorded PASS, 213 passed, on `1f595135` with the fix's six files in place before their commit (`npm run gate:status -- --label a10-14-walk-after-review`), and the reviewer's round 2 gate on `14c451ae` itself gave the same (`a10-14-walk-review-round2`).
+
+Round 2 of the review ([14-walk.md](../../reviews/graph-operations-first-slice/14-walk.md), "Round 2") found the three fixes right, and one older gap, note 8: `complete`'s description read as if the bound were one step's. It and the matching sentence in /docs now say a walk stops when its next step would take it past the bound, which counts the whole walk.
 
 ## Deviations
 
