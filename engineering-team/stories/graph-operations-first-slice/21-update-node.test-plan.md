@@ -130,3 +130,19 @@ operations: graph update-node: 37 passed, 3 failed, 0 skipped
 ```
 
 Findings 4 and 6 are ledger rows, `2026-11-17-own-test-reads-pubkey-as-author` and `2026-11-17-fake-graph-logs-no-lock-order`; 5 and 7 were doc fixes.
+
+## Added at review round 2 (2026-11-17)
+
+Round 2 passed, with four non-blocking findings. One was a test gap (R2-3): Amendment 2.2 says `fields.description` given alone is kept as given, and no test pinned it.
+
+| Finding | Test | What it pins |
+|---|---|---|
+| R2-3 | **UN45** | `fields: {"description": " kept as given "}` alone, on oddSlug, is `updated` with `changed: ["fields.description"]`, and the section holds the text as given, white space and all. |
+
+UN45 pins behaviour the code already had, so it passes on both `53bac579` and the code after it. It has teeth: with every text field in `fields` trimmed (a scratch mutation, undone), update-node gave 40 passed and 1 failed, UN45 alone:
+
+```
+  FAIL  UN45: fields.description given alone is a field like any other, kept as given, white space and all
+        only the description input is trimmed: fields are kept as given (Amendment 2.2; review round 2, R2-3); got "kept as given"
+operations: graph update-node: 40 passed, 1 failed, 0 skipped
+```

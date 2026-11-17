@@ -130,7 +130,7 @@ Run on this Mac one at a time, each with every service endpoint dead. No full `n
   - `update-node-agent-through-cli.test.js`: 1 passed, 0 failed.
 - **Every other stack-free suite under `test/operations/`** passed: the 6 at its top level, the 25 others under `graph/`, and the 6 under `rules/`, 40 with the new ones. That includes create-element's three, whose `findRepeat` now calls `repeatsOf`. `lifecycle/` was left out, since some of its suites reach the container.
 - **The route-surface suites,** with every endpoint on a dead port: `openapi-coverage` 13 passed, `admin-action-sweep` 9, `admin-action-sweep-access` 13, `admin-action-sweep-named` 6; none failed.
-- **The scoped gate:** record `20261117T031440Z-34420-84dc`, PASS, 158 passed, 0 failed, 14 suites. It ran over `dff6a1ca` with the implementation not yet committed: the record says `dirty: true` and lists 7 files, which were committed a minute later as `aee05dc7` (03:14:40Z, then 03:15:51Z). *(Corrected at review round 1, non-blocking 7. This line had said the gate ran on `aee05dc7`.)*
+- **The scoped gate:** record `20261117T031440Z-34420-84dc`, PASS, 158 passed, 0 failed, 14 suites. It ran over `dff6a1ca` with the implementation not yet committed: the record says `dirty: true` and counts 7 changed files (`dirtyCount: 7`), without naming them. `aee05dc7`, committed a minute later, has 7 files (03:14:40Z, then 03:15:51Z). *(Corrected at review round 1, non-blocking 7: this line had said the gate ran on `aee05dc7`. Corrected again at round 2, R2-4: the record counts the files and doesn't list them.)*
 - **harness-lint:** clean.
 
 ### The live check (Implementation, 2026-11-17, on `aee05dc7`, the same code as `6ec2c3a1`)

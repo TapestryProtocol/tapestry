@@ -242,7 +242,7 @@ The stamp is a fact of the graph, so this needs no read of the store. A store th
 |---|---|---|
 | `nothing-to-change` | 400 | None of `name`, `description` and `fields` is given |
 | `bad-name` | 400 | The name is empty once trimmed, has no slug, has a control, text-direction or invisible character, or is longer than 200 characters |
-| `bad-fields` | 400 | `fields` isn't a JSON object or its text; it gives a `name` or `slug` that is neither the node's name (or the slug it gives) nor what the section holds, or takes either out; `description` and `fields.description` differ once trimmed; or the JSON would be longer than 1,000,000 characters |
+| `bad-fields` | 400 | `fields` isn't a JSON object or its text; it gives a `name` or `slug` that is neither the node's name (or the slug it gives) nor what the section holds, or takes either out; `description` and `fields.description` differ once trimmed (Amendment 2); or the JSON would be longer than 1,000,000 characters |
 | `not-installed` | 409 | The instance has no assistant key, so it can't tell its own nodes or firmware's |
 | `unknown-node` | 404 | `node` names no node (a change entry is not one) |
 | `not-own-node` | 409 | The node came from another author's event, or records another author (D4; Decision 3) |
@@ -272,11 +272,16 @@ Beyond AC6's list: `not-installed` is a mechanic create-element has too. AC6 ask
 - **An element with no word block, under a schema that requires `word`, can't change** until its JSON has one. Firmware's dog schema is one such. Rule 4 judges the stored JSON (story fact 9), and update-node edits sections, not the word block. Today's create-element route made such elements. `rules repair` is where they get a word block.
 - **The cache is stale after a change** (Decision 16) until A10.36, and so is the node's JSON page.
 - **A rename doesn't move the address,** so create-element with the old name answers the renamed element (Decision 9), and its `differs` names the name.
-- **The old letter, imported again, undoes an update** (Amendment 2, carried over from ADR 0016 for elements).
-  - `POST /api/neo4j/event-update` deletes a node's tags and imports its event from the relay (`src/api/neo4j/eventSync.js:348–390`). `GET /api/neo4j/event-check` answers `in_sync` whenever the ids match (`:116–117`), as they do after update-node.
-  - The reading and dlist pages call the route after they publish a new letter (`ui/src/pages/reading/writeVerbs.js:280`; `ui/src/pages/lists/DListOverview.jsx:83`, `:104`), and OPEN.md row 138 names it as a repair tool.
-  - So the route, run on an updated element that has no new letter, brings back its old name and fields. That is an import destroying locally authored state, which principle 4 (BIBLE §30) rules out. The answer's `letterOutOfDate` warns of it.
-  - Keeping a newer local version over an older letter is for provenance (design §5, question 2) and `export nostr` (A10.34), as ADR 0016 says for concepts.
+- **A letter imported again can undo an update** (Amendment 2, carried over from ADR 0016 for elements; corrected at review round 2).
+  - **The route.** `POST /api/neo4j/event-update` deletes a node's tags and imports its event from the relay (`src/api/neo4j/eventSync.js:348–390`). The import sets the node's `name` from the letter's `name` tag (`:227–230`), but not its `tapestryValue`. OPEN.md row 138 names the route as a repair tool.
+  - **The reading page reaches it through a new letter.**
+    - Its `edit` builds the letter from the relay's newest one, and replaces the `name` tag only when the page itself renames (`ui/src/pages/reading/writeVerbs.js:267–268`, judged at `:251` against the graph's name). Then it calls the route (`:280`).
+    - So a text edit there, after update-node renamed one of the instance's own lettered elements, puts back the old `name` and name tag, beside the new tapestryValue and JSON: ledger row `2026-11-17-reading-page-edit-restores-old-name`.
+    - The page edits only an element whose letter the assistant signed (`:258–259`).
+  - **The DList page's buttons** call the route only while `GET /api/neo4j/event-check` doesn't answer `in_sync` for the list's header (`ui/src/pages/lists/DListOverview.jsx:227–233`), and the check compares only the ids (`eventSync.js:116–117`).
+    - Three of the buttons import only the header (`:83`, `:104`), which update-node never changes.
+    - The fourth, "Import + expand + import N items as elements", is shown while the header is missing from Neo4j. It imports the header (`:129`) and then each of the list's items from the relay (`:156`), so it would bring back an updated item's old letter.
+  - **Either way,** an import destroys locally authored state, which principle 4 (BIBLE §30) rules out. The answer's `letterOutOfDate` warns of it. Keeping a newer local version over an older letter is for provenance (design §5, question 2) and `export nostr` (A10.34), as ADR 0016 says for concepts.
 - **Element writes in one concept, and updates of one node, go one at a time** (Decision 5). That is fine at this scale.
 - **A concept's other rules aren't checked:** a relationship type's `alias`, which `relationship-type-allowed` reads, and `x-tapestry.unique` beyond the name. They are concept-dependent rules (design §7), as the story leaves them.
 
@@ -373,13 +378,14 @@ The review passed, with seven non-blocking findings. Three changed the code, eac
    - create-concept can make a concept with that key: ledger row `2026-11-17-concept-key-can-be-proto`.
 2. **`description` and `fields.description` are compared as `description` is read, trimmed** (Decision 1; non-blocking 2).
    - Given both ways, they are one value when they're the same once trimmed, and the field takes the trimmed text. Two that differ once trimmed are still `bad-fields`, and the message says so.
-   - Before, the trimmed `description` was compared with the field as given, so the same text with white space around it, given both ways, was refused.
-   - `fields.description` given alone is a field like any other, kept as given. UN43 pins it.
+   - Before, the trimmed `description` was compared with the field as given, so the same text with white space around it, given both ways, was refused. UN43 pins it.
+   - `fields.description` given alone is a field like any other, kept as given. UN45 pins it. *(Added at review round 2, R2-3, which found that no test pinned it.)*
+   - `bad-fields`' published text, which the listing, `/docs` and the command's help show, says the same. *(Review round 2, R2-2: it had said "with different values".)*
 3. **`no-section` names the input the call gave** (Decision 20; non-blocking 3): `concept` when it was given, else `fields` when it was given, else `description`. UN44 pins it.
 4. **What Decision 3's test answers for a node that isn't a letter** (non-blocking 4).
    - `whoseNode` reads `pubkey` as the author, as Decision 3 says. So an `e`-tag placeholder, which the import makes as `NostrEvent {id, uuid}` with no `pubkey` (`src/api/neo4j/eventSync.js:268–270`), answers `own: true` and `hasLetter: true`.
    - The owner's and the assistant's `NostrUser` nodes answer `own: true` too.
    - update-node can't reach either: neither has a section to change, so `not-an-element` or `unreadable-json` refuses it. merge-nodes (A10.25) and delete-node (A10.26) can, and must decide before they call `requireOwn`: ledger row `2026-11-17-own-test-reads-pubkey-as-author`.
-5. **The Consequences gain the old letter imported again** (non-blocking 5), carried over from ADR 0016 for elements.
+5. **The Consequences gain a letter imported again** (non-blocking 5), carried over from ADR 0016 for elements. *(Corrected at review round 2, R2-1. The DList page's buttons don't run after a publish. The reading page reaches the loss through a new letter: ledger row `2026-11-17-reading-page-edit-restores-old-name`.)*
 6. **No suite checks Decision 5's lock order** (non-blocking 6). UN13 counts the header locks, but the fake graph logs no statement's parameters, so it can't see their keys: ledger row `2026-11-17-fake-graph-logs-no-lock-order`.
 7. **The story's Evidence placed the scoped gate on the wrong commit** (non-blocking 7). The story now says it ran on the uncommitted implementation over `dff6a1ca`.
