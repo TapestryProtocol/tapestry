@@ -30,7 +30,7 @@ What today's instance does, that this story changes:
 
 ## User-facing description
 
-As the owner, or an agent of an admin working the graph, I want one answer to "does this node fit the schemas of the concepts it belongs to?", judged on the node's tapestryJson, whoever asks. Then `rules check`, the property operations' reports, a write's report and a node's cached verdicts never contradict each other, and the elements of `word` stop reading as broken.
+As the owner, or an agent of an admin working the graph, I want one answer to "does this node fit the schemas of the concepts it belongs to?", judged on the node's tapestryJson, whoever asks. Then `rules check`, the property operations' reports, a write's report and a node's cached verdicts never contradict each other, and a write stops reporting a node as broken for the `graphContext` that only the derive step builds.
 
 ## Acceptance criteria
 
@@ -41,7 +41,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
   - on the problems, in the rule's words.
 
   They judge the same concepts: each whose class thread reaches the node. A concept only a `z` tag names is judged by neither. This holds under each of these:
-  - firmware's `word` schema, which a node fits once its `graphContext` is built;
+  - `word`'s schema as firmware's file has it, which a node fits once its `graphContext` is built, and as a firmware install leaves it in the graph, which no element fits yet (the owner's ruling, under Open questions);
   - a schema that forbids extra top-level keys;
   - a `word` block missing a field the derive step fills in;
   - an entry built before the node's `json` tag last changed.
@@ -50,7 +50,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
   - A concept the JSON misses for other things too is reported, or refused, for those things alone.
   - Every other verdict and refusal is as today.
 
-  So a set made by `graph create-set` reports `word` as waiting, not failing.
+  So a set made by `graph create-set` reports `word` as waiting, never as failing for `graphContext`. Under firmware's `word` file, that is all it reports for `word`. Under the schema an install leaves, `word` also fails the set for install's wordType conditionals, until they are fixed (the owner's ruling, under Open questions).
 - [ ] **AC5 — The rulebook says what the rule judges.** The rulebook's entry 7, and rule 7's element in the graph after a firmware reinstall, say that the rule judges a node's fully realized tapestryJson. They also say that a node with no tapestryJson is reported, and that exceptions will come. ADR 0020a reads as accepted.
 
 ## Concepts touched
@@ -80,6 +80,13 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 - None that block planning.
 - The full test gate writes to the stack it finds, and on the Mac Studio that is the agent-memory instance. So the Tester and Implementer run only the suites they touch there, and the pull request's CI runs the full gate. AC1 to AC4's live checks run on a scratch stack (`scripts/scratch-stack.sh`).
 
+**Narrowed at review round 2** (the owner's ruling, 2026-11-17). The live check found that a firmware install leaves `word` a schema that no element fits, for defects older than this story. So three of the story's promises didn't hold on an instance. The owner narrowed the story to what it builds: one verdict, judged on tapestryJson, with nothing failed for the `graphContext` the derive step builds.
+- **AC4's last sentence** first said a set made by `graph create-set` reports `word` as waiting, not failing. It does report `word` as waiting, but the schema an install leaves still fails the set, for install's wordType conditionals (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`).
+- **AC3's first case** first said a node fits firmware's `word` schema once its `graphContext` is built. That holds for firmware's file. Under the installed schema, none of the live check's 430 list items with a `word` verdict fits it, and both readers agree on each.
+- **The User-facing description** first promised that the elements of `word` stop reading as broken. They stop reading as broken for `graphContext`. They still read as broken for the conditionals, and the Properties Set nodes also for the set fields the word deriver doesn't build (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
+- **ADR 0042's and the test plan's live-check item,** that the derive step's `parentJsonSchemas` say the set fits `word`, narrows the same way: nothing `word` finds in the set is about `graphContext` (Evidence, LC2).
+- **The older defects become Loom tasks of their own:** install's wordType conditionals, the Properties Set nodes, and a diagnosis of the other failing concepts. In all, 679 of the live check's 1,169 verdicts fail (Evidence). `rules check` (A10.31) waits for those tasks, since it would report each failing verdict.
+
 ## Deviations
 
 - **`schemaOf` returns `name` and `nodes` with every problem,** not only with "more than one" (ADR 0042, Decision 5). So a concept whose one schema node can't be read still gets a cache entry, with `valid: null`, naming that node. That is the same entry the rule's `no-schema` stands beside.
@@ -96,7 +103,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
   - the rulebook says `add-to-concept` and the property operations "will call" the check.
 
   ajv's wrapper errors, such as an `if`/`then` that requires `graphContext`, are still not set aside (non-blocking 7). No firmware schema needs it.
-- **AC4's example holds where `word`'s schema is firmware's file,** as the stack-free CS3 has it. On an installed instance, `word` still fails a new set, for install's wordType conditionals (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`), not for anything this story builds. The set-aside works there too: the live check's LC1 finds `graphContext` set aside and `waiting: true`, with only those conditionals' problems left.
+- **AC4's example was first scoped to firmware's `word` file here,** on the Implementer's word. The owner's ruling now narrows it, with AC3's first case and the User-facing description (Open questions).
 
 ## Evidence
 
