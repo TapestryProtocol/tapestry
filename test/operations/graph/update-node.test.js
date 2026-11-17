@@ -62,6 +62,7 @@
  *   (review round 1) UN42 a concept keyed __proto__ whose section the node lacks is no-section, not a change recorded but
  *        never stored; UN43 the same description given both ways, with white space around it, is one change, trimmed;
  *        UN44 no-section reached through description alone names description
+ *   (review round 2) UN45 fields.description given alone is kept as given, white space and all
  */
 
 const fs = require('fs');
@@ -791,6 +792,7 @@ function round2() {
       post('proto-key', 'owner', { node: k.twoFaced, concept: k.gadget, fields: { weight: 3 } }),
       post('desc-spaces', 'owner', { node: k.lucky, description: ' same, with spaces ', fields: { description: ' same, with spaces ' } }),
       post('desc-no-section', 'owner', { node: k.whiskers, description: 'a cat' }),
+      post('desc-fields-alone', 'owner', { node: k.oddSlug, fields: { description: ' kept as given ' } }),
     ]);
     return { a, k, file, before };
   })();
@@ -822,6 +824,15 @@ test('UN44: no-section reached through description alone names the input descrip
   const { a } = await round2();
   const x = a.req('desc-no-section');
   assert(x.status === 409 && x.body.code === 'no-section' && x.body.input === 'description', `with no fields and no concept given, the refusal names description, the input given (Decision 6; review round 1, finding 3); got ${x.status} ${show(x.body).slice(0, 400)}`);
+});
+
+test('UN45: fields.description given alone is a field like any other, kept as given, white space and all', async () => {
+  needDecl();
+  const { a, k, file } = await round2();
+  const x = a.req('desc-fields-alone');
+  assert(x.status === 200 && x.body.data.outcome === 'updated' && show(x.body.data.changed) === show(['fields.description']), `a description in fields alone is a change (Decision 8); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  const kept = sectionOf(S.readState(file), k.oddSlug, 'beagle').description;
+  assert(kept === ' kept as given ', `only the description input is trimmed: fields are kept as given (Amendment 2.2; review round 2, R2-3); got ${show(kept)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
