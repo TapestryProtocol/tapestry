@@ -59,6 +59,9 @@
  *   UN39 a write whose entry can't be recorded keeps nothing
  *   UN40 the marks: a changed marked field follows onto the node, and a field taken out takes its copy with it
  *   UN41 the new and changed modules require nothing that signs
+ *   (review round 1) UN42 a concept keyed __proto__ whose section the node lacks is no-section, not a change recorded but
+ *        never stored; UN43 the same description given both ways, with white space around it, is one change, trimmed;
+ *        UN44 no-section reached through description alone names description
  */
 
 const fs = require('fs');
@@ -755,6 +758,70 @@ test('UN41: the new and changed modules require nothing that signs, publishes or
     const bad = (src.match(/require\(\s*['"][^'"]*['"]\s*\)/g) || []).filter((r) => /nostr-tools|normalize\/helpers|secureKeyStorage|child_process|strfry|signing/.test(r));
     assert(bad.length === 0, `${f} must require nothing that signs (ADR 0004 Decision 10); it requires ${show(bad)}`);
   }
+});
+
+// ── review round 1's findings 1–3, over a seed of their own ──
+let ROUND2 = null;
+/** The json tag node of the node keyed `key` in a seed's state. */
+const jsonTagOf = (s, key) => {
+  const n = s.nodes.find((x) => x.props.tapestryKey === key);
+  const r = s.rels.find((x) => x.from === n.eid && x.type === 'HAS_TAG' && s.nodes.find((t) => t.eid === x.to).props.type === 'json');
+  return s.nodes.find((t) => t.eid === r.to);
+};
+function round2() {
+  if (ROUND2) return ROUND2;
+  ROUND2 = (async () => {
+    const { file, k } = await fresh((s, keys) => {
+      // gadget's key made __proto__, its schema one that takes any object: twoFaced has no own __proto__ section.
+      const h = jsonTagOf(s, keys.gadget);
+      const hj = JSON.parse(h.props.value);
+      hj.conceptHeader.oKeys = { ...(hj.conceptHeader.oKeys || {}), singular: '__proto__' };
+      h.props.value = JSON.stringify(hj);
+      const header = s.nodes.find((x) => x.props.tapestryKey === keys.gadget);
+      const sr = s.rels.find((r) => r.to === header.eid && r.type === 'IS_THE_JSON_SCHEMA_FOR');
+      jsonTagOf(s, s.nodes.find((x) => x.eid === sr.from).props.tapestryKey).props.value = JSON.stringify({ jsonSchema: { type: 'object' } });
+      // whiskers, an element of pet alone, given JSON with no pet section.
+      const w = jsonTagOf(s, keys.whiskers);
+      const wj = JSON.parse(w.props.value);
+      delete wj.pet;
+      w.props.value = JSON.stringify(wj);
+    });
+    const before = S.readState(file);
+    const { a } = runOn(file, [
+      post('proto-key', 'owner', { node: k.twoFaced, concept: k.gadget, fields: { weight: 3 } }),
+      post('desc-spaces', 'owner', { node: k.lucky, description: ' same, with spaces ', fields: { description: ' same, with spaces ' } }),
+      post('desc-no-section', 'owner', { node: k.whiskers, description: 'a cat' }),
+    ]);
+    return { a, k, file, before };
+  })();
+  return ROUND2;
+}
+
+test('UN42: a concept keyed __proto__ whose section the node lacks is refused no-section; nothing is recorded or changed', async () => {
+  needDecl();
+  const { a, k, file, before } = await round2();
+  const x = a.req('proto-key');
+  assert(x.status === 409 && x.body.code === 'no-section' && x.body.input === 'concept', `the section is read by the JSON's own key, so an inherited __proto__ is no section (Decision 8; review round 1, finding 1); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  const after = S.readState(file);
+  // The run's other calls record entries of their own (UN43's is a change): count those that name twoFaced.
+  const naming = (g) => g.nodes.filter((n) => n.labels.includes('GraphChange') && Array.isArray(n.props.keys) && n.props.keys.includes(k.twoFaced)).length;
+  assert(naming(after) === 0 && naming(before) === 0, `no change entry names twoFaced; ${naming(before)} before, ${naming(after)} after`);
+  assert(show(C.json(after, k.twoFaced)) === show(C.json(before, k.twoFaced)), 'and twoFaced\'s JSON is as it was');
+});
+
+test('UN43: the same description given both ways, with white space around it, is one change, trimmed', async () => {
+  needDecl();
+  const { a, k, file } = await round2();
+  const x = a.req('desc-spaces');
+  assert(x.status === 200 && x.body.data.outcome === 'updated' && show(x.body.data.changed) === show(['fields.description']), `description and fields.description, alike once trimmed, are one change (Decision 1; review round 1, finding 2); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  assert(sectionOf(S.readState(file), k.lucky, 'beagle').description === 'same, with spaces', `the section takes the description, trimmed; got ${show(sectionOf(S.readState(file), k.lucky, 'beagle'))}`);
+});
+
+test('UN44: no-section reached through description alone names the input description', async () => {
+  needDecl();
+  const { a } = await round2();
+  const x = a.req('desc-no-section');
+  assert(x.status === 409 && x.body.code === 'no-section' && x.body.input === 'description', `with no fields and no concept given, the refusal names description, the input given (Decision 6; review round 1, finding 3); got ${x.status} ${show(x.body).slice(0, 400)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
