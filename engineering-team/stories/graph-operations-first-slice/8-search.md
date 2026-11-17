@@ -1,6 +1,6 @@
 # Story 8: `graph search` — find concepts and elements by the words in their names and fields, best first, each match with the field it matched in and a passage, from a point of view
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.8 — https://loom.brainstorm.world/t/A10.8
@@ -288,4 +288,4 @@ The 4 skips are the shared-keys check's, as before.
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0008-search.md](../../decisions/graph-operations-first-slice/0008-search.md) (and its Amendment 5 to [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md))
 - Test plan: [8-search.test-plan.md](8-search.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/8-search.md](../../reviews/graph-operations-first-slice/8-search.md)
