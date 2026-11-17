@@ -367,6 +367,16 @@ Review round 1 (`engineering-team/reviews/graph-operations-first-slice/11-list-e
 4. **Decision 2, step 3, as built.** Its last sentence, "Both checks run before the graph is read", holds for everyone's point of view only. For the owner's, `resolvePov` reads the scores (C2) as it resolves, before the cursor is decoded. A cursor that doesn't parse then costs one small read before its 400.
 5. **Consequences, debt 1.** The cutoff's two homes are recorded by `engineering-team/stories/_intake.md`, 2026-06-06, item 2. That item notes a live `graperank.conf` of 0.01, so the verified counts and the API's lists may already disagree. The ledger row `2026-11-16-verified-cutoff-two-homes` is closed as its duplicate.
 
+## Amendment 4 (2026-11-16, by ADR graph-operations-first-slice/0014) — a walk's order
+
+C1 says items come in an order that never changes for an item. `graph walk` (Loom A10.14, story graph-operations-first-slice #14) answers nearest first: by how many steps a node is from a start node, then by tapestryKey. Its owner chose that at the story's gate (open question 2). A node's distance depends on the rest of the graph, so a change between two pages that brings a node nearer, or takes it further away, can move it:
+- to a page already read, so it's missed;
+- or to one still to come, so it shows twice.
+
+Every node whose distance doesn't change is answered exactly once.
+- C1's rule holds for every other read. Walk is the one exception, and ADR 0014 (Decision 4) names it.
+- C1's paragraph in `src/operations/reads.js` and the catalog's Paging bullet say so.
+
 ## Out of scope
 
 - Everything the story leaves out: implicit members, other points of view, more about each element, naming by name or slug, an order the owner chooses, counts without a list, visitors' reads, today's subgraph route, and `graph history`.
