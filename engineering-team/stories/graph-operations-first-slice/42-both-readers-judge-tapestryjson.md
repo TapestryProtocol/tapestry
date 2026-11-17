@@ -89,6 +89,63 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 - **GB3's fixture** (`test/graph-rules-builder.test.js`) restated rule 7's old first Says sentence and Source. It was amended in the Tester's lane, in a commit of its own, before the implementation commit; the test plan records it.
 - **Firmware:** rule 7's element file was regenerated. Its reinstall on staging and production after merge is ledger row `2026-11-17-rule-seven-rewrite-awaits-firmware-reinstall`.
 
+- **Round 2, from review round 1:**
+  - the shared judge drops a failed read;
+  - set.js strips its old artifact before the verdicts;
+  - the check form's findings give `derivedAt`;
+  - the rulebook says `add-to-concept` and the property operations "will call" the check.
+
+  ajv's wrapper errors, such as an `if`/`then` that requires `graphContext`, are still not set aside (non-blocking 7). No firmware schema needs it.
+- **AC4's example holds where `word`'s schema is firmware's file,** as the stack-free CS3 has it. On an installed instance, `word` still fails a new set, for install's wordType conditionals (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`), not for anything this story builds. The set-aside works there too: the live check's LC1 finds `graphContext` set aside and `waiting: true`, with only those conditionals' problems left.
+
+## Evidence
+
+### The suites (round 2, 2026-11-17)
+
+Run on this Mac, each with every service endpoint dead. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The gate engine, over the 15 suites this story touches and their neighbours,** at `d1b18ccd` with round 2's fixes in: PASS, 240 passed, 0 failed, 12 live skips (record `20261117T173248Z-23396-c2ad`). Before round 2, at `6ba85124`: 239 passed (records `20261117T165844Z-73843-1a76`, and the reviewer's own `20261117T170855Z-77871-5a99`).
+- **harness-lint** is clean, and `node src/firmware/graph-rules.js --check` finds rule 7's file current.
+
+### The live check (round 2, 2026-11-17, on `6ead878a`)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The script and every call's request and answer are in this worktree's `tmp/live-check-42/` (ignored by git): `live.js`, `report.json`, `pass-3.log` and `graph-rule-firmware.log`.
+- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `4610d6d4fdc8` and `06c0aa2b2e7f`). The branch's was copied in, the control panel restarted, and the firmware installed again, after which the digests matched.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The rule's check form ran inside the container, with the app's own modules, store and database, as `rules check` will run it.
+
+**By check, 14 of 14 passed** (the second run of `live.js`; the first showed a fault in the script, and a premise of LC7c set too broadly, below):
+- **LC1a (AC4).** `graph create-set` under firmware dog's superset reports:
+  - the set concept fitting, with `waiting: false`;
+  - `word` with `waiting: true`, its problems about `graphContext` set aside.
+- **LC1b.** What `word` still finds in the new set's JSON is install's wordType conditionals alone, four problems, a defect that predates this story (Deviations; its ledger row).
+- **LC2 and LC3 (AC3).** The set derived by `POST /api/tapestry-key/derive/:key` has entries in today's shape. It fits the set concept, and nothing `word` finds is about the `graphContext` the derive step built. The rule's check of the set, on the stored tapestryJson, agrees with the cache on every concept, in the same words.
+- **LC4 (AC2).**
+  - `graph create-concept` made "live hound", and `graph create-element` made Rex in it, fitting and waiting for nothing.
+  - Rex keeps its json tag node (ADR 0020a Decision 9).
+  - Before a derive, the rule's check gives one `invalid-fields` finding, marked `missing`, naming no concept.
+  - After a derive it finds nothing, and the cache says Rex fits.
+- **LC5 (AC1).** With Rex's entry put without its section's description, though its json tag has it, the rule finds the missing description, and gives the entry's `derivedAt`, 1700000000.
+- **LC6.** The relay's event count was the same before and after: none of these writes signed.
+- **LC7a.** `POST /api/tapestry-key/derive-all/ListItem`: 444 derived, 0 errors, in 1.8 s.
+- **LC7b (AC3, over real firmware).** Over all 444 list items with an entry, 1,169 verdicts, the cache and the rule agree on every one.
+- **LC7c.** No cached `word` verdict says `graphContext` is missing, the split this story ends. What `word` does find: 1,096 wordType-conditional errors and 1,140 "then" errors (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`). There were also 132 set-field errors on the 43 Properties Set nodes, which are derived as words (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
+- **LC8 (AC5).** After the reinstall, rule 7's item in the graph says it judges a node's fully realized tapestryJson, and which writes will call it.
+
+**What the first run showed:**
+- **A fault in the script:** it read `create-concept`'s answer as `concept.tapestryKey`, not `concept.conceptHeader`, so `create-element` was refused `missing-input`.
+- **LC7c, first written as "no `word` verdict mentions `graphContext`":** it counted the Properties Set nodes' set fields as the old split. It now counts only "`graphContext` is required".
+
+**The live suites, on the same instance** (`TAPESTRY_CONTAINER=tapestry-scratch`):
+- **`test/pass-3-finishes-in-minutes.test.js` on the small graph** (3,571 nodes): 12 passed, 0 failed.
+  - L5a passes with its oracle moved to the rule's concept set: each rebuilt node's `parentJsonSchemas` lists the schemas of the concepts whose class threads reach it.
+  - L1, L2 and L5c pass too.
+- **The same suite at staging's shape** (`test/helpers/seedStagingShape.js`, 150 s; 3,851,583 nodes), with `PASS3_INSTALL=1`: 13 passed, 0 failed.
+  - **L3:** rebuilding one node of each label by key, the median of three, took ListItem 63 ms, ListHeader 8, ConceptHeader 43, JSONSchema 57, Property 39, Set 51 and Superset 40. That is at most 200 ms each. Inside `derive-all`, ConceptHeader took 5 ms each.
+  - **L4:** a firmware install took 55 s before Pass 3, and Pass 3 took 10 s in all, under its 10-minute limit; the install completed.
+  - **L2b:** every label reads derived = total afterwards.
+  - **L5b:** not run, since it needs a container that has had one install; this one had had four.
+- **`test/graph-rule-firmware.test.js`,** with `GRAPH_RULE_INSTALL=1`: 17 passed, 0 failed. GL1 to GL3 find the graph rule concept and an item per rule, each holding its committed file's JSON, rule 7's new text among them. GL4 finds a second install signs nothing new.
+- **Afterwards** the instance was removed with `scripts/scratch-stack.sh down`, after checking that it mounted this worktree's `src/`.
+
 ## Linked artifacts
 
 - Decision: ADR graph-operations-first-slice/0020a (`engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md`)
