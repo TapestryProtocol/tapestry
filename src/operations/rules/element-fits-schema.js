@@ -70,11 +70,17 @@ module.exports = {
           out.push({ item, code: 'invalid-fields', ...(t.missing ? { missing: true } : {}), message: `${label}'s tapestryJson can't be checked against its concepts' schemas: ${t.problem}.` });
           continue;
         }
+        // A finding says when the tapestryJson it judged was built, when it says (ADR 0020a Decision 5): an entry built
+        // before a change is judged as it is.
+        const gc = t.json.graphContext;
+        const derivedAt = gc && typeof gc === 'object' && typeof gc.derivedAt === 'number' ? gc.derivedAt : undefined;
+        const built = derivedAt === undefined ? {} : { derivedAt };
+        const when = derivedAt === undefined ? '' : ` Its tapestryJson was built at ${new Date(derivedAt * 1000).toISOString()}.`;
         for (const concept of concepts) {
           const r = await j.check(concept, t.json);
           if (r.header === false) continue;
-          if (r.fits === null) out.push({ item, concept, code: 'no-schema', message: noSchema(r.problem) });
-          else if (!r.fits) out.push({ item, concept, code: 'invalid-fields', problems: r.problems, message: `${label} doesn't fit the JSON schema of ${r.label}: ${X.listProblems(r.problems)}.` });
+          if (r.fits === null) out.push({ item, concept, code: 'no-schema', ...built, message: noSchema(r.problem) });
+          else if (!r.fits) out.push({ item, concept, code: 'invalid-fields', problems: r.problems, ...built, message: `${label} doesn't fit the JSON schema of ${r.label}: ${X.listProblems(r.problems)}.${when}` });
         }
         continue;
       }

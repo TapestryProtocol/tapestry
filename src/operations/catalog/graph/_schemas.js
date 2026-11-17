@@ -5,9 +5,9 @@
  * element write calls it: graph create-element now, and graph update-node (A10.21), graph add-to-concept (A10.22) and
  * the property operations (A10.18) when they are built (Decision 16).
  *
- * It reads a schema as the derive step does (src/lib/derivers/word.js:136–180): the schema node's json tag, inline or
- * an LMDB reference; its jsonSchema section, else the object itself; $schema dropped; and ajv's default class, which
- * reads draft-07's keywords, with allErrors and strict off. A schema that names draft 2020-12 is read the same way: a
+ * It reads a schema as the derive step always has, and the derive step now reads it here (src/lib/derivers/
+ * schema-verdicts.js): the schema node's json tag, inline or an LMDB reference; its jsonSchema section, else the object
+ * itself; $schema dropped; and ajv's default class, which reads draft-07's keywords, with allErrors and strict off. A schema that names draft 2020-12 is read the same way: a
  * keyword only 2020-12 has is ignored by both. Each schema gets a new Ajv, so an $id never clashes.
  *
  * What a schema describes is a node's tapestryJson: the JSON the Tapestry LMDB (the tapestry-store, not strfry's LMDB)
@@ -195,14 +195,18 @@ function judge(read) {
   const memo = new Map();
   const of = (concept) => {
     if (!memo.has(concept)) {
-      memo.set(concept, (async () => {
+      const reading = (async () => {
         const s = await schemaOf(read, concept);
         const facts = { header: s.header, label: s.label, name: s.name || null, node: s.node || null, nodeUuid: s.nodeUuid || null, nodes: s.nodes || (s.node ? [{ tapestryKey: s.node, uuid: s.nodeUuid || null }] : []) };
         if (!s.schema) return { ...facts, problem: s.problem };
         const c = compile(s.schema);
         if (c.reason) return { ...facts, header: true, problem: `${s.label}'s JSON schema doesn't compile: ${c.reason}` };
         return { ...facts, header: true, validate: c.validate };
-      })());
+      })();
+      memo.set(concept, reading);
+      // A read that failed isn't kept: the next check of the concept reads it again, so one transient failure doesn't
+      // fail every later node of a derive pass that shares this judge (review round 1, non-blocking 1).
+      reading.catch(() => { if (memo.get(concept) === reading) memo.delete(concept); });
     }
     return memo.get(concept);
   };

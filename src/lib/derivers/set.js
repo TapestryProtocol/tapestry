@@ -197,16 +197,16 @@ async function deriveSet(node, ctx = {}) {
     derivedAt: now,
   };
 
-  // ── The rule's verdicts on this tapestryJson (ADR graph-operations-first-slice/0042 Decision 5) ──
-  base.graphContext.parentJsonSchemas = await schemaVerdicts({ tapestryKey, json: base, judge: ctx.judge || null, now });
-
-  // Remove old artifacts
+  // Remove old artifacts, before the verdicts, so they judge what is stored (review round 1, non-blocking 4)
   if (base['x-tapestry']?.derived) {
     delete base['x-tapestry'].derived;
     if (Object.keys(base['x-tapestry']).length === 0) {
       delete base['x-tapestry'];
     }
   }
+
+  // ── The rule's verdicts on this tapestryJson (ADR graph-operations-first-slice/0042 Decision 5) ──
+  base.graphContext.parentJsonSchemas = await schemaVerdicts({ tapestryKey, json: base, judge: ctx.judge || null, now });
 
   return base;
 }
