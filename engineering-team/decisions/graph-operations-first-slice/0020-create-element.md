@@ -63,7 +63,7 @@ We chose **Option A**. It leaves the write path alone, judges the very JSON writ
 **2. The steps,** in one transaction:
 1. Check what needs no graph: the name (`bad-name`, Decision 5); `fields` (`bad-fields`: text that isn't a JSON object, or a `name` or `slug` other than the ones the name gives; equal ones are dropped); and the assistant's key, the would-be author (`not-installed`, 409, when the instance has none).
 2. Take the lock on the concept's header (Decision 7).
-3. Read the concept (`F.conceptOf`): `unknown-concept` (404) for a key that names no concept header. Then `made-elsewhere` (409) for a concept whose elements another operation makes (Decision 4), and `no-superset` (409) for a concept with no superset (rule 1).
+3. Read the concept (`F.conceptOf`): `unknown-concept` (404) for a key that names no concept header. Then `made-elsewhere` (409) for a concept whose elements another operation makes (Decision 4), `reserved-key` (409) for a concept keyed `word` or `graphContext` (Amendment 1, item 2), and `no-superset` (409) for a concept with no superset (rule 1).
 4. Find where the element goes, and the concepts that reach it (Decision 3): `unknown-node` (404), `not-a-set` (409) and `not-in-class-thread` (409) for a bad `set`.
 5. Look for the repeat (Decision 6). When there is one, answer `already-exists`, with no change and no entry.
 6. Choose the address (Decision 5): `no-free-address` (409).
@@ -181,6 +181,7 @@ Then `node src/firmware/graph-rules.js` writes its element file into firmware's 
 | `bad-fields` | 400 | `fields` isn't a JSON object or its text; it gives a `name` or `slug` other than the name's; or the element's JSON would be longer than 1,000,000 characters |
 | `unknown-concept` | 404 | `concept` names no concept header |
 | `made-elsewhere` | 409 | The concept's elements are made by another operation (Decision 4) |
+| `reserved-key` | 409 | The concept's key is `word` or `graphContext`, keys an element's JSON keeps for itself (Amendment 1, item 2) |
 | `no-superset` | 409 | The concept has no superset (rule 1) |
 | `not-installed` | 409 | The instance has no assistant key, the would-be author |
 | `unknown-node` | 404 | `set` names no node of the graph |
@@ -272,7 +273,7 @@ Review round 1 (`engineering-team/reviews/graph-operations-first-slice/20-create
 
      It fills in `word.slug`, `word.name` and `word.wordTypes` where they are missing (`:78–82`), and adds its own `graphContext` (`:122`) before `validate(base)` (`:165`). It judges a node against each `ConceptHeader` whose class thread reaches it within ten links, and each one a `z` tag names. The rule's check form judges a node against the concepts whose class threads reach it (D10).
    - **What they share.** Both read a schema the same way: the `jsonSchema` section, `$schema` dropped, ajv's default class, which reads draft-07's keywords, with `allErrors` and strict off.
-   - **So the verdicts agree** for an element with a word block, under a schema that neither requires nor forbids `graphContext`, doesn't limit the element's top-level keys, and doesn't lean on the derive step's `word` defaults. Every schema create-concept writes is one, and so is every firmware schema but `word`'s. This is what the live check's L5 saw.
+   - **So the verdicts agree** for an element with a word block, under a schema that neither requires nor forbids `graphContext`, doesn't limit the element's top-level keys, and doesn't lean on the derive step's `word` defaults. Every schema create-concept writes is one, and so is every firmware schema but `word`'s, for an element whose word block has its slug, name and wordTypes, as every element create-element writes has. This is what the live check's L5 saw. *(Scoped at review round 2, 2026-11-16, with the owner's approval. `validation-tool`'s schema, for one, requires `word.slug`, which the derive step fills in when it is missing. A word block missing a field the derive step fills in is one of the ledger row's splits.)*
    - **They split** on firmware's `word` schema, which requires `graphContext`, and on a schema with top-level `additionalProperties: false`. They split also where the two judge different concepts.
    - **This stands until the derive step calls `_schemas.js`** (Decision 11's "move together"). A ledger row records it for `rules check` (A10.31) and the property operations' reports (A10.18), which are the two that judge elements already made.
    - **What changes:**
@@ -287,7 +288,7 @@ Review round 1 (`engineering-team/reviews/graph-operations-first-slice/20-create
      A concept's section filed under `word` would replace the word block, as the review's probe showed: `{"word":{"name":"Lexeme","slug":"lexeme","description":"a word"}}`, with no word block naming it. One filed under `graphContext` would be replaced in the cache.
    - **The refusal.** So create-element refuses a concept whose key is either, before it builds anything: `reserved-key` (409), in Decision 2's step 3, after `made-elsewhere` and before `no-superset`. The key is the one headerOf gives: `oKeys.singular`, else the key derived from the concept's name. The refusal names the key and says why.
    - **Firmware's own `word` is one.** Every node is a word through the word block its own write makes. Its schema requires the derived `graphContext`, so no element of it could pass rule 4 when written.
-   - **Who else.** `update-node` (A10.21) and `add-to-concept` (A10.22) refuse the same keys (Decision 16). Decision 18's table gains the row: `reserved-key`, 409, "The concept's key is `word` or `graphContext`, keys an element's JSON keeps for itself".
+   - **Who else.** `update-node` (A10.21) and `add-to-concept` (A10.22) refuse the same keys (Decision 16). Decision 18's table has the row, `reserved-key`, 409, and Decision 2's step 3 names the refusal *(both added at review round 2)*.
 3. **Two limits, recorded (the review's non-blocking findings 1 and 3). Neither changes the code.**
    - **Key order.** Decision 8's order holds for the keys JavaScript keeps in insertion order. Integer-like keys come first, as JavaScript orders them: a field named `"2"`, or a concept keyed `2024`. No reader depends on key order.
    - **Two creates in two concepts that share a set.** Each takes only its own header's lock (Decision 7). So a create in A made in B's superset, and a create of the same name in B, can both make an element when they run at once, at two addresses. Run one after the other, the second finds the first.
