@@ -22,7 +22,9 @@
  *   CE5  in a set: Buddy goes directly in the golden retrievers' superset, its n tag naming it, and belongs to dog and
  *        golden retriever, both in wordTypes and the answer; golden retriever's schema is reported, not refused
  *   CE6  in a set two concepts reach: Max, in walkers, belongs to dog and pet; a set that is the concept's own
- *        superset is the same as none
+ *        superset is the same as none; every concepts entry, the named concept's too, says whether it waits for the
+ *        derive step, as the declared answer says it does (story graph-operations-first-slice #42, AC4; ADR 0042
+ *        Decision 4)
  *   CE7  the same name again is already-exists, changes nothing and records nothing, and differs names what differs:
  *        the name's case, the set, each field given; a repeat checks no fields
  *   CE8  the repeat is found anywhere in the class thread, by name or by the address the name gives, with or without
@@ -278,6 +280,10 @@ test('CE6: Max, in walkers, belongs to dog and pet; a set that is the concept\'s
   assert(keysOf[0] === k.dog && keysOf.length === 2 && keysOf.includes(k.pet), `dog first, then pet; got ${show(d.concepts)}`);
   const pet = d.concepts.find((c) => c.concept === k.pet);
   assert(pet.fits === false && pet.key === 'pet' && pet.problems.some((p) => /pet/.test(String(p.message))), `pet's schema wants a pet section, reported; got ${show(pet)}`);
+  assert(d.concepts.every((c) => c.waiting === false), `each entry, dog's (the concept named) and pet's, says it waits for nothing: neither schema asks for what the derive step builds (story 42, AC4; ADR 0042 Decision 4); got ${show(d.concepts)}`);
+  const entry = require(path.join(ROOT, 'src/operations/catalog/graph/create-element.js')).result.schema.properties.concepts.items;
+  assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
+    `the declared answer's concepts entry has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
   const pj = await ok('plain-jane');
   assert(show(pj.element.parents) === show([k.beagleSuperset]) && !C.tagArrays(g, pj.element.tapestryKey).some((t) => t[0] === 'n'),
     `set = beagle's own superset: directly under it, with no n tag; got ${show(pj.element)} ${show(C.tagArrays(g, pj.element.tapestryKey))}`);

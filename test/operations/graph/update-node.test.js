@@ -23,7 +23,9 @@
  *   UN6  letters and the cache: a lettered node's letter is out of date after a change, the owner's letter is the
  *        instance's own, a node the derive step cached says its cached copy is out of date, and a word block that is
  *        the name itself follows a rename
- *   UN7  an element of two concepts: concept names the section; the other concept's verdict is reported, not refused
+ *   UN7  an element of two concepts: concept names the section; the other concept's verdict is reported, not refused;
+ *        every concepts entry says whether it waits for the derive step, as X.CONCEPTS declares (story
+ *        graph-operations-first-slice #42, AC4; ADR 0042 Decision 4)
  *   UN8  sections: a section given the name and slug it lacked, a section restating its own slug, a hand-edited name
  *        kept through a rename, and a node with no name tag gaining one
  *   UN9  an own element of a firmware concept changes; an element create-element made of a concept with a strict
@@ -303,6 +305,10 @@ test('UN7: an element of two concepts: concept names the section, and the other 
   const pet = cs.find((c) => c.concept === k.pet);
   assert(cs.length === 2 && pet && pet.key === 'pet' && pet.fits === false && (pet.problems || []).some((p) => /pet/.test(String(p.message))),
     `pet's schema wants a pet section, which walkerMax lacks: reported, never refused for (Decision 11); got ${show(cs)}`);
+  assert(cs.every((c) => c.waiting === false), `each entry says it waits for nothing: neither schema asks for what the derive step builds (story 42, AC4; ADR 0042 Decision 4); got ${show(cs)}`);
+  const entry = require(path.join(ROOT, 'src/operations/catalog/graph/update-node.js')).result.schema.properties.concepts.items;
+  assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
+    `the declared answer's concepts entry (X.CONCEPTS) has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
   const again = await ok('max-again');
   assert(again.outcome === 'unchanged' && again.change === null, `the same call again is unchanged; got ${show(again)}`);
 });

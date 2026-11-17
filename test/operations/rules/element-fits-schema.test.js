@@ -1,30 +1,50 @@
 'use strict';
 /**
  * The rule element-fits-schema (BIBLE §10, rule 4) — its own suite, run by test/operations.test.js.
- *   Story: engineering-team/stories/graph-operations-first-slice/20-create-element.md (AC3, AC7)
- *   ADR:   engineering-team/decisions/graph-operations-first-slice/0020-create-element.md (Decisions 11, 12 and 16)
- *   Plan:  engineering-team/stories/graph-operations-first-slice/20-create-element.test-plan.md
+ *   Story: engineering-team/stories/graph-operations-first-slice/20-create-element.md (AC3, AC7), and
+ *          engineering-team/stories/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md (AC1, AC2, AC4,
+ *          AC5)
+ *   ADR:   engineering-team/decisions/graph-operations-first-slice/0020-create-element.md (Decisions 11, 12 and 16),
+ *          and 0042-both-readers-judge-tapestryjson.md (Decisions 2, 3 and 7)
+ *   Plan:  engineering-team/stories/graph-operations-first-slice/20-create-element.test-plan.md, and
+ *          42-both-readers-judge-tapestryjson.test-plan.md
  *
  * Stack-free. The rule's one definition, violations(items, read), is called directly, in a child process with the TA
  * set, over the graph test/helpers/createElementGraph.js seeds (through graphFake's readerOver), as create-element's
  * guard and the later element writes call it ({ concept, json }) and as rules check (A10.31) will ({ node } or
- * { node, concept }). An item names a seeded node as '@<name>'. The child adds three elements first: walker (in
- * walkers, so of dog and pet, with a dog section only), broken (under beagle's superset, its json tag unparseable) and
- * lexeme (under word's superset; word has no schema).
+ * { node, concept }). An item names a seeded node as '@<name>'. The child adds, first:
+ *   - walker (in walkers, so of dog and pet, with a dog section only), broken (under beagle's superset, its json tag
+ *     unparseable) and lexeme (under word's superset; word has no schema);
+ *   - wordy, a concept whose schema is firmware word's own, which requires graphContext, with two elements: wordFull
+ *     and wordNoContext;
+ *   - three more beagles: diffFits and diffMisses, whose json tags and tapestryJson differ, and noEntry, with no
+ *     tapestryJson at all.
+ * It then puts each node's tapestryJson into the child's own store (TAPESTRY_LMDB_PATH, from childEnv): rover's,
+ * walker's and lexeme's as their json tags hold it, broken's as a list, and the rest as each case says.
  *
- *   EFS1 the rules' loader finds it: its name, a summary, refuses: true, and its two refusals, invalid-fields (400) and
- *        no-schema (409)
+ *   EFS1 the rules' loader finds it: its name, a summary that says it judges tapestryJson, refuses: true, and its two
+ *        refusals, invalid-fields (400) and no-schema (409)
  *   EFS2 { concept, json }: JSON that fits gives nothing; JSON that doesn't gives one invalid-fields finding listing
  *        every problem; a key that names no concept header gives nothing; a concept with no schema, or one that
  *        doesn't compile, gives no-schema
- *   EFS3 { node } and { node, concept }: an element is judged against each concept whose class thread reaches it, or
- *        the one named; JSON that can't be read gives one invalid-fields finding saying so; a node no concept reaches
- *        gives nothing
+ *   EFS3 { node } and { node, concept }: an element's tapestryJson is judged against each concept whose class thread
+ *        reaches it, or the one named; tapestryJson that isn't an object gives one invalid-fields finding saying so; a
+ *        node no concept reaches gives nothing
  *   EFS4 within one call, a concept's schema is read once, however many items name it
  *   EFS5 _schemas.checkElements throws the rule's first finding as a refusal with rule set, and passes what fits
- *   EFS6 the rulebook holds its entry, §7, in its format, with its codes, its code's file and its source; it claims
- *        no single verdict with the derive step, and names where the two split (review round 1; ADR 0020 Amendment 1)
- *   EFS7 the graph rule concept's firmware has its element, as node src/firmware/graph-rules.js makes it
+ *   EFS6 the rulebook holds its entry, §7, in its format, with its codes, its code's file and its sources: it judges a
+ *        node's fully realized tapestryJson, a node with none is one finding marked missing, a write's problems that
+ *        are only about graphContext are set aside as waiting, and exceptions will come (story 42, AC5); ADR 0020a
+ *        reads as accepted
+ *   EFS7 the graph rule concept's firmware has its element, as node src/firmware/graph-rules.js makes it, saying it
+ *        judges tapestryJson
+ *   EFS8 (story 42, AC1) where a node's tapestryJson and json tag differ, the tapestryJson decides: under beagle's
+ *        schema, and under firmware word's, where a tapestryJson with its graphContext fits and one without doesn't
+ *   EFS9 (story 42, AC2) a node with no tapestryJson gives one invalid-fields finding marked missing, saying so, and
+ *        nothing for each concept; its json tag, which fits, isn't read in its place
+ *   EFS10 (story 42, AC4) { concept, json }, a write's JSON, sets aside the problems only about graphContext: a full
+ *        word block under firmware word's schema gives nothing, and checkElements passes it; one missing its slug is
+ *        reported for the slug alone
  */
 
 const fs = require('fs');
@@ -41,6 +61,9 @@ const RULE_FILE = path.join(ROOT, `src/operations/rules/${NAME}.js`);
 const SCHEMAS = path.join(ROOT, 'src/operations/catalog/graph/_schemas.js');
 const RULEBOOK = path.join(ROOT, 'docs/GRAPH_RULES.md');
 const ELEMENT_FILE = path.join(ROOT, `firmware/versions/v1.0.0/concepts/graph-rule/elements/${NAME}.json`);
+const ADR_0020A = path.join(ROOT, 'engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md');
+/** A word block firmware word's schema takes: its slug and wordTypes (story 42). */
+const WORD_BLOCK = { slug: 'word--lexeme', name: 'word: Lexeme', wordTypes: ['word'] };
 
 function needRule() {
   if (!fs.existsSync(RULE_FILE)) throw new Error(`src/operations/rules/${NAME}.js does not exist yet (ADR graph-operations-first-slice/0020 Decision 12)`);
@@ -74,6 +97,14 @@ function runCases() {
     once10: { items: Array.from({ length: 10 }, (_, i) => ({ concept: '@beagle', json: beagleJson(`dog ${i}`) })) },
     checkThrows: { check: true, items: [{ concept: '@beagle', json: beagleJson('fine') }, { concept: '@beagle', json: beagleJson(undefined) }] },
     checkPasses: { check: true, items: [{ concept: '@beagle', json: beagleJson('fine') }] },
+    diffFits: { items: [{ node: '@diffFits' }] },
+    diffMisses: { items: [{ node: '@diffMisses' }] },
+    wordFull: { items: [{ node: '@wordFull' }] },
+    wordNoContext: { items: [{ node: '@wordNoContext' }] },
+    noEntry: { items: [{ node: '@noEntry' }] },
+    writeWordFull: { items: [{ concept: '@wordy', json: { word: WORD_BLOCK } }] },
+    writeWordNoSlug: { items: [{ concept: '@wordy', json: { word: { name: 'word: Lexeme', wordTypes: ['word'] } } }] },
+    checkWordFull: { check: true, items: [{ concept: '@wordy', json: { word: WORD_BLOCK } }] },
   };
   const dir = tmp('rule-efs-');
   const script = path.join(dir, 'child.js');
@@ -105,6 +136,34 @@ const out = { cases: {} };
     withJson('walker', k.walkers, JSON.stringify({ word: { slug: 'dog--walker', name: 'dog: Walker', wordTypes: ['word', 'dog', 'pet'] }, dog: { name: 'Walker', slug: 'walker' } }));
     withJson('broken', k.beagleSuperset, '{"beagle": {"name": "Bro');
     withJson('lexeme', k.supersets.word, JSON.stringify({ word: { slug: 'lexeme', name: 'lexeme', wordTypes: ['word'] } }));
+    // wordy: a concept whose schema is firmware word's own (story 42), its header, superset and schema node.
+    const wordyHeader = add(['NostrEvent', 'ListHeader', 'ConceptHeader', 'TapestryNode'], { uuid: '39998:' + E.TA + ':wordy', kind: 39998, pubkey: E.TA, name: 'wordy' });
+    const wordySuperset = add(['NostrEvent', 'ListItem', 'Superset', 'TapestryNode'], { uuid: '39999:' + E.TA + ':wordy-superset', kind: 39999, pubkey: E.TA, name: 'wordies' });
+    link(wordyHeader, 'IS_THE_CONCEPT_FOR', wordySuperset);
+    const wordySchema = add(['NostrEvent', 'ListItem', 'JSONSchema', 'TapestryNode'], { uuid: '39999:' + E.TA + ':wordy-schema', kind: 39999, pubkey: E.TA, name: 'schema for wordy' });
+    link(wordySchema, 'IS_THE_JSON_SCHEMA_FOR', wordyHeader);
+    link(wordySchema, 'HAS_TAG', add(['NostrEventTag', 'TapestryNode'], { type: 'json', value: require('fs').readFileSync(ROOT + '/firmware/versions/v1.0.0/concepts/word/json-schema.json', 'utf8'), uuid: 'wordy-schema-json' }));
+    k.wordy = wordyHeader.props.tapestryKey;
+    k.wordySuperset = wordySuperset.props.tapestryKey;
+    const wordBlock = ${JSON.stringify(WORD_BLOCK)};
+    withJson('wordFull', k.wordySuperset, JSON.stringify({ word: wordBlock }));
+    withJson('wordNoContext', k.wordySuperset, JSON.stringify({ word: wordBlock }));
+    const beagleTag = (description) => JSON.stringify(${JSON.stringify(beagleJson('§'))}).replace('"§"', JSON.stringify(description));
+    withJson('diffFits', k.beagleSuperset, JSON.stringify(${JSON.stringify(beagleJson(undefined))}));
+    withJson('diffMisses', k.beagleSuperset, beagleTag('the json tag has it'));
+    withJson('noEntry', k.beagleSuperset, beagleTag('a json tag that fits'));
+    // Each node's tapestryJson, in the child's own store (story 42): rover's, walker's and lexeme's as their json tags
+    // hold it; broken's a list; diffFits' with the description its tag lacks, diffMisses' without the one its tag has;
+    // wordFull's with the graphContext the derive step builds, wordNoContext's without; none for noEntry or loner.
+    const store = require(ROOT + '/src/lib/tapestry-store.js');
+    await store.put(k.rover, C.json(s, k.rover));
+    await store.put(k.walker, C.json(s, k.walker));
+    await store.put(k.lexeme, C.json(s, k.lexeme));
+    await store.put(k.broken, [1, 2]);
+    await store.put(k.diffFits, ${JSON.stringify(beagleJson('the tapestryJson has it'))});
+    await store.put(k.diffMisses, ${JSON.stringify(beagleJson(undefined))});
+    await store.put(k.wordFull, { word: wordBlock, graphContext: { identifiers: { tapestryKey: k.wordFull }, elementOf: { direct: [], indirect: [] }, parentJsonSchemas: [], derivedAt: 1 } });
+    await store.put(k.wordNoContext, { word: wordBlock });
     const resolve = (v) => (typeof v === 'string' && v.startsWith('@') ? (v === '@nobody' ? '00000000-0000-4000-8000-0000000000cc' : k[v.slice(1)]) : v);
     const name = (key) => Object.keys(k).find((x) => k[x] === key) || key;
     out.keys = { beagle: k.beagle, dog: k.dog, pet: k.pet, word: k.word, walker: k.walker };
@@ -121,7 +180,7 @@ const out = { cases: {} };
           continue;
         }
         const found = await rule.violations(items, read);
-        out.cases[id] = { schemaReads, violations: found.map((v) => ({ node: name(v.item && v.item.node), concept: name(v.item && v.item.concept), code: v.code, message: v.message, item: v.item ? Object.fromEntries(Object.entries(v.item).filter(([f]) => f !== 'json').map(([f, x]) => [f, name(x)])) : null, findingConcept: name(v.concept) })) };
+        out.cases[id] = { schemaReads, violations: found.map((v) => ({ node: name(v.item && v.item.node), concept: name(v.item && v.item.concept), code: v.code, message: v.message, missing: v.missing === true, problems: (v.problems || []).map((x) => x.message), item: v.item ? Object.fromEntries(Object.entries(v.item).filter(([f]) => f !== 'json').map(([f, x]) => [f, name(x)])) : null, findingConcept: name(v.concept) })) };
       } catch (e) { out.cases[id] = { error: String(e && e.message || e) }; }
     }
   } catch (e) { out.error = String(e && e.message || e); }
@@ -151,6 +210,7 @@ test('EFS1: the rules\' loader finds it: its name, a summary, refuses: true, and
   const out = runCases();
   assert(out.rule, `the loader must find ${NAME}; problems: ${show(out.problems)} ${out.error || ''}`);
   assert(out.rule.name === NAME && typeof out.rule.summary === 'string' && out.rule.summary.length > 10 && out.rule.refuses === true, `its name, a summary, refuses: true; got ${show(out.rule)}`);
+  assert(/tapestryJson/.test(out.rule.summary), `its summary says it judges a node's tapestryJson (ADR 0042 Decision 7); got ${show(out.rule.summary)}`);
   const st = Object.fromEntries(out.rule.refusals.map((r) => [r.code, r.status]));
   assert(show(Object.keys(st).sort()) === show(['invalid-fields', 'no-schema']) && st['invalid-fields'] === 400 && st['no-schema'] === 409,
     `its refusals are invalid-fields (400) and no-schema (409), and nothing else; got ${show(out.rule.refusals)}`);
@@ -168,14 +228,15 @@ test('EFS2: { concept, json }: what fits gives nothing; what doesn\'t gives one 
   for (const id of ['noSchema', 'noCompile']) assert(show(codes(result(id))) === show(['no-schema']), `${id}: no-schema; got ${show(result(id))}`);
 });
 
-test('EFS3: { node } and { node, concept }: judged against each concept that reaches it, or the one named; unreadable JSON is one finding', () => {
+test('EFS3: { node } and { node, concept }: its tapestryJson, judged against each concept that reaches it, or the one named; tapestryJson that isn\'t an object is one finding', () => {
   assert(show(result('rover').violations) === show([]), `rover fits beagle, the one concept that reaches it; got ${show(result('rover'))}`);
   const w = result('walker');
   assert(show(codes(w)) === show(['invalid-fields']) && /pet/.test(w.violations[0].message), `walker fits dog but not pet, which wants a pet section: one finding, for pet; got ${show(w)}`);
   assert(show(result('walkerDog').violations) === show([]), `named dog, walker fits; got ${show(result('walkerDog'))}`);
   assert(show(codes(result('walkerPet'))) === show(['invalid-fields']), `named pet, it doesn't; got ${show(result('walkerPet'))}`);
   const b = result('broken');
-  assert(show(codes(b)) === show(['invalid-fields']) && /read|pars/i.test(b.violations[0].message), `JSON that can't be read: one invalid-fields finding saying so; got ${show(b)}`);
+  assert(show(codes(b)) === show(['invalid-fields']) && /tapestryJson/.test(b.violations[0].message) && /object/.test(b.violations[0].message) && b.violations[0].missing !== true,
+    `broken's tapestryJson is a list: one invalid-fields finding saying it isn't an object, not marked missing (ADR 0042 Decision 1); its unparseable json tag isn't read; got ${show(b)}`);
   assert(show(result('loner').violations) === show([]), `a node no concept reaches gives nothing: that is rule 3's business; got ${show(result('loner'))}`);
   assert(show(codes(result('lexeme'))) === show(['no-schema']), `an element of a concept with no schema: one no-schema finding; got ${show(result('lexeme'))}`);
 });
@@ -209,16 +270,50 @@ test('EFS6: the rulebook holds its entry, §7, in its format, with its codes, it
   assert(entry.includes(`src/operations/rules/${NAME}.js`) && entry.includes('create-element'), 'Enforced by names the rule\'s file and create-element\'s guard');
   assert(/graph-operations-first-slice\/0020/.test(entry), 'its source is ADR graph-operations-first-slice/0020');
   assert(/rule 4/.test(entry), 'it says it is BIBLE §10\'s rule 4');
-  assert(!/one verdict/i.test(entry), 'it claims no single verdict with the derive step, which checks another document (ADR 0020 Amendment 1, item 1)');
-  assert(/graphContext/.test(entry), 'it says where the two split: the derive step checks its own graphContext too (Amendment 1, item 1)');
+  const says = (entry.match(/^- \*\*Says:\*\*[^\n]*(?:\n(?!- \*\*)[^\n]*)*/m) || [''])[0];
+  assert(/tapestryJson/.test(says) && /fully realized/i.test(says), `its Says field: a node's fully realized tapestryJson fits the schema of each concept it is an element of (story 42, AC5; ADR 0042 Decision 7); got ${show(says)}`);
+  assert(/exception/i.test(entry), 'it says exceptions to the rule will come (ADR 0020a Decision 2)');
+  assert(/`missing`/.test(entry) && /no tapestryJson/i.test(entry), 'its Check says a node with no tapestryJson gives one finding, marked `missing`');
+  assert(/waiting/.test(entry) && /graphContext/.test(entry) && /derive step/.test(entry), 'its Refuses or reports says a write\'s problems only about graphContext, which the derive step builds, are set aside, the concept reported as waiting');
+  const source = (entry.match(/^- \*\*Source:\*\*[^\n]*/m) || [''])[0];
+  assert(/0020a/.test(source) && /0042/.test(source), `its Source names ADR 0020a and ADR 0042 beside ADR 0020; got ${show(source)}`);
+  assert(/^\*\*Status:\*\* Accepted\b/m.test(fs.readFileSync(ADR_0020A, 'utf8')), 'ADR 0020a reads as accepted: its decider merged it (story 42, AC5; TapestryProtocol/tapestry#125)');
 });
 
-test('EFS7: the graph rule concept\'s firmware has its element, as node src/firmware/graph-rules.js makes it', () => {
+test('EFS7: the graph rule concept\'s firmware has its element, as node src/firmware/graph-rules.js makes it, saying it judges tapestryJson', () => {
   assert(fs.existsSync(ELEMENT_FILE), `firmware/versions/v1.0.0/concepts/graph-rule/elements/${NAME}.json exists (ADR 0020 Decision 12, made by node src/firmware/graph-rules.js)`);
   const el = JSON.parse(fs.readFileSync(ELEMENT_FILE, 'utf8'));
   assert(el.graphRule && el.graphRule.name === NAME, `its graphRule section names the rule; got ${show(el.graphRule && el.graphRule.name)}`);
+  assert(/tapestryJson/.test(JSON.stringify(el.graphRule)), 'its graphRule section, made from the rulebook, says the rule judges tapestryJson: rule 7\'s element in the graph says so after a reinstall (story 42, AC5)');
   const check = spawnSync(process.execPath, [path.join(ROOT, 'src/firmware/graph-rules.js'), '--check'], { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
   assert(check.status === 0, `node src/firmware/graph-rules.js --check finds the files as the rulebook makes them; exit ${check.status}: ${(check.stdout + check.stderr).slice(-400)}`);
+});
+
+test('EFS8: where a node\'s tapestryJson and its json tag differ, the tapestryJson decides, under beagle\'s schema and firmware word\'s', () => {
+  assert(show(result('diffFits').violations) === show([]), `diffFits: its json tag lacks the description, its tapestryJson has it: it fits (story 42, AC1); got ${show(result('diffFits'))}`);
+  const m = result('diffMisses');
+  assert(show(codes(m)) === show(['invalid-fields']) && m.violations[0].problems.some((p) => /beagle\.description/.test(p)), `diffMisses: its json tag has the description, its tapestryJson doesn't: invalid-fields, naming it; got ${show(m)}`);
+  assert(show(result('wordFull').violations) === show([]), `wordFull: a tapestryJson with its graphContext fits firmware word's schema, though its json tag has none; got ${show(result('wordFull'))}`);
+  const n = result('wordNoContext');
+  assert(show(codes(n)) === show(['invalid-fields']) && n.violations[0].problems.some((p) => /graphContext/.test(p)),
+    `wordNoContext: a tapestryJson with no graphContext doesn't fit firmware word's schema; the check form sets nothing aside (ADR 0042 Decision 2); got ${show(n)}`);
+});
+
+test('EFS9: a node with no tapestryJson is one finding marked missing, nothing for each concept, and its json tag isn\'t read in its place', () => {
+  const r = result('noEntry');
+  assert(r.violations.length === 1, `one finding for the node, not one for each concept (story 42, AC2); got ${show(r)}`);
+  const v = r.violations[0];
+  assert(v.code === 'invalid-fields' && v.missing === true && /tapestryJson/.test(v.message) && !v.findingConcept,
+    `invalid-fields, marked missing, saying it has no tapestryJson yet; no concept named, since none could be judged (ADR 0042 Decision 2); got ${show(v)}`);
+  assert(/derive/i.test(v.message), `it says the derive step builds it; got ${show(v.message)}`);
+});
+
+test('EFS10: { concept, json }, a write\'s JSON, sets aside the problems only about graphContext: a full word block passes; one with no slug is reported for the slug alone', () => {
+  assert(show(result('writeWordFull').violations) === show([]), `a word block with its slug and wordTypes, and no graphContext, under firmware word's schema: no finding, nothing to refuse (story 42, AC4); got ${show(result('writeWordFull'))}`);
+  assert(result('checkWordFull').passed === true, `checkElements passes it: a write isn't refused for graphContext (ADR 0042 Decision 3); got ${show(result('checkWordFull'))}`);
+  const s = result('writeWordNoSlug');
+  assert(show(codes(s)) === show(['invalid-fields']) && s.violations[0].problems.some((p) => /word\.slug/.test(p)) && !s.violations[0].problems.some((p) => /graphContext/.test(p)) && !/graphContext/.test(s.violations[0].message),
+    `a word block with no slug: one finding, for word.slug alone, graphContext set aside; got ${show(s)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

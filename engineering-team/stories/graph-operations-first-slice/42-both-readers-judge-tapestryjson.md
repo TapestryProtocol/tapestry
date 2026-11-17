@@ -84,7 +84,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 
 - Decision: ADR graph-operations-first-slice/0020a (`engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md`)
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0042-both-readers-judge-tapestryjson.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/42-both-readers-judge-tapestryjson.test-plan.md`
 - Review: (filled in after Review phase)
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
