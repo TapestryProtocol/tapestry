@@ -168,7 +168,7 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
   - its history gave the delete, then the create;
   - it was refused the stranger's node (`not-own-node`), the set (`made-elsewhere`) and firmware's rover (`firmware-node`);
   - a visitor through nginx got 401.
-- **L9,** the read-only counts on staging and production, waits for the owner's yes for each server.
+- **L9,** the read-only counts on staging and production, ran with the owner's yes for both servers: "On staging and production", below.
 
 ### Review round 1's fixes (2026-11-17)
 
@@ -189,6 +189,50 @@ Before the implementation PR, staging was merged into the branch. It brought in 
 - **One conflict,** in `test/helpers/graphFake.js`'s header: story 8's paragraph and story 26's. Both were kept.
 - **The suites both branches touch** pass, each alone with every endpoint dead: delete-node 40, the shared suite 13, the fake graph 31, search 34, the search index 7, and the write path 13.
 - **The whole operations runner:** 859 passed, 0 failed, 4 skipped. The 4 skipped are `lifecycle/shared-keys.test.js`'s live tests.
+
+### On staging and production (2026-11-17)
+
+**Staging: TapestryProtocol/tapestry#127.**
+- **Its CI:** the `Test` run 44111527020 passed on the PR's head, `e7cfefe6`, and staging hadn't moved since it was merged in.
+- **The safe-to-merge check** (`scripts/check-safe-to-merge.sh`) said safe at 15:24:46Z: no task active, and the next scheduled one at 17:40Z.
+- **The merge,** at 15:24:55Z, was pinned with `--match-head-commit e7cfefe6`. Its merge commit is `341fe1f2`.
+- **The deploy:** `deploy-staging.yml` run 44114070354 succeeded, 15:24:59Z to 15:26:28Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`) was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504;
+  - tier 3: delete-node answered 401 to an unsigned call, and `/docs` lists `/api/tapestry/graph/delete-node`. The code before this story had no such declaration;
+  - tier 5: history and lifecycle status answered 401 unsigned.
+
+  Tier 4 didn't apply, since no UI changed.
+- **Loom** marked A10.26 verified, weakly, at 15:28:00Z: PR #127 had no approval from a teammate other than the owner.
+
+**L9, the read-only counts** (ADR Consequences). They ran with the owner's yes for each server: one `cypher-shell --access-mode read` call over SSH, inside each server's container.
+
+| Server | `NostrEvent` nodes | With no `created_at` | `NostrUser` nodes | `NostrUser` nodes in a class thread |
+|---|---|---|---|---|
+| Production (`tapestry.brainstorm.world`) | 511 | 0 | 3,108,792 | 0 |
+| Staging (`staging.brainstorm.world`) | 529 | 0 | 3,108,706 | 0 |
+
+So neither server holds an event an older import left with no `created_at`. Decision 4's mark reads no real letter as a placeholder there, in delete-node or in update-node.
+
+**Production: TapestryProtocol/tapestry#128,** the promotion.
+- **What it carried:** staging at `341fe1f2`, from `promote/update-node-search-delete-node-2026-11-17`, a branch cut at that commit (ledger row `2026-11-17-promotion-pr-head-moves-with-staging`). That is #119–#127: update-node, search, this story, A10.20.a's ADR, and three ledger and docs PRs. The owner approved that bundle.
+- **No other promotion** was open into main.
+- **Its required check:** the `stack-free` run 44119909308 passed on `341fe1f2`.
+- **The safe-to-merge check** against production said safe at 16:08:09Z: no task active, and the next scheduled one at 17:00Z.
+- **The merge,** at 16:08:13Z, was pinned with `--match-head-commit 341fe1f2`. Its merge commit is `1a18b21c`.
+- **The deploy:** `deploy-tapestry.yml` run 44122294548 succeeded, 16:08:18Z to 16:10:11Z.
+- **The smoke test** was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering;
+  - tier 2: as on staging;
+  - tier 3: update-node, search and delete-node each answered 401 unsigned, and `/docs` lists all three;
+  - tier 5: as on staging.
+
+  Tier 4 didn't apply.
+
+**Not checked on either server:**
+- calls signed in as the owner or an admin, which the smoke test can't make;
+- the build of graph search's full-text index on production, which the control panel starts at boot and which fills in the background. Graph search answers `search-not-ready` until it is online.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`

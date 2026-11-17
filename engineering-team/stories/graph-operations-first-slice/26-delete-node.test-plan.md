@@ -139,7 +139,7 @@ Check `docker ps` and the shared notes before taking `tapestry-scratch`, note it
 - **L6:** a firmware reinstall: the node is still gone, and its entry is still there.
 - **L7:** a backup taken after the delete, restored on a fresh stack: the same.
 - **L8:** an admin agent through nginx and the external CLI.
-- **L9:** with the owner's yes for each server, read-only counts on staging and production of `NostrEvent` nodes with no `created_at`, and of how many of them a tag references (ADR Consequences).
+- **L9:** with the owner's yes for each server, read-only counts on staging and production of `NostrEvent` nodes with no `created_at`, and of how many of them a tag references (ADR Consequences). *(Ran 2026-11-17, with the owner's yes for both: none on either. The story's Evidence, "On staging and production".)*
 
 ## Added at implementation (a kick-back to test design)
 
