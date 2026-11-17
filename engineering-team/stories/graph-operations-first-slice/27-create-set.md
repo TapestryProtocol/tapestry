@@ -121,4 +121,4 @@ Small judgment calls made in Implementation, inside ADR 0027:
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0027-create-set.md](../../decisions/graph-operations-first-slice/0027-create-set.md)
 - Test plan: [27-create-set.test-plan.md](27-create-set.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [reviews/graph-operations-first-slice/27-create-set.md](../../reviews/graph-operations-first-slice/27-create-set.md)
