@@ -1,6 +1,6 @@
 # Story 14: `graph walk` — follow chosen relationship types out from one or more nodes, up to a depth, each node reached once with the path that reached it
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.14 — https://loom.brainstorm.world/t/A10.14
@@ -194,4 +194,4 @@ Each ran on its own on the Mac Studio, never the full `npm test`, with every end
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0014-walk.md](../../decisions/graph-operations-first-slice/0014-walk.md) (and its Amendment 4 to [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md))
 - Test plan: [14-walk.test-plan.md](14-walk.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [engineering-team/reviews/graph-operations-first-slice/14-walk.md](../../reviews/graph-operations-first-slice/14-walk.md)
