@@ -2,9 +2,10 @@
 
 GitHub keeps a repository's rulesets and Actions policies in its settings, not in its files, so a repo that moves to a
 new owner can lose them. This one had no rulesets after the move of 2026-10-23. The JSON files here are the
-definitions, kept so they can be recreated. **Nothing reads or applies them**: the live rulesets are in Settings, Rules,
-Rulesets, the live Actions policies are in Settings, Actions, Policies, and that is what GitHub enforces. When a live
-ruleset or policy changes, change its file in the same PR.
+definitions, kept so they can be recreated. **Nothing applies them**: the live rulesets are in Settings, Rules, Rulesets,
+the live Actions policies are in Settings, Actions, Policies, and that is what GitHub enforces. When a live ruleset or
+policy changes, change its file in the same PR. One test reads them: `test/workflow-hardening.test.js` (R7) checks
+that each workflow allowed `pull_request_target` is named in a policy definition here (OPERATIONS.md, §18.4).
 
 | File | What it enforces |
 |---|---|
