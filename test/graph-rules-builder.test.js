@@ -131,12 +131,13 @@ const REAL = [
     source: 'ADR graph-operations-first-slice/0028',
     description: 'Every set is directly under at least one superset or set, so some class thread reaches it and its elements.',
   },
-  // Rule 7, joined with story graph-operations-first-slice #20: its Says opens with ADR graph-operations-first-slice/0020
-  // Decision 12's sentence.
+  // Rule 7, joined with story graph-operations-first-slice #20, and rewritten by story #42: its Says opens with the rule as
+  // ADR graph-operations-first-slice/0042 Decision 7 states it, a node's fully realized tapestryJson, and its Source names
+  // the three ADRs (story 42, AC5).
   {
     number: 7, name: 'element-fits-schema', title: 'Element Fits Schema', code: true, alsoSays: [],
-    source: 'ADR graph-operations-first-slice/0020',
-    description: "An element's JSON fits the JSON schema of each concept it belongs to.",
+    source: 'ADR graph-operations-first-slice/0020, ADR graph-operations-first-slice/0020a and ADR graph-operations-first-slice/0042',
+    description: "A node's fully realized tapestryJson fits the JSON schema of each concept it is an element of.",
   },
 ];
 const GRAPH_RULE_KEYS = ['name', 'number', 'says', 'kind', 'about', 'refusesOrReports', 'check', 'repair', 'enforcedBy', 'status', 'source', 'alsoSays', 'code'];

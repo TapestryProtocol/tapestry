@@ -26,6 +26,8 @@ The stack-free suites can't reach five things, which the live check covers on a 
 | **ADR 0042's statements** | **SC8:** the fake graph runs E1 with the schema node's uuid (`js.uuid AS schemaUuid`), and E4 with only the node's name and uuid. **SC7:** loading `_schemas.js` loads no ajv, LMDB, Neo4j driver or store, and it exports `tapestryJsonOf`. **SC13:** loading `src/lib/derivers/schema-verdicts.js` loads no ajv, `_schemas.js`, `_fields.js` or LMDB. | `element-schemas.test.js` | fake graph; unit |
 | **Live** | **L5a's oracle** (`ORACLE_SCHEMAS`) is now the rule's concept set, the class-thread walk at any depth, a ConceptHeader or ListHeader, one row for each schema node, so L5a checks the derive step's new `parentJsonSchemas`. The live check below. | `test/pass-3-finishes-in-minutes.test.js` | live (skipped on the Mac Studio) |
 
+**Amended at implementation (2026-11-17), the Tester's lane.** `test/graph-rules-builder.test.js`'s GB3 holds each real rulebook entry's expected `word.description` (its Says' first sentence) and `source`. Rule 7's fixture still had story 20's: "An element's JSON fits…" and ADR 0020 alone. AC5 rewrites both by design, so GB3 failed on the rulebook this story asks for. The fixture now has the new first sentence and the three ADRs; GB3's assertions are as they were. Test Design missed it because GB3's fixture restates the rulebook rather than reading it.
+
 ## Edge cases
 
 - [x] **An entry built before the node's json tag changed** (SC9). Both readers judge the entry the store keeps, so they agree on it, stale or not. Keeping the entry up to date is A10.20.c's.
