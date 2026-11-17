@@ -117,7 +117,15 @@ Resolved at this gate.
 5. **Are elements that stop fitting refused or reported?** *Resolved: reported, never refused* (the owner's approval, 2026-11-17), as the catalog and the rules document's §7 say ("reporting only"; AC6).
 6. **Are the writes safe to repeat?** *Resolved: yes, as create-concept and create-set are* (the owner's approval, 2026-11-17). A repeat answers `already-exists`, `unchanged` or `already-gone` and changes nothing (AC1, AC3–AC5).
 
-For Architecture, not this gate:
+**Corrected at Architecture** (the owner's approval, 2026-11-17, with ADR 0018):
+
+- **Only a wrapped schema** (AC5, AC7). Its one top-level property is the concept's key, an object. A schema with another top-level property beside it is refused `not-wrapped`, as is a property write on a concept whose schema has one (ADR 0018, Decision 3).
+- **Every field has a `type`** (AC5): one of the seven, or a list of them. A field defined by `$ref` or `enum` alone is refused `bad-type`, since a property node has to have a type (Decision 4).
+- **A size bound** (AC7): at most 32 levels under the concept's key, and 1,000 properties, else `schema-too-large` (Decision 4).
+- **What a write fills in** (AC5): the schema's `$schema`, `type`, `required` and `definitions`, when it lacks them, since the `json-schema` concept requires them. The answer names each one (`filledIn`; Decision 3).
+- **A list's item fields stay in the list's own definition** (AC1): `parent` can't name a list, and update-property's `schema` or set-schema changes them (Decision 4).
+
+For Architecture, not this gate (each answered in ADR 0018):
 
 - **What a property node holds, and how a concept's schema follows from its properties** (D10; BIBLE §30), so that set-schema keeps every keyword. That covers what a concept's schema says above its fields, such as `x-tapestry`'s `unique`, `allOf`, `definitions`, and the `name`, `title`, `slug` and `description` that create-concept writes beside them. It also covers what a property says beyond its type.
 - **Where the schema is kept,** so that every reader that reads the JSON schema node today reads the change.
@@ -138,6 +146,6 @@ For Architecture, not this gate:
 - The concepts these change: [16-create-concept-and-update-concept.md](16-create-concept-and-update-concept.md)
 - The rule the reports call: ADR [0020](../../decisions/graph-operations-first-slice/0020-create-element.md) and [0020a](../../decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md](../../decisions/graph-operations-first-slice/0018-property-operations.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
