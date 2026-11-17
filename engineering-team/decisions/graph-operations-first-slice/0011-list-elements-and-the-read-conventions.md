@@ -377,6 +377,16 @@ Every node whose distance doesn't change is answered exactly once.
 - C1's rule holds for every other read. Walk is the one exception, and ADR 0014 (Decision 4) names it.
 - C1's paragraph in `src/operations/reads.js` and the catalog's Paging bullet say so.
 
+## Amendment 5 (2026-11-17, by ADR graph-operations-first-slice/0008) — a search's order
+
+C1 says items come in an order that never changes for an item. `graph search` (Loom A10.8, story graph-operations-first-slice #8) answers best first: a match that holds every word searched for, then the higher score, then the lower tapestryKey. Its owner chose that at the story's gate (open question 2). A match's score depends on the rest of the graph, such as how many nodes hold each word. So a change between two pages can change the score, and move a match:
+- to a page already read, so it's missed;
+- or to one still to come, so it shows twice.
+
+Every match whose place doesn't change is answered exactly once.
+- C1's rule holds for every other read. Walk (Amendment 4) and search are its two exceptions, and ADR 0008 (Decision 5) names search's.
+- When search is built, C1's paragraph in `src/operations/reads.js` and the catalog's Paging bullet say so.
+
 ## Out of scope
 
 - Everything the story leaves out: implicit members, other points of view, more about each element, naming by name or slug, an order the owner chooses, counts without a list, visitors' reads, today's subgraph route, and `graph history`.
