@@ -3,8 +3,8 @@
 **Id:** 2026-11-16-main-guard-blocked-by-github-policy
 **Type:** bug (CI: a check main's ruleset requires)
 **Opened:** 2026-11-16 (graph-operations-first-slice #41's promotion, TapestryProtocol/tapestry#96)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-17, TapestryProtocol/tapestry#98 (the docs and the policy's definition), checked on TapestryProtocol/tapestry#101
 
 **What was seen.** Three runs of `guard-main-source.yml` ended in `startup_failure`, with no job started:
 - 43904518731, at 16:10:22Z, when #92's merge moved staging, the head of the then-open #95;
@@ -31,5 +31,10 @@ Whichever is chosen, OPERATIONS.md §4 and `/cycle-prod` should say what a `main
 - on or after 2026-12-02, or during a brownout: a guard run on a real PR into `main` that passes.
 
 When the owner has created the policy, record the date and its id here. Then have someone with admin read it back (`gh api repos/TapestryProtocol/tapestry/actions/policies/<id> -H 'X-GitHub-Api-Version: 2026-03-10'`) and compare it with the file, the way the rulesets' files were read from a live API.
+
+**Closed, 2026-11-17, on the first bullet's evidence.**
+- **Before the policy.** Promotion #99's guard run (43977183999, 2026-11-16 23:12:07Z) is listed in Policy insights as "Evaluate, Would block". The policy didn't exist yet: soon after, the owner found the Policies page empty. Policy insights lists every earlier guard run of 2026-11-16 too. 15:47 and 18:01Z are "Would block". 16:10, 16:14 and 16:26Z, the brownout, are "Blocked".
+- **The policy.** The owner created `allow-pull-request-target-for-main-source-guard` on 2026-11-17 (UTC; the evening of 2026-11-16 in EST). Its settings page, read back from the owner's screenshot, matches the definition file field by field: Active; target path `.github/workflows/guard-main-source.yml`, included; "Restrict events" with only `pull_request_target` allowed; no actor restriction, and no lockfile rule. Its id isn't recorded here: this Mac's token gets a 404 from the policies API, and the page's URL wasn't captured.
+- **After the policy.** Throwaway draft PR #101 held one empty commit on `promote/guard-policy-check-2026-11-16`. On it, the guard ran as 43989048340 (2026-11-17 00:36:58Z, `pull_request_target`, success), and the PR was closed unmerged at 00:37:42Z. The owner checked Policy insights afterwards, and it doesn't list that run. So the default policy no longer applies to the guard, and the guard should keep running after 2026-12-02.
 
 **Pointer:** `.github/workflows/guard-main-source.yml`; OPERATIONS.md §4, "Branch protection rulesets"; OPEN.md row 155; #96's checks and comments; GitHub's guide, `https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target`.
