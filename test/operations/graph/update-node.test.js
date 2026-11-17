@@ -801,7 +801,7 @@ test('UN42: a concept keyed __proto__ whose section the node lacks is refused no
   needDecl();
   const { a, k, file, before } = await round2();
   const x = a.req('proto-key');
-  assert(x.status === 409 && x.body.code === 'no-section' && x.body.input === 'concept', `the section is read by the JSON's own key, so an inherited __proto__ is no section (Decision 8; review round 1, finding 1); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  assert(x.status === 409 && x.body.code === 'no-section' && x.body.input === 'concept', `the section is read by the JSON's own key, so an inherited __proto__ is no section (Decision 6, Amendment 2; review round 1, finding 1); got ${x.status} ${show(x.body).slice(0, 400)}`);
   const after = S.readState(file);
   // The run's other calls record entries of their own (UN43's is a change): count those that name twoFaced.
   const naming = (g) => g.nodes.filter((n) => n.labels.includes('GraphChange') && Array.isArray(n.props.keys) && n.props.keys.includes(k.twoFaced)).length;
