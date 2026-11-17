@@ -158,3 +158,74 @@ None of the eight findings breaks an acceptance criterion, the ADR or correctnes
 ## On PASS (same commit)
 - [x] Story `**Status:**` flipped to `Done` in place.
 - [x] Completion detection performed, and the result given in the chat: the book isn't complete.
+
+## Round 2 — 2026-11-17 (HEAD `4e5a730c`)
+
+The owner chose to fix round 1's non-blocking findings before the PR. The round added two commits after `e8dac240`:
+- `5f4d7f77`, the tests;
+- `4e5a730c`, the fixes, with ADR Amendment 3.
+
+The session reviewed them as the Reviewer, checking each fix as a fresh claim against the code and the commands below. It didn't take the commit messages on trust.
+
+### Gates (run by the reviewer at `4e5a730c`)
+
+- [x] **A scoped gate,** the same 18 suites as round 1, with every endpoint dead:
+
+  ```
+  20261117T145748Z-55320-d332 [review-26-r2] started 2026-11-17T14:57:48.696Z on 4e5a730c+dirty — PASS, exit 0, 275 passed, 0 failed, 0 skipped, 18/18 suites · …/tmp/gate-runs/20261117T145748Z-55320-d332.json
+  ```
+
+  That is 5 more than round 1's 270, the round's new tests. `+dirty` is the untracked `node_modules` link alone.
+- [x] **The whole operations runner,** on the code committed as `4e5a730c`: 811 passed, 0 failed, 4 skipped. That is 5 more than round 1's 806, the round's new tests. The 4 skipped are `lifecycle/shared-keys.test.js`'s live tests.
+- [x] **harness-lint:** clean.
+
+### Round-1 findings, re-checked
+
+1. **Fixed.** `delete-node.js` keeps a set of the tag keys it has read, and skips a second `HAS_TAG` to one of them. So a tag is read once and deleted once, and the count check holds.
+   - DN35 failed on `e8dac240`, with "5 nodes and 6 relationships went, where 6 and 6 were read", and passes now.
+2. **Fixed, by stopping.** A relationship whose other end has no tapestryKey, the node's own or a tag's, throws before anything is deleted, naming `lifecycle migrate`. A tag with no key already did. The throw is a plain error, so the write path doesn't run it again, and it answers 500.
+   - DN36 failed on `e8dac240` (200 `deleted`) and passes now: 500, and the node and its CITES are still there.
+3. **Fixed.** The comments in `write.js` (its header and `VANISHED`), `delete-node.js` (the lock) and the fake graph's header now say what Amendment 2 found: the second try is a safety net, and the races resolve on the lock and the read after it.
+4. **Fixed, with a test.** DN37 removes a relationship of lucky just before the delete (`failures.shrinkBeforeDetach`), and gets 500 after one attempt, with nothing changed. With the count check taken out by a scratch edit, DN37 failed alone. The edit was then restored, and `git status` was clean.
+5. **Fixed.** The fake's log now names a lock's keys.
+   - DN16 keys dog's and pet's headers so that their tapestryKey order differs from the class thread's, and checks walkerMax's locks: the node's, then pet's header, then dog's.
+   - It also checks that an element of word alone locks only itself.
+   - Without the sort, DN16 failed, and so did DN8.
+   - OPEN.md row `2026-11-17-fake-graph-logs-no-lock-order` gains a note and stays open for update-node's UN13.
+6. **Fixed, with tests.**
+   - DN38: selfRef's `a` tag REFERENCES selfRef. The relationship is listed once, from the tag, recorded under it, and selfRef isn't among the other ends. When a scratch edit skipped it in the tag's loop, DN38 failed.
+   - DN29's fullLoop, 10,000 with a link to itself, is refused, as Amendment 1 item 3 says. Without the first count, DN29 failed.
+7. **Done in round 1's commit** (`e8dac240`), and re-read: the two ledger rows are as round 1 says.
+8. **Fixed.**
+   - `_nodes.js`'s header names delete-node among its callers.
+   - update-node's description names `person-node` and `placeholder-node`. The story's Deviations log that, since ADR Decision 4's note said nothing else in update-node changes.
+   - `stored` is read with `resolveValue`, so data that isn't JSON is recorded as it was held. DN39 failed on `e8dac240` (`stored: null`) and passes now.
+
+### Spec, ADR and concept graph
+
+- **No acceptance criterion changes.** AC6's "undone from the entry alone" is now true of every delete that succeeds: one that can't be recorded whole stops (fix 2).
+- **ADR Amendment 3** records the four design-relevant changes (fixes 1, 2, 3 and 8's `stored`), and matches the diff. Each code change is in `delete-node.js`, `write.js`, `_nodes.js` or update-node's description.
+- **No concept definition changes,** and no firmware reinstall is needed.
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **`delete-node.js` D2's refusal message** would show `null` for a class-thread link to a node with no tapestryKey (`b.tapestryKey` in `first`). It is the same un-migrated-graph edge as fix 2, met by a refusal that changes nothing, so it is only a message. No change asked.
+  2. **The round's own slip:** an edit to update-node's description dropped a closing quote, and every update-node suite failed until it was put back (the story's round-1 Evidence). It was caught by running the suites, as it should be. A `node --check` on each edited file before running them would have caught it sooner.
+
+### Harness friction
+
+- None new. Round 1's two rows stand.
+
+### Verdict
+
+**PASS**
+- Every round-1 finding is fixed, or is a test that now holds.
+- The scoped gate and the whole operations runner pass.
+- Nothing in the round changes an acceptance criterion or the ADR's decisions beyond Amendment 3, which records it.
+
+### Close-out (same commit)
+
+- The story's `**Status:**` stays `Done`.
+- Completion detection was done again, and its result given in the chat: the book still isn't complete.
