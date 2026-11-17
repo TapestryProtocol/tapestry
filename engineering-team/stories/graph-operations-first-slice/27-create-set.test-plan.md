@@ -41,10 +41,11 @@ The stack-free suites can't reach five things: Neo4j's own locking (two calls at
 
 - **Framework:** Node's own runner, through each suite's `run()`.
   - Every suite under `test/operations/` is found by `test/operations.test.js` (ADR graph-operations-foundation/0001 Decision 12), so `test/registry.js` gains no line.
-- **The fake graph needs nothing new.**
+- **The fake graph needs one change** (the Tester correction below).
   - R6 and R7 run on the path fake as the ADR writes them (CS19).
-  - Every other statement create-set uses is one the fake already runs: R1 and R2, the lock's S8 shape, C4, C5 and C6, the relationship MERGE, E1 and E2, and `mapNodes`' reads and S8.
-  - Neither `graphFake.js` nor `pathCypherFake.js` changes, so the parallel A10.14 and A10.21 branches' edits to them don't meet this one.
+  - Every other statement create-set uses is one the fake already runs: R1 and R2, the lock's S8 shape, C4, C6, the relationship MERGE, E1 and E2, and `mapNodes`' reads and S8.
+  - C5, `makeNode`'s CREATE, ran for every label but `Set` (see below).
+  - `pathCypherFake.js` doesn't change. `graphFake.js` changes one line and its header, so a parallel A10.14 or A10.21 edit to it may meet this one.
 - **Fixtures:**
   - `test/helpers/createSetGraph.js` (new) starts from story 20's `createElementGraph.js` seed, itself built on story 16's `conceptGraph.js`. Its header says what it adds:
     - the set concept, with firmware's own JSON schema, a primary property with a `slug` field node, and the first set of neo4j properties;
@@ -105,3 +106,50 @@ operations: graph create-set: 1 passed, 34 failed, 0 skipped
 operations: an admin agent makes sets through the external CLI: 0 passed, 1 failed, 0 skipped
         src/operations/catalog/graph/create-set.js does not exist yet (ADR graph-operations-first-slice/0027 Decision 1): the external CLI exited 2: 'graph create-set' isn't among the operations npub12x… may call on http://127.0.0.1:59645: it may not exist there, or it may be the owner's only.
 ```
+
+### The Tester correction at Implementation (2026-11-17)
+
+Implementation found what Test Design missed: the fake graph couldn't run `makeNode`'s `CREATE (n:ListItem:Set {…})`.
+- **The cause.** Its CREATE reader looked for a SET clause anywhere in the statement, without regard to case, so it took the label `Set` for one ("a SET it can't read").
+- **Why Test Design didn't see it.** Every test stopped at the check that `create-set.js` exists, and the wiring check made no node labelled `Set`.
+- **The correction.** The owner approved it as a kick-back to the Tester (2026-11-17), as the node-primitives precedent did. `test/helpers/graphFake.js`'s `createEntry` now looks for SET only after the node's pattern, and the fake's header says so. No test's assertions changed.
+- **Its reach.** Every suite under `test/operations/` ran with it and with the implementation, through the scoped gate (`test/helpers/gateRunner.js`, label `a1027-create-set`), with the service endpoints dead. The result was PASS: 51 of 51 suites, 620 passed, 0 failed and 4 skipped (`lifecycle/shared-keys`' live checks, which need a scratch container named). create-set's own suite passed 35 of 35, and the agent's 1 of 1.
+
+### The live check (Implementation, 2026-11-17)
+
+Run on the Mac Studio, on throwaway instances from `scripts/scratch-stack.sh`, one at a time:
+
+- Each was booted from image `agent-memory-tapestry:latest`, with this branch's `src/` mounted.
+- Each had its own assistant key and no published ports, and was removed afterwards.
+- Every call went through `docker exec` to `127.0.0.1:7778`, a direct-local caller. The agent's alone went through the instance's own nginx.
+
+1. **L1, sets under a concept and under a set (AC1, AC3).** `graph create-concept` made beagle show.
+   - **Champions,** under beagle show's superset: `created` at `…:champions-<hash8>`, the address today's create-set gives the name and parent. Its `threads` named beagle show. Its entry was the command's (`local`).
+   - **The same call again:** `already-exists`, the same key, nothing differing, `change: null`. Lowercased with another description: `already-exists`, with `differs` naming the name's case and the description it holds.
+   - **Puppy Champions,** under Champions: `created`, its parent Champions, in beagle show's class thread.
+   - **Reading them back:**
+     - `graph list-elements` on the set concept listed both sets;
+     - `graph list-relationships` on beagle show's superset listed the link to Champions;
+     - `graph history` on Champions gave its own create, Puppy Champions' and Winner's;
+     - `/api/concept-graph/node/<Champions>/neighbors` showed `HAS_ELEMENT` with set's superset and Winner, and `IS_A_SUPERSET_OF` with beagle show's superset and Puppy Champions.
+2. **L2, a header as parent (AC4).** Beagle show's header: `not-a-parent`, naming its superset's tapestryKey.
+3. **L3, an element in the new set.** `graph create-element` made Winner, an element of beagle show, directly in Champions.
+4. **L4, the installed schemas (AC2).** Champions' `concepts`: set, which it fits, and word, which it doesn't. Besides `graphContext`, the installed word schema's conditions on `wordTypes` don't match a set's `["word", "set"]`, which firmware's own set files carry too. That is reported, never refused (ADR 0020 Amendment 1).
+5. **L5, two at once (AC3).** Two create-sets of Twin Race in parallel: one `created` and one `already-exists`, with the same key. The graph then held one node at the address and one more entry.
+6. **L6, a reinstall (AC6; Decision 16).** It took 70 s.
+   - Champions, Puppy Champions and Twin Race were unchanged: labels, properties, tags and relationships, `set-superset`'s `HAS_ELEMENT` included. A set's membership in `set` survives a reinstall, so Decision 16's contingency doesn't arise. The ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` gains this.
+   - Winner, the element create-element made in Champions, gained a direct `HAS_ELEMENT` from beagle show's superset, from pass 1d, since its `z` names beagle show. ADR 0020 Decision 10 expects that, and it isn't create-set's.
+7. **L7, a restore on a fresh instance (AC6).**
+   - `tapestry lifecycle backup` took the graph offline for 21.2 s, and `download-backup` gave a 3.1 MB tar.
+   - On a fresh instance with its own assistant, `upload-backup` held it (`sameInstance` false), and `restore` took the graph offline for 22.6 s. Its counts matched the backup exactly: 3,352 nodes, 3,836 relationships, and the same tapestryKey digest.
+   - The instance then answered as the backup's assistant. Champions, Puppy Champions, Twin Race and Winner had the same keys, labels, properties, tags and relationships as before the backup.
+   - The tar, which held the throwaway assistant's key, was deleted.
+8. **L8, an admin agent (AC7).** A throwaway key was made inside the instance and listed in `adminPubkeys`. It drove `clients/cli`, copied in, through `http://127.0.0.1:80`:
+   - Agent Trials, under beagle show's superset: `created`, recorded as `admin` with its pubkey;
+   - Agent Trials again: `already-exists`, nothing recorded;
+   - Agent Juniors, under Agent Trials: `created`;
+   - beagle show's header as parent: refused `not-a-parent`, naming its superset's key, and the CLI exited 1;
+   - Agent Winner, made in Agent Trials with `graph create-element`: `created`.
+
+   Agent Trials' history listed the three creates, each the agent's. A visitor through nginx got 401.
+9. **L9, the relay.** It held 450 events before the first write and after every later one, the reinstall included. No graph operation sent an event.

@@ -16,3 +16,9 @@
 **Fix shape, if the suspected cause holds.** In pass 1e, count only paths a class thread takes: `IS_A_SUPERSET_OF*1..` then one `HAS_ELEMENT`, as `wire-implicit-elements`' own prune does. Then a reinstall run over the graph wires back what it pruned. The concepts `graph create-concept` made in story 16's live check kept their supersets' membership through two reinstalls.
 
 **Pointer:** `engineering-team/stories/graph-operations-first-slice/16-create-concept-and-update-concept.test-plan.md` (the live check, L3); `src/firmware/install.js` pass 1e.
+
+**More that doesn't fit (2026-11-17, story graph-operations-first-slice #27's live check, L6).** The same path exists for every set: its parent is itself an element of `set`, so `set-superset -HAS_ELEMENT-> parent -IS_A_SUPERSET_OF-> set` is a two-link path pass 1e would count. Yet:
+- three sets `graph create-set` made, each with that path, kept `set-superset`'s direct `HAS_ELEMENT` through a reinstall;
+- firmware's own sets on the agent-memory instance, reinstalled many times, still have theirs.
+
+Whatever pass 1e does, it doesn't drop a set's membership in `set`.
