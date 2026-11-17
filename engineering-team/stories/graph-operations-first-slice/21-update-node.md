@@ -1,6 +1,6 @@
 # Story 21: `graph update-node` — change an element's name, description or fields, with no event, its changed sections checked against their concepts' schemas, and never a node from someone else's event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.21 — https://loom.brainstorm.world/t/A10.21
@@ -206,4 +206,4 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0021-update-node.md](../../decisions/graph-operations-first-slice/0021-update-node.md)
 - Test plan: [21-update-node.test-plan.md](21-update-node.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [reviews/graph-operations-first-slice/21-update-node.md](../../reviews/graph-operations-first-slice/21-update-node.md)
