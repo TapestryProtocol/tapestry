@@ -23,9 +23,9 @@
  *   GF11 no file of the concept holds a 64-hex pubkey                                                           [house rule]
  *   GF12 its word slugs are its own: no other firmware file has the header's, the schema's or an item's          [AC2]
  *   GF13 BIBLE §7 lists graph-rule, gives 41 concepts, and says what updateElements and the script do            [AC6]
- *   GL1  [live] after an install, the concept with its eight core nodes and its six items, as summaries lists it [AC1, AC2, AC6]
+ *   GL1  [live] after an install, the concept with its eight core nodes and an item per rule, as summaries lists it [AC1, AC2, AC6]
  *   GL2  [live] each item in the graph holds its committed file's JSON, at an address of the instance's own      [AC2, AC3]
- *   GL3  [live] graph list-elements gives the six items                                                         [AC6]
+ *   GL3  [live] graph list-elements gives an item per rule                                                      [AC6]
  *   GL4  [live, GRAPH_RULE_INSTALL=1] a second install with no rule change signs nothing new for the items       [AC5]
  *
  *   node test/graph-rule-firmware.test.js                                                     # stack-free only
@@ -61,7 +61,8 @@ const header = () => readJson(path.join(DIR, 'concept-header.json'), 'Decision 1
 const schema = () => readJson(path.join(DIR, 'json-schema.json'), 'Decision 1');
 const manifest = () => readJson(MANIFEST, '');
 
-const RULES = ['tapestry-key-unique', 'relationship-type-allowed', 'field-mark-allowed', 'concept-slug-unique', 'class-thread-acyclic', 'set-has-a-parent'];
+// element-fits-schema, rule 7, joined with story graph-operations-first-slice #20 (ADR graph-operations-first-slice/0020 Decision 12).
+const RULES = ['tapestry-key-unique', 'relationship-type-allowed', 'field-mark-allowed', 'concept-slug-unique', 'class-thread-acyclic', 'set-has-a-parent', 'element-fits-schema'];
 function elements() {
   if (!fs.existsSync(ELEMENTS)) throw new Error(`firmware/versions/v1.0.0/concepts/graph-rule/elements/ does not exist yet (${ADR} Decision 1)`);
   return fs.readdirSync(ELEMENTS).filter((f) => f.endsWith('.json')).sort().map((f) => ({ file: f, json: JSON.parse(fs.readFileSync(path.join(ELEMENTS, f), 'utf8')) }));
@@ -241,7 +242,7 @@ const itemsInGraph = (handle) => live.cypher(
   `MATCH (h {uuid: $h})-[:IS_THE_CONCEPT_FOR]->(:Superset)-[:IS_A_SUPERSET_OF*0..5]->()-[:HAS_ELEMENT]->(e)
    RETURN DISTINCT e.uuid AS uuid, e.name AS name, e.id AS id ORDER BY uuid`, { h: handle });
 
-t('GL1 (AC1, AC2, AC6, live): after an install, the concept with its eight core nodes and six items, as summaries lists it', () => {
+t('GL1 (AC1, AC2, AC6, live): after an install, the concept with its eight core nodes and an item per rule, as summaries lists it', () => {
   if (liveSkip()) return 'SKIP';
   const ta = live.taPubkey();
   const handle = conceptHandle(ta);
@@ -250,7 +251,7 @@ t('GL1 (AC1, AC2, AC6, live): after an install, the concept with its eight core 
   const s = (Array.isArray(list) ? list : []).find((c) => c && c.handle === handle);
   if (!s) { console.log(`  NOTE  GL1 needs a firmware install with this change; ${handle} isn't in summaries. Run POST /api/firmware/install on the scratch stack first.`); }
   assert(s, `summaries lists ${handle}`);
-  assert(s.name === 'graph rule' && s.elementCount === 6, `it is named "graph rule" with six elements; got ${show({ name: s.name, elementCount: s.elementCount })}`);
+  assert(s.name === 'graph rule' && s.elementCount === RULES.length, `it is named "graph rule" with ${RULES.length} elements; got ${show({ name: s.name, elementCount: s.elementCount })}`);
   const firmware = require('../src/api/normalize/firmware');
   const core = ['CORE_NODE_JSON_SCHEMA', 'CORE_NODE_PRIMARY_PROPERTY', 'CORE_NODE_PROPERTIES', 'CORE_NODE_PROPERTY_TREE_GRAPH', 'CORE_NODE_CORE_GRAPH', 'CORE_NODE_CONCEPT_GRAPH'].map((x) => firmware.relAlias(x));
   const count = (h) => Number(live.cypher(
@@ -265,7 +266,7 @@ t('GL2 (AC2, AC3, live): each item in the graph holds its committed file\'s JSON
   if (liveSkip()) return 'SKIP';
   const ta = live.taPubkey();
   const rows = itemsInGraph(conceptHandle(ta));
-  assert(show(rows.map((r) => r.name).sort()) === show([...RULES].sort()), `the six items, by their rules' names; got ${show(rows.map((r) => r.name))}`);
+  assert(show(rows.map((r) => r.name).sort()) === show([...RULES].sort()), `the ${RULES.length} items, by their rules' names; got ${show(rows.map((r) => r.name))}`);
   for (const row of rows) {
     assert(String(row.uuid).startsWith(`39999:${ta}:`), `${row.name} is the instance's own: ${row.uuid}`);
     const node = live.http('GET', `/api/concept-graph/node/${encodeURIComponent(row.uuid)}`);
@@ -277,14 +278,14 @@ t('GL2 (AC2, AC3, live): each item in the graph holds its committed file\'s JSON
   }
 });
 
-t('GL3 (AC6, live): graph list-elements gives the six items', () => {
+t('GL3 (AC6, live): graph list-elements gives an item per rule', () => {
   if (liveSkip()) return 'SKIP';
   const ta = live.taPubkey();
   const key = live.cypher('MATCH (h {uuid: $h}) RETURN h.tapestryKey AS k', { h: conceptHandle(ta) })[0].k;
   const out = live.sh(`tapestry graph list-elements --concept '${key}' --limit 50`);
   const body = JSON.parse(out);
   const els = (body.data && body.data.elements) || body.elements || [];
-  assert(show(els.map((e) => e.name).sort()) === show([...RULES].sort()), `list-elements gives the six items; got ${short(els.map((e) => e.name))}`);
+  assert(show(els.map((e) => e.name).sort()) === show([...RULES].sort()), `list-elements gives the ${RULES.length} items; got ${short(els.map((e) => e.name))}`);
 });
 
 t('GL4 (AC5, live, GRAPH_RULE_INSTALL=1): a second install with no rule change signs nothing new for the items', () => {
@@ -292,7 +293,7 @@ t('GL4 (AC5, live, GRAPH_RULE_INSTALL=1): a second install with no rule change s
   if (process.env.GRAPH_RULE_INSTALL !== '1') { console.log('  NOTE  GL4 runs a firmware install (minutes); set GRAPH_RULE_INSTALL=1 to run it.'); return 'SKIP'; }
   const handle = conceptHandle(live.taPubkey());
   const before = itemsInGraph(handle);
-  assert(before.length === 6, `GL4 needs the six items from a first install; got ${before.length}`);
+  assert(before.length === RULES.length, `GL4 needs the ${RULES.length} items from a first install; got ${before.length}`);
   const r = live.http('POST', '/api/firmware/install', {}, 3600);
   assert(r.status === 200, `the install answers 200; got ${r.status} ${short(r.text)}`);
   const after = itemsInGraph(handle);

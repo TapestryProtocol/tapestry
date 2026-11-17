@@ -1,6 +1,6 @@
 # Story 20: `graph create-element` — make an element of a concept, or of a set in its class thread, with no event and with its fields checked against the concept's schema
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-16
 **Type:** Feature
 **Loom:** A10.20 — https://loom.brainstorm.world/t/A10.20
@@ -88,6 +88,8 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 
 **Added at Architecture** (the owner's approval, 2026-11-16, with ADR 0020): AC5's list gains `made-elsewhere`, for an element of a concept whose elements another operation makes: the concept-header concept and the seven core-node concepts (graph create-concept), set (graph create-set), property (graph add-property) and graph rule (the rulebook). The ADR's other refusals beyond the list, `not-installed`, `no-free-address` and a length limit on the element's JSON, are mechanics create-concept has too.
 
+**Added at review round 1** (the owner's approval, 2026-11-16, with ADR 0020 Amendment 1): AC5's list gains `reserved-key`, for a concept keyed `word` or `graphContext`. Those are keys an element's JSON keeps for itself: the word block that names it, and the derive step's `graphContext`. AC5's "a firmware concept takes one too" holds for every firmware concept except `word`, whose key is the word block's, and the eleven whose elements another operation makes (Decision 4's `made-elsewhere`). The same amendment corrects a claim in AC7's rule: it reads a schema as the derive step does, but the two check different documents, so their verdicts can split.
+
 For Architecture, not this gate:
 
 - **How the guard checks the JSON before the write.** A guard sees only the inputs, and the JSON needs the concept's key and schema from the graph. ADR 0016's pattern, a guard and the same rule run again in `apply`, may fit.
@@ -102,6 +104,17 @@ For Architecture, not this gate:
 - **The change entry's shape:** the element made, its concept and set, and the copies.
 - **Where the shared check lives,** and how A10.21, A10.22 and A10.18 call it.
 
+## Deviations
+
+- **`_fields.js` also exports `readJson`,** beside ADR 0020's `conceptsOfNodes`. So `_schemas.js` reads a schema node's json tag, inline or an LMDB reference, exactly as the field mapping reads an element's, not with a copy. Nothing else in `_fields.js` changes.
+- **E1 and E4 also return the node's name and address,** for messages: a refusal names the concept as `"coffee house" (39998:…:coffee-house)`. E4 then answers no row for a key no node has, where the ADR's text answers one row of null.
+- **The rule's `{ concept, json }` message names the concept, not the element** ("The element's JSON doesn't fit the JSON schema of …"), since the item carries no name. create-element's `invalid-fields` refusal is that message, so it carries `rule` but not `input`, as the write path's guard refusals do (ADR graph-operations-foundation/0004 Decision 3). Each problem in it names its field.
+- **`copies` is a sorted list of the node properties the element now carries,** such as `dog_breed`. Decision 14 left its shape open.
+- **The refusals for `set` are worded for create-element** (`_elements.js`'s `say`), not with link-set's messages, whose advice is about linking.
+- **Two things are failures (500), not refusals:** a concept header with no address, and one with no name to make it a key. No graph the operations or the import make has either, and Decision 18 lists no code for them.
+- **The live check's firmware is the image's** (`agent-memory-tapestry:latest`): `scratch-stack.sh` mounts `src/` only. That firmware has no golden retriever concept, so firmware's dog was checked directly, not through a set. It also lacks rule 7's element, which reaches an instance only with a firmware reinstall after the change (ledger row `2026-11-16-rule-seven-awaits-firmware-reinstall`).
+- **Only this story's suites, and those sharing its files, ran on this Mac.** That is the task's rule: the full `npm test` writes to the agent-memory instance. `test/operations.test.js` as a whole, and the route-surface suites (openapi-coverage, admin-action-sweep), run in the PR's CI gate.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
@@ -113,5 +126,5 @@ For Architecture, not this gate:
 - The rulebook and its graph rule concept: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md); [41-graph-rule-concept.md](41-graph-rule-concept.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0020-create-element.md](../../decisions/graph-operations-first-slice/0020-create-element.md)
-- Test plan: (filled in after Test Design)
-- Review: (filled in after Review)
+- Test plan: [20-create-element.test-plan.md](20-create-element.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/20-create-element.md](../../reviews/graph-operations-first-slice/20-create-element.md)
