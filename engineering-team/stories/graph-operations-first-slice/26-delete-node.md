@@ -183,6 +183,13 @@ The review passed with eight non-blocking findings, and the owner chose to fix t
 - **One slip on the way:** an edit to update-node's description dropped a closing quote. Every update-node suite failed until it was put back.
 - **The live check wasn't run again.** No live check met a node with two `HAS_TAG`s to one tag, a neighbour with no key, or store data that isn't JSON. The comments changed no code that ran.
 
+### Staging merged in (2026-11-17, on `4214c10d`)
+
+Before the implementation PR, staging was merged into the branch. It brought in search (A10.8), A10.20.a's ADR, and PR #124's merge.
+- **One conflict,** in `test/helpers/graphFake.js`'s header: story 8's paragraph and story 26's. Both were kept.
+- **The suites both branches touch** pass, each alone with every endpoint dead: delete-node 40, the shared suite 13, the fake graph 31, search 34, the search index 7, and the write path 13.
+- **The whole operations runner:** 859 passed, 0 failed, 4 skipped. The 4 skipped are `lifecycle/shared-keys.test.js`'s live tests.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/26-delete-node.test-plan.md`
