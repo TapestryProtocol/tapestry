@@ -27,7 +27,7 @@ The stack-free suites can't reach five things: Neo4j's own locking, a firmware r
 
 ## Edge cases
 
-- [x] **The lock's order** (Decision 5). UN13 runs two calls that change nothing, so their only writes are locks. Each transaction starts with the node's lock, set then removed, before any read. It holds one lock pair more per judged concept: three pairs for walkerMax (dog and pet), two for lucky (beagle).
+- [x] **The lock's order** (Decision 5). UN13 runs two calls that change nothing, so their only writes are locks. Each transaction starts with the node's lock, set then removed, before any read. It holds one lock pair more per judged concept: three pairs for walkerMax (dog and pet), two for lucky (beagle). *(Review round 1, non-blocking 6: so UN13 pins the node's lock first, and the count, but not the order of the concepts' locks among themselves. The fake logs no statement's parameters, so no suite can see their keys: ledger row `2026-11-17-fake-graph-logs-no-lock-order`.)*
 - [x] **`word` aside** (Decision 4). walkerMax's two concepts are dog and pet. An element of the seventeen concepts under word would add `word` to its concepts; the live check's element of firmware's relationship type meets that.
 - [x] **Read-modify-write** (Decision 8). UN8 restates a section's own slug, which isn't the slug its name gives. UN33 refuses one that is neither.
 - [x] **`__proto__`.** UN2: a field called `__proto__`, given as JSON text, stays an own field of the section, and no object gains its value (Decision 8).
@@ -106,3 +106,27 @@ operations: an admin agent changes elements through the external CLI: 0 passed, 
 ```
 
 The harness and the seed work before the code exists. A harness run over the seed answers create-element's three makes with 200, and update-node's route with today's 404.
+
+## Added at review round 1 (2026-11-17)
+
+The review passed with seven non-blocking findings, and the owner chose to fix them before the PR. Three got a test each, in `update-node.test.js`'s round-2 run (ADR Amendment 2):
+
+| Finding | Test | What it pins |
+|---|---|---|
+| 1 | **UN42** | A concept keyed `__proto__`, whose section the node lacks, is refused `no-section`, naming `concept`. The node's JSON is unchanged, and no entry names it. |
+| 2 | **UN43** | `description` and `fields.description`, the same once trimmed, are one change: `updated`, `changed` is `["fields.description"]`, and the field holds the trimmed text. |
+| 3 | **UN44** | `no-section` reached through `description` alone names `description`. |
+
+They failed on the code at `6b6429be`, and for the right reasons, and pass with the fixes at `53bac579`:
+
+```
+  FAIL  UN42: a concept keyed __proto__ whose section the node lacks is refused no-section; nothing is recorded or changed
+        the section is read by the JSON's own key, so an inherited __proto__ is no section (…); got 200 {"success":true,"data":{"outcome":"updated",…
+  FAIL  UN43: the same description given both ways, with white space around it, is one change, trimmed
+        description and fields.description, alike once trimmed, are one change (…); got 400 {"success":false,"error":"description is \"same, with spaces\", but fields gives the description …","code":"bad-fi…
+  FAIL  UN44: no-section reached through description alone names the input description
+        with no fields and no concept given, the refusal names description, the input given (…); got 409 {"success":false,"error":"\"Whiskers\" (39999:…:whiskers-443da4f8)'s JSON has no pet section, …
+operations: graph update-node: 37 passed, 3 failed, 0 skipped
+```
+
+Findings 4 and 6 are ledger rows, `2026-11-17-own-test-reads-pubkey-as-author` and `2026-11-17-fake-graph-logs-no-lock-order`; 5 and 7 were doc fixes.

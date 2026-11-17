@@ -115,13 +115,13 @@ For Architecture, not this gate:
 - **update-node declares its own `bad-fields`, `unknown-node` and `not-installed`,** worded for it; it reuses `bad-name` and `reserved-key` from `_elements.js`, `unknown-concept` from `_fields.js`, and `not-own-node` from `_nodes.js`.
 - **Two refusals name another input:**
   - a description given two ways names `description`;
-  - `no-section` names `concept` when it was given, else `fields`.
+  - `no-section` names `concept` when it was given, else `fields` when it was given, else `description`. *(Review round 1 added the last case, and ADR Amendment 2 puts the rule in Decision 20. It had named `fields` for a call that gave only `description`.)*
 - **`not-an-element` says which case it is:** no concept reaches the node, or only word's does.
 - **`firmwareElements` skips an element file whose JSON doesn't parse,** and keeps the first file when two give one address, as install's own create would find the first.
 
 ## Evidence
 
-### The suites (Implementation, 2026-11-17, on `aee05dc7`, since rebased onto staging as `6ec2c3a1`; the rebase brought in docs only)
+### The suites (Implementation, 2026-11-17, on the code committed as `aee05dc7`, since rebased onto staging as `6ec2c3a1`; the rebase brought in docs only)
 
 Run on this Mac one at a time, each with every service endpoint dead. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
 - **The new suites:**
@@ -130,7 +130,7 @@ Run on this Mac one at a time, each with every service endpoint dead. No full `n
   - `update-node-agent-through-cli.test.js`: 1 passed, 0 failed.
 - **Every other stack-free suite under `test/operations/`** passed: the 6 at its top level, the 25 others under `graph/`, and the 6 under `rules/`, 40 with the new ones. That includes create-element's three, whose `findRepeat` now calls `repeatsOf`. `lifecycle/` was left out, since some of its suites reach the container.
 - **The route-surface suites,** with every endpoint on a dead port: `openapi-coverage` 13 passed, `admin-action-sweep` 9, `admin-action-sweep-access` 13, `admin-action-sweep-named` 6; none failed.
-- **The scoped gate:** record `20261117T031440Z-34420-84dc`, PASS, 158 passed, 0 failed, 14 suites.
+- **The scoped gate:** record `20261117T031440Z-34420-84dc`, PASS, 158 passed, 0 failed, 14 suites. It ran over `dff6a1ca` with the implementation not yet committed: the record says `dirty: true` and lists 7 files, which were committed a minute later as `aee05dc7` (03:14:40Z, then 03:15:51Z). *(Corrected at review round 1, non-blocking 7. This line had said the gate ran on `aee05dc7`.)*
 - **harness-lint:** clean.
 
 ### The live check (Implementation, 2026-11-17, on `aee05dc7`, the same code as `6ec2c3a1`)
@@ -193,6 +193,14 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
   - **After `supervisorctl restart brainstorm`** and a second install, which reported 41 concepts: 83 of 83, and the 12 nodes again unchanged. Ledger row `2026-11-17-scratch-firmware-copy-needs-restart` records the recipe's gap.
 - **L6h, the stranger.** The script looked for the CLI's "isn't among the operations" message. In fact the stranger's key was signed in, and the central check refused it with "Only the owner or an admin can do this.", which has no code; the CLI prints no status. A call by hand through nginx, with the stranger's session cookie, answered 403 with that body (`tmp/live-check-21/live21-l6h-by-hand.txt`).
 - **L4a, the backup.** The first run read the answer's `backup`, an object, as its id, so its download fetched nothing. The backup itself was taken (`20261117T033908Z-aee0bf8d`). After the fix, the backup phase ran again: 2 of 2.
+
+### Review round 1's fixes (2026-11-17, on `53bac579`)
+
+The review passed with seven non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 2 records what changed. The suites ran on this Mac as above, one at a time, each with every service endpoint dead.
+- **UN42–UN44,** a test for each of the three code fixes, failed on the code at `6b6429be` (update-node: 37 passed, 3 failed) and pass at `53bac579` (40 passed, 0 failed). The test plan's "Added at review round 1" has the failures.
+- **The 44 suites listed above:** the 40 stack-free suites under `test/operations/` and the 4 route-surface suites. Every one passed: 512 tests, 0 failed. They include update-node-shared's 7, update-node's agent suite's 1, and create-element's 33.
+- **harness-lint:** clean.
+- **The live check wasn't run again.** Every live call's section was one of its JSON's own keys, which the fixed code reads as before. No live call gave `description` both ways or met `no-section`.
 
 ## Linked artifacts
 
