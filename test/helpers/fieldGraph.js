@@ -13,8 +13,8 @@
  *     property tree generate-property-tree makes: on a wrapped schema (one top-level key, the concept's key) the
  *     fields hang on the primary property; otherwise each top-level key gets a section node under it, and the fields
  *     hang under the section node named for the concept's key. A create-property node hangs off the schema node;
- *   - each element as the import makes it: labels NostrEvent, ListItem and TapestryNode, a uuid, a name, and tags d,
- *     name and json, so a read must ask for the json tag by its type.
+ *   - each element as the import makes it: labels NostrEvent, ListItem and TapestryNode, a uuid, a name, a created_at,
+ *     and tags d, name and json, so a read must ask for the json tag by its type.
  *
  * The concepts, by the name the suites use (TA is test/helpers/graphOpsSuite.js's):
  *   dog       39998:<TA>:dog, key dog, unwrapped ({ word, dog }), with a set "walkers" under its superset. Its fields
@@ -101,7 +101,9 @@ function seedFields(opts = {}) {
   const link = (a, type, b) => { s.rels.push({ eid: s.nextEid++, type, from: a.eid, to: b.eid, props: {} }); };
   const tag = (n, type, value) => { const t = add(['NostrEventTag', 'TapestryNode'], { type, value, uuid: `${n.eid}_${type}` }); link(n, 'HAS_TAG', t); return t; };
   const event = (labels, { uuid, name, author = TA, json, extraTags = [] }) => {
-    const n = add(labels, { uuid, name, kind: Number(uuid.split(':')[0]), pubkey: author, aTag: uuid });
+    // A created_at, as every import gives an event: a NostrEvent with none is a placeholder (ADR
+    // graph-operations-first-slice/0026 Decision 4).
+    const n = add(labels, { uuid, name, kind: Number(uuid.split(':')[0]), pubkey: author, aTag: uuid, created_at: 1763000000 });
     tag(n, 'd', uuid.split(':').slice(2).join(':'));
     if (name) tag(n, 'name', name);
     for (const [t, v] of extraTags) tag(n, t, v);

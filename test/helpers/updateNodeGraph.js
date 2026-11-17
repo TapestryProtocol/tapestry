@@ -129,12 +129,14 @@ async function seedUpdateNode() {
   link(nodeOf(keys.dogSuperset), 'HAS_ELEMENT', fwRover);
   named('firmwareRover', fwRover);
 
-  const propertyNode = named('propertyNode', add(['NostrEvent', 'ListItem', 'Property', 'TapestryNode'], { uuid: `39999:${TA}:a-loose-property`, kind: 39999, pubkey: TA, name: 'a loose property', id: hex('a loose property') }));
+  // propertyNode and ruleElement are lettered, so each has a created_at, as every import gives an event (ADR
+  // graph-operations-first-slice/0026 Decision 4: a NostrEvent with none is a placeholder).
+  const propertyNode = named('propertyNode', add(['NostrEvent', 'ListItem', 'Property', 'TapestryNode'], { uuid: `39999:${TA}:a-loose-property`, kind: 39999, pubkey: TA, name: 'a loose property', id: hex('a loose property'), created_at: 1763000000 }));
   tag(propertyNode, ['json', JSON.stringify({ word: { slug: 'a-loose-property', wordTypes: ['word', 'property'] }, property: { name: 'a loose property', slug: 'a-loose-property' } })], 0);
   link(nodeOf(keys.supersets.property), 'HAS_ELEMENT', propertyNode);
 
   const ruleSup = target(keys.graphRule, 'IS_THE_CONCEPT_FOR');
-  const ruleElement = named('ruleElement', add(['NostrEvent', 'ListItem', 'TapestryNode'], { uuid: `39999:${TA}:a-graph-rule`, kind: 39999, pubkey: TA, name: 'a graph rule', id: hex('a graph rule') }));
+  const ruleElement = named('ruleElement', add(['NostrEvent', 'ListItem', 'TapestryNode'], { uuid: `39999:${TA}:a-graph-rule`, kind: 39999, pubkey: TA, name: 'a graph rule', id: hex('a graph rule'), created_at: 1763000000 }));
   tag(ruleElement, ['json', JSON.stringify({ word: { slug: 'a-graph-rule', wordTypes: ['word', 'graphRule'] }, graphRule: { name: 'a graph rule', slug: 'a-graph-rule' } })], 0);
   link(ruleSup, 'HAS_ELEMENT', ruleElement);
 

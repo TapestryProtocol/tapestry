@@ -3,8 +3,8 @@
 **Id:** 2026-11-17-own-test-reads-pubkey-as-author
 **Type:** bug (latent: update-node can't reach it; merge-nodes A10.25 and delete-node A10.26 will)
 **Opened:** 2026-11-17 (story graph-operations-first-slice #21, graph update-node, review round 1's non-blocking 4)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-17 (story graph-operations-first-slice #26, ADR graph-operations-first-slice/0026 Decision 4: `whoseNode` answers `person` and `placeholder`, `own` is false for both, and `requireOwn` refuses them `person-node` and `placeholder-node`; SN8–SN13 hold it. The reads' half is OPEN.md row `2026-11-17-reads-own-person-placeholder`.)
 
 **What was seen.** ADR graph-operations-first-slice/0021 Decision 3 makes one test of whose node it is: `whoseNode` and `requireOwn` in `src/operations/catalog/graph/_nodes.js`. merge-nodes (A10.25) and delete-node (A10.26) are to call `requireOwn` for D4. The test reads the node's `pubkey` as its author (`_nodes.js:71–72`), and a node with no author is the instance's own, as the read conventions' `own` says. Two kinds of node aren't letters, and the answer doesn't fit them:
 - **An `e`-tag placeholder** answers `own: true` and `hasLetter: true`. The import makes it as `NostrEvent {id, uuid}` with no `pubkey` (`src/api/neo4j/eventSync.js:268–270`). It stands in for another author's event, whose id it has.
