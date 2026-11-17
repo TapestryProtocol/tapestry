@@ -4,7 +4,7 @@
  *   Story:     engineering-team/stories/done/workflow-hardening/1-harden-the-github-workflows.md
  *   Test plan: engineering-team/stories/done/workflow-hardening/1-harden-the-github-workflows.test-plan.md
  * Story guard-only-pull-request-target #1 added the EVENT rule.
- *   Story:     engineering-team/stories/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md
+ *   Story:     engineering-team/stories/done/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md
  *
  * A guard over EVERY file in .github/workflows/, read from the directory, so a workflow added
  * later is held to the same four rules without this file being edited:
