@@ -80,6 +80,15 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 - None that block planning.
 - The full test gate writes to the stack it finds, and on the Mac Studio that is the agent-memory instance. So the Tester and Implementer run only the suites they touch there, and the pull request's CI runs the full gate. AC1 to AC4's live checks run on a scratch stack (`scripts/scratch-stack.sh`).
 
+## Deviations
+
+- **`schemaOf` returns `name` and `nodes` with every problem,** not only with "more than one" (ADR 0042, Decision 5). So a concept whose one schema node can't be read still gets a cache entry, with `valid: null`, naming that node. That is the same entry the rule's `no-schema` stands beside.
+- **`tapestryJsonOf` is synchronous,** since the store's `get` is. It answers "no node was named" for an empty key.
+- **A cache entry leaves out `uuid` when the schema node has none.** Firmware `word`'s schema types it as a string, so a null would break the node's own fit. `schemaVerdicts` also takes an optional `read`.
+- **`deriveAll` builds its pass's judge from `runCypher` inline,** with the same read `schema-verdicts.js` makes.
+- **GB3's fixture** (`test/graph-rules-builder.test.js`) restated rule 7's old first Says sentence and Source. It was amended in the Tester's lane, in a commit of its own, before the implementation commit; the test plan records it.
+- **Firmware:** rule 7's element file was regenerated. Its reinstall on staging and production after merge is ledger row `2026-11-17-rule-seven-rewrite-awaits-firmware-reinstall`.
+
 ## Linked artifacts
 
 - Decision: ADR graph-operations-first-slice/0020a (`engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md`)

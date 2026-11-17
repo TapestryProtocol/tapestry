@@ -17,11 +17,16 @@
  * Node references in graphContext use { tapestryKey, slug } where slug
  * is resolved from the referenced node's tapestryJSON (concept-scoped slug),
  * NOT from Neo4j node properties.
+ *
+ * parentJsonSchemas holds the rule element-fits-schema's verdicts on the tapestryJson built here, through the one check
+ * the rule uses, against the concepts the rule judges (./schema-verdicts.js; story graph-operations-first-slice #42; ADR
+ * graph-operations-first-slice/0042 Decision 5). A derive pass passes ctx.judge, one checker for all its nodes.
  */
 
 const { runCypher } = require('../neo4j-driver');
 const store = require('../tapestry-store');
 const { resolveValue, isLmdbRef } = require('../tapestry-resolve');
+const { schemaVerdicts } = require('./schema-verdicts');
 
 async function getExistingWordJson(node) {
   const existing = store.get(node.tapestryKey);
@@ -83,7 +88,7 @@ function deriveSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-async function deriveSet(node) {
+async function deriveSet(node, ctx = {}) {
   const { uuid, tapestryKey, name, labels, elementId } = node;
   const isSuperset = labels.includes('Superset');
 
@@ -167,25 +172,6 @@ async function deriveSet(node) {
     RETURN DISTINCT ancestor.tapestryKey AS tapestryKey
   `, { elementId });
 
-  // JSON Schemas — via element membership (explicit HAS_ELEMENT + implicit z-tag)
-  const schemaRows = await runCypher(`
-    MATCH (n) WHERE elementId(n) = $elementId
-    OPTIONAL MATCH (n)<-[:HAS_ELEMENT]-(parentSet)
-          <-[:IS_A_SUPERSET_OF*0..10]-(sup:Superset)
-          <-[:IS_THE_CONCEPT_FOR]-(h1:ConceptHeader)
-    OPTIONAL MATCH (n)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z'})
-    OPTIONAL MATCH (h2:ConceptHeader {uuid: zt.value})
-    WITH collect(DISTINCT h1) + collect(DISTINCT h2) AS headers
-    UNWIND headers AS ch
-    WITH DISTINCT ch
-    WHERE ch IS NOT NULL
-    MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(ch)
-    OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
-    RETURN DISTINCT js.uuid AS schemaUuid, js.tapestryKey AS schemaTapestryKey,
-           ch.name AS conceptName, ch.tapestryKey AS conceptTapestryKey,
-           head(collect(jt.value)) AS schemaJson
-  `, { elementId });
-
   // ── Build graphContext first (before validation) ──
   const now = Math.floor(Date.now() / 1000);
 
@@ -211,53 +197,8 @@ async function deriveSet(node) {
     derivedAt: now,
   };
 
-  // ── Validate against schemas ──
-  const parentJsonSchemas = schemaRows.map(row => {
-    const entry = {
-      uuid: row.schemaUuid,
-      tapestryKey: row.schemaTapestryKey,
-      conceptName: row.conceptName,
-      conceptTapestryKey: row.conceptTapestryKey,
-      lastValidated: null,
-      valid: null,
-      errors: [],
-    };
-
-    if (row.schemaJson) {
-      try {
-        let rawSchema = row.schemaJson;
-        if (isLmdbRef(rawSchema)) {
-          const resolved = resolveValue(rawSchema);
-          rawSchema = resolved || null;
-        }
-        if (!rawSchema) return entry;
-        let schemaObj = typeof rawSchema === 'string'
-          ? JSON.parse(rawSchema) : rawSchema;
-        if (schemaObj.jsonSchema && typeof schemaObj.jsonSchema === 'object') {
-          schemaObj = schemaObj.jsonSchema;
-        }
-        const { $schema, ...schemaNoMeta } = schemaObj;
-
-        const Ajv = require('ajv');
-        const ajv = new Ajv({ allErrors: true, strict: false });
-        const validate = ajv.compile(schemaNoMeta);
-        const valid = validate(base);
-        entry.lastValidated = now;
-        entry.valid = valid;
-        entry.errors = valid ? [] : validate.errors.map(
-          e => `${e.instancePath || '/'} ${e.message}`
-        );
-      } catch (e) {
-        entry.lastValidated = now;
-        entry.valid = false;
-        entry.errors = [e.message];
-      }
-    }
-
-    return entry;
-  });
-
-  base.graphContext.parentJsonSchemas = parentJsonSchemas;
+  // ── The rule's verdicts on this tapestryJson (ADR graph-operations-first-slice/0042 Decision 5) ──
+  base.graphContext.parentJsonSchemas = await schemaVerdicts({ tapestryKey, json: base, judge: ctx.judge || null, now });
 
   // Remove old artifacts
   if (base['x-tapestry']?.derived) {

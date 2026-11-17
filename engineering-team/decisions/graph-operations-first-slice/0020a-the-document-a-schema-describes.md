@@ -1,6 +1,6 @@
 # ADR 0020a: A concept's JSON Schema describes a node's tapestryJson, the JSON the Tapestry LMDB holds for it, and both readers judge that one document
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-17
 **Story:** none. This ADR answers Loom decision task A10.20.a, a subtask of A10.20 (`graph create-element`). Its plan is [docs/loom/A10.20.a.md](../../../docs/loom/A10.20.a.md). It follows the owner's direction of 2026-11-17, given on the pull request's first draft. Its decider accepts it by merging it.
 

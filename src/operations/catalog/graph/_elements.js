@@ -550,13 +550,14 @@ const CONCEPTS = Object.freeze({
   description: "Each concept the node belongs to, and whether its JSON fits that concept's schema",
   items: {
     type: 'object',
-    required: ['concept', 'key', 'fits', 'problems', 'problem'],
+    required: ['concept', 'key', 'fits', 'problems', 'problem', 'waiting'],
     properties: {
       concept: { type: 'string', description: "The tapestryKey of the concept's header" },
       key: { type: 'string', nullable: true, description: "The concept's key, the section its fields go in" },
-      fits: { type: 'boolean', nullable: true, description: "Whether the node's JSON fits the concept's schema; null when the concept has no schema to check against" },
+      fits: { type: 'boolean', nullable: true, description: "Whether the node's JSON fits the concept's schema; null when there is no schema to check against, or when the JSON misses only what the derive step builds (waiting)" },
       problems: { type: 'array', items: PROBLEM, description: 'Each problem with its JSON under that schema' },
-      problem: { type: 'string', nullable: true, description: 'Why there is no schema to check against' },
+      problem: { type: 'string', nullable: true, description: 'Why there is no schema to check against, or that the concept waits for the derive step' },
+      waiting: { type: 'boolean', description: "Whether the JSON misses its graphContext, which only the derive step builds, so the problems about it were set aside (ADR graph-operations-first-slice/0042)" },
     },
   },
 });
