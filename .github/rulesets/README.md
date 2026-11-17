@@ -2,9 +2,10 @@
 
 GitHub keeps a repository's rulesets and Actions policies in its settings, not in its files, so a repo that moves to a
 new owner can lose them. This one had no rulesets after the move of 2026-10-23. The JSON files here are the
-definitions, kept so they can be recreated. **Nothing reads or applies them**: the live rulesets are in Settings, Rules,
-Rulesets, the live Actions policies are in Settings, Actions, Policies, and that is what GitHub enforces. When a live
-ruleset or policy changes, change its file in the same PR.
+definitions, kept so they can be recreated. **Nothing applies them**: the live rulesets are in Settings, Rules, Rulesets,
+the live Actions policies are in Settings, Actions, Policies, and that is what GitHub enforces. When a live ruleset or
+policy changes, change its file in the same PR. One test reads them: `test/workflow-hardening.test.js` (R7) checks
+that each workflow allowed `pull_request_target` is named in a policy definition here (OPERATIONS.md, §18.4).
 
 | File | What it enforces |
 |---|---|
@@ -64,9 +65,12 @@ gh api -X PUT repos/TapestryProtocol/tapestry/actions/policies/<id> -H 'X-GitHub
 Keep its `workflow_path`. The rule lists the only events a workflow it covers may run on, so with no path it would
 cover every workflow, and every other one would stop: the deploys, the image publisher, the test gate and the weekly
 link checks. The path is also how it finds the guard. A PR that moves or renames `guard-main-source.yml` changes this
-file and the live policy with it, and the policy lists both paths in `include` until the rename is on `main`, since
-until then `main`'s copy at the old path is the one that runs. Then the old path comes out.
+file, the live policy and `PULL_REQUEST_TARGET_FILES` in `test/workflow-hardening.test.js` with it, and the policy
+lists both paths in `include` until the rename is on `main`, since until then `main`'s copy at the old path is the one
+that runs. Then the old path comes out.
 
 The policy says nothing about other workflows. GitHub's docs don't say whether its default block still applies to the
 repository's other workflows once this policy exists, so a new `pull_request_target` workflow needs its own review
-against GitHub's guide, and its own decision about the policy.
+against GitHub's guide, and its own decision about the policy. `test/workflow-hardening.test.js` holds that line in
+the repo: it fails any workflow but the ones its `PULL_REQUEST_TARGET_FILES` lists, today the guard alone, that runs
+on the event (OPERATIONS.md, §18.4).

@@ -1,16 +1,19 @@
 /**
  * Story workflow-hardening #1: the GitHub workflows pin what they run, limit their token, and
  * name a deploy environment.
- *   Story:     engineering-team/stories/workflow-hardening/1-harden-the-github-workflows.md
- *   Test plan: engineering-team/stories/workflow-hardening/1-harden-the-github-workflows.test-plan.md
+ *   Story:     engineering-team/stories/done/workflow-hardening/1-harden-the-github-workflows.md
+ *   Test plan: engineering-team/stories/done/workflow-hardening/1-harden-the-github-workflows.test-plan.md
+ * Story guard-only-pull-request-target #1 added the EVENT rule.
+ *   Story:     engineering-team/stories/guard-only-pull-request-target/1-only-the-guard-runs-on-pull-request-target.md
  *
  * A guard over EVERY file in .github/workflows/, read from the directory, so a workflow added
- * later is held to the same three rules without this file being edited:
+ * later is held to the same four rules without this file being edited:
  *
  *   PIN    each action is called by its full commit id, with its released version in a comment
  *   TOKEN  each workflow declares its token's permissions; none can write the repository's
  *          contents; any other write scope is listed in WRITE_SCOPES, where a reviewer sees it
  *   ENV    each job that reads a deploy secret (DEPLOY_...) names that server's environment
+ *   EVENT  only the files in PULL_REQUEST_TARGET_FILES run on pull_request_target
  *
  * HOW IT READS A WORKFLOW. With js-yaml, which the repo already depends on
  * (bin/control-panel.js, test/operations.test.js), so text inside a script block is never
@@ -18,14 +21,18 @@
  *
  * WHY THE CHECKERS ARE TESTED FIRST (S*). A rule that silently found nothing would pass every
  * real file. So each checker runs on small made-up workflows, good and bad, before it runs on
- * the real ones (R*). M1 then breaks each real workflow in memory, one rule at a time, and
- * expects the checker to notice.
+ * the real ones (R*). M1 and M2 then break each real workflow in memory, one rule at a time, and
+ * expect the checker to notice.
  *
- * D* hold the OPERATIONS.md contract (AC-5). AC-6 (nothing else changes) is held by the suites
- * that already pin test.yml and publish-image.yml, and by a diff check at review: see the test
- * plan.
+ * D* hold the OPERATIONS.md contract (AC-5; D5 is guard-only-pull-request-target #1's AC-4).
+ * AC-6 (nothing else changes) is held by the suites that already pin test.yml and
+ * publish-image.yml, and by a diff check at review: see the test plan.
  *
- * GUARD SUITE. Phase 4 changes the workflows and OPERATIONS.md, never this file.
+ * GUARD SUITE. A story that changes the workflows changes them and OPERATIONS.md, and touches
+ * this file only to add its own entry to WRITE_SCOPES or PULL_REQUEST_TARGET_FILES, where a
+ * reviewer sees it. It never loosens a checker or its tests to let a workflow pass. A story whose
+ * deliverable is a new rule adds it with its own S, R and M tests, and leaves the existing checks
+ * and their tests as they are (guard-only-pull-request-target #1, EVENT).
  */
 
 const fs = require('fs');
@@ -35,6 +42,7 @@ const yaml = require('js-yaml');
 
 const REPO = path.resolve(__dirname, '..');
 const WORKFLOW_DIR = path.join(REPO, '.github', 'workflows');
+const RULESETS_DIR = path.join(REPO, '.github', 'rulesets');
 const OPERATIONS = path.join(REPO, 'OPERATIONS.md');
 const NL = String.fromCharCode(10);
 const CR = String.fromCharCode(13);
@@ -46,6 +54,19 @@ const WRITE_SCOPES = {
   'publish-image.yml': ['packages'], // pushes the brain images to the package registry
   'live-link-checks.yml': ['issues'], // opens, comments on and closes its "Live link check" issue (honest-test-gate #2)
 };
+
+// The files that may run on pull_request_target. The repo's Actions policy,
+// allow-pull-request-target-for-main-source-guard (OPERATIONS.md §4), allows the event for the
+// guard's file alone, and GitHub's docs don't say whether GitHub's default block still stops any
+// other workflow once that policy exists. So this list holds the line in the repo. A workflow that
+// needs the event is added here in the change that adds it, after a review against GitHub's guide
+// "Securely using pull_request_target", and an Actions policy definition in .github/rulesets/
+// must name its path and allow it the event (R7). The existing policy allows the files it covers
+// pull_request_target and no other event, so a workflow that also runs on other events needs
+// those allowed too, or a policy of its own: the owner's decision (OPERATIONS.md §18.4).
+const PULL_REQUEST_TARGET_FILES = [
+  'guard-main-source.yml', // main-source-guard: checks out nothing, reads only github.head_ref
+];
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -329,10 +350,62 @@ function checkEnvironments(wf) {
   return found;
 }
 
-/** All four checks over a set of workflows. */
+// ===========================================================================
+// EVENT: only the files in PULL_REQUEST_TARGET_FILES run on pull_request_target
+// ===========================================================================
+
+/**
+ * The events a workflow's `on:` names, in the three forms GitHub reads: one event as a string,
+ * a list of events, or a map keyed by event (its value, the event's settings, may be empty).
+ */
+function eventsOf(doc) {
+  const on = doc.on;
+  if (typeof on === 'string') return [on];
+  if (Array.isArray(on)) return on.filter((e) => typeof e === 'string');
+  if (isMap(on)) return Object.keys(on);
+  return [];
+}
+
+/**
+ * The Actions policy definitions kept in a folder (`.github/rulesets/`): the JSON files with a
+ * rule that restricts events. The rulesets' own files have no such rule, so they are left out.
+ */
+function policyDefinitionsIn(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((f) => f.endsWith('.json'))
+    .sort()
+    .map((f) => ({ file: f, def: JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')) }))
+    .filter(({ def }) => isMap(def) && Array.isArray(def.rules)
+      && def.rules.some((r) => isMap(r) && r.type === 'restrict_action_events'));
+}
+
+/**
+ * Whether a policy definition lets the workflow at this path run on pull_request_target: it
+ * names the path itself in workflow_path's include, doesn't exclude it, and its event rule allows
+ * the event. An empty include means every workflow to GitHub, and is not counted here: a policy
+ * that allows only pull_request_target for every workflow would stop all the others.
+ */
+function allowsPullRequestTarget(def, workflowPath) {
+  const target = isMap(def.conditions) && isMap(def.conditions.workflow_path) ? def.conditions.workflow_path : null;
+  if (!target || !Array.isArray(target.include) || !target.include.includes(workflowPath)) return false;
+  if (Array.isArray(target.exclude) && target.exclude.includes(workflowPath)) return false;
+  return def.rules.some((r) => isMap(r) && r.type === 'restrict_action_events' && isMap(r.parameters)
+    && Array.isArray(r.parameters.allowed_events) && r.parameters.allowed_events.includes('pull_request_target'));
+}
+
+function checkEvents(wf, allowedFiles = PULL_REQUEST_TARGET_FILES) {
+  if (wf.problem) return [];
+  if (!eventsOf(wf.doc).includes('pull_request_target') || allowedFiles.includes(wf.name)) return [];
+  return [finding(wf, 'EVENT',
+    'runs on pull_request_target, which only the files in PULL_REQUEST_TARGET_FILES in test/workflow-hardening.test.js may; one goes on that list, and on the Actions policy, only after a review against GitHub\'s guide (OPERATIONS.md §18.4)')];
+}
+
+/** All five checks over a set of workflows. */
 function allFindings(wfs, allowed = WRITE_SCOPES) {
   return wfs.flatMap((wf) => [
     ...checkReadable(wf), ...checkPins(wf), ...checkToken(wf, allowed), ...checkEnvironments(wf),
+    ...checkEvents(wf),
   ]);
 }
 
@@ -346,6 +419,7 @@ const DIGEST = 'b'.repeat(64);
 /**
  * A made-up one-job workflow. Each option replaces one part, so a case states only what it
  * changes:
+ *   on           rows of the trigger, at no indent (the default is a push to one branch)
  *   top          rows before the permissions block, at no indent
  *   permissions  rows of the top-level permissions block ([] leaves it out)
  *   job          extra rows inside the job, at four spaces
@@ -353,12 +427,13 @@ const DIGEST = 'b'.repeat(64);
  */
 function made({
   name = 'example.yml',
+  on = ['on:', '  push:', '    branches: [example]'],
   top = [],
   permissions = ['permissions:', '  contents: read'],
   job = [],
   steps = ['      - run: echo hello'],
 } = {}) {
-  const rows = ['name: Example', 'on:', '  push:', '    branches: [example]', ...top, ...permissions,
+  const rows = ['name: Example', ...on, ...top, ...permissions,
     'jobs:', '  work:', '    runs-on: ubuntu-latest', ...job, '    steps:', ...steps];
   return readWorkflow(name, rows.join(NL) + NL);
 }
@@ -576,6 +651,56 @@ test('S16 (AC-4): a workflow file added to the folder later is read, whichever o
   }
 });
 
+test('S17 (guard-only-pull-request-target AC-2): EVENT passes the listed file on pull_request_target, and workflows on push or pull_request', () => {
+  clean(checkEvents(made({ name: 'guard-main-source.yml', on: ['on:', '  pull_request_target:', '    branches: [main]'] })), 'the guard on pull_request_target');
+  clean(checkEvents(made()), 'a workflow on push');
+  clean(checkEvents(made({ on: ['on:', '  pull_request:', '    branches: [staging, main]'] })), 'a workflow on pull_request');
+  clean(checkEvents(made({ on: ['on: [push, pull_request, workflow_dispatch]'] })), 'a list without pull_request_target');
+});
+
+test('S18 (guard-only-pull-request-target AC-1): EVENT catches any other file on pull_request_target, however its on: is written', () => {
+  const forms = {
+    'a single event': ['on: pull_request_target'],
+    'a quoted on key': ['"on": pull_request_target'],
+    'a list': ['on: [push, pull_request_target]'],
+    'a map key with settings': ['on:', '  pull_request_target:', '    types: [opened, synchronize]'],
+    'a map key with no settings': ['on:', '  push:', '  pull_request_target:'],
+  };
+  for (const [form, on] of Object.entries(forms)) {
+    caught(checkEvents(made({ name: 'other.yml', on })),
+      /^other\.yml: EVENT: runs on pull_request_target, which only the files in PULL_REQUEST_TARGET_FILES in test\/workflow-hardening\.test\.js may/, form);
+  }
+  caught(allFindings([made({ name: 'other.yml', on: ['on: pull_request_target'] })]), /^other\.yml: EVENT: /, 'the rule as allFindings runs it');
+  caught(checkEvents(made({ name: 'old-guard-main-source.yml', on: ['on: pull_request_target'] })),
+    /^old-guard-main-source\.yml: EVENT: /, 'a file whose name only contains a listed name');
+});
+
+test('S20 (guard-only-pull-request-target AC-3): a policy definition counts for a workflow only when it names its path and allows it pull_request_target', () => {
+  const p = '.github/workflows/guard-main-source.yml';
+  const def = (include, exclude, events) => ({
+    name: 'example', enforcement: 'active',
+    conditions: { workflow_path: { include, exclude } },
+    rules: [{ type: 'restrict_action_events', parameters: { allowed_events: events } }],
+  });
+  assert(allowsPullRequestTarget(def([p], [], ['pull_request_target']), p), 'the path included and the event allowed must count');
+  assert(!allowsPullRequestTarget(def(['.github/workflows/other.yml'], [], ['pull_request_target']), p), 'another path must not count');
+  assert(!allowsPullRequestTarget(def([], [], ['pull_request_target']), p), 'an empty include (every workflow, to GitHub) must not count');
+  assert(!allowsPullRequestTarget(def([p], [p], ['pull_request_target']), p), 'a path both included and excluded must not count');
+  assert(!allowsPullRequestTarget(def([p], [], ['push']), p), 'a rule that does not allow pull_request_target must not count');
+  assert(!allowsPullRequestTarget({ name: 'no conditions', rules: def([p], [], ['pull_request_target']).rules }, p), 'a definition with no workflow_path must not count');
+});
+
+test('S19 (guard-only-pull-request-target AC-2): EVENT reads only on:, so the event named in a comment, a job name, a script or an if: raises nothing', () => {
+  const lookalike = made({
+    name: 'other.yml',
+    on: ['on:', '  # pull_request_target is not used here', '  pull_request:', '    branches: [main]'],
+    job: ['    name: pull_request_target lookalike', "    if: github.event_name != 'pull_request_target'"],
+    steps: ['      - run: echo "pull_request_target"'],
+  });
+  assert(lookalike.text.split('pull_request_target').length - 1 === 4, 'the fixture must name the event four times, all outside on:');
+  clean(checkEvents(lookalike), 'a workflow that only mentions the event');
+});
+
 // ===========================================================================
 // R* — the real workflows (AC-1, AC-2, AC-3)
 // ===========================================================================
@@ -617,6 +742,34 @@ test('R4 (AC-3): every job that reads a deploy secret names that server\'s envir
   assert(found.length === 0, listed(found));
 });
 
+test('R5 (guard-only-pull-request-target AC-3): no real workflow runs on pull_request_target unless PULL_REQUEST_TARGET_FILES lists it', () => {
+  const found = workflowsIn(WORKFLOW_DIR).flatMap((wf) => checkEvents(wf));
+  assert(found.length === 0, listed(found));
+});
+
+test('R6 (guard-only-pull-request-target AC-3): PULL_REQUEST_TARGET_FILES lists no file that is gone, and none that no longer runs on pull_request_target', () => {
+  const byName = new Map(workflowsIn(WORKFLOW_DIR).filter((wf) => !wf.problem).map((wf) => [wf.name, wf]));
+  const stale = [];
+  for (const file of PULL_REQUEST_TARGET_FILES) {
+    const wf = byName.get(file);
+    if (!wf) {
+      stale.push(`${file} is listed but is not a workflow file; a rename changes this list and the Actions policy's path together`);
+    } else if (!eventsOf(wf.doc).includes('pull_request_target')) {
+      stale.push(`${file} is listed but no longer runs on pull_request_target; take it off this list, and its path off the Actions policy`);
+    }
+  }
+  assert(stale.length === 0, listed(stale));
+});
+
+test('R7 (guard-only-pull-request-target AC-3): each file on PULL_REQUEST_TARGET_FILES is named by an Actions policy definition in .github/rulesets/ that allows it pull_request_target', () => {
+  const policies = policyDefinitionsIn(RULESETS_DIR);
+  assert(policies.length > 0, 'no Actions policy definition in .github/rulesets/, so nothing records which workflows GitHub lets run on pull_request_target');
+  const missing = PULL_REQUEST_TARGET_FILES
+    .filter((file) => !policies.some(({ def }) => allowsPullRequestTarget(def, `.github/workflows/${file}`)))
+    .map((file) => `${file} is on the list, but no Actions policy definition in .github/rulesets/ names .github/workflows/${file} and allows it pull_request_target; add it there, and the owner adds it to the live policy`);
+  assert(missing.length === 0, listed(missing));
+});
+
 // ===========================================================================
 // M1 — the rules bind today's files (AC-4)
 // ===========================================================================
@@ -654,6 +807,17 @@ test('M1 (AC-4): each real workflow, broken in memory one rule at a time, is cau
     }
   }
   assert(wfs.length > 0 && broken >= wfs.length, `nothing was broken, so nothing was proved (${wfs.length} workflows, ${broken} breaks)`);
+});
+
+test('M2 (guard-only-pull-request-target AC-3): each real workflow not on the list, made to run on pull_request_target in memory, is caught', () => {
+  const wfs = workflowsIn(WORKFLOW_DIR).filter((wf) => !wf.problem && !PULL_REQUEST_TARGET_FILES.includes(wf.name));
+  for (const wf of wfs) {
+    const onTarget = structuredClone(wf.doc);
+    onTarget.on = Object.fromEntries([...eventsOf(wf.doc), 'pull_request_target'].map((e) => [e, null]));
+    caught(checkEvents({ ...wf, doc: onTarget }), new RegExp(`^${escapeRe(wf.name)}: EVENT: `),
+      `${wf.name}, made to run on pull_request_target`);
+  }
+  assert(wfs.length > 0, 'no real workflow is off the list, so nothing was proved');
 });
 
 // ===========================================================================
@@ -723,6 +887,17 @@ test('D4 (AC-5): OPERATIONS.md says how to move a pin to a newer release', () =>
   assert(/git ls-remote/.test(s), 'the pinned-actions section must give the command that resolves a release to its commit (git ls-remote).');
   assert(/commit/i.test(s) && /release|version/i.test(s),
     'the pinned-actions section must say a pin is a commit id, written with the release it is (story AC-5).');
+});
+
+test('D5 (guard-only-pull-request-target AC-4): OPERATIONS.md says only the listed files run on pull_request_target, and how a workflow gets on the list', () => {
+  const s = section(operations(), /pull_request_target/i);
+  assert(s.length > 0, 'OPERATIONS.md needs a subsection of §18 whose heading names pull_request_target (guard-only-pull-request-target #1, AC-4).');
+  assert(s.includes('guard-main-source.yml') && s.includes('PULL_REQUEST_TARGET_FILES'),
+    'the pull_request_target subsection must name the guard, and the list that allows it (PULL_REQUEST_TARGET_FILES).');
+  assert(/Actions policy/.test(s) && s.includes('Securely using pull_request_target'),
+    'the pull_request_target subsection must say a file goes on the list only after a review against GitHub\'s guide, with a policy that allows it.');
+  assert(/To add a workflow to the list/.test(s) && s.includes('workflow_path') && s.includes('.github/rulesets/'),
+    'the pull_request_target subsection must give the steps for adding a workflow, down to the policy\'s workflow_path and its definition in .github/rulesets/.');
 });
 
 async function run() {
