@@ -304,3 +304,114 @@ Non-blocking findings 1–4 are small, before or soon after the merge. Finding 1
 The verdict stands on the 64 suites that pass, on `operations.test.js` passing alone, and on the comparison with the merge base. It needs the pull request's CI to be green before merging.
 
 **PASS**
+
+## Round 2: the four fixes (0d4bef22) and the ledger rows (963fa5ca)
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-17 (the gate run below is stamped 2026-11-17 UTC)
+**Diff:** `git diff 0aa2c737..0d4bef22`: the three commits after round 1's review commit.
+- `987106af` merges origin/staging (`b51a2507`). Against its first parent it adds only staging's two ledger files.
+- `963fa5ca` is two ledger files.
+- `0d4bef22` is the fixes, in seven files: `_search.js`, `search.js`, the catalog, `searchGraph.js`, `search.test.js`, the story's Deviations and the test plan's SR1 and SR13 lines.
+
+Round 1's text above is as `0aa2c737` committed it (`git diff 0aa2c737 HEAD` is empty for this file). Since then the story has gained only fix 3's Deviation line, and it is still `Done`, with its Review link. Each fix below was checked as a fresh claim, the wording I suggested in round 1 included (roles/reviewer.md, step 10).
+
+### Quality gate (run by reviewer, not trusted)
+
+- [x] **The recipe, corrected:** `operations.test.js`, which runs every suite under `test/operations/` itself, never beside them, plus `external-cli.test.js`, `openapi-coverage.test.js`, `admin-action-sweep.test.js` and `schema-save-finds-the-right-header.test.js`, every endpoint at a dead port. `npm run gate:status -- --label a10-8-review-round2`:
+
+  `20261117T140845Z-98285-15ac [a10-8-review-round2] started 2026-11-17T14:08:45.154Z on 0d4bef22 — PASS, exit 0, 913 passed, 0 failed, 6 skipped, 5/5 suites`
+
+  - **`operations.test.js`: 812 passed, 0 failed, 4 skipped.** Inside it:
+    - `graph search` 34/34;
+    - the agent 2/2;
+    - the index 7/7;
+    - the fake graph 31/31;
+    - tapestry keys 20/20.
+
+    The log has no FAIL line.
+  - **The others:** `external-cli` 53/53, `openapi-coverage` 13/13, `admin-action-sweep` 9/9, and `schema-save-finds-the-right-header` 26 passed, 2 skipped.
+  - **The record's tree was clean** (`dirty: false`). The coordinator's own run says the same: `20261117T140440Z-96048-e949 [a10-8-round2] … on 0d4bef22 — PASS, exit 0, 913 passed, 0 failed, 6 skipped, 5/5 suites`.
+  - **812 is round 1's count** for `operations.test.js` run alone. Round 2 adds assertions inside SR1 and SR13, not new tests.
+- [ ] **The full gate** runs only in the pull request's CI, as in round 1. It must be green before the merge.
+
+### The four fixes, each as a fresh claim
+
+1. **Non-blocking 1 is fixed: a form credits every word it is a form of.**
+   - **The code** (`_search.js:151–164`):
+     - `ownersOf` maps each form to every word whose forms hold it;
+     - `holds` (`:181`) credits all of them;
+     - `check` (`:197`) counts, for each text, the words its hits credit.
+
+     That is Decision 3's rule: a text holding a word, or one of its forms, holds that word.
+   - **Nothing else changes.** When no two words of `q` share a form, each form maps to one word. `holds` and `check` then do exactly what they did before the fix.
+   - **SR13's new requests** (`search.test.js:189–190`, `:407–412`):
+     - `alphaword alphawords betaword` puts tierBoth first, holding all three words;
+     - `relay relays` gives each relay rule both words.
+   - **The coordinator's "SR13 failed before the fix" holds, re-derived.** On an export of `0d4bef22` with `0aa2c737`'s `_search.js` put back, SR13 failed with `got ["tierAlpha4","tierBoth","tierAlpha1"]`, and every other test passed.
+   - **The tests catch a break in the fix.** Changes made one at a time to the fixed code, on that export, all failed SR13:
+     - F1: a form credits only the first word that claims it;
+     - F2: `holds` credits only a form's first word;
+     - F3: `check` credits only a form's first word, which the `words` assertion catches;
+     - F6: `every` is true when some word is held.
+   - **The live check's results stand.** Its script, read and not run (`A10.8-search-livecheck.js` in the shared notes), sends 16 query strings by name: the lists at its lines 228 (9) and 260 (10), which share four and so hold 15, plus `firmware`.
+     - Computed with HEAD's `words()`, none of the 16 has two searched words that share a form.
+     - Its other searches use one word each: `rare()` and `onlyInStatement()` pick a single word of six letters or more.
+     - So every one of its searches gets the same answers at `0d4bef22` as on `3c22acd7`, where it ran.
+2. **Non-blocking 2 is fixed: a concept is found by a plural one level down.**
+   - **The seed** (`searchGraph.js:22`, `:158–159`): `mouseHeader` is a header alone, and its plural "mice" is only in `conceptHeader.oNames.plural`.
+   - **The test:** SR1 (`search.test.js:170`, `:273–275`) expects that match alone, kind `concept`, field `conceptHeader.oNames.plural`, passage `mice`.
+   - **The coordinator's "got []" holds, re-derived.** With that read removed (F4, which is round 1's M23), SR1 failed with `got []`.
+   - **The new node changes no other test's answer.** All 34 pass, many with exact sets, and no other request in the suite searches a word of its texts ("mouse", "A small rodent.", "mice").
+3. **Non-blocking 3 is fixed: the `es` rule is recorded.**
+   - The story's new Deviation and `formsOf`'s comment (`_search.js:51–55`) say what `:62` does (`w.length > 4`): five letters or more, leaving a stem of three at least. So `uses` gives `use` and never `us`, and `axes` gives `axe`.
+   - The `ss` note in round 1 was about the ADR's rule as written, and asked no change.
+4. **Non-blocking 4 is fixed: "found by their name and description only".** This was my suggested wording, so I checked it against the offload code.
+   - The two offload routes rewrite only a `type: 'json'` tag's value, to an `lmdb:` reference (`src/api/tapestry-key/index.js:226–262` for one tag, `:327–358` for all). So a node's name, as a property and in its name tag, and its description tag stay in the index.
+   - A node with no description tag is found by its name alone, which "only" covers.
+   - The `/docs` paragraph (`search.js:139`), the result schema (`:163`) and the catalog's §1 row ("names and descriptions") now agree, and SR34 passes.
+
+### The ledger rows (963fa5ca), claims and line references checked at 0d4bef22
+
+`bash scripts/harness-lint.sh` reads `harness-lint: clean (0 violations)`. That includes L15, whose filename rule (`YYYY-MM-DD-<slug>`, two to six words) both files meet.
+
+- **`ledger/2026-11-17-gate-recipe-runs-operations-suites-twice.md` (new, meta): its claims hold.**
+  - The figures are as round 1 recorded them: the brief's recipe, the FAIL, 193 here and 188 on the merge base, and the 64 suites that passed.
+  - Each reference points where it says:
+    - `gateRunner.js:10`, `:157–160`;
+    - `registry.js:389–392`, the comment and the entry;
+    - `operations.test.js:1159–1172`, from `runDiscovered` to `mod.run()`;
+    - `add-relationship.test.js:39–43`;
+    - `graphOpsSuite.js:35–37`, `:189`;
+    - the README's "Running and reading the test gate" (`engineering-team/README.md:57`);
+    - row `2026-11-14-harness-points-tests-at-agent-memory`, which is OPEN on staging.
+  - **Two precisions for its next write, optional:**
+    - `test/operations/graph/search.test.js:143–145` was right at `963fa5ca`. `0d4bef22` then added two header lines, so `MAIN` is now at `:145–147`.
+    - "each an ENOENT on a suite's own temporary graph file or a missing agent key": of the 193, 188 say so in their first line (179 ENOENT, 9 no key file). The other five have the same cause, worded otherwise:
+      - W27's crash, an ENOENT on walk's graph file, given in its stack;
+      - SX2's resolve answering null for want of the key;
+      - two backup checks on a removed backup folder;
+      - write-path's `/docs` check on its removed fixture catalog.
+
+      The row's title states the cause exactly.
+- **`ledger/2026-11-17-walk-skips-unlabelled-keyed-nodes.md` (widened to name search): its references hold at HEAD.** They are `graph-search-index.js:21–27`, `search.js:46` (unchanged by the fix), `unknown-node` for such a header given as `concept` (`search.js:87` needs the label), and the pointer to note 5.
+  - **One correction, to my own round-1 note 5, which the row repeats.** "Dropping it would find such a node through its tags at no cost" holds only for tags the index covers, which are tags that carry the label.
+    - The old initialize route keys every node with a `uuid` or `id` and no key, tags included, and labels none of them (`src/api/tapestry-key/index.js:114–119`, `:136–141`). So a node it keyed has unlabelled tags too, and dropping `p`'s label wouldn't find it; only `lifecycle migrate` would.
+    - The nodes it would find are the ones migrate leaves unlabelled because they share a key (`_migrations.js:296`), whose own tags migrate labels.
+    - "At no cost" rests on the join expanding from the hit, which no one has measured.
+  - **Suggested wording, a claim for the next round to check:** "dropping it would find, through their labelled tags, the nodes migrate leaves unlabelled because they share a key; a node the old initialize route keyed has unlabelled tags too, so only migrate makes it findable."
+
+### Round 2 findings
+
+- **Blocking:** none.
+- **Non-blocking (recorded, no change asked):**
+  - the three ledger precisions above, for whoever next writes those rows;
+  - F7, a match's `words` given in held order rather than `q`'s, passes the search suite and fails SX1, whose rule's name puts "pubkey" first. So the order is pinned, through the agent's suite only.
+- **Round 1's mutations, re-run on the `0d4bef22` export:** 27 of the 28 are caught. M17 was skipped, since the fix rewrote its target, and its rewrite, F5, is caught by SR10 and SR11. M23, round 1's one survivor, is now caught by SR1.
+- **Harness friction:** none new. The corrected recipe ran as the new meta row says it should.
+
+### Round 2 verdict
+
+All four fixes do what the coordinator's message says. The two observations it gave for checking re-derive exactly, and the live check's results stand for the fixed code. The ledger rows are accurate in substance. Their three precisions are optional, and one of them corrects my own round-1 wording.
+
+**PASS**
