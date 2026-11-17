@@ -280,3 +280,126 @@ None.
 
 - [ ] Story `**Status:**` set to `Done` in place: left to the session's review commit, since this reviewer writes only this file. Until then harness-lint's L1 check reports one violation: this review is PASS and the story is still `Approved`.
 - [ ] Completion detection: reported in the chat, not in this file.
+
+---
+
+## Round 2 — 2026-11-17 (HEAD `6a38f346`)
+
+**Diff checked:** `git diff 6b6429be..6a38f346`: four commits, 8 files, 210 lines added and 14 removed.
+- `0ec1f067` (test): UN42–UN44, in a `round2()` run of `update-node.test.js` over a seed of its own, for findings 1–3.
+- `53bac579` (impl): the three fixes, in `update-node.js` alone.
+- `36c7b382` (test): UN42's message cites Decision 6 and Amendment 2, where it cited Decision 8.
+- `6a38f346` (docs): ADR 0021's Amendment 2, with in-place edits to Decisions 1, 6 and 20 and the Consequences; the story's Deviation 5 and Evidence; the test plan's "Added at review round 1"; and three ledger rows.
+
+**How it was made.** An independent reviewer agent, with no Edit access, wrote this section at the session's request. It made no other write to a tracked file; its gate record is under the ignored `tmp/gate-runs/`.
+- Every red-before-green run, probe and mutation ran in a scratch copy under the session's scratchpad (`git archive` of a commit, with this worktree's `node_modules` linked in), never in the worktree. `git status` was clean after each.
+- It made no call to the local stack, any container, GitHub or Loom.
+- It checked each changed statement as a new claim, round 1's own wording included (the role file's step 10). The independent check before the commit (workflow 5, P13) was not applied.
+
+### Gates (run by the reviewer at `6a38f346`)
+
+- [ ] **The full gate** (`npm test`): not run, for round 1's reason (ledger row `2026-11-14-harness-points-tests-at-agent-memory`). It runs as the pull request's CI check.
+- [x] **The scoped gate:** round 1's 44 suites, in the order of its record `20261117T035222Z-97690-1f74`, through `test/helpers/gateRunner.js`. It ran on Node 24.18.0 with a clean tree, every endpoint dead as in round 1:
+  - `NEO4J_URI=bolt://127.0.0.1:9`, `REDIS_HOST=127.0.0.1` and `REDIS_PORT=9`;
+  - `BRAINSTORM_BASE_URL`, `TAPESTRY_BASE` and `MEILI_URL_HOST` at `http://127.0.0.1:9`;
+  - `TAPESTRY_PORT=9` and `TAPESTRY_CONTAINER=no-such-container`.
+
+  Its `npm run gate:status -- --label review-21-r2` line, with the worktree's absolute path shortened:
+
+  ```
+  20261117T043921Z-47707-62f4 [review-21-r2] started 2026-11-17T04:39:21.323Z on 6a38f346 — PASS, exit 0, 512 passed, 0 failed, 0 skipped, 44/44 suites · <worktree>/tmp/gate-runs/20261117T043921Z-47707-62f4.json
+  ```
+
+  - Suite by suite against round 1's record, only `operations/graph/update-node.test.js` moved: 37 to 40. Every other count is round 1's, among them update-node-shared 7, the agent suite 1 and create-element 33.
+  - 509 and 3 make 512, the story's figure.
+- [x] **Red before green.** `6b6429be`'s tree, with HEAD's `update-node.test.js` put over its own: update-node 37 passed, 3 failed, as the test plan's new section says. Each fails for its own reason:
+  - UN42: 200 `updated`, `changed: ["fields.weight"]`;
+  - UN43: 400 `bad-fields`, with the old message;
+  - UN44: 409 `no-section`, naming `fields`. The suite cuts the body at 400 characters, before `input`, so the probe below shows it.
+
+  The plan's quoted lines match these, with its elisions. Its UN42 line is the message from before `36c7b382`, and the parenthetical it elides is the part that changed.
+- [x] **UN42's entry check has teeth.** On the old code each call to twoFaced with the `__proto__` key recorded an entry naming it: none before two such calls, two after. So that check would fail too, if the status check didn't stop the test first. Its JSON check passes on both codes, since the old code stored nothing either.
+- [x] **Probes, on HEAD and on `6b6429be`'s code:** `probes/probe-r2.js` in the scratchpad, the real catalog through the harness over the fake graph, its state under `os.tmpdir()`. The results are in the table below. Round 1's `probe-edges.js`, rerun on HEAD, gives the fixed answers: `no-section` naming `concept`, `updated` with the trimmed text, and `no-section` naming `description`.
+- [x] **One mutation,** in a scratch copy of HEAD: with the `.sort()` taken off `update-node.js:166`, update-node passes 40/0, update-node-shared 7/0 and the agent suite 1/0. That is ledger row `2026-11-17-fake-graph-logs-no-lock-order`'s claim.
+- [x] **The live check's records** (`tmp/live-check-21/*-calls.json`). Of the 27 entries that touch update-node, none gave the `description` input, none answered `no-section`, and no concept's key was `__proto__`. So the story's reason for not running it again holds.
+- [x] **The added lines:** no 64-hex literal, no debug output, no TODO, no `LEGACY_*` change, and no format or control character.
+- [x] **`bash scripts/harness-lint.sh`:** clean (0 violations), before and after this section was written.
+
+### Round-1 findings, re-checked
+
+| Round 1 | Disposition | Check |
+|---|---|---|
+| NB1: a concept keyed `__proto__` | Fixed, as planned, and complete | `update-node.js:220` refuses `no-section` unless the section is one of the JSON's own keys and holds an object. `:232` reads `before` the same way, and `:264` the answer's slug. `:249` writes the section back through the JSON's own entries. The other readers keep own keys too: `mergeSection` and `renamedJson` build with a `Map`, `Object.entries` and `Object.fromEntries` (`_elements.js:476–523`), and `fits` judges the whole JSON (`_schemas.js:174`). So every read of the target section is now by own key. No test can pin `:232` or `:264`: past `:220` the section is always own, and an inherited `__proto__` has no text `slug`, so `slugOf` gave the name's slug before the fix too. They are defensive, and correct. The other side holds: a node whose JSON has an own `__proto__` section, as `JSON.parse` makes one, still changes (`weight` 1 to 3), answers `unchanged` the second time, and renames, that section's `name` and `slug` following, the key still own in the stored text. UN42 is a test in a run of its own rather than a UN29 case, and covers the same thing. |
+| NB2: the same description both ways | Fixed, by a third option | `update-node.js:149–153`. A `fields.description` that is text is trimmed for the comparison, and takes the trimmed `description` when the two agree. Round 1 offered two options, comparing as given or saying in the refusal that only `description` is trimmed; this is neither. It also takes two values that differ as given only by white space: `"same, with spaces"` beside the same text with a tab before it and two spaces after was one value (`unchanged`). Amendment 2.2 records the choice, and Decisions 1 and 20 state it, which is where it belongs (Spec, below). In the probes, the same call again is `unchanged`; `" one "` beside `" two "` is `bad-fields`, with the new wording; and a number or `null` in `fields.description` beside `description` is `bad-fields`, as before. `fields.description` given alone is kept as given: `"  kept as given  "`, and `" as text "` in JSON text, were stored untrimmed. No test pins that (R2-3), and the published refusal text lags (R2-2). |
+| NB3: the input `no-section` names | Fixed, as planned | `update-node.js:221` names `concept` when it was given, else `fields` when it was given, else `description`. On HEAD, `description` alone and `name` with `description` both name `description`; the old code named `fields` for both. `fields` alone names `fields`, and `concept` with `description` names `concept`. `fields: {}` with `description` names `fields`, which is the rule as written: the call gave `fields`. UN44 pins the first case. |
+| NB4: the shared D4 test's answers | Filed, accurately | `ledger/2026-11-17-own-test-reads-pubkey-as-author.md`. Its cites hold at HEAD: `_nodes.js:71–72` (the author read from `pubkey`, then `own`) and `eventSync.js:268–270` (the placeholder `NostrEvent {id}`, with no `pubkey`). Round 1's `probe-whose.js`, rerun on HEAD in the suites' environment, gives the row's three answers: `{ own: true, author: null, hasLetter: true }` for the `e`-tag placeholder, `own: true` for the owner's NostrUser, and `own: false` for an `a`-tag placeholder. update-node can't reach either case: a node no concept reaches but word's is `not-an-element` (`update-node.js:176–177`), and a node with no json tag is `unreadable-json` (`:209`), whatever the call gives. Amendment 2.4 says the same. |
+| NB5: the old letter imported again | Addressed, with two slips | The bullet at ADR 0021 `:275–279` carries ADR 0016's sentence (`0016-create-concept-and-update-concept.md:151`) over for elements, its `letterOutOfDate` and provenance lines included. Its `eventSync.js` cites hold: `:348–390` is `handleEventUpdate`, which deletes the node's tags and imports the relay's event, and `:116–117` answers `in_sync` when the ids match. OPEN.md row 138 names the route as a repair tool, and design §5's question 2 is provenance. `writeVerbs.js:280` is the call after the reading page's publish. But what the bullet says of the DList page, and what it implies of the reading page, don't hold: R2-1. |
+| NB6: the lock order | Filed, accurately | `ledger/2026-11-17-fake-graph-logs-no-lock-order.md`. Its cites hold: the sort at `update-node.js:166`, the locks at `:182`, UN13 at `update-node.test.js:400`, and the fake's log at `test/helpers/graphFake.js:549–550`, which keeps each statement's kind and text but not its parameters. `S.lockNode` runs one statement for every key (`_sets.js:246–249`). The mutation above bears out the row's central claim. The test plan's note says the same, and keeping out of the shared fake is a fair reason. |
+| NB7: the gate's commit | Fixed, with a slip | `aee05dc7` exists, its parent is `dff6a1ca`, and it was committed at 03:15:51Z with 7 files. The record started at 03:14:40Z, with `dirty: true`. But the record doesn't list the files: R2-4. |
+| The row from NB1 | Filed, accurately | `ledger/2026-11-17-concept-key-can-be-proto.md`. Checked with node: `toKeyName` (`conceptNames.js:87`) gives `__proto__` and `nameProblem` (`:137`) gives `null`; assigning the key sets the prototype, and `JSON.stringify` then drops the section; `JSON.parse` keeps it as an own key. create-concept runs `nameProblem` through `cleanInputs` (`_concepts.js:109–126`), and `deriveAllNames` gives the key `__proto__`, so "create-concept can make such a concept" holds by reading. |
+
+The three ledger rows' ids fit OPEN.md's pattern and are repeated in their `**Id:**` fields. Each has the template's header fields: a Type from the list, an ISO Opened date with its source, `OPEN`, `—` and a Pointer. L15 is clean.
+
+### Spec, ADR and concept graph
+
+- **Spec.**
+  - UN42–UN44 add to AC6's `no-section` and AC1's `description`, and the 37 earlier tests pass unchanged.
+  - AC6 refuses "a `description` given both on its own and in `fields`, with different values". The code now takes two that differ only by white space around them, and the field takes the trimmed text, which is what `description` alone would store. That reading of "different values" is the ADR's to make, and Amendment 2.2 makes it.
+- **ADR.**
+  - Amendment 2's seven items match the code and the runs, apart from R2-1 and R2-3.
+  - A small slip: the amendment says each in-place edit names it, but Decision 20's `bad-fields` row doesn't. Its `no-section` row does.
+- **The phases kept to their lanes.** The two test commits touch only `update-node.test.js`, the implementation commit only `update-node.js`, and the docs commit neither. The tests came first.
+- **Concept graph and house rules.** No handle, concept definition or firmware changed, so no reinstall is needed. No tooling was added.
+- **The invariants.** Unchanged since round 1. The round changes what this instance's own write refuses, and how it compares its own inputs.
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R2-1. ADR 0021 `:277–278`, the new Consequences bullet: its account of who calls `event-update` is wrong in one place and too narrow in the other.**
+   - **The DList page doesn't call it after a publish.** `DListOverview.jsx:83` and `:104` are the calls behind its "Import to Neo4j" and "Import + expand" buttons, shown when `event-check` answers `missing_from_neo4j` (`:235`). "Update in Neo4j", shown for `neo4j_outdated` (`:272`), reaches `:83` too, through `handleImportOrUpdate` (`:203–205`). An `in_sync` node, which an updated element is, gets no button (`:227–233`). The wording was round 1's own, in its finding 5, carried over.
+   - **The reading page's new letter can undo a rename.** Its `edit` builds the letter from the relay's newest event at the address:
+     - the tags are that event's (`writeVerbs.js:267`);
+     - the `name` tag is replaced only when the page itself renames (`:268`), and `nameChanged` (`:251`) compares with the graph's name (`:73`, `:200`), which update-node already set;
+     - the json tag is taken from the graph.
+
+     So after update-node renames one of this instance's own lettered elements, a text edit of it on the reading page signs a letter that still has the old `name` tag. `event-update` then deletes the node's tags and imports that letter, and the import sets the node's `name` from it (`eventSync.js:227–230`). The node is left with its old `name` and name tag, but its new `tapestryValue`, which the import doesn't set, and its new JSON. That is the principle-4 loss the bullet records, through a new letter.
+   - **Who reaches it.** The page edits only an element whose letter, signed by the assistant, is on the relay (`writeVerbs.js:258–259`). So an element `graph create-element` made, which has no letter, is out of reach.
+   - **How it was found:** by reading the code. No stack was used.
+
+   Asked: correct the bullet. The fix is the reading page's, outside this story's code: take the `name` tag from the graph, as `edit` takes the json tag, or refuse an edit when the graph's name differs from the letter's. A ledger row would hold it.
+2. **R2-2. `src/operations/catalog/graph/update-node.js:37`: `bad-fields`' published `when` still says "a description given on its own and in fields with different values".**
+   - Decision 20's row now says "differ once trimmed", and the code takes two that differ only by white space.
+   - The `when` text is what the operations listing (`src/operations/index.js:67`), `/docs` (`src/operations/openapi.js:50`) and the command's help (`src/operations/cli.js:65`) publish.
+
+   Asked: the one line, worded as Decision 20 words it.
+3. **R2-3. ADR 0021 `:377`: "UN43 pins it" follows a sentence no test pins.**
+   - Amendment 2.2's last bullet says `fields.description` given alone is kept as given. UN43 gives it both ways.
+   - The probe shows the behaviour holds. But a change that trimmed every text field in `fields` would pass every suite.
+
+   Asked: a case of `fields.description` alone, with white space around it, in UN43's run; or the attribution moved to the bullet before it.
+4. **R2-4. `engineering-team/stories/graph-operations-first-slice/21-update-node.md:133`: "the record says `dirty: true` and lists 7 files".**
+   - The record counts them, `dirtyCount: 7`, and names none.
+   - That they were `aee05dc7`'s seven is a fair inference from the count and the minute, but the record doesn't say it. Round 1's finding said "7 uncommitted files"; this sentence goes a step further.
+
+   Asked: "counts 7 changed files (`dirtyCount: 7`)".
+
+### Harness friction
+
+1. None new. The known one recurred: the role file and the template ask for a local `npm test`, which this Mac can't run (ledger row `2026-11-14-harness-points-tests-at-agent-memory`). The scoped gate gave this round its `gate:status` line.
+
+### Close-out (not committed)
+
+- The story's status line stays `Done`.
+- This section is written but not committed: the session commits it.
+- Completion detection: reported in the chat, not in this file.
+
+### Verdict (round 2)
+
+**PASS**
+
+Round 1's seven findings are each fixed or filed as planned. The three code fixes are correct and complete, each is pinned by a test that fails on `6b6429be`'s code for its own reason, and the 44-suite scoped gate is clean on HEAD. The four new findings are three doc slips and one test gap, none of which blocks the merge. R2-1 is the one worth doing before the pull request: the bullet it corrects was written to record a principle-4 loss, and the reading page reaches that loss through a new letter. The full gate still runs as the pull request's CI check.
