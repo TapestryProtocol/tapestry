@@ -143,10 +143,14 @@ module.exports = {
     const fields = inputs.fields === undefined ? [] : fieldsOf(inputs.fields);
     const description = typeof inputs.description === 'string' ? inputs.description.trim() : undefined;
     if (description !== undefined) {
+      // Compared as description is read, trimmed, so the same text given both ways is one value (review round 1,
+      // finding 2); the field then takes the trimmed text.
       const inFields = fields.find(([f]) => f === 'description');
-      if (inFields && canon(inFields[1]) !== canon(description)) {
-        throw refusal(BAD_FIELDS.code, `description is ${JSON.stringify(shorten(description))}, but fields gives the description ${JSON.stringify(shorten(JSON.stringify(inFields[1])))}: give it one way, or the same both ways. Nothing changed.`, { input: 'description' });
+      const given = inFields && typeof inFields[1] === 'string' ? inFields[1].trim() : inFields && inFields[1];
+      if (inFields && canon(given) !== canon(description)) {
+        throw refusal(BAD_FIELDS.code, `description is ${JSON.stringify(shorten(description))}, but fields gives the description ${JSON.stringify(shorten(JSON.stringify(inFields[1])))}, and the two differ even once trimmed: give it one way, or the same both ways. Nothing changed.`, { input: 'description' });
       }
+      if (inFields) inFields[1] = description;
     }
     const ta = K.assistant();
     if (!ta) throw refusal(NOT_INSTALLED.code, "This instance has no assistant key, so it can't tell its own nodes from another author's, or firmware's own: the firmware isn't installed. Install it first (POST /api/firmware/install), then try again. Nothing changed.");
@@ -211,8 +215,10 @@ module.exports = {
     const oldJson = got.json;
     const oldName = (typeof node.value === 'string' && node.value) || (typeof node.name === 'string' && node.name) || facts.name || '';
     const targetKey = target ? byKey.get(target).oKey : null;
-    if (sectionChange && !isObject(oldJson[targetKey])) {
-      throw refusal(NO_SECTION.code, `${labelOf(facts)}'s JSON has no ${targetKey} section, the section of ${conceptOf(byKey.get(target))}. update-node changes a section the node already has; graph add-to-concept (A10.22, to come) gives a node another concept's section. Nothing changed.`, { input: typeof inputs.concept === 'string' ? 'concept' : 'fields' });
+    // The section is the JSON's own key, never an inherited one, such as a concept keyed __proto__ (review round 1,
+    // finding 1). The refusal names the input the call gave (finding 3).
+    if (sectionChange && !(own(oldJson, targetKey) && isObject(oldJson[targetKey]))) {
+      throw refusal(NO_SECTION.code, `${labelOf(facts)}'s JSON has no ${targetKey} section, the section of ${conceptOf(byKey.get(target))}. update-node changes a section the node already has; graph add-to-concept (A10.22, to come) gives a node another concept's section. Nothing changed.`, { input: typeof inputs.concept === 'string' ? 'concept' : inputs.fields !== undefined ? 'fields' : 'description' });
     }
 
     // 8. The new JSON (Decisions 8 and 9): the rename first, then the fields merged into the target section.
@@ -223,7 +229,7 @@ module.exports = {
     if (renaming) ({ json, sections: renamedSections } = X.renamedJson(oldJson, { was: oldName, now: newName }));
     const fieldChanges = [];
     if (sectionChange) {
-      const before = json[targetKey];
+      const before = own(json, targetKey) && isObject(json[targetKey]) ? json[targetKey] : {};
       const entries = [...fields];
       if (description !== undefined && !entries.some(([f]) => f === 'description')) entries.push(['description', description]);
       for (const [f, v] of entries) {
@@ -255,7 +261,7 @@ module.exports = {
       }
       return out;
     };
-    const slugOf = (j) => (targetKey && isObject(j[targetKey]) && typeof j[targetKey].slug === 'string' && j[targetKey].slug ? j[targetKey].slug : dtag.slug(name));
+    const slugOf = (j) => (targetKey && own(j, targetKey) && isObject(j[targetKey]) && typeof j[targetKey].slug === 'string' && j[targetKey].slug ? j[targetKey].slug : dtag.slug(name));
     const answerNode = (j) => ({ tapestryKey: key, name, address: facts.uuid, author: facts.author, own: true, slug: slugOf(j), hasLetter: facts.hasLetter });
 
     // 9. Unchanged (Decision 12): nothing to write, so nothing is checked, as create-element's repeat checks nothing.
