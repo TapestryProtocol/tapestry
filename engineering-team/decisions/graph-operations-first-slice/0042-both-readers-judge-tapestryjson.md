@@ -119,7 +119,7 @@ We chose **Option A**. It is the one that makes AC3 true by construction, and it
 - `fits`'s description widens: "null when there is no schema to check against, or when the JSON misses only what the derive step builds (`waiting`)".
 - create-element and create-set take the named concept's entry from `Sch.fits` too, in place of a hand-built `fits: true`. So it says `waiting` when that is what it is. Nothing else in their order changes.
 
-So a set made by create-set reports `word` as `{ fits: null, waiting: true, problems: [], problem: "… waits for the derive step …" }`.
+So a set made by create-set reports `word` as `{ fits: null, waiting: true, problems: [], problem: "… waits for the derive step …" }`. *(Under firmware's `word` file. Under the schema an install leaves, `word` also fails the set, for install's wordType conditionals, so it reads `fits: false, waiting: true` with their problems: the story's Open questions, the owner's ruling at review round 2.)*
 
 **5. The derive step's verdicts come from `_schemas.js`** (AC3), through a new `src/lib/derivers/schema-verdicts.js`:
 
@@ -163,7 +163,7 @@ async function schemaVerdicts({ tapestryKey, json, judge, now }) → parentJsonS
 **What this enables**
 - `rules check` (A10.31) and A10.18's reports read one verdict on tapestryJson, and can tell a node not yet built (`missing`) from one that doesn't fit.
 - A node's cached verdicts are the rule's verdicts, as of its `derivedAt`.
-- The writes stop reporting `word` as failing on every set, and on every element in a set under its class thread.
+- The writes stop reporting `word` as failing on every set, and on every element in a set under its class thread. *(For `graphContext`. Under the schema an install leaves, they still report `word` as failing, for install's wordType conditionals, until those are fixed: the story's Open questions, the owner's ruling at review round 2.)*
 - A derive pass compiles each schema once.
 
 **What this constrains**
@@ -220,7 +220,7 @@ async function schemaVerdicts({ tapestryKey, json, judge, now }) → parentJsonS
   - **L5a's oracle** moves to `F.conceptsOfNodes`' class-thread walk. L3's and L4's time limits still hold.
 - **The live check** runs on a scratch stack (`scripts/scratch-stack.sh`), never the agent-memory instance:
   - `graph create-set` reports `word` as waiting;
-  - `POST /api/tapestry-key/derive/:key` then gives `parentJsonSchemas` saying the set fits `word`;
+  - `POST /api/tapestry-key/derive/:key` then gives `parentJsonSchemas` saying the set fits `word` *(narrowed by the owner's ruling at review round 2, in the story's Open questions: nothing `word` finds in the set is about `graphContext`, since the schema an install leaves fails it for install's wordType conditionals)*;
   - the rule's check of the set agrees for each concept;
   - a node with no entry gives one `missing` finding;
   - after a firmware reinstall, rule 7's element in the graph carries §7's new words;

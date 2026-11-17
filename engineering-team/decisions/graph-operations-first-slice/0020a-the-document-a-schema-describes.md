@@ -250,7 +250,7 @@ For the build's story. Its Architect may refine them.
   - Rebuilding one section keeps the others.
   - L5a's oracle in `test/pass-3-finishes-in-minutes.test.js` moves to the concepts `F.conceptsOfNodes` finds. L3's and L4's time limits still hold.
 - **The live check** runs on a scratch stack (`scripts/scratch-stack.sh`), never the agent-memory instance:
-  - after `graph create-set`, the set has tapestryJson whose `parentJsonSchemas` says it fits `word`, and the rule's check agrees for each concept;
+  - after `graph create-set`, the set has tapestryJson whose `parentJsonSchemas` says it fits `word` *(under firmware's `word` file only, until install's wordType conditionals are fixed: story graph-operations-first-slice #42's Open questions, the owner's ruling at its review round 2)*, and the rule's check agrees for each concept;
   - after `graph update-node`, the changed section is rebuilt and the others are as they were;
   - the relay's event count is unchanged.
 - **Branches:** staging only, by the usual chain.
