@@ -59,6 +59,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 41. `stories/graph-operations-first-slice/41-graph-rule-concept.md` — the graph rules as a firmware concept on every
     instance, one item per rulebook entry, made from the rulebook and the rules' code; the items `rules list-rules`
     (A10.31) will read (Loom A10.41).
+42. `stories/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md` — the rule `element-fits-schema` and
+    the derive step both judge a node's tapestryJson, and give one verdict, as ADR 0020a decides; the writes stop
+    reporting `word` as failing for `graphContext` (Loom A10.20.b). A subtask has no A10 number of its own, so it takes
+    the next number free; a later A10.42 takes another.
 
 ## Key facts / guardrails
 
