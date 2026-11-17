@@ -83,7 +83,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 ## Linked artifacts
 
 - Decision: ADR graph-operations-first-slice/0020a (`engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md`)
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-first-slice/0042-both-readers-judge-tapestryjson.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 
