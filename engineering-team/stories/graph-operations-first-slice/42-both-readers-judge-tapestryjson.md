@@ -104,6 +104,9 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 
   ajv's wrapper errors, such as an `if`/`then` that requires `graphContext`, are still not set aside (non-blocking 7). No firmware schema needs it.
 - **AC4's example was first scoped to firmware's `word` file here,** on the Implementer's word. The owner's ruling now narrows it, with AC3's first case and the User-facing description (Open questions).
+- **Round 3, from review round 2:**
+  - a stored `derivedAt` that no Date can hold gives a finding with the number and no date, where the check threw;
+  - CE34 and UN46 reach `waiting: true` through `graph create-element` and `graph update-node`.
 
 ## Evidence
 

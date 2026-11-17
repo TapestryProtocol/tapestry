@@ -71,11 +71,15 @@ module.exports = {
           continue;
         }
         // A finding says when the tapestryJson it judged was built, when it says (ADR 0020a Decision 5): an entry built
-        // before a change is judged as it is.
+        // before a change is judged as it is. Anyone's letter can put an entry in, so a derivedAt no Date can hold is
+        // given as the number alone, never thrown on.
         const gc = t.json.graphContext;
-        const derivedAt = gc && typeof gc === 'object' && typeof gc.derivedAt === 'number' ? gc.derivedAt : undefined;
+        const derivedAt = gc && typeof gc === 'object' && Number.isFinite(gc.derivedAt) ? gc.derivedAt : undefined;
         const built = derivedAt === undefined ? {} : { derivedAt };
-        const when = derivedAt === undefined ? '' : ` Its tapestryJson was built at ${new Date(derivedAt * 1000).toISOString()}.`;
+        const at = derivedAt === undefined ? null : new Date(derivedAt * 1000);
+        const when = !at ? ''
+          : Number.isNaN(at.getTime()) ? ` Its tapestryJson gives ${derivedAt} as the time it was built, which no date can hold.`
+            : ` Its tapestryJson was built at ${at.toISOString()}.`;
         for (const concept of concepts) {
           const r = await j.check(concept, t.json);
           if (r.header === false) continue;
