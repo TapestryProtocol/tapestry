@@ -411,3 +411,15 @@ Test design wrote the statements the ADR names, and found where they refine it. 
    - `failures.entityNotFound`, which fails a number of first statements.
 
    Each failure fails a transaction's first statement with Neo4j's `Neo.ClientError.Statement.EntityNotFound`.
+
+## Amendment 2 (2026-11-17, at implementation; for the owner's approval at the implementation gate) — what Neo4j 5.26 does in the race
+
+Decision 6 asked the live check to say which error Neo4j 5.26 gives a statement that waited for a node's lock while another transaction deleted the node. **It gives none.**
+- **The probe (L4c).** Inside the scratch stack, one transaction deleted a node with `DETACH DELETE` and held it. A second ran `S.lockNode`'s statement on that node, and waited. When the first committed, the second's statement went on and answered `count(n) = 1`, with no error.
+- **So the races resolve on the lock alone.** The statement after the lock is a read, and under Neo4j's read-committed isolation it sees the node gone:
+  - for two deletes of one node, `whoseNode` answers null, and the repeat answers `already-gone`;
+  - for an update-node beside a delete, `requireOwn` answers `unknown-node`.
+
+  L4a and L4b saw exactly that, three times each, with no 500.
+- **The second try stays** as Decision 6 has it, with DN18 to DN20. It is now a safety net for any statement that does fail with `EntityNotFound`; none is known. It is harmless when unused.
+- **What this changes:** nothing in the code. Decision 6's first bullet holds through the lock and the read after it, not through the second try.

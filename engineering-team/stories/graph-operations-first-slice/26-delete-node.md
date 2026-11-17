@@ -125,6 +125,50 @@ Run on this Mac, each with every service endpoint dead. No full `npm test` ran h
 - **The route-surface suites,** with every endpoint on a dead port: `openapi-coverage` 13 passed, `admin-action-sweep` 9, `admin-action-sweep-access` 13, `admin-action-sweep-named` 6; none failed.
 - **harness-lint:** clean.
 
+### The live check (Implementation, 2026-11-17, on `608bf8ae`)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The script and every call's request and answer are in this worktree's `tmp/live-check-26/` (ignored by git): `live.js`, `report-main.json` and `report-restored.json`.
+- **The instance.**
+  - It booted from image `agent-memory-tapestry:latest` with this branch's `src/` mounted.
+  - The image's firmware differed from the branch's (digests `e6118e628f71` and `fe62d06d0f54`). The branch's was copied in, the control panel restarted, and the firmware installed again; the digests then matched.
+  - The branch's `bin/tapestry.js` and `clients/cli` were copied in.
+- **Keys.** The instance had its own assistant key. Three throwaway keys were made: the owner's, an admin's for the agent, and a stranger's. The owner and the admin were set in `/etc/brainstorm.conf`.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The agent's and the visitor's went through the instance's nginx.
+- **Afterwards** it was removed, after a second, fresh boot for the restore. Each `down` checked first that the container mounted this worktree's `src/`.
+
+**By check, 31 of 33 passed. The two that failed tested my own script's premises, not delete-node:**
+- **L1:** Snoopy, made by create-element in `live beagle`:
+  - deleted with its tags, `letterRemains: false`, its `HAS_ELEMENT` from the superset among the relationships removed, and gone in Neo4j with its tags;
+  - its entry, by `local`, records the node whole;
+  - the same delete again was `already-gone`, naming the first entry;
+  - history by Snoopy gave the delete, then the create; history by the superset found the delete.
+- **L2:** Live Rex, the assistant's letter, made by today's signing `POST /api/normalize/create-element` in firmware's dog, was deleted.
+  - `hasLetter` and `letterRemains` were true, and the note named `export retract` and a re-import's new node.
+  - The relay held as many events after the delete as before it.
+  - *L2d failed on its premise:* it looked for an `AUTHORS` from the assistant's person node among Live Rex's relationships. The signing route imports with normalize's own direct import, which makes no `NostrUser` link; only the nostr import does (`eventSync.js:234–236`). Live Rex had one relationship, its `HAS_ELEMENT`, and that is what was removed and recorded. The person node exists, and stays.
+- **L3, the refusals:**
+  - a stranger's lettered node, made with Cypher: `not-own-node`, naming the stranger, and kept;
+  - a set: `made-elsewhere`, naming `graph delete-set`;
+  - a superset: `made-elsewhere`, naming `graph delete-concept`;
+  - firmware's rover: `firmware-node`, naming its file;
+  - the assistant's person node: `person-node`;
+  - an `e` tag's placeholder, made with the import's own statement: `placeholder-node`;
+  - a node with a `HAS_ELEMENT` to another: `holds-elements`, naming it;
+  - a tag: `not-an-element`.
+- **L4, at once:**
+  - **Two deletes of one node,** three times: each pair answered one `deleted` and one `already-gone`.
+  - **A delete beside an update-node of the node,** three times: the delete went each time. The update answered `updated` twice, having gone first, and `unknown-node` once. Never a 500.
+  - *L4c failed on its premise:* it expected Neo4j's `EntityNotFound`, and Neo4j gave no error at all. A lock statement that waited for a node another transaction deleted answered `count(n) = 1`. So the races resolve on the lock and the read after it, and the write path's second try never ran. ADR Amendment 2 records this.
+- **L5:** a node the derive step cached (`POST /api/tapestry-key/derive/:key`) was deleted with `cacheRemains: true`, the note naming `cache rebuild`. `GET /api/tapestry-key/:key` still answered its cached copy.
+- **L6:** after a firmware reinstall, the three deleted nodes were still gone and their entries still there.
+- **L7:** backup `20261117T140615Z-30dee424` (4.6 MB: 3,442 nodes, 3,911 relationships) was uploaded to a fresh instance and restored. The transaction and counts matched exactly. The deleted nodes were still gone, their entries there, and the other nodes back.
+- **L8, an admin agent through nginx and the external CLI:**
+  - it made Agent Pup, deleted it (recorded as the agent's), and deleted it again (`already-gone`, naming the agent);
+  - its history gave the delete, then the create;
+  - it was refused the stranger's node (`not-own-node`), the set (`made-elsewhere`) and firmware's rover (`firmware-node`);
+  - a visitor through nginx got 401.
+- **L9,** the read-only counts on staging and production, waits for the owner's yes for each server.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0026-delete-node.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/26-delete-node.test-plan.md`
