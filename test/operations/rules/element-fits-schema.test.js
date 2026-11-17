@@ -15,10 +15,10 @@
  * { node, concept }). An item names a seeded node as '@<name>'. The child adds, first:
  *   - walker (in walkers, so of dog and pet, with a dog section only), broken (under beagle's superset, its json tag
  *     unparseable) and lexeme (under word's superset; word has no schema);
- *   - wordy, a concept whose schema is firmware word's own, which requires graphContext, with two elements: wordFull
- *     and wordNoContext;
- *   - three more beagles: diffFits and diffMisses, whose json tags and tapestryJson differ, and noEntry, with no
- *     tapestryJson at all.
+ *   - wordy, a concept whose schema is firmware word's own, which requires graphContext, with three elements: wordFull,
+ *     wordNoContext and wordFar;
+ *   - four more beagles: diffFits and diffMisses, whose json tags and tapestryJson differ; farMisses, whose
+ *     tapestryJson gives a derivedAt beyond the Date range; and noEntry, with no tapestryJson at all.
  * It then puts each node's tapestryJson into the child's own store (TAPESTRY_LMDB_PATH, from childEnv): rover's,
  * walker's and lexeme's as their json tags hold it, broken's as a list, and the rest as each case says.
  *
@@ -46,6 +46,9 @@
  *   EFS10 (story 42, AC4) { concept, json }, a write's JSON, sets aside the problems only about graphContext: a full
  *        word block under firmware word's schema gives nothing, and checkElements passes it; one missing its slug is
  *        reported for the slug alone
+ *   EFS11 (review round 2, non-blocking 1) a stored graphContext.derivedAt beyond the Date range doesn't stop the
+ *        check: wordFar, which fits, gives nothing; farMisses, which doesn't, gives its finding with its derivedAt and
+ *        a message that gives the number, with no date
  */
 
 const fs = require('fs');
@@ -103,6 +106,8 @@ function runCases() {
     wordFull: { items: [{ node: '@wordFull' }] },
     wordNoContext: { items: [{ node: '@wordNoContext' }] },
     noEntry: { items: [{ node: '@noEntry' }] },
+    wordFar: { items: [{ node: '@wordFar' }] },
+    farMisses: { items: [{ node: '@farMisses' }] },
     writeWordFull: { items: [{ concept: '@wordy', json: { word: WORD_BLOCK } }] },
     writeWordNoSlug: { items: [{ concept: '@wordy', json: { word: { name: 'word: Lexeme', wordTypes: ['word'] } } }] },
     checkWordFull: { check: true, items: [{ concept: '@wordy', json: { word: WORD_BLOCK } }] },
@@ -149,13 +154,16 @@ const out = { cases: {} };
     const wordBlock = ${JSON.stringify(WORD_BLOCK)};
     withJson('wordFull', k.wordySuperset, JSON.stringify({ word: wordBlock }));
     withJson('wordNoContext', k.wordySuperset, JSON.stringify({ word: wordBlock }));
+    withJson('wordFar', k.wordySuperset, JSON.stringify({ word: wordBlock }));
     const beagleTag = (description) => JSON.stringify(${JSON.stringify(beagleJson('§'))}).replace('"§"', JSON.stringify(description));
     withJson('diffFits', k.beagleSuperset, JSON.stringify(${JSON.stringify(beagleJson(undefined))}));
     withJson('diffMisses', k.beagleSuperset, beagleTag('the json tag has it'));
     withJson('noEntry', k.beagleSuperset, beagleTag('a json tag that fits'));
+    withJson('farMisses', k.beagleSuperset, beagleTag('the json tag has it'));
     // Each node's tapestryJson, in the child's own store (story 42): rover's, walker's and lexeme's as their json tags
     // hold it; broken's a list; diffFits' with the description its tag lacks, diffMisses' without the one its tag has;
-    // wordFull's with the graphContext the derive step builds, wordNoContext's without; none for noEntry or loner.
+    // wordFull's with the graphContext the derive step builds, wordNoContext's without; wordFar's and farMisses' with a
+    // derivedAt beyond the Date range (review round 2, non-blocking 1); none for noEntry or loner.
     const store = require(ROOT + '/src/lib/tapestry-store.js');
     await store.put(k.rover, C.json(s, k.rover));
     await store.put(k.walker, C.json(s, k.walker));
@@ -165,6 +173,8 @@ const out = { cases: {} };
     await store.put(k.diffMisses, { ...${JSON.stringify(beagleJson(undefined))}, graphContext: { identifiers: { tapestryKey: k.diffMisses }, derivedAt: 1700000000 } });
     await store.put(k.wordFull, { word: wordBlock, graphContext: { identifiers: { tapestryKey: k.wordFull }, elementOf: { direct: [], indirect: [] }, parentJsonSchemas: [], derivedAt: 1 } });
     await store.put(k.wordNoContext, { word: wordBlock });
+    await store.put(k.wordFar, { word: wordBlock, graphContext: { identifiers: { tapestryKey: k.wordFar }, elementOf: { direct: [], indirect: [] }, parentJsonSchemas: [], derivedAt: 1e13 } });
+    await store.put(k.farMisses, { ...${JSON.stringify(beagleJson(undefined))}, graphContext: { identifiers: { tapestryKey: k.farMisses }, derivedAt: 1e13 } });
     const resolve = (v) => (typeof v === 'string' && v.startsWith('@') ? (v === '@nobody' ? '00000000-0000-4000-8000-0000000000cc' : k[v.slice(1)]) : v);
     const name = (key) => Object.keys(k).find((x) => k[x] === key) || key;
     out.keys = { beagle: k.beagle, dog: k.dog, pet: k.pet, word: k.word, walker: k.walker };
@@ -317,6 +327,16 @@ test('EFS10: { concept, json }, a write\'s JSON, sets aside the problems only ab
   const s = result('writeWordNoSlug');
   assert(show(codes(s)) === show(['invalid-fields']) && s.violations[0].problems.some((p) => /word\.slug/.test(p)) && !s.violations[0].problems.some((p) => /graphContext/.test(p)) && !/graphContext/.test(s.violations[0].message),
     `a word block with no slug: one finding, for word.slug alone, graphContext set aside; got ${show(s)}`);
+});
+
+test('EFS11: a stored derivedAt beyond the Date range doesn\'t stop the check: what fits gives nothing; what doesn\'t gives the number, with no date', () => {
+  const f = result('wordFar');
+  assert(show(f.violations) === show([]), `wordFar's tapestryJson fits firmware word's schema; its derivedAt, 1e13 seconds, is past the last date a Date can hold, and the check must neither throw nor report it; got ${show(f)}`);
+  const m = result('farMisses');
+  assert(show(codes(m)) === show(['invalid-fields']) && m.violations[0].problems.some((p) => /beagle\.description/.test(p)), `farMisses: invalid-fields for its missing description, as diffMisses; got ${show(m)}`);
+  const v = m.violations[0];
+  assert(v.derivedAt === 1e13, `the finding still gives the derivedAt it judged (ADR 0020a Decision 5); got ${show(v)}`);
+  assert(v.message.includes(String(1e13)) && !/\d{4}-\d{2}-\d{2}T/.test(v.message), `its message gives the number, ${String(1e13)}, and no date, since none can be made from it; got ${show(v.message)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
