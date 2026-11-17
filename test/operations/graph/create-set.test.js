@@ -226,6 +226,9 @@ test('CS3: its JSON is firmware\'s set-file shape and fits the set concept\'s sc
   const entry = require(path.join(ROOT, 'src/operations/catalog/graph/create-set.js')).result.schema.properties.concepts.items;
   assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
     `the declared answer's concepts entry has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(path.join(ROOT, 'src/operations/catalog/graph/create-set.js')).result.schema.properties.concepts);
+  assert(validConcepts(cs), `the answer's concepts validate against the declared answer, waiting and all (ADR 0042 Decision 4; review round 1, non-blocking 3); got ${show(validConcepts.errors)}`);
 });
 
 test('CS4: its two links: IS_A_SUPERSET_OF from its parent, HAS_ELEMENT from the set concept\'s superset, and nothing else', async () => {

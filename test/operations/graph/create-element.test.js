@@ -284,6 +284,9 @@ test('CE6: Max, in walkers, belongs to dog and pet; a set that is the concept\'s
   const entry = require(path.join(ROOT, 'src/operations/catalog/graph/create-element.js')).result.schema.properties.concepts.items;
   assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
     `the declared answer's concepts entry has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(path.join(ROOT, 'src/operations/catalog/graph/create-element.js')).result.schema.properties.concepts);
+  assert(validConcepts(d.concepts), `the answer's concepts validate against the declared answer, waiting and all (ADR 0042 Decision 4; review round 1, non-blocking 3); got ${show(validConcepts.errors)}`);
   const pj = await ok('plain-jane');
   assert(show(pj.element.parents) === show([k.beagleSuperset]) && !C.tagArrays(g, pj.element.tapestryKey).some((t) => t[0] === 'n'),
     `set = beagle's own superset: directly under it, with no n tag; got ${show(pj.element)} ${show(C.tagArrays(g, pj.element.tapestryKey))}`);

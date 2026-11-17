@@ -25,9 +25,9 @@
  *   SC3 problemsOf names each problem by its dotted path, in words: required, a field the schema doesn't take, a value
  *       not allowed, the wrong type, any other keyword in ajv's words; "the element's JSON" at the top; every problem
  *   SC4 a schema that doesn't compile is a problem, not a throw; two schemas with one $id both check
- *   SC5 the dialect is the derive step's reading of a schema: for each schema and JSON, problemsOf's verdict is the
- *       one ajv gives the JSON under src/lib/derivers/word.js:136–180's reading, 2020-12's own keywords ignored as
- *       it ignores them
+ *   SC5 the dialect is the reading the derive step used before story 42, which it now takes from this module: for
+ *       each schema and JSON, problemsOf's verdict is the one ajv gives the JSON under that reading (the jsonSchema
+ *       section, $schema dropped, ajv's defaults with strict off), 2020-12's own keywords ignored as it ignores them
  *   SC6 fits gives true, false (with the problems) or null (with why) for a concept and JSON
  *   SC7 loading _schemas.js opens nothing: no ajv, LMDB, Neo4j driver or store until first called; it exports
  *       tapestryJsonOf too (ADR 0042 Decision 1)
@@ -47,10 +47,13 @@
  *       and every answer says whether it waits
  *   SC12 (story 42, AC3; ADR 0042 Decision 5) the derivers' cached verdicts, the word deriver's and the set
  *       deriver's: today's entry shape, naming the schema node by its uuid and tapestryKey; two schema nodes give one
- *       entry each, not checkable; a concept with no schema node gives none; and filling the entries in changes no
- *       verdict under firmware word's schema
+ *       entry each, not checkable; a concept with no schema node gives none; filling the entries in changes no
+ *       verdict under firmware word's schema; and a set entry that still carries an old x-tapestry.derived artifact is
+ *       judged as it is stored, without it (review round 1, non-blocking 4)
  *   SC13 (ADR 0042 Decision 6) a derive pass over a label reads each concept's schema once, however many nodes it
  *       derives; and loading src/lib/derivers/schema-verdicts.js opens nothing heavy
+ *   SC14 (review round 1, non-blocking 1) a judge doesn't keep a schema read that failed: after one transient failure,
+ *       the next check of that concept reads its schema again, so one hiccup doesn't fail the rest of a derive pass
  */
 
 const fs = require('fs');
@@ -71,7 +74,7 @@ function needSchemas() {
   if (!fs.existsSync(SCHEMAS)) throw new Error('src/operations/catalog/graph/_schemas.js does not exist yet (ADR graph-operations-first-slice/0020 Decision 11)');
 }
 
-/** The derive step's reading of a schema (src/lib/derivers/word.js:136–180): the jsonSchema section, $schema dropped, ajv's defaults with strict off. SC9 runs the derive step itself. */
+/** The derive step's reading of a schema before story 42, which _schemas.js keeps: the jsonSchema section, $schema dropped, ajv's defaults with strict off. SC9 runs the derive step itself. */
 const DERIVE = `(schemaObj, json) => {
   if (schemaObj.jsonSchema && typeof schemaObj.jsonSchema === 'object') schemaObj = schemaObj.jsonSchema;
   const { $schema, ...schemaNoMeta } = schemaObj;
@@ -175,6 +178,15 @@ const before = new Set(Object.keys(require.cache));
     ]) {
       try { out.writing[id] = await run(); } catch (e) { out.writing[id] = { threw: String(e && e.message || e) }; }
     }
+
+    // SC14: a judge whose first schema read fails, once, as a transient database error would.
+    let failures = 1;
+    const flaky = async (q, p) => { if (/IS_THE_JSON_SCHEMA_FOR/.test(String(q)) && failures > 0) { failures--; throw new Error('a transient failure'); } return read(q, p); };
+    const fj = X.judge(flaky);
+    const okBeagle = { word: { wordTypes: ['word', 'beagle'] }, beagle: { name: 'Max', slug: 'max', description: 'a dog' } };
+    out.flaky = {};
+    try { await fj.check(k.beagle, okBeagle); out.flaky.first = 'answered'; } catch (e) { out.flaky.first = 'threw: ' + String(e && e.message || e); }
+    try { out.flaky.second = await fj.check(k.beagle, okBeagle); } catch (e) { out.flaky.second = { threw: String(e && e.message || e) }; }
 
     out.schemaOf = {};
     for (const c of ['dog', 'beagle', 'bare', 'held', 'word', 'kettle', 'jsonless', 'teapot', 'lantern', 'listy']) {
@@ -472,9 +484,18 @@ function derivedCases() {
     { label: 'two schema nodes', schemas: { ck: [{ key: 'sk1', uuid: 's1', json: BEAGLE_SCHEMA }, { key: 'sk2', uuid: 's2', json: BEAGLE_SCHEMA }] }, json: beagleJson('a dog') },
     { label: 'no schema node', schemas: { ck: [] }, json: beagleJson('a dog') },
     { label: 'the set deriver', set: true, labels: ['Set'], schemas: one(BEAGLE_SCHEMA), json: { word: { slug: 'the-set-of-show-beagles', name: 'the set of show beagles', wordTypes: ['word', 'set'] }, set: { slug: 'show-beagles', name: 'show beagles' }, beagle: { name: 'Show', slug: 'show' } } },
+    { label: 'a set entry with an old artifact', set: true, labels: ['Set'], schemas: one(JSON.stringify({ jsonSchema: { type: 'object', properties: { word: {}, set: {}, graphContext: {} }, additionalProperties: false } })),
+      json: { word: { slug: 'the-set-of-old-beagles', name: 'the set of old beagles', wordTypes: ['word', 'set'] }, set: { slug: 'old-beagles', name: 'old beagles' } },
+      stored: { word: { slug: 'the-set-of-old-beagles', name: 'the set of old beagles', wordTypes: ['word', 'set'] }, set: { slug: 'old-beagles', name: 'old beagles' }, 'x-tapestry': { derived: { by: 'an older deriver' } } } },
   ], { pass: { schemas: one(BEAGLE_SCHEMA), json: beagleJson('a dog') } });
   return DERIVED;
 }
+
+test('SC14: a judge drops a schema read that failed, so the next check of that concept reads its schema again', () => {
+  const f = got().flaky || {};
+  assert(/^threw/.test(String(f.first)), `the first check meets the failed read and throws, as any read failure does; got ${show(f.first)}`);
+  assert(f.second && !f.second.threw && f.second.fits === true, `the next check of the same concept, with the same judge, reads the schema again and fits: a derive pass's shared judge doesn't keep one hiccup for the rest of the pass (review round 1, non-blocking 1); got ${show(f.second)}`);
+});
 
 test('SC9: one verdict from both readers: the derive step\'s cached verdicts and the rule\'s check of what it kept agree on each concept, in the rule\'s words', () => {
   const { byLabel } = derivedCases();
@@ -518,6 +539,9 @@ test('SC12: the derivers\' cached verdicts: today\'s shape, naming the schema no
   const sf = set.findings.find((x) => x.concept === 'ck');
   assert(se && se.valid === false && sf && show([...se.errors].sort()) === show([...sf.problems].sort()) && se.errors.some((x) => /beagle\.description/.test(x)),
     `the set deriver's verdicts are the rule's too, in its words; got ${show(set.entries)} beside ${show(set.findings)}`);
+  const old = byLabel['a set entry with an old artifact'];
+  const oe = entryOf(old)[0];
+  assert(oe && oe.valid === true && ruleVerdict(old) === true, `a set entry still carrying x-tapestry.derived: the set deriver removes it before it judges, so its verdict is on what it stores, and agrees with the rule's check of that; got the cache's ${show(oe)}, the rule's ${show(old.findings)}`);
   const after = byLabel.word.judgedAfter;
   assert(after && !after.problem && show(after.problems) === show([]), `the stored tapestryJson, its entries filled in, still fits firmware word's schema: filling them changes no verdict; got ${show(after)}`);
 });

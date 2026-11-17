@@ -28,6 +28,12 @@ The stack-free suites can't reach five things, which the live check covers on a 
 
 **Amended at implementation (2026-11-17), the Tester's lane.** `test/graph-rules-builder.test.js`'s GB3 holds each real rulebook entry's expected `word.description` (its Says' first sentence) and `source`. Rule 7's fixture still had story 20's: "An element's JSON fits…" and ADR 0020 alone. AC5 rewrites both by design, so GB3 failed on the rulebook this story asks for. The fixture now has the new first sentence and the three ADRs; GB3's assertions are as they were. Test Design missed it because GB3's fixture restates the rulebook rather than reading it.
 
+**Added for review round 1's findings (2026-11-17), the Tester's lane.** Each fails without its fix:
+- **SC14** (non-blocking 1): a judge whose first schema read fails, as a transient database error would, reads that schema again on the next check, rather than keeping the failure for the rest of a derive pass.
+- **SC12's case "a set entry with an old artifact"** (non-blocking 4): a set whose entry still carries `x-tapestry.derived`, under a schema closed at the top. The set deriver must judge what it stores, without the artifact, so the cache and the rule agree.
+- **EFS8's `derivedAt`** (non-blocking 5): the check form's finding on diffMisses gives its entry's `graphContext.derivedAt`, and wordNoContext's, with no `graphContext`, gives none (ADR 0020a Decision 5).
+- **CS3, CE6 and UN7** (non-blocking 3) validate each answer's `concepts` against the operation's declared result schema with the repo's ajv, which honours `nullable`. They pass already, as guards.
+
 ## Edge cases
 
 - [x] **An entry built before the node's json tag changed** (SC9). Both readers judge the entry the store keeps, so they agree on it, stale or not. Keeping the entry up to date is A10.20.c's.

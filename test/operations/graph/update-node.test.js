@@ -309,6 +309,9 @@ test('UN7: an element of two concepts: concept names the section, and the other 
   const entry = require(path.join(ROOT, 'src/operations/catalog/graph/update-node.js')).result.schema.properties.concepts.items;
   assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
     `the declared answer's concepts entry (X.CONCEPTS) has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(path.join(ROOT, 'src/operations/catalog/graph/update-node.js')).result.schema.properties.concepts);
+  assert(validConcepts(cs), `the answer's concepts validate against the declared answer, waiting and all (ADR 0042 Decision 4; review round 1, non-blocking 3); got ${show(validConcepts.errors)}`);
   const again = await ok('max-again');
   assert(again.outcome === 'unchanged' && again.change === null, `the same call again is unchanged; got ${show(again)}`);
 });

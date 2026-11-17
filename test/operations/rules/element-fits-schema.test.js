@@ -39,7 +39,8 @@
  *   EFS7 the graph rule concept's firmware has its element, as node src/firmware/graph-rules.js makes it, saying it
  *        judges tapestryJson
  *   EFS8 (story 42, AC1) where a node's tapestryJson and json tag differ, the tapestryJson decides: under beagle's
- *        schema, and under firmware word's, where a tapestryJson with its graphContext fits and one without doesn't
+ *        schema, and under firmware word's, where a tapestryJson with its graphContext fits and one without doesn't;
+ *        a finding gives the judged tapestryJson's graphContext.derivedAt, when it has one (ADR 0020a Decision 5)
  *   EFS9 (story 42, AC2) a node with no tapestryJson gives one invalid-fields finding marked missing, saying so, and
  *        nothing for each concept; its json tag, which fits, isn't read in its place
  *   EFS10 (story 42, AC4) { concept, json }, a write's JSON, sets aside the problems only about graphContext: a full
@@ -161,7 +162,7 @@ const out = { cases: {} };
     await store.put(k.lexeme, C.json(s, k.lexeme));
     await store.put(k.broken, [1, 2]);
     await store.put(k.diffFits, ${JSON.stringify(beagleJson('the tapestryJson has it'))});
-    await store.put(k.diffMisses, ${JSON.stringify(beagleJson(undefined))});
+    await store.put(k.diffMisses, { ...${JSON.stringify(beagleJson(undefined))}, graphContext: { identifiers: { tapestryKey: k.diffMisses }, derivedAt: 1700000000 } });
     await store.put(k.wordFull, { word: wordBlock, graphContext: { identifiers: { tapestryKey: k.wordFull }, elementOf: { direct: [], indirect: [] }, parentJsonSchemas: [], derivedAt: 1 } });
     await store.put(k.wordNoContext, { word: wordBlock });
     const resolve = (v) => (typeof v === 'string' && v.startsWith('@') ? (v === '@nobody' ? '00000000-0000-4000-8000-0000000000cc' : k[v.slice(1)]) : v);
@@ -180,7 +181,7 @@ const out = { cases: {} };
           continue;
         }
         const found = await rule.violations(items, read);
-        out.cases[id] = { schemaReads, violations: found.map((v) => ({ node: name(v.item && v.item.node), concept: name(v.item && v.item.concept), code: v.code, message: v.message, missing: v.missing === true, problems: (v.problems || []).map((x) => x.message), item: v.item ? Object.fromEntries(Object.entries(v.item).filter(([f]) => f !== 'json').map(([f, x]) => [f, name(x)])) : null, findingConcept: name(v.concept) })) };
+        out.cases[id] = { schemaReads, violations: found.map((v) => ({ node: name(v.item && v.item.node), concept: name(v.item && v.item.concept), code: v.code, message: v.message, missing: v.missing === true, derivedAt: v.derivedAt, problems: (v.problems || []).map((x) => x.message), item: v.item ? Object.fromEntries(Object.entries(v.item).filter(([f]) => f !== 'json').map(([f, x]) => [f, name(x)])) : null, findingConcept: name(v.concept) })) };
       } catch (e) { out.cases[id] = { error: String(e && e.message || e) }; }
     }
   } catch (e) { out.error = String(e && e.message || e); }
@@ -293,10 +294,12 @@ test('EFS8: where a node\'s tapestryJson and its json tag differ, the tapestryJs
   assert(show(result('diffFits').violations) === show([]), `diffFits: its json tag lacks the description, its tapestryJson has it: it fits (story 42, AC1); got ${show(result('diffFits'))}`);
   const m = result('diffMisses');
   assert(show(codes(m)) === show(['invalid-fields']) && m.violations[0].problems.some((p) => /beagle\.description/.test(p)), `diffMisses: its json tag has the description, its tapestryJson doesn't: invalid-fields, naming it; got ${show(m)}`);
+  assert(m.violations[0].derivedAt === 1700000000, `the finding says when the tapestryJson it judged was built, its graphContext.derivedAt (ADR 0020a Decision 5; review round 1, non-blocking 5); got ${show(m.violations[0])}`);
   assert(show(result('wordFull').violations) === show([]), `wordFull: a tapestryJson with its graphContext fits firmware word's schema, though its json tag has none; got ${show(result('wordFull'))}`);
   const n = result('wordNoContext');
   assert(show(codes(n)) === show(['invalid-fields']) && n.violations[0].problems.some((p) => /graphContext/.test(p)),
     `wordNoContext: a tapestryJson with no graphContext doesn't fit firmware word's schema; the check form sets nothing aside (ADR 0042 Decision 2); got ${show(n)}`);
+  assert(n.violations[0].derivedAt === undefined, `and with no graphContext, no build date to give; got ${show(n.violations[0])}`);
 });
 
 test('EFS9: a node with no tapestryJson is one finding marked missing, nothing for each concept, and its json tag isn\'t read in its place', () => {
