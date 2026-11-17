@@ -72,7 +72,7 @@ Nine facts shape the design.
      - Reading and ranking the rule concept's elements took 251 ms.
      - A search whose words name no concept found nothing.
 7. **Walk is built for search to call** (ADR graph-operations-first-slice/0014, Decision 3).
-   - Its engine is in TapestryProtocol/tapestry#115, which isn't on staging yet.
+   - Its engine merged into staging with TapestryProtocol/tapestry#115 (2026-11-17).
    - Its bound counts the rows it reads toward nodes it hasn't met yet, not every relationship it expands. No dense cluster was timed (memo 122 on A10.8).
 8. **The pieces already built that search uses:**
    - the read conventions C1–C6 (`src/operations/reads.js`);
@@ -139,7 +139,7 @@ Nine facts shape the design.
   - stop words in the headers' descriptions match most of them (42 of 55);
   - its second step is Option C narrowed to one concept;
   - walk's bound stops it short on a concept with more than 10,000 elements;
-  - it needs walk's engine, which isn't on staging yet.
+  - it adds walk's engine, and walk's bound, to every search whose words name a concept.
 
 ### The mixes
 
@@ -388,7 +388,7 @@ Three hundred characters keep the Lucene query under Lucene's 1,024 clauses: at 
 - `bin/control-panel.js`: one call, `ensureSearchIndexOnBoot`, beside `ensureChangeIndexesOnBoot`, with the same arguments.
 - `src/operations/resolve.js`: `kindOf(row)` taken out of `candidateOf` and exported. Behaviour is unchanged.
 - `src/operations/reads.js`: C1's paragraph, as a comment only.
-- `docs/GRAPH_OPERATIONS_CATALOG.md`: as Decision 9 says. Walk's PR (#115) edits §1's closing paragraph too, so expect a one-line conflict there.
+- `docs/GRAPH_OPERATIONS_CATALOG.md`: as Decision 9 says. Walk's PR (#115) added a sentence to §1's closing paragraph saying search calls walk's engine. This ADR's own PR corrects that sentence, and the build changes the rest.
 - `engineering-team/decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md`: Amendment 5.
 
 **Cypher is fixed text.** The kind, the concept filter and the bound are the only parts chosen by input, and each is a fixed text or a checked whole number. The words reach Lucene as one parameter, `$lucene`.
