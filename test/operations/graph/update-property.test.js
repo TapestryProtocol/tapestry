@@ -86,6 +86,8 @@ function main() {
       upd('r-marked-items', 'owner', { property: key.colors, schema: { items: { type: 'integer' } } }),
       upd('r-tangled', 'owner', { property: ctx.extra.roof, description: 'x' }),
       upd('r-not-own-node', 'owner', { property: ctx.extra.theirName, description: 'x' }),
+      // Review round 1, finding 4: a description given inside the piece becomes the node's description tag too.
+      upd('r-piece-desc-control', 'owner', { property: key.price, schema: { description: `a${cp(0x01)}b` } }),
     ]);
     const afterR = S.readState(file);
     const c = P.runOn(file, [
@@ -233,6 +235,7 @@ test('UP10: each refusal, and the graph as it was after them all; the stray catc
     ['r-piece-compile', 400, 'bad-schema'], ['r-piece-array', 400, 'bad-schema'],
     ['r-marked-type', 409, 'marked-field'], ['r-marked-items', 409, 'marked-field'],
     ['r-tangled', 409, 'tangled-tree'], ['r-not-own-node', 409, 'not-own-node'],
+    ['r-piece-desc-control', 400, 'bad-description'],
   ]) refused(r, id, status, code);
   assert(P.same(P.graphOf(afterR), P.graphOf(beforeR)), 'every refusal left the graph as it was');
   assert(P.node(afterR, ctx.tree.retired) && P.json(afterR, ctx.tree.name).property.required === true, 'beagle\'s tree is still the old one: the refused write undid its catching up');

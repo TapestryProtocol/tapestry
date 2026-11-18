@@ -113,3 +113,23 @@ The live check's first run (L1a) found Decision 10 refusing the first property w
 - On the code with Decision 10 as first written, AP14 fails on its first premise: `400 invalid-fields`, "`graph.graphType` is required", the live check's L1a in the fake. add-property was 13/1.
 - On the code with Amendment 2's check, add-property is 14/0.
 - AP3 failed before this change on any code: price's `HAS_ELEMENT` edges in the final graph are the property superset's and the first set's.
+
+## Added at review round 1 (2026-11-17, ADR 0018 Amendment 3; the owner chose to fix the findings before the PR)
+
+- **A description given inside a piece, or on a set-schema field** (finding 4; Amendment 3, item 2). It becomes the node's description tag, so it is checked as the `description` input is:
+  - AP11's `r-piece-desc-control` (add-property) and UP10's (update-property) give `schema: { description: "a" + U+0001 + "b" }`, and expect `400 bad-description`;
+  - SS8's `r-desc-control` gives a field with that description, and expects the same. SS9's list check expects set-schema to declare `bad-description`.
+- **Properties under a field that isn't an object** (finding 8; Amendment 3, item 3). SS8's `r-props-under-string` gives `code: { type: "string", properties: { part: … } }`, and expects `400 bad-type`.
+- **AP15, the report's cap** (finding 3). It runs on its own seed, `prepare` with 60 more elements of lamp, each with tapestryJson. add-property makes `watts` required:
+  - all 60 stop fitting and are counted, and 50 are named, the first 50 by tapestryKey, each with "`lamp.watts` is required";
+  - `limit` is 10,000 and `beyond` false.
+
+  remove-property then takes `slug` out: all 60 still hold one, and the same 50 are named.
+- **`beyond: true` has no suite case.** A fake graph of 10,001 elements, each with a store entry, is more than a stack-free suite should build. The report reads 10,001 elements, judges the first 10,000 in the read's order, and names among them by tapestryKey. So past 10,000 elements, the read decides which are judged. The live L7 judged 1,000.
+- **`test/helpers/propertyGraph.js:66`'s slug range is written as escapes** (finding 5). It held a raw U+0300 and U+036F. It now matches `src/lib/dtag.js:26`.
+- **The races of finding 1 have no suite case:** the fake runs one transaction at a time. Amendment 3, item 1 records them as known limits, and the ledger row carries the fix.
+
+**Verification**, on the code at `1ab4e00c` (review round 1's), each suite alone with every endpoint dead:
+- **add-property, 14/1:** AP11 fails on `r-piece-desc-control`: `200`, the property added. AP15 passes: the cap was already as the ADR says.
+- **update-property, 9/2:** UP10 fails on its `r-piece-desc-control`: `200`, updated. UP4 fails after it, on the description that update left on price.
+- **set-schema, 7/2:** SS8 fails on `r-desc-control`: `200`, set. `r-props-under-string` landed too. SS9 fails after them, on gadget's schema those two sets left.

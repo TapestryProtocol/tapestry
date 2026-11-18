@@ -33,7 +33,7 @@ const set = P.post('set');
 const add = P.post('add');
 const RULE = 'element-fits-schema';
 const DRAFT = 'https://json-schema.org/draft/2020-12/schema';
-const CODES = ['unknown-concept', 'not-own-concept', 'firmware-concept', 'not-installed', 'no-schema', 'no-primary-property', 'not-wrapped', 'tangled-tree', 'not-own-node', 'bad-name', 'bad-type', 'bad-schema', 'schema-too-large', 'marked-field', 'no-free-address', 'invalid-fields', 'invalid-input', 'wrong-content-type', 'sign-in-required', 'not-allowed'];
+const CODES = ['unknown-concept', 'not-own-concept', 'firmware-concept', 'not-installed', 'no-schema', 'no-primary-property', 'not-wrapped', 'tangled-tree', 'not-own-node', 'bad-name', 'bad-type', 'bad-description', 'bad-schema', 'schema-too-large', 'marked-field', 'no-free-address', 'invalid-fields', 'invalid-input', 'wrong-content-type', 'sign-in-required', 'not-allowed'];
 
 /** A wrapped schema for a concept keyed `key`, with these fields, and every frame keyword the json-schema concept requires. */
 const wrapped = (key, fields, section = {}) => ({ $schema: DRAFT, type: 'object', required: [key], definitions: {}, properties: { [key]: { type: 'object', ...section, properties: fields } } });
@@ -143,6 +143,9 @@ function main() {
       set('r-not-own-node', 'owner', { concept: made.cabin.conceptHeader, schema: P.schemaDoc(before, made.cabin.conceptHeader) }),
       set('r-marked-remove', 'owner', { concept: LAMP, schema: lampWith(null) }),
       set('r-marked-type', 'owner', { concept: LAMP, schema: lampWith({ type: 'number' }) }),
+      // Review round 1: a field's description becomes its node's tag (finding 4); only an object holds properties (finding 8).
+      set('r-desc-control', 'owner', { concept: GD, schema: wrapped('gadget', { note: { type: 'string', description: `a${cp(0x01)}b` } }) }),
+      set('r-props-under-string', 'owner', { concept: GD, schema: wrapped('gadget', { code: { type: 'string', properties: { part: { type: 'string' } } } }) }),
     ]);
     const afterR = S.readState(file);
     return { ctx, a, r, GD, BK, S1, S2, S3, S4, gd0, catSet, mouseSet, beagleSet, deep, before, beforeR, afterR };
@@ -254,6 +257,7 @@ test('SS8: each refusal, and the graph as it was after them', async () => {
     ['r-no-schema', 409, 'no-schema'], ['r-two-schemas', 409, 'no-schema'], ['r-no-pp', 409, 'no-primary-property'],
     ['r-tangled', 409, 'tangled-tree'], ['r-not-own-node', 409, 'not-own-node'],
     ['r-marked-remove', 409, 'marked-field'], ['r-marked-type', 409, 'marked-field'],
+    ['r-desc-control', 400, 'bad-description'], ['r-props-under-string', 400, 'bad-type'],
   ]) refused(r, id, status, code);
   assert(/unmark-field/.test(r.req('r-marked-remove').body.error), `marked-field names graph unmark-field; got ${show(r.req('r-marked-remove').body.error)}`);
   assert(P.same(P.graphOf(afterR), P.graphOf(beforeR)), 'every refusal left the graph as it was');

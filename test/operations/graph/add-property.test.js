@@ -28,6 +28,8 @@
  *   AP13  nothing is signed; callers; an admin's add is the admin's; the command; the list and /docs
  *   AP14  the check of what a write wrote refuses only what the write breaks (ADR 0018 Amendment 2), over a seed with
  *         what an installed instance has: a concept whose schema the tree graph already fails
+ *   AP15  the report names at most 50 elements in each list, the first by tapestryKey, and counts them all (review
+ *         round 1, finding 3)
  */
 
 const path = require('path');
@@ -116,6 +118,8 @@ function main() {
       add('r-piece-compile', 'owner', { concept: TH, name: 'p7', type: 'number', schema: { minimum: 'five' } }),
       add('r-in-use', 'owner', { concept: TH, name: 'price', type: 'string' }),
       add('r-in-use-catch-up', 'owner', { concept: made.bookshop.conceptHeader, name: 'slug', type: 'string' }),
+      // Review round 1, finding 4: a description given inside the piece becomes the node's description tag too.
+      add('r-piece-desc-control', 'owner', { concept: TH, name: 'p8', type: 'string', schema: { description: `a${cp(0x01)}b` } }),
     ]);
     const afterR = S.readState(file);
     return { ctx, a, b, r, TH, before, afterA, beforeR, afterR, keys: { addressKey, priceKey, tagsKey } };
@@ -334,6 +338,7 @@ test('AP11: each refusal, and the graph as it was after them all; a refused writ
     ['r-piece-array', 400, 'bad-schema'], ['r-piece-unparsed', 400, 'bad-schema'], ['r-piece-properties', 400, 'bad-schema'], ['r-piece-required', 400, 'bad-schema'],
     ['r-piece-type', 400, 'bad-schema'], ['r-piece-description', 400, 'bad-schema'], ['r-piece-compile', 400, 'bad-schema'],
     ['r-in-use', 409, 'name-in-use'], ['r-in-use-catch-up', 409, 'name-in-use'],
+    ['r-piece-desc-control', 400, 'bad-description'],
   ]) refused(r, id, status, code);
   assert(/number/.test(r.req('r-in-use').body.error) && /string/.test(r.req('r-in-use').body.error), `name-in-use names what differs; got ${show(r.req('r-in-use').body.error)}`);
   assert(P.same(P.graphOf(afterR), P.graphOf(beforeR)), 'every refusal left the graph as it was: no node, tag, relationship or entry');
@@ -423,6 +428,45 @@ test('AP14: the check of what a write wrote refuses only what the write breaks, 
   assert(ob.status === 400 && ob.body.code === 'invalid-fields' && /strict property/.test(ob.body.error),
     `taking out the description that strict property requires is refused: a problem the write introduces; got ${ob.status} ${show(ob.body)}`);
   assert(P.json(S.readState(file), landed.body.data.property.property).property.description === 'What a pot costs', 'and price keeps its description');
+});
+
+test('AP15: the report names at most 50 elements in each list, the first by tapestryKey, and counts them all (review round 1, finding 3)', async () => {
+  P.needDecls(['add-property', 'remove-property']);
+  const ctx = await P.prepare('add-property-cap');
+  const { file, made } = ctx;
+  const LAMP = made.lamp.conceptHeader;
+  const s = S.readState(file);
+  const b = P.over(s);
+  const sup = b.byKey(made.lamp.nodes.superset);
+  const entries = [];
+  const keys = [];
+  for (let i = 0; i < 60; i += 1) {
+    const name = `lamp ${String(i).padStart(2, '0')}`;
+    const slug = P.slugOf(name);
+    const word = { slug, name, wordTypes: ['word', 'lamp'] };
+    const section = { name, slug, description: `lamp number ${i}` };
+    const n = b.lettered({ uuid: `39999:${TA}:${slug}`, labels: ['ListItem'], name, tags: [['d', slug], ['name', name], ['z', made.lamp.address], ['json', JSON.stringify({ word, lamp: section })]] });
+    b.link(sup, 'HAS_ELEMENT', n);
+    keys.push(n.props.tapestryKey);
+    entries.push([n.props.tapestryKey, { word, lamp: section, graphContext: { derivedAt: 1763000001, parentJsonSchemas: [] } }]);
+  }
+  G.writeState(file, s);
+  P.storeEntries(ctx.dir, entries);
+  const first50 = [...keys].sort().slice(0, 50);
+
+  const x = P.runOn(file, [add('watts', 'owner', { concept: LAMP, name: 'watts', type: 'integer', required: true })]);
+  const e = ok(x, 'watts').elements;
+  assert(e.judged === 60 && e.stoppedFitting.count === 60 && e.stoppedFitting.elements.length === 50,
+    `all 60 stop fitting, counted, and 50 are named; got ${show({ judged: e.judged, count: e.stoppedFitting.count, named: e.stoppedFitting.elements.length })}`);
+  assert(show(e.stoppedFitting.elements.map((y) => y.node)) === show(first50), 'the 50 named are the first by tapestryKey');
+  assert(e.stoppedFitting.elements.every((y) => y.problems.some((p) => p.message === '`lamp.watts` is required')), 'each named with its problem, in the rule\'s words');
+  assert(e.limit === 10000 && e.beyond === false, `the limit, and not beyond it; got ${show({ limit: e.limit, beyond: e.beyond })}`);
+
+  const slugKey = P.treeOf(S.readState(file), LAMP).find((row) => row.name === 'slug').key;
+  const y = P.runOn(file, [P.post('remove')('slug', 'owner', { property: slugKey })]);
+  const st = ok(y, 'slug').elements.stillHold;
+  assert(st.count === 60 && st.elements.length === 50 && show(st.elements.map((z) => z.node)) === show(first50),
+    `all 60 still hold a slug, counted, and the first 50 by tapestryKey are named; got ${show({ count: st.count, named: st.elements.length })}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

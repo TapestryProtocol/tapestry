@@ -63,7 +63,7 @@ const ROUTE = Object.freeze({
 });
 const DECL = (name) => path.join(ROOT, `src/operations/catalog/graph/${name}.js`);
 /** BIBLE §9's deterministic d-tag of a property: slug(name)-<sha256(parent uuid), first 8>, as dtag.childDTag computes it. */
-const slugOf = (name) => String(name).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const slugOf = (name) => String(name).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const hash8 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex').slice(0, 8);
 const childD = (name, parentUuid) => `${slugOf(name)}-${hash8(parentUuid)}`;
 const hex = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
