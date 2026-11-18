@@ -3,8 +3,8 @@
 **Id:** 2026-11-17-rule-three-rewrite-awaits-firmware-reinstall
 **Type:** cleanup
 **Opened:** 2026-11-17 (story graph-operations-first-slice #18, ADR graph-operations-first-slice/0018 Consequences: "Firmware reinstall required? Yes, for rule 3's element text (Decision 15)")
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-18. Reinstalled on staging (04:53Z to 04:57Z) and on production (05:34Z to 05:38Z), each on the owner's yes, after TapestryProtocol/tapestry#136 and its promotion #137. Rules 3 and 7's items in each graph now carry the new words (story 18's Evidence, "On staging and production"). The row the paragraph below names, `2026-11-17-rule-seven-rewrite-awaits-firmware-reinstall`, had already closed: story 42's reinstalls took entry 7's earlier rewrite to both servers (#134). So this row alone tracked story 18's change. The agent-memory instance on the Mac Studio takes it only at David's word.
 
 **What is pending.** Story 18 changes two rulebook entries (`docs/GRAPH_RULES.md`):
 - entry 3, `field-mark-allowed`: its `no-property-node` line now names `graph set-schema` and the other property writes, which give a concept's fields their nodes and sign nothing, beside `POST /api/normalize/generate-property-tree`;

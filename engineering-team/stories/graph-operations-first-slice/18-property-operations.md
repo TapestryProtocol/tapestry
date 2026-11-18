@@ -228,6 +228,53 @@ Round 2 found that round 1's rewrite of the address check could give a new prope
   - The relay held 465 at all five counts, L8's writes inside the bracket.
   - L4 wasn't run again, for round 1's fixes' reason.
 
+### On staging and production (2026-11-18)
+
+**Staging: TapestryProtocol/tapestry#136.**
+- **Its CI:** the `Test` run 44236456289 passed on the PR's head, `06cbfe1f`.
+- **The safe-to-merge check** (`scripts/check-safe-to-merge.sh`) said safe at 04:30:04Z: no task active, and the next scheduled one at 05:40Z.
+- **The merge,** at 04:30:12Z, was pinned with `--match-head-commit 06cbfe1f`. Its merge commit is `02e21816`.
+- **The deploy:** `deploy-staging.yml` run 44237765055 succeeded, 04:30:15Z to 04:32:08Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`) was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering after 3;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504;
+  - tier 3: `/docs`, which the server builds at startup from the catalog it loaded, lists the four routes once each. It also carries "only an object holds properties", which no file held before round 1's fixes (`27f1a985`). Signed-out POSTs to the four routes answer 401, but so does a route that doesn't exist, because the sign-in check in front of every `/api/tapestry` route answers first. So the 401s show only that check;
+  - tier 5: create-concept, delete-node, update-concept, history and the operations list still ask for a sign-in, and the concept graph's summaries answered 200.
+
+  Tier 4 didn't apply, since no UI changed.
+- **Loom** marked A10.18 done and verified, weakly, on the merge: #136 had no approval from a teammate other than the owner.
+- **The firmware reinstall** ran with the owner's yes.
+  - **Before it,** deploy-safety said safe at 04:53:34Z, with the next task at 05:40Z.
+  - **The install** was one loopback call over SSH, 04:53:34Z to 04:57:07Z:
+    - Pass 1: 41 concepts, 0 errors; Pass 2: 41 enriched, 0 errors;
+    - Pass 3: 741 derived, 4 enumerations, 103 implicit elements;
+    - "FIRMWARE INSTALL COMPLETE", with no firmware error in the log.
+  - **Rules 3 and 7's items** (`…:field-mark-allowed-22bbd716`, `…:element-fits-schema-22bbd716`) held entries 3's and 7's old words before it. After it they hold the new words and not the old. The check read each item's `json` tag from the public `/api/concept-graph/node/<handle>`, so it needed no SSH. Each item's `tapestryJsonUpdatedAt` moved with the install.
+
+**Production: TapestryProtocol/tapestry#137,** the promotion.
+- **What it carried:** staging at `02e21816`, from `promote/property-operations-2026-11-18`, a branch cut at that commit. That is #134 to #136:
+  - story 42's records;
+  - ADR 0022 and its story;
+  - this story, its ADR and its code.
+
+  The owner approved promoting #136. Shown that #134 and #135 rode along, both docs only, the owner approved the whole bundle. The PR's head was checked again just before the merge.
+- **Its checks:** the `stack-free` run 44241694295 passed on `02e21816`, as did `deploy`, `main-source-guard` and `publish`.
+- **The safe-to-merge check** against production said safe at 05:14:22Z: no task active, and the next scheduled one at 06:00Z.
+- **The merge,** at 05:14:25Z, was pinned with `--match-head-commit 02e21816`. Its merge commit is `dc1cf984`.
+- **The deploy:** `deploy-tapestry.yml` run 44242844419 succeeded, 05:14:28Z to 05:16:11Z.
+- **The smoke test** was clean, with the same checks as on staging except `graph history`. Tier 4 didn't apply.
+- **The firmware reinstall** ran with the owner's yes.
+  - **Before it,** deploy-safety said safe at 05:34:22Z, with the next task at 06:00Z.
+  - **The install** ran 05:34:22Z to 05:37:57Z:
+    - Pass 1: 41 concepts, 0 errors; Pass 2: 41 enriched, 0 errors;
+    - Pass 3: 716 derived, 4 enumerations, 110 implicit elements;
+    - "FIRMWARE INSTALL COMPLETE", with no firmware error in the log.
+  - **Rules 3 and 7's items** (`…:field-mark-allowed-e5a0c507`, `…:element-fits-schema-e5a0c507`) moved from the old words to the new. They were read the same way, before the promotion and after the install.
+
+**Not checked on either server:**
+- **Calls signed in as the owner or an admin,** which the smoke test can't make: the four writes, their reports and the rule's check. The live check covered them on a scratch stack.
+- **The agent-memory instance on the Mac Studio** has neither the code nor the new text. It takes them only at the owner's word.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
