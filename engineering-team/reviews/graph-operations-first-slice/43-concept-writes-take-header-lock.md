@@ -293,3 +293,38 @@ None new. Both findings are the case the Reviewer role's rule 10 names: a review
 ### Verdict (round 2)
 
 **PASS**
+
+## Round 3 — 2026-11-18 (HEAD `55b9c05a`)
+
+**Diff:** `git diff d75bce87 55b9c05a`: one commit, `55b9c05a`, 2 files, +14 −11, for round 2's two findings. It changes ADR 0018 and the header comment of `test/helpers/graphFake.js` only. Every changed line in the fake is a comment line, the file parses, and the added text is plain ASCII.
+**Gate:** none run, since the code is what the last scoped gate tested (`20261118T073056Z-47097-3e48` on `f1a69c1d`, PASS, quoted in round 2). At `55b9c05a`, on a clean tree with every endpoint dead, I ran the two suites the comment touches. The fake graph's own suite printed `31 passed, 0 failed, 0 skipped`, and the new suite `8 passed, 0 failed, 0 skipped`.
+**harness-lint:** `clean (0 violations)` at `55b9c05a`, and with this section added.
+
+| Passage | Checked against | Verdict |
+|---|---|---|
+| **1. D15's routes** (`0018:534-537`) | All five routes sign, and none takes a lock anywhere under `src/api`.<br>**Find only a lettered concept:** generate-property-tree (`src/api/normalize/index.js:3661`), generate-json-schema (`src/api/property/index.js:20`) and create-property given a concept (`:3494`) match only a `NostrEvent` header. save-schema, given a tapestryKey, finds any header (`:1958`) and refuses one with no letter before it writes (`:1997-1999`). So "find only" (my round-2 wording) is loose for save-schema, but the reach the sentence states holds.<br>**The other two:** set-json-tag finds any node with tags by its uuid (`:4799`). create-property given a parent finds any parent node (`:3484`) and links the new property under it by `IS_A_PROPERTY_OF` (`:3551-3555`), so it joins that concept's tree.<br>**"save-schema, for one, a whole schema":** save-schema writes the request's whole schema over the node's `jsonSchema` (`:2036-2038`). | holds |
+| **2. `word` and `graphContext`** (`0018:538`) | Round 1's probe: every field of `word` refused `no-property-node`. Round 2's reading: no concept keyed `graphContext` among the scratch stack's 259 headers. This round: neither firmware version (v0.0.1; v1.0.0, the active one) has such a concept, and the key appears only inside v1.0.0's `word` schema. | holds |
+| **3. What waits** (`0018:525`; `graphFake.js:102-112`) | Round 2's probes: at the statement, C1's SET and REMOVE (1,531 ms), a relationship's MERGE (1,552 ms) and DETACH DELETE (1,533 ms) waited; a relationship's CREATE didn't (26 ms and 81 ms), and its commit did (1,511 ms).<br>"The fake none of them" holds: the fake classifies those statements `lock`, `merge`, `detach` and `create`, and `meanwhile` fires on `copies` alone (`graphFake.js:676-679`).<br>**The reflow:** joined line by line, the paragraph's text before and after the rewritten sentence is identical to `d75bce87`'s. | holds |
+
+### Findings (round 3)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+None.
+
+#### Harness friction (round 3)
+
+None.
+
+### On PASS (round 3, same commit)
+
+- [x] The story's Status is already Done, from round 1's commit `c05511f1`; nothing to flip.
+- [x] Completion detection performed again. The result goes in the chat.
+
+### Verdict (round 3)
+
+**PASS**
