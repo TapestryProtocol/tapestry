@@ -63,5 +63,5 @@ As the owner, I want every concept in my graph on the Concepts page and in the D
 
 ## Linked artifacts
 - ADR: none. Architecture was skipped, as for a bug with an obvious fix (David, 2026-11-18).
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/44-concepts-list-shows-concepts-with-no-event.test-plan.md`
 - Review: (filled in after Review phase)

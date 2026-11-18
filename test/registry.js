@@ -409,6 +409,10 @@ const suites = [
   { file: 'graph-rules-builder.test.js' },
   { file: 'graph-rule-firmware.test.js' },
   { file: 'firmware-element-sync.test.js' },
+  // graph-operations-first-slice #44: the Concepts page and the Dashboard's Concepts tile show a concept with no event,
+  // as graph create-concept makes one, and its row offers no Disposition… until it has one. Stack-free in every run;
+  // its live checks run only against a scratch container (tapestry-scratch…).
+  { file: 'concepts-list-shows-concepts-with-no-event.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so
