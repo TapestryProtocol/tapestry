@@ -99,7 +99,7 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
   - the suites: `tagging-edges-realtime-wrapper`, `ci-test-job`, `live-link-checks`, `workflow-hardening`, `honest-publish-reporting-ci-guard`, `information-for-agents`, `llms-txt`, `harness-lint`, `ledger-row-ids` and `session-start`;
   - its record, `20261118T172233Z-40726-60bc [thg-3-impl]`: PASS, exit 0, 272 passed, 0 failed, 41 skipped, 10 of 10 suites.
 
-  All three of these gate runs were on `92554055+dirty`, before `7b6e0e24` existed, so none could see L10's view of that commit (round 1, blocking 1). The run before it, `20261118T171956Z-88650-afc8`, failed `ci-test-job` W8 alone, on the comment's wording (Deviations). The run after this section and the "Last updated" bump were written, `20261118T172451Z-92271-e982 [thg-3-impl-final]`, passed with the same counts.
+  The run before that record, `20261118T171956Z-88650-afc8`, failed `ci-test-job` W8 alone, on the comment's wording (Deviations). The run after this section and the "Last updated" bump were written, `20261118T172451Z-92271-e982 [thg-3-impl-final]`, passed with the same counts. All three of these gate runs were on `92554055+dirty`, before `7b6e0e24` existed, so none could see L10's view of that commit (round 1, blocking 1).
 
 The probe, its scripts and their output are in the main checkout's `tmp/rw7-probe/`.
 
