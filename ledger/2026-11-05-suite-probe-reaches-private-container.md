@@ -36,4 +36,11 @@ still reaches it. That review skipped the first two at round 2, and all three fr
 digest takes its probe URL from a variable that a suite can point at a dead port, or the suites put a stub `curl`
 first on `PATH`.
 
+**Note 2026-11-18 (graph-operations-first-slice #44, review round 1, harness friction 2):** still open, and still easy to
+miss. That review left `session-start` out of its scoped gate for this reason, but kept `ledger-row-ids`, which runs the
+digest too (`test/ledger-row-ids.test.js:111`). So its gate made the digest's read-only probe of `localhost:7778` once.
+A dead-endpoint env can't stop the probe, which reads its port only from `/etc/brainstorm.conf`, never from
+`TAPESTRY_PORT` (`scripts/session-start.sh:41–47`). Round 2's gate put a stub `curl` and a stub `docker` first on
+`PATH`, this row's second fix shape.
+
 **Pointer:** `engineering-team/reviews/harness-self-improvement/issue-evaluator-pilot-2026-11-05.md` § Harness friction 1
