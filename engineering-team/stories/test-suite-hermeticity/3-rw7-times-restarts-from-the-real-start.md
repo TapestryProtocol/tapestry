@@ -67,7 +67,7 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
 ## Linked artifacts
 
 - ADR: none. Architecture is skipped: a Bug whose fix follows from its cause, under Standard.
-- Test plan: (filled in after Test Design)
+- Test plan: `engineering-team/stories/test-suite-hermeticity/3-rw7-times-restarts-from-the-real-start.test-plan.md`
 - Review: (filled in after Review)
 - Ledger: `ledger/2026-10-08-realtime-wrapper-timing-flake-under-load.md`
 - The reproduction: the probe and its output, in the main checkout's `tmp/rw7-probe/` (git ignores it).
