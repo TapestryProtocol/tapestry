@@ -38,7 +38,7 @@ first on `PATH`.
 
 **Note 2026-11-18 (graph-operations-first-slice #44, review round 1, harness friction 2):** still open, and still easy to
 miss. That review left `session-start` out of its scoped gate for this reason, but kept `ledger-row-ids`, which runs the
-digest too, once per merge order (`test/ledger-row-ids.test.js:102–111`). So its gate made the digest's read-only probe
+digest too, once per merge order (`test/ledger-row-ids.test.js:103–111`). So its gate made the digest's read-only probe
 of `localhost:7778`, the agent-memory `tapestry` container's published port on this Mac, twice. A dead-endpoint env
 can't stop the probe, which reads its port only from `/etc/brainstorm.conf`, never from `TAPESTRY_PORT`
 (`scripts/session-start.sh:41–47`). Round 2's gate put a stub `curl` and a stub `docker` first on `PATH`, this row's
@@ -46,9 +46,10 @@ second fix shape.
 
 **Note 2026-11-18 (graph-operations-first-slice #44, review round 2, harness friction 1):** a dead-endpoint env doesn't
 move Neo4j either.
-- **Why:** `src/lib/neo4j-driver.js:33` falls back to `bolt://localhost:7687`, and `getConfigFromFile` reads only
-  `BRAINSTORM_CONF_PATH` or `/etc/brainstorm.conf` (`src/utils/config.js:19`), so no env variable reaches it. On this Mac
-  the agent-memory `tapestry` container publishes 7687.
+- **Why:** `src/lib/neo4j-driver.js:33` falls back to `bolt://localhost:7687`. `getConfigFromFile` reads the conf that
+  `BRAINSTORM_CONF_PATH` names, or `/etc/brainstorm.conf`, and with neither there, as on this Mac's host, it returns the
+  default (`src/utils/config.js:19`, `:66–74`). So `NEO4J_URI` and the other endpoint variables a dead-endpoint run sets
+  don't reach it. On this Mac the agent-memory `tapestry` container publishes 7687.
 - **Nothing reached it in story 44's gates.** Each suite there that names the driver stubs or fakes it, and
   `operations.test.js` gives its child processes a conf with Neo4j and Redis at port 9 (`:160–173`).
 - **But nothing would stop it.** That file runs the suites under `test/operations/` in its own process, with the gate's
