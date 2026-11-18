@@ -245,3 +245,165 @@ against 20 ms of slack.
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+## Round 2 — 2026-11-18 (HEAD `94642b48`)
+
+**Diff:** `git diff 04b8fe47..HEAD`, 11 files, +67 −12. It has two commits: `9ea9c95a`, round 1's fixes (11 files,
++59 −12), and `94642b48`, their Evidence (the story only, +8). It changes only records: `git diff 04b8fe47..HEAD --
+test/ src/` is empty, so the suite is the one round 1 reviewed. The whole change, `git diff 566d2eb3..HEAD`, is 14
+files, +587 −11.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] `npm test` (the full gate): **not run on this Mac**, for the reason round 1 gives. In its place, I ran round 1's
+      17-suite scoped gate through the gate engine, on the clean committed tree, with every endpoint dead:
+      `20261118T193212Z-63070-bb31 [thg-3-review-r2] started 2026-11-18T19:32:12.886Z on 94642b48 — FAIL, exit 1, 380 passed, 3 failed, 41 skipped, 17/17 suites; failed: router-stream-limit-on-connect`
+  - The record's `git.dirty` is false.
+  - **`router-stream-limit-on-connect` 23/3/0, not caused by this diff.** P1–P3 fail with `sed: … invalid command code
+    f`, macOS's BSD `sed -i` (ledger row `2026-10-09-router-patch-sed-macos`). Its OPERATIONS.md check, O1, passes. In
+    a throwaway `node:22-bookworm` container (Node 22.23.3, GNU sed 4.9, the worktree mounted read-only) it passed
+    26/0/0.
+  - **Every other suite passed** with round 1's counts, except `harness-lint`, now 85/0/0 (round 1: 83/2/0).
+    `tagging-edges-realtime-wrapper` 25/0/0, `ci-test-job` 14/0/0, `live-link-checks` 26/0/0, `workflow-hardening`
+    36/0/0, `honest-publish-reporting-ci-guard` 4/0/1, `information-for-agents` 32/0/25, `llms-txt` 12/0/15,
+    `ledger-row-ids` 6/0/0, `session-start` 32/0/0, `bullboard-admin-access` 9/0/0, `generalized-task-scheduler`
+    12/0/0, `reconciliation-incremental-mode` 16/0/0, `reconciliation-rearchitecture` 15/0/0, `task-queue-bullmq`
+    18/0/0, `task-queue-neo4j-resource-class` 15/0/0.
+  - These are the counts of the Implementer's `20261118T192258Z-89344-3bf5`, which ran on `9ea9c95a` with `git.dirty`
+    false.
+  - **Two more suites read the changed ledger rows and the branch's commits,** and aren't among the 17 (non-blocking
+    5). I ran them through the gate engine, on the same clean tree, with the same dead endpoints:
+    `20261118T194538Z-32874-c1f9 [thg-3-review-r2-extra] started 2026-11-18T19:45:38.754Z on 94642b48 — PASS, exit 0, 45 passed, 0 failed, 0 skipped, 2/2 suites`
+    (`rollup-scanners` 33/0/0, `harness-stats` 12/0/0).
+- [x] **`bash scripts/harness-lint.sh`** at `94642b48`, clean tree: `harness-lint: clean (0 violations)`, exit 0. L10
+      now lands on `9ea9c95a` (`scripts/harness-lint.sh:287`), which touches both `.github/workflows/test.yml` and
+      `engineering-team/CHANGELOG.md`.
+- [x] **The suite alone:** on this Mac, 25/0/0 in three runs of three; in the Linux container, 25/0/0 in two of two.
+- [x] `git diff --check 566d2eb3..HEAD`: clean.
+- [x] **GitHub, read only, one request at a time.** I read the attempts of RW7's four CI failures (`43503615549`;
+      `43985723290`, attempts 1 and 2; `43989662522`; `44335714732`, attempts 1 and 2), attempt 1 of `43808151504`,
+      and the `Test` workflow's run listing, twice (183 runs, 2026-10-27T01:36Z to 2026-11-18T19:22Z).
+- [ ] `npm run test:playwright`: not applicable.
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+The optional independent check before commit (workflow 5) was not applied.
+
+### Round 1's findings, as fixed
+
+| # | The fix | How I checked it | Result |
+|---|---|---|---|
+| Blocking 1 | A CHANGELOG row (`engineering-team/CHANGELOG.md:122`), in `9ea9c95a` with `test.yml`'s rewording; a run on the committed tree, in Evidence (story lines 106–112) | The lint and the gate above. The row's claims hold: the base header said "the stack-free suite has a zero-flake record" (`git show 566d2eb3:.github/workflows/test.yml`, line 6); the other three flakes' rows were opened on 2026-11-16 from PR #83's runs; RW7 failed 4 of 110 runs from 2026-11-13 (the RW7 row, line 124). The Evidence's record ran on `9ea9c95a`, clean, 380/3/41, failing only the router suite. | holds, except one asked item: the Evidence doesn't say that the Implementation records were of a dirty tree (non-blocking 4) |
+| Blocking 2 | `OPERATIONS.md:1060` and `:1064`; `test.yml:7–9`; `ledger/2026-11-16-ci-gate-flake-history-claim-untrue.md:18–19` | "Never a retry" is gone. RW7's four runs on GitHub: `43985723290` and `44335714732` failed attempt 1 and passed attempt 2; `43503615549` and `43989662522` have one attempt each. So "two of its four CI failures were run again by hand … and each passed on the second run" holds. Each of the four flakes has a row, now DONE, committed before its fix. `ci-test-job` W8 passes. | holds for RW7, but `test.yml`'s "the two failed runs" leaves out a third (blocking 1 below) |
+| Non-blocking 1 | Story lines 74–79; test plan lines 37–39, box ticked | Nothing reads the `ms` at `test:567`, `:647`, `:673` or `:862`, and those windows are `waitFor` timeouts. RW22 reads the offsets in its fixture check (`test:1290–1291`) and its messages (`:1289`, `:1291`, `:1294`). | holds for RW3, RW9, RW10, RW22 and RW24; the new heading overclaims (non-blocking 3) |
+| Non-blocking 2 | `ledger/2026-10-08-realtime-wrapper-timing-flake-under-load.md:13` | Read against the row's lines 18–20 and 31–36 | holds |
+| Non-blocking 3 | Story line 71; `ledger/2026-11-16-ci-gate-flake-history-claim-untrue.md:18` | — | holds |
+| Non-blocking 4 | The 17 suites | I looked for any other suite reading the changed files. `entrypoint-template-rendering` defines an OPERATIONS.md path (`test/entrypoint-template-rendering.test.js:32`) but never reads it. `brains-launcher-repo` only sorts path names. `tagging-edges-wiring` names §12 in a test title. Three suites name `test.yml` in comments only. | holds for the readers of OPERATIONS.md and `test.yml`; two readers of the changed ledger rows and commits were missing from both rounds' list (non-blocking 5) |
+
+Round 2's other new claims hold too:
+- **`ledger/2026-11-18-gate-before-commit-misses-lint-l10.md`**, except line 10 (non-blocking 1):
+  - its account of L10 matches `scripts/harness-lint.sh:287`;
+  - the Implementer's phase files never mention `harness-lint`;
+  - "would have failed too" holds, since `harness-lint`'s real-repo tests (`test/harness-lint.test.js:568`, `:638`)
+    have no CI skip.
+- **`ledger/2026-11-18-no-map-of-suites-per-file.md`**, except line 11 (non-blocking 2): `7b6e0e24` changed
+  OPERATIONS.md, `test.yml` and two ledger rows (`git show --stat`), and the counts of ten suites and seven more are
+  right.
+- **The seen-again notes:** `scripts/harness-def-paths.txt:16–17` still says no workflow runs, and the template still
+  puts its close-out heading after `## Verdict` (`templates/review-checklist.md:61`, `:64`).
+- **The story's new Evidence:** L15 allows "two to six lowercase words" (`scripts/harness-lint.sh:438`), which fits
+  the rename to `no-map-of-suites-per-file`.
+- **What round 1 accepted still holds.** The RW7 row's "about 7–60 ms each" (line 8) spans the probe's medians, from
+  6.9 ms at 1.2 GB (the test plan's Verification) to 60.6 ms at 3 GB (`tmp/rw7-probe/run1.out`). The suite and `src/`
+  are unchanged since `7b6e0e24`, and the suite passes on both OSes.
+
+### Findings (round 2)
+
+#### Blocking
+1. **`.github/workflows/test.yml:7–9`** — "… and the two failed runs that were run again by hand against this rule".
+   Three failed runs were run again by hand, not two.
+   - **The two meant** are RW7's, `43985723290` (2026-11-17) and `44335714732` (2026-11-18, #143).
+   - **The third is PR #83's `43808151504`** (2026-11-16, branch `fix/resync-test-raw-bidi`, at `4df10d9b`). Its
+     attempt 1 failed on the live link check, and it was run again. Its attempt 2 failed K1's lock check, which is how
+     that flake was found.
+     - `ledger/2026-11-16-link-check-fails-during-prod-deploy.md:9`: "A rerun of the job, its attempt 2, passed L1 and
+       failed another test".
+     - The same row, line 13: "The rerun above was requested before §15 was read. Under §15 it doesn't change the
+       verdict, which for 4df10d9b is attempt 1's FAIL."
+     - `ledger/2026-11-16-k1-lock-check-races-worker.md:5` gives that row's source as "Actions run 43808151504,
+       attempt 2".
+   - **GitHub agrees.** Of the `Test` workflow's 183 runs from 2026-10-27 to 2026-11-18T19:22Z, exactly these three
+     have a second attempt, and attempt 1 of `43808151504` reads `failure`.
+   - **§15 doesn't mention the third.** Its live link checks bullet (`OPERATIONS.md:1063`) says nothing of the
+     rerun.
+   - **So the header undercounts the reruns.** It is one of AC5's two files, and the count is round 1's blocking 2's
+     subject: what the no-retry policy's record really is. That record bears on the owner's question, still open on
+     the 2026-11-16 row, of whether the quarantine file is still the answer to a flake.
+   - **"Names" also claims more than §15 does.** §15 gives no run's id; the RW7 row does (`ledger/2026-10-08-…:128`).
+     The CHANGELOG row says the same ("which names … the two RW7 failures", `engineering-team/CHANGELOG.md:122`).
+   - **Round 1 missed this.** Its blocking 2 asked for RW7's two reruns only, though the 2026-11-16 row it cited
+     points to the link-check row (line 12).
+
+   **Asked change:**
+   - In §15's live link checks bullet (`OPERATIONS.md:1063`), say that the failed run was run again by hand too. Give
+     each of the three reruns' run ids in §15, so that "names" holds.
+   - In `test.yml`, correct the count or drop it: for example, "… and the failed runs that were run again by hand
+     against this rule". Keep out `\bretry\b`, `rerun` and `--retries` (`ci-test-job` W8).
+   - That commit touches `test.yml`, so it must touch `engineering-team/CHANGELOG.md` too (L10). Amend row 122 so
+     that its account of §15 matches, or add a row.
+   - Bring the 2026-11-16 row's account of §15 (`ledger/2026-11-16-ci-gate-flake-history-claim-untrue.md:19`) into
+     line. It is the row for these three flakes.
+   - Then, on the committed tree, run `bash scripts/harness-lint.sh` and the scoped gate, and record both in Evidence
+     with their commit.
+   - Any wording suggested here is itself a claim for the next round to check.
+
+#### Non-blocking
+1. **`ledger/2026-11-18-gate-before-commit-misses-lint-l10.md:10`** — "ran three green scoped gates … on
+   `92554055+dirty`". The first of the three, `20261118T171956Z-88650-afc8`, failed `ci-test-job` (13/1/0, and
+   271/1/41 in all). The record doesn't name the test; the story says it was W8 (line 102). Only the other two were green. The wording grew from round 1's loose "the
+   Evidence's green scoped gates … all ran on `92554055+dirty`" (blocking 1).
+   Optional improvement: for example, "ran three scoped gates on `92554055+dirty`, with harness-lint passing in each;
+   the last two were green".
+2. **`ledger/2026-11-18-no-map-of-suites-per-file.md:11`** — "both `task-queue-*` suites". The registry has five
+   (`test/registry.js:76`, `:77`, `:89`, `:363`, `:376`). The two that read OPERATIONS.md are `task-queue-bullmq` and
+   `task-queue-neo4j-resource-class`. "Both `reconciliation-*` suites" is right, since there are two.
+   Optional improvement: name the two.
+3. **Story line 74** — "Only RW7 and RW22 read a start's time". RW25 reads each start's `at` too (`test:1348–1349`),
+   as the test plan says (line 20: "It reads what RW7 reads"). So does the quick scenario's window end (`test:619`),
+   which RW7 and RW8 share.
+   Optional improvement: for example, "Of the checks that predate this story, only RW7 and RW22 read a start's time
+   in an assertion or a message".
+4. **Story lines 98–102** — round 1's blocking 1 asked the Evidence to "say that the earlier records were of a dirty
+   tree". It doesn't: the story mentions neither `dirty` nor `92554055`.
+   - All three Implementation records ran on `92554055+dirty`, before `7b6e0e24` existed. Each record's `git.dirty`
+     is true.
+   - The new ledger row says so, but a reader of the story sees a green record with no caveat.
+
+   Optional improvement: one sentence at line 102, for example "All three ran on `92554055+dirty`, before `7b6e0e24`
+   existed, so none could see L10."
+5. **The scoped gate's suite list, again.** Two registry suites read what this story changed, and neither is among
+   the 17 that both rounds ran.
+   - `rollup-scanners` (`test/registry.js:158`) runs `collect_meta` in the real repo
+     (`test/rollup-scanners.test.js:110`). That reads every open meta row under `ledger/` (`scripts/lib/collect-meta.sh:66`),
+     the two this story added among them.
+   - `harness-stats` (`test/registry.js:155`) runs `scripts/harness-stats.sh` on the real repo's commits and reviews
+     (`test/harness-stats.test.js:150`, `:225`).
+   - Both pass at `94642b48` (record `20261118T194538Z-32874-c1f9`, above). Round 1's non-blocking 4 looked only for
+     OPERATIONS.md's readers. This is ledger row `2026-11-18-no-map-of-suites-per-file`'s case, seen again.
+
+   Optional improvement: add both suites to the next round's scoped gate.
+
+#### Harness friction (round 2)
+1. **The Implementer's phase files say lint isn't configured, and to skip it** (`engineering-team/roles/implementer.md:20`
+   and `:28`; `engineering-team/workflows/4-implementation.md:14`; `.claude/agents/implementer.md:24`).
+   - They mean code lint. But `harness-lint` is a lint that the gate runs, and its L10 is what failed here.
+   - None of those files names `bash scripts/harness-lint.sh`.
+   - No row says so yet. It fits as one line in the fix shape of `2026-11-18-gate-before-commit-misses-lint-l10`.
+2. Not new: two of this round's six findings are the case in rule 10 (`roles/reviewer.md:50`). Each is round 1's own
+   wording, carried into the records and made more definite.
+
+### Close-out (round 2, same commit, when the verdict passes)
+- [ ] Story `**Status:**` flipped to `Done` in place. Not done: the story stays Approved.
+- [x] Completion detection performed. The result is reported in the chat, never in this file.
+
+### Verdict (round 2)
+**CHANGES_REQUESTED**
