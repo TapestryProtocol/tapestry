@@ -113,6 +113,57 @@ Review round 1's cases came first: S7, L5, and L1's element and set counts (`c37
   `20261118T165237Z-42474-c07b [story-44-round2] started 2026-11-18T16:52:37.783Z on 8865dabf+dirty — PASS, exit 0, 1424 passed, 0 failed, 29 skipped, 16/16 suites`
   That is round 1's review gate, 1423/0/28, plus S7 passing and L5 skipped with no scratch stack. The dirty paths are this commit's own changes and the `node_modules` link.
 
+### On staging and production (2026-11-18)
+
+**Staging: TapestryProtocol/tapestry#147.**
+- **Its CI:** the `Test` run 44379880357 (`stack-free`) passed on the PR's head, `fe1dafb4`.
+- **The safe-to-merge check** against staging said safe at 19:34:20Z, on its first attempt, with no reasons.
+- **The merge,** at 19:34:23Z, was pinned with `--match-head-commit fe1dafb4`. Its merge commit is `af64a4e7`.
+- **The deploy:** `deploy-staging.yml` run 44381849992 succeeded, 19:34:26Z to 19:36:20Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`) was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering after 3;
+  - tier 2: its 7 pages, 4 of its public APIs (all but `get-user-data`) and the search route answered 200;
+  - tier 3: the served bundle, `index-DAxhuweK.js`, carries the page's new scan, `hasEvent`, "no event yet" and Shared by me's new scan. The page's own query gave 53 rows, each with `hasEvent`, none without an event. Asked with nothing declared, Shared by me's count and the Not yet shared list both gave 40. The tile's query gave 46;
+  - tier 4, in Chrome: the Concepts page rendered its 53 concepts. Shared by me showed "3 shared" and "Haven't shared these yet — 37 waiting", and Not yet shared (mine) showed "37 of 53 concepts". The Dashboard's tile read 46, and no page logged a console error;
+  - tier 5: the neighbouring routes answered 200.
+
+  Staging holds no concept with no event, so only the hosted brain below showed the new row.
+- **The hosted brains:** `publish-image.yml` run 44381850145 published and rolled them, 19:34:26Z to 19:43:41Z.
+- **On david.tapestry.ninja,** which holds concept graph rule, a concept with no event, checked read-only after the roll:
+  - it serves the same bundle;
+  - the page's query gave 54 rows, up from 53. The one without an event is concept graph rule: not undispositioned, not yet shared;
+  - in Chrome, its row says "no event yet" where Disposition… was;
+  - Undispositioned (mine) showed 40 of 54, without it, and Not yet shared (mine) showed 41 of 54, with it;
+  - Shared by me showed "0 shared" and "41 waiting";
+  - the Dashboard's tile read 48, up from 47;
+  - no page logged a console error.
+
+  Its profile search answered 503, "Search service unavailable": the brain has no search service, and this story doesn't touch search.
+- **No Loom task** follows this story; bugs stay in the repo's tracker.
+- **No firmware reinstall:** no concept definition changed.
+
+**Production: TapestryProtocol/tapestry#149,** the promotion.
+- **What it carried:** staging at `af64a4e7`, from `promote/concepts-list-eventless-2026-11-18`, a branch cut at that commit. That is #147, and three records-only PRs merged before it:
+  - #143: story 43's ship records;
+  - #145: a ledger row on RW7's CI flake;
+  - #146: story 22's ship records.
+
+  The owner approved promoting #147. The other three are docs only, and were part of the staging commit verified above.
+- **Its checks:** the `stack-free` run 44385615602 and the `main-source-guard` run 44385268273 passed on `af64a4e7`, as did `deploy` and `publish`.
+- **The safe-to-merge check** against production said safe at 20:08:40Z, on its first attempt, with no reasons.
+- **The merge,** at 20:08:43Z, was pinned with `--match-head-commit af64a4e7`. Its merge commit is `7163bf1d`.
+- **The deploy:** `deploy-tapestry.yml` run 44387897853 succeeded, 20:08:46Z to 20:10:39Z.
+- **The smoke test** was clean in tiers 1, 2, 3 and 5:
+  - tier 1: stable after 3 polls, with Neo4j answering after 6;
+  - tier 2: the same 12 answered 200;
+  - tier 3: it serves `index-DAxhuweK.js`, with the change. The page's query gave 50 rows, each with `hasEvent`, none without an event. Shared by me's count and the list both gave 37, and the tile's query gave 45;
+  - tier 5: the neighbouring routes answered 200.
+- **Tier 4 couldn't be checked in Chrome.** That profile is signed in to production as neither owner nor customer. From that session, production answers every `POST /api/neo4j/query` with 403, "Proper authentication required", even `RETURN 1` and the page's old scan, so every page shows the error. The same queries with no session answer 200, as tier 3's did.
+
+**Not checked on either server:**
+- **A concept with no event on staging or production.** Neither holds one. The new row was checked on david.tapestry.ninja, and on a scratch stack by the story's live checks.
+- **The agent-memory instance on the Mac Studio** has none of this code. It takes it only at the owner's word.
+
 ## Linked artifacts
 - ADR: none. Architecture was skipped, as for a bug with an obvious fix (David, 2026-11-18).
 - Test plan: `engineering-team/stories/graph-operations-first-slice/44-concepts-list-shows-concepts-with-no-event.test-plan.md`
