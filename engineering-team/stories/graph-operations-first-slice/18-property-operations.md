@@ -177,7 +177,7 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 
 **Run 1 found Decision 10 refusing every first write (L1a).** add-property on a concept `graph create-concept` made was refused `invalid-fields`: the rewritten property tree graph fails firmware's installed `graph` schema (`graph.graphType` is required), and the JSON schema node `validation tool`'s wordType conditionals. Both nodes fail those before any property write. The owner ruled that the check refuses only what the write breaks (ADR Amendment 2), and run 2 ran with that check.
 
-**Run 2: 23 of 23 passed** (`report-main.json`), on concept `live teapot jf5c`:
+**Run 2: 23 of 23 passed** (`report-main.json`), on concept `live teapot jf5c`. It ran on `_properties.js` uncommitted, with Amendment 2's check. Before `c6a2ea51`, that file changed twice more: the check's comment, which then named Amendment 2, and `pieceInput`'s refusal of a `__proto__` key. Review round 1 (finding 2) asked for this account. The live check ran again on the commit at round 1's fixes (below).
 - **L1:**
   - add-property lands, catching up name, slug and description first, nothing filled in, and judges the three derived elements;
   - a nested property is required under its parent;
@@ -198,6 +198,22 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - the property nodes, with their tapestryKeys, labels, properties, tags and relationships, and the schema node's JSON, were as run 2 left them.
 
 Each `down` first checked that the container mounted this worktree's `src/`. The instance is removed after the check.
+
+### Review round 1's fixes (2026-11-17)
+
+Review round 1 passed with nine non-blocking findings, and the owner chose to fix them before the PR: ADR Amendment 3 (`d8a8bb1b`), the Tester's cases (`0e2039e0`), and the fixes (`27f1a985`).
+- **The suites, each alone with every endpoint dead:** add-property 15/0, update-property 11/0, remove-property 8/0, set-schema 9/0, properties-agent-through-cli 1/0. On the code before the fixes, `1ab4e00c`, the new cases failed: add-property 14/1, update-property 9/2, set-schema 7/2 (the test plan's "Added at review round 1").
+- **The scoped gate,** the same five registry entries through the gate engine. `npm run gate:status -- --label a10-18-story-18-round-1-fixes` reads:
+  `20261118T031634Z-20933-134f [a10-18-story-18-round-1-fixes] started 2026-11-18T03:16:34.639Z on 27f1a985+dirty — PASS, exit 0, 1015 passed, 0 failed, 6 skipped, 5/5 suites`
+  - The dirty path is the untracked `node_modules` link alone.
+- **harness-lint** is clean. A code-point scan of every file touched, counting combining marks too, finds none this branch added.
+- **The live check, again, on the commit** (`main-round2.log`, `report-main-round2.json`; ledger row `2026-11-17-live-check-records-name-no-commit`'s fix, tried here):
+  - It ran on a fresh scratch stack, set up as before (`hand-calls.md`, "Review round 1's fixes"). Its report stamps code `27f1a985c576ecca7d930d6e4996aca8e20ce370`, with nothing beside it but the `node_modules` link.
+  - **24 of 24 passed,** on `live teapot z8sw`: L1, L2, L3, L5 and L7 as before.
+  - **L6** counts the relay at five points: before the seed, after L1, after L7, after the reinstall, and at the end. Each held 465, so it now brackets every write of the run, the agent's among them.
+  - **L3** compares the schema with the one read before the reinstall.
+  - **L7:** on a concept with 1,000 elements, add-property took 0.69 s and set-schema 0.34 s.
+  - **L4,** the restore, wasn't run again: the fixes touch the inputs' checks and the address lookup, not what a backup holds.
 
 ## Linked artifacts
 
