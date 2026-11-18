@@ -58,6 +58,13 @@
  *        a guard of what the code does)
  *   AT58 the published description: update-node changes what differs names for the instance's own node; for a node
  *        kept beside, which update-node refuses, a removal and then an add do (item 5)
+ *   Review round 3 (ADR Amendment 4), over ROUND2's calls and MAIN's listing:
+ *   AT59 Mark Me's refusal, from a call that writes no section, says fields given in it aren't written into the
+ *        section it holds, and names the way on: golden retriever, then dog's breed with update-node (item 1)
+ *   AT60 a refused call that writes a section keeps the rule's plain message, with no such way on: a new member's,
+ *        and a member's given its missing section, own or beside (item 1, so a fix can't over-reach)
+ *   AT61 the published description: a removal and then an add change the owner's own section of any node kept
+ *        beside; a section the author's letter holds, for a membership their letter claims, stays theirs (item 2)
  */
 
 const fs = require('fs');
@@ -638,9 +645,9 @@ let ROUND2 = null;
  * beside, put in dog through walkers, so each is in pet with no pet section (AT49's and AT50's state); Bare, whose
  * beagle section holds neither name nor slug, put in show beagles with fields, as AT5 puts rover there; walkerMax,
  * directly in walkers and so in pet with no pet section, put in pet through walkers with fields. GR: Mark Me, then
- * Command Beagle, put in golden retriever's superset through dog. BAD: Fetch and Snowy given pet sections pet's schema
- * refuses. Every call in GR (once Amendment 3 item 1 is built) and in BAD is refused, so each leaves the graph as the
- * run before it left it.
+ * Command Beagle, put in golden retriever's superset through dog, then Mark Me again with dog's breed given (review
+ * round 3). BAD: Fetch and Snowy given pet sections pet's schema refuses. Every call in GR (once Amendment 3 item 1 is
+ * built) and in BAD is refused, so each leaves the graph as the run before it left it.
  */
 function round2() {
   if (ROUND2) return ROUND2;
@@ -658,6 +665,8 @@ function round2() {
     const gr = runOn(file, [
       add('r2-gr', k.markMe, k.dog, { set: k.goldenRetrieverSuperset }),
       add('r2-new-gr', k.commandBeagle, k.dog, { set: k.goldenRetrieverSuperset }),
+      // review round 3 (Amendment 4, item 1): the review's probe 6, Q1, the breed given in the same call
+      add('r2-gr-with-breed', k.markMe, k.dog, { set: k.goldenRetrieverSuperset, fields: { breed: 'goldenRetriever' } }),
     ]).a;
     const afterGr = S.readState(file);
     const bad = runOn(file, [
@@ -766,6 +775,64 @@ test('AT58 [AC4, Amendment 3 item 5]: the published description says how the fie
   assert(beside.length > 0, `a sentence says a node kept beside another author's letter changes the fields differs names by a removal and then an add with them (Amendment 3, item 5; ledger row 2026-11-18-update-node-refuses-owner-sections-beside); its sentences on differs are ${show(onDiffers)}`);
   assert(/update-node[^.]*\brefuses\b|\brefuses\b[^.]*update-node|\bnot (through|with|by|via)\b[^.]*update-node/i.test(text),
     `and that graph update-node, which refuses such a node, isn't the way for it; its sentences on differs are ${show(onDiffers)}`);
+});
+
+// ── review round 3 (ADR Amendment 4): the words of a member's refusal, and of the way for a node kept beside ──
+/** What Amendment 4 item 1 adds to a refusal: fields left unwritten, or a way on through another operation. */
+const WAY_ON = /update-node|add-to-concept|remove-from-concept|\bwritten\b|\bmerged\b/i;
+
+test('AT59 [AC8, Amendment 4 item 1]: Mark Me\'s refusal, from a call that writes no section, says fields given in it aren\'t written into the section it holds, and names the way on: golden retriever, then dog\'s breed with update-node', async () => {
+  needDecl();
+  const { k, req } = await round2();
+  for (const [id, what] of [['r2-gr', 'with no fields (AT54)'], ['r2-gr-with-breed', "with dog's breed given in the same call (the review's probe 6, Q1)"]]) {
+    const x = req(id);
+    const text = err(x.body);
+    assert(x.status === 400 && x.body.code === 'invalid-fields' && x.body.rule === RULE && /`?dog\.breed`? is required/.test(text),
+      `the path under test ran: ${id}, Mark Me, already in dog with its section, put in golden retriever's superset through dog ${what}, is refused invalid-fields by ${RULE}, naming dog.breed (AT54); got ${x.status} ${show(x.body).slice(0, 400)}`);
+    const sentences = sentencesOf(text);
+    const unwritten = sentences.filter((s) => /\bfields?\b/i.test(s) && /\bsections?\b/i.test(s) && /\b(aren't|are not|isn't|is not|not|never|doesn't|does not|won't)\b/i.test(s) && /\b(written|write|writes|merged|merge|merges)\b/i.test(s));
+    assert(unwritten.length > 0,
+      `${id}: the refusal says fields given in this call aren't written into a section the node already holds, since the call writes no section, so giving the breed here can't help (Amendment 4, item 1; the review's R3-1); got ${show(text)}`);
+    const first = sentences.filter((s) => (/golden[ -]?retriever/i.test(s) || s.includes(k.goldenRetriever)) && /\badd(s|ed|ing)?\b|add-to-concept/i.test(s));
+    assert(first.length > 0,
+      `${id}: it names the way on, first: add Mark Me to golden retriever, the concept the set joins, which reports dog's verdict without refusing; got ${show(text)}`);
+    const then = sentences.filter((s) => /update-node/.test(s) && /\bdog\b|\bbreed\b/i.test(s));
+    assert(then.length > 0,
+      `${id}: then: give dog's missing field, its breed, with graph update-node, Mark Me being one of this instance's own nodes; got ${show(text)}`);
+  }
+});
+
+test('AT60 [AC8, Amendment 4 item 1]: a refused call that writes a section keeps the rule\'s plain message, with no such way on: a new member\'s, Command Beagle\'s, and a member\'s given its missing section, own or beside', async () => {
+  needDecl();
+  const { req } = await round2();
+  for (const [id, schema, who] of [
+    ['r2-new-gr', 'dog', "Command Beagle, a new member of dog, put in golden retriever's superset (AT54)"],
+    ['r2-pet-bad', 'pet', "Fetch, in pet through walkers, given pet's missing section with a description that isn't text (AT57)"],
+    ['r2-peer-pet-bad', 'pet', "Snowy, the same, kept beside (AT57)"],
+  ]) {
+    const x = req(id);
+    const text = err(x.body);
+    assert(x.status === 400 && x.body.code === 'invalid-fields' && x.body.rule === RULE, `the path under test ran: ${id} is refused invalid-fields by ${RULE}; got ${x.status} ${show(x.body).slice(0, 400)}`);
+    assert(text.startsWith(`The element's JSON doesn't fit the JSON schema of "${schema}"`) && !WAY_ON.test(text),
+      `${who}: the call writes the section its fields go into, so its refusal is the rule's own message, saying nothing of fields left unwritten or of another operation (Amendment 4, item 1 is for a call that writes no section); got ${show(text)}`);
+  }
+});
+
+test('AT61 [AC4, Amendment 4 item 2]: the published description says a removal and then an add change the owner\'s own section of any node kept beside, and that a section the author\'s letter holds, for a membership their letter claims, stays theirs', async () => {
+  needDecl();
+  const { a } = await main();
+  const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'add-to-concept');
+  assert(e, `graph add-to-concept is listed; problems: ${show((a.req('list').body.data || {}).problems)}`);
+  const sentences = sentencesOf(e.description);
+  const onBeside = sentences.filter((s) => /\bbeside\b/i.test(s) && /\bremov(al|als|e|es|ing)\b/i.test(s) && /\badd(s|ed|ing)?\b/i.test(s));
+  const owners = onBeside.filter((s) => /\bowner['’]s own sections?\b/i.test(s));
+  assert(owners.length > 0,
+    `a sentence says what a removal and then an add change for a node kept beside: the owner's own section (Amendment 4, item 2; the review's R3-2); its sentences on a node kept beside are ${show(onBeside)}`);
+  const theirs = sentences.filter((s) => /\b(the author['’]s|their) letter holds\b/i.test(s) && /\bletter claims\b/i.test(s) && /\b(stays|remains) theirs\b/i.test(s));
+  assert(theirs.length > 0,
+    `and that a section the author's letter holds, for a membership their letter claims, stays theirs: such a removal is refused author-claim (the review's probe 6, Q2); got ${show(onBeside)}`);
+  assert(owners.some((s) => /\bkept beside\b(?!\s+another author)/i.test(s)),
+    `the sentence is for every node kept beside, not only one beside another author's letter: person nodes, placeholders and firmware's own elements are kept beside too, and update-node refuses them as well; got ${show(owners)}`);
 });
 
 // ── REF: every refusal, over a graph that must end as it began ──

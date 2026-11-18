@@ -432,3 +432,16 @@ Review round 2 found one blocking gap, which round 1's fix for `wordTypes` opene
    - rulebook entry 7 names add-to-concept and the property operations as built, and rule 7's element is regenerated from it;
    - `changes.js`'s header keeps stories 18's and 22's sentences;
    - the rule-8 ledger row points at story 18's reinstall row, which the same reinstall closes.
+
+## Amendment 4 (2026-11-18, at review round 3; the owner chose to fix review findings before the PR) — what round 3 found
+
+Review round 3 passed with two non-blocking findings, both about words (the review's Round 3). The owner chose to fix them before the pull request.
+
+1. **A member's misfit names the way on** (R3-1; Amendment 3, item 1; AC8). A node already in the concept can hold its section and still be refused because of what its `wordTypes` change brings. That call writes no section. The story's Out of scope says add-to-concept "never changes [a section] it has", so the fields aren't merged in and the scope line stays as approved. The refusal says two things:
+   - that fields given in this call aren't written into a section the node already holds;
+   - the way on: add the node to each concept the set joins, which reports the named concept's verdict without refusing; then give the named concept's missing fields. For the instance's own node that is `graph update-node`. For a node kept beside, it is a removal and then an add with them.
+
+   For the story's case: Mark Me goes into golden retriever first, then dog's breed is set with update-node.
+
+   A node kept beside never reaches this refusal. Its stored JSON isn't the instance's to change, so a call that writes it no section changes nothing and is reported, not judged (the test plan's "Added at review round 3"). The refusal's words for it are therefore never shown.
+2. **The words for a node kept beside** (R3-2; Amendment 3, item 5). add-to-concept's description reads: "For a node kept beside, which `graph update-node` refuses, a removal and then an add with the fields change the owner's own section; a section the author's letter holds, for a membership their letter claims, stays theirs." This is the reviewer's wording. It covers every kind of node kept beside, not only another author's letter, and the case where the removal is refused `author-claim` or `firmware-membership`.

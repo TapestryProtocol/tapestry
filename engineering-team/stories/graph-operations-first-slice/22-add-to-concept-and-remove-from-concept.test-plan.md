@@ -375,3 +375,65 @@ firmware-element-sync: 21 passed, 0 failed, 0 skipped
 ```
 
 Round 1's tests all pass on this code, AT49–AT53, RM45, RM46 and MS19–MS22 among them.
+
+## Added at review round 3 (2026-11-18)
+
+Review round 3 passed with two non-blocking findings, both about words (R3-1 and R3-2; ADR Amendment 4, items 1 and 2). The owner chose to fix them before the PR. Each got its tests before any fix, all in the add suite.
+
+| Item | Tests | What they pin |
+|---|---|---|
+| 1, a member's misfit names the way on (R3-1) | **AT59** | AT54's call is refused for a misfit its `wordTypes` change brings, and it writes no section. Mark Me, already in dog with its section, is put in golden retriever's superset through dog, and refused `invalid-fields` naming `dog.breed`. The same call with `fields: { breed: "goldenRetriever" }`, the review's probe 6 Q1, joins ROUND2's GR run and is refused too. Each refusal must also do three things. It says that fields given in this call aren't written into a section the node already holds. It names the way on: add Mark Me to golden retriever, the concept the set joins. Then it says to give dog's missing field with `graph update-node`. |
+| | **AT60** | So a fix can't over-reach, a refused call that writes a section keeps the rule's plain message. The calls are Command Beagle's, a new member's (AT54), and Fetch's and Snowy's, each given pet's missing section (AT57). Each message starts as the rule's does ("The element's JSON doesn't fit the JSON schema of …"). None names update-node, add-to-concept or remove-from-concept, or says "written" or "merged". |
+| 2, the words for a node kept beside (R3-2) | **AT61** | add-to-concept's published description has a sentence about a node kept beside, a removal and an add. That sentence says they change the owner's own section. A sentence says a section the author's letter holds, for a membership their letter claims, stays theirs. The removal-and-add sentence is for every node kept beside: its "kept beside" isn't followed by "another author". AT58 is unchanged, and still matches Amendment 4's sentence. |
+
+**What the word tests accept.** Each sentence test looks inside one sentence; the text is split after a full stop, a question mark or an exclamation mark.
+- **AT59, fields left unwritten:** "field(s)", "section", a negation ("aren't", "isn't", "not", "never", "doesn't", "won't") and "written", "write(s)", "merged" or "merge(s)".
+- **AT59, the way on:** golden retriever by name (or `goldenRetriever`, or its header's key) with "add" or add-to-concept. A sentence, the same one or another, holds `update-node` with "dog" or "breed".
+- **AT61:**
+  - "owner's own section";
+  - "the author's letter holds" or "their letter holds", with "letter claims" and "stays theirs" (or "remains theirs").
+
+Amendment 4's own sentence passes (W3, below).
+
+**Not tested: the way on for a node kept beside.** Amendment 4 item 1 says that for a node kept beside, the way on is a removal and then an add. No call can reach that refusal for such a node. add-to-concept never changes a beside node's `wordTypes`. So a call that writes it no section changes none of its JSON, and is reported, not judged (AT55's rule). AT59 doesn't ask for those words, and doesn't forbid them.
+
+**Tests that pass today.** AT60 pins what a fix must keep. The scratch edits show it catches both over-reaches.
+
+**The scratch edits.** These ran as round 2's did: on a copy of HEAD (`394e7dae`) with this round's add suite laid over it, each file restored after its edit, against a baseline of the same suites on the copy.
+- **F1** simulates item 1's fix. When a call that writes no section is refused `invalid-fields`, the rule's message gains "Fields given in this call aren't written into the "dog" section the node already holds." It then names golden retriever with add-to-concept, and dog's missing fields with update-node. AT59 passes, and no other test in the four suites that load add-to-concept answers differently.
+- **F2** is an over-reach: those words on every `invalid-fields` refusal of add-to-concept. AT59 passes, and AT60 fails, on Command Beagle.
+- **F3** is an over-reach too: those words for any node already in the concept, so for one given its missing section. AT59 passes, and AT60 fails, on Fetch.
+- **W3** lays in Amendment 4 item 2's sentence. AT61 passes, and AT58 still passes.
+- **W3h** has only the owner's own section, not the author's section staying theirs. AT61 still fails, on its second assertion.
+- **W3n** is Amendment 4's sentence, but still for a node "kept beside another author's letter". AT61 still fails, on its third assertion.
+
+Their output, each suite's passed/failed after the edit:
+
+```
+baseline (the copy, unchanged): add-to-concept 50/2 (AT59, AT61); remove-from-concept 36/0; memberships-shared 23/0; memberships-agent-through-cli 1/0
+{"id":"F1","what":"item 1's fix, simulated: a call that writes no section adds to its invalid-fields refusal that fields aren't written, and the way on","changed":["AT59 FAIL -> PASS"],"suites":{"add-to-concept":"51/1","remove-from-concept":"36/0","memberships-shared":"23/0","memberships-agent-through-cli":"1/0"}}
+{"id":"F2","what":"an over-reach: every invalid-fields refusal of add-to-concept gets those words","changed":["AT59 FAIL -> PASS","AT60 PASS -> FAIL"],"suites":{"add-to-concept":"50/2"}}
+{"id":"F3","what":"an over-reach: those words for any node already in the concept, a section it is given included","changed":["AT59 FAIL -> PASS","AT60 PASS -> FAIL"],"suites":{"add-to-concept":"50/2"}}
+{"id":"W3","what":"item 2's sentence, as Amendment 4 gives it","changed":["AT61 FAIL -> PASS"],"suites":{"add-to-concept":"51/1"}}
+{"id":"W3h","what":"half of it: the owner's own section, without the author's section staying theirs","changed":[],"suites":{"add-to-concept":"50/2"},"stillFailing":["AT61: and that a section the author's letter holds, for a membership their letter claims, stays theirs: su…"]}
+{"id":"W3n","what":"Amendment 4's sentence, but still only for a node beside another author's letter","changed":[],"suites":{"add-to-concept":"50/2"},"stillFailing":["AT61: the sentence is for every node kept beside, not only one beside another author's letter: person node…"]}
+```
+
+**Today's code** (`9c6d890c`, at `394e7dae`), each suite alone with every endpoint dead:
+
+```
+  FAIL  AT59 [AC8, Amendment 4 item 1]: Mark Me's refusal, from a call that writes no section, says fields given in it aren't written into the section it holds, and names the way on: golden retriever, then dog's breed with update-node
+        r2-gr: the refusal says fields given in this call aren't written into a section the node already holds, since the call writes no section, so giving the breed here can't help (Amendment 4, item 1; the review's R3-1); got "The element's JSON doesn't fit the JSON schema of \"dog\" (39998:dddd…:dog): `dog.breed` is required; the element's JSON must match \"then\" schema."
+  FAIL  AT61 [AC4, Amendment 4 item 2]: the published description says a removal and then an add change the owner's own section of any node kept beside, and that a section the author's letter holds, for a membership their letter claims, stays theirs
+        a sentence says what a removal and then an add change for a node kept beside: the owner's own section (Amendment 4, item 2; the review's R3-2); its sentences on a node kept beside are ["For a node kept beside another author's letter, which `graph update-node` refuses, a removal and then an add with the fields change them."]
+operations: graph add-to-concept: 50 passed, 2 failed, 0 skipped
+
+operations: graph remove-from-concept: 36 passed, 0 failed, 0 skipped
+operations: what add-to-concept and remove-from-concept share: 23 passed, 0 failed, 0 skipped
+operations: an admin agent adds and removes memberships through the external CLI: 1 passed, 0 failed, 0 skipped
+graph-rules-builder: 26 passed, 0 failed, 0 skipped
+graph-rule-firmware: 13 passed, 0 failed, 4 skipped (GL1–GL4, live)
+firmware-element-sync: 21 passed, 0 failed, 0 skipped
+```
+
+Every earlier round's test passes on this code, AT54 among them with the retry added to its run.
