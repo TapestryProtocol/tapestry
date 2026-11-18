@@ -230,3 +230,74 @@ None new.
 ## On PASS (same commit)
 - [x] Story `**Status:**` flipped to `Done` in place, and its Review link filled in.
 - [x] Completion detection performed. Its result goes in the chat, not this file.
+
+## Round 2 — 2026-11-18 (HEAD `6406bb39`)
+
+The owner chose to fix round 1's non-blocking findings before the PR. Round 1 was committed as `b5285435`, and the round added two commits after it:
+- `2745156b`, the tests: four lines in `move-element.test.js`, nothing else;
+- `6406bb39`, the docs: the catalog row, ADR 0023 Amendment 1 with Decision 11 restored, a "Changed at review round 1" line in the story, and the author-claim ledger row.
+
+`git diff b5285435 HEAD -- src` is empty, so no code changed. The Reviewer checked each fix as a fresh claim against the code, the live-check record and the commands below, not against the commit messages.
+
+### Gates (run by the reviewer at `6406bb39`)
+
+- [x] **The scoped gate:** the same five suites and the same constraints as round 1, with every endpoint dead, stub `curl` and `docker` first on `PATH`, and `TAPESTRY_CONTAINER_PORT` unset. With the path shortened:
+
+  ```
+  20261118T233559Z-99813-d958 [a10-23-review-r2] started 2026-11-18T23:35:59.581Z on 6406bb39 — PASS, exit 0, 1187 passed, 0 failed, 6 skipped, 5/5 suites · …/tmp/gate-runs/20261118T233559Z-99813-d958.json
+  ```
+
+  - The tree was clean: there is no `+dirty`.
+  - The total is round 1's 1187, as it should be: the fixes are assertions added to ME3 and ME10, not new tests. move-element is still 44/44, and the agent's XE1 1/1.
+- [x] **harness-lint:** `harness-lint: clean (0 violations)`.
+
+### Round-1 findings, re-checked
+
+1. **Fixed.** The catalog row (`docs/GRAPH_OPERATIONS_CATALOG.md:113`) now gives each refusal's way on as the code gives it:
+   - **`different-concepts`:** add-to-concept into `to`'s concept, then remove-from-concept of `from`'s (`move-element.js:114`). There is no remove step when `from` is in no counted concept (`:113`). Neither step is given, and the refusal asks for another `to`, when `to` is in no concept but word's or graphContext's (`:111`).
+   - **`leaves-concept`:** add-to-concept into `to`, then remove-from-concept of that concept (`:138`).
+   - **`joins-concept`:** add-to-concept with that concept and `set: to`, then this call again (`:141`).
+   - The row says "no `remove-from-concept` when `from` is in no concept but word's". The code also drops the step for a `from` in graphContext alone, but the row's wording is ADR Decision 4's own, and no concept is keyed `graphContext` today. No change asked.
+2. **Fixed.**
+   - **Decision 11 is back to its accepted words.** Line 229 of `0023-move-element.md` matches `ae481eb4`'s character for character, plus a closing pointer, "(Amendment 1 corrects this sentence)".
+   - **The amendment** is `## Amendment 1 (2026-11-18, at review round 1; …)`, in the shape of ADR 0028's Amendment 2. It quotes the replaced clause and gives the corrected wording.
+   - **Its account of the live check holds against the raw outputs.** Hopper was made in show beagles with no superset link (`main.log` S3). Snoopy was filed out of the superset (L1b) before its set-to-set move (L1d). After reinstall 1, both went from `"was":[]` to the superset's key, with `inTo` true and `inFrom` false (`report-reinstall.json`). The amendment says "no reinstall ran before the move". That is true while the nodes existed: the only earlier install was setup's, at 22:57:27 (`setup.log`), before the nodes were made at 23:00. No change asked.
+   - **The story's new "Changed at review round 1" line** says no criterion changes, which is right. AC7's text is as amended at Architecture.
+   - **The owner's ratification** of the corrected wording is recorded in the amendment from the session's account. The Reviewer can't verify it independently, so it is for the owner to confirm at this gate.
+3. **Fixed.** The ledger row (`ledger/2026-11-18-author-claim-words-misname-n-remaker.md:16–20`) now names where the wrong words reach:
+   - remove-from-concept's message (`M.say.authorClaim`);
+   - the shared declaration's `when`, in both operations' `/docs` (`openapi.js:50`) and CLI help (`cli.js:65`). remove-from-concept (`remove-from-concept.js:82`) and move-element (`move-element.js:183`) each list `M.AUTHOR_CLAIM`;
+   - not move-element's own message.
+
+   The fix shape now says the new `when` corrects both operations' docs.
+4. **Fixed, and the tests bite.**
+   - **The new assertions:**
+     - ME10 now calls the placeholder and firmware-own moves, and asserts no reinstall sentence for `person`, `placeholder` and `firmware-own`;
+     - ME3 asserts `keysOf(again.concepts)` is `[beagle]`, with key `beagle`.
+   - **The breaks, rerun.** Round 1's two missed breaks, and the narrower `z` break, were rerun on a scratch copy of `6406bb39`, one at a time, with the file put back after each:
+
+     | Code | Move suite |
+     |---|---|
+     | real code | 44 passed, 0 failed |
+     | the pass-1d sentence for any superset `from` (`move-element.js:305`) | 43/1: ME10 |
+     | the pass-1d sentence without its `z` check | 43/1: ME10 |
+     | `already-moved` answering `concepts: []` (`:270`) | 43/1: ME3 |
+
+     The same three breaks, run in this round on a scratch copy of `0b4a9f7c` with round 1's suite, each passed 44/0. So the new assertions are what turns them red.
+   - Afterwards the scratch file matched `HEAD`'s, and `git status` in the working tree was clean.
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:** none new. Two wording points are noted under fixes 1 and 2, with no change asked.
+
+### Harness friction
+
+- None new.
+
+### Verdict
+
+**PASS**
+- Each round-1 finding is fixed. Each fix was checked against the code, the live-check record or a break.
+- The scoped gate and harness-lint pass at `6406bb39`, with no code changed since round 1.
+- The story's `**Status:**` stays `Done`.
