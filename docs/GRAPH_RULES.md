@@ -143,3 +143,14 @@ The format, which `node src/firmware/graph-rules.js` checks:
 - **Enforced by:** the guard of `graph remove-from-concept`, as `{ node, concept, set }`: the node judged as if every link by which the concept, or the set, reaches it were gone. The write runs the rule again after its delete, inside the same transaction, as a check of the node, so two removals at once of a node's last two concepts can't both pass it. The rule's code is in `src/operations/rules/node-has-a-concept.js`, and what it reads with is in `src/operations/catalog/graph/_memberships.js` and `src/operations/catalog/graph/_fields.js`. Built in story graph-operations-first-slice #22 (ADR graph-operations-first-slice/0022).
 - **Status:** enforced.
 - **Source:** ADR graph-operations-first-slice/0022.
+
+## 9. `tapestry-link-names-a-node`
+
+- **Says:** every `tapestry:` link in the markdown of the instance's own nodes names a node in this graph: some node here has its key. A `tapestry:` link means "in this graph" (ADR graph-rules/0002, Decision 2), so a key no node has is a dead link, most often to a node deleted since.
+- **Kind:** a graph rule, about the instance's own nodes. Links in other people's letters are left alone, and a `nostr:` link to a node this graph doesn't hold isn't judged, since its letter may be on a relay.
+- **Refuses or reports:** it only reports. `graph delete-node` leaves the links to a node dead, and a renderer shows a dead link as its text.
+- **Check:** find each `tapestry:` link in the markdown of the instance's own nodes, with a CommonMark parser so that examples in code aren't read as links, and name each link whose key no node has, with the node that holds it. `rules check` (A10.31) will run it over the graph.
+- **Repair:** none yet. `graph update-node` changes a node's markdown: point the link at a node that exists, or make it plain text.
+- **Enforced by:** nothing yet. `rules check` (A10.31) will.
+- **Status:** proposed.
+- **Source:** ADR graph-rules/0002.

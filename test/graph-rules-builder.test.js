@@ -12,7 +12,7 @@
  * rules, and fixtures. Run on its own with `node test/graph-rules-builder.test.js`.
  *
  *   GB1  the script exports its three parts
- *   GB2  the real rulebook reads as eight entries, numbered 1 to 8, with no problem; entry 1 is tapestry-key-unique [AC2]
+ *   GB2  the real rulebook reads as nine entries, numbered 1 to 9, with no problem; entry 1 is tapestry-key-unique  [AC2]
  *   GB3  each real item's name, number, title, description, about, status and source                              [AC2, AC3]
  *   GB4  each real item's fields hold the rulebook's text: continuation lines dedented, other fields in alsoSays   [AC3]
  *   GB5  a real item whose rule has code holds the code's declaration; entry 1's code is null                       [AC3]
@@ -146,6 +146,13 @@ const REAL = [
     source: 'ADR graph-operations-first-slice/0022',
     description: /^Every node is an element of at least one concept other than word\b/,
   },
+  // Rule 9, joined with the rulebook entry ADR graph-rules/0002 Decision 5 asks for. It is the first entry that is
+  // proposed, with no code file yet, so its status is given here; every other entry's is enforced.
+  {
+    number: 9, name: 'tapestry-link-names-a-node', title: 'Tapestry Link Names A Node', code: false, alsoSays: [], status: 'proposed',
+    source: 'ADR graph-rules/0002',
+    description: "Every tapestry: link in the markdown of the instance's own nodes names a node in this graph: some node here has its key.",
+  },
 ];
 const GRAPH_RULE_KEYS = ['name', 'number', 'says', 'kind', 'about', 'refusesOrReports', 'check', 'repair', 'enforcedBy', 'status', 'source', 'alsoSays', 'code'];
 
@@ -154,7 +161,7 @@ function t(name, fn) { tests.push([name, fn]); }
 
 t('GB1: src/firmware/graph-rules.js exports parseRulebook, itemsFor and elementFiles', () => { builder(); });
 
-t('GB2 (AC2): the real rulebook reads as eight entries, numbered 1 to 8, with no problem, and entry 1 is tapestry-key-unique', () => {
+t('GB2 (AC2): the real rulebook reads as nine entries, numbered 1 to 9, with no problem, and entry 1 is tapestry-key-unique', () => {
   const r = build(builder(), realInputs());
   assert(r.problems.length === 0, `no problem with today's rulebook and rules; got ${short(r.problems, 1200)}`);
   const got = r.entries.map((e) => [e.number, e.name]);
@@ -176,7 +183,8 @@ t("GB3 (AC2, AC3): each real item's word block, number, about, status and source
     const g = it.json.graphRule;
     assert(g.name === want.name && g.number === want.number, `${want.name}: graphRule.name and number; got ${show({ name: g.name, number: g.number })}`);
     assert(g.about === 'the graph', `${want.name}: about is "the graph", since its Kind starts "a graph rule"; got ${show(g.about)}`);
-    assert(g.status === 'enforced', `${want.name}: status is "enforced", its Status without the full stop; got ${show(g.status)}`);
+    const status = want.status || 'enforced';
+    assert(g.status === status, `${want.name}: status is "${status}", its Status without the full stop; got ${show(g.status)}`);
     assert(g.source === want.source, `${want.name}: source is "${want.source}", without the full stop; got ${show(g.source)}`);
     assert(/^a graph rule\b/.test(g.kind || ''), `${want.name}: kind keeps the rulebook's Kind as written; got ${show(g.kind)}`);
   }
