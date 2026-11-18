@@ -1,6 +1,6 @@
 # Story 44: The Concepts page and the Dashboard show a concept with no event
 
-**Status:** Approved
+**Status:** In Progress
 **Created:** 2026-11-18
 **Type:** Bug
 **Loom:** none of its own. It follows up A10.16 (story 16), and bugs stay in the repo's own tracker.
@@ -60,6 +60,39 @@ As the owner, I want every concept in my graph on the Concepts page and in the D
 ## Open questions
 
 - None.
+
+## Deviations
+
+- **ADR graph-operations-first-slice/0016 has a dated note.** Its Consequences said the UI's concept list reads only `NostrEvent` headers, which this story makes false. The note says what changed and that the name lookups are as they were. The story didn't ask for it.
+- **The kept-list's Dashboard entry stays, with a new reason.** The tile's line changed, but the onboarding check's line has the same text. So the entry stays, and its reason now names the onboarding check, which counts concepts only to see whether the firmware is installed (test S6). The Concepts page's entry is gone, since its line changed (G11 holds the list to the code).
+- **The other nine kept lines on the same reason** are ledger row `2026-11-18-kept-lines-claim-headers-always-events`, as the test plan said.
+- **The row's event fact is a kept line of its own.** `h:NostrEvent AS hasEvent` names `NostrEvent` alone, so the key-path guard's G18 asked for it to be classified; the first scoped gate failed there. It is about the event itself, so it is in the kept-list, with why. The test plan hadn't foreseen it.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-18)
+
+Run on this Mac. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+
+- **The new suite, stack-free** (`TAPESTRY_CONTAINER=no-such-container`): 9 passed, 0 failed, 4 skipped, the live checks among the skipped. Before the fix it was 2 passed, 7 failed, 4 skipped.
+- **The same, under Node 22,** CI's version: 9 passed, 0 failed, 4 skipped.
+- **The new suite on a scratch stack** (`tapestry-scratch`, this checkout's `src/`, firmware installed): 13 passed, 0 failed. Before the fix it was 3 passed, 10 failed.
+- **The suite catches each part of the fix.** Six scratch edits were each undone and checked byte for byte against the fix, each run on the scratch stack:
+
+  | Edit | Fails |
+  |---|---|
+  | The page's scan back to `NostrEvent` alone | S1, L1, L4 |
+  | The page's scan by the shared label alone | S1, L3 |
+  | The filter without its event check | U1 |
+  | The tile back to `NostrEvent:ListHeader` | S3, L2 |
+  | The Disposition cell without its no-event branch | S5 |
+  | Save & next without its event check | S4 |
+- **The first scoped gate failed, for two reasons.** It was run through the gate engine with every endpoint dead and Node 24.18.0. It ran the 14 registry entries that read a changed file: this story's suite, `not-yet-shared-filter`, `list-headers-disposition-column`, `admin-tools-dashboard-panel`, `assistant-setup-state`, `b-coverage-audit-and-disposition`, `concept-count-canonical`, `one-default-assistant-profile`, `one-writer-assistant-profile`, `openapi-document`, `operations.test.js` (every suite under `test/operations/`), `share-from-shared-by-me`, `stack-free-npm-test` and `tagging-edges-wiring`. `node test/gate-status.js --label story-44-impl` read:
+  `20261118T160459Z-36367-601a [story-44-impl] started 2026-11-18T16:04:59.661Z on 6842af3d+dirty — FAIL, exit 1, 1328 passed, 4 failed, 28 skipped, 14/14 suites; failed: operations`
+  - **G18 found the `hasEvent` line,** as the Deviations say. Fixed by listing it.
+  - **W1, X1 and X2 couldn't load `express`.** The worktree had no `node_modules`: a link to the main checkout's packages had been meant during Test Design, but was never made, so the route walk had no packages. Fixed by linking the checkout's `node_modules`, as the other worktrees do. No code changed for these three.
+- **The scoped gate, run again** with the same 14 entries, endpoints and Node, passes. `node test/gate-status.js --label story-44-impl-2` reads:
+  `20261118T160933Z-43661-5cf5 [story-44-impl-2] started 2026-11-18T16:09:33.031Z on 6842af3d+dirty — PASS, exit 0, 1332 passed, 0 failed, 28 skipped, 14/14 suites`
 
 ## Linked artifacts
 - ADR: none. Architecture was skipped, as for a bug with an obvious fix (David, 2026-11-18).
