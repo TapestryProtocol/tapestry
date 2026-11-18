@@ -22,7 +22,9 @@
  *   CE5  in a set: Buddy goes directly in the golden retrievers' superset, its n tag naming it, and belongs to dog and
  *        golden retriever, both in wordTypes and the answer; golden retriever's schema is reported, not refused
  *   CE6  in a set two concepts reach: Max, in walkers, belongs to dog and pet; a set that is the concept's own
- *        superset is the same as none
+ *        superset is the same as none; every concepts entry, the named concept's too, says whether it waits for the
+ *        derive step, as the declared answer says it does (story graph-operations-first-slice #42, AC4; ADR 0042
+ *        Decision 4)
  *   CE7  the same name again is already-exists, changes nothing and records nothing, and differs names what differs:
  *        the name's case, the set, each field given; a repeat checks no fields
  *   CE8  the repeat is found anywhere in the class thread, by name or by the address the name gives, with or without
@@ -53,6 +55,9 @@
  *   CE33 (review round 1, ADR 0020 Amendment 1) a concept keyed word or graphContext is refused reserved-key before
  *        anything is built: firmware's word, with no schema or with its real one, another author's word, and graph
  *        context; nothing changes
+ *   CE34 (story 42's review round 2) an element made in a set under word's thread, with firmware word's real schema,
+ *        is made: the named concept fits, and word is reported as waiting for the derive step, not as failing; the
+ *        answer validates against the declared one
  *   CE40 the marks: Biscuit carries dog's marked fields as dog_breed and dog_age in the same write, its entry records
  *        the copies, and what can't be carried comes back as skipped
  *   CE41 the new modules require nothing that signs
@@ -93,7 +98,7 @@ function runOn(file, requests, { cli = [], spy = false, env = null } = {}) {
 /** A fresh seed in a directory of its own; { file, k, u, seed }. */
 async function fresh(mutate = null) {
   const seed = await E.seedCreateElement();
-  if (mutate) mutate(seed.state);
+  if (mutate) mutate(seed.state, seed.keys);
   return { file: seed.file(tmp('create-element-')), k: seed.keys, u: seed.uuids, seed };
 }
 
@@ -278,6 +283,13 @@ test('CE6: Max, in walkers, belongs to dog and pet; a set that is the concept\'s
   assert(keysOf[0] === k.dog && keysOf.length === 2 && keysOf.includes(k.pet), `dog first, then pet; got ${show(d.concepts)}`);
   const pet = d.concepts.find((c) => c.concept === k.pet);
   assert(pet.fits === false && pet.key === 'pet' && pet.problems.some((p) => /pet/.test(String(p.message))), `pet's schema wants a pet section, reported; got ${show(pet)}`);
+  assert(d.concepts.every((c) => c.waiting === false), `each entry, dog's (the concept named) and pet's, says it waits for nothing: neither schema asks for what the derive step builds (story 42, AC4; ADR 0042 Decision 4); got ${show(d.concepts)}`);
+  const entry = require(path.join(ROOT, 'src/operations/catalog/graph/create-element.js')).result.schema.properties.concepts.items;
+  assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
+    `the declared answer's concepts entry has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(path.join(ROOT, 'src/operations/catalog/graph/create-element.js')).result.schema.properties.concepts);
+  assert(validConcepts(d.concepts), `the answer's concepts validate against the declared answer, waiting and all (ADR 0042 Decision 4; review round 1, non-blocking 3); got ${show(validConcepts.errors)}`);
   const pj = await ok('plain-jane');
   assert(show(pj.element.parents) === show([k.beagleSuperset]) && !C.tagArrays(g, pj.element.tapestryKey).some((t) => t[0] === 'n'),
     `set = beagle's own superset: directly under it, with no n tag; got ${show(pj.element)} ${show(C.tagArrays(g, pj.element.tapestryKey))}`);
@@ -682,6 +694,35 @@ test('CE33: a concept keyed word or graphContext is refused reserved-key before 
   assert(x.status === 409 && x.body.code === 'reserved-key', `firmware's word with its real schema: 409 reserved-key; got ${x.status} ${show(x.body)}`);
   const after = S.readState(file);
   assert(show(after.nodes) === show(before.nodes) && show(after.rels) === show(before.rels), 'and nothing changes');
+});
+
+test('CE34: an element made under word\'s thread reports word as waiting for the derive step, not failing, and is made', async () => {
+  needDecl();
+  // Firmware's word with its real schema, which requires the graphContext only the derive step builds, and beagle's
+  // superset put under word's, so word's class thread reaches beagle's elements (story 42's review round 2,
+  // non-blocking 4; ADR 0042's Testing: "an element created in a set under word's thread").
+  const real = fs.readFileSync(path.join(ROOT, 'firmware/versions/v1.0.0/concepts/word/json-schema.json'), 'utf8');
+  const { file, k } = await fresh((s, keys) => {
+    const nodeOf = (key) => s.nodes.find((n) => n.props.tapestryKey === key);
+    const header = s.nodes.find((n) => n.props.tapestryKey && n.props.uuid === `39998:${TA}:word`);
+    const node = { eid: s.nextEid++, labels: ['NostrEvent', 'ListItem', 'JSONSchema', 'TapestryNode'], props: { uuid: `39999:${TA}:word-json-schema`, kind: 39999, pubkey: TA, name: 'JSON schema for the concept of words', tapestryKey: '00000000-0000-4000-8000-0000000000e4' } };
+    const tag = { eid: s.nextEid++, labels: ['NostrEventTag', 'TapestryNode'], props: { type: 'json', value: real, uuid: 'word-json-schema-json', tapestryKey: '00000000-0000-4000-8000-0000000000e5' } };
+    s.nodes.push(node, tag);
+    s.rels.push({ eid: s.nextEid++, type: 'IS_THE_JSON_SCHEMA_FOR', from: node.eid, to: header.eid, props: {} });
+    s.rels.push({ eid: s.nextEid++, type: 'HAS_TAG', from: node.eid, to: tag.eid, props: {} });
+    s.rels.push({ eid: s.nextEid++, type: 'IS_A_SUPERSET_OF', from: nodeOf(keys.supersets.word).eid, to: nodeOf(keys.beagleSuperset).eid, props: {} });
+  });
+  const { a } = runOn(file, [post('lexie', 'owner', { concept: k.beagle, name: 'Lexie', fields: { description: 'a beagle among words' } })]);
+  const x = a.req('lexie');
+  assert(x.status === 200 && x.body.data && x.body.data.outcome === 'created', `Lexie is made: nothing refuses it for word, whose graphContext only the derive step can build; got ${x.status} ${show(x.body)}`);
+  const cs = x.body.data.concepts || [];
+  assert(cs[0] && cs[0].concept === k.beagle && cs[0].fits === true && cs[0].waiting === false, `beagle, the concept named, comes first, fitting and waiting for nothing; got ${show(cs)}`);
+  const word = cs.find((c) => c.concept === k.word);
+  assert(word && word.key === 'word' && word.fits === null && word.waiting === true && show(word.problems) === show([]) && /derive step/.test(String(word.problem)),
+    `word's schema requires graphContext, which only the derive step builds: word is reported as waiting for it, not as failing (story 42, AC4; ADR 0042 Decisions 3 and 4); got ${show(word || cs)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(DECL).result.schema.properties.concepts);
+  assert(validConcepts(cs), `the answer's concepts validate against the declared answer, word's waiting entry too (ADR 0042 Decision 4); got ${show(validConcepts.errors)}`);
 });
 
 test('CE32: a write whose entry can\'t be recorded keeps nothing', async () => {

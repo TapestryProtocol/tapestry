@@ -5,26 +5,29 @@
  * element write calls it: graph create-element now, and graph update-node (A10.21), graph add-to-concept (A10.22) and
  * the property operations (A10.18) when they are built (Decision 16).
  *
- * It reads a schema as the derive step does (src/lib/derivers/word.js:136–180): the schema node's json tag, inline or
- * an LMDB reference; its jsonSchema section, else the object itself; $schema dropped; and ajv's default class, which
- * reads draft-07's keywords, with allErrors and strict off. A schema that names draft 2020-12 is read the same way: a
+ * It reads a schema as the derive step always has, and the derive step now reads it here (src/lib/derivers/
+ * schema-verdicts.js): the schema node's json tag, inline or an LMDB reference; its jsonSchema section, else the object
+ * itself; $schema dropped; and ajv's default class, which reads draft-07's keywords, with allErrors and strict off. A schema that names draft 2020-12 is read the same way: a
  * keyword only 2020-12 has is ignored by both. Each schema gets a new Ajv, so an $id never clashes.
  *
- * What it checks is an element's stored JSON, its json tag. The derive step checks another document, its own `base`:
- * the cached JSON, with its graphContext added and word defaults filled in, against the concepts a z tag names too.
- * For an element whose word block has its slug, name and wordTypes, as every element create-element writes has, the
- * two verdicts agree on each concept both judge, under a schema that neither requires nor forbids graphContext and
- * doesn't limit the element's top-level keys, as every schema create-concept writes does; firmware's word schema,
- * which requires graphContext, splits them. JSON with no word block, or a word block missing a field the derive step
- * fills in, may split them under other schemas too, create-concept's own among them (ADR
- * graph-operations-first-slice/0020 Amendment 1; ledger row 2026-11-16-derive-step-and-rule-check-split; test SC9 runs
- * both).
+ * What a schema describes is a node's tapestryJson: the JSON the Tapestry LMDB (the tapestry-store, not strfry's LMDB)
+ * holds for it, its word block, a section for each concept it is an element of, and its graphContext (ADR
+ * graph-operations-first-slice/0020a). Both readers judge that one document through this module, so they give one
+ * verdict: the rule's check of a node as it stands reads its tapestryJson (tapestryJsonOf), and the derive step judges
+ * the tapestryJson it builds (src/lib/derivers/schema-verdicts.js), against the concepts the rule judges (ADR
+ * graph-operations-first-slice/0042). A write judges the JSON it builds before the derive step has built its
+ * graphContext, so a write's check sets aside the problems that are only about graphContext, and answers waiting
+ * (Decision 3).
  *
- *   schemaOf(read, concept)       E1 → { schema, node, label, header: true }, or { problem, label, header }, where
- *                                 header is false when the key names no concept header
+ *   schemaOf(read, concept)       E1 → { schema, node, nodeUuid, name, label, header: true }, or { problem, label,
+ *                                 header, name, nodes }, where header is false when the key names no concept header,
+ *                                 and nodes are the schema nodes found, [{ tapestryKey, uuid }]
  *   problemsOf(schema, json)      { problems: [{ path, message }] }, or { problem } when the schema doesn't compile
- *   fits(read, concept, json)     { fits: true | false | null, problems, problem }; null with no schema to check against
- *   judge(read)                   a checker for one call, which reads and compiles each concept's schema once
+ *   fits(read, concept, json)     a write's check: { fits: true | false | null, problems, problem, waiting }; null with
+ *                                 no schema to check against, or when the JSON misses only its graphContext (waiting)
+ *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
+ *                                 schema once; its check(concept, json, { writing }) sets nothing aside unless writing
+ *   tapestryJsonOf(node)          the node's tapestryJson → { json }, or { problem, missing } (ADR 0042 Decision 1)
  *   checkElements(read, items)    run the rule element-fits-schema over the items and throw its first finding, with
  *                                 rule set, as the write path does: the one call each element write makes in apply.
  *                                 With { every: true }, one refusal names every finding: its code the first's (graph
@@ -56,38 +59,62 @@ function labelOf(row, key) {
 }
 
 /**
- * E1: the concept's JSON schema, as the derive step reads it → { schema, node, label, header: true }, or { problem,
- * label, header } saying why there is none: no JSON schema node; more than one, since which one counts isn't guessed
- * (BIBLE §10, rule 11); a node with no json tag; JSON that doesn't parse; an LMDB entry that is missing; or something
- * other than an object. header is false when the key names no concept header.
+ * E1: the concept's JSON schema, as the derive step reads it → { schema, node, nodeUuid, name, label, header: true },
+ * or { problem, label, header, name, nodes } saying why there is none: no JSON schema node; more than one, since which
+ * one counts isn't guessed (BIBLE §10, rule 11); a node with no json tag; JSON that doesn't parse; an LMDB entry that is
+ * missing; or something other than an object. header is false when the key names no concept header. name is the
+ * header's name, and nodes the schema nodes found, { tapestryKey, uuid }, which the derive step's verdicts name (ADR
+ * graph-operations-first-slice/0042 Decision 5).
  */
 async function schemaOf(read, concept) {
-  if (typeof concept !== 'string' || !concept) return { problem: 'no concept was named', label: 'a concept', header: false };
+  if (typeof concept !== 'string' || !concept) return { problem: 'no concept was named', label: 'a concept', header: false, name: null, nodes: [] };
   const rows = await read(
     `MATCH (h:TapestryNode {tapestryKey: $key})
      WHERE h:ConceptHeader OR h:ListHeader
      OPTIONAL MATCH (h)<-[:${schemaType()}]-(js:JSONSchema)
      OPTIONAL MATCH (js)-[:HAS_TAG]->(jt:NostrEventTag {type: 'json'})
-     RETURN h.name AS name, h.uuid AS uuid, js.tapestryKey AS schema, jt.value AS json`,
+     RETURN h.name AS name, h.uuid AS uuid, js.tapestryKey AS schema, js.uuid AS schemaUuid, jt.value AS json`,
     { key: concept },
   );
-  if (!rows.length) return { problem: `No concept header has the tapestryKey ${concept}`, label: concept, header: false };
+  if (!rows.length) return { problem: `No concept header has the tapestryKey ${concept}`, label: concept, header: false, name: null, nodes: [] };
   const label = labelOf(rows[0], concept);
-  const nodes = [...new Set(rows.map((r) => r.schema).filter((k) => typeof k === 'string' && k))].sort();
-  if (!nodes.length) return { problem: `${label} has no JSON schema node`, label, header: true };
-  if (nodes.length > 1) return { problem: `${label} has more than one JSON schema node (${nodes.join(', ')}), and which one counts isn't guessed (BIBLE §10, rule 11)`, label, header: true };
-  const node = nodes[0];
-  const found = rows.find((r) => r.schema === node && r.json !== null && r.json !== undefined);
+  const name = typeof rows[0].name === 'string' && rows[0].name ? rows[0].name : null;
+  const byKey = new Map();
+  for (const r of rows) {
+    if (typeof r.schema === 'string' && r.schema && !byKey.has(r.schema)) byKey.set(r.schema, { tapestryKey: r.schema, uuid: typeof r.schemaUuid === 'string' && r.schemaUuid ? r.schemaUuid : null });
+  }
+  const found = [...byKey.values()].sort((a, b) => (a.tapestryKey < b.tapestryKey ? -1 : a.tapestryKey > b.tapestryKey ? 1 : 0));
+  const keys = found.map((n) => n.tapestryKey);
+  const none = (problem) => ({ problem, label, header: true, name, nodes: found });
+  if (!found.length) return none(`${label} has no JSON schema node`);
+  if (found.length > 1) return none(`${label} has more than one JSON schema node (${keys.join(', ')}), and which one counts isn't guessed (BIBLE §10, rule 11)`);
+  const node = keys[0];
+  const row = rows.find((r) => r.schema === node && r.json !== null && r.json !== undefined);
   const { readJson } = require('./_fields');
-  const { json, problem } = readJson(found ? found.json : null);
-  if (problem) return { problem: `${label}'s JSON schema node (${node}) can't be read: ${problem}`, label, header: true };
-  if (!isObject(json)) return { problem: `${label}'s JSON schema node (${node}) holds JSON that isn't an object, so it isn't a schema`, label, header: true };
+  const { json, problem } = readJson(row ? row.json : null);
+  if (problem) return none(`${label}'s JSON schema node (${node}) can't be read: ${problem}`);
+  if (!isObject(json)) return none(`${label}'s JSON schema node (${node}) holds JSON that isn't an object, so it isn't a schema`);
   // As the derive step reads it: the jsonSchema section when there is one, else the object itself, and no $schema.
   const section = json.jsonSchema && typeof json.jsonSchema === 'object' ? json.jsonSchema : json;
-  if (!isObject(section)) return { problem: `${label}'s JSON schema node (${node}) has a jsonSchema section that isn't an object, so it isn't a schema`, label, header: true };
+  if (!isObject(section)) return none(`${label}'s JSON schema node (${node}) has a jsonSchema section that isn't an object, so it isn't a schema`);
   const { $schema, ...schema } = section;
   void $schema;
-  return { schema, node, label, header: true };
+  return { schema, node, nodeUuid: found[0].uuid, name, label, header: true };
+}
+
+/**
+ * A node's tapestryJson, from the tapestry-store (ADR graph-operations-first-slice/0042 Decision 1) → { json }, or
+ * { problem, missing } when it has none, or { problem } when what the store holds isn't an object. The store is
+ * required when first called, so loading this module opens nothing.
+ */
+function tapestryJsonOf(node) {
+  if (typeof node !== 'string' || !node) return { problem: 'no node was named' };
+  const store = require('../../../lib/tapestry-store');
+  const entry = store.get(node);
+  const data = entry && typeof entry === 'object' ? entry.data : undefined;
+  if (data === null || data === undefined) return { problem: "it has no tapestryJson yet; the derive step builds it (cache rebuild, or a firmware reinstall's derive pass)", missing: true };
+  if (!isObject(data)) return { problem: "its tapestryJson isn't an object" };
+  return { json: data };
 }
 
 /** The schema compiled with a new Ajv, as the derive step compiles it → { validate } or { reason }. */
@@ -144,36 +171,71 @@ function listProblems(problems) {
 }
 
 /**
- * A checker for one call: each concept's schema is read and compiled once, however many items name it (Decision 12).
- *   check(concept, json) → { header, label, fits: true | false | null, problems, problem }
+ * Whether one of ajv's errors is about graphContext, which only the derive step builds: a required error at the top
+ * whose missing property is graphContext, or any error at /graphContext or under it (ADR
+ * graph-operations-first-slice/0042 Decision 3).
+ */
+function aboutGraphContext(err) {
+  const at = String((err && err.instancePath) || '');
+  if (at === '/graphContext' || at.startsWith('/graphContext/')) return true;
+  return Boolean(err && err.keyword === 'required' && at === '' && err.params && err.params.missingProperty === 'graphContext');
+}
+
+/**
+ * A checker for one call, or one derive pass: each concept's schema is read and compiled once, however many items or
+ * nodes name it (Decision 12; ADR 0042 Decision 6).
+ *   check(concept, json, { writing }) → { header, label, name, node, nodeUuid, nodes, fits: true | false | null,
+ *   problems, problem, waiting }
+ * With writing, the check of a write's JSON, the problems only about graphContext are set aside when the JSON has no
+ * top-level graphContext: with nothing else wrong, fits is null and waiting true; with other problems too, fits is false,
+ * those alone are listed, and waiting is true (ADR 0042 Decision 3). Without it, as the rule's check form and the derive
+ * step judge a node's tapestryJson, nothing is set aside.
  */
 function judge(read) {
   const memo = new Map();
   const of = (concept) => {
     if (!memo.has(concept)) {
-      memo.set(concept, (async () => {
+      const reading = (async () => {
         const s = await schemaOf(read, concept);
-        if (!s.schema) return { header: s.header, label: s.label, problem: s.problem };
+        const facts = { header: s.header, label: s.label, name: s.name || null, node: s.node || null, nodeUuid: s.nodeUuid || null, nodes: s.nodes || (s.node ? [{ tapestryKey: s.node, uuid: s.nodeUuid || null }] : []) };
+        if (!s.schema) return { ...facts, problem: s.problem };
         const c = compile(s.schema);
-        if (c.reason) return { header: true, label: s.label, problem: `${s.label}'s JSON schema doesn't compile: ${c.reason}` };
-        return { header: true, label: s.label, validate: c.validate };
-      })());
+        if (c.reason) return { ...facts, header: true, problem: `${s.label}'s JSON schema doesn't compile: ${c.reason}` };
+        return { ...facts, header: true, validate: c.validate };
+      })();
+      memo.set(concept, reading);
+      // A read that failed isn't kept: the next check of the concept reads it again, so one transient failure doesn't
+      // fail every later node of a derive pass that shares this judge (review round 1, non-blocking 1).
+      reading.catch(() => { if (memo.get(concept) === reading) memo.delete(concept); });
     }
     return memo.get(concept);
   };
-  async function check(concept, json) {
+  async function check(concept, json, { writing = false } = {}) {
     const j = await of(concept);
-    if (!j.validate) return { header: j.header, label: j.label, fits: null, problems: [], problem: j.problem };
-    const problems = j.validate(json) ? [] : (j.validate.errors || []).map(problemOf);
-    return { header: true, label: j.label, fits: problems.length === 0, problems, problem: null };
+    const { validate, problem: why, ...facts } = j;
+    if (!validate) return { ...facts, fits: null, problems: [], problem: why, waiting: false };
+    if (validate(json)) return { ...facts, fits: true, problems: [], problem: null, waiting: false };
+    let errors = validate.errors || [];
+    let waiting = false;
+    if (writing && !(isObject(json) && Object.prototype.hasOwnProperty.call(json, 'graphContext'))) {
+      const kept = errors.filter((e) => !aboutGraphContext(e));
+      waiting = kept.length < errors.length;
+      errors = kept;
+    }
+    if (!errors.length) return { ...facts, fits: null, problems: [], problem: `${j.label} waits for the derive step, which builds the node's graphContext`, waiting: true };
+    return { ...facts, fits: false, problems: errors.map(problemOf), problem: null, waiting };
   }
   return { check };
 }
 
-/** Whether `json` fits the schema of the concept keyed `concept` → { fits: true | false | null, problems, problem }. */
+/**
+ * A write's check: whether `json`, which a write is about to store, fits the schema of the concept keyed `concept` →
+ * { fits: true | false | null, problems, problem, waiting }, with the problems only about graphContext set aside
+ * (ADR 0042 Decision 3).
+ */
 async function fits(read, concept, json) {
-  const r = await judge(read).check(concept, json);
-  return { fits: r.fits, problems: r.problems, problem: r.problem };
+  const r = await judge(read).check(concept, json, { writing: true });
+  return { fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting };
 }
 
 /**
@@ -193,4 +255,4 @@ async function checkElements(read, items, { every = false } = {}) {
   throw refusal(found[0].code, message, { rule: rule.name });
 }
 
-module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, checkElements };
+module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, checkElements };

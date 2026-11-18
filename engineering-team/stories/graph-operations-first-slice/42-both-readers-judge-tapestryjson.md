@@ -1,6 +1,6 @@
 # Story 42: Both readers judge a node's tapestryJson — the rule `element-fits-schema` and the derive step give one verdict
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.20.b — https://loom.brainstorm.world/t/A10.20.b
@@ -22,7 +22,7 @@ What today's instance does, that this story changes:
   Their verdicts split, as the ledger row `2026-11-16-derive-step-and-rule-check-split` lists, and test SC9 pins four of the splits.
 - **They judge different concepts.** The rule judges each concept whose class thread reaches the node. The derive step judges each concept header whose class thread reaches it within ten links, and each one the node's `z` tags name.
 - **Every element of `word` reads as broken.** Firmware's `word` schema requires `graphContext`, which only the derive step builds.
-  - Judged as `json` tags, all 83 of firmware's element files fail it, each only for `graphContext` (measured 2026-11-17).
+  - Judged as `json` tags, all 83 of firmware's element files fail it, each only for `graphContext` (measured 2026-11-17, on firmware's files). On an installed instance, `word`'s elements also fail install's wordType conditionals (the owner's ruling, under Open questions).
   - Firmware puts seventeen concepts under `word`. On the local instance, `word` has 503 elements.
   - `graph create-set` reports on every create that the new set doesn't fit `word`. `rules check` (A10.31) would report every one of those 503.
 - **Not every node has tapestryJson yet.** On the local instance, 80 of 485 list items, 9 of 53 supersets and 9 of 49 concept headers have none (2026-11-17). An element `graph create-element` makes has none until a derive pass runs.
@@ -30,18 +30,18 @@ What today's instance does, that this story changes:
 
 ## User-facing description
 
-As the owner, or an agent of an admin working the graph, I want one answer to "does this node fit the schemas of the concepts it belongs to?", judged on the node's tapestryJson, whoever asks. Then `rules check`, the property operations' reports, a write's report and a node's cached verdicts never contradict each other, and the elements of `word` stop reading as broken.
+As the owner, or an agent of an admin working the graph, I want one answer to "does this node fit the schemas of the concepts it belongs to?", judged on the node's tapestryJson, whoever asks. Then `rules check`, the property operations' reports, a write's report and a node's cached verdicts never contradict each other, and a write stops reporting a node as broken for the `graphContext` that only the derive step builds.
 
 ## Acceptance criteria
 
-- [ ] **AC1 — The rule judges a node's tapestryJson.** Take a node whose tapestryJson and `json` tag differ. When the rule checks it as it stands, it judges the tapestryJson. For example, a node whose tapestryJson has its `graphContext` fits firmware's `word` schema, whatever its `json` tag holds. A node whose tapestryJson lacks a field its concept requires doesn't fit, even when its `json` tag has the field.
+- [ ] **AC1 — The rule judges a node's tapestryJson.** Take a node whose tapestryJson and `json` tag differ. When the rule checks it as it stands, it judges the tapestryJson. For example, a node whose tapestryJson has its `graphContext` fits `word`'s schema as firmware's file has it, whatever its `json` tag holds; as a firmware install leaves that schema, no element fits it yet (the owner's ruling, under Open questions). A node whose tapestryJson lacks a field its concept requires doesn't fit, even when its `json` tag has the field.
 - [ ] **AC2 — A node with no tapestryJson yet.** When the rule checks an element that has no tapestryJson, it gives one finding for the node, saying it has no tapestryJson yet. It gives no finding for each of its concepts' schemas, and it doesn't fall back to the `json` tag.
 - [ ] **AC3 — One verdict, from both readers.** For a node the derive step has built, its cached verdicts and the rule's check of the same node agree on each concept:
   - on whether it fits, doesn't fit, or can't be checked;
   - on the problems, in the rule's words.
 
   They judge the same concepts: each whose class thread reaches the node. A concept only a `z` tag names is judged by neither. This holds under each of these:
-  - firmware's `word` schema, which a node fits once its `graphContext` is built;
+  - `word`'s schema as firmware's file has it, which a node fits once its `graphContext` is built, and as a firmware install leaves it in the graph, which no element fits yet (the owner's ruling, under Open questions);
   - a schema that forbids extra top-level keys;
   - a `word` block missing a field the derive step fills in;
   - an entry built before the node's `json` tag last changed.
@@ -50,7 +50,7 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
   - A concept the JSON misses for other things too is reported, or refused, for those things alone.
   - Every other verdict and refusal is as today.
 
-  So a set made by `graph create-set` reports `word` as waiting, not failing.
+  So a set made by `graph create-set` reports `word` as waiting, never as failing for `graphContext`. Under firmware's `word` file, that is all it reports for `word`. Under the schema an install leaves, `word` also fails the set for install's wordType conditionals, until they are fixed (the owner's ruling, under Open questions).
 - [ ] **AC5 — The rulebook says what the rule judges.** The rulebook's entry 7, and rule 7's element in the graph after a firmware reinstall, say that the rule judges a node's fully realized tapestryJson. They also say that a node with no tapestryJson is reported, and that exceptions will come. ADR 0020a reads as accepted.
 
 ## Concepts touched
@@ -80,11 +80,124 @@ As the owner, or an agent of an admin working the graph, I want one answer to "d
 - None that block planning.
 - The full test gate writes to the stack it finds, and on the Mac Studio that is the agent-memory instance. So the Tester and Implementer run only the suites they touch there, and the pull request's CI runs the full gate. AC1 to AC4's live checks run on a scratch stack (`scripts/scratch-stack.sh`).
 
+**Narrowed at review round 2** (the owner's ruling, 2026-11-17). The live check found that a firmware install leaves `word` a schema that no element fits, for defects older than this story. So four of the story's promises didn't hold on an instance. The owner narrowed the story to what it builds: one verdict, judged on tapestryJson, with nothing failed for the `graphContext` the derive step builds.
+- **AC4's last sentence** first said a set made by `graph create-set` reports `word` as waiting, not failing. It does report `word` as waiting, but the schema an install leaves still fails the set, for install's wordType conditionals (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`).
+- **AC3's first case** first said a node fits firmware's `word` schema once its `graphContext` is built. That holds for firmware's file. Under the installed schema, none of the live check's 430 list items with a `word` verdict fits it, and both readers agree on each.
+- **AC1's example** first said a node whose tapestryJson has its `graphContext` fits firmware's `word` schema, the claim AC3's first case made. It too holds for firmware's file only. Review round 2's list of what didn't hold missed it. Review round 3 found it, and with the owner's go-ahead (2026-11-17) it is narrowed the same way.
+- **The User-facing description** first promised that the elements of `word` stop reading as broken. They stop reading as broken for `graphContext`. They still read as broken for the conditionals, and the Properties Set nodes also for the set fields the word deriver doesn't build (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
+- **ADR 0042's and the test plan's live-check item,** that the derive step's `parentJsonSchemas` say the set fits `word`, narrows the same way: nothing `word` finds in the set is about `graphContext` (Evidence, LC2).
+- **The older defects become Loom tasks of their own:** install's wordType conditionals, the Properties Set nodes, and a diagnosis of the other failing concepts. In all, 679 of the live check's 1,169 verdicts fail (Evidence). `rules check` (A10.31) waits for those tasks, since it would report each failing verdict. Until the owner files them, a ledger row stands for each: `2026-11-17-word-wordtypes-conditionals-contradict-themselves`, `2026-11-17-properties-set-nodes-derived-as-words` and `2026-11-17-six-concepts-failing-verdicts-undiagnosed`.
+
+## Deviations
+
+- **`schemaOf` returns `name` and `nodes` with every problem,** not only with "more than one" (ADR 0042, Decision 5). So a concept whose one schema node can't be read still gets a cache entry, with `valid: null`, naming that node. That is the same entry the rule's `no-schema` stands beside.
+- **`tapestryJsonOf` is synchronous,** since the store's `get` is. It answers "no node was named" for an empty key.
+- **A cache entry leaves out `uuid` when the schema node has none.** Firmware `word`'s schema types it as a string, so a null would break the node's own fit. `schemaVerdicts` also takes an optional `read`.
+- **`deriveAll` builds its pass's judge from `runCypher` inline,** with the same read `schema-verdicts.js` makes.
+- **GB3's fixture** (`test/graph-rules-builder.test.js`) restated rule 7's old first Says sentence and Source. It was amended in the Tester's lane, in a commit of its own, before the implementation commit; the test plan records it.
+- **Firmware:** rule 7's element file was regenerated. Its reinstall on staging and production after merge is ledger row `2026-11-17-rule-seven-rewrite-awaits-firmware-reinstall`.
+
+- **Round 2, from review round 1:**
+  - the shared judge drops a failed read;
+  - set.js strips its old artifact before the verdicts;
+  - the check form's findings give `derivedAt`;
+  - the rulebook says `add-to-concept` and the property operations "will call" the check.
+
+  ajv's wrapper errors, such as an `if`/`then` that requires `graphContext`, are still not set aside (non-blocking 7). No firmware schema needs it.
+- **AC4's example was first scoped to firmware's `word` file here,** on the Implementer's word. The owner's ruling now narrows it, with AC1's example, AC3's first case and the User-facing description (Open questions).
+- **Round 3, from review round 2:**
+  - a stored `derivedAt` that no Date can hold gives a finding with the number and no date, where the check threw;
+  - CE34 and UN46 reach `waiting: true` through `graph create-element` and `graph update-node`.
+- **Round 4, from review round 3,** changed docs only:
+  - AC1's example is narrowed under the owner's ruling, as AC3's first case was;
+  - ADRs 0042 and 0020a point to the ruling where they state a narrowed promise;
+  - the Evidence tells run 1 as it happened;
+  - a ledger row stands for the diagnosis of the other failing verdicts.
+
+## Evidence
+
+### The suites (round 3, 2026-11-17)
+
+Run on this Mac, each with every service endpoint dead, Neo4j's through a conf file whose address is a closed port. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The gate engine, over the 15 suites this story touches and their neighbours,** on `638fee86`, with only this Evidence's and the ledger's edits uncommitted: PASS, 243 passed, 0 failed, 12 live skips (record `20261117T204508Z-64465-9fc3`). EFS11, CE34 and UN46 are the three new.
+- **Before:**
+  - at round 2, on `d1b18ccd` with its fixes in: 240 passed (record `20261117T173248Z-23396-c2ad`, and the reviewer's own `20261117T175622Z-56825-2e81`);
+  - at round 1, on `6ba85124`: 239 passed (records `20261117T165844Z-73843-1a76`, and the reviewer's own `20261117T170855Z-77871-5a99`).
+- **harness-lint** is clean, and `node src/firmware/graph-rules.js --check` finds rule 7's file current.
+- **Round 4 changed no code or test.** The suites that read the files it changed, or scan the ledger and the stories, pass, each with every endpoint dead: `ledger-row-ids` 6/0, `harness-lint` 85/0, `operations/rules/element-fits-schema` 11/0, `session-start` 32/0 and `rollup-scanners` 33/0.
+
+### The live check (round 2, 2026-11-17, on `6ead878a`)
+
+Round 3 didn't run it again. Its one code change is what a finding says for a `derivedAt` no Date can hold, and the check's 444 entries had none: the check form ran over each of them without throwing (LC7b).
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The records are in this worktree's `tmp/live-check-42/` (ignored by git):
+- `live.js`, the check, and `report.json`, its third run's report, with every call's request and answer;
+- `hand-calls.md`: the calls made by hand and each run's output, transcribed at review round 3 from the session's own tool output (the firmware digests, copy, restart and install; the three runs; `gc-examples.js`'s output);
+- `up.log`, the instance's boot, and `gc-examples.js`;
+- `pass-3.log`, `seed.log`, `pass-3-staging-shape.log` and `graph-rule-firmware.log`, the live suites.
+
+- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `4610d6d4fdc8` and `06c0aa2b2e7f`). The branch's was copied in, the control panel restarted, and the firmware installed again, after which the digests matched (`hand-calls.md`).
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The rule's check form ran inside the container, with the app's own modules, store and database, as `rules check` will run it.
+
+**By check, 14 of 14 passed** on the third run of `live.js` (`report.json`). The first two runs found install's wordType conditionals, a fault in the script, and a premise of LC7c set too broadly (below).
+- **LC1a (AC4).** `graph create-set` under firmware dog's superset reports:
+  - the set concept fitting, with `waiting: false`;
+  - `word` with `waiting: true`, its problems about `graphContext` set aside.
+- **LC1b.** What `word` still finds in the new set's JSON is install's wordType conditionals alone, four problems, a defect that predates this story (the owner's ruling, under Open questions; its ledger row).
+- **LC2 and LC3 (AC3).** The set derived by `POST /api/tapestry-key/derive/:key` has entries in today's shape. It fits the set concept, and nothing `word` finds is about the `graphContext` the derive step built. The rule's check of the set, on the stored tapestryJson, agrees with the cache on every concept, in the same words.
+  - **What didn't hold.** ADR 0042 and the test plan expected its `parentJsonSchemas` to say the set fits `word`. They don't: `word` is `valid: false`, for the four conditional problems LC1b names (the owner's ruling, under Open questions).
+- **LC4 (AC2).**
+  - `graph create-concept` made "live hound 218062", and `graph create-element` made Rex in it, fitting and waiting for nothing.
+  - Rex keeps its json tag node (ADR 0020a Decision 9).
+  - Before a derive, the rule's check gives one `invalid-fields` finding, marked `missing`, naming no concept.
+  - After a derive it finds nothing, and the cache says Rex fits.
+- **LC5 (AC1).** With Rex's entry put without its section's description, though its json tag has it, the rule finds the missing description, and gives the entry's `derivedAt`, 1700000000.
+- **LC6.** The relay's event count was the same before and after: none of these writes signed.
+- **LC7a.** `POST /api/tapestry-key/derive-all/ListItem`: 444 derived, 0 errors, in 1.8 s.
+- **LC7b (AC3, over real firmware).** Over all 444 list items with an entry, 1,169 verdicts, the cache and the rule agree on every one.
+- **LC7c.** No cached `word` verdict says "`graphContext` is required", the split this story ends. None names `graphContext` except for the three set fields below. What `word` does find, on all 430 of its list items:
+  - 1,096 wordType-conditional errors, each with its "then" error (ledger row `2026-11-17-word-wordtypes-conditionals-contradict-themselves`);
+  - on the 44 Properties Set nodes, one for each concept, which are derived as words: 132 set-field errors, three each, and the set conditional's "then" error on each (ledger row `2026-11-17-properties-set-nodes-derived-as-words`).
+
+  So the 1,140 "then" errors are those 1,096 and these 44.
+- **The failing verdicts, by concept** (`report.json`, `agreement.tally`). 679 of the 1,169 fail, and `rules check` (A10.31) would report each:
+  - `word`, 430 of 430;
+  - `graph`, 132 of 132;
+  - `validation tool`, 44 of 44;
+  - `core nodes graph`, 44 of 44;
+  - `relationship`, 22 of 22;
+  - `concept graph`, 3 of 44;
+  - `json schema`, 2 of 44;
+  - one each in the hound concepts of runs 2 and 3: each run's Rex, whose entry LC5 put without its description on purpose, and which LC7a's derive pass rebuilt from that entry.
+
+  The other 490 fit: every verdict in twelve concepts, and the rest of `json schema`'s and `concept graph`'s. Only `word`'s failures are diagnosed (the two ledger rows); the others' causes are not yet.
+- **LC8 (AC5).** After the reinstall, rule 7's item in the graph says it judges a node's fully realized tapestryJson, and which writes will call it.
+
+**What the first two runs showed** (each run's output is in `hand-calls.md`):
+- **Run 1 found install's conditionals, then stopped on a fault in the script.**
+  - **LC1, LC2 and LC3 failed on their first premises:** that `graph create-set` reports `word` as waiting with no problems, that the derive step's `parentJsonSchemas` say the set fits `word`, and that the rule's check finds nothing in the set. Each failed on `word`, for install's wordType conditionals. The installed `word` schema, read from the graph next, had 83 `allOf` entries, where firmware's file has one. That is how the defect was found.
+  - **The script's fault.** It read `create-concept`'s answer as `concept.tapestryKey`, not `concept.conceptHeader`, so `create-element` was refused `missing-input` (LC4a), and the script then failed on a Cypher call missing its parameter. No check after LC4a ran. Its concept, "live hound", has no elements.
+  - **Before run 2,** LC1 to LC3 were rewritten to what the story guarantees, with LC1 split into LC1a and LC1b. LC7c's first premise, that every element of `word` fits `word`'s schema, hadn't run; it became "no `word` verdict mentions `graphContext`". Run 2's report overwrote run 1's.
+- **Run 2 passed 13 of 14.** From it on, each run names its concept and set with its run number: run 2's are "live hound 156289" and "live show dogs 156289". LC7c's second premise counted the Properties Set nodes' set fields as the old split: 129 errors on 43 nodes. Its third, from run 3 on, fails on any "`graphContext` is required", and on any other `graphContext` error outside the three set fields. Run 3's report overwrote run 2's.
+- **Each run adds a concept,** and with it a Properties Set node among its core nodes. So run 3 counts 44 Properties Set nodes, where run 2 and `gc-examples.js`, run between them, count 43.
+
+**The live suites, on the same instance** (`TAPESTRY_CONTAINER=tapestry-scratch`):
+- **`test/pass-3-finishes-in-minutes.test.js` on the small graph** (3,571 nodes): 12 passed, 0 failed.
+  - L5a passes with its oracle moved to the rule's concept set: each rebuilt node's `parentJsonSchemas` lists the schemas of the concepts whose class threads reach it.
+  - L1, L2 and L5c pass too.
+- **The same suite at staging's shape** (`test/helpers/seedStagingShape.js`, 150 s; 3,851,583 nodes), with `PASS3_INSTALL=1`: 13 passed, 0 failed.
+  - **L3:** rebuilding one node of each label by key, the median of three, took ListItem 63 ms, ListHeader 8, ConceptHeader 43, JSONSchema 57, Property 39, Set 51 and Superset 40. That is at most 200 ms each. Inside `derive-all`, ConceptHeader took 5 ms each.
+  - **L4:** a firmware install took 55 s before Pass 3, and Pass 3 took 10 s in all, under its 10-minute limit; the install completed.
+  - **L2b:** every label reads derived = total afterwards.
+  - **L5b:** not run, since it needs a container that has had one install; this one had had four.
+- **`test/graph-rule-firmware.test.js`,** with `GRAPH_RULE_INSTALL=1`: 17 passed, 0 failed. GL1 to GL3 find the graph rule concept and an item per rule, each holding its committed file's JSON, rule 7's new text among them. GL4 finds a second install signs nothing new.
+- **Afterwards** the instance was removed with `scripts/scratch-stack.sh down`, after checking that it mounted this worktree's `src/`.
+
 ## Linked artifacts
 
 - Decision: ADR graph-operations-first-slice/0020a (`engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md`)
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0042-both-readers-judge-tapestryjson.md`
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/42-both-readers-judge-tapestryjson.test-plan.md`
+- Review: `engineering-team/reviews/graph-operations-first-slice/42-both-readers-judge-tapestryjson.md`
 
 Link by path only — never record verdicts or round history in this file (bare `KICK_BACK`/`CHANGES_REQUESTED` tokens in gate/round context trip harness-lint L14; backticked mentions are exempt). Outcomes live in the review file and, in Direction mode, the run journal. (ADR harness-gate-integrity/0002.)
