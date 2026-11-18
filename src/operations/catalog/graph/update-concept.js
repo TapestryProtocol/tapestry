@@ -11,7 +11,8 @@
  *
  * It takes two locks before it reads: C1, which every concept write takes first, then the concept's own header, which
  * the property writes take (ADR graph-operations-first-slice/0018 Decision 11 and Amendment 4, item 1; story #43). So it
- * goes one at a time with create-concept and other updates, and with every write on the same concept.
+ * goes one at a time with create-concept and other updates, and with every write that takes the concept's header: the
+ * property writes, mark-field, create-element, update-node and delete-node.
  */
 
 const { CHANGE_ENTRY } = require('../../changes');

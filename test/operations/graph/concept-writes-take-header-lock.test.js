@@ -13,8 +13,9 @@
  * writes lamp's header. That is what Neo4j does when the other write holds the header: the statement waits for its
  * lock, then goes on over what it committed. A write that never writes the header never meets the other write here.
  *
- *   HL0  the fake's failures.meanwhile: it fires once, at the first lock or copies statement that names its node; it
- *        commits its graph, which a rollback keeps; it logs where; it refuses a transaction that has already written
+ *   HL0  the fake's failures.meanwhile: it fires once, at the first copies statement (lockNode's shape) naming its
+ *        node; it commits its graph, which a rollback keeps; it logs where; it refuses a transaction that has already
+ *        written
  *   HL1  update-concept: right after the concept-header concept's lock, its next two statements set and clear the lock
  *        on lamp's header, with no read between
  *   HL2  a rename beside add-property: lamp's header, schema node, primary property and tree graph end as add-property
@@ -147,7 +148,7 @@ async function raceRename(name, body) {
   return { R, file, from, r, after: S.readState(file) };
 }
 
-test('HL0: the fake\'s failures.meanwhile fires once, at the first statement that writes its node, commits its graph, and refuses to merge', async () => {
+test('HL0: the fake\'s failures.meanwhile fires once, at the first copies statement that names its node, commits its graph, and refuses to merge', async () => {
   const dir = tmp('header-lock-fake-');
   const n = (eid, key, props = {}) => ({ eid, labels: ['TapestryNode'], props: { tapestryKey: key, ...props } });
   const plain = { nodes: [n(1, 'a'), n(2, 'b')], rels: [] };

@@ -29,7 +29,7 @@ No suite pinned either write's first statement before this story. Ledger row `20
 - [x] **A rename that changes a slug or a description** takes the same lock in the same place, since the lock doesn't depend on the field. HL1 pins its place for a name.
 - [x] **The rule's second run refuses as the guard does:** the rule's code, its message and `rule` (HL6, HL7). A field the concept never had, or one that isn't plain, is still refused by the guard before the lock (MF6).
 - [x] **A refused mark undoes nothing of the other write.** HL6 and HL7 compare the whole graph after with the graph the other write left.
-- [x] **The fake's new failure itself** (HL0): it fires once, at the first lock or copies statement naming its node, never at a read or at a statement on another node. A rollback keeps its graph. It refuses a transaction that has already written, since the fake can't merge two writes.
+- [x] **The fake's new failure itself** (HL0): it fires once, at the first copies statement naming its node (`S.lockNode`'s shape), never at a read or at a statement on another node. A rollback keeps its graph. It refuses a transaction that has already written, since the fake can't merge two writes. It meets no other kind of statement, though Neo4j would make some of them wait too (ADR Amendment 4, item 4; review round 1, finding 4).
 - [x] **`graph unmark-field` and `graph map-fields`,** which take no header lock either. Read against the property writes, the Tester finds no harmful interleaving:
   - **unmark-field's removal of a mark.** A property write that reads the mark before it goes refuses `marked-field`, as it would one after the other. One that reads after it lands. unmark-field reads nothing a property write may change, since a marked field's type and presence can't change.
   - **map-fields's copies** are of marked fields only. A property write may change a marked field's description, never its type, so no copy depends on what a property write changes.
@@ -85,6 +85,8 @@ The new tests fail with the current code. Confirmed on 2026-11-18 on branch `A10
 
 operations: a rename or a mark beside a property write takes the header lock: 2 passed, 6 failed, 0 skipped
 ```
+
+HL0's title then said "at the first statement that writes its node". Review round 1 (finding 4) narrowed it to "at the first copies statement that names its node", which is all the fake meets.
 
 Each fails for the reason the fix isn't built:
 - **HL2 is the bug itself, in the fake.** The rename's one write statement waits for lamp's header. Then it writes the json tags it built from what it read before add-property committed. weight's node is in the tree, but the schema node and the primary property have lost it. The review's finding 1 described exactly this.

@@ -101,8 +101,11 @@
  *
  * Story graph-operations-first-slice #43 (its test plan; ADR graph-operations-first-slice/0018 Amendment 4) adds
  * failures.meanwhile { at, graph }: another write that held the lock on the node keyed `at` commits just before this
- * transaction's first lock or copies statement whose rows name that node. So it stands for Neo4j making that statement
- * wait for the lock, then go on over what the other write committed. `graph`, { nodes, rels, nextEid }, is the graph
+ * transaction's first copies statement whose rows name that node (S8's shape, which _sets.js's lockNode takes). So it
+ * stands for Neo4j making that statement wait for the lock, then go on over what the other write committed. Neo4j would
+ * make other statements on the node wait too (C1's SET and REMOVE, a relationship's MERGE or CREATE at it, a DETACH
+ * DELETE of it), but this meets only the copies shape: it is for writes that take the lock through lockNode
+ * (review round 1, finding 4). `graph`, { nodes, rels, nextEid }, is the graph
  * that other write left, which a suite makes by running it over a copy of the state first. It becomes the committed
  * graph and this transaction's alike, so a rollback keeps it, and the log gets { call: 'meanwhile', at } just before
  * the statement. It fires once, and only while the transaction has written nothing that stays: the fake can't merge
@@ -670,7 +673,7 @@ function fakeGraph(stateFile) {
         return e;
       };
       // failures.meanwhile (story graph-operations-first-slice #43): another write that held the lock on a node commits
-      // just before this transaction's first lock or copies statement that names it, as Neo4j makes that statement wait.
+      // just before this transaction's first copies statement that names it (lockNode's shape), as Neo4j makes it wait.
       const meanwhile = (e) => {
         const m = committed.failures && committed.failures.meanwhile;
         if (!m || e.kind !== 'copies' || !Array.isArray(e.keys) || !e.keys.includes(m.at)) return;
