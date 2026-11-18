@@ -19,7 +19,7 @@ const S = require('./_sets');
 const P = require('./_properties');
 
 /** The refusal each of schemaProblem's codes is, for the schema given (Amendment 1, item 3). */
-const GIVEN = Object.freeze({ 'not-wrapped': P.NOT_WRAPPED_GIVEN, 'bad-type': P.BAD_TYPE, 'bad-name': P.BAD_NAME, 'schema-too-large': P.SCHEMA_TOO_LARGE, 'bad-schema': P.BAD_SCHEMA });
+const GIVEN = Object.freeze({ 'not-wrapped': P.NOT_WRAPPED_GIVEN, 'bad-type': P.BAD_TYPE, 'bad-name': P.BAD_NAME, 'bad-description': P.BAD_DESCRIPTION, 'schema-too-large': P.SCHEMA_TOO_LARGE, 'bad-schema': P.BAD_SCHEMA });
 
 module.exports = {
   group: 'graph',
@@ -30,7 +30,7 @@ module.exports = {
   description: [
     "Makes the properties of the concept whose header's tapestryKey is `concept` match `schema`, a JSON Schema for its elements' JSON, as an object or its JSON text, with the concept's fields under its key, as save-schema takes one today. Each field is matched to the property at the same place: a field with no property gets one, a property whose definition or required flag differs is rewritten, and a property at a place the schema doesn't have is taken out with all under it, kept whole in the change entry. A property kept keeps its node and its tapestryKey, so a mark on it goes on working. `added`, `changed` and `removed` list them, against the schema as it was before the call.",
     "The concept's JSON schema node is rebuilt from its properties and the schema's own top level, so the schema reads back as given, every keyword at every level kept, but for what `filledIn` names: the `$schema`, `type`, `required` and `definitions` the json-schema concept requires, when the schema lacks them. Nothing is signed or sent anywhere.",
-    "It keeps only a wrapped schema (`not-wrapped`): one whose top level is an object whose one property is the concept's key, holding an object. Every field has a type, one of JSON Schema's seven or a list of them (`bad-type`), and a key create-concept's name check leaves as it is (`bad-name`); at most 32 levels and 1,000 properties lie under the key (`schema-too-large`), and the schema must compile (`bad-schema`). A list's item fields stay in its own definition. A marked field can't be taken out or change type (`marked-field`).",
+    "It keeps only a wrapped schema (`not-wrapped`): one whose top level is an object whose one property is the concept's key, holding an object. Every field has a type, one of JSON Schema's seven or a list of them, and only an object holds properties (`bad-type`); a key create-concept's name check leaves as it is (`bad-name`); and a description that check would take (`bad-description`), since it becomes the property node's tag; at most 32 levels and 1,000 properties lie under the key (`schema-too-large`), and the schema must compile (`bad-schema`). A list's item fields stay in its own definition. A marked field can't be taken out or change type (`marked-field`).",
     "As every property write, it first brings the concept's property nodes in line with its current schema when they aren't and that schema can be (`caughtUp`): a current schema that can't be is replaced all the same, against the property nodes as they are. `elements` reports on the concept's elements, judged as the rule `element-fits-schema` judges one as it stands, before and after, those that still hold a removed field among them; none of it stops the write. The same schema again changes nothing and answers `unchanged`. Only this instance's own concepts change, firmware's aside; for one with a letter, `letterOutOfDate` says it no longer matches it.",
   ].join('\n\n'),
   inputs: {
@@ -60,7 +60,7 @@ module.exports = {
       },
     },
   },
-  refusals: [P.BAD_SCHEMA, P.NOT_WRAPPED_GIVEN, P.BAD_TYPE, P.BAD_NAME, P.SCHEMA_TOO_LARGE, P.NOT_INSTALLED, P.UNKNOWN_CONCEPT, P.NOT_OWN_CONCEPT, P.FIRMWARE_CONCEPT, P.NO_PRIMARY_PROPERTY, P.TANGLED_TREE, P.NOT_OWN_NODE, P.MARKED_FIELD, P.NO_FREE_ADDRESS],
+  refusals: [P.BAD_SCHEMA, P.NOT_WRAPPED_GIVEN, P.BAD_TYPE, P.BAD_NAME, P.BAD_DESCRIPTION, P.SCHEMA_TOO_LARGE, P.NOT_INSTALLED, P.UNKNOWN_CONCEPT, P.NOT_OWN_CONCEPT, P.FIRMWARE_CONCEPT, P.NO_PRIMARY_PROPERTY, P.TANGLED_TREE, P.NOT_OWN_NODE, P.MARKED_FIELD, P.NO_FREE_ADDRESS],
   guards: [{ rule: 'element-fits-schema', items: () => [] }],
   repeatKey: ['concept', 'schema'],
 

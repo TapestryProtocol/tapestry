@@ -152,7 +152,7 @@ For Architecture, not this gate (each answered in ADR 0018):
 - **`not-own-node` covers every node the write rewrites or takes out,** a parent whose view changes among them, not only those a plan lists as changed: a rewrite is a change.
 - **The whole node a property-removed change keeps** gives each relationship `from` and `to` beside delete-node's `direction` and `other`, so RM2's reading, and an undo, need no second lookup. delete-node's own entry is unchanged.
 - **A catch-up change's `was` for a node in the old shape** is `{ schema: null, required }`, its required flag read from its boolean `property.required` where its parent has no piece.
-- **The report's lists are in tapestryKey order,** so which 50 it names doesn't depend on the read's order.
+- **The report's lists are in tapestryKey order,** so which 50 it names doesn't depend on the read's order, for a concept of up to 10,000 elements. Past that, the read's order decides which 10,000 are judged, and so which can be named (review round 1, finding 3).
 - **A piece that names `__proto__` is refused `bad-schema`,** by add-property and update-property alike. update-property merges a piece's keywords by assignment, and assigning `__proto__` would set the definition's prototype, not a keyword. No suite pins it; a probe of `pieceInput` refuses it as text and as a parsed object, and accepts `{"minLength": 1}`.
 
 ## Evidence
@@ -165,8 +165,8 @@ Run on this Mac, each with every service endpoint dead and `TAPESTRY_CONTAINER=n
 - **The scoped gate,** through the gate engine: CI's registry entries for an operations change, `operations.test.js` (which runs every suite under `test/operations/`), `external-cli`, `openapi-coverage`, `admin-action-sweep` and `schema-save-finds-the-right-header`. `npm run gate:status -- --label a10-18-story-18-impl-final` reads:
   `20261118T021214Z-39591-5716 [a10-18-story-18-impl-final] started 2026-11-18T02:12:14.004Z on bd017881+dirty — PASS, exit 0, 1014 passed, 0 failed, 6 skipped, 5/5 suites`
   - **Dirty** is this commit's implementation, uncommitted beside the tests' commit.
-  - **The first run failed 13,** every one on the route walker's `Cannot find module …/node_modules/express` (record `20261118T020059Z-33339-696e`): this worktree has no `node_modules` of its own (ledger row `2026-11-16-route-walk-needs-node-modules`, this occurrence added). With the main checkout's linked in, untracked, the rest passed.
-- **harness-lint** is clean, and `node src/firmware/graph-rules.js --check` finds rules 3 and 7 current. A code-point scan of every file touched finds no control or invisible character this branch added (BIBLE.md's three U+FE0F are staging's).
+  - **The first run failed 13,** each for want of a `node_modules` in this worktree (record `20261118T020059Z-33339-696e`; ledger row `2026-11-16-route-walk-needs-node-modules`, this occurrence added): most on the route walker's `Cannot find module …/node_modules/express`, openapi-coverage's D2 on `js-yaml` in its throwaway copy, and `schema-save-finds-the-right-header`, which didn't load, on `…/node_modules/nostr-tools` (review round 1 corrected this line). With the main checkout's linked in, untracked, the rest passed.
+- **harness-lint** is clean, and `node src/firmware/graph-rules.js --check` finds rules 3 and 7 current. A code-point scan of every file touched finds no control or invisible character this branch added (BIBLE.md's three U+FE0F are staging's). It counted controls and format characters only: review round 1 found two combining marks it didn't count, U+0300 and U+036F in `test/helpers/propertyGraph.js:66`, now written as escapes.
 - **Before the implementation,** at `e509c390` (staging with A10.20.b merged in), the five suites were 0/13, 0/11, 0/8, 0/9 and 0/1, each failing because its declaration didn't exist.
 
 ### The live check (Implementation, 2026-11-17)
@@ -190,7 +190,7 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - **L2:** two add-property calls at once on one concept both landed. The same add twice at once answered one `added` and one `already-exists`, with one node.
 - **L3:** after a firmware reinstall, the property nodes, their tags and relationships, and the schema node's JSON were as before. Each node's derive stamp (`tapestryJsonUpdatedAt`) was left out of the comparison, since a reinstall's derive pass sets it.
 - **L5:** an admin agent with its own key, through nginx and the external CLI, added spout, updated it, set the schema with lid, and removed spout, each recorded as its own; the concept's history gave the four newest first. A visitor through nginx got 401.
-- **L6:** the relay held 465 events before the writes and 465 after: none of them signed.
+- **L6:** the relay held 465 events before the seed and 465 after L1's writes: none of them signed. The count didn't bracket L2, L5 or L7 (review round 1, finding 6); the suites' spy covers those, and the run on the committed code brackets every write.
 - **L7:** on a concept with 1,000 elements, all derived, add-property took 0.74 s (catching up first, judging each element before and after) and set-schema 0.34 s. Making the elements took 120 s and the derive pass 6.1 s.
 
 **L4, after it: 1 of 1 passed** (`report-restored.json`). Backup `20261118T020341Z-db606e37` (6.3 MB: 9,674 nodes and 9,177 relationships), taken after run 2, was uploaded to a fresh instance and restored there:

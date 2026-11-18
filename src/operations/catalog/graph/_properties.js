@@ -82,8 +82,8 @@ const UNREADABLE_SCHEMA = R('unreadable-schema', 409, "A concept whose JSON sche
 const TANGLED_TREE = R('tangled-tree', 409, "A concept whose property tree isn't a tree: a property node with more than one parent, or more than 32 levels below the primary property");
 const NOT_OWN_NODE = R('not-own-node', 409, "A property node this write would change or take out that came from another author's event, or records another author: it is that author's claim, which an operation never changes (design D4)");
 const BAD_NAME = R('bad-name', 400, "A key a field can't have: empty once trimmed, no slug, a control, text-direction or invisible character, longer than 200 characters (as create-concept refuses a name), or __proto__, which can't key a field of an element's JSON; in a schema, a key create-concept's name check would change. The refusal names its place");
-const BAD_TYPE = R('bad-type', 400, "A type that isn't one of JSON Schema's seven (string, number, integer, boolean, object, array, null), or a list of them with none repeated; in a schema, a field with none, such as one defined by $ref or enum alone. The refusal names its place");
-const BAD_DESCRIPTION = R('bad-description', 400, 'A description with a control character other than a line break or a tab');
+const BAD_TYPE = R('bad-type', 400, "A type that isn't one of JSON Schema's seven (string, number, integer, boolean, object, array, null), or a list of them with none repeated; in a schema, a field with none, such as one defined by $ref or enum alone, or a field that holds properties with a type other than object. The refusal names its place");
+const BAD_DESCRIPTION = R('bad-description', 400, "A description with a control character other than a line break or a tab, as the description input, inside schema, or on a field of a schema: it becomes the property node's description tag");
 const BAD_PARENT = R('bad-parent', 409, "A parent that isn't one of the same concept's object properties: another concept's, a property that holds a plain value or a list (a list's item fields stay in its own definition), or the concept's primary property, which isn't a field: leave parent out for a top-level property");
 const BAD_SCHEMA = R('bad-schema', 400, "A piece or a schema that isn't a JSON object or its text, a piece that names the property's own sub-properties (properties, or a required list: those are properties of their own) or says something other than an input beside it, or a schema that wouldn't compile, read as the readers read one");
 const NAME_IN_USE = R('name-in-use', 409, 'A name another property already has at that place, holding something other than the call asks for; the refusal names what differs');
@@ -251,6 +251,10 @@ function pieceInput(value, { type, description } = {}) {
   if (description !== undefined && has(piece, 'description') && piece.description !== null && piece.description !== description) {
     throw refusal(BAD_SCHEMA.code, `schema says the description is ${show(piece.description)}, but description is ${show(description)}: give it once, or the same in both. Nothing changed.`, { input: 'schema' });
   }
+  // A description in the piece becomes the node's description tag, so it is checked as the description input is
+  // (Amendment 3, item 2).
+  const why = typeof piece.description === 'string' ? CN.descriptionProblem(piece.description) : null;
+  if (why) throw refusal(BAD_DESCRIPTION.code, `The description schema gives can't be a property's: ${why}. Nothing changed.`, { input: 'schema' });
   return piece;
 }
 
@@ -336,6 +340,12 @@ function schemaProblem(doc, oKey) {
       const child = def.properties[k];
       const tp = isObject(child) ? typeProblem(child.type) : `it is ${kindOf(child)}, not a definition`;
       if (tp) return { code: 'bad-type', message: `the field ${placeOf(key, at)} can't be a property: ${tp}` };
+      // Only an object holds properties, and a field's description becomes its node's tag (Amendment 3, items 2 and 3).
+      if (child.properties !== undefined && !typesOf(child.type).includes('object')) {
+        return { code: 'bad-type', message: `the field ${placeOf(key, at)} holds properties, but its type is ${show(child.type)}, not object: only an object holds properties` };
+      }
+      const dp = typeof child.description === 'string' ? CN.descriptionProblem(child.description) : null;
+      if (dp) return { code: 'bad-description', message: `the description of the field ${placeOf(key, at)} can't be a property's: ${dp}` };
       total += 1;
       if (total > MAX_PROPERTIES) return { code: 'schema-too-large', message: `it has more than ${count(MAX_PROPERTIES)} properties under ${key}, the most these writes keep` };
       if (at.length > MAX_DEPTH) return { code: 'schema-too-large', message: `${placeOf(key, at)} is ${at.length} levels under ${key}, more than the ${MAX_DEPTH} these writes keep` };
@@ -776,8 +786,11 @@ async function commit(tx, read, st, { target, frame }) {
       for (let n = 0; n <= MAX_NONCE; n++) list.push(`39999:${inst.ta}:${n === 0 ? dtag.childDTag(r.field, parentUuid) : dtag.childDTag(r.field, parentUuid, n)}`);
       return [r.ref, list];
     }));
-    const rows = await read(HELD, { uuids: [...cands.values()].flat() });
-    const held = new Set(rows.map((x) => x.uuid).filter((u) => typeof u === 'string' && !freed.has(u)));
+    // Each node's plain d-tag first; the nonces only for a node whose plain address is held (review round 1, finding 9).
+    const heldOf = async (uuids) => new Set((uuids.length ? await read(HELD, { uuids }) : []).map((x) => x.uuid).filter((u) => typeof u === 'string' && !freed.has(u)));
+    const held = await heldOf(ready.map((r) => cands.get(r.ref)[0]));
+    const crowded = ready.filter((r) => held.has(cands.get(r.ref)[0]) || taken.has(cands.get(r.ref)[0]));
+    for (const u of await heldOf(crowded.flatMap((r) => cands.get(r.ref).slice(1)))) held.add(u);
     for (const r of ready) {
       const address = cands.get(r.ref).find((u) => !held.has(u) && !taken.has(u));
       if (!address) throw refusal(NO_FREE_ADDRESS.code, `Every address the property ${placeOf(oKey, pathOf(t2, r))} would take is held: ${cands.get(r.ref)[0]}, and each versioning nonce to ~${MAX_NONCE}. Nothing changed.`);
