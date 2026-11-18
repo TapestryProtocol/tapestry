@@ -11,3 +11,5 @@
 **Fix shape.** Say in both files that the workflows run on GitHub again, or mark `H2_0-baseline.md` as a snapshot dated to the ngit period. Both are harness-definition paths, so the change needs its own CHANGELOG row.
 
 **Pointer:** `scripts/harness-def-paths.txt`; `docs/harness/H2_0-baseline.md`; `engineering-team/CHANGELOG.md`, the 2026-11-11 row; `engineering-team/reviews/honest-test-gate/2-live-link-checks-leave-the-pr-gate.md`, harness friction 1.
+
+**Seen again, 2026-11-18** (review of `test-suite-hermeticity` #3, round 1, harness friction 2). `scripts/harness-def-paths.txt:16–17` still says no workflow runs. Meanwhile the `Test` workflow runs on every pull request with the full history, so L10 fires there: it would have failed that story's pull request, as the review's blocking 1 found.
