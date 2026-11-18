@@ -309,6 +309,7 @@ test('ME3 [AC2]: the same call again is already-moved, recording nothing; so is 
   assert(again.outcome === 'already-moved' && again.change === null && again.node && again.node.tapestryKey === k.filer && again.from === k.beagleSuperset && again.to === k.showBeagles,
     `already-moved, naming the node and the two sets, with no entry; got ${show(again).slice(0, 400)}`);
   assert(show(again.letters) === show([]) && again.letterOutOfDate === false && again.cacheOutOfDate === false, `already-moved answers no letters and both flags false (Decision 12); got ${show(again)}`);
+  assert(show(keysOf(again.concepts)) === show([k.beagle]) && again.concepts[0].key === 'beagle', `already-moved still names each concept the node is an element of: beagle (Decision 12; review round 1, finding 4); got ${show(again.concepts)}`);
   const g = await graph();
   assert(entriesNaming(g, k.filer).length === 1, `one entry for Filer's move; got ${entriesNaming(g, k.filer).length}`);
   const filed = await ok('already-filed');
@@ -410,6 +411,9 @@ test('ME10 [AC7, Decisions 11 and 12]: the note says nothing was signed, and giv
   const stacked = reinstallSentences(note('stacked'));
   assert(stacked.some((x) => /redundant|prune/i.test(x)), `Stacked went up to the superset while show beagles still holds it: the superset's link is redundant, and a reinstall's prune may take it out (Decision 12); its sentences on a reinstall are ${show(stacked)}`);
   for (const id of ['hop', 'up']) assert(reinstallSentences(note(id)).length === 0, `${id}: neither applies (from isn't a superset; to is a set, or a superset no set of the concept holds it under), so no reinstall sentence; got ${show(note(id))}`);
+  // Review round 1, finding 4: out of a superset, but no z of the node names its concept, so pass 1d doesn't link it again.
+  for (const id of ['placeholder', 'firmware-own']) await ok(id);
+  for (const id of ['person', 'placeholder', 'firmware-own']) assert(reinstallSentences(note(id)).length === 0, `${id}: moved out of pet's superset, but no z of the node names pet, so a reinstall doesn't link the superset to it again (Decision 11): no reinstall sentence; got ${show(note(id))}`);
 });
 
 // ── AC6: anyone's node ──
