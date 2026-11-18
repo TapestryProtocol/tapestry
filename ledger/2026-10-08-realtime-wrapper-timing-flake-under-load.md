@@ -3,8 +3,14 @@
 **Id:** 2026-10-08-realtime-wrapper-timing-flake-under-load
 **Type:** meta
 **Opened:** 2026-10-08 (treasure-map-edit #3 review, harness friction 3)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-18. Fixed at its root in story `test-suite-hermeticity` #3.
+- **The cause:** the suite timed a node start by when its 40 ms observer first saw the stub's start line. `startAll()` starts every scenario at once, about 23 process launches in one burst. Inside the full gate, which runs every suite in one process, launches cost more as that process grows: in the probe's runs with 1–3 GB of ballast, about 7–60 ms each, against about 1 ms at 55 MB. So the burst held the observer back past the quick scenario's first start, and RW7 read the 1 s backoff as short.
+- **The reproduction:** in a throwaway `node:22-bookworm` container, the suite at 55 MB passed. With 3 GB of ballast, RW7 failed three runs of three, at 0.44–0.55 s.
+- **The fix:** the stub stamps each start as its first act (a `start-time.<pid>` file), and a start is timed by that file's mtime.
+- **The test:** RW25 pins it, by holding the suite up 0.5 s after a start.
+- **No wrapper change:** `run.sh` was always right.
+- **The other readings aren't this fix's:** the RW15 occurrence, and the 2026-10-09 run in which 18 RW tests failed, were other checks failing while other work shared the machine. The first ran while two gate containers ran at once on one Docker VM, and the second beside a UI build and 185 browser tests in the same session. If RW15 fails again, it gets a row of its own.
 
 `test/tagging-edges-realtime-wrapper.test.js` has failed twice, each time while another gate or the browser specs ran
 on the same machine, and each time in a different wall-clock timing check. Neither diff touched wrapper code.

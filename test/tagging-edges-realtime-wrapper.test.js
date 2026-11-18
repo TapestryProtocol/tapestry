@@ -17,6 +17,12 @@
  *        `onSince` after `changedBy` — as the owner-or-admin route writes it. Story 5 leaves run.sh unchanged (ADR 0005
  *        Constraints: "The engine and run.sh stay unchanged"; "No key of switch.json other than on may hold the text
  *        "on":true"), so these two pass before and after story 5: they pin that the wrapper keeps reading version 2.
+ * Story test-suite-hermeticity #3 (engineering-team/stories/test-suite-hermeticity/3-rw7-times-restarts-from-the-real-start.md,
+ *        AC1): RW25 holds the suite's own process up just after a quick wrapper's first start, as a burst of process
+ *        launches does inside the full gate's one big process, and checks that the first restart still reads the
+ *        wrapper's real 1 s backoff. RW7 read it as 0.64–0.78 s there (ledger row
+ *        2026-10-08-realtime-wrapper-timing-flake-under-load). It failed in its red phase, until each start was timed
+ *        by the stub's own stamp rather than by when the suite noticed it.
  *
  * Intentionally failing until run.sh lands (red phase). The script is looked up LAZILY inside each test through
  * load(), so this suite always loads, and each test fails with "… run.sh not implemented yet" rather than an error of
@@ -34,7 +40,8 @@
  *   TAGGING_EDGES_REALTIME_HEALTHY_SECONDS=3  (RW22 only; T34) the healthy-run threshold, so a healthy run takes
  *                                         seconds, not a minute;
  *   PATH                                  the test's `sleep`, a stub `node`, and the test's `flock`, before the host's
- *                                         PATH. The stub node records one line per start (its pid, argv, cwd, the
+ *                                         PATH. The stub node stamps each start first (a start-time.<pid> file, whose
+ *                                         mtime is the start's time) and records one line per start (its pid, argv, cwd, the
  *                                         marker variables, TAGGING_EDGES_STATE_DIR, and — where asked — the inode
  *                                         fd 8 is open on) and then sleeps until TERM (recording the signal, taking
  *                                         1 s to stop), exits at once with a chosen code, holds until the test
@@ -123,6 +130,8 @@ const MS = {
   backoffWatch: 3000,  // RW20: how long the test watches for that exit
   healthyWindow: 9000, // RW22: three quick exits, a 4 s healthy run, and the backoff sleep after it
   poll: 40,            // the suite's own observation step
+  holdUp: 500,         // RW25: how long the suite holds itself up after the stub's first start line is written
+  clockSlack: 20,      // RW25: the clock granularity allowed below the wrapper's 1 s backoff
 };
 
 // ─── test harness ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -205,6 +214,9 @@ const nodeStub = (realSleep) => `#!/bin/bash
 #   "hold:N"           wait for $RW_STUB_DIR/release (removing it), then exit N;
 #   "for:S:N"          run S whole seconds (or until TERM or INT), then exit N.
 d="\${RW_STUB_DIR:?RW_STUB_DIR unset}"
+# The start's stamp, before anything else and with no process of its own: the suite times this start by the file's
+# mtime, so a start reads when node started, not when the suite noticed it (story test-suite-hermeticity #3).
+: > "$d/start-time.$$"
 nap="${realSleep}"
 n=$(( $(cat "$d/count" 2>/dev/null || echo 0) + 1 ))
 printf '%s\\n' "$n" > "$d/count"
@@ -409,7 +421,13 @@ function killAllNow() {
 }
 let exitHookOn = false;
 
-/** Read the stub's log: new "start" / "signal" / "stopped" / "timeout" lines, time-stamped when first seen. */
+/**
+ * Read the stub's log: new "start" / "signal" / "stopped" / "timeout" lines. A start is timed by its stamp, the
+ * start-time.<pid> file the stub makes as its first act, so it reads when node started: a suite held up when the start
+ * happened, as a burst of process launches holds up the full gate's one big process, can't shorten a gap between
+ * starts (story test-suite-hermeticity #3; RW25). Without a stamp, a start falls back to when it was first seen, as
+ * the other lines are.
+ */
 function observe(h) {
   let text;
   try { text = fs.readFileSync(path.join(h.stubDir, 'node.log'), 'utf8'); } catch (_) { return; }
@@ -419,7 +437,8 @@ function observe(h) {
   for (let i = h.seen; i < lines.length; i++) {
     const f = lines[i].split('\t');
     if (f[0] === 'start') {
-      h.starts.push({ pid: Number(f[1]), marker: f[2], onlyFirst: f[3], stateDir: f[4], fd8: f[5], cwd: f[6], args: (f[7] || '').split('\u001f').slice(0, -1), at });
+      const stamp = statOrNull(path.join(h.stubDir, `start-time.${f[1]}`));
+      h.starts.push({ pid: Number(f[1]), marker: f[2], onlyFirst: f[3], stateDir: f[4], fd8: f[5], cwd: f[6], args: (f[7] || '').split('\u001f').slice(0, -1), at: stamp ? Math.round(stamp.mtimeMs) : at });
     } else if (f[0] === 'signal') {
       h.signals.push({ pid: Number(f[1]), sig: f[2], at });
     } else if (f[0] === 'stopped') {
@@ -1302,6 +1321,48 @@ test('RW24: a version 2 on line — {"version":2,"on":true,"changedAt":…,"chan
     if (c.w.exited) problems.push(`the wrapper exited: ${show(c.w.exited)}`);
     assert(problems.length === 0, `${problems.join('\n        ')}${tailOf(c.w)}`);
   });
+});
+
+// ─── RW25: a start is timed from when it happened (story test-suite-hermeticity #3) ────────────────────────────
+/**
+ * RW25's own scenario: one quick wrapper (node exits 1 at once), with the suite holding itself up from the spawn until
+ * MS.holdUp after the stub has written its first start line. It is a busy wait, so nothing else in this process runs
+ * meanwhile: no observer tick, no timer. A burst of process launches holds a big process up the same way inside the
+ * full gate (ledger row 2026-10-08-realtime-wrapper-timing-flake-under-load). It is not one of SCENARIOS: RW25 runs
+ * it alone, after every scenario has settled, so the hold-up holds up no other scenario's clock.
+ */
+async function scenarioHeldUp() {
+  const conf = writeConf(path.join(ROOT, 'held-up', 'brainstorm.conf'), { marker: 'held-up' });
+  const stateDir = mkState('held-up');
+  writeSwitch(stateDir, true);
+  const stubDir = mkStub('exit:1', 'held-up');
+  const written = () => readLines(path.join(stubDir, 'node.log')).filter((l) => l.startsWith('start\t')).length;
+  const h = spawnWrapper({ label: 'held up, node exits 1', stateDir, conf, stubDir });
+  try {
+    const giveUp = Date.now() + MS.firstStart;
+    while (written() < 1 && Date.now() < giveUp) { /* held up: the suite's process runs nothing else */ }
+    const firstWritten = written() >= 1;
+    const holdEnd = Date.now() + MS.holdUp;
+    while (Date.now() < holdEnd) { /* still held up */ }
+    if (firstWritten) await waitFor(() => h.starts.length >= 2, MS.restart);
+    const t0 = h.starts.length ? h.starts[0].at : null;
+    return { firstWritten, offsets: t0 === null ? [] : h.starts.map((s) => s.at - t0), ...snap(h) };
+  } finally {
+    await kill(h);
+  }
+}
+
+test('RW25: a start is timed from when node started, not from when the suite noticed it — with the suite held up from the spawn until 0.5 s after the stub wrote its first start line, the first restart still reads no earlier than the wrapper\'s 1 s backoff allows, less clock granularity: 0.98–3.5 s after the first start (story test-suite-hermeticity #3 AC1; ledger row 2026-10-08-realtime-wrapper-timing-flake-under-load, where RW7 read that backoff as 0.64–0.78 s inside the full gate)', async () => {
+  await need('quick');                           // this host can run the wrapper
+  await Promise.all(Object.values(startAll())); // every scenario has settled, so the hold-up holds up no other clock
+  const w = await scenarioHeldUp();
+  assert(w.firstWritten, `node was never started within ${MS.firstStart} ms with the switch on${tailOf(w)}`);
+  const off = w.offsets;
+  const seen = `starts at ${show(off.map((t) => +(t / 1000).toFixed(2)))} s`;
+  assert(off.length >= 2, `node was not restarted within ${secs(MS.restart)} after exiting 1 (${seen})\n        expected: a second start about 1 s after the first\n        actual:   none${tailOf(w)}`);
+  const gap = off[1] - off[0];
+  const floor = 1000 - MS.clockSlack;
+  assert(gap >= floor && gap <= 3500, `the first restart read ${secs(gap)} after the first start, with the suite held up until ${secs(MS.holdUp)} after node first started (${seen})\n        expected: ${secs(floor)}–3.50 s — the wrapper's 1 s backoff, each start timed from when it happened (the clock's granularity allowed below it)\n        actual:   ${secs(gap)}`);
 });
 
 // ─── runner ────────────────────────────────────────────────────────────────────────────────────────────────────
