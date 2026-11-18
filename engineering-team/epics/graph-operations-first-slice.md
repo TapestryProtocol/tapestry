@@ -52,6 +52,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 21. `stories/graph-operations-first-slice/21-update-node.md` — change one of this instance's own elements' name,
     description or fields, with no event, each section it changes checked against its concept's schema; brings the
     check that refuses a node from someone else's event (D4), which merge-nodes and delete-node will reuse (Loom A10.21).
+22. `stories/graph-operations-first-slice/22-add-to-concept-and-remove-from-concept.md` — make any node an element of
+    another concept, or put it in a set, its new section checked against the concept's schema and kept beside another
+    author's letter, and take the owner's claim out again, never out of the node's last concept; brings D9's rule into
+    the rulebook (Loom A10.22).
 26. `stories/graph-operations-first-slice/26-delete-node.md` — delete one of this instance's own elements, with its
     relationships and tags, the whole node kept in its change entry so a mistake can be undone; teaches the shared test
     of whose node it is the person nodes and placeholders the import makes (Loom A10.26).
