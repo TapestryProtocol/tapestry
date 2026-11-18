@@ -14,7 +14,7 @@
  */
 
 const dtag = require('../../../lib/dtag');
-const { refusal } = require('../../refusal');
+const { refusal, isRefusal } = require('../../refusal');
 const { CHANGE_ENTRY } = require('../../changes');
 const R = require('../../reads');
 const K = require('./_concepts');
@@ -42,7 +42,7 @@ module.exports = {
     "Makes the node whose tapestryKey is `node` an element of `concept`, directly under the concept's superset, or directly in `set`: a set or superset in the concept's class thread. The node then belongs to every concept whose class thread reaches where it went. Any node is taken: one of this instance's own, one that came from another author's event, a person node, a placeholder the import made, or one of firmware's own elements. The membership is the owner's claim, beside any the node's author makes. Nothing is signed or sent anywhere.",
     "The node gains the concept's section, under the concept's key, holding its name, the slug its name gives and `fields`, an object or its JSON text, as a command line gives it; a section it already holds for the concept has `fields` merged into it. A node with no name, such as a person node or a placeholder, takes its section's name from `fields`. One of this instance's own nodes keeps the section in its JSON, its json tag, whose word block's `wordTypes` gains the concept's key, and gains the tags a letter for it would carry: a `z` naming the concept's header and an `n` naming the set. Any other node's letter, or firmware's definition, is never written: the section is kept beside it, in the node property `tapestryOwnSections`, which the field mapping and the derive step read with its JSON.",
     "Before anything is written, the node's JSON as the call would leave it is checked against the concept's JSON Schema (BIBLE §10, rule 4: the rule `element-fits-schema`): JSON that doesn't fit is refused (`invalid-fields`), naming every problem, and no value is made up for a field left out. `concepts` says how every concept the node now belongs to judges it; the others never stop the call. The concepts' marked fields follow onto the node. It refuses a tag (`tag-node`), a node another operation looks after (`made-elsewhere`), a concept whose elements another operation makes or that is keyed `word` or `graphContext`, a `set` that isn't one of the concept's, fields that aren't an object or give another name or slug, and JSON that can't be read. For a node whose author is one of this instance's own keys, it refuses a concept where another of the instance's own elements has the node's name (`name-in-use`).",
-    "Safe to repeat: when the node is already an element of the concept, directly in `set` when one is given, and its JSON holds the concept's section, it changes nothing, records nothing and answers `already-element`, naming in `differs` each field given that differs from what its section holds. For one of this instance's own nodes, `graph update-node` changes those. For a node kept beside another author's letter, which `graph update-node` refuses, a removal and then an add with the fields change them. A node already in the concept whose JSON lacks the concept's section, as one that joined through a set another concept also reaches does, is given that section, checked as a new one is, with no new link. A node already in the concept that is put in a set gets the set's link, its tags and, in `wordTypes`, the keys of the concepts the set joins; its section stays as it is. Whenever the call changes the node's JSON, a section or `wordTypes`, the concept's schema judges it as it judges a new member's; a call that writes only a set's link and its tags reports the concept's verdict without refusing. So a removal that also took the node out of a second concept is undone by adding it back to the first concept, then to the second with that section's fields from the change entry. The change entry records the membership, the section, the tags and `wordTypes`. The node's letter and the derive step's cached copy of its JSON are left as they are: `letterOutOfDate` and `cacheOutOfDate` say when they now differ from it.",
+    "Safe to repeat: when the node is already an element of the concept, directly in `set` when one is given, and its JSON holds the concept's section, it changes nothing, records nothing and answers `already-element`, naming in `differs` each field given that differs from what its section holds. For one of this instance's own nodes, `graph update-node` changes those. For a node kept beside, which `graph update-node` refuses, a removal and then an add with the fields change the owner's own section; a section the author's letter holds, for a membership their letter claims, stays theirs. A node already in the concept whose JSON lacks the concept's section, as one that joined through a set another concept also reaches does, is given that section, checked as a new one is, with no new link. A node already in the concept that is put in a set gets the set's link, its tags and, in `wordTypes`, the keys of the concepts the set joins; its section stays as it is. Whenever the call changes the node's JSON, a section or `wordTypes`, the concept's schema judges it as it judges a new member's; a call that writes only a set's link and its tags reports the concept's verdict without refusing. So a removal that also took the node out of a second concept is undone by adding it back to the first concept, then to the second with that section's fields from the change entry. The change entry records the membership, the section, the tags and `wordTypes`. The node's letter and the derive step's cached copy of its JSON are left as they are: `letterOutOfDate` and `cacheOutOfDate` say when they now differ from it.",
   ].join('\n\n'),
   inputs: {
     node: N.keyInput("The tapestryKey of the node to add: any node, one of this instance's own or another author's, a person node, a placeholder or one of firmware's own elements"),
@@ -167,16 +167,21 @@ module.exports = {
     let newJson = json.base;
     let newOwn = json.own;
     let wordTypes = null;
+    // The other concepts the anchor joins whose keys wordTypes gains, which the way on names when a misfit refuses a
+    // call that writes no section (Amendment 4, item 1).
+    let joining = [];
     if (kept === 'json-tag') {
       if (sectionWritten) newJson = withSection(json.base);
       const word = own(newJson, 'word') && isObject(newJson.word) ? newJson.word : null;
       if (word && Array.isArray(word.wordTypes)) {
         // The concept's key, then each other key the anchor joins, sorted, word's aside, as create-element orders them.
         const others = where.concepts.map((c) => c.concept).filter((c) => c !== concept.key);
-        const keysOfOthers = (others.length ? await K.headersByKey(read, others) : []).map((h) => h.oKey);
+        const headers = others.length ? await K.headersByKey(read, others) : [];
+        const keysOfOthers = headers.map((h) => h.oKey);
         const added = [oKey, ...[...new Set(keysOfOthers.filter((k) => typeof k === 'string' && k && k !== 'word' && k !== oKey))].sort()].filter((k) => !word.wordTypes.includes(k));
         if (added.length) {
           wordTypes = { was: [...word.wordTypes], now: [...word.wordTypes, ...added] };
+          joining = added.filter((k) => k !== oKey).map((k) => headers.find((h) => h.oKey === k));
           newJson = Object.fromEntries(Object.entries(newJson).map(([k, v]) => (k === 'word' ? [k, { ...v, wordTypes: wordTypes.now }] : [k, v])));
         }
       }
@@ -191,8 +196,17 @@ module.exports = {
 
     // 9. Rule 4 (Decision 8, step 8; Amendment 3, item 1), on the JSON as the call would leave it, whenever the call
     // changes the JSON it keeps: a section written, or keys added to wordTypes, refused as for a new member. A call that
-    // leaves the JSON as it was, writing a set's link and its tags alone, reports the named concept's verdict.
-    if (jsonChanged || ownChanged) await Sch.checkElements(read, [{ concept: concept.key, json: view }]);
+    // leaves the JSON as it was, writing a set's link and its tags alone, reports the named concept's verdict. A misfit
+    // in a call that writes no section, only keys added to wordTypes, keeps the rule's message and adds that the call's
+    // fields aren't written, and the way on (Amendment 4, item 1). A call that writes a section keeps the plain message.
+    if (jsonChanged || ownChanged) {
+      try {
+        await Sch.checkElements(read, [{ concept: concept.key, json: view }]);
+      } catch (e) {
+        if (sectionWritten || !isRefusal(e) || e.code !== 'invalid-fields') throw e;
+        throw refusal(e.code, `${e.message} ${M.say.memberMisfit(concept, oKey, joining, set)}`, e.extra);
+      }
+    }
 
     // 10. The writes (Decision 9): the link, the section and wordTypes, the would-be tags, the marks.
     if (linking) await X.link(tx, anchor, key);

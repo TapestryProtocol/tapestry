@@ -152,8 +152,18 @@ For Architecture, not this gate:
 
 **Review round 2's** (ADR Amendment 3):
 - **add-to-concept's description also says when rule 4 runs:** whenever the call changes the node's JSON, a section or `wordTypes`, as for a new member, and that a call writing only a set's link and its tags reports the concept's verdict. Amendment 3 asks only for item 5's words there, but item 1 changes what the description's repeat paragraph said.
-- **A refusal for a member's `wordTypes` carries the rule's own message,** as a new member's does ("`dog.breed` is required"). The review's suggested way on, adding the node to golden retriever first, isn't in the message: Amendment 3 doesn't ask for it.
+- **A refusal for a member's `wordTypes` carries the rule's own message,** as a new member's does ("`dog.breed` is required"). The review's suggested way on, adding the node to golden retriever first, isn't in the message: Amendment 3 doesn't ask for it. *(Review round 3: the message now adds it, Amendment 4, item 1.)*
 - **No live re-check this round.** Item 1 changes only the condition on which add-to-concept calls `Sch.checkElements`. The check itself, the concept's schema read through the transaction and judged by ajv in the process, is the code the fake graph runs too, so no Neo4j behaviour changed.
+
+**Review round 3's** (ADR Amendment 4):
+- **The way on names the concepts whose keys the call adds to `wordTypes`,** not every concept the set joins. A concept whose key `wordTypes` already holds brings no change, and an add to it would answer `already-element`.
+- **Its add-to-concept call gives the same `set`,** so the node lands where the refused call would have put it, even in a set below the other concept's superset. For Mark Me the set is golden retriever's superset, which counts as no set.
+- **Its update-node call names the concept,** since the node is then in more than one, and update-node can leave `concept` out only for a node's one concept.
+- **When the call adds no other concept's key,** only the named concept's own, the way on is update-node first, then the same call again. Amendment 4 doesn't name this case.
+- **Only `invalid-fields` gets the words.** A `no-schema` refusal keeps the rule's message, since neither step of the way on could help with a schema that can't be read.
+- **No words for a node kept beside:** Amendment 4 says the refusal never reaches one, and the test plan neither asks for those words nor forbids them.
+- **The words live in `M.say.memberMisfit`,** with the other refusals' words.
+- **No live re-check:** these are words, and the coordinator's brief said to skip it.
 
 ## Evidence
 
@@ -225,7 +235,7 @@ The review passed with eight non-blocking findings, and the owner chose to fix t
   - **Item 6:** a peer's lettered node whose json tag doesn't parse, made with Cypher in live beagle and live pet with the owner's section beside, was taken out of live pet: `removed`, `kept: beside`, the property gone, its tags as they were, still in live beagle.
   - **Item 4:** today's `POST /api/normalize/add-to-set` put Paired in live lap pets and signed the assistant's relationship event naming the pair, not yet wired into the relationship concept. A firmware reinstall wired it from its `z` tag. Paired then taken out of live lap pets: `letters` named the event.
 
-### Review round 2's fixes (2026-11-18, uncommitted on `fc4cf1b1`)
+### Review round 2's fixes (2026-11-18, on `fc4cf1b1` with the fixes uncommitted, since committed as `9c6d890c`)
 
 Review round 2 asked for changes: one blocking finding (R2-1) and five non-blocking. ADR Amendment 3 says what each fix is. The merge with staging (R2-6) and the story's AC2 and AC4 note (R2-2) were done before this round's code; the Tester's tests are in `fc4cf1b1`.
 - **What changed.**
@@ -240,6 +250,20 @@ Review round 2 asked for changes: one blocking finding (R2-1) and five non-block
 - **The scoped gate:** record `20261118T054955Z-30922-7f5b`, PASS, 1,185 passed, 0 failed, 10 skipped, over the same 8 suites, on `fc4cf1b1+dirty`, with `node_modules` linked for the run and the link removed after. Operations' 1,024 include A10.18's suites, which the merge brought.
 - **harness-lint:** clean.
 - **No live re-check** (Deviations, round 2).
+
+### Review round 3's fixes (2026-11-18, uncommitted on `e7a9833f`)
+
+Review round 3 passed with two non-blocking findings, both about words, and the owner chose to fix them before the PR. ADR Amendment 4 says what each fix is. The Tester's tests are in `e7a9833f`.
+- **What changed.**
+  - **R3-1:** some calls write no section but are refused for a misfit that their `wordTypes` change brings. Such a refusal keeps rule 4's message and adds two things. First, fields given in the call aren't written into the section the node already holds. Second, the way on: add the node to each concept the set joins, with `graph add-to-concept` and the same `set`, then give the named concept's missing fields with `graph update-node`. For Mark Me, the concept is golden retriever and the field is dog's breed. The words are `M.say.memberMisfit`. A call that writes a section keeps the plain message.
+  - **R3-2:** add-to-concept's description now has Amendment 4's sentence, word for word. A removal and then an add change the owner's own section of any node kept beside. A section the author's letter holds, for a membership their letter claims, stays theirs.
+- **The suites,** each alone on this Mac with every service endpoint dead; none failed:
+  - add-to-concept 52 passed (AT59–AT61 among them), remove-from-concept 36, memberships-shared 23, memberships-agent-through-cli 1;
+  - graph-rules-builder 26; graph-rule-firmware 13, 4 skipped (live); firmware-element-sync 21; `node src/firmware/graph-rules.js --check`: the 8 items are current;
+  - every neighbour run at round 2, with the same counts.
+- **The scoped gate:** record `20261118T063427Z-23019-21fd`, PASS, 1,188 passed, 0 failed, 10 skipped, over the same 8 suites, on `e7a9833f+dirty`. `node_modules` was linked for the run and the link removed after. An earlier run, `20261118T063035Z-10618-6663`, passed with the same counts. It was run again because comments in the two files changed while it ran.
+- **harness-lint:** clean.
+- **No live re-check** (Deviations, round 3).
 
 ## Linked artifacts
 

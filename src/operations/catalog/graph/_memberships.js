@@ -30,7 +30,8 @@
  *                                        item 4)
  *   NODE, CONCEPT_KEYS, LETTERS          the answers' schemas
  *   the refusals the two operations declare, and their words (Decision 17), each operation's own not-installed and
- *   no-superset among them (Amendment 2, item 7)
+ *   no-superset among them (Amendment 2, item 7); say.memberMisfit, what add-to-concept adds to a member's misfit
+ *   (Amendment 4, item 1)
  *
  * Like _nodes.js, it opens nothing when it loads: firmware, the assistant's key and the store are required when first
  * called. It never signs, publishes or reads a key.
@@ -109,6 +110,20 @@ const say = {
   },
   otherConcept(facts, named, other, via) {
     return `Taking ${labelOf(facts)} out of ${X.conceptLabel(named)} would also take it out of ${X.conceptLabel(other)}, which the call didn't name: ${X.conceptLabel(named)} reaches it through ${S.describe(via)}, which is in the class thread of ${X.conceptLabel(other)} too. Nothing changed. Take it out of ${X.conceptLabel(other)} instead (graph remove-from-concept with concept ${other.key}), or unlink the two (graph unlink-set).`;
+  },
+  /**
+   * What add-to-concept adds to rule 4's message for a member put in a set, a call that writes no section, only keys
+   * added to wordTypes (ADR 0022 Amendment 4, item 1): its fields aren't written, and the way on, through each other
+   * concept the set joins whose key wordTypes gains (`joining`, their headers), then graph update-node.
+   */
+  memberMisfit(concept, oKey, joining, set) {
+    const named = X.conceptLabel(concept);
+    const unwritten = `Fields given in this call aren't written into the node's \`${oKey}\` section, which it already holds: this call writes no section, only the set's link, its tags and the keys it adds to \`wordTypes\`.`;
+    const update = `the missing fields of ${named} with graph update-node, naming concept ${concept.key}`;
+    if (!joining.length) return `${unwritten} To go on, give ${update}, then make this call again.`;
+    const labels = joining.map(X.conceptLabel);
+    const list = labels.length < 2 ? labels[0] : `each of ${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+    return `${unwritten} To go on, add the node to ${list}, which the set joins, with graph add-to-concept and set ${set}: that judges ${labels.length < 2 ? 'its' : "each one's"} own section, and reports the verdict of ${named} without refusing. Then give ${update}.`;
   },
 };
 
