@@ -26,12 +26,15 @@
  *   AP11  each refusal, and the graph as it was after them, a catch-up undone with them
  *   AP12  not-installed
  *   AP13  nothing is signed; callers; an admin's add is the admin's; the command; the list and /docs
+ *   AP14  the check of what a write wrote refuses only what the write breaks (ADR 0018 Amendment 2), over a seed with
+ *         what an installed instance has: a concept whose schema the tree graph already fails
  */
 
 const path = require('path');
 const { spawnSync } = require('child_process');
 const S = require('../../helpers/graphOpsSuite');
 const P = require('../../helpers/propertyGraph');
+const G = require('../../helpers/graphFake');
 
 const { ROOT, TA, ADMIN, assert, show, tmp } = S;
 const cp = (n) => String.fromCodePoint(n); // a control or invisible character, never one typed raw in this file
@@ -190,7 +193,7 @@ test('AP2: the first write catches the tree up: name, slug and description get n
 });
 
 test('AP3: the node is the one the import would make of the letter create-property would sign, corrected', async () => {
-  const { a, ctx } = await main();
+  const { a, ctx, afterA } = await main();
   const d = ok(a, 'price');
   const g = await graph();
   const n = P.node(g, d.property.property);
@@ -207,7 +210,8 @@ test('AP3: the node is the one the import would make of the letter create-proper
     && j.property.description === 'What a pot costs' && P.same(j.property.schema, { type: 'number', description: 'What a pot costs' }) && j.property.required === undefined,
   `its JSON: a word block, the view (key, type, description) and the piece in property.schema; no required list on a leaf; got ${show(j)}`);
   assert(show(P.out(g, n.props.tapestryKey, 'IS_A_PROPERTY_OF')) === show([pp.props.tapestryKey]), 'it hangs on the primary property');
-  assert(show(P.into(g, n.props.tapestryKey, 'HAS_ELEMENT')) === show([ctx.k.supersets.property]), 'it is an element of the property concept alone, through its superset (ADR 0016 Amendment 2)');
+  // As run A left it: run B's mark-field marks price, and a mark is a HAS_ELEMENT edge from the first set (AP8).
+  assert(show(P.into(afterA, n.props.tapestryKey, 'HAS_ELEMENT')) === show([ctx.k.supersets.property]), 'it is an element of the property concept alone, through its superset (ADR 0016 Amendment 2)');
 });
 
 test('AP4: a nested property, a list\'s item type, and allowed values given as JSON text', async () => {
@@ -372,6 +376,53 @@ test('AP13: nothing is signed; callers; an admin\'s add is the admin\'s; the com
   `], { cwd: ROOT, encoding: 'utf8', env: S.childEnv(tmp('add-property-docs-')) });
   const line = (child.stdout || '').split('RESULT:')[1];
   assert(line && show(JSON.parse(line)) === show(['post']), `/docs has POST ${P.ROUTE.add}; got ${line}`);
+});
+
+test('AP14: the check of what a write wrote refuses only what the write breaks, over what an installed instance has (ADR 0018 Amendment 2)', async () => {
+  P.needDecls(['add-property', 'update-property']);
+  const ctx = await P.prepare('add-property-amendment-2');
+  const { file, made, k } = ctx;
+  const TH = made.teaHouse.conceptHeader;
+  const s = S.readState(file);
+  const b = P.over(s);
+  const DRAFT = 'https://json-schema.org/draft/2020-12/schema';
+  const schemaNode = (slug, header, schema) => {
+    const n = b.lettered({ uuid: `39999:${TA}:${slug}-schema`, labels: ['ListItem', 'JSONSchema'], name: `json schema for the concept of ${slug}`, tags: [['d', `${slug}-schema`], ['name', `json schema for the concept of ${slug}`], ['json', JSON.stringify({ jsonSchema: { $schema: DRAFT, type: 'object', required: [], definitions: {}, ...schema } })]] });
+    b.link(n, 'IS_THE_JSON_SCHEMA_FOR', header);
+  };
+  // What the live check found on an instance (L1a): firmware's graph concept has a schema that requires
+  // graph.graphType, which no tree graph create-concept makes has, and a concept's tree graph is one of its elements.
+  schemaNode('graph', b.byUuid(`39998:${TA}:graph`), { required: ['graph'], properties: { graph: { type: 'object', required: ['graphType'], properties: { graphType: { type: 'string' } } } } });
+  b.link(b.byKey(k.supersets.graph), 'HAS_ELEMENT', b.byKey(made.teaHouse.nodes.propertyTreeGraph));
+  // And a concept whose schema requires a property's description, every property node its element: its superset
+  // holds the property concept's.
+  const strict = b.lettered({ uuid: `39998:${TA}:strict-property`, kind: 39998, labels: ['ListHeader', 'ConceptHeader'], name: 'strict property', tags: [['d', 'strict-property'], ['names', 'strict property', 'strict properties'], ['json', JSON.stringify({ word: { slug: 'concept-header-for-the-concept-of-strict-properties', name: 'concept header for the concept of strict properties', wordTypes: ['word', 'conceptHeader'] }, conceptHeader: { oNames: { singular: 'strict property', plural: 'strict properties' }, oKeys: { singular: 'strictProperty', plural: 'strictProperties' } } })]] });
+  const strictSup = b.lettered({ uuid: `39999:${TA}:strict-property-superset`, labels: ['ListItem', 'Superset'], name: 'superset for the concept of strict properties', tags: [['d', 'strict-property-superset'], ['name', 'superset for the concept of strict properties']] });
+  b.link(strict, 'IS_THE_CONCEPT_FOR', strictSup);
+  b.link(strictSup, 'IS_A_SUPERSET_OF', b.byKey(k.supersets.property));
+  schemaNode('strict-property', strict, { required: ['property'], properties: { property: { type: 'object', required: ['description'] } } });
+  G.writeState(file, s);
+
+  const x = P.runOn(file, [
+    add('lands', 'owner', { concept: TH, name: 'price', type: 'number', description: 'What a pot costs' }),
+    add('new-breaks', 'owner', { concept: TH, name: 'colour', type: 'string' }),
+  ]);
+  const landed = x.req('lands');
+  assert(landed.status === 200 && landed.body.data.outcome === 'added',
+    `the first write lands, though the tree graph it rewrites fails graph's schema before it and after; got ${landed.status} ${show(landed.body)}`);
+  const g = S.readState(file);
+  const tg = P.json(g, made.teaHouse.nodes.propertyTreeGraph);
+  assert(tg && tg.graph && tg.graph.graphType === undefined && tg.graph.nodes.some((n) => n.uuid === landed.body.data.property.address),
+    `the tree graph was rewritten, listing price, and still has no graphType; got ${show(tg && tg.graph)}`);
+  const nb = x.req('new-breaks');
+  assert(nb.status === 400 && nb.body.code === 'invalid-fields' && nb.body.rule === RULE && /strict property/.test(nb.body.error) && /description/.test(nb.body.error),
+    `a new property node a concept's schema refuses is refused, naming that concept; got ${nb.status} ${show(nb.body)}`);
+  assert(!P.treeOf(g, TH).some((r) => r.name === 'colour'), 'and no colour node was made');
+  const y = P.runOn(file, [P.post('update')('old-breaks', 'owner', { property: landed.body.data.property.property, description: '' })]);
+  const ob = y.req('old-breaks');
+  assert(ob.status === 400 && ob.body.code === 'invalid-fields' && /strict property/.test(ob.body.error),
+    `taking out the description that strict property requires is refused: a problem the write introduces; got ${ob.status} ${show(ob.body)}`);
+  assert(P.json(S.readState(file), landed.body.data.property.property).property.description === 'What a pot costs', 'and price keeps its description');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
