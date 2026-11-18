@@ -257,7 +257,7 @@ module.exports = {
       const out = [];
       for (const c of order) {
         const r = await Sch.fits(read, c, j);
-        out.push({ concept: c, key: (byKey.get(c) && byKey.get(c).oKey) || null, fits: r.fits, problems: r.problems, problem: r.problem });
+        out.push({ concept: c, key: (byKey.get(c) && byKey.get(c).oKey) || null, fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting });
       }
       return out;
     };

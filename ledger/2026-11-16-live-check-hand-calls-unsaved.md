@@ -24,4 +24,11 @@ Even the scripts' result files live in a session scratchpad, outside the tree, w
 - **The record quotes what each claim rests on:** a status, a body, a count.
 - **The record says when a scripted check failed,** why, and how it was rechecked.
 
+**Seen again, 2026-11-17 (story `graph-operations-first-slice` #42's review round 2, non-blocking 2 and 3).** Story 42's live check saved its script's report and its suites' logs, but not:
+- the firmware digests, the copy of the branch's firmware, the restart or the second install;
+- the output of `gc-examples.js`, the basis for "on the Properties Set nodes";
+- the first two runs' reports, since each run of the script overwrote `report.json`.
+
+The record also called three runs two. So the Reviewer took the second run's concept for the first's, and couldn't say what had made an element of it. Round 3 transcribed the calls and each run's output from the session's own tool output, into `tmp/live-check-42/hand-calls.md`. That file, like the rest of the record, is ignored by git, so the story's Evidence is still the only durable record. Two more points for the fix shape: give each run's report its own name, and say how many runs there were.
+
 **Pointer:** `engineering-team/reviews/graph-operations-first-slice/9-resolve.md` (Blocking 1, Harness friction 2); OPEN.md row 343.
