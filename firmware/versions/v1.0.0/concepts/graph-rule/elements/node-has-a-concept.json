@@ -1,0 +1,38 @@
+{
+  "word": {
+    "slug": "node-has-a-concept",
+    "name": "node-has-a-concept",
+    "title": "Node Has A Concept",
+    "description": "Every node is an element of at least one concept other than word: some concept's class thread reaches it, from the concept's header to its superset, down through its sets, to the node (design D9; BIBLE §10, rule 3).",
+    "wordTypes": [
+      "word",
+      "graphRule"
+    ]
+  },
+  "graphRule": {
+    "name": "node-has-a-concept",
+    "number": 8,
+    "says": "every node is an element of at least one concept other than word: some concept's class thread reaches it, from the concept's header to its superset, down through its sets, to the node (design D9; BIBLE §10, rule 3). A concept keyed `word` or `graphContext`, the keys an element's JSON keeps for itself, doesn't count: word's class thread reaches nearly every element, through the other concepts' supersets under its own. Membership is read through the class thread, never from a node's direct links alone, since a firmware install's prune can take out a superset's direct link to an element it also reaches through a set (memo #117 on A10.22). Tags and change entries are parts of letters and of the history, not elements, and are exempt.",
+    "kind": "a graph rule, about the owner's and the admins' own writes (D4). As a check it judges every node, whoever made it.",
+    "about": "the graph",
+    "refusesOrReports": "it refuses the write, before anything changes: `last-concept` (409) when taking a node out of a concept, or out of one of its sets, would leave it an element of no concept but word. The refusal names the concept and says how to go on: add the node to another concept first (`graph add-to-concept`), or delete it (`graph delete-node`). Taking a node out of a concept that doesn't reach it is a repeat, not a refusal.",
+    "check": "the same `violations` over a set of nodes, each as `{ node }`, names each node no concept but word reaches. `rules check` (A10.31) will run it over the graph. Person nodes and placeholders are elements of no concept today, so the check names every one until they are given one (ADR graph-operations-first-slice/0022, follow-up 6). `graph unlink-set` can still leave an element of no concept, and so can today's `POST /api/normalize/delete-relationship`, which doesn't check for a node's last concept.",
+    "repair": "`graph add-to-concept` gives a node of no concept one; `graph delete-node` deletes one of the instance's own.",
+    "enforcedBy": "the guard of `graph remove-from-concept`, as `{ node, concept, set }`: the node judged as if every link by which the concept, or the set, reaches it were gone. The write runs the rule again after its delete, inside the same transaction, as a check of the node, so two removals at once of a node's last two concepts can't both pass it. The rule's code is in `src/operations/rules/node-has-a-concept.js`, and what it reads with is in `src/operations/catalog/graph/_memberships.js` and `src/operations/catalog/graph/_fields.js`. Built in story graph-operations-first-slice #22 (ADR graph-operations-first-slice/0022).",
+    "status": "enforced",
+    "source": "ADR graph-operations-first-slice/0022",
+    "alsoSays": [],
+    "code": {
+      "file": "src/operations/rules/node-has-a-concept.js",
+      "summary": "Every node is an element of at least one concept other than word: some concept's class thread reaches it (design D9). Tags and change entries are exempt.",
+      "refuses": true,
+      "refusals": [
+        {
+          "code": "last-concept",
+          "status": 409,
+          "when": "Taking the node out would leave it an element of no concept but word, so no other concept's class thread would reach it (design D9); the refusal names the concept and the way on: add the node to another concept first (graph add-to-concept), or delete it (graph delete-node)"
+        }
+      ]
+    }
+  }
+}

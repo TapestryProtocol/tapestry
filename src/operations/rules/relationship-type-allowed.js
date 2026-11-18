@@ -37,7 +37,9 @@ const CODE_MADE = Object.freeze({
 const FIRMWARE_MADE = Object.freeze({
   IS_THE_CONCEPT_FOR: 'graph create-concept',
   IS_A_SUPERSET_OF: 'graph link-set and create-set',
-  HAS_ELEMENT: 'graph add-to-concept and create-element',
+  // Made and taken out by these three (story graph-operations-first-slice #22, ADR graph-operations-first-slice/0022
+  // Decision 16).
+  HAS_ELEMENT: 'graph add-to-concept, remove-from-concept and create-element',
   IS_A_PROPERTY_OF: 'graph add-property',
   ENUMERATES: 'graph enumerate',
 });
