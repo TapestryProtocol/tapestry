@@ -28,6 +28,9 @@
  *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
  *                                 schema once; its check(concept, json, { writing }) sets nothing aside unless writing
  *   tapestryJsonOf(node)          the node's tapestryJson → { json }, or { problem, missing } (ADR 0042 Decision 1)
+ *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems } },
+ *                                 or { problem } when it doesn't compile: the property operations' reports judge each
+ *                                 element twice with it, before and after (ADR graph-operations-first-slice/0018 Decision 9)
  *   checkElements(read, items)    run the rule element-fits-schema over the items and throw its first finding, with
  *                                 rule set, as the write path does: the one call each element write makes in apply.
  *                                 With { every: true }, one refusal names every finding: its code the first's (graph
@@ -162,6 +165,22 @@ function problemsOf(schema, json) {
   return { problems: c.validate(json) ? [] : (c.validate.errors || []).map(problemOf) };
 }
 
+/**
+ * `schema` compiled once, as problemsOf and the rule's check compile one, for judging many documents with nothing set
+ * aside (ADR graph-operations-first-slice/0018 Decision 9) → { check(json) → { fits, problems } }, or { problem } when
+ * it doesn't compile. Its problems are problemOf's, so its words are the rule's.
+ */
+function validatorOf(schema) {
+  if (!isObject(schema)) return { problem: "the JSON schema isn't an object" };
+  const c = compile(schema);
+  if (c.reason) return { problem: `the JSON schema doesn't compile: ${c.reason}` };
+  return {
+    check(json) {
+      return c.validate(json) ? { fits: true, problems: [] } : { fits: false, problems: (c.validate.errors || []).map(problemOf) };
+    },
+  };
+}
+
 /** The problems in words, joined, at most MAX_LISTED and then how many more (Decision 12). */
 function listProblems(problems) {
   const list = Array.isArray(problems) ? problems : [];
@@ -255,4 +274,4 @@ async function checkElements(read, items, { every = false } = {}) {
   throw refusal(found[0].code, message, { rule: rule.name });
 }
 
-module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, checkElements };
+module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements };

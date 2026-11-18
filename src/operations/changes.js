@@ -32,6 +32,10 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * now, whose values are the field's JSON, and a rename's was and now (story graph-operations-first-slice #21, ADR
  * graph-operations-first-slice/0021 Decision 18). A deleted node's add nodes, the other ends of its relationships, and
  * was, the node as it was (story graph-operations-first-slice #26, ADR graph-operations-first-slice/0026 Decision 12).
+ * A property's add path, the keys from its concept's section down to it, and catchUp, for a change made while the write
+ * brought the concept's property nodes in line with its schema first; its was and now are { schema, required }, a
+ * removed property's was the node as it was, and a schema's the two documents (story graph-operations-first-slice #18,
+ * ADR graph-operations-first-slice/0018 Decision 12).
  */
 const CHANGE = Object.freeze({
   type: 'object',
@@ -44,13 +48,15 @@ const CHANGE = Object.freeze({
     node: { type: 'string', description: 'The tapestryKey of a node the change is about' },
     count: { type: 'integer', minimum: 1, description: 'How many, when the change removed more than one thing alike, or touched the nodes it names' },
     concept: { type: 'string', description: "The tapestryKey of the concept header the change is about" },
-    field: { type: 'string', description: "The field the change is about: the field a mark is for, a concept's name, plural, slug or description, or an element's field" },
+    field: { type: 'string', description: "The field the change is about: the field a mark is for, a concept's name, plural, slug or description, an element's field, or a property's key" },
+    path: { type: 'array', items: { type: 'string' }, description: "For a property, the keys from its concept's section down to it, such as ['address', 'city']" },
+    catchUp: { type: 'boolean', description: "For a property, true when the change was made while the write brought the concept's property nodes in line with its schema, before its own change; absent otherwise" },
     property: { type: 'string', description: 'The node property a mark carries, <concept key>_<field>, such as dog_breed' },
     nodes: { type: 'array', items: { type: 'string' }, description: "The tapestryKeys of the nodes the change touched: those whose copy it set or removed, a concept's nodes it made or renamed, or, for a deleted node, the nodes at the other end of its relationships and its tags'" },
     name: { type: 'string', description: "A concept's singular name, an element's name, or a set's, when the change made it" },
     slug: { type: 'string', description: "A concept's slug, an element's, or a set's, when the change made it" },
-    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none. For a deleted node, the node as it was: { labels, properties, concepts, relationships, tags }, each tag with its own labels, properties and relationships, and stored, the JSON the store held for an lmdb: value" },
-    now: { description: "What it holds after the change: as was, for a concept or an element; null when the change took it out" },
+    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none. For a deleted node, the node as it was: { labels, properties, concepts, relationships, tags }, each tag with its own labels, properties and relationships, and stored, the JSON the store held for an lmdb: value. For a changed property, { schema, required }: its piece of the concept's schema (null for a node made before the property operations) and whether its parent requires it; for a removed property, the node as it was: { labels, properties, relationships, tags }, each relationship with its type, direction, from and to; for a schema, the document its JSON schema node held" },
+    now: { description: "What it holds after the change: as was, for a concept, an element, a property ({ schema, required }) or a schema; null when the change took it out" },
   },
 });
 

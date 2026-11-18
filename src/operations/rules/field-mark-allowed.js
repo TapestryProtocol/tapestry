@@ -62,7 +62,7 @@ module.exports = {
     F.NOT_INSTALLED,
     F.UNKNOWN_CONCEPT,
     F.UNKNOWN_FIELD,
-    { code: 'no-property-node', status: 409, when: "The field has no property node under its concept's section node in the concept's property tree, or the concept has no primary property: run POST /api/normalize/generate-property-tree for the concept first" },
+    { code: 'no-property-node', status: 409, when: "The field has no property node under its concept's section node in the concept's property tree, or the concept has no primary property: give the concept's fields their nodes first with graph set-schema or another property write, which sign nothing, or POST /api/normalize/generate-property-tree, which signs" },
     { code: 'not-plain', status: 409, when: 'The field holds an object, a list of objects or a list of lists, which no Neo4j property can hold' },
     { code: 'unusable-name', status: 409, when: "The concept's key isn't letters and digits, so <key>_<field> can't be written unquoted in Cypher" },
     { code: 'property-taken', status: 409, when: 'Another mark already yields the same property name: another concept with the same key marked a field of the same name' },
@@ -94,7 +94,7 @@ module.exports = {
         out.push({
           item,
           code: 'no-property-node',
-          message: `${field} has no property node in ${of(c)}'s property tree${c.wrapped || !c.oKey ? '' : `, under its ${c.oKey} section`}, so there is nothing to mark (a node made by create-property, off the schema node, doesn't count: it can be shared between concepts). Make the concept's property tree first with POST /api/normalize/generate-property-tree, which signs the property nodes it makes with the assistant's key, then mark the field.`,
+          message: `${field} has no property node in ${of(c)}'s property tree${c.wrapped || !c.oKey ? '' : `, under its ${c.oKey} section`}, so there is nothing to mark (a node made by create-property, off the schema node, doesn't count: it can be shared between concepts). Give the concept's fields their property nodes first: graph set-schema, given the concept's schema, or any other property write (graph add-property, update-property or remove-property) brings its property tree in line with its schema, signing nothing; POST /api/normalize/generate-property-tree does it too, but signs the property nodes it makes with the assistant's key. Then mark the field.`,
         });
         continue;
       }
