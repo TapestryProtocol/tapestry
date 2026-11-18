@@ -348,3 +348,41 @@ A link's start is matched by its descriptors (`S.descriptorsOf`: `node:<uuid>`, 
 - **The cache's rebuild** (A10.20.c, A10.36), beyond `deriveWord`'s overlay.
 - **Guarding unlink-set and delete-set by D9** (follow-up 5), and **making person nodes elements of `nostr-user`** (follow-up 6).
 - **Today's routes,** which stay as they are (D15).
+
+## Amendment 1 (2026-11-17, at test design; approved by the owner with the test plan) — the statements the fake graph runs
+
+The suites run every write through `test/helpers/graphFake.js`, which runs only the statement shapes earlier ADRs taught it. Three statements follow those shapes:
+
+1. **The links go one pair at a time** (Decision 15, step 1). Each pair M1 gave is deleted with unlink-set's statement, for `HAS_ELEMENT`:
+
+   ```cypher
+   MATCH (a:TapestryNode {tapestryKey: $from})-[r:`HAS_ELEMENT`]->(b:TapestryNode {tapestryKey: $to})
+   WHERE NOT a:GraphChange AND NOT b:GraphChange
+   DELETE r
+   RETURN count(r) AS removed
+   ```
+
+   It removes every copy between the pair, as unlink-set's does. When no pair's delete removes anything, the call answers `already-removed`. M1's `elementId`s still give `conceptsOfNodes` its `without`. The fake runs "a MATCH of a relationship between two such nodes, then DELETE of it", and no statement that finds relationships by their `elementId`.
+2. **Tags go one at a time** (Decision 15, step 3), with C11's statement, `MATCH (t:NostrEventTag {tapestryKey: $p}) DETACH DELETE t`, as update-concept and delete-node delete them.
+3. **M2 counts.** Its `RETURN` is `count(*) AS n`, which answers one row even when nothing matched, and the write reads `n > 0`. The path fake doesn't run a comparison in a `RETURN`.
+
+The test design also found eight readings the ADR left open. The suites pin each one as follows:
+
+4. **Leaving word** (Decisions 10 and 15). word's key is reserved, so word is never judged. The node's `word` block, like any reserved key's, never leaves its JSON, and `word` stays first in `wordTypes`. When word reached the node only through what the call takes out, `left` still lists word, since the story's open question 1 says the answer lists such concepts, and the call isn't refused for it.
+5. **`name-in-use` for firmware's own elements** (Decision 8, step 6). The check runs for every node whose author is one of the instance's own keys (`facts.own`), not only for a `json-tag` node. Firmware's own elements are kept beside, but they sit at the assistant's addresses, so `X.repeatsOf` would find them. Firmware's rover joining beagle beside the instance's own Rover is refused. Another author's node, a person node and a placeholder are never a repeat, and aren't checked.
+6. **`made-elsewhere`'s words** (Decision 2). `M` words the refusal for these two operations, not with update-node's sentence. It names what looks after that kind of node's memberships: `graph link-set` and `unlink-set` for a set or a superset, and otherwise the operation `X.changedElsewhere` names.
+7. **A node already in the concept, put in a set** (Decision 7). Decision 9's steps 1, 3 and 4 run:
+   - the set's link;
+   - the would-be tags: an `n` naming the set, and a `z` naming the concept only if none does;
+   - the marks.
+
+   Step 2 doesn't run, so the section isn't touched.
+8. **`bad-name` names `fields`** (Decision 7). A node with no name takes its section's name from `fields`, so the refusal names that input.
+9. **update-node's words** (Decision 16). Every string of update-node's that calls add-to-concept "(A10.22, to come)" drops those words: `not-an-element`, `no-section` and `not-its-concept`.
+10. **The guard and a set outside the class thread** (Decision 12). The guard form gives no finding when `set` isn't in the concept's class thread. So apply refuses the call `not-in-class-thread`, even where taking out the set's links would have left the node in no concept.
+11. **The rulebook's §2** (Decision 16) needs no change: it names nothing that makes `HAS_ELEMENT`. Only the rule's code changes.
+12. **A10.20.b landed first** (TapestryProtocol/tapestry#132, merged into this branch at test design), so ADR 0042 is built:
+    - **The rule's check form.** It judges a node's tapestryJson from the tapestry-store, and its E4 reads only a name and an address. So Decision 6's change to E4 isn't made, and this story doesn't change `element-fits-schema.js`; the Implementation notes' bullet for it is dropped. The owner's sections reach the rule through the derive step's overlay (Decision 6), once the node is derived. MS3 runs the derive step and then the rule, as ADR 0042's SC9 does.
+    - **`waiting`.** The writes' `concepts` entries carry `waiting` (ADR 0042 Decision 4). add-to-concept's come from `Sch.fits` through `X.CONCEPTS` (Decision 13), so they carry it with no change here.
+    - **The derive step.** `word.js` now calls `schema-verdicts.js`. The overlay goes right after `getExistingWordJson`, before the word block and `graphContext` are built, as Decision 6 says.
+    - **Consequences, item 8** (merging with A10.20.b) is settled by the merge.

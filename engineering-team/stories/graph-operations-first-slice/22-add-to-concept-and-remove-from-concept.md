@@ -136,5 +136,5 @@ For Architecture, not this gate:
 - The rulebook and its graph rule concept: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md); [41-graph-rule-concept.md](41-graph-rule-concept.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0022-add-to-concept-and-remove-from-concept.md](../../decisions/graph-operations-first-slice/0022-add-to-concept-and-remove-from-concept.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [22-add-to-concept-and-remove-from-concept.test-plan.md](22-add-to-concept-and-remove-from-concept.test-plan.md)
 - Review: (filled in after Review phase)
