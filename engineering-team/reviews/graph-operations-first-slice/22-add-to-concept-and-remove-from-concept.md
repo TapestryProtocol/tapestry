@@ -733,3 +733,124 @@ None.
 - The story's status is `Done`, from round 3's commit. With this verdict, harness-lint's L1 check is satisfied.
 - This section is written but not committed: the session commits it.
 - Completion detection: unchanged. The book isn't complete: the rebuild and the race are still ahead. Reported in the chat.
+
+---
+
+## Round 5 — 2026-11-18 (HEAD `710abcee`)
+
+**Diff checked:** `git diff bf5dd615..HEAD`. This story's three commits:
+- `e9b1310d` (test): ADR 0022 Amendment 5; the test plan's "Added at review round 4"; two empty seed sets, scrollShelf and showGoldens; AT62, and AT63–AT66 as guards.
+- `599dbdd6` (impl): `say.memberMisfit` gives each concept's tapestryKey; the story's round-4 deviations and Evidence.
+- `710abcee`: the merge of `origin/staging` at `7537590d`, which brings A10.42's ADR (#139) and story 18's ship records (#138), with the rule-8 ledger row reworded (R4-3).
+
+Staging's own files in the merge aren't this story's; only the merge and the ledger row are checked here. Each phase kept to its files:
+- `git diff bf5dd615 e9b1310d -- src firmware docs` and `git diff e9b1310d 599dbdd6 -- test` are empty;
+- `git diff 599dbdd6 710abcee -- src test firmware` is empty too.
+
+**How it was made.** As in the earlier rounds: a reviewer agent with no Edit access. This section is its only write to a tracked file, and its gate record is under the ignored `tmp/gate-runs/`. It checked each fix as a fresh claim:
+- probe 8, probe 7 as the new words read: the way on followed with only what they give (`probes/probe8.js`);
+- a direct call of `say.memberMisfit` with none, one, two and three concepts;
+- round 4's add suite run over HEAD's seed and code;
+- nine breaks (`probes/mutate5.js`), in a scratch copy of HEAD;
+- the round's tests on `e9b1310d`, which holds round 4's code.
+
+The probes and breaks are in `probes/` in the session's scratchpad. It made no call to the local stack, any container, GitHub or Loom. The independent check before the commit (workflow 5, P13) wasn't applied.
+
+### Gates (run by the reviewer at `710abcee`)
+
+- [ ] **The full gate** (`npm test`): not run, for round 1's reason. It runs as the pull request's CI check.
+- [x] **The scoped gate:** round 1's eight suites, with the same variables, and the `node_modules` link made for the run and removed after. Its `npm run gate:status -- --label a10-22-review-r5` line, the worktree's path shortened:
+
+  ```
+  20261118T075635Z-19638-8f59 [a10-22-review-r5] started 2026-11-18T07:56:35.943Z on 710abcee+dirty — PASS, exit 0, 1193 passed, 0 failed, 10 skipped, 8/8 suites · <worktree>/tmp/gate-runs/20261118T075635Z-19638-8f59.json
+  ```
+
+  - `+dirty` is the link alone (`dirtyCount: 1`).
+  - Only operations moved, from 1027 to 1032 passed, 4 skipped. 1193 is round 4's 1188 and AT62–AT66.
+  - Suite by suite, that is the Implementer's record `20261118T074914Z-92395-b18f`, which ran on the fix uncommitted over `e9b1310d`.
+- [x] **Each suite alone,** every endpoint dead:
+  - add-to-concept 57 passed, remove-from-concept 36, memberships-shared 23, memberships-agent-through-cli 1;
+  - A10.18's suites: add-property 15, remove-property 8, set-schema 10, update-property 11, properties-agent-through-cli 1;
+  - graph-rules-builder 26; graph-rule-firmware 13, 4 skipped (live); firmware-element-sync 21.
+- [x] **Red before green.** `e9b1310d`'s tree, extracted: add-to-concept 56 passed, 1 failed (AT62); remove-from-concept 36, memberships-shared 23 and the agent 1, as before. That is the test plan's record exactly. AT63–AT66 pass on round 4's code, as the plan says: they hold what it already did.
+- [x] **The new seed sets change no earlier test's outcome.**
+  - Round 4's add suite (`bf5dd615`'s file) over HEAD's seed and code: 52 of 52.
+  - The other three suites' files are unchanged since round 4, and pass with round 4's counts.
+- [x] **Breaking the real code,** one break at a time in a scratch copy of HEAD:
+
+  | Broken | Failed |
+  |---|---|
+  | R4-1's fix undone: the concept's key left out of the way on (`_memberships.js:126`) | AT62 |
+  | the add given the named concept's key, not the joined one's (`:126`) | AT62 |
+  | the add without the refused call's `set` (`:126`) | AT63 |
+  | update-node without the concept (`:122`) | AT64 |
+  | update-node given the joined concept's key (`:122`) | AT64 |
+  | `no-schema` given the way-on words too (`add-to-concept.js:206`) | AT65 |
+  | R2-1's fix undone: rule 4 only when a section is written (`:202`) | AT54, AT59, AT62, AT63, AT64, AT65 |
+  | a wrong fix: rule 4 judges every concept the call reaches, joined ones included (`:204`) | AT4, AT49–AT52, AT56, AT57, AT66 |
+  | the several-concepts way on without each concept's key (`_memberships.js:127`) | nothing (R5-1) |
+
+  Every file was restored after its break, and the copy compared equal to HEAD afterwards. Each new guard catches its break: AT63 the `set`, AT64 update-node's concept, AT65 `no-schema`'s plain message, and AT66 the joined concept left unjudged.
+- [x] **`node src/firmware/graph-rules.js --check`:** the 8 items are current.
+- [x] **`bash scripts/harness-lint.sh`:** clean (0 violations), before this section was written.
+- [x] **The merge** (`710abcee`) had no conflicts. The only file that differs from both parents is the rule-8 ledger row. Staging's four files are exactly as staging has them. `origin/staging` (`7537590d`) is in HEAD, and staging hasn't moved since.
+- [ ] _Playwright not applicable. Lint, typecheck and build not configured._
+
+### Round 4's findings, re-checked
+
+| Round 4 | Disposition | Check |
+|---|---|---|
+| R4-1, the concept's key | Fixed, as Amendment 5 item 1 says | `_memberships.js:126` now reads "with graph add-to-concept, concept `<key>` and set `<set>`". Probe 8 followed the way on with only what the words give, with no graph resolve, for Mark Me through dog into golden retriever's superset, and into show goldens below it. The words' three keys are right in both cases. The add is `added`, with dog reported, not refused. update-node with dog's breed is `updated`. The refused call, made again, is `already-element`. Mark Me ends where the refused call would have put it: golden retriever's superset in the first case, show goldens in the second. AT62 holds it. |
+| R4-2, three details | Fixed, with tests | AT63 holds the `set`, the refused call's own, through show goldens, where golden retriever's superset would be wrong. AT64 holds update-node's concept, and AT65 `no-schema`'s plain message, reached through the scroll shelf. AT66 holds the other side. Each fails on its break (above). |
+| R4-3, the ledger row | Fixed, in the merge's own commit | `ledger/2026-11-18-rule-eight-awaits-firmware-reinstall.md:11` says story 18's row is closed, its reinstall having run on staging and production on 2026-11-18, before this story's rewording of entry 7 reached either. So rule 8, and rule 7's element as entry 7 now reads, wait on this row's reinstall alone. That matches staging's closed row: DONE, reinstalled on staging 04:53Z–04:57Z and production 05:34Z–05:38Z on the owner's yes, after #136 and #137. The row stays OPEN. |
+
+### The round-4 deviations (the story's lines 168–170)
+
+1. **Several concepts, each with its own key.** A direct call of `say.memberMisfit` with two and three concepts reads, after the line on fields left unwritten: "To go on, add the node to each concept the set joins with graph add-to-concept and set `<set>`: "golden retriever" (`<address>`) with concept `<key>` and "irish setter" (`<address>`) with concept `<key>`. Each judges its own section, and reports the verdict of "dog" (`<address>`) without refusing. Then give the missing fields of "dog" … with graph update-node, naming concept `<key>`."
+   - Each concept has its own key, with one `set` for all, so it can be followed as written. Followed in order, the first add puts the node in the set, and each later add gives that concept its missing section (Amendment 2, item 1).
+   - The case has no test, as the deviation says (R5-1).
+2. **No live re-check: accepted.** The change is to words alone, in `memberMisfit`; no statement the graph runs changed.
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R5-1. `src/operations/catalog/graph/_memberships.js:127–128`: the way on for a set that joins more than one concept has no test.**
+   - With each concept's key taken out of that branch, every suite stays green (the breaks' last row).
+   - The words read right in a direct call (above), and the seed has no call that reaches the branch: it needs a set whose joined concepts' keys each change `wordTypes`, with the named concept misfitting.
+   - **Optional:** a unit test of `say.memberMisfit` with two concepts, checking each key and the one set. That needs no seed.
+
+### Harness friction
+
+1. **Known, seen again:** the full gate can't run on this Mac, and the gate's route walks need the `node_modules` link. No new row.
+
+### Verdict (round 5)
+
+**PASS**
+
+**What holds.**
+- R4-1 is fixed. The way on gives each concept by its tapestryKey, and followed with only its words it works for both sets, the deeper one included (probe 8).
+- R4-2 is fixed with four guards, each catching its break, and the two new seed sets change no earlier test's outcome.
+- R4-3's ledger wording matches staging's closed row.
+
+**The evidence.**
+- The merge was clean.
+- Every new test failed first, or held what it should, as the plan records.
+- Eight of the nine breaks are caught.
+- The scoped gate passes on `710abcee`.
+
+**The non-blocking finding:** the several-concepts wording has no test (R5-1), and is optional. It's words, read and checked directly here.
+
+**Still to come:**
+- the full gate, as the pull request's CI check;
+- the firmware reinstall for rule 8, and for this story's rewording of rule 7, on staging and production, each on the owner's yes (the rule-8 row).
+
+### Close-out (not committed)
+
+- The story's status is `Done`, from round 3's commit. With this verdict, harness-lint's L1 check is satisfied.
+- This section is written but not committed: the session commits it.
+- Completion detection: unchanged. The book isn't complete: the rebuild and the race are still ahead. Reported in the chat.
