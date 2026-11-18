@@ -1,6 +1,6 @@
 # Story 43: A rename or a field mark beside a property write on the same concept — the two go one after the other, and neither is lost
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Bug
 **Loom:** A10.18.a — https://loom.brainstorm.world/t/A10.18.a
