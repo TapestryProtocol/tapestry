@@ -71,7 +71,7 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
   - That row says the policy's wording is the owner's to reword. The owner approved what AC5 asks for, not these words, so the words go to the owner at the pull request.
   - Its other question, whether the quarantine file is still the answer to a flake, is left to the owner. The row stays OPEN for it.
 - **How a start is timed.** The stub makes a `start-time.<pid>` file as its first act, and the suite reads that file's mtime. It costs no process per start, and works the same on macOS and Linux. Without the file, a start falls back to when it was first seen.
-- **Only RW7 and RW22 read a start's time, and both became exact.** Every start record's time moved to the start itself.
+- **Of the checks that predate this story, only RW7 and RW22 read a start's time, and both became exact.** Every start record's time moved to the start itself. RW25, new here, reads it too, and the quick scenario ends its window from the first start's time.
   - RW7 checks the gaps between starts.
   - RW22 reads the offsets between starts, in a fixture check and in its messages.
   - RW3, RW9, RW10 and RW24 compute an `ms` from a start that nothing reads. Their windows are `waitFor` timeouts, and are unchanged.
@@ -99,7 +99,7 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
   - the suites: `tagging-edges-realtime-wrapper`, `ci-test-job`, `live-link-checks`, `workflow-hardening`, `honest-publish-reporting-ci-guard`, `information-for-agents`, `llms-txt`, `harness-lint`, `ledger-row-ids` and `session-start`;
   - its record, `20261118T172233Z-40726-60bc [thg-3-impl]`: PASS, exit 0, 272 passed, 0 failed, 41 skipped, 10 of 10 suites.
 
-  The run before it, `20261118T171956Z-88650-afc8`, failed `ci-test-job` W8 alone, on the comment's wording (Deviations). The run after this section and the "Last updated" bump were written, `20261118T172451Z-92271-e982 [thg-3-impl-final]`, passed with the same counts.
+  All three of these gate runs were on `92554055+dirty`, before `7b6e0e24` existed, so none could see L10's view of that commit (round 1, blocking 1). The run before it, `20261118T171956Z-88650-afc8`, failed `ci-test-job` W8 alone, on the comment's wording (Deviations). The run after this section and the "Last updated" bump were written, `20261118T172451Z-92271-e982 [thg-3-impl-final]`, passed with the same counts.
 
 The probe, its scripts and their output are in the main checkout's `tmp/rw7-probe/`.
 

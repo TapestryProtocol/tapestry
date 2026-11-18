@@ -1061,7 +1061,11 @@ The stack-free suite has had flakes, though. Each one found so far got a ledger 
 - **K1's lock check** raced its stand-in worker, and was fixed in #90 (recorded 2026-11-16).
 - **The launcher's destroy test** read a temp folder's name as `-v`, and was fixed in #91 (recorded 2026-11-16).
 - **The live link checks** read a production deploy's 502 as a dead link, and were moved out of the gate in #94 (above).
-- **RW7, in `tagging-edges-realtime-wrapper`,** timed a node's restart by when the suite noticed it. Inside the full gate's one big process it read the wrapper's 1 s backoff as 0.64–0.78 s, about one CI run in 28 from 2026-11-13 to 2026-11-18 (ledger row `2026-10-08-realtime-wrapper-timing-flake-under-load`). It was fixed at its root in story `test-suite-hermeticity` #3. Before that, two of its four CI failures were run again by hand, against this policy, and each passed on the second run.
+- **RW7, in `tagging-edges-realtime-wrapper`,** timed a node's restart by when the suite noticed it. Inside the full gate's one big process it read the wrapper's 1 s backoff as 0.64–0.78 s, about one CI run in 28 from 2026-11-13 to 2026-11-18 (ledger row `2026-10-08-realtime-wrapper-timing-flake-under-load`). It was fixed at its root in story `test-suite-hermeticity` #3.
+
+**Three failed runs were run again by hand,** against this policy:
+- **run 43808151504,** PR #83's, on 2026-11-16. Its first attempt failed on the live link check, and its second on K1's lock check, which is how that flake was found;
+- **runs 43985723290** (2026-11-17) **and 44335714732** (2026-11-18), two of RW7's four CI failures. Each passed on its second attempt.
 
 The other documented nondeterminism lives in the excluded live classes: the `*-publish` suites, and the live link checks above. (`playwright.config.js` sets `retries: 2` in CI, which is another reason that path stays out of this job.)
 

@@ -8,7 +8,7 @@
 
 **What was seen.** Story `test-suite-hermeticity` #3 changed OPERATIONS.md §15, `.github/workflows/test.yml` and two ledger rows.
 - Its implementer built the scoped gate's suite list by searching the tests for those paths and phrases, and chose ten suites.
-- The reviewer found seven more that read OPERATIONS.md: `bullboard-admin-access`, `generalized-task-scheduler`, both `reconciliation-*` suites, `router-stream-limit-on-connect`, and both `task-queue-*` suites.
+- The reviewer found seven more that read OPERATIONS.md: `bullboard-admin-access`, `generalized-task-scheduler`, both `reconciliation-*` suites, `router-stream-limit-on-connect`, `task-queue-bullmq` and `task-queue-neo4j-resource-class`.
 - Their OPERATIONS.md checks all passed, but the list had been incomplete, and nothing would have said so.
 
 **Fix shape.** A script that takes the changed files and prints the registry entries whose suites read them, for a role to start its scoped gate from.

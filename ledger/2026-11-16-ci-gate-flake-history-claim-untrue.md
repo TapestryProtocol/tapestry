@@ -16,7 +16,7 @@
 **Fix shape.** The owner rewords the premise. For example: a red run is signal, and each flake found gets a ledger row and a fix, as these three did. The owner also decides whether the quarantine file is still the answer to a flake, now that fixing has been.
 
 **2026-11-18, the premise reworded.** Story `test-suite-hermeticity` #3 rewords it, as its AC5 asks. The owner approved that aim, not these words, so the words go to the owner at the story's pull request.
-- §15 now says a red run is signal, and names the four stack-free flakes found so far: these three and RW7. It says each got a ledger row and then a fix or a move out of the gate, and that two of RW7's CI failures were run again by hand, against the policy.
+- §15 now says a red run is signal, and names the four stack-free flakes found so far: these three and RW7. It says each got a ledger row and then a fix or a move out of the gate, and names, by run id, the three failed runs that were run again by hand against the policy: PR #83's, and two of RW7's.
 - `.github/workflows/test.yml`'s header no longer claims a record of no flakes.
 - §15's waiver paragraph adds only that none of the four needed the quarantine file.
 

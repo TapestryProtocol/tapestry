@@ -6,7 +6,7 @@ name: Test
 # workflows. No retries anywhere: the first run's exit code is the verdict, so
 # a red run is signal. OPERATIONS.md § "CI test gate" names the stack-free flakes
 # found so far, each with a ledger row and a fix or a move out of the gate, and
-# the two failed runs that were run again by hand against this rule.
+# the failed runs that were run again by hand against this rule.
 
 on:
   pull_request:
