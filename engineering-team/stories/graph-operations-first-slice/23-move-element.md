@@ -103,5 +103,5 @@ For Architecture, not this gate:
 - The write path it goes through: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0023-move-element.md](../../decisions/graph-operations-first-slice/0023-move-element.md)
-- Test plan: *(Test Design)*
+- Test plan: [23-move-element.test-plan.md](./23-move-element.test-plan.md)
 - Review: *(Review)*
