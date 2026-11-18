@@ -15,4 +15,11 @@
 
 **Fix shape.** The owner rewords the premise. For example: a red run is signal, and each flake found gets a ledger row and a fix, as these three did. The owner also decides whether the quarantine file is still the answer to a flake, now that fixing has been.
 
+**2026-11-18, the premise reworded.** Story `test-suite-hermeticity` #3, whose AC5 the owner approved, rewords it.
+- §15 now says a red run is signal, and names the four stack-free flakes found so far: these three and RW7. It says each had a ledger row and a fix, never a retry.
+- `.github/workflows/test.yml`'s header no longer claims a record of no flakes.
+- §15's waiver paragraph adds only that none of the four needed the quarantine file.
+
+**Still open, and the owner's:** whether the quarantine file is still the answer to a flake, now that fixing has been. The row stays OPEN for that question alone.
+
 **Pointer:** OPERATIONS.md §15, "No-retry policy" and "First-flake waiver pattern"; the three rows above; `engineering-team/reviews/honest-test-gate/2-live-link-checks-leave-the-pr-gate.md`, non-blocking 8.

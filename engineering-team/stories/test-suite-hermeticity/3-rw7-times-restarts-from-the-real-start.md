@@ -64,6 +64,40 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
 
 - None that block.
 
+## Deviations
+
+- **AC5 names four flakes, not one.** AC5 says §15 should say "which flake was found". Four stack-free flakes are on record: the three from 2026-11-16 that ledger row `2026-11-16-ci-gate-flake-history-claim-untrue` lists, and RW7.
+  - So §15 names all four, and `test.yml`'s header points to it.
+  - That row says the policy's wording is the owner's to reword. It takes this rewording as the owner's, through his approval of AC5.
+  - Its other question, whether the quarantine file is still the answer to a flake, is left to the owner. The row stays OPEN for it.
+- **How a start is timed.** The stub makes a `start-time.<pid>` file as its first act, and the suite reads that file's mtime. It costs no process per start, and works the same on macOS and Linux. Without the file, a start falls back to when it was first seen.
+- **The other windows changed in what they measure, not in their bounds.** Every start record's time moved to the start itself, so the suite's other start-time windows changed too: RW3, RW9, RW10 and RW24 time from the suite's own action to a start. Each of those windows can only shorten, and each still passes. RW22's start-to-start offsets are now exact. No window was widened.
+- **`test.yml`'s new comment avoids the words "retry" and "rerun".** `ci-test-job` W8 forbids them anywhere in the workflow file, comments included. The first wording, "never a retry", failed W8 in the first scoped gate, and was reworded to "not a second run".
+
+## Evidence
+
+### The suite (Implementation, 2026-11-18)
+
+- **This Mac** (bash 5.3.15, the perl flock(2) shim): the suite alone passed 25 of 25, three runs out of three.
+- **Linux** (a throwaway `node:22-bookworm` container, Node 22.23.3, flock(1); the worktree mounted read-only): 25 of 25 in each of nine runs (`tmp/rw7-probe/green.out`).
+
+  | Ballast | Each spawn (median) | Spawning in the first second | RW7 and RW25 |
+  |---|---|---|---|
+  | none (55 MB) | 0.9–1.2 ms | 21–26 ms | pass, three of three |
+  | 1 GB (1.19 GB) | 14.7–15.7 ms | 360–382 ms | pass, three of three |
+  | 3 GB (3.24 GB) | 30.5–45.6 ms | 680–736 ms | pass, three of three |
+
+  Before the fix, at 3 GB, RW7 failed three of three, at 0.44–0.55 s (`red-3gb.out`). At 1 GB it failed three of three in the first probe (`run1.out`), when each spawn took about 15.6 ms, as here.
+- **AC3, the hot-loop mutation** (a copy of `run.sh` with `nap "$backoff"` replaced by `:`, the fix in place): RW7 fails, with "a hot loop: 1918 starts in 6.50 s". So do RW18, RW19, RW20, RW22 and RW25 (19 passed, 6 failed).
+- **M2, the fix removed** (a copy of the suite without the stub's stamp line): RW25 fails at 0.52 s. At 3 GB, RW7 fails again too, at 0.52–0.56 s. So the stamp is what passes them.
+- **The scoped gate,** through the gate engine, never the full `npm test` on this Mac. It ran the changed suite and every registry entry that reads the wording or records changed here, with every endpoint dead and `TAPESTRY_CONTAINER=no-such-container`:
+  - the suites: `tagging-edges-realtime-wrapper`, `ci-test-job`, `live-link-checks`, `workflow-hardening`, `honest-publish-reporting-ci-guard`, `information-for-agents`, `llms-txt`, `harness-lint`, `ledger-row-ids` and `session-start`;
+  - its record, `20261118T172233Z-40726-60bc [thg-3-impl]`: PASS, exit 0, 272 passed, 0 failed, 41 skipped, 10 of 10 suites.
+
+  The run before it, `20261118T171956Z-88650-afc8`, failed `ci-test-job` W8 alone, on the comment's wording (Deviations). The run after this section and the "Last updated" bump were written, `20261118T172451Z-92271-e982 [thg-3-impl-final]`, passed with the same counts.
+
+The probe, its scripts and their output are in the main checkout's `tmp/rw7-probe/`.
+
 ## Linked artifacts
 
 - ADR: none. Architecture is skipped: a Bug whose fix follows from its cause, under Standard.

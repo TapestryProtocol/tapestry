@@ -21,8 +21,8 @@
  *        AC1): RW25 holds the suite's own process up just after a quick wrapper's first start, as a burst of process
  *        launches does inside the full gate's one big process, and checks that the first restart still reads the
  *        wrapper's real 1 s backoff. RW7 read it as 0.64–0.78 s there (ledger row
- *        2026-10-08-realtime-wrapper-timing-flake-under-load). Intentionally failing until a start is timed from when
- *        it happened rather than from when the suite noticed it (red phase).
+ *        2026-10-08-realtime-wrapper-timing-flake-under-load). It failed in its red phase, until each start was timed
+ *        by the stub's own stamp rather than by when the suite noticed it.
  *
  * Intentionally failing until run.sh lands (red phase). The script is looked up LAZILY inside each test through
  * load(), so this suite always loads, and each test fails with "… run.sh not implemented yet" rather than an error of
@@ -40,7 +40,8 @@
  *   TAGGING_EDGES_REALTIME_HEALTHY_SECONDS=3  (RW22 only; T34) the healthy-run threshold, so a healthy run takes
  *                                         seconds, not a minute;
  *   PATH                                  the test's `sleep`, a stub `node`, and the test's `flock`, before the host's
- *                                         PATH. The stub node records one line per start (its pid, argv, cwd, the
+ *                                         PATH. The stub node stamps each start first (a start-time.<pid> file, whose
+ *                                         mtime is the start's time) and records one line per start (its pid, argv, cwd, the
  *                                         marker variables, TAGGING_EDGES_STATE_DIR, and — where asked — the inode
  *                                         fd 8 is open on) and then sleeps until TERM (recording the signal, taking
  *                                         1 s to stop), exits at once with a chosen code, holds until the test
@@ -213,6 +214,9 @@ const nodeStub = (realSleep) => `#!/bin/bash
 #   "hold:N"           wait for $RW_STUB_DIR/release (removing it), then exit N;
 #   "for:S:N"          run S whole seconds (or until TERM or INT), then exit N.
 d="\${RW_STUB_DIR:?RW_STUB_DIR unset}"
+# The start's stamp, before anything else and with no process of its own: the suite times this start by the file's
+# mtime, so a start reads when node started, not when the suite noticed it (story test-suite-hermeticity #3).
+: > "$d/start-time.$$"
 nap="${realSleep}"
 n=$(( $(cat "$d/count" 2>/dev/null || echo 0) + 1 ))
 printf '%s\\n' "$n" > "$d/count"
@@ -417,7 +421,13 @@ function killAllNow() {
 }
 let exitHookOn = false;
 
-/** Read the stub's log: new "start" / "signal" / "stopped" / "timeout" lines, time-stamped when first seen. */
+/**
+ * Read the stub's log: new "start" / "signal" / "stopped" / "timeout" lines. A start is timed by its stamp, the
+ * start-time.<pid> file the stub makes as its first act, so it reads when node started: a suite held up when the start
+ * happened, as a burst of process launches holds up the full gate's one big process, can't shorten a gap between
+ * starts (story test-suite-hermeticity #3; RW25). Without a stamp, a start falls back to when it was first seen, as
+ * the other lines are.
+ */
 function observe(h) {
   let text;
   try { text = fs.readFileSync(path.join(h.stubDir, 'node.log'), 'utf8'); } catch (_) { return; }
@@ -427,7 +437,8 @@ function observe(h) {
   for (let i = h.seen; i < lines.length; i++) {
     const f = lines[i].split('\t');
     if (f[0] === 'start') {
-      h.starts.push({ pid: Number(f[1]), marker: f[2], onlyFirst: f[3], stateDir: f[4], fd8: f[5], cwd: f[6], args: (f[7] || '').split('\u001f').slice(0, -1), at });
+      const stamp = statOrNull(path.join(h.stubDir, `start-time.${f[1]}`));
+      h.starts.push({ pid: Number(f[1]), marker: f[2], onlyFirst: f[3], stateDir: f[4], fd8: f[5], cwd: f[6], args: (f[7] || '').split('\u001f').slice(0, -1), at: stamp ? Math.round(stamp.mtimeMs) : at });
     } else if (f[0] === 'signal') {
       h.signals.push({ pid: Number(f[1]), sig: f[2], at });
     } else if (f[0] === 'stopped') {
