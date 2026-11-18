@@ -97,4 +97,4 @@ Run on this Mac. No full `npm test` ran here: the local stack is the owner's age
 ## Linked artifacts
 - ADR: none. Architecture was skipped, as for a bug with an obvious fix (David, 2026-11-18).
 - Test plan: `engineering-team/stories/graph-operations-first-slice/44-concepts-list-shows-concepts-with-no-event.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/graph-operations-first-slice/44-concepts-list-shows-concepts-with-no-event.md`
