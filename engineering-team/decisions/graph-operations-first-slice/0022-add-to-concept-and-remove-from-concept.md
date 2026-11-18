@@ -386,3 +386,30 @@ The test design also found eight readings the ADR left open. The suites pin each
     - **`waiting`.** The writes' `concepts` entries carry `waiting` (ADR 0042 Decision 4). add-to-concept's come from `Sch.fits` through `X.CONCEPTS` (Decision 13), so they carry it with no change here.
     - **The derive step.** `word.js` now calls `schema-verdicts.js`. The overlay goes right after `getExistingWordJson`, before the word block and `graphContext` are built, as Decision 6 says.
     - **Consequences, item 8** (merging with A10.20.b) is settled by the merge.
+
+## Amendment 2 (2026-11-18, at review round 1; the owner chose to fix the review's non-blocking findings before the PR) — what the review found
+
+The review passed with eight non-blocking findings (`engineering-team/reviews/graph-operations-first-slice/22-add-to-concept-and-remove-from-concept.md`). The owner chose to fix them before the pull request. For finding 1, add-to-concept gives the missing section; for finding 4, the read is bounded by the relationship concept's elements. The rest follow the review's asks.
+
+1. **A missing section is add-to-concept's to give** (finding 1; Decision 7, Amendment 1 item 7). A node can already be an element of the concept while its JSON, as the operations read it (Decision 5), has no section under the concept's key. That happens when it joined through a set another concept also reaches, or through create-element or link-set. add-to-concept now gives it one:
+   - it builds the section as Decision 7 builds a new one, checks it as Decision 8's step 8 checks a new one (refusing `invalid-fields` or `no-schema`), and writes it as Decision 9's step 2 does: into the json tag, or beside in `tapestryOwnSections`;
+   - it makes no new link, unless a set is given that doesn't hold the node directly;
+   - the outcome is `added`, recorded as `section-added`.
+
+   `already-element` is answered only when the node is in the concept, directly in the set when one is given, and its view holds the concept's section. `name-in-use` still isn't checked for a node already in the concept, whose name the concept already has. update-node's `no-section` words and add-to-concept's description say so.
+
+   So a removal that also leaves a second concept is undone by add-to-concept: the node goes back into the first concept, then into the second with that concept's fields from the change entry. For story 22's Goldie, that is golden retriever first, then dog.
+2. **`wordTypes` gains the concepts a set joins,** even for a node already in the concept (finding 2; AC2). A `json-tag` node put in a set that also joins other concepts gains each of their keys in its `wordTypes`, word's aside, as a new membership does, recorded as `field-changed` on `word.wordTypes`. This corrects Amendment 1 item 7, whose "step 2 doesn't run" was meant for the section alone: AC2 lists each concept the set reaches in `wordTypes`.
+3. **The guard is silent for a node another operation looks after** (finding 3; Decision 12, Amendment 1 item 10). The guard form gives no finding for a node `X.changedElsewhere` names, as it gives none for a tag. So apply refuses the node `made-elsewhere`, naming the operation that does look after it, never `last-concept` with a way on that doesn't apply.
+4. **The relationship events, found through their concept** (finding 4; Decision 13's `letters`).
+   - **The read.** `letters` finds the instance's own relationship events by walking the class thread of the relationship concept (its header at `firmware.conceptUuid('relationship')`) to its elements, by the instance's own authors, and then reading each one's `nodeFrom`, `nodeTo` and `relationshipType` tags. It never scans tag nodes by type and value, which no index covers. An instance with no relationship concept has none.
+   - **What it misses.** Pass 1d and wire-implicit-elements wire each such event into that concept from its `z` tag. So an event signed since the last firmware reinstall can be missed, and `letters` then leaves it out. `letters` is a report, and nothing makes an edge from such an event (Context 4).
+5. **The JSON is read before the repeat** (finding 5; Decision 8's order). Since item 1, the repeat turns on whether the node's view holds the concept's section, which needs its JSON. So a node whose JSON can't be read is refused `unreadable-json` before the repeat, as the code does. Decision 8's steps 5 and 7 swap.
+6. **A removal reads only `tapestryOwnSections` on a node kept beside** (finding 6). Taking out the owner's claim doesn't need the author's JSON, so an author's letter that doesn't parse is no reason to refuse it. On a removal, `unreadable-json` stays for a `json-tag` node's JSON and for `tapestryOwnSections` that can't be read. RM35's `uj-peer` changes with it.
+7. **Words** (finding 7):
+   - **Rulebook entry 7** says add-to-concept calls the check, as built. Rule 7's element is regenerated, and ledger row `2026-11-18-rule-eight-awaits-firmware-reinstall` names it beside rule 8's.
+   - **Rulebook entry 8, and its element,** say word's class thread reaches nearly every element "through the other concepts' supersets under its own", not "through its word block".
+   - **`M` declares its own `no-superset` and `not-installed`,** worded for these two operations, with the same codes and statuses. Each declaration then publishes a `when` of its own.
+8. **The follow-ups get rows** (finding 8).
+   - **Ledger rows** go to the Consequences' follow-ups 1, 2, 3 and 5. Follow-up 1's row also states the other half of the missing provenance: from a point of view that counts a node's author, the owner's membership counts as that author's.
+   - **A Loom memo on A10.20.c** carries follow-up 4: a removal's section lingers in a cache entry until its rebuild drops the sections a removal names.

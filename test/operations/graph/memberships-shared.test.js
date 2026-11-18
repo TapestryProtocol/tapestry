@@ -38,6 +38,13 @@
  *   MS16 the catalog's two rows say what was built and name the ADR
  *   MS17 changes.js's header says what the membership changes use
  *   MS18 the new modules require nothing that signs
+ *   Review round 1 (ADR Amendment 2):
+ *   MS19 update-node's no-section words and add-to-concept's description say add-to-concept gives the section a node
+ *        lacks (item 1)
+ *   MS20 rulebook entry 7 says add-to-concept calls the check; entry 8 says word reaches "through the other concepts'
+ *        supersets under its own"; both elements are regenerated to match (item 7)
+ *   MS21 add-to-concept and remove-from-concept publish no-superset and not-installed worded for themselves (item 7)
+ *   MS22 ledger rows carry follow-ups 1, 2, 3 and 5, follow-up 1's with the other half of the provenance gap (item 8)
  */
 
 const fs = require('fs');
@@ -620,6 +627,79 @@ test('MS18: the new modules require nothing that signs, publishes or reads a key
     const bad = (src.match(/require\(\s*['"][^'"]*['"]\s*\)/g) || []).filter((r) => /nostr-tools|normalize\/helpers|secureKeyStorage|child_process|strfry|signing/.test(r));
     assert(bad.length === 0, `${f} must require nothing that signs (ADR 0004 Decision 10); it requires ${show(bad)}`);
   }
+});
+
+// ── review round 1 (ADR Amendment 2) ──
+/** A word saying a section is missing, in what follows the first mention of add-to-concept. */
+const LACKS = /\b(lacks|lacking|missing|doesn't have|does not have|has no|without)\b/i;
+const afterAddToConcept = (text) => { const s = String(text || ''); const i = s.indexOf('add-to-concept'); return i < 0 ? '' : s.slice(i); };
+
+test('MS19 [Amendment 2 item 1]: update-node\'s no-section words and add-to-concept\'s description say add-to-concept gives a node the section it lacks', async () => {
+  const MG = require('../../helpers/membershipGraph');
+  const seed = await MG.seedMemberships();
+  const file = seed.file(tmp('memberships-no-section-'));
+  const r = S.runHarness({ scenarios: [{ graphFake: { stateFile: file }, requests: [
+    { id: 'no-section', method: 'POST', url: '/api/tapestry/graph/update-node', caller: 'owner', body: { node: seed.keys.walkerMax, concept: seed.keys.pet, fields: { description: 'x' } } },
+  ] }] }, { dir: path.dirname(file) });
+  const x = S.answered(r).req('no-section');
+  assert(x.status === 409 && x.body.code === 'no-section', `the path under test ran: walkerMax, in pet through walkers with no pet section, is refused no-section by update-node; got ${x.status} ${show(x.body).slice(0, 300)}`);
+  assert(LACKS.test(afterAddToConcept(x.body.error)), `the refusal says graph add-to-concept gives a node the section it lacks, a concept it is already in included, so neither operation points at the other for a missing section (review round 1, finding 1); got ${show(x.body.error)}`);
+  const UN = require(path.join(ROOT, 'src/operations/catalog/graph/update-node.js'));
+  const when = ((UN.refusals || []).find((d) => d.code === 'no-section') || {}).when;
+  assert(LACKS.test(afterAddToConcept(when)), `no-section's published when says so too; got ${show(when)}`);
+  const AD = require(path.join(ROOT, 'src/operations/catalog/graph/add-to-concept.js'));
+  const description = String(AD.description || '');
+  assert(/(lacks|lacking|missing|doesn't have|does not have|without)[^.]*section|section[^.]*(lacks|missing|doesn't have|does not have)/i.test(description),
+    `add-to-concept's description says it gives a node already in the concept the section its JSON lacks, and answers already-element only when the section is held (Amendment 2, item 1); got ${show(description).slice(0, 600)}`);
+});
+
+test('MS20 [Amendment 2 item 7]: rulebook entry 7 says add-to-concept calls the check, as built; entry 8 says word reaches "through the other concepts\' supersets under its own"; and both elements say the same', () => {
+  const doc = fs.readFileSync(path.join(ROOT, 'docs/GRAPH_RULES.md'), 'utf8');
+  const entry = (n, name) => {
+    const at = doc.search(new RegExp(`^## ${n}\\. \`${name}\`$`, 'm'));
+    assert(at >= 0, `docs/GRAPH_RULES.md has its entry ${n}, ${name}`);
+    const next = doc.slice(at + 3).search(/^## /m);
+    return next >= 0 ? doc.slice(at, at + 3 + next) : doc.slice(at);
+  };
+  const field = (text, label) => { const m = text.match(new RegExp(`^- \\*\\*${label}:\\*\\* ([^\\n]*)`, 'm')); return m ? m[1] : ''; };
+  const element = (name) => JSON.parse(fs.readFileSync(path.join(ROOT, 'firmware/versions/v1.0.0/concepts/graph-rule/elements', `${name}.json`), 'utf8')).graphRule;
+  /** Whether the first verb "call" after add-to-concept is in the present, not "will call". */
+  const callsAsBuilt = (text) => { const rest = afterAddToConcept(text); const m = rest.match(/\b(will\s+)?calls?\b/); return Boolean(rest) && Boolean(m) && !m[1]; };
+  const e7 = field(entry(7, 'element-fits-schema'), 'Enforced by');
+  assert(callsAsBuilt(e7), `entry 7's Enforced by says graph add-to-concept calls the check, not "will call … when they are built" (review round 1, finding 7); got ${show(e7)}`);
+  assert(callsAsBuilt(element('element-fits-schema').enforcedBy), `rule 7's element, regenerated, says the same; got ${show(element('element-fits-schema').enforcedBy)}`);
+  const PHRASE = "through the other concepts' supersets under its own";
+  const s8 = field(entry(8, 'node-has-a-concept'), 'Says');
+  assert(s8.includes(PHRASE) && !/through its word block/.test(s8), `entry 8's Says says word's class thread reaches nearly every element ${PHRASE}, not through its word block: a class thread reaches through edges; got ${show(s8)}`);
+  const says8 = element('node-has-a-concept').says;
+  assert(says8.includes(PHRASE) && !/through its word block/.test(says8), `rule 8's element, regenerated, says the same; got ${show(says8)}`);
+});
+
+test('MS21 [Amendment 2 item 7]: each operation publishes no-superset and not-installed worded for itself, not create-element\'s, with the same codes and statuses', () => {
+  const X = require(path.join(ROOT, 'src/operations/catalog/graph/_elements.js'));
+  const of = (op) => require(path.join(ROOT, `src/operations/catalog/graph/${op}.js`)).refusals || [];
+  for (const op of ['add-to-concept', 'remove-from-concept']) {
+    for (const [code, theirs] of [['no-superset', X.NO_SUPERSET], ['not-installed', X.NOT_INSTALLED]]) {
+      const r = of(op).find((d) => d.code === code);
+      assert(r && r.status === 409 && typeof r.when === 'string' && r.when.trim(), `${op} declares ${code}, 409, saying when; got ${show(r)}`);
+      assert(r.when !== theirs.when, `${op}'s ${code} publishes a when of its own (M's declaration), not create-element's "${theirs.when}"`);
+    }
+  }
+  const rm = of('remove-from-concept');
+  const noSuperset = rm.find((d) => d.code === 'no-superset').when;
+  const notInstalled = rm.find((d) => d.code === 'not-installed').when;
+  assert(!/put the element in/.test(noSuperset) && !/would-be author of every node a write makes/.test(notInstalled), `remove-from-concept's listing, /docs and help speak of a removal, not of putting an element in or of a would-be author; got ${show({ noSuperset, notInstalled })}`);
+});
+
+test('MS22 [Amendment 2 item 8]: ledger rows carry ADR 0022\'s follow-ups 1, 2, 3 and 5, and follow-up 1\'s states the other half of the missing provenance', () => {
+  const dir = path.join(ROOT, 'ledger');
+  const rows = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => ({ f, text: fs.readFileSync(path.join(dir, f), 'utf8') })).filter((r) => /graph-operations-first-slice\/0022/.test(r.text));
+  const naming = (n) => rows.filter((r) => new RegExp(`follow-up #?${n}(?!\\d)`).test(r.text));
+  for (const n of [1, 2, 3, 5]) {
+    assert(naming(n).length >= 1, `a ledger row names ADR 0022's follow-up ${n}, so /whats-open finds it (review round 1, finding 8); the rows naming the ADR are ${show(rows.map((r) => r.f))}`);
+  }
+  assert(naming(1).some((r) => /owner'?s membership/i.test(r.text) && /counts as[^.]{0,80}author/i.test(r.text)),
+    `follow-up 1's row also says that, from a point of view that counts a node's author, the owner's membership counts as that author's; got ${show(naming(1).map((r) => r.f))}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

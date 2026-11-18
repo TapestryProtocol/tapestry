@@ -38,6 +38,16 @@
  *   AT48 (Amendment 1, item 12: A10.20.b landed first) an add into a set word's thread holds, word given its real
  *        schema: word is reported waiting for the derive step, fits null, not failing, and the add is made
  *   AT30–AT47 the refusals (REF and their own runs); AT47, name-in-use for firmware's own element kept beside
+ *   Review round 1 (ADR Amendment 2), in a run of their own (FILL, UNDO) or REF:
+ *   AT49 a node already in the concept whose JSON lacks its section is given it: added, section-added, no new link;
+ *        the same call again is already-element (item 1)
+ *   AT50 the same for a node kept beside: the section goes into tapestryOwnSections (item 1)
+ *   AT51 a removal that also left a second concept is undone by add-to-concept: Goldie into golden retriever, then dog
+ *        with dog's fields from the entry, both sections as they were (item 1)
+ *   AT52 a node already in the concept put in a set another concept reaches gains that concept's key in wordTypes,
+ *        recorded as field-changed (item 2)
+ *   AT53 a node already in the concept whose JSON can't be read is unreadable-json, the JSON read before the repeat
+ *        (item 5; a guard of what the code does)
  */
 
 const fs = require('fs');
@@ -513,6 +523,104 @@ test('AT48 [AC3, Amendment 1 item 12]: an add into a set word\'s thread holds re
   assert(valid(cs), `the answer's concepts validate against the declared answer, word's waiting entry too; got ${show(valid.errors)}`);
 });
 
+// ── review round 1 (ADR Amendment 2, items 1 and 2): a missing section, and the keys a set joins ──
+let FILL = null;
+/** One run: AT4's Fetch, and Snowy kept beside, each put in dog through walkers and then given pet's section; Mark Me put in dog, then in walkers. */
+function fill() {
+  if (FILL) return FILL;
+  FILL = (async () => {
+    const { file, k } = await fresh();
+    const before = S.readState(file);
+    const { a } = runOn(file, [
+      add('into-walkers', k.fetch, k.dog, { set: k.walkers }),
+      add('fill-pet', k.fetch, k.pet, { fields: { description: 'Fetch, a pet through walkers' } }),
+      add('fill-pet-again', k.fetch, k.pet, { fields: { description: 'Fetch, a pet through walkers' } }),
+      add('peer-into-walkers', k.snowy, k.dog, { set: k.walkers }),
+      add('peer-fill-pet', k.snowy, k.pet, { fields: { description: 'Snowy, a pet through walkers' } }),
+      add('mark-dog', k.markMe, k.dog),
+      add('mark-walkers', k.markMe, k.dog, { set: k.walkers }),
+    ]);
+    return { a, k, file, before };
+  })();
+  return FILL;
+}
+async function filled(id) {
+  needDecl();
+  const x = (await fill()).a.req(id);
+  assert(x.status === 200, `${id} must answer 200; got ${x.status} ${show(x.body).slice(0, 600)}`);
+  return x.body.data;
+}
+
+test('AT49 [AC2, AC4, Amendment 2 item 1]: a node already in the concept whose JSON lacks its section is given it: added, section-added, no new link; then it is already-element', async () => {
+  const entered = await filled('into-walkers');
+  assert(entered.outcome === 'added', `the path under test ran: Fetch joins dog through walkers, and pet with it, with no pet section (AT4's state); got ${show(entered).slice(0, 300)}`);
+  const d = await filled('fill-pet');
+  const { k, file, before } = await fill();
+  const g = S.readState(file);
+  assert(d.outcome === 'added' && d.kept === 'json-tag', `Fetch is in pet through walkers, but its JSON has no pet section: add-to-concept gives it one, added, not already-element (Amendment 2, item 1); got ${show(d).slice(0, 400)}`);
+  assert(show(C.json(g, k.fetch).pet) === show({ name: 'Fetch', slug: 'fetch', description: 'Fetch, a pet through walkers' }) && show(C.json(g, k.fetch).dog) === show({ name: 'Fetch', slug: 'fetch' }),
+    `its JSON gains pet's section, built as a new one is, and its dog section is as it was; got ${show(C.json(g, k.fetch))}`);
+  const sec = changeOf(d, 'section-added');
+  assert(sec.length === 1 && sec[0].concept === k.pet && sec[0].field === 'pet' && wasNone(sec[0]) && show(sec[0].now) === show(C.json(g, k.fetch).pet), `the entry records section-added for pet; got ${show(d.change)}`);
+  assert(changeOf(d, 'membership-added').length === 0 && show(into(g, k.fetch)) === show([k.beagleSuperset, k.walkers].sort()), `no new link: pet already reaches it through walkers; got ${show(changeOf(d, 'membership-added'))}, in from ${show(into(g, k.fetch))}`);
+  const pet = (d.concepts || []).find((c) => c.concept === k.pet);
+  assert(d.concepts[0].concept === k.pet && pet.fits === true, `pet, the concept named, first, now fitting; got ${show(d.concepts)}`);
+  const again = await filled('fill-pet-again');
+  assert(again.outcome === 'already-element' && again.change === null && show(again.differs) === show([]), `now that its view holds pet's section, the same call is already-element, changing nothing (AC4); got ${show(again).slice(0, 300)}`);
+  void before;
+});
+
+test('AT50 [AC5, Amendment 2 item 1]: the same for a node kept beside: its missing section goes into tapestryOwnSections, beside the dog section it has, and its letter stays', async () => {
+  const entered = await filled('peer-into-walkers');
+  assert(entered.outcome === 'added' && entered.kept === 'beside', `the path under test ran: Snowy, another author's, joins dog through walkers, beside its letter; got ${show(entered).slice(0, 300)}`);
+  const d = await filled('peer-fill-pet');
+  const { k, file, before } = await fill();
+  const g = S.readState(file);
+  assert(d.outcome === 'added' && d.kept === 'beside', `Snowy is in pet through walkers, and neither its letter nor the owner's sections hold pet's section: it is given one, added (Amendment 2, item 1); got ${show(d).slice(0, 400)}`);
+  assert(show(ownSections(g, k.snowy)) === show({ dog: { name: 'Snowy', slug: 'snowy' }, pet: { name: 'Snowy', slug: 'snowy', description: 'Snowy, a pet through walkers' } }), `tapestryOwnSections holds the dog section it had and the pet section it is given; got ${show(nodeByKey(g, k.snowy).props.tapestryOwnSections)}`);
+  const sec = changeOf(d, 'section-added');
+  assert(sec.length === 1 && sec[0].field === 'pet' && sec[0].property === 'tapestryOwnSections', `section-added, naming tapestryOwnSections; got ${show(d.change)}`);
+  assert(changeOf(d, 'membership-added').length === 0 && show(into(g, k.snowy)) === show([k.beagleSuperset, k.walkers].sort()), `no new link; got ${show(into(g, k.snowy))}`);
+  assert(show(C.tagArrays(g, k.snowy)) === show(C.tagArrays(before, k.snowy)), "Snowy's letter, its tags and json tag, is as it was");
+});
+
+test('AT51 [AC6, Amendment 2 item 1]: a removal that also leaves a second concept is undone by add-to-concept: Goldie back into golden retriever, then dog with dog\'s fields from the entry, both sections as they were', async () => {
+  needDecl();
+  const { file, k } = await fresh();
+  const was = C.json(S.readState(file), k.goldie);
+  const fieldsOf = (section) => Object.fromEntries(Object.entries(section).filter(([f]) => f !== 'name' && f !== 'slug'));
+  const { a } = runOn(file, [
+    { id: 'out', method: 'POST', url: '/api/tapestry/graph/remove-from-concept', caller: 'owner', body: { node: k.goldie, concept: k.goldenRetriever } },
+    add('back-gr', k.goldie, k.goldenRetriever, { fields: fieldsOf(was.goldenRetriever) }),
+    add('back-dog', k.goldie, k.dog, { fields: fieldsOf(was.dog) }),
+  ]);
+  const out = a.req('out');
+  const removed = out.status === 200 ? (out.body.data.change.changes || []).filter((c) => c.change === 'section-removed') : [];
+  assert(removed.length === 2 && show(removed.map((c) => c.field).sort()) === show(['dog', 'goldenRetriever']), `the path under test ran: Goldie leaves golden retriever, and dog with it, its entry keeping both sections (RM6); got ${out.status} ${show(out.body).slice(0, 300)}`);
+  const gr = a.req('back-gr');
+  assert(gr.status === 200 && gr.body.data.outcome === 'added', `back into golden retriever, with its fields: added; got ${gr.status} ${show(gr.body).slice(0, 300)}`);
+  const dog = a.req('back-dog');
+  assert(dog.status === 200 && dog.body.data.outcome === 'added' && (dog.body.data.change.changes || []).some((c) => c.change === 'section-added' && c.field === 'dog'),
+    `Goldie is in dog again, through golden retriever, with no dog section: add-to-concept with dog's fields from the entry gives it back, added, not already-element (Amendment 2, item 1); got ${dog.status} ${show(dog.body).slice(0, 400)}`);
+  const now = C.json(S.readState(file), k.goldie);
+  assert(show(now.dog) === show(was.dog) && show(now.goldenRetriever) === show(was.goldenRetriever) && show(now.pet) === show(was.pet), `both sections are as they were before the removal; got ${show(now)}`);
+  assert(show([...now.word.wordTypes].sort()) === show([...was.word.wordTypes].sort()), `and wordTypes names the same concepts again; got ${show(now.word.wordTypes)}`);
+});
+
+test('AT52 [AC2, Amendment 2 item 2]: a node already in the concept, put in a set another concept also reaches, gains that concept\'s key in wordTypes, recorded', async () => {
+  const first = await filled('mark-dog');
+  const { k, file } = await fill();
+  assert(first.outcome === 'added', `the path under test ran: Mark Me joins dog directly; got ${show(first).slice(0, 300)}`);
+  const d = await filled('mark-walkers');
+  const g = S.readState(file);
+  assert(d.outcome === 'added' && (d.concepts || []).some((c) => c.concept === k.pet), `put in walkers, it joins pet too, listed in the answer; got ${show(d).slice(0, 400)}`);
+  const j = C.json(g, k.markMe);
+  assert(show(j.word.wordTypes) === show(['word', 'beagle', 'dog', 'pet']), `its wordTypes gains pet, the other concept walkers reaches, as a new membership's does (AC2; Amendment 2, item 2); got ${show(j.word.wordTypes)}`);
+  const w = changeOf(d, 'field-changed').filter((c) => c.field === 'word.wordTypes');
+  assert(w.length === 1 && show(w[0].was) === show(['word', 'beagle', 'dog']) && show(w[0].now) === show(['word', 'beagle', 'dog', 'pet']), `the entry records field-changed on word.wordTypes; got ${show(d.change)}`);
+  assert(!('pet' in j) && show(j.dog) === show({ name: 'Mark Me', slug: 'mark-me' }), `and no section for pet, which wasn't named; dog's is as it was; got ${show(j)}`);
+});
+
 // ── REF: every refusal, over a graph that must end as it began ──
 let REF = null;
 function ref() {
@@ -565,6 +673,8 @@ function ref() {
       add('uj-listy', k.listy, k.pet, { fields: { description: 'x' } }),
       add('uj-peer', k.peerGarbled, k.gadget, { fields: { size: 1 } }),
       add('uj-own', k.peerBadOwn, k.gadget, { fields: { size: 1 } }),
+      // review round 1, finding 5 (ADR Amendment 2, item 5): Twofer is in beagle already
+      add('uj-repeat', k.twofer, k.beagle, { fields: { description: 'x' } }),
       // name-in-use
       add('niu-name', k.petLucky, k.beagle, { fields: { description: 'x' } }),
       add('niu-address', k.petOdie, k.beagle, { fields: { description: 'x' } }),
@@ -698,6 +808,13 @@ test('AT47 [AC8, Decision 8, Amendment 1 item 5]: firmware\'s own element, kept 
   const { k } = await ref();
   const body = await refused('niu-firmware', 409, 'name-in-use');
   assert(body.input === 'node' && err(body).includes(k.rover), `firmware's rover can't join beagle beside the instance's own Rover: create-element's repeat would have two answers; the refusal names beagle's rover; got ${show(body)}`);
+});
+
+test('AT53 [AC8, Amendment 2 item 5]: a node already in the concept whose JSON can\'t be read is refused unreadable-json, not answered already-element: the JSON is read before the repeat', async () => {
+  const { k } = await ref();
+  const body = await refused('uj-repeat', 409, 'unreadable-json');
+  assert(body.input === 'node' && /json tags/.test(err(body)), `Twofer, in beagle with two json tags that differ: whether its view holds beagle's section can't be told, so unreadable-json, before the repeat (Decision 8's steps 5 and 7 swapped); got ${show(body)}`);
+  void k;
 });
 
 test('AT40 [AC3]: fields that don\'t fit are refused invalid-fields by element-fits-schema, every problem named; no value is made up', async () => {

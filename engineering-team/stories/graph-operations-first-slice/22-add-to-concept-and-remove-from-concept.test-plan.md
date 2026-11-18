@@ -221,3 +221,81 @@ firmware-element-sync: 20 passed, 1 failed, 0 skipped
 **Each test gets past the declaration.** In scratch copies of the two operation suites, with the declaration check turned off, every test reached its first status check and failed on today's `404 Cannot POST /api/tapestry/graph/<operation>`. That covers all 39 of add-to-concept's, AT47 and AT48 among them, and all 33 of remove-from-concept's. AT19 and RM16 failed at "is listed". None failed in the test code. The same harness run answered update-node correctly over the new seed, through the store and gadget's marks. So the seed and the plumbing work, and what is left to fail is the feature. AT48's expectation was checked against the merged `Sch.fits` itself. Over the seed, with word's real schema, it gives word `fits: null, waiting: true`, and beagle and pet `fits: true, waiting: false`.
 
 **What passes today, and why that is right:** the tests GB1, GB7–GB10, GP1–GP15, GF1–GF8, GF10–GF13, ES1–ES11, IS1–IS7, IS9 and IS10 pass as before. They check the rulebook, firmware and install machinery, which this phase doesn't change. No new test passes today.
+
+## Added at review round 1 (2026-11-18)
+
+The review passed with eight non-blocking findings, and the owner chose to fix them before the PR (ADR Amendment 2, items 1–8). Each item got its tests before any fix.
+
+| Item | Tests | What they pin |
+|---|---|---|
+| 1, the missing section | **AT49** | AT4's Fetch, in pet through walkers with no pet section, added to pet with fields: `added`, one `section-added`, no `membership-added` and no new link. The same call again is `already-element`, since its view now holds the section. AT7 stands. |
+| | **AT50** | The same for a node kept beside: Snowy, in pet through walkers, gains pet's section in `tapestryOwnSections`, beside its dog section. No new link; its letter is as it was. |
+| | **AT51** | Story 22's undo. Goldie leaves golden retriever, and dog with it. Then add-to-concept puts it into golden retriever, then into dog with dog's fields from the entry. Both sections are back as they were, and `wordTypes` names the same concepts. |
+| | **MS19** | update-node's `no-section` message, its published `when`, and add-to-concept's description each say add-to-concept gives the section a node lacks. It looks for "lacks", "missing", "doesn't have", "has no" or "without" after the first mention of add-to-concept. |
+| 2, `wordTypes` | **AT52** | Mark Me, in dog, put in walkers: its `wordTypes` gains pet, recorded as `field-changed` on `word.wordTypes`; no pet section. |
+| 3, the guard | **RM32** (changed) | Two cases from the review's probe 2 join it: firmware's set-concept header out of the concept-header concept, and walkers out of the set concept. Each is refused `made-elsewhere`, naming `update-concept` and `link-set`, not `last-concept`. |
+| 4, letters | **RM45** | Paired Item out of show beagles: `letters` holds its own letter and `relInConcept`, which the relationship concept's class thread reaches. It doesn't hold `relZOnly`, which only its `z` tag names, with no class-thread link. |
+| 5, the repeat | **AT53** | Twofer, already in beagle with two json tags that differ, added to beagle: `unreadable-json`, naming `node`. |
+| 6, a removal beside | **RM46** | Peer Garbled's owner claim in pet is taken out, though its author's letter doesn't parse: `removed`, its last section beside gone with the property, its letter, tags and other properties as they were, still in beagle. |
+| | **RM35** (changed) | Keeps `unreadable-json` for a `json-tag` node's two json tags that differ, and for `tapestryOwnSections` that doesn't parse. `uj-peer` left REF for MAIN, as RM46's `peer-garbled`, since that removal now changes the graph. |
+| 7, words | **MS20** | Rulebook entry 7 says `graph add-to-concept` calls the check: the first "call" after it isn't "will call". Entry 8's Says has "through the other concepts' supersets under its own", not "through its word block". Rule 7's and rule 8's element files say the same. GB6 and GB9 still hold the files to the rulebook. |
+| | **MS21** | Both operations publish `no-superset` and `not-installed` (409) with a `when` of their own, not create-element's. remove-from-concept's no longer speaks of putting an element in, or of a would-be author. |
+| 8, follow-ups | **MS22** | A ledger row naming ADR 0022 carries each of follow-ups 1, 2, 3 and 5, as "follow-up N". Follow-up 1's also says that the owner's membership counts as the node's author's. The Loom memo for follow-up 4 isn't testable here. |
+
+**The seed** (`test/helpers/membershipGraph.js`) gains two things:
+- Paired Item, with two relationship events naming it, `relInConcept` and `relZOnly`, for item 4.
+- Goldie's golden retriever section gains its `name`. Its sections are then the ones add-to-concept builds, so AT51's undo can give them back exactly.
+
+No other test's outcome changed.
+
+**The guards, and what each mutation shows.** AT53 and RM35 pass on today's code, since they pin what it already does. Each was checked by a scratch edit of a copy (`git archive` of HEAD, this phase's tests laid over it, every file restored after), never the real `src/`:
+- **AT53** fails when the repeat swallows `jsonOf`'s refusal (G5).
+- **RM35** fails, with RM41, when differing json tags are taken as the first (G6a), and again when `tapestryOwnSections` that doesn't parse is read as none (G6b).
+- **RM32**, for item 3's guard: with the guard made silent for a node `X.changedElsewhere` names (item 3's fix, simulated in the copy, G3a), RM32 passes and every other test answers as before. So RM32 fails today because the guard answers first. With the guard silent and apply's `made-elsewhere` also taken out (G3b), RM32 fails again: it holds that answer too.
+
+**Today's code** (`841b7549`, at `1aff849e` with the review), each suite alone with every endpoint dead:
+
+```
+  FAIL  AT49 [AC2, AC4, Amendment 2 item 1]: a node already in the concept whose JSON lacks its section is given it: added, section-added, no new link; then it is already-element
+        Fetch is in pet through walkers, but its JSON has no pet section: add-to-concept gives it one, added, not already-element (Amendment 2, item 1); got {"outcome":"already-element",…}
+  FAIL  AT50 [AC5, Amendment 2 item 1]: the same for a node kept beside: its missing section goes into tapestryOwnSections, beside the dog section it has, and its letter stays
+        Snowy is in pet through walkers, and neither its letter nor the owner's sections hold pet's section: it is given one, added (Amendment 2, item 1); got {"outcome":"already-element",…,"kept":"beside",…}
+  FAIL  AT51 [AC6, Amendment 2 item 1]: a removal that also leaves a second concept is undone by add-to-concept: Goldie back into golden retriever, then dog with dog's fields from the entry, both sections as they were
+        Goldie is in dog again, through golden retriever, with no dog section: add-to-concept with dog's fields from the entry gives it back, added, not already-element (Amendment 2, item 1); got 200 {"success":true,"data":{"outcome":"already-element",…}}
+  FAIL  AT52 [AC2, Amendment 2 item 2]: a node already in the concept, put in a set another concept also reaches, gains that concept's key in wordTypes, recorded
+        its wordTypes gains pet, the other concept walkers reaches, as a new membership's does (AC2; Amendment 2, item 2); got ["word","beagle","dog"]
+operations: graph add-to-concept: 40 passed, 4 failed, 0 skipped
+
+  FAIL  RM45 [AC6, Amendment 2 item 4]: letters names the instance's own relationship event the relationship concept's class thread reaches, and leaves out one only its z tag names
+        letters: its own letter and relInConcept, …; never relZOnly, which only its z tag names, with no link, as a scan of tag nodes would find it (Amendment 2, item 4); got three: Paired Item's letter, relInConcept (…:8f82d6fdfdb920e0) and relZOnly (…:a742a67e6178e10e)
+  FAIL  RM46 [AC5, Amendment 2 item 6]: the owner's claim is taken out beside an author's letter that doesn't parse, writing only tapestryOwnSections
+        peer-garbled must answer 200; got 409 {"success":false,"error":"\"Peer Garbled\" (39999:eeee…:peer-garbled-3f1b6f17)'s JSON can't be read: its json tag isn't JSON that parses, …","code":"unreadable-json","input":"node"}
+  FAIL  RM32 [AC8, Decision 2, Amendment 2 item 3]: a node another operation looks after is refused made-elsewhere, naming the operation, even when the concept named is its only one but word
+        men-fw-header must be refused 409 made-elsewhere; got 409 {"success":false,"error":"Taking \"set\" (39998:dddd…:set) out of \"concept header\" (39998:dddd…:concept-header) would leave it an element of no concept but word: …","code":"last-concept",…}
+operations: graph remove-from-concept: 32 passed, 3 failed, 0 skipped
+
+  FAIL  MS19 [Amendment 2 item 1]: update-node's no-section words and add-to-concept's description say add-to-concept gives a node the section it lacks
+        the refusal says graph add-to-concept gives a node the section it lacks, a concept it is already in included, …; got "… update-node changes a section the node already has; graph add-to-concept gives a node another concept's section. Nothing changed."
+  FAIL  MS20 [Amendment 2 item 7]: rulebook entry 7 says add-to-concept calls the check, as built; entry 8 says word reaches "through the other concepts' supersets under its own"; and both elements say the same
+        entry 7's Enforced by says graph add-to-concept calls the check, not "will call … when they are built" (review round 1, finding 7); got "… and `graph add-to-concept` (A10.22) and the property operations (A10.18) will call when they are built. …"
+  FAIL  MS21 [Amendment 2 item 7]: each operation publishes no-superset and not-installed worded for itself, not create-element's, with the same codes and statuses
+        add-to-concept's no-superset publishes a when of its own (M's declaration), not create-element's "A concept with no superset, so no class thread to put the element in (BIBLE §10, rule 1)"
+  FAIL  MS22 [Amendment 2 item 8]: ledger rows carry ADR 0022's follow-ups 1, 2, 3 and 5, and follow-up 1's states the other half of the missing provenance
+        a ledger row names ADR 0022's follow-up 1, so /whats-open finds it (review round 1, finding 8); the rows naming the ADR are ["2026-11-18-rule-eight-awaits-firmware-reinstall.md"]
+operations: what add-to-concept and remove-from-concept share: 18 passed, 4 failed, 0 skipped
+
+operations: an admin agent adds and removes memberships through the external CLI: 1 passed, 0 failed, 0 skipped
+graph-rules-builder: 26 passed, 0 failed, 0 skipped
+graph-rule-firmware: 13 passed, 0 failed, 4 skipped (GL1–GL4, live)
+firmware-element-sync: 21 passed, 0 failed, 0 skipped
+```
+
+The scratch mutations:
+
+```
+{"id":"G3a","what":"item 3, its fix simulated: the guard silent for a node X.changedElsewhere names","suites":{"remove-from-concept":{"pass":33,"fail":2,"failed":["RM45","RM46"]},"memberships-shared":{"pass":18,"fail":4,"failed":["MS19","MS20","MS21","MS22"]}}}
+{"id":"G3b","what":"item 3: the guard silent as in G3a, and apply's made-elsewhere taken out","suites":{"remove-from-concept":{"pass":32,"fail":3,"failed":["RM45","RM46","RM32"]}}}
+{"id":"G5","what":"item 5: the repeat answers before it can tell the JSON can't be read (its jsonOf's refusal swallowed)","suites":{"add-to-concept":{"pass":39,"fail":5,"failed":["AT49","AT50","AT51","AT52","AT53"]}}}
+{"id":"G6a","what":"item 6's kept case: json tags that differ no longer refused (the first taken)","suites":{"remove-from-concept":{"pass":30,"fail":5,"failed":["RM45","RM46","RM32","RM35","RM41"]}}}
+{"id":"G6b","what":"item 6's kept case: tapestryOwnSections that don't parse no longer refused (read as none)","suites":{"remove-from-concept":{"pass":30,"fail":5,"failed":["RM45","RM46","RM32","RM35","RM41"]}}}
+```

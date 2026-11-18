@@ -34,6 +34,14 @@
  *   RM17 each removal locks the node, then the concept's header, before it deletes; a repeat writes only its locks
  *   RM18 the re-check: another write took the node's other concept away while the call ran: rolled back, last-concept
  *   RM30–RM44 the refusals (REF and their own runs)
+ *   Review round 1 (ADR Amendment 2):
+ *   RM32 (changed) gains two nodes another operation looks after whose only concept but word is the one named: the
+ *        guard is silent for them, so made-elsewhere, not last-concept (item 3)
+ *   RM35 (changed) keeps unreadable-json for a json-tag node's JSON and for sections beside that don't parse (item 6)
+ *   RM45 letters reads the relationship events through the relationship concept: one only its z tag names is left out
+ *        (item 4)
+ *   RM46 the owner's claim beside an author's letter that doesn't parse is taken out, writing only tapestryOwnSections
+ *        (item 6)
  */
 
 const fs = require('fs');
@@ -132,6 +140,9 @@ function main() {
       rm('marks', k.gadgetPet, k.gadget),
       rm('stored', k.storedPair, k.pet),
       rm('admin', k.adminPair, k.pet, {}, 'admin'),
+      // review round 1 (ADR Amendment 2): items 4 and 6
+      rm('set-two', k.pairedItem, k.beagle, { set: k.showBeagles }),
+      rm('peer-garbled', k.peerGarbled, k.pet),
       { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'admin' },
     ], {
       spy: true,
@@ -419,6 +430,29 @@ test('RM18 [AC7, Decision 15]: another write took the node\'s other concept away
   assert(show(after.nodes) === show(before.nodes) && show(after.rels) === show(before.rels), 'and the removal is rolled back: Pair is in beagle and pet as it was');
 });
 
+// ── review round 1 (ADR Amendment 2) ──
+test('RM45 [AC6, Amendment 2 item 4]: letters names the instance\'s own relationship event the relationship concept\'s class thread reaches, and leaves out one only its z tag names', async () => {
+  const d = await ok('set-two');
+  const { k, before } = await main();
+  assert(d.outcome === 'removed' && linksAre(d, [{ type: HAS_ELEMENT, from: k.showBeagles, to: k.pairedItem }]), `the path under test ran: Paired Item leaves show beagles; got ${show(d).slice(0, 300)}`);
+  const at = (Array.isArray(d.letters) ? d.letters : []).map((l) => l && l.address).sort();
+  assert(show(at) === show([uuidOf(before, k.pairedItem), uuidOf(before, k.relInConcept)].sort()),
+    `letters: its own letter and relInConcept, an element of the relationship concept, found through that concept's class thread; never relZOnly, which only its z tag names, with no link, as a scan of tag nodes would find it (Amendment 2, item 4); got ${show(d.letters)}`);
+});
+
+test('RM46 [AC5, Amendment 2 item 6]: the owner\'s claim is taken out beside an author\'s letter that doesn\'t parse, writing only tapestryOwnSections', async () => {
+  const d = await ok('peer-garbled');
+  const { k, before } = await main();
+  const g = await graph();
+  assert(d.outcome === 'removed' && d.kept === 'beside', `a removal from a node kept beside reads only tapestryOwnSections, so the author's letter, which doesn't parse, is no reason to refuse (Amendment 2, item 6); got ${show(d).slice(0, 400)}`);
+  const n = nodeByKey(g, k.peerGarbled);
+  assert(!('tapestryOwnSections' in n.props) && same(n.props, propsBut(nodeByKey(before, k.peerGarbled), 'tapestryOwnSections')), `its last section beside goes, the property with it; its other properties are as they were; got ${show(n.props)}`);
+  assert(show(C.tagArrays(g, k.peerGarbled)) === show(C.tagArrays(before, k.peerGarbled)), "the author's letter, its json tag that doesn't parse among its tags, is exactly as it was");
+  assert(show(into(g, k.peerGarbled)) === show([k.beagleSuperset]), `pet's link goes; it stays in beagle by its z; got ${show(into(g, k.peerGarbled))}`);
+  const sec = changeOf(d, 'section-removed');
+  assert(sec.length === 1 && sec[0].field === 'pet' && show(sec[0].was) === show(ownSections(before, k.peerGarbled).pet) && changeOf(d, 'tag-removed').length === 0, `the entry keeps the owner's pet section, and no tag of theirs goes; got ${show(d.change)}`);
+});
+
 // ── REF: every refusal, over a graph that must end as it began ──
 let REF = null;
 function ref() {
@@ -440,6 +474,10 @@ function ref() {
       rm('men-property', k.propertyNode, k.pet),
       rm('men-set', k.walkers, k.pet),
       rm('men-rule', k.ruleElement, k.pet),
+      // review round 1, finding 3 (ADR Amendment 2, item 3): the one concept but word each is in is the one named, so
+      // the guard would find the node left in none
+      rm('men-fw-header', k.fw.set, k.conceptHeader),
+      rm('men-walkers-set', k.walkers, k.fw.set),
       // the concept
       rm('uc-random', k.twoHome, NOBODY),
       rm('uc-element', k.twoHome, k.rover),
@@ -456,7 +494,6 @@ function ref() {
       // JSON that can't be read
       rm('uj-double', k.doubleJson, k.pet),
       rm('uj-own', k.peerBadOwn, k.pet),
-      rm('uj-peer', k.peerGarbled, k.pet),
       // whose claim it is
       rm('fw-file', k.fwNumber, k.jsonDataType),
       rm('fw-manifest', k.fwInteger, k.jsonDataType, { set: k.numericTypes }),
@@ -509,8 +546,11 @@ test('RM31 [AC8, Decision 2]: a node that names no node, or a change entry, is u
   assert(t.input === 'node', `tag-node names the input; got ${show(t)}`);
 });
 
-test('RM32 [AC8, Decision 2]: a node another operation looks after is refused made-elsewhere, naming the operation', async () => {
-  const want = { 'men-header': /update-concept/, 'men-superset': /update-concept/, 'men-schema': /set-schema/, 'men-property': /update-property/, 'men-set': /./, 'men-rule': /rulebook/ };
+test('RM32 [AC8, Decision 2, Amendment 2 item 3]: a node another operation looks after is refused made-elsewhere, naming the operation, even when the concept named is its only one but word', async () => {
+  // men-fw-header and men-walkers-set (review round 1, finding 3): firmware's set-concept header out of the
+  // concept-header concept, and walkers out of the set concept. Each is that node's only concept but word, so the guard
+  // would answer last-concept, with a way on that leads nowhere; it is silent for such a node (Amendment 2, item 3).
+  const want = { 'men-header': /update-concept/, 'men-superset': /update-concept/, 'men-schema': /set-schema/, 'men-property': /update-property/, 'men-set': /./, 'men-rule': /rulebook/, 'men-fw-header': /update-concept/, 'men-walkers-set': /link-set/ };
   for (const [id, op] of Object.entries(want)) {
     const body = await refused(id, 409, 'made-elsewhere');
     assert(body.input === 'node' && op.test(err(body)), `${id}: made-elsewhere, naming node and the operation (${op}); got ${show(body)}`);
@@ -541,8 +581,9 @@ test('RM34 [AC8, Decision 3]: a set that names no node, isn\'t a set, or is outs
   assert(lapLast.input === 'set', `pet's superset reaches whiskers, whose only concept is pet, but it is outside beagle's class thread: the guard gives no finding for such a set, so the call is refused not-in-class-thread, not last-concept (Amendment 1, item 10); got ${show(lapLast)}`);
 });
 
-test('RM35 [AC8, Decision 5]: JSON that can\'t be read is refused unreadable-json: two json tags that differ; sections beside that don\'t parse; a letter that doesn\'t', async () => {
-  for (const id of ['uj-double', 'uj-own', 'uj-peer']) {
+test('RM35 [AC8, Decision 5, Amendment 2 item 6]: JSON that can\'t be read is refused unreadable-json: a json-tag node\'s two json tags that differ, and sections beside that don\'t parse', async () => {
+  // A letter that doesn't parse, beside which the owner's claim is taken out, is no longer one (RM46).
+  for (const id of ['uj-double', 'uj-own']) {
     const body = await refused(id, 409, 'unreadable-json');
     assert(body.input === 'node' && err(body).length > 20, `${id}: unreadable-json, naming node, saying why; got ${show(body).slice(0, 300)}`);
   }

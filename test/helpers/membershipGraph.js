@@ -48,8 +48,14 @@
  *     setItem            lettered by the assistant, beagle's superset and showBeagles, its n naming showBeagles
  *     relEvent           the assistant's relationship event naming showBeagles HAS_ELEMENT setItem, as today's
  *                        add-to-set signs one (nodeFrom, nodeTo, relationshipType tags), in the relationship concept
+ *     pairedItem         lettered by the assistant, like setItem, with two of the assistant's relationship events naming
+ *                        showBeagles HAS_ELEMENT it: relInConcept, in the relationship concept, and relZOnly, which only
+ *                        its z tag names, with no class-thread link (ADR Amendment 2, item 4: letters reads through the
+ *                        concept)
  *     goldie             made here, golden retriever's superset and pet: dog, golden retriever and pet sections, a z
- *                        naming golden retriever and one naming pet; dog reaches it only through golden retriever
+ *                        naming golden retriever and one naming pet; dog reaches it only through golden retriever. Its
+ *                        sections are those add-to-concept builds ({ name, slug, ...fields }), so a removal that the
+ *                        entry's fields undo gives them back exactly (ADR Amendment 2, item 1)
  *     walkerBella        made here, beagle's superset and walkers: beagle and dog sections, z beagle, z dog, n walkers
  *     wordy              made here, in commonSet and pet: leaving beagle leaves word too
  *     commonOnly         made here, in commonSet alone: beagle and word reach it, so leaving beagle leaves it in no
@@ -257,13 +263,27 @@ async function seedMemberships() {
     c: BEAGLE, name: 'Set Item', holders: [beagleSup, showBeagles], lettered: true,
     tags: ({ d, text }) => [['d', d], ['name', 'Set Item'], ['z', BEAGLE.uuid], ['n', showBeagles.props.uuid], ['json', text]],
   }));
-  const relD = hex('show beagles HAS_ELEMENT Set Item').slice(0, 16);
-  const relEvent = named('relEvent', letter({ uuid: `39999:${TA}:${relD}`, tags: [['d', relD], ['name', `show beagles HAS_ELEMENT Set Item`], ['z', relHeader.props.uuid], ['nodeFrom', showBeagles.props.uuid], ['nodeTo', setItem.props.uuid], ['relationshipType', 'HAS_ELEMENT']] }));
+  /** The assistant's relationship event naming `from` HAS_ELEMENT `to`, as today's add-to-set signs one. */
+  const relationshipEvent = (label, from, to) => {
+    const d = hex(label).slice(0, 16);
+    return letter({ uuid: `39999:${TA}:${d}`, tags: [['d', d], ['name', label], ['z', relHeader.props.uuid], ['nodeFrom', from.props.uuid], ['nodeTo', to.props.uuid], ['relationshipType', 'HAS_ELEMENT']] });
+  };
+  const relEvent = named('relEvent', relationshipEvent('show beagles HAS_ELEMENT Set Item', showBeagles, setItem));
   link(relSup, 'HAS_ELEMENT', relEvent);
+  // Review round 1, finding 4 (ADR Amendment 2, item 4): two events naming one pair. The relationship concept's class
+  // thread reaches the first; only its z tag names the second, with no class-thread link, as an event signed since the
+  // last firmware reinstall is until pass 1d wires it.
+  const pairedItem = named('pairedItem', element({
+    c: BEAGLE, name: 'Paired Item', holders: [beagleSup, showBeagles], lettered: true,
+    tags: ({ d, text }) => [['d', d], ['name', 'Paired Item'], ['z', BEAGLE.uuid], ['n', showBeagles.props.uuid], ['json', text]],
+  }));
+  const relInConcept = named('relInConcept', relationshipEvent('show beagles HAS_ELEMENT Paired Item', showBeagles, pairedItem));
+  link(relSup, 'HAS_ELEMENT', relInConcept);
+  named('relZOnly', relationshipEvent('show beagles HAS_ELEMENT Paired Item, again', showBeagles, pairedItem));
 
   named('goldie', element({
     c: GOLDEN, name: 'Goldie', holders: [grSup, petSup], types: ['dog', 'goldenRetriever', 'pet'],
-    sections: { dog: { name: 'Goldie', slug: 'goldie', breed: 'goldenRetriever' }, goldenRetriever: { slug: 'goldie' }, pet: sectionOf(PET, 'Goldie') },
+    sections: { dog: { name: 'Goldie', slug: 'goldie', breed: 'goldenRetriever' }, goldenRetriever: { name: 'Goldie', slug: 'goldie' }, pet: sectionOf(PET, 'Goldie') },
     tags: ({ d, text }) => [['d', d], ['name', 'Goldie'], ['z', GOLDEN.uuid], ['z', PET.uuid], ['json', text]],
   }));
   named('walkerBella', element({
