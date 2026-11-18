@@ -1,6 +1,6 @@
 # Story 22: `graph add-to-concept` and `remove-from-concept` — make any node an element of another concept, or put it in a set, and take the owner's claim out again, never out of the node's last concept
 
-**Status:** Done
+**Status:** In Progress
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.22 — https://loom.brainstorm.world/t/A10.22
