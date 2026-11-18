@@ -102,14 +102,14 @@
  * Story graph-operations-first-slice #43 (its test plan; ADR graph-operations-first-slice/0018 Amendment 4) adds
  * failures.meanwhile { at, graph }: another write that held the lock on the node keyed `at` commits just before this
  * transaction's first copies statement whose rows name that node (S8's shape, which _sets.js's lockNode takes). So it
- * stands for Neo4j making that statement wait for the lock, then go on over what the other write committed. Neo4j would
- * make other statements on the node wait too (C1's SET and REMOVE, a relationship's MERGE or CREATE at it, a DETACH
- * DELETE of it), but this meets only the copies shape: it is for writes that take the lock through lockNode
- * (review round 1, finding 4). `graph`, { nodes, rels, nextEid }, is the graph
- * that other write left, which a suite makes by running it over a copy of the state first. It becomes the committed
- * graph and this transaction's alike, so a rollback keeps it, and the log gets { call: 'meanwhile', at } just before
- * the statement. It fires once, and only while the transaction has written nothing that stays: the fake can't merge
- * two writes, so it throws, naming the node, when this one already has.
+ * stands for Neo4j making that statement wait for the lock, then go on over what the other write committed. Neo4j makes
+ * some other statements on the node wait too (C1's SET and REMOVE, a relationship's MERGE at it, a DETACH DELETE of
+ * it), and a relationship's CREATE at it only at its commit (story #43's review round 2, a probe on a scratch stack).
+ * This meets the copies shape alone: it is for writes that take the lock through lockNode (review round 1, finding 4).
+ * `graph`, { nodes, rels, nextEid }, is the graph that other write left, which a suite makes by running it over a copy
+ * of the state first. It becomes the committed graph and this transaction's alike, so a rollback keeps it, and the log
+ * gets { call: 'meanwhile', at } just before the statement. It fires once, and only while the transaction has written
+ * nothing that stays: the fake can't merge two writes, so it throws, naming the node, when this one already has.
  *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
