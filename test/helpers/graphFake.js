@@ -99,6 +99,18 @@
  *     write locked, and in what order.
  * D1 to D4, delete-node's reads, are reads the two read fakes already run.
  *
+ * Story graph-operations-first-slice #43 (its test plan; ADR graph-operations-first-slice/0018 Amendment 4) adds
+ * failures.meanwhile { at, graph }: another write that held the lock on the node keyed `at` commits just before this
+ * transaction's first copies statement whose rows name that node (S8's shape, which _sets.js's lockNode takes). So it
+ * stands for Neo4j making that statement wait for the lock, then go on over what the other write committed. Neo4j makes
+ * some other statements on the node wait too (C1's SET and REMOVE, a relationship's MERGE at it, a DETACH DELETE of
+ * it), and a relationship's CREATE at it only at its commit (story #43's review round 2, a probe on a scratch stack).
+ * This meets the copies shape alone: it is for writes that take the lock through lockNode (review round 1, finding 4).
+ * `graph`, { nodes, rels, nextEid }, is the graph that other write left, which a suite makes by running it over a copy
+ * of the state first. It becomes the committed graph and this transaction's alike, so a rollback keeps it, and the log
+ * gets { call: 'meanwhile', at } just before the statement. It fires once, and only while the transaction has written
+ * nothing that stays: the fake can't merge two writes, so it throws, naming the node, when this one already has.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -117,6 +129,10 @@ function cantRun(why, q) {
 }
 const zero = () => ({ nodesCreated: 0, nodesDeleted: 0, relationshipsCreated: 0, relationshipsDeleted: 0, propertiesSet: 0, labelsAdded: 0 });
 const copy = (x) => JSON.parse(JSON.stringify(x));
+/** A state's graph alone (story #43's failures.meanwhile), and JSON with object keys sorted, to compare two of them. */
+const graphPart = (st) => ({ nodes: st.nodes, rels: st.rels, nextEid: st.nextEid });
+const canonical = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && !Array.isArray(v)
+  ? Object.keys(v).sort().reduce((o, key) => { o[key] = v[key]; return o; }, {}) : v));
 
 /** A new state file's content: an empty graph, with `extra` over it. */
 function emptyState(extra = {}) {
@@ -656,8 +672,21 @@ function fakeGraph(stateFile) {
         if (kind === 'copies' && params && Array.isArray(params.rows)) e.keys = params.rows.map((row) => (row && typeof row === 'object' ? row.key : null));
         return e;
       };
+      // failures.meanwhile (story graph-operations-first-slice #43): another write that held the lock on a node commits
+      // just before this transaction's first copies statement that names it (lockNode's shape), as Neo4j makes it wait.
+      const meanwhile = (e) => {
+        const m = committed.failures && committed.failures.meanwhile;
+        if (!m || e.kind !== 'copies' || !Array.isArray(e.keys) || !e.keys.includes(m.at)) return;
+        if (canonical(graphPart(s)) !== canonical(graphPart(committed))) {
+          throw new Error(`failures.meanwhile: this transaction wrote before its first statement on ${m.at}, and the fake can't merge two writes`);
+        }
+        delete committed.failures.meanwhile;
+        if (s.failures) delete s.failures.meanwhile;
+        for (const st of [committed, s]) Object.assign(st, copy(graphPart(m.graph)));
+        log.splice(log.length - 1, 0, { call: 'meanwhile', at: m.at });
+      };
       const tx = {
-        async run(cypher, params) { log.push(entryOf('tx.run', cypher, params)); first(); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
+        async run(cypher, params) { const e = entryOf('tx.run', cypher, params); log.push(e); first(); meanwhile(e); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
         async read(cypher, params) { log.push({ call: 'tx.read', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params).rows; },
       };
       try {
