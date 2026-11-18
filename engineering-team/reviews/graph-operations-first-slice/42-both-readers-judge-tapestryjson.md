@@ -594,3 +594,34 @@ Every finding from round 3 is fixed:
 A search of the story, its plan, its ADRs, the rulebook, BIBLE and the ledger rows finds nothing still promising what an instance doesn't do. The code is unchanged since round 3. The 15 touched suites pass (243 passed, 12 live skips), and so do the five that read the changed docs.
 
 The story is mergeable as it stands. The full gate runs in the pull request's CI. Rule 7's reinstall on staging and production waits on its ledger row.
+
+## Round 5 — 2026-11-17 (HEAD eacc6f0c)
+
+**Diff:** `git show eacc6f0c`, on top of round 4's review commit `14e0c0e2`. It changes one line, `ledger/2026-11-17-six-concepts-failing-verdicts-undiagnosed.md:12`, and touches no other file. **The owner's answer**, as the coordinator reports it: at round 4's gate, David chose "Fix the nit" (2026-11-17).
+
+### What I checked
+
+- **The sentence.** It now reads: "two that the live check made on purpose: runs 2 and 3 each made a Rex, and put its entry without a description. Run 1 made none." It holds against the records:
+  - **Run 1 made no Rex.** In `hand-calls.md`, run 1's LC4a failed with create-element refused (`"ce":400,"concepts":[]`). The story's Evidence (`:179`) says its concept has no elements.
+  - **Runs 2 and 3 each made one.** Each passed LC4a, Rex made, and LC5, its entry put without the section's description (`live.js:170`). Run 3's `report.json` gives LC5's problem as "`liveHound218062.description` is required".
+  - **The count.** `report.json`'s tally has one failing verdict in each of the two hound concepts, "live hound 156289" and "live hound 218062". That is the two the row counts.
+- **The checks.** `bash scripts/harness-lint.sh` is clean, 0 violations. `test/ledger-row-ids.test.js` is 6/0, with the endpoints dead. No gate-engine run: nothing under `src/` or `test/` changed.
+
+### Round 4's finding
+
+| Round 4 | Disposition |
+|---|---|
+| Non-blocking 1: "each run's Rex" | **Fixed** (`eacc6f0c`), in the words above. |
+
+No new findings.
+
+### On PASS (round 5)
+
+- [x] **The story stays `Done`,** flipped at round 4. This commit touches no story.
+- [x] **Completion detection is unchanged from round 4,** and was given in the chat: the book isn't complete.
+
+### Verdict (round 5)
+
+**PASS**
+
+The one line now matches the records: two Rex verdicts, from runs 2 and 3, and none from run 1. The commit changes nothing else, lint is clean, and the ledger-id suite passes.
