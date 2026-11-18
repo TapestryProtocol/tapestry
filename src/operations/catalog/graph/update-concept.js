@@ -8,6 +8,10 @@
  * Dictionary's rule (src/lib/conceptHeaderEdit.js): the names, and the titles and core-node names made from them, change;
  * the concept's slugs, key, labels, address and tapestryKeys don't, so its elements, schema and field marks go on
  * working. Only this instance's own concepts change: not firmware's, and not another author's.
+ *
+ * It takes two locks before it reads: C1, which every concept write takes first, then the concept's own header, which
+ * the property writes take (ADR graph-operations-first-slice/0018 Decision 11 and Amendment 4, item 1; story #43). So it
+ * goes one at a time with create-concept and other updates, and with every write on the same concept.
  */
 
 const { CHANGE_ENTRY } = require('../../changes');
@@ -15,6 +19,7 @@ const { refusal } = require('../../refusal');
 const N = require('./_nodes');
 const K = require('./_concepts');
 const E = require('./_eventless');
+const S = require('./_sets');
 
 const SLUG_PATTERN = '^[a-z0-9]+(-[a-z0-9]+)*$';
 const FIELDS = Object.freeze(['name', 'plural', 'slug', 'description']);
@@ -64,6 +69,9 @@ module.exports = {
     }
     const given = K.cleanInputs(inputs);
     await K.lock(tx);
+    // The concept's own header next, before anything is read: a property write on the concept that holds it commits
+    // first, and a rename then reads, and writes back, what that write left (ADR 0018 Amendment 4, item 1).
+    await S.lockNode(tx, inputs.concept);
     if (typeof inputs.slug === 'string') await K.recheck(read, [{ concept: inputs.concept, slug: inputs.slug }]);
 
     const facts = await K.conceptFacts(read, inputs.concept);
