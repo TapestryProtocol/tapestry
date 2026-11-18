@@ -120,6 +120,44 @@ The probe, its scripts and their output are in the main checkout's `tmp/rw7-prob
   - the three failures: `router-stream-limit-on-connect` P1–P3 again, the macOS `sed` problem.
 - **In the Linux container:** `router-stream-limit-on-connect` passed 26 of 26, and `tagging-edges-realtime-wrapper` 25 of 25.
 
+### Review round 3's nits (2026-11-18)
+
+- **Round 3 passed** (`f5df2cde`), with two optional nits. They were fixed in `8a6ebeb5`, which also opens ledger row `2026-11-18-merge-path-omits-no-rerun-rule`.
+- **That commit was checked on its own,** with the 15 suites that read OPERATIONS.md §15 and the ledger rows: `20261118T204516Z-78358-a31b [thg-3-r3-nits]`, 337 passed, 0 failed, 40 skipped. `harness-lint` was clean.
+
+### On staging and production (2026-11-18)
+
+**Staging: TapestryProtocol/tapestry#151,** from `feat/honest-test-gate`.
+- **Its CI:** the `Test` run 44394778759 (`stack-free`) passed on the PR's head, `8a6ebeb5`, on its first attempt. It was the full gate, with the fixed RW7 and the new RW25.
+- **The safe-to-merge check** (`scripts/check-safe-to-merge.sh`) said safe at 21:31:46Z: no task active, and the next scheduled one at 23:40:45Z.
+- **The merge,** at 21:31:49Z, was pinned with `--match-head-commit 8a6ebeb5`. Its merge commit is `8d26e4c1`.
+- **The deploy:** `deploy-staging.yml` run 44402418723 succeeded, 21:31:52Z to 21:33:25Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`), 21:33:51Z to 21:34:32Z, was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering after 3;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504;
+  - tiers 3 and 5: `/docs` listed the same 32 operation routes before the merge and after the deploy, and the concept graph's summaries answered 200.
+
+  Tier 4 didn't apply, since no UI changed.
+- **No Loom task, and no firmware change.**
+
+**Production: TapestryProtocol/tapestry#152,** the promotion.
+- **What it carried:** staging at `8d26e4c1`, from `promote/rw7-start-times-2026-11-18`, a branch cut at that commit. That is two PRs:
+  - #150, story `graph-operations-first-slice` #44's records, docs only;
+  - #151, this story.
+- **What it left out:** #148, which merged into staging two minutes after #151. It proposes rule 9 as a firmware element and awaits a firmware reinstall, so it gets its own promotion.
+- **The approval:** the owner said "Promote to main", having been told that the bundle would carry docs and this test, and whatever else was on staging by then.
+- **Its checks:** the `stack-free` run 44403754035 passed on `8d26e4c1`, on its first attempt, as did `main-source-guard` and `deploy`.
+- **The safe-to-merge check** against production said safe at 21:49:30Z: no task active, and the next scheduled one at 22:00Z.
+- **The merge,** at 21:49:33Z, was pinned with `--match-head-commit 8d26e4c1`. Its merge commit is `9373fec6`.
+- **The deploy:** `deploy-tapestry.yml` run 44405440167 succeeded, 21:49:36Z to 21:51:33Z.
+- **The smoke test,** 21:51:35Z to 21:52:53Z, was clean, with the same checks as on staging:
+  - tier 1: stable after 9 polls, with Neo4j answering after 11;
+  - `/docs`: the same 32 operation routes before the merge and after the deploy.
+
+  Tier 4 didn't apply.
+
+**What the servers can't show.** RW7 and RW25 run in the test gate, not on a server, and no `src/` file changed. So the fix's proof on the way through is CI: both pull requests' full gates passed on their first attempts, with the fixed RW7 and the new RW25.
+
 ## Linked artifacts
 
 - ADR: none. Architecture is skipped: a Bug whose fix follows from its cause, under Standard.
