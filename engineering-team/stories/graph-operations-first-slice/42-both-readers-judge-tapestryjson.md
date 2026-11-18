@@ -1,6 +1,6 @@
 # Story 42: Both readers judge a node's tapestryJson — the rule `element-fits-schema` and the derive step give one verdict
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.20.b — https://loom.brainstorm.world/t/A10.20.b

@@ -480,3 +480,117 @@ The optional independent check was not applied in this round either.
 The owner's ruling is recorded the way the epic records an owner's correction, and the three promises it rewords hold against the live check's records. Round 2's four non-blocking findings and both harness-friction items are fixed, each new test fails without what it pins, and the 15 touched suites pass (243 passed, 12 live skips).
 
 One promise the rewording missed blocks. AC1's example says a node with its graphContext fits firmware's word schema, which no installed instance shows. It is the claim the ruling narrowed in AC3, and round 2 should have listed it. Applying the owner's ruling to that one sentence, and counting it in the ruling note, clears it, with no new decision. The three non-blocking findings are optional, though the ledger row for the third follow-up is the one I'd add before merge.
+
+## Round 4 — 2026-11-17 (HEAD 6825f28d)
+
+**Diff:** `git diff 5a0de486..HEAD`, where `5a0de486` is round 3's review commit. Four commits, all docs; no file under `src/`, `test/` or `firmware/` changes:
+- **`09216560`, the story (the Product Owner's lane):**
+  - AC1's example is narrowed;
+  - the ruling note counts four promises, with a bullet for AC1's example;
+  - the Background's measurement names its source;
+  - the Deviations bullet on AC4's example names AC1's.
+- **`0b845147`, pointer lines (the Architect's lane),** at ADR 0042 `:122`, `:166` and `:223`, and at ADR 0020a `:253`.
+- **`3478c1eb`, the record and the ledger:**
+  - the Evidence's account of run 1;
+  - the ruling note names a ledger row for each older defect;
+  - a new ledger row holds the 247 undiagnosed verdicts;
+  - the two bug rows and the `meta` row are updated;
+  - the Deviations and the suites' Evidence record round 4.
+- **`6825f28d`:** one phrase. The installed schema's 83 `allOf` entries were read from the graph, not from run 1's report.
+
+**The owner's answer**, as the coordinator reports it. To round 3's "Proceed?", David chose "Fix all four" (2026-11-17). Just before, the coordinator had told him it would apply his "Narrow it" ruling to AC1's example unless he'd rather rule on it himself.
+
+### Quality gates (round 4, run by reviewer)
+
+- [x] **The touched suites, through the gate engine.** The same 15 suites, run the same way. The code hasn't changed since round 3's run. `npm run -s gate:status -- --label a10-20-b-story-42-review-4` reads:
+  `20261118T001731Z-38245-6acc [a10-20-b-story-42-review-4] started 2026-11-18T00:17:31.873Z on 6825f28d — PASS, exit 0, 243 passed, 0 failed, 12 skipped, 15/15 suites`
+- [x] **The suites that read the changed files, or scan the ledger and the stories,** one at a time with the endpoints dead:
+  - `ledger-row-ids` 6/0;
+  - `harness-lint` 85/0;
+  - `operations/rules/element-fits-schema` 11/0;
+  - `session-start` 32/0;
+  - `rollup-scanners` 33/0.
+
+  These are the Evidence's numbers (`:127`). `session-start.test.js` only checks that the script exists, and sources two of its libraries. It never runs the script's stack probe, a GET to `:7778`.
+- [x] **The full gate (`npm test`) was not run here,** for round 1's reason. The PR's CI runs it, stack-free.
+- [x] **The usual checks.** `node src/firmware/graph-rules.js --check` finds the files current. `bash scripts/harness-lint.sh` is clean, 0 violations, with this round's verdict and the story's `Done` in place (L1).
+
+### Round 3's findings
+
+| Round 3 | Disposition |
+|---|---|
+| Blocking 1: AC1's example left unnarrowed | **Fixed** (`09216560`). AC1's example (`:37`) now tells firmware's file and the installed schema apart, as AC3's first case does. The ruling note counts four promises and has AC1's bullet (`:83`, `:86`), with the owner's go-ahead. |
+| Non-blocking 1: ADR 0042's two lines | **Fixed** (`0b845147`). The search found two more, ADR 0042 `:223` and ADR 0020a `:253`, and each pointer holds against LC1a or LC2. The Background's bullet (`:25`) gains the note on the installed schema (`09216560`). |
+| Non-blocking 2: the third follow-up had no home | **Fixed** (`3478c1eb`). The new row `2026-11-17-six-concepts-failing-verdicts-undiagnosed` carries A10.31's wait. The two bug rows say `rules check` waits for their fixes. The ruling note names all three rows (`:89`). |
+| Non-blocking 3: the Evidence's account of run 1 | **Fixed** (`3478c1eb`, `6825f28d`). The Evidence now gives run 1's LC1 to LC3 failing on their first premises, no check after LC4a running, and LC7c's three premises in order. The summary (`:142`) follows, and the 83 entries are read from the graph. |
+| Harness friction 1: an ask to narrow should quote a search | **Fixed.** The `meta` row gains the occurrence and the fix shape. Round 4's own pointers came from such a search. |
+
+### The new text, against the records
+
+| Sentence | Records | Holds? |
+|---|---|---|
+| AC1's example (`:37`): under firmware's file it fits; as an install leaves the schema, no element fits yet | EFS8's wordFull (the file); LC7c, none of 430 (installed) | Yes |
+| The ruling note: four promises (`:83`), and AC1's bullet with the owner's go-ahead (`:86`) | The story as it stands; the go-ahead as the coordinator reports it | Yes |
+| The Background (`:25`): measured on firmware's files; an installed instance's elements also fail the conditionals | LC7c | Yes |
+| The ruling note's last bullet (`:89`): a ledger row stands for each older defect | The three rows exist | Yes |
+| Run 1's account (`:177–180`) and the summary (`:142`) | `hand-calls.md`: run 1's output, the read from the graph after it, and the edit before run 2 | Yes. "Rewritten to what the story guarantees" holds as the story now stands. The rewrite (17:39 UTC) came before the owner's ruling (20:31 UTC), the order the Deviations bullet at `:107` gives |
+| ADR 0042 `:122` and `:166`: under an install, `fits: false, waiting: true`, failing for the conditionals | LC1a | Yes |
+| ADR 0042 `:223` and ADR 0020a `:253`: the live check's "fits `word`" holds under firmware's file only | LC2 | Yes |
+| The new ledger row's numbers | `report.json`, `agreement.tally`: 247 = 132 + 44 + 44 + 22 + 3 + 2; 679 = 430 + 247 + 2, of 1,169 | Yes. Its one lead is marked unchecked |
+| The bug rows' and the `meta` row's added sentences | The ruling; this review's round 3 | Yes |
+| The suites' Evidence (`:127`) | My runs, above | Yes |
+
+### Is anything still promising what an instance doesn't do?
+
+No.
+
+**The search.** I looked for each narrowed phrase: "fits word", "fits firmware's `word` schema", "which a node fits", "fits it once", "stop reporting `word`", "stop reading as broken", "waiting, not failing", "saying it fits", "`{ fits: null`" and "valid under it". The files:
+- story 42 and its test plan;
+- ADRs 0042, 0020a, 0020 and 0027;
+- `docs/GRAPH_RULES.md`, BIBLE and rule 7's element file;
+- the ledger rows this story added or closed.
+
+**Every hit is narrowed or holds:**
+- **Narrowed:** the story's ACs and ruling note, ADR 0042's three pointers and ADR 0020a's at `:253`.
+- **Describing the instance before this story:** the story's Background (`:27`) and ADR 0020a's fact 7 (`:52`).
+- **Scoped to firmware's file:**
+  - ADR 0020a `:161`, its Decision 6, whose subject is firmware's file, as round 3 judged it;
+  - the test plan's AC3 row (`:23`), which describes SC9's fixture, the file.
+- **True on an instance:** §7's Check (`docs/GRAPH_RULES.md:130`) and its element file, that tapestryJson without its `graphContext` doesn't fit `word`'s schema; and the conditionals row's title.
+
+The epic's line for this story (`epics/graph-operations-first-slice.md:62–65`) says the writes stop reporting `word` as failing "for `graphContext`", which holds.
+
+### Findings (round 4)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **`ledger/2026-11-17-six-concepts-failing-verdicts-undiagnosed.md:12`** says the two verdicts the live check made on purpose are "each run's Rex". The check had three runs, and run 1 made no Rex. The count, two, is right. "Runs 2 and 3's Rex", as the story's Evidence has it, would be exact. Optional.
+
+#### Harness friction
+
+None new.
+
+The optional independent check was not applied.
+
+### On PASS (round 4, same commit)
+
+- [x] **The story's Status flipped to `Done`** in place: line 3 only, nothing else in the story changed.
+- [x] **Completion detection performed,** and the result given in the chat: the book isn't complete.
+
+### Verdict (round 4)
+
+**PASS**
+
+Every finding from round 3 is fixed:
+- AC1's example now says what holds under firmware's file and under the schema an install leaves, as the owner's ruling has the other promises say.
+- The ADRs point to the ruling wherever they state a narrowed promise.
+- The undiagnosed verdicts have a ledger row, with A10.31's wait.
+- The Evidence tells run 1 as the records show it.
+
+A search of the story, its plan, its ADRs, the rulebook, BIBLE and the ledger rows finds nothing still promising what an instance doesn't do. The code is unchanged since round 3. The 15 touched suites pass (243 passed, 12 live skips), and so do the five that read the changed docs.
+
+The story is mergeable as it stands. The full gate runs in the pull request's CI. Rule 7's reinstall on staging and production waits on its ledger row.
