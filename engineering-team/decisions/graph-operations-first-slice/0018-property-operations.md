@@ -159,7 +159,7 @@ We chose **Option A**. It is the only one that keeps the readers as they are, an
   - Each one filled in is named in the answer's `filledIn`.
   - So set-schema reads back as the schema given, but for what `filledIn` names (AC5).
 
-**4. What a field may be.** In set-schema's schema, at every level under the section through `properties`, and in a piece:
+**4. What a field may be.** *(Amendment 3, items 2 and 3, adds a field's description and an object's properties.)* In set-schema's schema, at every level under the section through `properties`, and in a piece:
 - **A type.** A definition has a `type`: one of the seven, or a list of them with none repeated. A field with none, such as `{ "$ref": … }` or `{ "enum": [...] }` alone, is refused `bad-type`, naming its place. A property node must have a `type` (fact 4), and this narrows AC5 for such fields.
 - **A key.** Each one passes create-concept's name check exactly as given: `CN.cleanName` leaves it as it is, and `CN.nameProblem` finds nothing. It also isn't `__proto__`, which a JSON object built by assignment can't hold (ledger row `2026-11-17-concept-key-can-be-proto`). Else `bad-name`, naming the place.
 - **A size.** At most 32 levels under the section, and 1,000 properties in all. Else `schema-too-large`: one transaction holds every node, and every node goes into the change entry.
@@ -295,10 +295,14 @@ We chose **Option A**. It is the only one that keeps the readers as they are, an
 
 **10. What is written is checked** (D9; ADR 0020, Decision 16). After the writes, inside the transaction, `_schemas.checkElements(read, items, { every: true })` runs over one `{ concept, json }` item for each node written and each concept it is an element of (`F.conceptsOfNodes`), but those keyed `word` or `graphContext` (`_elements.RESERVED_KEYS`). The nodes written are property nodes, the primary property, the schema node and the property tree graph. So a node that doesn't fit its concept's schema is refused `invalid-fields`, and the whole write rolls back. By construction this only catches a bug, or a frame that Decision 3's fill-ins missed.
 
+*Amended at Implementation: the check refuses only what the write breaks, judging each node's JSON before and after (Amendment 2).*
+
 **11. The lock** (AC8).
 - **Who takes it:** each write takes `S.lockNode` on the concept's header, the lock create-element and update-node take on it.
 - **When:** add-property and set-schema take it before they read anything. update-property and remove-property find the property's concept first, with `(p)-[:IS_A_PROPERTY_OF*1..32]->(:Property)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(h)`, then lock `h`, then read again.
 - **What it gives:** two writes to one concept go one after the other, and an element write beside a property write waits too. After the lock, a property another write removed is gone, so the second remove answers `already-gone`, and an update answers `unknown-property`.
+
+*Amended at review round 1: two other writes that rewrite these nodes don't take this lock, a known limit (Amendment 3, item 1).*
 
 **12. The change entries.** New change names, each with `concept`, `node` (the property's tapestryKey), `field` and `path` (the keys from the section down):
 - `property-added`, with `now: { schema, required }`;
@@ -426,3 +430,71 @@ A change made while catching up has `catchUp: true`. `CHANGE` in `changes.js` do
 - **update-concept renaming the pieces** (Consequences).
 - **Today's routes** and the UI's property editor (D15).
 - **The properties set's members.** Nothing makes property nodes its elements today, and this ADR doesn't start.
+
+## Amendment 1 (2026-11-17, at Test Design) — what the suites pin beyond the Decision
+
+The suites pin these, where the Decision left them open or said two things. They are `test/operations/graph/add-property.test.js`, `update-property.test.js`, `remove-property.test.js`, `set-schema.test.js` and `properties-agent-through-cli.test.js`, over `test/helpers/propertyGraph.js`.
+
+1. **`filledIn` is top-level in every answer.** Every write fills in what the frame lacks (Decision 3), so each answers `filledIn`. `caughtUp` holds only `added`, `changed` and `removed`. Decision 14 put `filledIn` in `caughtUp` for three of the writes.
+2. **A current schema that isn't wrapped is refused `not-wrapped`.** The story's correction says so, and add-property, update-property and remove-property refuse it with 409. Decision 6 listed it under `unreadable-schema`, which covers the rest of its list: a schema that can't be read, isn't an object, doesn't compile, or breaks Decision 4. set-schema refuses `not-wrapped` with 400, and only for its own input.
+3. **The statuses:**
+   - **404:** `unknown-concept`, `unknown-property`;
+   - **409:** `not-own-concept`, `firmware-concept`, `not-installed`, `no-schema`, `no-primary-property`, `not-wrapped` (a concept's current schema), `unreadable-schema`, `tangled-tree`, `not-own-node`, `bad-parent`, `name-in-use`, `has-properties`, `marked-field`, `no-free-address`;
+   - **400:** `bad-name`, `bad-type`, `bad-description`, `bad-schema`, `schema-too-large` (set-schema's and add-property's alike), `nothing-to-change`, `not-wrapped` (set-schema's input), and the rule's `invalid-fields`.
+4. **The answers' fields.**
+   - **A property:** `{ property, concept, field, path, parent, address, type, required, description, schema, hasLetter }`. `parent` is null at the top level, and `description` is null when there is none.
+   - **`elements`:** `{ judged, notJudged: { count, missing, unreadable }, stoppedFitting: { count, elements: [{ node, name, address, problems: [{ path, message }] }] }, alreadyNotFitting, stillHold: { count, elements: [{ node, name, address }] }, before, limit, beyond }`.
+     - `stillHold` is always there, and empty for add-property and update-property.
+     - `before` is null, or `{ problem }`.
+   - **update-property's `changed`** names each input that changed something: `type`, `required`, `description` or `schema`.
+   - **remove-property's `removed`** puts the property named first, then each under it. `removal` is null for `removed`, and for `already-gone` it is the entry: `{ id, at, by, operation }`.
+   - **The lists** in `caughtUp`, and set-schema's `added`, `changed` and `removed`, hold one property each. Those in `removed` are as they were.
+5. **A change is marked `catchUp: true` only when catching up made it.** A write's own changes have no `catchUp`.
+6. **The lock is the write's first write, not its first read** (Decision 11). Decision 7 has `not-installed` read the graph before the lock, so "before they read anything" can't hold. The suites pin that the lock on the concept's header, set then cleared, is the first statement that writes.
+7. **`parent` can't name the concept's primary property** (`bad-parent`), as the story's AC7 says, since it isn't a field. A top-level field leaves `parent` out.
+8. **The `repeatKey`s:**
+   - add-property: `[concept, name, type, required, description, parent, schema]`;
+   - update-property: `[property, type, required, description, schema]`;
+   - remove-property: `[property]`;
+   - set-schema: `[concept, schema]`.
+9. **The fake learns nothing new.** Every statement Decision 7's steps need is one `test/helpers/graphFake.js` already runs: reads over paths, the node and tag creates, an edge's MERGE, the copies, the tag and node deletes, and the lock. The Implementer keeps to those shapes. The suites' seed, `test/helpers/propertyGraph.js`, is new.
+10. **The report's agreement with the rule** (Decision 9) is pinned by AP7. It runs the rule's `{ node, concept }` form over the final graph, in a child process. AP7 passes only once story 42's build has the rule read tapestryJson.
+11. **Found at Test Design, and not changed here.** The concept page's Properties tab shows a Required column from `property.required`, which it reads as the field's own flag (`ui/src/pages/concepts/ConceptProperties.jsx:50–58`). In this ADR's view, as in firmware's `property` schema, `property.required` is an object's list of required children. So the tab marks an object that has required children, and not a required leaf. Ledger row `2026-11-17-properties-tab-misreads-required`.
+
+## Amendment 2 (2026-11-17, at Implementation, the owner's ruling) — the check of what was written refuses only what the write breaks
+
+**What the live check found** (L1a, on a scratch stack from `scripts/scratch-stack.sh`, booted from the local image with this branch's `src/` and firmware). On an installed instance, Decision 10 refused the first property write on a concept `graph create-concept` made, `invalid-fields`:
+- the property tree graph, which every first write rewrites, is an element of firmware's `graph` concept there. Its JSON, in create-concept's shape, lacks `graph.graphType`, which `graph`'s installed schema requires;
+- the JSON schema node is an element of `validation tool`, whose installed wordType conditionals no schema node's `word.wordTypes` meets.
+
+Both failures are there before any property write: create-concept's own nodes already have them (ledger row `2026-11-17-six-concepts-failing-verdicts-undiagnosed`, which counts `graph` 132 of 132 and `validation tool` 44 of 44). The suites' fake graph has neither concept, so they didn't show it. As written, Decision 10 would refuse every property write on every installed instance.
+
+**Decision 10 now reads.**
+- After the writes, inside the transaction, the rule `element-fits-schema`'s write form judges each node written against each concept it is an element of (`F.conceptsOfNodes`), those keyed `word` or `graphContext` aside, as before.
+- It judges twice: the node's JSON as the write leaves it, and, for a node that existed, its JSON before the write.
+- The write is refused, with the rule's code (`invalid-fields`, or `no-schema`), only for a finding of the JSON as written that the JSON before didn't have:
+  - a concept the node fitted before;
+  - or a problem, by its words, that the JSON before didn't have.
+- A node the write makes has no JSON before, so every finding of its own refuses it.
+
+So a write never leaves a node failing a schema in a new way, and a problem the instance's schemas already had stays theirs: `rules check` (A10.31) and that row's diagnosis deal with it, not this write. It still catches what Decision 10 was for, a bug or a frame that Decision 3's fill-ins missed.
+
+**The cost.** A second judging of the nodes that existed: the primary property, the schema node, the tree graph and the property nodes rewritten, each schema compiled once (`_schemas.judge`).
+
+**What the suites pin** (the Tester's, at this amendment):
+- AP3 reads the price node's memberships as the adds left it: the suite's own mark-field call, later, adds the mark's edge;
+- AP14 seeds what an instance has: firmware's `graph` concept with a schema that requires `graph.graphType`, the concept's tree graph one of its elements, and a concept whose schema requires a property's description, every property node its element. A first write lands, with the tree graph failing `graph` before and after. A new property with no description is refused, and so is a description taken out of one that had it.
+
+## Amendment 3 (2026-11-17, at review round 1) — two known limits of the lock, and two refusals the review found missing
+
+Review round 1 passed with nine non-blocking findings, and the owner chose to fix them before the PR. Three change what this ADR decides.
+
+1. **Two other writes don't take the concept header's lock (Decision 11; review finding 1).** So "two writes to one concept go one after the other" holds among the four property writes, the element writes and delete-node, but not for these two:
+   - **update-concept's rename** takes the concept-header concept's lock (`_concepts.js`'s C1), reads the concept's core nodes, then rewrites the json tags of its schema node, primary property and tree graph where they still hold the old names' text. Beside a property write, it can write back what it read before that write committed. The schema node then no longer has the property write's change, and the next property write's catching up follows the schema, taking the new node out. That node is kept whole in its entry, so it can be put back.
+   - **mark-field** takes no lock. A type change, or a removal, can land on a field marked between the property write's read of the marks and its commit. A removal then leaves the mark's copies on the elements with no mark; `graph map-fields` clears them.
+
+   Both need an owner or an admin to run two writes on one concept at once, and each entry keeps what was lost. These four don't change update-concept or mark-field: story 18's scope ends at the property writes. Ledger row `2026-11-17-concept-writes-skip-header-lock` carries the fix: each takes `S.lockNode` on the concept's header before it reads.
+2. **A field's description is checked wherever it comes from (Decision 4; review finding 4).** A field's description becomes its node's `description` tag. So a description given in `schema` (add-property, update-property), or on a field of set-schema's schema, must pass create-concept's description check, as the `description` input does: else `bad-description` (400), naming the place. set-schema declares `bad-description` too. A current schema with such a field can't be caught up to (`unreadable-schema`).
+3. **Only an object holds properties (Decision 4; review finding 8).** A field whose type isn't object, or a list of types that includes object, can't have `properties`: set-schema refuses it `bad-type`, naming the place, and a current schema with one can't be caught up to. So a property with properties under it is always an object, and update-property's `has-properties` refuses only a type away from object, as Decision 7.2 says.
+
+The review's other findings change nothing decided here: the records and docs (findings 2, 5, 6 and 7), a suite case for the report's cap (finding 3, the Tester's), and the address check's two steps (finding 9). Each new node's plain d-tag is read first. Its nonces are read when that plain address is held, is already taken by this write, or is shared with another new node of the same write, as two keys that slug alike (`Price` and `price`) share one. Round 2 found that a first version read the nonces only for a held plain address (its blocking 1), so the second sibling took `~1` unread. SS10 pins the search.

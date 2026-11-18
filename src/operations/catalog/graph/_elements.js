@@ -113,8 +113,8 @@ const CHANGED_ELSEWHERE = Object.freeze([
   ['property-tree-graph', 'graph update-concept', "a concept's property tree graph"],
   ['concept-graph', 'graph update-concept', "a concept's concept graph"],
   ['core-nodes-graph', 'graph update-concept', "a concept's core nodes graph"],
-  ['json-schema', 'graph set-schema (A10.18)', "a concept's JSON schema"],
-  ['property', 'graph update-property (A10.18)', 'a property'],
+  ['json-schema', 'graph set-schema', "a concept's JSON schema"],
+  ['property', 'graph update-property', 'a property'],
   ['set', 'A10.21.a', 'a set'],
   ['graph-rule', 'the rulebook', 'a graph rule'],
 ]);
