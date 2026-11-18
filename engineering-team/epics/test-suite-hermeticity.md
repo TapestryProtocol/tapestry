@@ -39,6 +39,12 @@ trustworthy, and it is the one that had degraded furthest.
    ties (row 60), loops over collections the feature hasn't produced yet (row 108), byte-offset
    source windows (row 109), and presence checks inside a capped page (row 126). Part of the
    `honest-test-gate` book.
+3. **rw7-times-restarts-from-the-real-start** — RW7, in the tagging-edges real-time wrapper's suite,
+   times a start by when the suite notices it. Inside the full gate's one big process, a burst of
+   process launches makes it notice late, so RW7 failed about one CI run in 28 (2026-11-13 to 11-18).
+   Ledger row `2026-10-08-realtime-wrapper-timing-flake-under-load`. A Bug: Architecture skipped, no
+   ADR. Numbered past #2, which is cited elsewhere (ledger row
+   `2026-11-16-story-numbers-ignore-planned-stories`).
 
 ## Out of scope (whole epic, unless a later story says otherwise)
 

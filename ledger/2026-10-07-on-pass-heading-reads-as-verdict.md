@@ -45,3 +45,5 @@ template's closing `## On PASS (same commit)` heading. It dropped the heading be
 known occurrences; the template is still unchanged.
 
 **Another occurrence, 2026-11-17 (book `graph-operations-first-slice`, story 42's review round 1).** A reviewer agent writing a CHANGES_REQUESTED review to the template put the On PASS section above `## Verdict` by hand, as story 27's round 1 had, so the lint read the review right. That makes nine known occurrences; the template is still unchanged.
+
+**Seen again, 2026-11-18** (review of `test-suite-hermeticity` #3, round 1, harness friction 4). That review put its close-out checklist above `## Verdict` by hand, so its CHANGES_REQUESTED reads as final. The template is still unchanged.
