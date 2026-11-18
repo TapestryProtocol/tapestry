@@ -292,6 +292,54 @@ Review round 5 passed with one optional finding, R5-1, and the owner chose to fi
 - **harness-lint:** clean.
 - **No scoped gate or live re-check.** The change is one new test of words. The pull request's CI runs the full gate.
 
+### On staging and production (2026-11-18)
+
+**Staging: TapestryProtocol/tapestry#141.**
+- **Its CI:** the `stack-free` run 44314912822 passed on the PR's head, `17adb4ab`.
+- **The safe-to-merge check** (`scripts/check-safe-to-merge.sh`) said safe at 14:41:22Z: no task active, and the next scheduled one at 17:40Z.
+- **The merge,** at 14:41:35Z, was pinned with `--match-head-commit 17adb4ab`. Its merge commit is `3b7ae010`.
+- **The deploy:** `deploy-staging.yml` run 44327056285 succeeded, 14:41:39Z to 14:43:26Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`) was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering after 3;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504;
+  - tier 3: `/docs/swagger-ui-init.js`, which the server builds at startup from the catalog it loaded, lists `/api/tapestry/graph/add-to-concept` and `/api/tapestry/graph/remove-from-concept` once each. Neither was listed at 14:42:43Z, while the deploy run was still going and the old container still answered;
+  - tier 5: the file lists 32 operation paths: the 30 it listed before, and those two.
+
+  Tier 4 didn't apply, since no UI changed.
+- **Loom** marked A10.22 done and verified, weakly, on the merge: #141 had no approval from a teammate other than the owner.
+- **The firmware reinstall** ran with the owner's yes.
+  - **Before it,** at 15:07:05Z, the graph rule concept's superset held seven items, without `node-has-a-concept`. Rule 7's item, `…:element-fits-schema-22bbd716`, held entry 7's old words: `graph add-to-concept` (A10.22) "will call it when it is built". Deploy-safety said safe at 15:08:37Z, with the next task at 17:40Z.
+  - **The install** was one loopback call over SSH, 15:08:39Z to 15:12:36Z, on the deployed commit `3b7ae010`, after a check that rule 8's firmware file was there:
+    - it answered `"success": true`, with every `errors` list empty;
+    - Pass 1: 41 concepts, 0 errors; Pass 2: 41 enriched, 0 skipped, 0 errors;
+    - Pass 3: 742 derived, 4 enumerations, 79 implicit elements;
+    - "FIRMWARE INSTALL COMPLETE", with no firmware error in the log.
+  - **After it,** the superset holds eight items, `…:node-has-a-concept-22bbd716` among them. Rules 7's and 8's items each match this story's firmware file in all 21 fields, and rule 7's holds entry 7's new words (`update-node`, `graph add-to-concept`) and not the old. The check read each item's `json` tag from the public `/api/concept-graph/node/<handle>`, so it needed no SSH. Rule 7's `tapestryJsonUpdatedAt` moved with the install, and rule 8's reads the install's time.
+  - **A second smoke test** after it was clean.
+
+**Production: TapestryProtocol/tapestry#144,** the promotion.
+- **What it carried:** staging at `3b7ae010`, from `promote/add-remove-from-concept-2026-11-18`, a branch cut at that commit: #141 alone. The owner approved promoting #141, shown that nothing else on staging was missing from main. The bundle was listed again just before the merge.
+- **Its checks:** the `stack-free` run 44335987859 passed on `3b7ae010`, as did `deploy`, `main-source-guard` and `publish`.
+- **The safe-to-merge check** against production said safe at 15:40:27Z: no task active, and the next scheduled one at 16:00Z.
+- **The merge,** at 15:40:30Z, was pinned with `--match-head-commit 3b7ae010`. Its merge commit is `f135bf33`.
+- **The deploy:** `deploy-tapestry.yml` run 44338367412 succeeded, 15:40:35Z to 15:42:24Z.
+- **The smoke test** was clean, with the same checks as on staging. Production's docs listed neither operation at 15:27:24Z, before the promotion's PR opened. Tier 4 didn't apply.
+- **The firmware reinstall** ran with the owner's yes.
+  - **Before it,** production's search-index refresh had started at 16:00:00Z, so deploy-safety said unsafe (`QUEUE_TASK_RUNNING`). `scripts/check-safe-to-merge.sh` waited, and said safe at 16:02:39Z, with the next task at 17:00Z. A check right before the install said safe again. At 16:02:40Z the superset held seven items, and rule 7's item, `…:element-fits-schema-e5a0c507`, held entry 7's old words.
+  - **The install** ran 16:02:50Z to 16:07:46Z, on the deployed commit `f135bf33`:
+    - it answered `"success": true`, with every `errors` list empty;
+    - Pass 1: 41 concepts, 0 errors; Pass 2: 41 enriched, 0 skipped, 0 errors;
+    - Pass 3: 717 derived, 4 enumerations, 78 implicit elements;
+    - "FIRMWARE INSTALL COMPLETE", with no firmware error in the log.
+  - **After it,** the superset holds eight items, `…:node-has-a-concept-e5a0c507` among them, read the same way as on staging. Rules 7's and 8's items match this story's firmware files in all 21 fields, and rule 7's holds the new words and not the old.
+  - **A second smoke test** after it was clean.
+
+**Not checked on either server:**
+- **Calls signed in as the owner or an admin,** which the smoke test can't make: the two writes, their refusals and reports, and rule 8's check. The live checks covered them on scratch stacks.
+- **The agent-memory instance on the Mac Studio** has neither the code nor the new items. It takes them only at the owner's word.
+
+The runs' records are in the main checkout's `tmp/ship-22-staging/` and `tmp/ship-22-production/`, which git ignores.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
