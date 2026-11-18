@@ -9,6 +9,8 @@
  *                                        firmware's own elements aside; 'beside', in tapestryOwnSections, for every other
  *                                        node (Decision 2)
  *   theNode(read, key)                   the node and its concepts; refuses unknown-node, tag-node, made-elsewhere
+ *   lookedAfterElsewhere(read, facts)    whether another operation looks after the node (X.changedElsewhere), which
+ *                                        theNode refuses and the rule's guard leaves to it (Amendment 2, item 3)
  *   theConcept(read, key, { add })       the concept, its header, key and superset; refuses unknown-concept,
  *                                        reserved-key, no-superset and, for an add, made-elsewhere (Decision 3)
  *   anchorOf(read, { concept, set })     the same, refusing nothing: null where a check would refuse (the rule's guard)
@@ -23,9 +25,12 @@
  *                                        (Decision 11)
  *   firmwareMembership(read, …)          the part of that definition behind a link taken out or a concept left, or null
  *   authorClaim({ facts, tags, … })      the tag of another author's letter that claims one, or null (Decision 10)
- *   ownLetters(read, …)                  the instance's own letters that still state a removed membership (Decision 13)
+ *   ownLetters(read, …)                  the instance's own letters that still state a removed membership (Decision 13),
+ *                                        the relationship events found through the relationship concept (Amendment 2,
+ *                                        item 4)
  *   NODE, CONCEPT_KEYS, LETTERS          the answers' schemas
- *   the refusals the two operations declare, and their words (Decision 17)
+ *   the refusals the two operations declare, and their words (Decision 17), each operation's own not-installed and
+ *   no-superset among them (Amendment 2, item 7)
  *
  * Like _nodes.js, it opens nothing when it loads: firmware, the assistant's key and the store are required when first
  * called. It never signs, publishes or reads a key.
@@ -53,14 +58,20 @@ const NAME_IN_USE = Object.freeze({ code: 'name-in-use', status: 409, when: "A n
 const FIRMWARE_MEMBERSHIP = Object.freeze({ code: 'firmware-membership', status: 409, when: "A membership firmware's definition makes, by an element file or a concept manifest's HAS_ELEMENT, which a firmware reinstall would make again: it changes through lifecycle seed-firmware (A10.37); the refusal names the part of the definition" });
 const AUTHOR_CLAIM = Object.freeze({ code: 'author-claim', status: 409, when: "A membership another author's letter claims: its z tag names the concept, or its n tag names the set, which the instance records as theirs and the next import would make again; whether it counts is decided per point of view; the refusal names the tag and its author" });
 const OTHER_CONCEPT = Object.freeze({ code: 'other-concept', status: 409, when: "A call that would also take the node out of a concept it didn't name: one whose superset is under the named concept's class thread, or that shares a set with it; the refusal names that concept and the link's start, and says how to go on: take the node out of that concept instead, or unlink the two (graph unlink-set)" });
+// Each operation's own not-installed and no-superset (ADR 0022 Amendment 2, item 7), with create-element's codes and statuses.
+const NOT_INSTALLED_ADD = Object.freeze({ code: 'not-installed', status: 409, when: "The instance has no assistant key, so it can't tell its own nodes from another author's, or firmware's own, nor whether a node keeps the concept's section in its own JSON or beside its author's letter" });
+const NOT_INSTALLED_REMOVE = Object.freeze({ code: 'not-installed', status: 409, when: "The instance has no assistant key, so it can't tell its own nodes from another author's, or firmware's own, nor whose claim a membership is: the owner's, an author's or firmware's" });
+const NO_SUPERSET_ADD = Object.freeze({ code: 'no-superset', status: 409, when: 'A concept with no superset, so no class thread to put the node in (BIBLE §10, rule 1)' });
+const NO_SUPERSET_REMOVE = Object.freeze({ code: 'no-superset', status: 409, when: 'A concept with no superset, so no class thread that could reach the node, and nothing to take it out of (BIBLE §10, rule 1)' });
 
 /** "<name>" (<address>), or the key alone, for messages. */
 const labelOf = N.labelOf;
 
 /** What each refusal says, in words. */
 const say = {
-  notInstalled() {
-    return "This instance has no assistant key, so it can't tell its own nodes from another author's, or firmware's own, nor where a node's sections are kept: the firmware isn't installed. Install it first (POST /api/firmware/install), then try again. Nothing changed.";
+  notInstalled({ add = false } = {}) {
+    const what = add ? "nor where a node's section for the concept is kept" : 'nor whose claim a membership is';
+    return `This instance has no assistant key, so it can't tell its own nodes from another author's, or firmware's own, ${what}: the firmware isn't installed. Install it first (POST /api/firmware/install), then try again. Nothing changed.`;
   },
   unknownNode(key) {
     return `No node of this graph has the tapestryKey ${key}, which node names (a change entry is not a node). Nothing changed.`;
@@ -78,8 +89,10 @@ const say = {
   reservedKey(concept, key) {
     return `${X.conceptLabel(concept)}'s key is ${key}, a key an element's JSON keeps for itself: ${key === 'word' ? "every element is a word through its word block, which stays" : "the derive step writes the graphContext of each element's cached JSON"}. No node is taken out of it here (ADR graph-operations-first-slice/0020 Amendment 1). Nothing changed.`;
   },
-  noSuperset(concept) {
-    return `${X.conceptLabel(concept)} has no superset, so it has no class thread to put a node in or take one out of (BIBLE §10, rule 1). Nothing changed.`;
+  noSuperset(concept, { add = false } = {}) {
+    return add
+      ? `${X.conceptLabel(concept)} has no superset, so it has no class thread to put the node in (BIBLE §10, rule 1). Nothing changed.`
+      : `${X.conceptLabel(concept)} has no superset, so no class thread of its reaches the node, and there is nothing to take it out of (BIBLE §10, rule 1). Nothing changed.`;
   },
   unreadable(facts, why) {
     return `${labelOf(facts)}'s JSON can't be read: ${why}. So its sections can't be checked against its concepts' schemas or changed. Nothing changed.`;
@@ -153,11 +166,22 @@ async function theNode(read, key) {
   const facts = await N.whoseNode(read, key);
   if (!facts) throw refusal(UNKNOWN_NODE.code, say.unknownNode(key), { input: 'node' });
   if (facts.labels.includes('NostrEventTag')) throw refusal(TAG_NODE.code, say.tagNode(facts), { input: 'node' });
-  const conceptKeys = keysOf(await F.conceptsOfNodes(read, [key]));
-  const headers = conceptKeys.length ? await K.headersByKey(read, conceptKeys) : [];
-  const hit = X.changedElsewhere({ conceptUuids: headers.map((h) => h.uuid), labels: facts.labels, uuid: facts.uuid });
+  const { hit, conceptKeys, headers } = await lookedAfterElsewhere(read, facts);
   if (hit) throw refusal(MADE_ELSEWHERE_REMOVE.code, say.madeElsewhere(labelOf(facts), hit), { input: 'node' });
   return { facts, conceptKeys, headers };
+}
+
+/**
+ * Whether another operation looks after the node, by its concepts or its role labels (X.changedElsewhere) → { hit,
+ * conceptKeys, headers }: the hit, or null, and the concepts whose class thread reaches the node, with their headers.
+ * theNode refuses such a node made-elsewhere, and the rule node-has-a-concept's guard gives it no finding, so apply's
+ * refusal answers (ADR 0022 Amendment 2, item 3).
+ */
+async function lookedAfterElsewhere(read, facts) {
+  const conceptKeys = keysOf(await F.conceptsOfNodes(read, [facts.key]));
+  const headers = conceptKeys.length ? await K.headersByKey(read, conceptKeys) : [];
+  const hit = X.changedElsewhere({ conceptUuids: headers.map((h) => h.uuid), labels: facts.labels, uuid: facts.uuid });
+  return { hit, conceptKeys, headers };
 }
 
 /** The key a concept's header files its elements' section under: its header's, else the one its JSON gives. */
@@ -174,7 +198,7 @@ async function theConcept(read, key, { add = false } = {}) {
   const oKey = keyOf(header, concept);
   if (X.RESERVED_KEYS.includes(oKey)) throw refusal(X.RESERVED_KEY.code, add ? X.say.reservedKey(concept, oKey) : say.reservedKey(concept, oKey), { input: 'concept' });
   const superset = await S.supersetOf(read, concept.key);
-  if (!superset) throw refusal(X.NO_SUPERSET.code, say.noSuperset(concept), { input: 'concept' });
+  if (!superset) throw refusal((add ? NO_SUPERSET_ADD : NO_SUPERSET_REMOVE).code, say.noSuperset(concept, { add }), { input: 'concept' });
   if (add) {
     const elsewhere = X.madeElsewhere(concept.uuid);
     if (elsewhere) throw refusal(MADE_ELSEWHERE_ADD.code, X.say.madeElsewhere(concept, elsewhere), { input: 'concept' });
@@ -259,14 +283,16 @@ async function tagsOf(read, key) {
  * update-node reads them: several that differ, one that can't be read, or JSON that isn't an object refuse
  * unreadable-json; none gives {}. For a node kept beside, `own` is its tapestryOwnSections, which must be JSON of an
  * object, and `view` is base with them laid over (F.overlaySections); for one kept in its json tag, `view` is base.
- * `cached` is whether the derive step has cached it (tapestryJsonUpdatedAt).
+ * `cached` is whether the derive step has cached it (tapestryJsonUpdatedAt). With `letter: false`, a node kept beside
+ * reads only its tapestryOwnSections, base {}: a removal writes only those, so the author's JSON, readable or not, is
+ * no reason to refuse it (ADR 0022 Amendment 2, item 6).
  */
-async function jsonOf(read, facts, kept) {
+async function jsonOf(read, facts, kept, { letter = true } = {}) {
   const { row, tags } = await readNode(read, facts.key);
   const jsonTags = tags.filter((t) => t.type === 'json');
   const unreadable = (why) => refusal(UNREADABLE_JSON.code, say.unreadable(facts, why), { input: 'node' });
   let base = {};
-  if (jsonTags.length) {
+  if (jsonTags.length && (kept !== 'beside' || letter)) {
     const values = [...new Set(jsonTags.map((t) => t.value))];
     if (values.length > 1) throw unreadable(`it has ${jsonTags.length} json tags that differ, and which one counts isn't guessed`);
     const got = F.readJson(values[0]);
@@ -443,18 +469,35 @@ function authorClaim({ facts, tags, ways, left }) {
   return z ? claim(z) : null;
 }
 
-/** R: the instance's own relationship events naming the pair from → to, of the class thread's termination type. */
+/**
+ * R: the instance's own relationship events naming a pair from one of `from` to `to`, of the class thread's termination
+ * type → [{ address, from }]. They are found as elements of the relationship concept (its header at
+ * firmware.conceptUuid('relationship')), through its class thread, by the instance's own authors, and only then by
+ * their nodeFrom, nodeTo and relationshipType tags: no read scans tag nodes by type and value, which no index covers
+ * (ADR 0022 Amendment 2, item 4). An event a firmware reinstall's pass 1d hasn't wired into that concept yet is left
+ * out. An instance with no relationship concept has none.
+ */
 async function relationshipEvents(read, { from, to, authors }) {
-  const { TERM } = S.aliases();
+  const firmware = require('../../../api/normalize/firmware');
+  const uuid = firmware.conceptUuid('relationship');
+  if (!uuid || !to || !from.length || !authors.length) return [];
+  const [header] = await read('MATCH (h:TapestryNode {uuid: $uuid}) WHERE h:ConceptHeader OR h:ListHeader RETURN h.tapestryKey AS key LIMIT 1', { uuid });
+  if (!header || typeof header.key !== 'string') return [];
+  const { INIT, PROP, TERM } = S.aliases();
   const rows = await read(
-    `MATCH (t:NostrEventTag {type: 'nodeTo', value: $to})<-[:HAS_TAG]-(e:TapestryNode)
+    `MATCH (h:TapestryNode {tapestryKey: $concept})-[:\`${INIT}\`]->(:Superset)-[:\`${PROP}\`*0..]->()-[:\`${TERM}\`]->(e:TapestryNode)
      WHERE e.pubkey IN $authors AND NOT e:GraphChange
-     MATCH (e)-[:HAS_TAG]->(f:NostrEventTag {type: 'nodeFrom', value: $from})
-     MATCH (e)-[:HAS_TAG]->(y:NostrEventTag {type: 'relationshipType', value: $type})
-     RETURN DISTINCT e.uuid AS address`,
-    { to, from, type: TERM, authors },
+     WITH DISTINCT e
+     MATCH (e)-[:HAS_TAG]->(t:NostrEventTag {type: 'nodeTo'})
+     WHERE t.value = $to
+     MATCH (e)-[:HAS_TAG]->(f:NostrEventTag {type: 'nodeFrom'})
+     WHERE f.value IN $from
+     MATCH (e)-[:HAS_TAG]->(y:NostrEventTag {type: 'relationshipType'})
+     WHERE y.value = $type
+     RETURN DISTINCT e.uuid AS address, f.value AS from`,
+    { concept: header.key, authors, to, from, type: TERM },
   );
-  return [...new Set(rows.map((r) => r.address).filter((a) => typeof a === 'string' && a))];
+  return rows.filter((r) => typeof r.address === 'string' && r.address);
 }
 
 /**
@@ -470,13 +513,11 @@ async function ownLetters(read, { facts, kept, removed, tags, sections, authors 
     const what = [...tags.map((t) => `its ${t.type} tag names ${t.value}`), ...sections.map((k) => `it has a ${k} section`)];
     out.push({ address: facts.uuid, says: `it still states a membership this call took out${what.length ? `: ${what.join('; ')}` : ''}. export nostr (A10.34) is what sends a letter that matches` });
   }
-  if (facts.uuid) {
-    for (const w of removed) {
-      if (!w.uuid) continue;
-      for (const address of await relationshipEvents(read, { from: w.uuid, to: facts.uuid, authors })) {
-        if (out.some((l) => l.address === address)) continue;
-        out.push({ address, says: `it names ${w.uuid} ${TERM} ${facts.uuid}, a membership the graph no longer has. Nothing makes an edge from it again; export nostr (A10.34) is what sends letters that match` });
-      }
+  const from = [...new Set(removed.map((w) => w.uuid).filter((u) => typeof u === 'string' && u))];
+  if (facts.uuid && from.length) {
+    for (const r of await relationshipEvents(read, { from, to: facts.uuid, authors })) {
+      if (out.some((l) => l.address === r.address)) continue;
+      out.push({ address: r.address, says: `it names ${r.from} ${TERM} ${facts.uuid}, a membership the graph no longer has. Nothing makes an edge from it again; export nostr (A10.34) is what sends letters that match` });
     }
   }
   return out;
@@ -484,7 +525,8 @@ async function ownLetters(read, { facts, kept, removed, tags, sections, authors 
 
 module.exports = {
   UNKNOWN_NODE, TAG_NODE, MADE_ELSEWHERE_ADD, MADE_ELSEWHERE_REMOVE, UNREADABLE_JSON, NAME_IN_USE, FIRMWARE_MEMBERSHIP, AUTHOR_CLAIM, OTHER_CONCEPT,
+  NOT_INSTALLED_ADD, NOT_INSTALLED_REMOVE, NO_SUPERSET_ADD, NO_SUPERSET_REMOVE,
   NODE, CONCEPT_KEYS, LETTERS,
-  say, nodeOf, keysOf, keptIn, theNode, theConcept, anchorOf, sectionFields, tagsOf, jsonOf,
+  say, nodeOf, keysOf, keptIn, theNode, lookedAfterElsewhere, theConcept, anchorOf, sectionFields, tagsOf, jsonOf,
   isElementLink, waysIn, reaches, firmwareMemberships, firmwareMembership, authorClaim, ownLetters,
 };

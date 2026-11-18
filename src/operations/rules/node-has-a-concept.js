@@ -11,8 +11,10 @@
  *                            anchor, or from below it, were gone (M1, _memberships.js's waysIn). The anchor is `set` when
  *                            it is given and isn't the concept's superset, else the superset. No finding when the node,
  *                            the concept or the set names nothing the rule can judge, since the operation refuses those:
- *                            no node, a tag, no concept header, a reserved key, no superset, or a set that isn't one or is
- *                            outside the concept's class thread. None either when M1 finds nothing: a repeat.
+ *                            no node, a tag, a node another operation looks after (X.changedElsewhere: ADR
+ *                            graph-operations-first-slice/0022 Amendment 2, item 3), no concept header, a reserved key, no
+ *                            superset, or a set that isn't one or is outside the concept's class thread. None either when
+ *                            M1 finds nothing: a repeat.
  *   { node }                 the check, which remove-from-concept's re-check after its write runs too: the node as it
  *                            stands, named when no concept but word reaches it. rules check (A10.31) will run it.
  * Loading it opens nothing (ADR graph-operations-foundation/0001 Decision 10): it requires what it reads with when
@@ -60,6 +62,9 @@ module.exports = {
         continue;
       }
       if (typeof item.concept !== 'string' || !item.concept) continue;
+      // A node another operation looks after is apply's to refuse, made-elsewhere, naming that operation: this rule's way
+      // on, add-to-concept or delete-node, refuses such a node too (Amendment 2, item 3).
+      if ((await M.lookedAfterElsewhere(read, facts)).hit) continue;
       const at = await M.anchorOf(read, { concept: item.concept, set: item.set });
       if (!at) continue;
       const ways = await M.waysIn(read, { anchor: at.anchor, node: item.node });

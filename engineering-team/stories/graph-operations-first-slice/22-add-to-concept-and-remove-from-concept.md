@@ -130,18 +130,27 @@ For Architecture, not this gate:
 - **`section-added`'s `was`** is the section the node's JSON already held for the concept when it wasn't yet an element of it (Decision 7's merge: AT13's `stale`), else null. Decision 14 gives `was: null` for a new section only. For a node kept beside, `was` is what `tapestryOwnSections` held for the concept.
 - **One `unknown-node` and one `made-elsewhere` declaration per operation,** each `when` covering both the node and the set, or both the node and the concept. A declaration may list a code only once (`declaration.js`), and Decision 17 names two sources for each.
 - **`made-elsewhere` for a superset names both** `graph update-concept`, which AT33 and RM32 look for, and `graph link-set` and `unlink-set`, which Amendment 1, item 6 names. For a set it names link-set and unlink-set; for anything else, the operation `X.changedElsewhere` names.
-- **`name-in-use` isn't checked for a node already in the concept** that is put in a set (Amendment 1, item 7): no new membership of the named concept is made, so create-element's repeat isn't affected.
-- **`reserved-key` and `no-superset` are worded for these operations** in `M.say` where `_elements.js`'s words are create-element's ("No element of it can be made here"): remove-from-concept's `reserved-key`, and both operations' `no-superset`. add-to-concept's `reserved-key` keeps `_elements.js`'s words.
+- **`name-in-use` isn't checked for a node already in the concept** that is put in a set (Amendment 1, item 7): no new membership of the named concept is made, so create-element's repeat isn't affected. *(Review round 1: ADR Amendment 2, item 1 says so of every node already in the concept.)*
+- **`reserved-key` and `no-superset` are worded for these operations** in `M.say` where `_elements.js`'s words are create-element's ("No element of it can be made here"): remove-from-concept's `reserved-key`, and both operations' `no-superset`. add-to-concept's `reserved-key` keeps `_elements.js`'s words. *(Review round 1: each operation now also declares its own `no-superset` and `not-installed`, Amendment 2, item 7.)*
 - **remove-from-concept takes out a `z` naming any concept the node leaves,** word's included (Decision 15, step 3, as written), while the word block, and `word` in `wordTypes`, stay (Amendment 1, item 4).
 - **`set` in both answers echoes the input,** or null; Decision 13 lists it without a definition. An `already-element` answer's `concepts` gives each concept's verdict on the node's JSON as it is (Decision 8, step 8).
-- **The relationship events in `letters` are found from their `nodeTo` tag.** No index holds tag values, so on a large graph that read scans the tags; it runs only for a removal that took a link out.
-- **`docs/GRAPH_RULES.md` entry 7's Enforced by still says `graph add-to-concept` "will call" its check.** The ADR changes only §8, and rewording entry 7 would regenerate rule 7's element as well.
+- **The relationship events in `letters` are found from their `nodeTo` tag.** No index holds tag values, so on a large graph that read scans the tags; it runs only for a removal that took a link out. *(Superseded at review round 1: they are found through the relationship concept's class thread, Amendment 2, item 4.)*
+- **`docs/GRAPH_RULES.md` entry 7's Enforced by still says `graph add-to-concept` "will call" its check.** The ADR changes only §8, and rewording entry 7 would regenerate rule 7's element as well. *(Superseded at review round 1: entry 7 is reworded and rule 7's element regenerated, Amendment 2, item 7.)*
 - **A ledger row records rule 8's firmware reinstall,** `2026-11-18-rule-eight-awaits-firmware-reinstall`, as rule 7's was recorded.
 - **The scoped gate needed this worktree's `node_modules` linked** to the main checkout's, as A10.18's and A10.26's are: its first run (`20261118T022832Z-51505-24f5`) failed 13 tests in four suites, each on `Cannot find module '<worktree>/node_modules/…'`. The link is untracked, since `.gitignore`'s `node_modules/` doesn't match a link, and was removed afterwards.
 
+**Review round 1's** (ADR Amendment 2):
+- **A section given alone carries no would-be tags.** A node already in the concept whose JSON lacks its section gets the section and no new link (Amendment 2, item 1). Decision 9's tags go with a link, so none is written then: a `z` would have a reinstall's pass 1d make the direct link the call didn't.
+- **`wordTypes` gains the concept's own key too,** when a node already in the concept lacks it, beside the keys the set joins (Amendment 2, item 2), since a new membership's step 2 adds both.
+- **add-to-concept's length check covers whatever the call writes,** `wordTypes` alone included, where it covered a new section only.
+- **Only the rule's guard form is silent for a node another operation looks after** (Amendment 2, item 3). Its check form, `{ node }`, still judges such a node, for `rules check`. `_memberships.js`'s `lookedAfterElsewhere` is the one test, which `theNode` and the guard share.
+- **The relationship concept's header is found by its address in a read of its own,** then walked by its tapestryKey: one walk from a header found by `uuid` reads, in the fake graph, as story 4's declared-types read, which can't return an event's address.
+- **The catalog's add-to-concept row says when `already-element` is answered,** and that a missing section is given: Decision 16 keeps the row to what is built, and Amendment 2 doesn't name it.
+- **`not-installed`'s and `no-superset`'s messages are worded per operation too,** as their new declarations are.
+
 ## Evidence
 
-### The suites (Implementation, 2026-11-18, uncommitted on `85326415`)
+### The suites (Implementation, 2026-11-18, on `85326415` with the implementation uncommitted, since committed as `841b7549`)
 
 Each ran alone on this Mac, with every service endpoint dead (`BRAINSTORM_BASE_URL`, `TAPESTRY_PORT`, `TAPESTRY_CONTAINER`, `NEO4J_URI` and `REDIS_PORT` on dead values). None failed.
 - **The new suites:** add-to-concept 39 passed, remove-from-concept 33, memberships-shared 18, memberships-agent-through-cli 1.
@@ -157,7 +166,7 @@ Each ran alone on this Mac, with every service endpoint dead (`BRAINSTORM_BASE_U
 - **The scoped gate:** record `20261118T023152Z-53544-4655`, PASS, 1,122 passed, 0 failed, 10 skipped, over 8 suites (operations, external-cli, openapi-coverage, admin-action-sweep, schema-save-finds-the-right-header, graph-rules-builder, graph-rule-firmware, firmware-element-sync), on `85326415+dirty`. The earlier run is in Deviations.
 - **harness-lint:** clean.
 
-### The live check (Implementation, 2026-11-18, uncommitted on `85326415`)
+### The live check (Implementation, 2026-11-18, on `85326415` with the implementation uncommitted, since committed as `841b7549`)
 
 It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`. The scripts (`setup.sh`, `live.js`, `restore.sh`) and every call's request and answer are in this worktree's `tmp/live-check-22/` (ignored by git).
 - **The instance.** It booted from image `agent-memory-tapestry:latest` with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `c4c302955e90` and `b210347f63a8`), so the branch's was copied in, the control panel restarted, and the firmware installed again. The branch's `bin/tapestry.js` and `clients/cli` were copied in.
@@ -184,6 +193,30 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - **L8,** through nginx: a visitor got 401 from both routes. The stranger, signed in by the CLI, was refused ("Only the owner or an admin can do this."), and with its session cookie both routes answered 403.
 - **L9:** the relay held 478 events before the membership calls and 478 after. The change entries went from 7 to 43.
 - **L10:** with the branch's firmware installed, `graph-rule-firmware.test.js`'s live part passed GL1–GL3: an item per rule, eight, `node-has-a-concept` among them.
+
+### Review round 1's fixes (2026-11-18, uncommitted on `b06f8aa3`)
+
+The review passed with eight non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 2 says what each fix is; the Tester's tests for them are in `b06f8aa3`.
+- **What changed.**
+  - **Item 1:** add-to-concept reads the node's JSON first, and answers `already-element` only when its view holds the concept's section. A node already in the concept without one is given it: `added`, `section-added`, and no link unless a set is given that doesn't hold it. update-node's `no-section` words and add-to-concept's description say so, and so does the catalog's row.
+  - **Item 2:** a node kept in its json tag gains in `wordTypes` the keys the set joins, as a new membership does, recorded as `field-changed`.
+  - **Item 3:** the rule's guard form is silent for a node another operation looks after (`_memberships.js`'s `lookedAfterElsewhere`, which `theNode` shares), so apply answers `made-elsewhere`.
+  - **Item 4:** `letters` finds the instance's own relationship events through the relationship concept's class thread, never by a tag's type and value.
+  - **Item 6:** a removal from a node kept beside reads only `tapestryOwnSections`.
+  - **Item 7:** rulebook entry 7 says add-to-concept calls the check, and entry 8 says word reaches nearly every element "through the other concepts' supersets under its own"; `node src/firmware/graph-rules.js` regenerated both elements, and ledger row `2026-11-18-rule-eight-awaits-firmware-reinstall` names rule 7's. `_memberships.js` declares each operation's own `not-installed` and `no-superset`.
+  - **Item 8:** ledger rows `2026-11-18-reads-ignore-owner-membership-claims` (follow-up 1, with the other half of the missing provenance), `2026-11-18-update-node-refuses-owner-sections-beside` (2), `2026-11-18-search-misses-owner-sections-beside` (3) and `2026-11-18-unlink-set-skips-last-concept-guard` (5).
+- **The suites,** each alone on this Mac with every service endpoint dead; none failed:
+  - add-to-concept 44 passed, remove-from-concept 35, memberships-shared 22, memberships-agent-through-cli 1;
+  - graph-rules-builder 26; graph-rule-firmware 13, 4 skipped (live); firmware-element-sync 21;
+  - every neighbour run before, with the same counts as before.
+- **The scoped gate:** record `20261118T045139Z-91032-59b1`, PASS, 1,133 passed, 0 failed, 10 skipped, over the same 8 suites, on `b06f8aa3+dirty`, with `node_modules` linked for the run and the link removed after.
+- **harness-lint:** clean.
+- **The live re-check,** on a fresh scratch stack from `scripts/scratch-stack.sh`, booted from `agent-memory-tapestry:latest` with this branch's `src/` and the branch's firmware installed after a restart, as before. Its script and every call are in `tmp/live-check-22/` (`recheck.js`, `report-recheck.json`). It was removed afterwards, after checking it mounted this worktree's `src/`; the `tapestry` container was never touched.
+  - **The first run** failed three checks on the script's own mistake: it added Fetch and Mark to live dog with no fields, and graph create-concept's schema requires a description, so both were refused `invalid-fields`, rightly (`report-recheck-run1.json`). With a description given, the second run passed all 9.
+  - **Item 1:** Fetch, in live beagle, went into live walkers through live dog (a set live pet shares), joining live pet with no live pet section (`fits: false`). add-to-concept to live pet with fields then answered `added`, its entry one `section-added` and no `membership-added`. The links into Fetch were the same before and after, and live pet's schema then fit. The same call again was `already-element`.
+  - **Item 2:** Mark, in live dog, put in live walkers: its `wordTypes` gained live pet's key, recorded as `field-changed`, with no live pet section.
+  - **Item 6:** a peer's lettered node whose json tag doesn't parse, made with Cypher in live beagle and live pet with the owner's section beside, was taken out of live pet: `removed`, `kept: beside`, the property gone, its tags as they were, still in live beagle.
+  - **Item 4:** today's `POST /api/normalize/add-to-set` put Paired in live lap pets and signed the assistant's relationship event naming the pair, not yet wired into the relationship concept. A firmware reinstall wired it from its `z` tag. Paired then taken out of live lap pets: `letters` named the event.
 
 ## Linked artifacts
 

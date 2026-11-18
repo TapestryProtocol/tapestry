@@ -2,7 +2,7 @@
 /**
  * graph remove-from-concept — take a node out of a concept, or out of one of its sets: the owner's claim, never the
  * node's last concept (catalog §2, Nodes; story graph-operations-first-slice #22, AC5–AC8 and AC9; ADR
- * graph-operations-first-slice/0022 Decisions 1–6, 10–15 and 17, and Amendment 1).
+ * graph-operations-first-slice/0022 Decisions 1–6, 10–15 and 17, and Amendments 1 and 2).
  *
  * A write through the write path (src/operations/write.js). Its guard is the rule node-has-a-concept (design D9), which
  * runs before apply, and again after apply's delete, for another write that took the node's other concept away meanwhile
@@ -79,7 +79,7 @@ module.exports = {
       },
     },
   },
-  refusals: [X.NOT_INSTALLED, M.UNKNOWN_NODE, M.TAG_NODE, M.MADE_ELSEWHERE_REMOVE, F.UNKNOWN_CONCEPT, X.RESERVED_KEY, X.NO_SUPERSET, X.NOT_A_SET, X.NOT_IN_CLASS_THREAD, M.UNREADABLE_JSON, M.FIRMWARE_MEMBERSHIP, M.AUTHOR_CLAIM, M.OTHER_CONCEPT],
+  refusals: [M.NOT_INSTALLED_REMOVE, M.UNKNOWN_NODE, M.TAG_NODE, M.MADE_ELSEWHERE_REMOVE, F.UNKNOWN_CONCEPT, X.RESERVED_KEY, M.NO_SUPERSET_REMOVE, X.NOT_A_SET, X.NOT_IN_CLASS_THREAD, M.UNREADABLE_JSON, M.FIRMWARE_MEMBERSHIP, M.AUTHOR_CLAIM, M.OTHER_CONCEPT],
   guards: [{ rule: RULE, items: (inputs) => [{ node: inputs.node, concept: inputs.concept, set: inputs.set }] }],
   repeatKey: ['node', 'concept', 'set'],
 
@@ -90,7 +90,7 @@ module.exports = {
     const set = typeof inputs.set === 'string' ? inputs.set : null;
 
     // 1. What needs no graph (Decision 2).
-    if (!K.assistant()) throw refusal(X.NOT_INSTALLED.code, M.say.notInstalled());
+    if (!K.assistant()) throw refusal(M.NOT_INSTALLED_REMOVE.code, M.say.notInstalled());
 
     // 2. The locks (Decision 4): the node, then the concept's header. Two calls on one node go one at a time; the guard
     // ran before them, so the re-check below judges the node again once the links are gone.
@@ -134,8 +134,9 @@ module.exports = {
       throw refusal(M.OTHER_CONCEPT.code, M.say.otherConcept(facts, concept, other, start), { input: 'concept' });
     }
 
-    // 7. The node's JSON (Decision 5).
-    const json = await M.jsonOf(read, facts, kept);
+    // 7. The node's JSON (Decision 5). For a node kept beside, only tapestryOwnSections: the removal writes nothing else,
+    // so an author's letter that doesn't parse is no reason to refuse taking the owner's claim out (Amendment 2, item 6).
+    const json = await M.jsonOf(read, facts, kept, { letter: false });
 
     // 8. The writes (Decision 15). First the links, pair by pair, every copy.
     const { TERM } = S.aliases();

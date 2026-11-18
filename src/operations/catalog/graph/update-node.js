@@ -43,7 +43,7 @@ const NOT_AN_ELEMENT = Object.freeze({ code: 'not-an-element', status: 409, when
 const NOT_ITS_CONCEPT = Object.freeze({ code: 'not-its-concept', status: 409, when: "A concept the node isn't an element of; the refusal lists the concepts it is an element of" });
 const CONCEPT_NEEDED = Object.freeze({ code: 'concept-needed', status: 409, when: 'fields or description with no concept, for a node of more than one concept: which section they go in is never guessed; the refusal lists each concept and its key' });
 const UNREADABLE_JSON = Object.freeze({ code: 'unreadable-json', status: 409, when: "A node whose JSON can't be read: no json tag, json tags that differ, JSON that doesn't parse, an LMDB entry that is missing, or JSON that isn't an object; nothing could be checked" });
-const NO_SECTION = Object.freeze({ code: 'no-section', status: 409, when: "A concept whose section the node's JSON doesn't have: update-node changes a section the node has, and graph add-to-concept (A10.22) gives a node another concept's section" });
+const NO_SECTION = Object.freeze({ code: 'no-section', status: 409, when: "A concept whose section the node's JSON doesn't have: update-node changes a section the node has, and graph add-to-concept (A10.22) gives a node a section it lacks, for a concept it is already in as well as one it joins" });
 const NAME_IN_USE = Object.freeze({ code: 'name-in-use', status: 409, when: "A new name that another of the instance's own elements, its assistant's or its owner's, has in one of the node's concepts, without regard to case, or whose address that element sits at: the element create-element would answer for the name; the refusal names it" });
 
 /** U1: the node and every tag it has, each with its tapestryKey (Decision 7). */
@@ -218,7 +218,7 @@ module.exports = {
     // The section is the JSON's own key, never an inherited one, such as a concept keyed __proto__ (review round 1,
     // finding 1). The refusal names the input the call gave (finding 3).
     if (sectionChange && !(own(oldJson, targetKey) && isObject(oldJson[targetKey]))) {
-      throw refusal(NO_SECTION.code, `${labelOf(facts)}'s JSON has no ${targetKey} section, the section of ${conceptOf(byKey.get(target))}. update-node changes a section the node already has; graph add-to-concept gives a node another concept's section. Nothing changed.`, { input: typeof inputs.concept === 'string' ? 'concept' : inputs.fields !== undefined ? 'fields' : 'description' });
+      throw refusal(NO_SECTION.code, `${labelOf(facts)}'s JSON has no ${targetKey} section, the section of ${conceptOf(byKey.get(target))}. update-node changes a section the node already has; graph add-to-concept gives a node a section it lacks, for a concept it is already in as well as one it joins. Nothing changed.`, { input: typeof inputs.concept === 'string' ? 'concept' : inputs.fields !== undefined ? 'fields' : 'description' });
     }
 
     // 8. The new JSON (Decisions 8 and 9): the rename first, then the fields merged into the target section.
