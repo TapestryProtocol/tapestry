@@ -1,6 +1,6 @@
 # Story 23: `graph move-element` — move an element from one set of a concept to another, in one step
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Feature
 **Loom:** A10.23 — https://loom.brainstorm.world/t/A10.23
@@ -114,4 +114,4 @@ Judgment calls made in Implementation (2026-11-18), each too small for an ADR am
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0023-move-element.md](../../decisions/graph-operations-first-slice/0023-move-element.md)
 - Test plan: [23-move-element.test-plan.md](./23-move-element.test-plan.md)
-- Review: *(Review)*
+- Review: [reviews/graph-operations-first-slice/23-move-element.md](../../reviews/graph-operations-first-slice/23-move-element.md)
