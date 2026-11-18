@@ -135,7 +135,7 @@ const CONCEPT_KEYS = Object.freeze({
 });
 const LETTERS = Object.freeze({
   type: 'array',
-  description: "The instance's own letters that still state a removed membership: the node's own letter, for one of the instance's own nodes that has one, and a relationship event of the instance's own that names a removed pair, as today's add-to-set signs one. export nostr (A10.34) is what sends letters that match",
+  description: "The instance's own letters that still state a removed membership: the node's own letter, for one of the instance's own nodes that has one, and each relationship event of the instance's own that names a removed pair, found among the relationship concept's elements, through its class thread. One signed since the last firmware reinstall, as one today's add-to-set has just signed, can be missing until a reinstall wires it into that concept. export nostr (A10.34) is what sends letters that match",
   items: {
     type: 'object',
     required: ['address', 'says'],

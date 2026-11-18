@@ -150,6 +150,11 @@ For Architecture, not this gate:
 - **The catalog's add-to-concept row says when `already-element` is answered,** and that a missing section is given: Decision 16 keeps the row to what is built, and Amendment 2 doesn't name it.
 - **`not-installed`'s and `no-superset`'s messages are worded per operation too,** as their new declarations are.
 
+**Review round 2's** (ADR Amendment 3):
+- **add-to-concept's description also says when rule 4 runs:** whenever the call changes the node's JSON, a section or `wordTypes`, as for a new member, and that a call writing only a set's link and its tags reports the concept's verdict. Amendment 3 asks only for item 5's words there, but item 1 changes what the description's repeat paragraph said.
+- **A refusal for a member's `wordTypes` carries the rule's own message,** as a new member's does ("`dog.breed` is required"). The review's suggested way on, adding the node to golden retriever first, isn't in the message: Amendment 3 doesn't ask for it.
+- **No live re-check this round.** Item 1 changes only the condition on which add-to-concept calls `Sch.checkElements`. The check itself, the concept's schema read through the transaction and judged by ajv in the process, is the code the fake graph runs too, so no Neo4j behaviour changed.
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-18, on `85326415` with the implementation uncommitted, since committed as `841b7549`)
@@ -196,7 +201,7 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - **L9:** the relay held 478 events before the membership calls and 478 after. The change entries went from 7 to 43.
 - **L10:** with the branch's firmware installed, `graph-rule-firmware.test.js`'s live part passed GL1–GL3: an item per rule, eight, `node-has-a-concept` among them.
 
-### Review round 1's fixes (2026-11-18, uncommitted on `b06f8aa3`)
+### Review round 1's fixes (2026-11-18, on `b06f8aa3` with the fixes uncommitted, since committed as `f7a72259`)
 
 The review passed with eight non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 2 says what each fix is; the Tester's tests for them are in `b06f8aa3`.
 - **What changed.**
@@ -219,6 +224,22 @@ The review passed with eight non-blocking findings, and the owner chose to fix t
   - **Item 2:** Mark, in live dog, put in live walkers: its `wordTypes` gained live pet's key, recorded as `field-changed`, with no live pet section.
   - **Item 6:** a peer's lettered node whose json tag doesn't parse, made with Cypher in live beagle and live pet with the owner's section beside, was taken out of live pet: `removed`, `kept: beside`, the property gone, its tags as they were, still in live beagle.
   - **Item 4:** today's `POST /api/normalize/add-to-set` put Paired in live lap pets and signed the assistant's relationship event naming the pair, not yet wired into the relationship concept. A firmware reinstall wired it from its `z` tag. Paired then taken out of live lap pets: `letters` named the event.
+
+### Review round 2's fixes (2026-11-18, uncommitted on `fc4cf1b1`)
+
+Review round 2 asked for changes: one blocking finding (R2-1) and five non-blocking. ADR Amendment 3 says what each fix is. The merge with staging (R2-6) and the story's AC2 and AC4 note (R2-2) were done before this round's code; the Tester's tests are in `fc4cf1b1`.
+- **What changed.**
+  - **R2-1:** add-to-concept runs rule 4 whenever the call changes the JSON it keeps (`jsonChanged || ownChanged`), not only when it writes a section. So a member whose `wordTypes` a set would change is refused as a new member is, and a call that writes only a set's link and its tags reports. The description says so.
+  - **R2-3:** `M.LETTERS`' description and remove-from-concept's description say `letters` finds the instance's own relationship events through the relationship concept, and that one signed since the last firmware reinstall can be missing until a reinstall wires it.
+  - **R2-5:** add-to-concept's description says `graph update-node` changes the fields `differs` names for one of the instance's own nodes, and that for a node kept beside another author's letter, which update-node refuses, a removal and then an add with the fields change them.
+- **The suites,** each alone on this Mac with every service endpoint dead; none failed:
+  - add-to-concept 49 passed (AT54–AT58 among them), remove-from-concept 36, memberships-shared 23, memberships-agent-through-cli 1;
+  - graph-rules-builder 26; graph-rule-firmware 13, 4 skipped (live); firmware-element-sync 21; `node src/firmware/graph-rules.js --check`: the 8 items are current;
+  - A10.18's suites, which the merge brought: add-property 15, remove-property 8, set-schema 10, update-property 11, properties-agent-through-cli 1;
+  - every neighbour run before, with the same counts as before.
+- **The scoped gate:** record `20261118T054955Z-30922-7f5b`, PASS, 1,185 passed, 0 failed, 10 skipped, over the same 8 suites, on `fc4cf1b1+dirty`, with `node_modules` linked for the run and the link removed after. Operations' 1,024 include A10.18's suites, which the merge brought.
+- **harness-lint:** clean.
+- **No live re-check** (Deviations, round 2).
 
 ## Linked artifacts
 
