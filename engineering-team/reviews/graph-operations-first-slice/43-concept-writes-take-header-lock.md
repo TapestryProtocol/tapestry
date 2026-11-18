@@ -227,3 +227,69 @@ None.
 ## Verdict
 
 **PASS**
+
+## Round 2 — 2026-11-18 (HEAD `f1a69c1d`)
+
+**Diff:** `git diff c05511f1 f1a69c1d`: one commit, `f1a69c1d`, 8 files, +43 −12, for round 1's five non-blocking findings. Records and comments only. Outside comments, the one changed line in `src/` or `test/` is HL0's title string. The added lines hold no control, format or combining characters.
+**Gate:** I didn't run one. The coordinator's scoped gate ran on `f1a69c1d` with a clean tree (the record's `git.dirty` is false). `npm run -s gate:status -- --label a10-18-a-story-43-fixes` reads:
+`20261118T073056Z-47097-3e48 [a10-18-a-story-43-fixes] started 2026-11-18T07:30:56.492Z on f1a69c1d — PASS, exit 0, 1024 passed, 0 failed, 6 skipped, 5/5 suites` (record `tmp/gate-runs/20261118T073056Z-47097-3e48.json`)
+Per suite, the counts are round 1's: operations 923/0/4, external-cli 53/0/0, openapi-coverage 13/0/0, admin-action-sweep 9/0/0, schema-save-finds-the-right-header 26/0/2.
+**harness-lint:** `clean (0 violations)` at `f1a69c1d`, and with this section added.
+
+### Round 1's findings, as fixed
+
+| # | The fix | How I checked it | Verdict |
+|---|---|---|---|
+| 1 | The ledger row's Done line, per race (`ledger/2026-11-17-concept-writes-skip-header-lock.md:7-12`) | Re-counted from `report-before.json` and `report-after.json`: five races of ten runs each. **Before:** 33 of 50 went wrong. L1 9 and L1b 10 lost the property write's change; L2 5 and L2b 3 had both writes land; L3 6 kept a stale copy. **After:** none went wrong. Both writes were kept in every L1, L1b and L3 run, and in every L2 and L2b run exactly one landed and the other was refused. | holds |
+| 2 | §4 for `concept-slug-unique` (`0018:532`); update-concept.js's list (`:12-15`); ADR 0016's pointer (`0016:111`) | §4 is that rule's entry (`docs/GRAPH_RULES.md:86`). The list names every write that locks a concept's header (round 1's Q2 table; create-set and unlink-set lock a superset or a set). The pointer paraphrases Amendment 4, item 1, and names it. | holds |
+| 3 | Amendment 4, item 5 names D15's signed routes and the `word` and `graphContext` headers (`0018:533-535`) | Each route read against its code, and the scratch stack read again | partly: new non-blocking 1 |
+| 4 | `failures.meanwhile` meets the copies statement alone. Fixed in the fake's header (`graphFake.js:102-111`), its inline comment (`:676`), HL0's title and the suite's header, the test plan (`:32`, `:89`), and Amendment 4, item 4 (`0018:525`) | The narrowing is right everywhere. The Verification note quotes HL0's old title as it was, and the test plan's "some of them" is right. But the examples of what Neo4j would make wait include a relationship's CREATE, which a probe shows doesn't wait at the statement. | partly: new non-blocking 2 |
+| 5 | The new row `ledger/2026-11-18-rulebook-entry-3-omits-second-run.md` | It has L15's shape, and `docs` is a Type OPEN.md:26 lists. Its quote of entry 4 is verbatim (`docs/GRAPH_RULES.md:95`). GB9 runs `--check` and wants exit 0 (`test/graph-rules-builder.test.js:263-269`). The element path it names exists, and that element's `enforcedBy` is entry 3's text verbatim. | holds |
+
+### Findings (round 2)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **`0018-property-operations.md:534-535`: two of the new sentences claim more than was checked.** Both come from my round-1 finding 3, whose wording I had verified for save-schema alone.
+   - **"save-schema refuses a concept with no letter, so they reach lettered concepts only" (`:534`) is false for two of the five routes.**
+     - set-json-tag finds any node with tags by its uuid (`src/api/normalize/index.js:4799`), then signs, publishes and imports a new event for it (`:4827-4829`).
+     - create-property, given `parentUuid`, finds any parent node (`:3481-3490`) and signs a property under it (`:3542-3546`).
+     - A node with no event has no `NostrEvent` label but does have tags (`_eventless.js:9-10`), so those two routes reach the concepts graph create-concept makes.
+     - The other three don't. save-schema refuses such a concept (`:1997-1999`). generate-property-tree (`:3661`), create-property given `concept` (`:3494`) and generate-json-schema (`src/api/property/index.js:20`) match only a `NostrEvent` header.
+     - **Asked**, for example: "… save-schema, generate-property-tree, generate-json-schema and create-property given a concept find only a lettered concept; set-json-tag finds any node with tags by its uuid, and create-property any parent node, so those two reach a concept graph create-concept made too." The bullet's opening, "a lettered concept's schema node and tree", then drops "lettered".
+   - **"So item 3 holds for every concept a mark can reach today" (`:535`) rests on one fresh scratch stack.**
+     - There the rule refuses every field of `word` with `no-property-node`.
+     - There is no concept keyed `graphContext` there either: firmware has none, and none of the stack's 259 headers has "context" in its name or address. I read both again this round.
+     - Round 1 said "there"; "today" reaches instances nobody read.
+     - **Asked**, for example: "So on a fresh install item 3 holds for every concept a mark can reach: no field of `word` can be marked there, and firmware has no concept keyed `graphContext`. An instance whose `word` fields have property nodes, or that holds a concept keyed `graphContext`, isn't covered."
+2. **`0018-property-operations.md:525` and `test/helpers/graphFake.js:105-107` say Neo4j would make "a relationship's MERGE or CREATE at it" wait. A CREATE's statement doesn't wait; its commit does.**
+   - My round-1 finding 4 asserted this from Neo4j's documentation without observing it.
+   - **The probe:** on the scratch stack, one transaction held a write lock on a live-check concept's header (13 relationships) for 1.5 s, while a second ran each statement below at that header. Every transaction was rolled back except one: the CREATE's, which committed a probe relationship that was then deleted. Nothing was left behind.
+
+   | The second transaction's statement | Its statement returned | Its commit returned |
+   |---|---|---|
+   | C1's shape, `SET … REMOVE …` | 1,531 ms: waited | (rolled back) |
+   | `DETACH DELETE` | 1,533 ms: waited | (rolled back) |
+   | a relationship's `MERGE` | 1,552 ms: waited | (rolled back) |
+   | a relationship's `CREATE` | 26 ms (81 ms in a first probe): didn't wait | 1,511 ms: waited |
+   | control: `SET` on another node | 23 ms | (rolled back) |
+
+   - **What it means:** a write whose first write to the header is a relationship's CREATE runs on unblocked and waits only to commit. It never goes "on over what the other write committed", which is what the fake models. MERGE, C1's shape and DETACH DELETE do wait at the statement, as the text says.
+   - **Asked:** in both places, drop CREATE from the list, or say it waits only at commit. For example: "(C1's SET and REMOVE, a relationship's MERGE at it, a DETACH DELETE of it; a relationship's CREATE at it waits only at commit)".
+
+#### Harness friction (round 2)
+
+None new. Both findings are the case the Reviewer role's rule 10 names: a reviewer's own wording, adopted as written, then checked as a fresh claim.
+
+### On PASS (round 2, same commit)
+
+- [x] The story's Status is already Done, from round 1's commit `c05511f1`; nothing to flip.
+- [x] Completion detection performed again. The result goes in the chat.
+
+### Verdict (round 2)
+
+**PASS**
