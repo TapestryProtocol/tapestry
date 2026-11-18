@@ -14,15 +14,19 @@
  *
  *   U1..U3  the state filter (ui/src/utils/conceptStateFilter.js), loaded by dynamic import: a row with no event isn't
  *           undispositioned, it is not yet shared, and every other row is judged as before. Stack-free.
- *   S1..S6  the page, the tile and the guard's record, read from source: which headers each query's label expression
- *           admits, the row's event fact, Save & next, the Disposition cell, and the kept-list's reasons. Stack-free.
- *   L1..L4  the page's own query and the tile's own query, read from source and run on a scratch stack's Neo4j beside a
- *           concept graph create-concept made there. They run only against a scratch container
- *           (TAPESTRY_CONTAINER=tapestry-scratch…, test/helpers/scratchLoopback.js) and SKIP otherwise, so they never
- *           touch the owner's own stack.
+ *   S1..S7  the page, the tile, Shared by me and the guard's record, read from source: which headers each query's label
+ *           expression admits, the row's event fact, Save & next, the Disposition cell, the kept-list's reasons, and
+ *           Shared by me's waiting count held to the list it links to. Stack-free.
+ *   L1..L5  the page's, the tile's and Shared by me's own queries, read from source and run on a scratch stack's Neo4j
+ *           beside a concept graph create-concept made there, with one element. They run only against a scratch
+ *           container (TAPESTRY_CONTAINER=tapestry-scratch…, test/helpers/scratchLoopback.js) and SKIP otherwise, so they
+ *           never touch the owner's own stack. Leave TAPESTRY_CONTAINER_PORT unset for them: it names the control panel's
+ *           port inside the container.
  *
  * EXPECTED BEFORE THE FIX: U1 and S1–S6 FAIL; U2 and U3 PASS (sentinels: behavior that must not change). On a scratch
  * stack L1, L2 and L4 FAIL, and L3 PASSES (a sentinel against a fix that matches the shared label alone).
+ * Review round 1 (blocking 1, ADR shared-concepts-seeding/0002): S7, and L5 on a scratch stack, FAIL until Shared by
+ * me's waiting count scans the headers the Not yet shared list does.
  */
 
 const fs = require('fs');
@@ -34,6 +38,8 @@ const ROOT = path.resolve(__dirname, '..');
 const FILTER_JS = path.join(ROOT, 'ui/src/utils/conceptStateFilter.js');
 const CONCEPT_LIST = path.join(ROOT, 'ui/src/pages/concepts/ConceptList.jsx');
 const DASHBOARD = path.join(ROOT, 'ui/src/pages/Dashboard.jsx');
+const SHARED_BY_ME = path.join(ROOT, 'ui/src/pages/shared-concepts/SharedByMe.jsx');
+const B_DISPOSITION_JS = path.join(ROOT, 'ui/src/utils/bDisposition.js');
 const KEPT = path.join(ROOT, 'test/operations/lifecycle/nostr-event-lookups-kept.json');
 
 const tests = [];
@@ -102,6 +108,20 @@ function tileQuery() {
   return m[1];
 }
 
+/** Shared by me's waiting-count population, as the page runs it: SharedByMe.jsx's `const POPULATION_QUERY = `…``. */
+function populationQuery() {
+  const m = read(SHARED_BY_ME).match(/const POPULATION_QUERY = `([\s\S]*?)`;/);
+  assert(m, `${rel(SHARED_BY_ME)} no longer holds its waiting count's population as const POPULATION_QUERY = \`…\`; point this suite at where it went.`);
+  assert(!m[1].includes('${'), `Shared by me's POPULATION_QUERY must stay a plain template: this suite runs it as written.`);
+  return m[1];
+}
+
+/** The WHERE right after the first top-level MATCH of `cypher`, its white space folded. */
+function whereOf(cypher) {
+  const m = cypher.match(/(?<!OPTIONAL\s+)\bMATCH\s*\([^)]*\)\s*(WHERE[^\n]*)/);
+  return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+}
+
 /** The text of the block that starts at `start` and ends before `end`, in `src`. */
 function block(src, start, end, where) {
   const a = src.indexOf(start);
@@ -121,6 +141,15 @@ async function filter() {
   assert(!_filter.__error, `${rel(FILTER_JS)} must load under plain node: ${_filter.__error && String(_filter.__error.message).split('\n')[0]}`);
   assert(typeof _filter.matchesState === 'function', `${rel(FILTER_JS)} exports matchesState(row, state, ctx).`);
   return _filter;
+}
+let _bDisposition;
+async function bDisposition() {
+  if (_bDisposition === undefined) {
+    try { _bDisposition = await import(pathToFileURL(B_DISPOSITION_JS).href); } catch (err) { _bDisposition = { __error: err }; }
+  }
+  assert(!_bDisposition.__error, `${rel(B_DISPOSITION_JS)} must load under plain node: ${_bDisposition.__error && String(_bDisposition.__error.message).split('\n')[0]}`);
+  assert(typeof _bDisposition.dispositionOf === 'function', `${rel(B_DISPOSITION_JS)} exports dispositionOf(bValues, selfCoord).`);
+  return _bDisposition;
 }
 const TA = 'a7'.repeat(32);
 const OTHER = 'b8'.repeat(32);
@@ -218,6 +247,22 @@ test('S6 (records): the guard no longer keeps the Concepts page\'s scan or the D
     'a line that stays, such as the Dashboard\'s onboarding check, needs a reason that is still true.');
 });
 
+test('S7 (ADR shared-concepts-seeding/0002): Shared by me\'s waiting count scans exactly the headers the Not yet shared list it links to does', () => {
+  const page = pageQuery();
+  const pop = populationQuery();
+  const pe = labelsOf(page, 'h');
+  const qe = labelsOf(pop, 'h');
+  assert(qe !== null, `Shared by me's POPULATION_QUERY has no top-level MATCH (h…): ${short(pop.trim(), 200)}`);
+  const differ = Object.entries(HEADERS).filter(([, labels]) => admits(pe, labels) !== admits(qe, labels));
+  assert(differ.length === 0,
+    `Shared by me's waiting count scans MATCH (h${qe}), and the list it links to, the Concepts page's Not yet shared (mine), scans MATCH (h${pe}). ` +
+    `They disagree on ${differ.map(([what]) => what).join('; ')}. ADR shared-concepts-seeding/0002: "a number advertising a list must not be able to disagree with it", ` +
+    'so the two must be one function over the same headers.');
+  const pw = whereOf(page);
+  const qw = whereOf(pop);
+  assert(pw && qw && pw === qw, `the two scans must filter their headers alike: the list has ${show(pw)}, the count ${show(qw)}.`);
+});
+
 // ── L: the two queries on a real graph (a scratch stack only) ────────────────────────────────────────────────────
 
 let _refusal;
@@ -231,8 +276,12 @@ const conceptHeaderUuid = () => `39998:${ta()}:concept-header`;
 const count = (rows) => Number(rows && rows[0] && rows[0].cnt);
 
 const LANTERN = 'eventless lantern';
+const WICK = 'lantern wick';
 let _lantern;
-/** A concept graph create-concept made on the scratch stack, with no event: { uuid, key }. Made once per run. */
+/**
+ * A concept graph create-concept made on the scratch stack, with no event, and one element graph create-element made
+ * in it: { uuid, key }. Made once per run; a repeat answers already-exists.
+ */
 function lantern() {
   if (_lantern) return _lantern;
   const r = S.http('POST', '/api/tapestry/graph/create-concept', { name: LANTERN, description: 'A concept made on a scratch stack, with no event (story 44).' });
@@ -240,6 +289,10 @@ function lantern() {
     `graph create-concept on the scratch stack answered HTTP ${r.status}: ${short(r.json || r.text)}`);
   const rows = S.cypher('MATCH (h:ConceptHeader {name: $name}) RETURN h.uuid AS uuid, h.tapestryKey AS key, h:NostrEvent AS withEvent', { name: LANTERN });
   assert(rows.length === 1 && rows[0].withEvent === false, `the scratch graph should hold one header named ${LANTERN}, with no event: ${short(rows)}`);
+  // The concept's default schema requires a description.
+  const e = S.http('POST', '/api/tapestry/graph/create-element', { concept: rows[0].key, name: WICK, fields: { description: 'An element made with no event (story 44).' } });
+  assert(e.status === 200 && e.json && e.json.success === true,
+    `graph create-element in ${LANTERN} on the scratch stack answered HTTP ${e.status}: ${short(e.json || e.text)}`);
   _lantern = rows[0];
   return _lantern;
 }
@@ -255,6 +308,10 @@ test('L1 (AC1): on a scratch stack, the page\'s own query lists a concept graph 
   for (const k of ['hasConceptHeader', 'supersetCount', 'schemaCount', 'ppCount', 'propsSetCount', 'coreGraphCount', 'conceptGraphCount', 'propTreeGraphCount']) {
     assert(Number(mine[k]) === 1, `its row's ${k} should be 1, as for any concept with its eight core nodes: ${short(mine)}`);
   }
+  // AC1's counts: the one element graph create-element made (an event-less ListItem), and at least its superset.
+  assert(Number(mine.elementCount) === 1, `its row's elementCount should be 1, for ${WICK}, the element made in it with no event: ${short(mine)}`);
+  assert(Number(mine.setCount) >= 1, `its row's setCount, which counts the superset, should be at least 1: ${short(mine)}`);
+  assert(Number.isInteger(Number(mine.propertyCount)), `its row should carry a property count: ${short(mine)}`);
   const header = rows.find((r) => r.uuid === conceptHeaderUuid());
   assert(header && header.hasEvent === true, `the firmware's concept-header concept, from an event, should be listed with hasEvent true: ${short(header)}`);
 });
@@ -303,6 +360,24 @@ test('L4 (AC1, AC4): on a scratch stack, the page lists exactly every header it 
     `the page should list the ${withEvent.size} headers from an event and the ${without.size} with none. Missing ${missing.length}: ${short(missing)}; not headers ${extra.length}: ${short(extra)}.`);
   const wrong = rows.filter((r) => r.hasEvent !== withEvent.has(r.uuid));
   assert(wrong.length === 0, `hasEvent should be true exactly for the headers from an event; it is wrong on ${wrong.length}: ${short(wrong.map((r) => [r.uuid, r.hasEvent]))}`);
+});
+
+test('L5 (ADR shared-concepts-seeding/0002, AC3): on a scratch stack, Shared by me\'s waiting count equals the Not yet shared list it links to, the concept with no event in both', async () => {
+  const why = scratchRefusal(); if (why) return skip(why);
+  const made = lantern();
+  const { matchesState, summarizeNotYetShared } = await filter();
+  const { dispositionOf } = await bDisposition();
+  // Nothing declared, and the relay answering: the question both pages ask, with no call leaving the machine.
+  const c = { taPubkey: ta(), publishedByCoord: new Map(), relayOk: true };
+  const withDisp = (rows) => rows.map((r) => ({ ...r, _disp: dispositionOf(r.bValues, r.uuid) }));
+  const list = withDisp(S.cypher(pageQuery())).filter((r) => matchesState(r, 'not-yet-shared', c));
+  assert(list.some((r) => r.uuid === made.uuid), `control: the Not yet shared list should hold ${made.uuid}, the concept with no event (AC3).`);
+  const population = withDisp(S.cypher(populationQuery()));
+  assert(population.some((r) => r.uuid === made.uuid),
+    `Shared by me's population, run on the scratch graph, holds ${population.length} headers and not ${made.uuid}, the concept with no event the list holds.`);
+  const waiting = summarizeNotYetShared(population, c);
+  assert(waiting.kind === 'waiting' && waiting.count === list.length,
+    `Shared by me would say ${show(waiting)}, and the list it links to holds ${list.length} (ADR shared-concepts-seeding/0002: the two must agree).`);
 });
 
 // ── Run ──────────────────────────────────────────────────────────────────────────────────────────────────────────

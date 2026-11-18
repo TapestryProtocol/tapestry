@@ -15,7 +15,7 @@ Every test is in `test/concepts-list-shows-concepts-with-no-event.test.js`, regi
 | Criterion | Test | Level |
 |---|---|---|
 | AC1 | S1: the page's header scan admits a header with no event, and every header it admitted before | source |
-| AC1 | L1: the page's own query lists a concept `graph create-concept` made, with `hasEvent` false, beside the firmware's concepts | live, scratch only |
+| AC1 | L1: the page's own query lists a concept `graph create-concept` made, with `hasEvent` false, beside the firmware's concepts. Since round 2 the concept has one element, and L1 checks its element and set counts too | live, scratch only |
 | AC1, AC4 | L4: the page lists exactly every header it listed before plus every header with no event, and `hasEvent` says which | live, scratch only |
 | AC2 | S3: the tile's count admits a concept with no event, and every concept it counted before | source |
 | AC2 | L2: the tile's own query counts the concept with no event | live, scratch only |
@@ -27,6 +27,8 @@ Every test is in `test/concepts-list-shows-concepts-with-no-event.test.js`, regi
 | AC4 | U3: every other row is judged as before | unit, sentinel |
 | AC4 | L3: a header from an event without the shared label keeps its row and its count | live, sentinel |
 | AC4 | S6: the guard's kept-list no longer excuses this story's two lines with "a header is always an event" | source |
+| ADR shared-concepts-seeding/0002 | S7 (round 2): Shared by me's waiting count scans exactly the headers the Not yet shared list it links to does | source |
+| ADR shared-concepts-seeding/0002, AC3 | L5 (round 2): Shared by me's waiting count equals the Not yet shared list, the concept with no event in both | live, scratch only |
 | AC4 | The neighbouring suites stay green: `not-yet-shared-filter`, `list-headers-disposition-column`, and `tapestry-key-paths` (G11 and G18) | regression |
 
 A sentinel passes before the fix and must still pass after it.
@@ -40,7 +42,7 @@ A sentinel passes before the fix and must still pass after it.
     - `:NostrEvent` alone fails, since it skips a header with no event;
     - `:TapestryNode` alone fails too, since it skips a header from an event where `tapestry-keys` hasn't run.
   - S4 and S5 are token checks at the page, the layer the defect lives in (OPEN.md row 169). They're the weakest tests here, and V1 backs them.
-- **L, scratch only.** These run the page's own Cypher and the tile's own Cypher, read from source, on a real Neo4j. The live suite reaches the scratch stack through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. So the L tests never touch the owner's stack, and they skip in CI, which has no stack.
+- **L, scratch only.** These run the page's own Cypher and the tile's own Cypher, read from source, on a real Neo4j. Since round 2, L5 runs Shared by me's own population query too. Leave `TAPESTRY_CONTAINER_PORT` unset for them: the helper reads it as the control panel's port inside the container, so a dead value there turns every L test into a skip (ledger row `2026-11-18-container-port-skips-scratch-checks`). The live suite reaches the scratch stack through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. So the L tests never touch the owner's stack, and they skip in CI, which has no stack.
   - L1, L2 and L4 make "eventless lantern" with `graph create-concept` over loopback. A local caller passes the operations' gate.
   - L3 takes the shared label off the concept-header header, as on an instance that hasn't run `tapestry-keys`, and puts it back afterwards.
 - **No browser test.** This checkout has no `ui/node_modules`, and CI runs no Playwright. V1 checks the rendered row.
@@ -72,6 +74,8 @@ Nine more lines in `test/operations/lifecycle/nostr-event-lookups-kept.json` res
 - `ui/src/pages/shared-concepts/SharedByMe.jsx`.
 
 Some are right to keep, on another ground: the signing routes must not find a concept with no event (story 16), and Shared by me lists only published concepts. Others are old tools that D15 leaves as they are. Each needs its reason restated or its line fixed. That's a ledger row, not this story; the Implementer or the Reviewer files it.
+
+*(2026-11-18, review round 1, blocking 1: Shared by me's line isn't a list of published concepts. That list comes from `/api/shared-by-me`. The line is the population of Shared by me's waiting count, which ADR shared-concepts-seeding/0002 holds to this page's Not yet shared list. Round 2 widens it to this page's scan, on David's choice, so eight lines are left, and the ledger row lists eight.)*
 
 ## Test infrastructure
 
@@ -143,6 +147,20 @@ The neighbouring suites are green before the fix, with every endpoint dead:
 - `not-yet-shared-filter`: 15 passed, 0 failed, 2 skipped;
 - `list-headers-disposition-column`: 12 passed, 0 failed;
 - `tapestry-key-paths`: 20 passed, 0 failed, G11 and G18 among them.
+
+### Round 2: review round 1's cases
+
+Written before round 2's fix, and confirmed failing on 2026-11-18 on top of `4a92ecae`. On a scratch stack:
+
+```
+  FAIL  S7 (ADR shared-concepts-seeding/0002): Shared by me's waiting count scans exactly the headers the Not yet shared list it links to does
+        Shared by me's waiting count scans MATCH (h:NostrEvent), and the list it links to, the Concepts page's Not yet shared (mine), scans MATCH (h:NostrEvent|TapestryNode). They disagree on a concept header graph create-concept made, with no event. …
+  FAIL  L5 (ADR shared-concepts-seeding/0002, AC3): on a scratch stack, Shared by me's waiting count equals the Not yet shared list it links to, the concept with no event in both
+        Shared by me's population, run on the scratch graph, holds 45 headers and not 39998:b64e8dd2…:eventless-lantern, the concept with no event the list holds.
+concepts-list-shows-concepts-with-no-event: 13 passed, 2 failed, 0 skipped
+```
+
+Stack-free, the suite gives 9 passed, 1 failed (S7) and 5 skipped. L1's new element and set counts pass, since the page already counted the element.
 
 ## Deviation
 
