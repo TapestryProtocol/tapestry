@@ -437,3 +437,79 @@ firmware-element-sync: 21 passed, 0 failed, 0 skipped
 ```
 
 Every earlier round's test passes on this code, AT54 among them with the retry added to its run.
+
+## Added at review round 4 (2026-11-18)
+
+Review round 4 passed with three non-blocking findings (R4-1 to R4-3; ADR Amendment 5, items 1–3). The owner chose to fix them before the PR. Item 3 is a ledger edit made at the next staging merge, so it has no test here. Items 1 and 2 got their tests before any fix, all in the add suite.
+
+They first read AT59's two refusals: Mark Me put in golden retriever's superset through dog, once with no fields and once with the breed given. That left two gaps: no seeded call reached `no-schema` with no section written, and AT63 couldn't tell the refused call's own set from golden retriever's superset. The owner asked for both to be closed, so the seed gained two sets, and the tests gained the cases they reach.
+
+| Item | Tests | What they pin |
+|---|---|---|
+| 1, the way on gives each concept's key (R4-1) | **AT62** | The way on's add is the sentence naming add-to-concept. It must still name golden retriever by its name and address, as round 3 built it, and now by its tapestryKey too. The review's probe 7 shows the address alone is refused as add-to-concept's `concept` (400 `invalid-input`). AT62 reads AT59's two refusals and the same call into show goldens. |
+| 2, the words' three details (R4-2) | **AT63** | The add gives the refused call's own `set`. For AT59's two refusals, that is "set" and then golden retriever's superset's key. For the call into show goldens it is show goldens' key, and that add must not give golden retriever's superset as its set. |
+| | **AT64** | The update-node sentence gives "concept" and then dog's tapestryKey, the concept named, in all three refusals. Probe 7c shows update-node with no concept is refused `concept-needed`, since by then Mark Me is in three concepts. |
+| | **AT65** | A `no-schema` refusal from a call that writes no section keeps the rule's plain message. Scrolled, already in scroll with its section, is put in the scroll shelf through scroll. The call writes no section but adds beagle to its `wordTypes`, so rule 4 judges scroll, which has no schema node: 409 `no-schema`. Its message is word for word the one Command Beagle, a new member of scroll, gets, with none of the way-on words. Nothing changes. |
+| | **AT66** | The other side: a concept with no schema that a membership joins is reported, never refused for (Amendment 3, item 1). Rover, already in beagle, is put in the scroll shelf through beagle. Beagle judges its JSON, now with scroll in `wordTypes`, and it fits. So the call is `added`, with scroll reported `fits: null`, saying it has no schema. |
+
+**The seed's two new sets** (`test/helpers/membershipGraph.js`) are eventless sets, as add-subset makes them. Each holds nothing, and both are added last, so no other node's place in the seed moves.
+- **scrollShelf**, "scroll shelf", is under scroll's superset and beagle's.
+- **showGoldens**, "show goldens", is below golden retriever's superset.
+
+ROUND2 gains four calls:
+- SETUP gains Rover into the shelf through beagle (AT66).
+- GR gains Mark Me into show goldens through dog, refused (AT62–AT64).
+- A fourth run, SCROLL, holds Scrolled into the shelf through scroll and Command Beagle given to scroll (AT65). Both are refused, so it must leave the graph as BAD left it.
+
+**Which call reaches `no-schema`.** Rule 4 judges only the concept a call names (Amendment 3, item 1). So the call must name scroll: a node already in scroll, put through scroll into a set that another concept also reaches, so that its `wordTypes` gains that concept's key. The reverse, a node already in beagle put through beagle into the shelf, gains scroll in its `wordTypes`. Beagle judges that call, and scroll is only reported, so it is `added`: that is AT66.
+
+**No other test's outcome changed.** Each of the seven suites ran alone before the new sets and after them. The only changes are the two new tests, AT65 and AT66. AT63 was widened in the same change. So the add suite as it stood before the change was also run over the new seed, and each of its 55 tests answered as it had before.
+
+**How AT63 and AT64 read a key.** The input's name, then the key, with up to four other characters between, such as a space or a backtick. So "set 1e71…" and "concept \`7be9…\`" both match.
+
+**Tests that pass today.** AT63, AT64, AT65 and AT66 pin what the code already does.
+
+**The scratch edits.** These ran as round 3's did: on a copy of HEAD (`bf5dd615`) with this round's seed and add suite laid over it, each file restored after its edit, against a baseline of the same suites on the copy.
+- **R1a** simulates item 1's fix: each concept in the way on is labelled with its tapestryKey too. AT62 passes, and no other test in the four suites that load add-to-concept answers differently.
+- **R1b** is item 1's fix in the review's own form, "with graph add-to-concept, concept <key> and set <set>". AT62 passes, and AT63 still does.
+- **G7** takes the set out of the add (the review's Q7), and AT63 fails.
+- **G7b** names dog's superset as the add's set, not the refused call's. AT63 fails.
+- **G7c** names the superset of the concept the set joins, not the refused call's set. AT63 fails, on the call into show goldens: the case golden retriever's own superset couldn't tell apart.
+- **G8** takes the concept out of update-node (the review's Q8), and AT64 fails.
+- **G8b** tells update-node golden retriever's key, not dog's. AT64 fails.
+- **Q5** gives `no-schema` the way-on words too (the review's Q5, which no test caught before the scroll shelf), and AT65 fails.
+- **U** undoes R2-1's fix, so rule 4 runs only when a section is written. AT65 fails, since the shelf call is then `added`: it reaches `no-schema` only through its change to `wordTypes`. AT54, AT59, AT63 and AT64 fail with it.
+- **J** is a wrong fix: rule 4 judges every concept a call reaches, the ones its set joins included. AT66 fails. So do AT4, AT49–AT52, AT56 and AT57, which each have a joined concept reported, not refused for.
+
+Their output, each suite's passed/failed after the edit:
+
+```
+baseline (the copy, unchanged): add-to-concept 56/1 (AT62); remove-from-concept 36/0; memberships-shared 23/0; memberships-agent-through-cli 1/0
+{"id":"R1a","what":"item 1's fix, simulated: each concept to add the node to is labelled with its tapestryKey too","changed":["AT62 FAIL -> PASS"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/0","memberships-agent-through-cli":"1/0"}}
+{"id":"R1b","what":"item 1's fix in the review's form: \"with graph add-to-concept, concept <key> and set <set>\"","changed":["AT62 FAIL -> PASS"],"suites":{"add-to-concept":"57/0"}}
+{"id":"G7","what":"item 2's set taken out: the way on's add with no set (the review's Q7)","changed":["AT63 PASS -> FAIL"],"suites":{"add-to-concept":"55/2"}}
+{"id":"G7b","what":"item 2's set wrong: the add names the named concept's superset, not the refused call's set","changed":["AT63 PASS -> FAIL"],"suites":{"add-to-concept":"55/2"}}
+{"id":"G8","what":"item 2's concept taken out: update-node with no concept (the review's Q8)","changed":["AT64 PASS -> FAIL"],"suites":{"add-to-concept":"55/2"}}
+{"id":"G8b","what":"item 2's concept wrong: update-node told the concept the set joins, not the one named","changed":["AT64 PASS -> FAIL"],"suites":{"add-to-concept":"55/2"}}
+{"id":"Q5","what":"item 2's no-schema detail taken out: no-schema gets the words too (the review's Q5)","changed":["AT65 PASS -> FAIL"],"suites":{"add-to-concept":"55/2"}}
+{"id":"G7c","what":"item 2's set wrong: the add names the superset of the concept the set joins, not the refused call's set","changed":["AT63 PASS -> FAIL"],"suites":{"add-to-concept":"55/2"}}
+{"id":"U","what":"R2-1's fix undone: rule 4 only when a section is written, so a call that writes none is never judged","changed":["AT54 PASS -> FAIL","AT59 PASS -> FAIL","AT63 PASS -> FAIL","AT64 PASS -> FAIL","AT65 PASS -> FAIL"],"suites":{"add-to-concept":"51/6"}}
+{"id":"J","what":"a wrong fix: rule 4 judges every concept the call reaches, the ones the set joins included","changed":["AT4 PASS -> FAIL","AT49 PASS -> FAIL","AT50 PASS -> FAIL","AT51 PASS -> FAIL","AT52 PASS -> FAIL","AT56 PASS -> FAIL","AT57 PASS -> FAIL","AT66 PASS -> FAIL"],"suites":{"add-to-concept":"48/9"}}
+```
+
+**Today's code** (`58c8bf58`, at `bf5dd615`), each suite alone with every endpoint dead:
+
+```
+  FAIL  AT62 [AC8, Amendment 5 item 1]: the way on gives golden retriever, the concept to add Mark Me to, by its tapestryKey, beside its name and address, since add-to-concept's concept takes a tapestryKey
+        r2-gr: and by its tapestryKey, 4a00…c520: the address, 39998:dddd…:golden-retriever, is refused as add-to-concept's concept (400 invalid-input, the review's probe 7), so an agent would need graph resolve first (Amendment 5, item 1; the review's R4-1); its add reads ["To go on, add the node to \"golden retriever\" (39998:dddd…:golden-retriever), which the set joins, with graph add-to-concept and set ea6a…d7d7: that judges its own section, and reports the verdict of \"dog\" (39998:dddd…:dog) without refusing."]
+operations: graph add-to-concept: 56 passed, 1 failed, 0 skipped
+
+operations: graph remove-from-concept: 36 passed, 0 failed, 0 skipped
+operations: what add-to-concept and remove-from-concept share: 23 passed, 0 failed, 0 skipped
+operations: an admin agent adds and removes memberships through the external CLI: 1 passed, 0 failed, 0 skipped
+graph-rules-builder: 26 passed, 0 failed, 0 skipped
+graph-rule-firmware: 13 passed, 0 failed, 4 skipped (GL1–GL4, live)
+firmware-element-sync: 21 passed, 0 failed, 0 skipped
+```
+
+Every earlier round's test passes on this code.

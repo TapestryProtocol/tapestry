@@ -445,3 +445,16 @@ Review round 3 passed with two non-blocking findings, both about words (the revi
 
    A node kept beside never reaches this refusal. Its stored JSON isn't the instance's to change, so a call that writes it no section changes nothing and is reported, not judged (the test plan's "Added at review round 3"). The refusal's words for it are therefore never shown.
 2. **The words for a node kept beside** (R3-2; Amendment 3, item 5). add-to-concept's description reads: "For a node kept beside, which `graph update-node` refuses, a removal and then an add with the fields change the owner's own section; a section the author's letter holds, for a membership their letter claims, stays theirs." This is the reviewer's wording. It covers every kind of node kept beside, not only another author's letter, and the case where the removal is refused `author-claim` or `firmware-membership`.
+
+## Amendment 5 (2026-11-18, at review round 4; the owner chose to fix review findings before the PR) — what round 4 found
+
+Review round 4 passed with three non-blocking findings (the review's Round 4). The owner chose to fix them before the pull request.
+
+1. **The way on gives each concept's key** (R4-1; Amendment 4, item 1). A member's misfit names each concept to add the node to by its name and address, and now by its tapestryKey too, since add-to-concept's `concept` takes a tapestryKey. The words already give tapestryKeys for the `set` and for update-node's concept, so an agent can follow them with no `graph resolve` first.
+2. **The words' three details get tests** (R4-2). The tests pin:
+   - the add's `set`, the refused call's own;
+   - update-node's `concept`, the named concept's tapestryKey;
+   - a `no-schema` refusal keeping the rule's plain message.
+
+   Each test fails when its detail is taken out by a scratch edit.
+3. **The rule-8 ledger row's pointer** (R4-3). Story 18's reinstall row is closed on staging: its reinstall has run on staging and production. When staging is next merged, before the pull request, the rule-8 row says that rule 8, and this story's rewording of rule 7, wait on its own reinstall alone. That is a doc-only change, made in the merge's own commit.

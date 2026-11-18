@@ -65,6 +65,16 @@
  *        and a member's given its missing section, own or beside (item 1, so a fix can't over-reach)
  *   AT61 the published description: a removal and then an add change the owner's own section of any node kept
  *        beside; a section the author's letter holds, for a membership their letter claims, stays theirs (item 2)
+ *   Review round 4 (ADR Amendment 5), over AT59's two refusals and the same call into show goldens, below golden
+ *   retriever's superset, and over the scroll shelf, a set of scroll's and beagle's (the seed's two round-4 sets):
+ *   AT62 the way on gives golden retriever, the concept to add Mark Me to, by its tapestryKey too (item 1)
+ *   AT63 its add gives the refused call's own set, show goldens included, never the joined concept's superset in its
+ *        place (item 2; a guard of what the code does)
+ *   AT64 its update-node gives dog's tapestryKey as concept (item 2; a guard of what the code does)
+ *   AT65 a no-schema refusal from a call that writes no section keeps the rule's plain message: Scrolled into the
+ *        scroll shelf through scroll (item 2; a guard of what the code does)
+ *   AT66 the other side: a concept with no schema that a membership joins is reported, never refused for: Rover into
+ *        the scroll shelf through beagle (Amendment 3, item 1)
  */
 
 const fs = require('fs');
@@ -644,10 +654,13 @@ let ROUND2 = null;
  * Three runs over one seed, each read back after it. SETUP: Mark Me put in dog, with no breed; Fetch, and Snowy kept
  * beside, put in dog through walkers, so each is in pet with no pet section (AT49's and AT50's state); Bare, whose
  * beagle section holds neither name nor slug, put in show beagles with fields, as AT5 puts rover there; walkerMax,
- * directly in walkers and so in pet with no pet section, put in pet through walkers with fields. GR: Mark Me, then
- * Command Beagle, put in golden retriever's superset through dog, then Mark Me again with dog's breed given (review
- * round 3). BAD: Fetch and Snowy given pet sections pet's schema refuses. Every call in GR (once Amendment 3 item 1 is
- * built) and in BAD is refused, so each leaves the graph as the run before it left it.
+ * directly in walkers and so in pet with no pet section, put in pet through walkers with fields; and (review round 4)
+ * Rover, already in beagle, put in the scroll shelf through beagle. GR: Mark Me, then Command Beagle, put in golden
+ * retriever's superset through dog, then Mark Me again with dog's breed given (review round 3), and through dog into
+ * show goldens, a set below golden retriever's superset (review round 4). BAD: Fetch and Snowy given pet sections pet's
+ * schema refuses. SCROLL (review round 4): Scrolled, already in scroll, put in the scroll shelf through scroll, and
+ * Command Beagle given to scroll, a new member. Every call in GR (once Amendment 3 item 1 is built), in BAD and in
+ * SCROLL is refused, so each leaves the graph as the run before it left it.
  */
 function round2() {
   if (ROUND2) return ROUND2;
@@ -660,6 +673,8 @@ function round2() {
       add('r2-peer-into-walkers', k.snowy, k.dog, { set: k.walkers }),
       add('r2-misfit-in-set', k.bare, k.beagle, { set: k.showBeagles, fields: { description: 'bare, and shown' } }),
       add('r2-max-pet', k.walkerMax, k.pet, { set: k.walkers, fields: { description: 'Max, a pet in walkers' } }),
+      // review round 4 (Amendment 5, item 2): a beagle put through beagle in the scroll shelf joins scroll, reported
+      add('r2-shelf-contrast', k.rover, k.beagle, { set: k.scrollShelf }),
     ]).a;
     const setUp = S.readState(file);
     const gr = runOn(file, [
@@ -667,6 +682,8 @@ function round2() {
       add('r2-new-gr', k.commandBeagle, k.dog, { set: k.goldenRetrieverSuperset }),
       // review round 3 (Amendment 4, item 1): the review's probe 6, Q1, the breed given in the same call
       add('r2-gr-with-breed', k.markMe, k.dog, { set: k.goldenRetrieverSuperset, fields: { breed: 'goldenRetriever' } }),
+      // review round 4 (Amendment 5, item 2): through dog into show goldens, a set below golden retriever's superset
+      add('r2-deeper', k.markMe, k.dog, { set: k.showGoldens }),
     ]).a;
     const afterGr = S.readState(file);
     const bad = runOn(file, [
@@ -674,8 +691,14 @@ function round2() {
       add('r2-peer-pet-bad', k.snowy, k.pet, { fields: { description: 5 } }),
     ]).a;
     const afterBad = S.readState(file);
-    const req = (id) => ([setup, gr, bad].find((x) => x.requests[id]) || setup).req(id);
-    return { k, before, setUp, afterGr, afterBad, req };
+    // review round 4 (Amendment 5, item 2): no-schema from a call that writes no section, and a new member's beside it
+    const scroll = runOn(file, [
+      add('r2-shelf', k.scrolled, k.scroll, { set: k.scrollShelf }),
+      add('r2-new-scroll', k.commandBeagle, k.scroll),
+    ]).a;
+    const afterScroll = S.readState(file);
+    const req = (id) => ([setup, gr, bad, scroll].find((x) => x.requests[id]) || setup).req(id);
+    return { k, before, setUp, afterGr, afterBad, afterScroll, req };
   })();
   return ROUND2;
 }
@@ -833,6 +856,90 @@ test('AT61 [AC4, Amendment 4 item 2]: the published description says a removal a
     `and that a section the author's letter holds, for a membership their letter claims, stays theirs: such a removal is refused author-claim (the review's probe 6, Q2); got ${show(onBeside)}`);
   assert(owners.some((s) => /\bkept beside\b(?!\s+another author)/i.test(s)),
     `the sentence is for every node kept beside, not only one beside another author's letter: person nodes, placeholders and firmware's own elements are kept beside too, and update-node refuses them as well; got ${show(owners)}`);
+});
+
+// ── review round 4 (ADR Amendment 5, items 1 and 2): the keys the way on gives, so an agent can follow it as written ──
+/**
+ * AT59's two refusals, and the same call into show goldens, below golden retriever's superset, each with its sentences:
+ * the way on's add (the one naming add-to-concept) and its update-node.
+ */
+async function wayOnOf() {
+  const r2 = await round2();
+  return ['r2-gr', 'r2-gr-with-breed', 'r2-deeper'].map((id) => {
+    const x = r2.req(id);
+    const text = err(x.body);
+    assert(x.status === 400 && x.body.code === 'invalid-fields' && x.body.rule === RULE && /`?dog\.breed`? is required/.test(text),
+      `the path under test ran: ${id}, Mark Me put in golden retriever's superset through dog, is refused invalid-fields by ${RULE} for dog.breed (AT54, AT59); got ${x.status} ${show(x.body).slice(0, 400)}`);
+    const sentences = sentencesOf(text);
+    return { id, text, add: sentences.filter((s) => /add-to-concept/.test(s)), update: sentences.filter((s) => /update-node/.test(s)) };
+  });
+}
+/** Whether `text` gives `key` as the input `input`: the input's name, then the key, a space or a backtick between. */
+const gives = (text, input, key) => new RegExp(`\\b${input}\\b\\W{0,4}${key.replace(/[^0-9A-Za-z]/g, (c) => `\\${c}`)}`).test(text);
+
+test('AT62 [AC8, Amendment 5 item 1]: the way on gives golden retriever, the concept to add Mark Me to, by its tapestryKey, beside its name and address, since add-to-concept\'s concept takes a tapestryKey', async () => {
+  needDecl();
+  const { k, before } = await round2();
+  const address = C.node(before, k.goldenRetriever).props.uuid;
+  for (const w of await wayOnOf()) {
+    const named = w.add.filter((s) => /golden retriever/i.test(s) && s.includes(address));
+    assert(named.length > 0, `${w.id}: the way on's add names golden retriever by its name and address, as round 3 built it; got ${show(w.text)}`);
+    assert(named.some((s) => s.includes(k.goldenRetriever)),
+      `${w.id}: and by its tapestryKey, ${k.goldenRetriever}: the address, ${address}, is refused as add-to-concept's concept (400 invalid-input, the review's probe 7), so an agent would need graph resolve first (Amendment 5, item 1; the review's R4-1); its add reads ${show(named)}`);
+  }
+});
+
+test('AT63 [AC8, Amendment 5 item 2]: the way on\'s add gives the refused call\'s own set as its set: golden retriever\'s superset, or show goldens below it, never the superset of the concept it joins in its place', async () => {
+  needDecl();
+  const { k } = await round2();
+  const own = { 'r2-gr': k.goldenRetrieverSuperset, 'r2-gr-with-breed': k.goldenRetrieverSuperset, 'r2-deeper': k.showGoldens };
+  for (const w of await wayOnOf()) {
+    assert(w.add.some((s) => gives(s, 'set', own[w.id])),
+      `${w.id}: the add puts Mark Me in the set the refused call named, ${own[w.id]}, so the call made again is a repeat (Amendment 5, item 2; the review's R4-2); its add reads ${show(w.add)}`);
+  }
+  const deeper = (await wayOnOf()).find((w) => w.id === 'r2-deeper');
+  assert(!deeper.add.some((s) => gives(s, 'set', k.goldenRetrieverSuperset)),
+    `r2-deeper: show goldens is below golden retriever's superset, so the add doesn't give that superset, ${k.goldenRetrieverSuperset}, as its set in the call's place; its add reads ${show(deeper.add)}`);
+});
+
+test('AT64 [AC8, Amendment 5 item 2]: the way on\'s update-node gives dog\'s tapestryKey, the concept named, as its concept', async () => {
+  needDecl();
+  const { k } = await round2();
+  for (const w of await wayOnOf()) {
+    assert(w.update.some((s) => gives(s, 'concept', k.dog)),
+      `${w.id}: update-node is told dog, ${k.dog}: by then Mark Me is in beagle, dog and golden retriever, and update-node with no concept is refused concept-needed (the review's probe 7c; Amendment 5, item 2); its update-node reads ${show(w.update)}`);
+  }
+});
+
+test('AT65 [AC3, AC8, Amendment 5 item 2]: a no-schema refusal from a call that writes no section keeps the rule\'s plain message, word for word a new member\'s, with no way-on words: Scrolled put in the scroll shelf through scroll', async () => {
+  needDecl();
+  const { k, before, afterBad, afterScroll, req } = await round2();
+  const j = C.json(before, k.scrolled) || {};
+  assert(show(into(before, k.scrolled)) === show([k.scrollSuperset]) && show(j.scroll) === show({ name: 'Scrolled', slug: 'scrolled' }) && show((j.word || {}).wordTypes) === show(['word', 'scroll']),
+    `the path under test: Scrolled is in scroll, holding its section, kept in its json tag, and beagle isn't in its wordTypes; got in from ${show(into(before, k.scrolled))}, its JSON ${show(j)}`);
+  const plain = req('r2-new-scroll');
+  assert(plain.status === 409 && plain.body.code === 'no-schema' && plain.body.rule === RULE, `the path under test ran: Command Beagle, given to scroll as a new member, is refused no-schema by ${RULE} (AT41's ns-scroll); got ${plain.status} ${show(plain.body).slice(0, 300)}`);
+  const x = req('r2-shelf');
+  assert(x.status === 409 && x.body.code === 'no-schema' && x.body.rule === RULE,
+    `Scrolled put in the scroll shelf, which beagle's superset holds too, through scroll: the call writes no section but adds beagle to its wordTypes, so rule 4 judges scroll, which has no schema node: 409 no-schema (Amendment 3, item 1); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  assert(err(x.body) === err(plain.body) && !WAY_ON.test(err(x.body)),
+    `the refusal is the rule's plain message, word for word a new member's, saying nothing of fields left unwritten or of another operation: the way on mends a misfit, not a missing schema (Amendment 5, item 2; the review's R4-2 and Q5); got ${show(err(x.body))}; a new member's: ${show(err(plain.body))}`);
+  assert(unchanged(afterScroll, afterBad) && entriesIn(afterScroll).length === entriesIn(afterBad).length,
+    `nothing changes: Scrolled is in from ${show(into(afterScroll, k.scrolled))}, its wordTypes ${show((C.json(afterScroll, k.scrolled).word || {}).wordTypes)}`);
+});
+
+test('AT66 [AC3, Amendment 3 item 1; Amendment 5 item 2]: a concept with no schema that a membership joins is reported, never refused for: Rover, already in beagle, put in the scroll shelf through beagle joins scroll and is added', async () => {
+  needDecl();
+  const { k, before, setUp, req } = await round2();
+  const x = req('r2-shelf-contrast');
+  assert(x.status === 200 && x.body.data && x.body.data.outcome === 'added',
+    `Rover put in the scroll shelf through beagle: beagle, the concept named, judges its JSON, scroll now in its wordTypes, and it fits. Scroll, which the set joins, has no schema node, and is reported, since the other concepts a membership joins never refuse it (Amendment 3, item 1); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  const cs = x.body.data.concepts || [];
+  const sc = cs.find((c) => c.concept === k.scroll);
+  assert(cs[0] && cs[0].concept === k.beagle && cs[0].fits === true && sc && sc.fits === null && sc.waiting === false && /no JSON schema/i.test(String(sc.problem)),
+    `beagle first, fitting; scroll reported with fits null, saying it has no schema; got ${show(cs)}`);
+  assert(show(C.json(setUp, k.rover).word.wordTypes) === show([...C.json(before, k.rover).word.wordTypes, 'scroll']) && show(into(setUp, k.rover)) === show([k.beagleSuperset, k.scrollShelf].sort()),
+    `its wordTypes gains scroll, and it is in the scroll shelf as well as under beagle's superset; got ${show(C.json(setUp, k.rover).word.wordTypes)}, in from ${show(into(setUp, k.rover))}`);
 });
 
 // ── REF: every refusal, over a graph that must end as it began ──

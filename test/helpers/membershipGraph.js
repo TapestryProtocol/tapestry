@@ -75,6 +75,13 @@
  *                        STORED_PAIR_JSON
  *     doubleJson         made here, beagle and pet, with two json tags that differ
  *
+ *   the way on's guards (ADR Amendment 5, item 2), two sets added last, holding nothing
+ *     scrollShelf        a set under scroll's superset and beagle's: scrolled, already in scroll with its section, put in it
+ *                        through scroll gains beagle in wordTypes, so scroll, which has no schema, judges a call that
+ *                        writes no section (no-schema); a beagle put in it through beagle joins scroll, reported
+ *     showGoldens        a set below golden retriever's superset: a call through dog into it, refused, names it as the
+ *                        way on's set, which golden retriever's superset then isn't
+ *
  * keys and uuids name each node as the base seeds do, and keys.luckyJsonTag names lucky's json tag node (a tag).
  */
 
@@ -330,6 +337,13 @@ async function seedMemberships() {
     c: BEAGLE, name: 'Double Json', holders: [beagleSup, petSup],
     tags: ({ d }) => [['d', d], ['name', 'Double Json'], ['z', BEAGLE.uuid], ['z', PET.uuid], ['json', doubleOne], ['json', doubleTwo]],
   }));
+
+  // ── review round 4 (ADR Amendment 5, item 2): two sets, added last so no other node's place in the seed moves ──
+  const eventlessSet = (slug, name) => add(['ListItem', 'Set', 'TapestryNode'], { uuid: `39999:${TA}:${slug}`, kind: 39999, pubkey: TA, name, tapestryValue: name, created_at: 1763000000 });
+  const scrollShelf = named('scrollShelf', eventlessSet('scroll-shelf', 'scroll shelf'));
+  link(nodeOf(keys.scrollSuperset), 'IS_A_SUPERSET_OF', scrollShelf);
+  link(beagleSup, 'IS_A_SUPERSET_OF', scrollShelf);
+  link(nodeOf(keys.goldenRetrieverSuperset), 'IS_A_SUPERSET_OF', named('showGoldens', eventlessSet('show-goldens', 'show goldens')));
 
   const stored = {
     [keys.stored]: { word: wordOf(BEAGLE, 'Stored', ['beagle']), beagle: { name: 'Stored', slug: 'stored', description: 'its JSON is in the store' } },
