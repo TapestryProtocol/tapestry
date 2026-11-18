@@ -114,16 +114,18 @@ const say = {
   /**
    * What add-to-concept adds to rule 4's message for a member put in a set, a call that writes no section, only keys
    * added to wordTypes (ADR 0022 Amendment 4, item 1): its fields aren't written, and the way on, through each other
-   * concept the set joins whose key wordTypes gains (`joining`, their headers), then graph update-node.
+   * concept the set joins whose key wordTypes gains (`joining`, their headers), then graph update-node. Each concept
+   * and set it names as an input is given by its tapestryKey, as the operations take them (Amendment 5, item 1).
    */
   memberMisfit(concept, oKey, joining, set) {
     const named = X.conceptLabel(concept);
     const unwritten = `Fields given in this call aren't written into the node's \`${oKey}\` section, which it already holds: this call writes no section, only the set's link, its tags and the keys it adds to \`wordTypes\`.`;
     const update = `the missing fields of ${named} with graph update-node, naming concept ${concept.key}`;
     if (!joining.length) return `${unwritten} To go on, give ${update}, then make this call again.`;
-    const labels = joining.map(X.conceptLabel);
-    const list = labels.length < 2 ? labels[0] : `each of ${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
-    return `${unwritten} To go on, add the node to ${list}, which the set joins, with graph add-to-concept and set ${set}: that judges ${labels.length < 2 ? 'its' : "each one's"} own section, and reports the verdict of ${named} without refusing. Then give ${update}.`;
+    const then = `reports the verdict of ${named} without refusing. Then give ${update}.`;
+    if (joining.length < 2) return `${unwritten} To go on, add the node to ${X.conceptLabel(joining[0])}, which the set joins, with graph add-to-concept, concept ${joining[0].key} and set ${set}: that judges its own section, and ${then}`;
+    const each = joining.map((h) => `${X.conceptLabel(h)} with concept ${h.key}`);
+    return `${unwritten} To go on, add the node to each concept the set joins with graph add-to-concept and set ${set}: ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}. Each judges its own section, and ${then}`;
   },
 };
 

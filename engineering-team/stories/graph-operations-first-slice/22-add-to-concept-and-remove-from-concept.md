@@ -165,6 +165,10 @@ For Architecture, not this gate:
 - **The words live in `M.say.memberMisfit`,** with the other refusals' words.
 - **No live re-check:** these are words, and the coordinator's brief said to skip it.
 
+**Review round 4's** (ADR Amendment 5):
+- **Each concept to add the node to has its key given in the review's form:** "with graph add-to-concept, concept <key> and set <set>". When the set joins more than one such concept, the words name each one with its own key ("<name> (<address>) with concept <key>"), all with the same `set`, one add for each. Neither a test nor Amendment 5 covers that case.
+- **No live re-check:** the change is to words alone.
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-18, on `85326415` with the implementation uncommitted, since committed as `841b7549`)
@@ -251,7 +255,7 @@ Review round 2 asked for changes: one blocking finding (R2-1) and five non-block
 - **harness-lint:** clean.
 - **No live re-check** (Deviations, round 2).
 
-### Review round 3's fixes (2026-11-18, uncommitted on `e7a9833f`)
+### Review round 3's fixes (2026-11-18, on `e7a9833f` with the fixes uncommitted, since committed as `58c8bf58`)
 
 Review round 3 passed with two non-blocking findings, both about words, and the owner chose to fix them before the PR. ADR Amendment 4 says what each fix is. The Tester's tests are in `e7a9833f`.
 - **What changed.**
@@ -264,6 +268,21 @@ Review round 3 passed with two non-blocking findings, both about words, and the 
 - **The scoped gate:** record `20261118T063427Z-23019-21fd`, PASS, 1,188 passed, 0 failed, 10 skipped, over the same 8 suites, on `e7a9833f+dirty`. `node_modules` was linked for the run and the link removed after. An earlier run, `20261118T063035Z-10618-6663`, passed with the same counts. It was run again because comments in the two files changed while it ran.
 - **harness-lint:** clean.
 - **No live re-check** (Deviations, round 3).
+
+### Review round 4's fixes (2026-11-18, uncommitted on `e9b1310d`)
+
+Review round 4 passed with three non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 5 says what each fix is. The Tester's tests and the seed's two new sets, scrollShelf and showGoldens, are in `e9b1310d`.
+- **What changed.**
+  - **R4-1:** the way on now names each concept to add the node to by its tapestryKey as well as its name and address: "with graph add-to-concept, concept <key> and set <set>". An agent can follow it without running graph resolve first. `M.say.memberMisfit` is the only code that changed.
+  - **R4-2:** tests only. AT63, AT64 and AT65 hold round 3's three details: the add's own `set`, update-node's `concept`, and `no-schema`'s plain message. AT66 holds the other side: a joined concept with no schema is reported, not refused for. Their code is as round 3 left it.
+  - **R4-3:** the ledger row is the coordinator's, to reword at the next staging merge. Nothing changed for it here.
+- **The suites,** each alone on this Mac with every service endpoint dead; none failed:
+  - add-to-concept 57 passed (AT62–AT66 among them), remove-from-concept 36, memberships-shared 23, memberships-agent-through-cli 1;
+  - graph-rules-builder 26; graph-rule-firmware 13, 4 skipped (live); firmware-element-sync 21; `node src/firmware/graph-rules.js --check`: the 8 items are current;
+  - every neighbour run at round 3, with the same counts.
+- **The scoped gate:** record `20261118T074914Z-92395-b18f`, PASS, 1,193 passed, 0 failed, 10 skipped, over the same 8 suites, on `e9b1310d+dirty`. `node_modules` was linked for the run and the link removed after.
+- **harness-lint:** clean.
+- **No live re-check** (Deviations, round 4).
 
 ## Linked artifacts
 
