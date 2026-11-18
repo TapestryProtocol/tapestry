@@ -108,7 +108,7 @@ The list is capped at 10, in that order of `match` and then by address. `moreSim
 - **Inputs:** `concept` (a tapestryKey, required), `name`, `plural`, `slug` (kebab-case, `^[a-z0-9]+(-[a-z0-9]+)*$`, up to 200 characters) and `description`. Its `repeatKey` is `['concept', 'name', 'plural', 'slug', 'description']`, and its guard is `concept-slug-unique`, with `[{ concept, slug }]` when a slug is given.
 - **Steps, in one transaction:**
   1. Refuse `nothing-to-change` (400) when no field is given. Clean and check the given fields (Decision 2).
-  2. Take the lock and run the rule again.
+  2. Take the lock and run the rule again. *(ADR 0018 Amendment 4, item 1, story 43: between the two, the lock on the concept's own header, so a property write on the concept commits before the update reads it.)*
   3. Read the concept by its header's tapestryKey. Refuse `unknown-concept` (404) unless it is a `ConceptHeader` or `ListHeader`, `not-own-concept` (409) unless it is this instance's own, and `firmware-concept` (409) for a firmware concept. Refuse `name-keyed` (409) when the singular name changes and `nameKeyed(<the current singular>)`. *(Amendment 3.6: or `nameKeyed(<the new singular>)`.)*
   4. Work out the new values. When they equal the current ones, answer `unchanged`, with no changes and no entry.
   5. Otherwise, write in place:

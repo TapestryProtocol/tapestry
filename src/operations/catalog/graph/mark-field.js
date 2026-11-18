@@ -7,13 +7,31 @@
  * signs nothing. The mark is one HAS_ELEMENT edge from the set of neo4j properties that are also fields to the field's
  * property node; on a new mark, every current element of the concept whose JSON gives the field a value carries it as
  * <concept key>_<field>, in the same transaction (_fields.js).
+ *
+ * Its first write is the lock on the concept's header, which the property writes take, and it runs its guard's rule
+ * again after it (ADR graph-operations-first-slice/0018 Decision 11 and Amendment 4, item 2; story #43). The write path
+ * runs the guard before apply, so before the lock; the second run judges the field as a property write that held the
+ * header left it.
  */
 
 const { CHANGE_ENTRY } = require('../../changes');
+const { refusal } = require('../../refusal');
 const N = require('./_nodes');
 const F = require('./_fields');
+const S = require('./_sets');
 
 const FIELD_PATTERN = '^[A-Za-z][A-Za-z0-9_]{0,63}$';
+const RULE = 'field-mark-allowed';
+const itemsOf = (inputs) => [{ concept: inputs.concept, field: inputs.field }];
+
+/** Run the guard's rule again, after the lock, and throw its first violation as the write path throws a guard's. */
+async function recheck(read, inputs) {
+  const { findRule } = require('../../rules');
+  const rule = findRule(RULE);
+  if (!rule) throw new Error(`the rule ${RULE} isn't loaded`);
+  const found = await rule.violations(itemsOf(inputs), read);
+  if (found && found.length) throw refusal(found[0].code, found[0].message, { rule: rule.name });
+}
 
 module.exports = {
   group: 'graph',
@@ -45,13 +63,17 @@ module.exports = {
     },
   },
   refusals: [F.TOO_MANY_ELEMENTS],
-  guards: [{ rule: 'field-mark-allowed', items: (inputs) => [{ concept: inputs.concept, field: inputs.field }] }],
+  guards: [{ rule: RULE, items: itemsOf }],
   repeatKey: ['concept', 'field'],
 
   async apply(inputs, ctx) {
     const { tx } = ctx;
     const read = (cypher, params) => tx.read(cypher, params);
-    // The guard has checked each of these in this transaction.
+    // The lock on the concept's header, then the rule again: a type change or a removal that committed while this
+    // write waited for the lock is refused as the guard refuses it (ADR 0018 Amendment 4, item 2).
+    await S.lockNode(tx, inputs.concept);
+    await recheck(read, inputs);
+    // The rule has checked each of these, after the lock, in this transaction.
     const concept = await F.conceptOf(read, inputs.concept);
     const node = concept ? await F.propertyNodeOf(read, concept, inputs.field) : null;
     const set = await F.firstSetOf(read);
