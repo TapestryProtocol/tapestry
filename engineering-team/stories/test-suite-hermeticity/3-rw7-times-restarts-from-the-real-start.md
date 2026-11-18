@@ -68,10 +68,15 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
 
 - **AC5 names four flakes, not one.** AC5 says §15 should say "which flake was found". Four stack-free flakes are on record: the three from 2026-11-16 that ledger row `2026-11-16-ci-gate-flake-history-claim-untrue` lists, and RW7.
   - So §15 names all four, and `test.yml`'s header points to it.
-  - That row says the policy's wording is the owner's to reword. It takes this rewording as the owner's, through his approval of AC5.
+  - That row says the policy's wording is the owner's to reword. The owner approved what AC5 asks for, not these words, so the words go to the owner at the pull request.
   - Its other question, whether the quarantine file is still the answer to a flake, is left to the owner. The row stays OPEN for it.
 - **How a start is timed.** The stub makes a `start-time.<pid>` file as its first act, and the suite reads that file's mtime. It costs no process per start, and works the same on macOS and Linux. Without the file, a start falls back to when it was first seen.
-- **The other windows changed in what they measure, not in their bounds.** Every start record's time moved to the start itself, so the suite's other start-time windows changed too: RW3, RW9, RW10 and RW24 time from the suite's own action to a start. Each of those windows can only shorten, and each still passes. RW22's start-to-start offsets are now exact. No window was widened.
+- **Only RW7 and RW22 read a start's time, and both became exact.** Every start record's time moved to the start itself.
+  - RW7 checks the gaps between starts.
+  - RW22 reads the offsets between starts, in a fixture check and in its messages.
+  - RW3, RW9, RW10 and RW24 compute an `ms` from a start that nothing reads. Their windows are `waitFor` timeouts, and are unchanged.
+  - No window was widened.
+  - Review round 1 corrected this note, which first said those four time to a start.
 - **`test.yml`'s new comment avoids the words "retry" and "rerun".** `ci-test-job` W8 forbids them anywhere in the workflow file, comments included. The first wording, "never a retry", failed W8 in the first scoped gate, and was reworded to "not a second run".
 
 ## Evidence

@@ -10,7 +10,7 @@
 - **The fix:** the stub stamps each start as its first act (a `start-time.<pid>` file), and a start is timed by that file's mtime.
 - **The test:** RW25 pins it, by holding the suite up 0.5 s after a start.
 - **No wrapper change:** `run.sh` was always right.
-- **The other readings aren't this fix's:** the RW15 occurrence, and the 2026-10-09 run in which 18 RW tests failed, were other checks under deliberate load. If RW15 fails again, it gets a row of its own.
+- **The other readings aren't this fix's:** the RW15 occurrence, and the 2026-10-09 run in which 18 RW tests failed, were other checks failing while other work shared the machine. The first ran while two gate containers ran at once on one Docker VM, and the second beside a UI build and 185 browser tests in the same session. If RW15 fails again, it gets a row of its own.
 
 `test/tagging-edges-realtime-wrapper.test.js` has failed twice, each time while another gate or the browser specs ran
 on the same machine, and each time in a different wall-clock timing check. Neither diff touched wrapper code.

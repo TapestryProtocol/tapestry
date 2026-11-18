@@ -4,8 +4,9 @@ name: Test
 # same stack-free suite every contributor runs, on every PR to a long-lived
 # branch — a pre-merge gate that never races the push-triggered deploy
 # workflows. No retries anywhere: the first run's exit code is the verdict, so
-# a red run is signal. Each stack-free flake found so far got a ledger row and a
-# fix at its root, not a second run; OPERATIONS.md § "CI test gate" names them.
+# a red run is signal. OPERATIONS.md § "CI test gate" names the stack-free flakes
+# found so far, each with a ledger row and a fix or a move out of the gate, and
+# the two failed runs that were run again by hand against this rule.
 
 on:
   pull_request:

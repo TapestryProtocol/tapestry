@@ -34,9 +34,9 @@ So AC2 is verified at 3 GB as well as 1 GB. At 3 GB, RW7 failed three of three b
 - [x] **macOS and Linux:** the suite runs on both, with the perl flock(2) shim on macOS and flock(1) on Linux.
 - [x] **A host that can't run the wrapper:** RW25 skips through `need()`, like the others.
 - [x] **A coarse clock:** 20 ms is allowed below 1 s.
-- [ ] **After the fix,** every other check that reads a start's time still passes:
-  - RW3, RW9, RW10 and RW24 time from the suite's own action to a start, under an upper bound. A start timed earlier only shortens those intervals.
-  - RW22 compares starts with each other. It becomes exact.
+- [x] **After the fix,** every other check that reads a start's time still passes:
+  - RW22 compares starts with each other, and becomes exact.
+  - RW3, RW9, RW10 and RW24 compute an `ms` from a start that nothing reads. Their windows are `waitFor` timeouts, and are unchanged. Review round 1 corrected this item, which first said those four time to a start.
   - RW20 times an exit, not a start, and is out of scope.
 
 ## Test infrastructure

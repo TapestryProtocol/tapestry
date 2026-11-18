@@ -1057,11 +1057,11 @@ Both tracked as candidates; bandwidth-permitting.
 
 **No-retry policy.** There is no retry, rerun-on-failure, or retry-until-green anywhere in the job: the first run's exit code is the verdict. This is deliberate. A red run is signal, and auto-retry would launder a real regression into a "probably a flake", which is exactly the habit this gate exists to break.
 
-The stack-free suite has had flakes, though. Each one found so far has had a ledger row and a fix, never a retry:
+The stack-free suite has had flakes, though. Each one found so far got a ledger row, and then a fix or a move out of the gate:
 - **K1's lock check** raced its stand-in worker, and was fixed in #90 (recorded 2026-11-16).
 - **The launcher's destroy test** read a temp folder's name as `-v`, and was fixed in #91 (recorded 2026-11-16).
 - **The live link checks** read a production deploy's 502 as a dead link, and were moved out of the gate in #94 (above).
-- **RW7, in `tagging-edges-realtime-wrapper`,** timed a node's restart by when the suite noticed it. Inside the full gate's one big process it read the wrapper's 1 s backoff as 0.64–0.78 s, about one CI run in 28 from 2026-11-13 to 2026-11-18 (ledger row `2026-10-08-realtime-wrapper-timing-flake-under-load`). It was fixed at its root in story `test-suite-hermeticity` #3.
+- **RW7, in `tagging-edges-realtime-wrapper`,** timed a node's restart by when the suite noticed it. Inside the full gate's one big process it read the wrapper's 1 s backoff as 0.64–0.78 s, about one CI run in 28 from 2026-11-13 to 2026-11-18 (ledger row `2026-10-08-realtime-wrapper-timing-flake-under-load`). It was fixed at its root in story `test-suite-hermeticity` #3. Before that, two of its four CI failures were run again by hand, against this policy, and each passed on the second run.
 
 The other documented nondeterminism lives in the excluded live classes: the `*-publish` suites, and the live link checks above. (`playwright.config.js` sets `retries: 2` in CI, which is another reason that path stays out of this job.)
 
