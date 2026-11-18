@@ -78,7 +78,7 @@ const NOT_OWN_CONCEPT = R('not-own-concept', 409, "A concept that isn't this ins
 const NO_PRIMARY_PROPERTY = R('no-primary-property', 409, "A concept with no primary property, or more than one: its fields' property nodes hang under it (BIBLE §9)");
 const NOT_WRAPPED_NOW = R('not-wrapped', 409, "A concept whose JSON schema isn't wrapped: its only top-level property isn't the concept's key, holding an object, or its top level isn't an object. These writes keep only a wrapped schema; graph set-schema, given one, replaces it");
 const NOT_WRAPPED_GIVEN = R('not-wrapped', 400, "A schema that isn't wrapped: its top level must be an object (or untyped) whose only property is the concept's key, holding an object (type object), where the concept's elements keep their fields; the refusal names the keys it found");
-const UNREADABLE_SCHEMA = R('unreadable-schema', 409, "A concept whose JSON schema can't be caught up to: it can't be read, isn't an object, doesn't compile, has a field with no type or a key no field can have, or has more than 32 levels or 1,000 properties under the concept's key. graph set-schema replaces it");
+const UNREADABLE_SCHEMA = R('unreadable-schema', 409, "A concept whose JSON schema can't be caught up to: it can't be read, isn't an object, doesn't compile, has a field with no type, a key no field can have, a description create-concept's description check refuses, or properties under a field that isn't an object, or has more than 32 levels or 1,000 properties under the concept's key. graph set-schema replaces it");
 const TANGLED_TREE = R('tangled-tree', 409, "A concept whose property tree isn't a tree: a property node with more than one parent, or more than 32 levels below the primary property");
 const NOT_OWN_NODE = R('not-own-node', 409, "A property node this write would change or take out that came from another author's event, or records another author: it is that author's claim, which an operation never changes (design D4)");
 const BAD_NAME = R('bad-name', 400, "A key a field can't have: empty once trimmed, no slug, a control, text-direction or invisible character, longer than 200 characters (as create-concept refuses a name), or __proto__, which can't key a field of an element's JSON; in a schema, a key create-concept's name check would change. The refusal names its place");
@@ -786,10 +786,15 @@ async function commit(tx, read, st, { target, frame }) {
       for (let n = 0; n <= MAX_NONCE; n++) list.push(`39999:${inst.ta}:${n === 0 ? dtag.childDTag(r.field, parentUuid) : dtag.childDTag(r.field, parentUuid, n)}`);
       return [r.ref, list];
     }));
-    // Each node's plain d-tag first; the nonces only for a node whose plain address is held (review round 1, finding 9).
+    // Each node's plain d-tag first. Its nonces are read when that plain address is held, already taken by this write,
+    // or shared with another new node of this level, as two keys that slug alike share one. So a node is never given a
+    // nonce whose holder wasn't read (review round 1, finding 9; round 2, blocking 1; SS10).
     const heldOf = async (uuids) => new Set((uuids.length ? await read(HELD, { uuids }) : []).map((x) => x.uuid).filter((u) => typeof u === 'string' && !freed.has(u)));
-    const held = await heldOf(ready.map((r) => cands.get(r.ref)[0]));
-    const crowded = ready.filter((r) => held.has(cands.get(r.ref)[0]) || taken.has(cands.get(r.ref)[0]));
+    const plainOf = (r) => cands.get(r.ref)[0];
+    const sharing = new Map();
+    for (const r of ready) sharing.set(plainOf(r), (sharing.get(plainOf(r)) || 0) + 1);
+    const held = await heldOf(ready.map(plainOf));
+    const crowded = ready.filter((r) => held.has(plainOf(r)) || taken.has(plainOf(r)) || sharing.get(plainOf(r)) > 1);
     for (const u of await heldOf(crowded.flatMap((r) => cands.get(r.ref).slice(1)))) held.add(u);
     for (const r of ready) {
       const address = cands.get(r.ref).find((u) => !held.has(u) && !taken.has(u));
