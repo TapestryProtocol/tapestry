@@ -106,3 +106,20 @@ before widening the window.
   0.74 s and "node exits 0" at 0.78 s (starts `[0, 0.74, 2.75]` and `[0, 0.78, 2.79]` s). Nothing else was running. The
   diff touched only test files.
 - **Afterwards:** the suite passed alone (24/0).
+
+**Occurrences on CI, 2026-11-13 to 2026-11-18** (found on 2026-11-18, after the records PR TapestryProtocol/tapestry#143 failed RW7).
+- **The scan:** every failed attempt in the `Test` workflow's listing, 36 in the 181 runs since 2026-10-27. Each was read once with `gh run view --log-failed`. RW7 failed in four, each on a fresh GitHub-hosted runner with no other gate beside it:
+  - `43503615549` (2026-11-13, `A10.3-tapestry-key-every-node`): 0.76 s (starts `[0, 0.76, 2.79]` s), beside a failing `setup-alert-polish`;
+  - `43985723290`, attempt 1 (2026-11-17, `docs/relay-tools-staging-host`): 0.76 s, the run's only failure;
+  - `43989662522` (2026-11-17, `docs/main-guard-policy-verified`): 0.76 s and 0.77 s, the run's only failure;
+  - `44335714732`, attempt 1 (2026-11-18, #143, on `7ebbb80e`): 0.77 s for "node exits 1" and for "node exits 0" (starts `[0, 0.77, 2.8]` s). It was the run's only failure, with 8,041 passed, and the gate's record on the runner is `20261118T152701Z-2593-a1b0`. #143 changed one markdown file, and no tagging-edges file had changed since the last green run, on `52ac2cf6`.
+- **What it shows:**
+  - Every CI reading is 0.76–0.77 s, which fits the systematic-edge reading above.
+  - Four of the 110 runs that finished since 2026-11-13 failed it, about one in 28. No run before then did.
+  - So the zero-flake record that `.github/workflows/test.yml`'s header and OPERATIONS.md §15 cite no longer holds.
+  - `stack-free` is a required check on `main` (the branch's rules), so a promotion PR that hits RW7 is blocked from merging.
+  - The same scan found `setup-alert-polish` failing in 31 of the 36 attempts, from 2026-11-06 to 2026-11-14, and in none since. That isn't this row's.
+- **Retried twice, against §15.** Two of the four were run again by hand, and each passed on attempt 2: `43985723290`, and #143's `44335714732`, on which #143 merged (16:15:52Z).
+  - §15 says the first run's exit code is the verdict, and that a stack-free flake's answer is a cited quarantine entry, not a retry.
+  - The session that reran #143's hadn't read §15. #143's change was docs only, so that retry hid no regression.
+  - The quarantine file §15 describes doesn't exist yet.
