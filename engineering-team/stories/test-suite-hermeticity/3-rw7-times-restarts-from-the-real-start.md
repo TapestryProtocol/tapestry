@@ -111,6 +111,15 @@ The probe, its scripts and their output are in the main checkout's `tmp/rw7-prob
   - its record, `20261118T192258Z-89344-3bf5 [thg-3-r1-fixes]`: 380 passed, 3 failed, 41 skipped;
   - the three failures: `router-stream-limit-on-connect` P1–P3, the known GNU `sed -i` problem on macOS (ledger row `2026-10-09-router-patch-sed-macos`). This branch changes neither that suite nor `src/`. In the Linux container the suite passed 26 of 26.
 
+### Review round 2's fixes (2026-11-18)
+
+- **The fixes are committed as `ea51978d`,** after round 2's review (`e313f62e`). The suite's code didn't change.
+- **`bash scripts/harness-lint.sh`** on the committed tree is clean.
+- **The scoped gate,** on the committed, clean tree, every endpoint dead. It ran the 17 suites above plus `rollup-scanners` and `harness-stats`, which read the ledger rows and the branch's commits (19 in all):
+  - its record, `20261118T195354Z-73187-3343 [thg-3-r2-fixes]`: 425 passed, 3 failed, 41 skipped. `rollup-scanners` passed 33 of 33, and `harness-stats` 12 of 12;
+  - the three failures: `router-stream-limit-on-connect` P1–P3 again, the macOS `sed` problem.
+- **In the Linux container:** `router-stream-limit-on-connect` passed 26 of 26, and `tagging-edges-realtime-wrapper` 25 of 25.
+
 ## Linked artifacts
 
 - ADR: none. Architecture is skipped: a Bug whose fix follows from its cause, under Standard.
