@@ -23,7 +23,9 @@
  *   UN6  letters and the cache: a lettered node's letter is out of date after a change, the owner's letter is the
  *        instance's own, a node the derive step cached says its cached copy is out of date, and a word block that is
  *        the name itself follows a rename
- *   UN7  an element of two concepts: concept names the section; the other concept's verdict is reported, not refused
+ *   UN7  an element of two concepts: concept names the section; the other concept's verdict is reported, not refused;
+ *        every concepts entry says whether it waits for the derive step, as X.CONCEPTS declares (story
+ *        graph-operations-first-slice #42, AC4; ADR 0042 Decision 4)
  *   UN8  sections: a section given the name and slug it lacked, a section restating its own slug, a hand-edited name
  *        kept through a rename, and a node with no name tag gaining one
  *   UN9  an own element of a firmware concept changes; an element create-element made of a concept with a strict
@@ -63,6 +65,8 @@
  *        never stored; UN43 the same description given both ways, with white space around it, is one change, trimmed;
  *        UN44 no-section reached through description alone names description
  *   (review round 2) UN45 fields.description given alone is kept as given, white space and all
+ *   (story 42's review round 2) UN46 a node under word's thread, with firmware word's real schema, is updated: the
+ *        named concept fits, and word is reported as waiting for the derive step, not as failing; the answer validates
  */
 
 const fs = require('fs');
@@ -303,6 +307,13 @@ test('UN7: an element of two concepts: concept names the section, and the other 
   const pet = cs.find((c) => c.concept === k.pet);
   assert(cs.length === 2 && pet && pet.key === 'pet' && pet.fits === false && (pet.problems || []).some((p) => /pet/.test(String(p.message))),
     `pet's schema wants a pet section, which walkerMax lacks: reported, never refused for (Decision 11); got ${show(cs)}`);
+  assert(cs.every((c) => c.waiting === false), `each entry says it waits for nothing: neither schema asks for what the derive step builds (story 42, AC4; ADR 0042 Decision 4); got ${show(cs)}`);
+  const entry = require(path.join(ROOT, 'src/operations/catalog/graph/update-node.js')).result.schema.properties.concepts.items;
+  assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
+    `the declared answer's concepts entry (X.CONCEPTS) has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(path.join(ROOT, 'src/operations/catalog/graph/update-node.js')).result.schema.properties.concepts);
+  assert(validConcepts(cs), `the answer's concepts validate against the declared answer, waiting and all (ADR 0042 Decision 4; review round 1, non-blocking 3); got ${show(validConcepts.errors)}`);
   const again = await ok('max-again');
   assert(again.outcome === 'unchanged' && again.change === null, `the same call again is unchanged; got ${show(again)}`);
 });
@@ -833,6 +844,35 @@ test('UN45: fields.description given alone is a field like any other, kept as gi
   assert(x.status === 200 && x.body.data.outcome === 'updated' && show(x.body.data.changed) === show(['fields.description']), `a description in fields alone is a change (Decision 8); got ${x.status} ${show(x.body).slice(0, 400)}`);
   const kept = sectionOf(S.readState(file), k.oddSlug, 'beagle').description;
   assert(kept === ' kept as given ', `only the description input is trimmed: fields are kept as given (Amendment 2.2; review round 2, R2-3); got ${show(kept)}`);
+});
+
+test('UN46: a node under word\'s thread is updated, and word is reported as waiting for the derive step, not failing', async () => {
+  needDecl();
+  // Firmware's word with its real schema, which requires the graphContext only the derive step builds, and beagle's
+  // superset put under word's, so word's class thread reaches beagle's elements (story 42's review round 2,
+  // non-blocking 4; ADR 0042's Testing: "an element created in a set under word's thread").
+  const real = fs.readFileSync(path.join(ROOT, 'firmware/versions/v1.0.0/concepts/word/json-schema.json'), 'utf8');
+  const { file, k } = await fresh((s, keys) => {
+    const nodeOf = (key) => s.nodes.find((n) => n.props.tapestryKey === key);
+    const header = s.nodes.find((n) => n.props.tapestryKey && n.props.uuid === `39998:${TA}:word`);
+    const node = { eid: s.nextEid++, labels: ['NostrEvent', 'ListItem', 'JSONSchema', 'TapestryNode'], props: { uuid: `39999:${TA}:word-json-schema`, kind: 39999, pubkey: TA, name: 'JSON schema for the concept of words', tapestryKey: '00000000-0000-4000-8000-0000000000e4' } };
+    const tag = { eid: s.nextEid++, labels: ['NostrEventTag', 'TapestryNode'], props: { type: 'json', value: real, uuid: 'word-json-schema-json', tapestryKey: '00000000-0000-4000-8000-0000000000e5' } };
+    s.nodes.push(node, tag);
+    s.rels.push({ eid: s.nextEid++, type: 'IS_THE_JSON_SCHEMA_FOR', from: node.eid, to: header.eid, props: {} });
+    s.rels.push({ eid: s.nextEid++, type: 'HAS_TAG', from: node.eid, to: tag.eid, props: {} });
+    s.rels.push({ eid: s.nextEid++, type: 'IS_A_SUPERSET_OF', from: nodeOf(keys.supersets.word).eid, to: nodeOf(keys.beagleSuperset).eid, props: {} });
+  });
+  const { a } = runOn(file, [post('rover-words', 'owner', { node: k.rover, concept: k.beagle, fields: { description: 'a beagle among words' } })]);
+  const x = a.req('rover-words');
+  assert(x.status === 200 && x.body.data && x.body.data.outcome === 'updated', `rover is updated: nothing refuses it for word, whose graphContext only the derive step can build; got ${x.status} ${show(x.body)}`);
+  const cs = x.body.data.concepts || [];
+  assert(cs[0] && cs[0].concept === k.beagle && cs[0].fits === true && cs[0].waiting === false, `beagle, the concept named, comes first, fitting and waiting for nothing (Decision 17); got ${show(cs)}`);
+  const word = cs.find((c) => c.concept === k.word);
+  assert(word && word.key === 'word' && word.fits === null && word.waiting === true && show(word.problems) === show([]) && /derive step/.test(String(word.problem)),
+    `word's schema requires graphContext, which only the derive step builds: word is reported as waiting for it, not as failing (story 42, AC4; ADR 0042 Decisions 3 and 4); got ${show(word || cs)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(DECL).result.schema.properties.concepts);
+  assert(validConcepts(cs), `the answer's concepts validate against the declared answer, word's waiting entry too (ADR 0042 Decision 4); got ${show(validConcepts.errors)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

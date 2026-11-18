@@ -262,7 +262,7 @@ A create records `{ change: 'set-created', node: <the set>, from: <the parent>, 
   - sets the set concept's readers can read, which `rules check` (A10.31) won't report against the set concept;
   - one lock and one reading of a parent for delete-set (A10.17) and move-element (A10.23).
 - **Constrains, and the debt it leaves:**
-  1. **Every create's `concepts` reports word as not fitting,** for `graphContext`. That is ADR 0020 Amendment 1's split, and its fix lies in how the rule reads word's schema (ledger row `2026-11-16-derive-step-and-rule-check-split`), not here.
+  1. **Every create's `concepts` reports word as not fitting,** for `graphContext`. That is ADR 0020 Amendment 1's split, and its fix lies in how the rule reads word's schema (ledger row `2026-11-16-derive-step-and-rule-check-split`), not here. *(Fixed by ADR graph-operations-first-slice/0042: a write sets aside what only the derive step builds, so `word` is reported as waiting for it.)*
   2. **Two sets of one name under two parents share a word slug,** such as `the-set-of-small`, as firmware's naming has it. Uniqueness beyond the repeat is out of the story's scope.
   3. **A create-set that races an unlink-set** can answer `already-exists` with a set that is being taken out (Decision 5).
   4. **The would-be `s` tag goes stale** when unlink-set takes the set out from under its first parent (ADR 0028 Consequences 2). Export (A10.34) reads a set's parents from its links.

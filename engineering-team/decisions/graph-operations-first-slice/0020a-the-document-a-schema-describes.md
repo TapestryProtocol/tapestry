@@ -1,6 +1,6 @@
 # ADR 0020a: A concept's JSON Schema describes a node's tapestryJson, the JSON the Tapestry LMDB holds for it, and both readers judge that one document
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-17
 **Story:** none. This ADR answers Loom decision task A10.20.a, a subtask of A10.20 (`graph create-element`). Its plan is [docs/loom/A10.20.a.md](../../../docs/loom/A10.20.a.md). It follows the owner's direction of 2026-11-17, given on the pull request's first draft. Its decider accepts it by merging it.
 
@@ -250,7 +250,7 @@ For the build's story. Its Architect may refine them.
   - Rebuilding one section keeps the others.
   - L5a's oracle in `test/pass-3-finishes-in-minutes.test.js` moves to the concepts `F.conceptsOfNodes` finds. L3's and L4's time limits still hold.
 - **The live check** runs on a scratch stack (`scripts/scratch-stack.sh`), never the agent-memory instance:
-  - after `graph create-set`, the set has tapestryJson whose `parentJsonSchemas` says it fits `word`, and the rule's check agrees for each concept;
+  - after `graph create-set`, the set has tapestryJson whose `parentJsonSchemas` says it fits `word` *(under firmware's `word` file only, until install's wordType conditionals are fixed: story graph-operations-first-slice #42's Open questions, the owner's ruling at its review round 2)*, and the rule's check agrees for each concept;
   - after `graph update-node`, the changed section is rebuilt and the others are as they were;
   - the relay's event count is unchanged.
 - **Branches:** staging only, by the usual chain.

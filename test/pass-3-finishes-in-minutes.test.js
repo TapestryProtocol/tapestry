@@ -342,14 +342,14 @@ const ORACLE = {
   parentSetsDirect: 'UNWIND $uuids AS uuid MATCH (parent)-[:IS_A_SUPERSET_OF]->(s { uuid: uuid }) RETURN uuid, collect(parent.tapestryKey) AS keys',
   parentSetsIndirect: 'UNWIND $uuids AS uuid MATCH (parent)-[:IS_A_SUPERSET_OF*2..10]->(s { uuid: uuid }) WHERE NOT (parent)-[:IS_A_SUPERSET_OF]->(s { uuid: uuid }) RETURN uuid, collect(DISTINCT parent.tapestryKey) AS keys',
 };
+// The concepts the rule element-fits-schema judges (src/operations/catalog/graph/_fields.js conceptsOfNodes), one row for
+// each of their JSON schema nodes, as the derive step lists them once it asks _schemas.js (story
+// graph-operations-first-slice #42; ADR graph-operations-first-slice/0042 Decision 5): every header whose class thread
+// reaches the node, a ConceptHeader or a ListHeader, at any depth, and no longer the headers a z tag names.
 const ORACLE_SCHEMAS = `MATCH (n { uuid: $uuid })
-  OPTIONAL MATCH (n)<-[:HAS_ELEMENT]-(parentSet)<-[:IS_A_SUPERSET_OF*0..10]-(sup:Superset)<-[:IS_THE_CONCEPT_FOR]-(h1:ConceptHeader)
-  OPTIONAL MATCH (n)-[:HAS_TAG]->(zt:NostrEventTag {type: 'z'})
-  OPTIONAL MATCH (h2:ConceptHeader {uuid: zt.value})
-  WITH collect(DISTINCT h1) + collect(DISTINCT h2) AS headers
-  UNWIND headers AS ch
+  MATCH (n)<-[:HAS_ELEMENT]-()<-[:IS_A_SUPERSET_OF*0..]-(:Superset)<-[:IS_THE_CONCEPT_FOR]-(ch)
+  WHERE ch:ConceptHeader OR ch:ListHeader
   WITH DISTINCT ch
-  WHERE ch IS NOT NULL
   MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(ch)
   RETURN DISTINCT js.uuid AS uuid, js.tapestryKey AS tapestryKey, ch.name AS conceptName, ch.tapestryKey AS conceptTapestryKey`;
 // The deriver a node gets (src/lib/tapestry-derive.js labelPriority, today): the set deriver for Set and Superset.

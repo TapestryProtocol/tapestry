@@ -3,8 +3,8 @@
 **Id:** 2026-11-16-derive-step-and-rule-check-split
 **Type:** protocol
 **Opened:** 2026-11-16 (story graph-operations-first-slice #20, review round 1, blocking finding 1; ADR graph-operations-first-slice/0020 Amendment 1, item 1)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-17 (story graph-operations-first-slice #42; ADRs graph-operations-first-slice/0020a and 0042) — a concept's schema describes a node's tapestryJson, and the rule and the derive step judge it through `_schemas.js`, against the same concepts, so they give one verdict; firmware's `word` schema keeps `graphContext` in `required`, and a write's check sets aside what only the derive step builds.
 
 **What was seen.** The rule `element-fits-schema` (`src/operations/rules/element-fits-schema.js`, through `src/operations/catalog/graph/_schemas.js`) judges an element's stored JSON, its json tag, against the concepts whose class threads reach it.
 
