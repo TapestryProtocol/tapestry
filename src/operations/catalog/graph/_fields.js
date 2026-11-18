@@ -14,8 +14,9 @@
  * assistant's key, the LMDB store, the Neo4j driver) is required when first called.
  *
  *   readJson(raw)                            a json tag's value, read: { json }, or { json: null, problem }
+ *   overlaySections(json, own)               a node's JSON with the owner's sections kept beside it laid over
  *   conceptOf(read, key)                     the concept a header's tapestryKey names, or null
- *   conceptsOfNodes(read, keys)              the concept headers whose class thread reaches each node
+ *   conceptsOfNodes(read, keys, { without }) the concept headers whose class thread reaches each node
  *   propertyNodeOf(read, concept, field)     the tapestryKey of the field's node in the concept's tree, or null
  *   firstSetOf(read)                         the first set, { uuid, key }, or null when the firmware isn't installed
  *   marksOf(read, { concept })               every mark, found back to its concept; one concept's when asked
@@ -107,6 +108,42 @@ function readJson(raw) {
   }
   if (typeof value !== 'string') return { json: value };
   try { return { json: JSON.parse(value) }; } catch { return { json: null, problem: "its json tag isn't JSON that parses, so its JSON can't be read" }; }
+}
+
+/**
+ * A node's JSON with the owner's sections laid over it (story graph-operations-first-slice #22, ADR
+ * graph-operations-first-slice/0022 Decision 5): the sections graph add-to-concept keeps beside another author's letter,
+ * or firmware's definition, in the node property tapestryOwnSections, an object keyed by concept key. → a copy of
+ * `json` in which each section of `own`, under its key, replaces json's of that key whole; when json has a word block
+ * whose wordTypes is a list, the keys of `own` it lacks are added at its end, sorted. Built with Object.fromEntries, so
+ * a key called __proto__ stays an own key. Neither input is changed. Every reader of a node's JSON lays them over with
+ * this: the field mapping (elementsOf), the derive step (src/lib/derivers/word.js) and the two membership writes.
+ */
+function overlaySections(json, own) {
+  const base = isObject(json) ? json : {};
+  const sections = isObject(own) ? own : {};
+  const out = new Map(Object.entries(base));
+  for (const [k, v] of Object.entries(sections)) out.set(k, v);
+  const word = has(base, 'word') ? base.word : null;
+  if (isObject(word) && Array.isArray(word.wordTypes)) {
+    const lacking = Object.keys(sections).filter((k) => !word.wordTypes.includes(k)).sort();
+    if (lacking.length) out.set('word', Object.fromEntries(Object.entries(word).map(([k, v]) => (k === 'wordTypes' ? [k, [...v, ...lacking]] : [k, v]))));
+  }
+  return Object.fromEntries(out);
+}
+
+/**
+ * A node's tapestryOwnSections, read (ADR 0022 Decision 6): { sections } when it holds JSON text of an object, or an
+ * object; { sections: null } when the node has none; { problem } when it holds anything else.
+ */
+function ownSectionsOf(raw) {
+  if (raw === null || raw === undefined) return { sections: null };
+  let value = raw;
+  if (typeof raw === 'string') {
+    try { value = JSON.parse(raw); } catch { value = undefined; }
+  }
+  if (!isObject(value)) return { problem: "its sections kept beside its letter (tapestryOwnSections) aren't JSON of an object, so its JSON can't be read" };
+  return { sections: value };
 }
 
 // ── names ──
@@ -221,6 +258,9 @@ async function marksOf(read, { concept = null } = {}) {
  * problem, copies }]: `json` resolved from the json tag (null, with `problem` saying why, when it can't be read), and
  * `copies` the node's properties that start with <key>_. At most `limit` (a checked whole number, written into the
  * text, as graph history's is); `only` keeps those keys alone. Implicit members join once they are wired (Context 11).
+ * The owner's sections kept beside another author's letter (tapestryOwnSections) are laid over the json tag's JSON, so a
+ * mark's copy comes from the owner's section; a node with sections beside and no json tag reads as {} with them (ADR
+ * graph-operations-first-slice/0022 Decision 6). A json tag that can't be read, or sections beside that can't, is a problem.
  */
 async function elementsOf(read, concept, limit, { only = null } = {}) {
   if (!Number.isInteger(limit) || limit < 1) throw new Error(`elementsOf's limit must be a whole number from 1; got ${JSON.stringify(limit)}`);
@@ -233,14 +273,17 @@ async function elementsOf(read, concept, limit, { only = null } = {}) {
      WHERE $only IS NULL OR e.tapestryKey IN $only
      OPTIONAL MATCH (e)-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
      WITH e, head(collect(t.value)) AS json
-     RETURN e.tapestryKey AS key, e.uuid AS uuid, json, [k IN keys(e) WHERE $prefix IS NOT NULL AND k STARTS WITH $prefix | [k, e[k]]] AS copies
+     RETURN e.tapestryKey AS key, e.uuid AS uuid, json, e.tapestryOwnSections AS own, [k IN keys(e) WHERE $prefix IS NOT NULL AND k STARTS WITH $prefix | [k, e[k]]] AS copies
      LIMIT ${limit}`,
     { key: concept.key, prefix: concept.oKey ? `${concept.oKey}_` : null, only: Array.isArray(only) ? only : null },
   );
   const out = [];
   for (const r of rows) {
     if (typeof r.key !== 'string') continue;
-    const { json, problem } = readJson(r.json);
+    const beside = ownSectionsOf(r.own);
+    let { json, problem } = beside.sections && (r.json === null || r.json === undefined) ? { json: {}, problem: null } : readJson(r.json);
+    if (!problem && beside.problem) ({ json, problem } = { json: null, problem: beside.problem });
+    else if (!problem && beside.sections && isObject(json)) json = overlaySections(json, beside.sections);
     const copies = {};
     for (const pair of Array.isArray(r.copies) ? r.copies : []) if (Array.isArray(pair) && typeof pair[0] === 'string' && pair[1] !== null && pair[1] !== undefined) copies[pair[0]] = pair[1];
     out.push({ key: r.key, uuid: r.uuid || null, json, problem: problem || null, copies });
@@ -382,18 +425,28 @@ async function mapConcept(tx, concept, { only = null, fields = null, strays = fa
  * The concept headers whose class thread reaches each node in `keys`, read from the node back to each header →
  * [{ concept, key }], each pair once. A node no class thread reaches has no row. mapNodes reads with it, and so does the
  * rule element-fits-schema's check of an element as it stands (ADR graph-operations-first-slice/0020 Decision 12).
+ * `without`, a list of relationships' elementIds, leaves those last links into the nodes out of the walk: the concepts
+ * that would still reach them once those links were gone, so "the concepts reaching a node" keeps one definition (ADR
+ * graph-operations-first-slice/0022 Decision 10, graph remove-from-concept and the rule node-has-a-concept).
  */
-async function conceptsOfNodes(read, keys) {
+async function conceptsOfNodes(read, keys, { without = null } = {}) {
   const wanted = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string' && k))];
   if (!wanted.length) return [];
   const T = types();
+  const leaveOut = Array.isArray(without) ? without.filter((x) => typeof x === 'string') : null;
   const rows = await read(
-    `MATCH (e:TapestryNode)
+    leaveOut
+      ? `MATCH (e:TapestryNode)
+     WHERE e.tapestryKey IN $keys AND NOT e:GraphChange
+     MATCH (e)<-[r:${T.TERM}]-()<-[:${T.PROP}*0..]-(:Superset)<-[:${T.INIT}]-(h)
+     WHERE (h:ConceptHeader OR h:ListHeader) AND NOT elementId(r) IN $without
+     RETURN DISTINCT h.tapestryKey AS concept, e.tapestryKey AS key`
+      : `MATCH (e:TapestryNode)
      WHERE e.tapestryKey IN $keys AND NOT e:GraphChange
      MATCH (e)<-[:${T.TERM}]-()<-[:${T.PROP}*0..]-(:Superset)<-[:${T.INIT}]-(h)
      WHERE h:ConceptHeader OR h:ListHeader
      RETURN DISTINCT h.tapestryKey AS concept, e.tapestryKey AS key`,
-    { keys: wanted },
+    leaveOut ? { keys: wanted, without: leaveOut } : { keys: wanted },
   );
   return rows.filter((r) => typeof r.concept === 'string' && typeof r.key === 'string').map((r) => ({ concept: r.concept, key: r.key }));
 }
@@ -475,6 +528,8 @@ module.exports = {
   tooManyElements,
   markType,
   readJson,
+  overlaySections,
+  ownSectionsOf,
   conceptOf,
   conceptsOfNodes,
   propertyNodeOf,

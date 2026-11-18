@@ -585,6 +585,7 @@ module.exports = {
   requireEnds,
   lockNode,
   firmwareLinks,
+  descriptorsOf,
   isFirmwareLink,
   firmwarePrunes,
   peerClaim,

@@ -122,6 +122,69 @@ For Architecture, not this gate:
 - **`relationship-type-allowed`'s text for `HAS_ELEMENT`,** which names add-to-concept and create-element as what makes it, and not remove-from-concept as what takes it out.
 - **The answers' and change entries' shapes, and the refusals' codes and statuses.**
 
+## Deviations
+
+- **`_sets.js` exports `descriptorsOf`,** which Decision 11 calls as `S.descriptorsOf` but the module didn't export. Nothing else in `_sets.js` changes.
+- **`_fields.js` also exports `ownSectionsOf`,** the one reading of `tapestryOwnSections` (JSON text of an object), which `elementsOf`, the derive step and `_memberships.js` share.
+- **Sections beside that don't parse,** a case the ADR doesn't name: `elementsOf` reads such a node as a problem, so the field mapping leaves its copies as they are, as it does for a json tag that can't be read (BIBLE §30). The derive step leaves them out and derives the node from its letter.
+- **`section-added`'s `was`** is the section the node's JSON already held for the concept when it wasn't yet an element of it (Decision 7's merge: AT13's `stale`), else null. Decision 14 gives `was: null` for a new section only. For a node kept beside, `was` is what `tapestryOwnSections` held for the concept.
+- **One `unknown-node` and one `made-elsewhere` declaration per operation,** each `when` covering both the node and the set, or both the node and the concept. A declaration may list a code only once (`declaration.js`), and Decision 17 names two sources for each.
+- **`made-elsewhere` for a superset names both** `graph update-concept`, which AT33 and RM32 look for, and `graph link-set` and `unlink-set`, which Amendment 1, item 6 names. For a set it names link-set and unlink-set; for anything else, the operation `X.changedElsewhere` names.
+- **`name-in-use` isn't checked for a node already in the concept** that is put in a set (Amendment 1, item 7): no new membership of the named concept is made, so create-element's repeat isn't affected.
+- **`reserved-key` and `no-superset` are worded for these operations** in `M.say` where `_elements.js`'s words are create-element's ("No element of it can be made here"): remove-from-concept's `reserved-key`, and both operations' `no-superset`. add-to-concept's `reserved-key` keeps `_elements.js`'s words.
+- **remove-from-concept takes out a `z` naming any concept the node leaves,** word's included (Decision 15, step 3, as written), while the word block, and `word` in `wordTypes`, stay (Amendment 1, item 4).
+- **`set` in both answers echoes the input,** or null; Decision 13 lists it without a definition. An `already-element` answer's `concepts` gives each concept's verdict on the node's JSON as it is (Decision 8, step 8).
+- **The relationship events in `letters` are found from their `nodeTo` tag.** No index holds tag values, so on a large graph that read scans the tags; it runs only for a removal that took a link out.
+- **`docs/GRAPH_RULES.md` entry 7's Enforced by still says `graph add-to-concept` "will call" its check.** The ADR changes only §8, and rewording entry 7 would regenerate rule 7's element as well.
+- **A ledger row records rule 8's firmware reinstall,** `2026-11-18-rule-eight-awaits-firmware-reinstall`, as rule 7's was recorded.
+- **The scoped gate needed this worktree's `node_modules` linked** to the main checkout's, as A10.18's and A10.26's are: its first run (`20261118T022832Z-51505-24f5`) failed 13 tests in four suites, each on `Cannot find module '<worktree>/node_modules/…'`. The link is untracked, since `.gitignore`'s `node_modules/` doesn't match a link, and was removed afterwards.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-18, uncommitted on `85326415`)
+
+Each ran alone on this Mac, with every service endpoint dead (`BRAINSTORM_BASE_URL`, `TAPESTRY_PORT`, `TAPESTRY_CONTAINER`, `NEO4J_URI` and `REDIS_PORT` on dead values). None failed.
+- **The new suites:** add-to-concept 39 passed, remove-from-concept 33, memberships-shared 18, memberships-agent-through-cli 1.
+- **Rule 8's:** graph-rules-builder 26 passed; graph-rule-firmware 13 passed, 4 skipped (GL1–GL4, live); firmware-element-sync 21 passed.
+- **The neighbours:**
+  - update-node 42, its shared suite 13, its agent 1;
+  - create-element 34, element-schemas 14, elements' agent 1;
+  - map-fields 12, mark-field 16, unmark-field 13, fields 8, fields' agent 1;
+  - the six rules suites: class-thread-acyclic 10, concept-slug-unique 5, element-fits-schema 11, field-mark-allowed 14, relationship-type-allowed 10, set-has-a-parent 12;
+  - add-relationship 12, remove-relationship 7, history 8, list-elements 30;
+  - delete-node 40 and its agent 1, unlink-set 21, link-set 21;
+  - graph-fake 31, write-path 13, change-entry-fields 3.
+- **The scoped gate:** record `20261118T023152Z-53544-4655`, PASS, 1,122 passed, 0 failed, 10 skipped, over 8 suites (operations, external-cli, openapi-coverage, admin-action-sweep, schema-save-finds-the-right-header, graph-rules-builder, graph-rule-firmware, firmware-element-sync), on `85326415+dirty`. The earlier run is in Deviations.
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-18, uncommitted on `85326415`)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`. The scripts (`setup.sh`, `live.js`, `restore.sh`) and every call's request and answer are in this worktree's `tmp/live-check-22/` (ignored by git).
+- **The instance.** It booted from image `agent-memory-tapestry:latest` with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `c4c302955e90` and `b210347f63a8`), so the branch's was copied in, the control panel restarted, and the firmware installed again. The branch's `bin/tapestry.js` and `clients/cli` were copied in.
+- **Keys.** Four throwaway keys: the owner's and an admin's, for the agent, both set in `/etc/brainstorm.conf`; a peer's; a stranger's.
+- **Afterwards** it was removed, after a second, fresh boot for the restore, which was removed too. Each `down` checked first that the container mounted this worktree's `src/`.
+
+**The seed:** live beagle and live pet, with `graph create-concept`; live lap pets, a set of live pet's, with `graph create-set`; live hound, with today's create-concept route and its property tree, its `description` marked with `graph mark-field`; Peer Pup, the peer's lettered element of live beagle, made with Cypher; and Peer Letter, an event the peer signed, put in the relay and imported with `POST /api/neo4j/event-update`.
+
+**By check, all 32 of the script's checks passed, and L10's three:**
+- **L1,** the admin agent through nginx and the external CLI:
+  - it made Snoopy in live beagle; added it to live pet (`added`, `kept: json-tag`, recorded as the agent's); added it again (`already-element`, `change: null`); put it in live lap pets; took it out of the set (`left: []`), then out of live pet;
+  - it filed Peer Pup under live pet (`kept: beside`);
+  - it was refused `{"description":5}` (`invalid-fields`, from `element-fits-schema`), Peer Pup's membership of live beagle (`author-claim`, naming the peer) and Snoopy's last concept (`last-concept`, by `node-has-a-concept`);
+  - Snoopy's history: two removals, two adds and the create, each the agent's. In Neo4j it is in live beagle alone, with no `z` naming live pet, no `n` naming the set and no live pet section.
+- **L2:** Peer Pup's tags and json tag were exactly as before, and `tapestryOwnSections` held the owner's section.
+- **L3,** after a set of adds and removes: Rex into live hound, its description carried as `liveHoundKg13_description`; Hound Gone into live beagle and out of live hound, its copy and its `z` going; firmware's dog rover into live pet, beside its file; Lap Dog, in live pet, into live lap pets. Then two firmware reinstalls, each `success: true`. After each, the seven nodes' concepts, set links, tags, JSON, sections beside and copies were as the calls left them, and no superset link changed: nothing taken out came back through pass 1d or wire-implicit-elements.
+- **L4:** backup `20261118T024336Z-98143e4e` (5.97 MB: 3,684 nodes, 4,173 relationships) was restored on a fresh instance, its transaction and counts exact. The seven nodes were as before.
+- **L5:** Peer Letter's event imported again answered `action: updated`. The owner's section beside it, and its membership of live pet, stayed; its tags came back as the letter says, under the import's own tag uuids, which for one event are the same each time.
+- **L6,** at once, three times each:
+  - two adds of one membership: `added` and `already-element`, one link and one entry;
+  - two removes of a node's last two concepts: one `removed` and one `last-concept`, each time from the re-check after the delete (Decision 15), the node left in live pet;
+  - an add beside an update-node of one node: both went, the add first each time, and neither write was lost.
+- **L7:** Peer Letter, derived, then added to live pet beside: `cacheOutOfDate: true`. Derived again, its tapestryJson held the owner's section and live pet's key in `wordTypes`, and the rule's verdict for live pet was valid.
+- **L8,** through nginx: a visitor got 401 from both routes. The stranger, signed in by the CLI, was refused ("Only the owner or an admin can do this."), and with its session cookie both routes answered 403.
+- **L9:** the relay held 478 events before the membership calls and 478 after. The change entries went from 7 to 43.
+- **L10:** with the branch's firmware installed, `graph-rule-firmware.test.js`'s live part passed GL1–GL3: an item per rule, eight, `node-has-a-concept` among them.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)

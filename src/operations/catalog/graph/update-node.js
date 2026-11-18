@@ -174,7 +174,7 @@ module.exports = {
     }
     const judged = conceptKeys.filter((c) => byKey.has(c) && !X.RESERVED_KEYS.includes(byKey.get(c).oKey));
     if (!judged.length) {
-      throw refusal(NOT_AN_ELEMENT.code, `${labelOf(facts)} is an element of no concept${conceptKeys.length ? ' but word' : ''}: no other concept's class thread reaches it, so it has no section to change and no schema to check one against (design D9). graph add-to-concept (A10.22, to come) makes a node an element of a concept. Nothing changed.`, { input: 'node' });
+      throw refusal(NOT_AN_ELEMENT.code, `${labelOf(facts)} is an element of no concept${conceptKeys.length ? ' but word' : ''}: no other concept's class thread reaches it, so it has no section to change and no schema to check one against (design D9). graph add-to-concept makes a node an element of a concept. Nothing changed.`, { input: 'node' });
     }
 
     // 5. The locks on the headers of the concepts it judges, in tapestryKey order (Decision 5): a rename's name check,
@@ -191,7 +191,7 @@ module.exports = {
       const oKey = h && h.oKey ? h.oKey : c.oKey;
       if (X.RESERVED_KEYS.includes(oKey)) throw refusal(X.RESERVED_KEY.code, X.say.reservedKey(c, oKey), { input: 'concept' });
       if (!judged.includes(inputs.concept)) {
-        throw refusal(NOT_ITS_CONCEPT.code, `${labelOf(facts)} isn't an element of ${X.conceptLabel(c)}, so it has no section of that concept's to change. It is an element of ${judged.map((j) => conceptOf(byKey.get(j))).join('; ')}. graph add-to-concept (A10.22, to come) makes a node an element of another concept. Nothing changed.`, { input: 'concept' });
+        throw refusal(NOT_ITS_CONCEPT.code, `${labelOf(facts)} isn't an element of ${X.conceptLabel(c)}, so it has no section of that concept's to change. It is an element of ${judged.map((j) => conceptOf(byKey.get(j))).join('; ')}. graph add-to-concept makes a node an element of another concept. Nothing changed.`, { input: 'concept' });
       }
       target = inputs.concept;
     } else if (sectionChange) {
@@ -218,7 +218,7 @@ module.exports = {
     // The section is the JSON's own key, never an inherited one, such as a concept keyed __proto__ (review round 1,
     // finding 1). The refusal names the input the call gave (finding 3).
     if (sectionChange && !(own(oldJson, targetKey) && isObject(oldJson[targetKey]))) {
-      throw refusal(NO_SECTION.code, `${labelOf(facts)}'s JSON has no ${targetKey} section, the section of ${conceptOf(byKey.get(target))}. update-node changes a section the node already has; graph add-to-concept (A10.22, to come) gives a node another concept's section. Nothing changed.`, { input: typeof inputs.concept === 'string' ? 'concept' : inputs.fields !== undefined ? 'fields' : 'description' });
+      throw refusal(NO_SECTION.code, `${labelOf(facts)}'s JSON has no ${targetKey} section, the section of ${conceptOf(byKey.get(target))}. update-node changes a section the node already has; graph add-to-concept gives a node another concept's section. Nothing changed.`, { input: typeof inputs.concept === 'string' ? 'concept' : inputs.fields !== undefined ? 'fields' : 'description' });
     }
 
     // 8. The new JSON (Decisions 8 and 9): the rename first, then the fields merged into the target section.

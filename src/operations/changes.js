@@ -32,6 +32,10 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * now, whose values are the field's JSON, and a rename's was and now (story graph-operations-first-slice #21, ADR
  * graph-operations-first-slice/0021 Decision 18). A deleted node's add nodes, the other ends of its relationships, and
  * was, the node as it was (story graph-operations-first-slice #26, ADR graph-operations-first-slice/0026 Decision 12).
+ * A membership's add type, from and to, the link, and concept; its section's field (the concept's key), was and now,
+ * the section whole, and property, tapestryOwnSections, for one kept beside another author's letter; a tag's field,
+ * its type, and was or now, its value; and wordTypes' was and now (story graph-operations-first-slice #22, ADR
+ * graph-operations-first-slice/0022 Decision 14).
  */
 const CHANGE = Object.freeze({
   type: 'object',
