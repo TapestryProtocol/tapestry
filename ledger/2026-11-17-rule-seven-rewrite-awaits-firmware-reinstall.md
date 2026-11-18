@@ -3,8 +3,8 @@
 **Id:** 2026-11-17-rule-seven-rewrite-awaits-firmware-reinstall
 **Type:** cleanup
 **Opened:** 2026-11-17 (story graph-operations-first-slice #42, ADR graph-operations-first-slice/0042 Consequences: "Firmware reinstall required? Yes, for rule 7's element (AC5)")
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-18 — reinstalled on staging (00:54Z to 00:58Z) and on production (01:22Z to 01:26Z), each on the owner's yes, after TapestryProtocol/tapestry#132 and its promotion #133. Rule 7's item in each graph carries entry 7's new Says (story 42's Evidence, "On staging and production"). The agent-memory instance on the Mac Studio takes it only at David's word.
 
 **What is pending.** Story 42 rewrites rulebook entry 7 (`docs/GRAPH_RULES.md`): it now judges a node's fully realized tapestryJson, and names ADRs 0020, 0020a and 0042 as its source. `node src/firmware/graph-rules.js` regenerated `firmware/versions/v1.0.0/concepts/graph-rule/elements/element-fits-schema.json` from it. An instance's graph carries the new words only after a firmware reinstall there, as the item story 20 added did (ledger row `2026-11-16-rule-seven-awaits-firmware-reinstall`). Firmware's `word` schema is unchanged.
 

@@ -193,6 +193,54 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - **`test/graph-rule-firmware.test.js`,** with `GRAPH_RULE_INSTALL=1`: 17 passed, 0 failed. GL1 to GL3 find the graph rule concept and an item per rule, each holding its committed file's JSON, rule 7's new text among them. GL4 finds a second install signs nothing new.
 - **Afterwards** the instance was removed with `scripts/scratch-stack.sh down`, after checking that it mounted this worktree's `src/`.
 
+### On staging and production (2026-11-18)
+
+**Staging: TapestryProtocol/tapestry#132.**
+- **Its CI:** the `Test` run 44209068767 passed on the PR's head, `5ebd0763`. Staging hadn't moved from `370d8118`, and a trial merge was clean.
+- **The safe-to-merge check** (`scripts/check-safe-to-merge.sh`) said safe at 00:44:51Z: no task active, and the next scheduled one at 05:40Z.
+- **The merge,** at 00:44:53Z, was pinned with `--match-head-commit 5ebd0763`. Its merge commit is `af392639`.
+- **The deploy:** `deploy-staging.yml` run 44210347392 succeeded, 00:44:57Z to 00:46:43Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`) was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504;
+  - tier 3: `/docs` carries the `waiting` field's description, "…so the problems about it were set aside (ADR graph-operations-first-slice/0042)", 3 times, where it carried it 0 times before the merge. The UI bundle stayed `index-D1TtEuL5.js`, since no UI changed;
+  - tier 5: the deploy-safety status and the assistant's pubkey answered 200.
+
+  Tier 4 didn't apply, since no UI changed.
+- **Loom** marked A10.20.b verified, weakly, at 00:45:17Z: PR #132 had no approval from a teammate other than the owner.
+- **The firmware reinstall** ran with the owner's yes.
+  - **Before it,** deploy-safety said safe at 00:54:19Z.
+  - **The install** was one loopback call over SSH, 00:54:29Z to 00:58:04Z:
+    - Pass 2: 41 enriched, 0 errors;
+    - Pass 3: 741 derived, 4 enumerations, 103 implicit elements;
+    - "FIRMWARE INSTALL COMPLETE".
+  - **Rule 7's item** in the graph (`…:element-fits-schema-22bbd716`) now carries "fully realized tapestryJson", "will call when they are built" and ADR 0042. One `cypher-shell --access-mode read` call checked it. Rule 7's element file before this story has none of the three.
+
+**Production: TapestryProtocol/tapestry#133,** the promotion.
+- **What it carried:** staging at `af392639`, from `promote/both-readers-tapestryjson-2026-11-18`, a branch cut at that commit (ledger row `2026-11-17-promotion-pr-head-moves-with-staging`). That is #129 to #132:
+  - this story, its ADR and its code;
+  - delete-node's records;
+  - ADR 0018 and its story.
+
+  The owner approved that bundle, and it was listed again just before the merge.
+- **Its required check:** the `stack-free` run 44212713689 passed on `af392639`.
+- **The safe-to-merge check** against production said safe at 01:15:24Z: no task active, and the next scheduled one at 02:00Z.
+- **The merge,** at 01:15:27Z, was pinned with `--match-head-commit af392639`. Its merge commit is `6234f393`.
+- **The deploy:** `deploy-tapestry.yml` run 44214398592 succeeded, 01:15:30Z to 01:17:22Z.
+- **The smoke test** was clean: tiers 1, 2 and 5 as on staging, and tier 3's `/docs` count 3, where it was 0 before the merge. Tier 4 didn't apply.
+- **The firmware reinstall** ran with the owner's yes.
+  - **Before it,** deploy-safety said safe at 01:22:19Z, with the next task at 02:00Z.
+  - **The install** ran 01:22:26Z to 01:26:18Z:
+    - Pass 2: 41 enriched, 0 errors;
+    - Pass 3: 716 derived, 4 enumerations, 109 implicit elements;
+    - "FIRMWARE INSTALL COMPLETE".
+  - **Rule 7's item** (`…:element-fits-schema-e5a0c507`) carries the same three phrases.
+
+**Not checked on either server:**
+- **Calls signed in as the owner or an admin,** which the smoke test can't make: the writes' `waiting` answers, and the rule's check form. The live check covered both on a scratch stack.
+- **The cached verdicts the reinstalls' derive passes left.** On the scratch stack, 679 of 1,169 failed for defects older than this story (Open questions, the owner's ruling). Neither server's were counted.
+- **The agent-memory instance on the Mac Studio** has neither the code nor the new text. It takes them only at the owner's word.
+
 ## Linked artifacts
 
 - Decision: ADR graph-operations-first-slice/0020a (`engineering-team/decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md`)
