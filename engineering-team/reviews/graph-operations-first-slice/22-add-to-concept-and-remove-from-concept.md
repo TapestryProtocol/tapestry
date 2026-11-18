@@ -478,3 +478,136 @@ The annotations on four earlier deviations point at the amendment's items, and e
 - The story's status is `Done`, from round 1's commit. With this verdict, whether it goes back until a later round passes is the session's call; harness-lint won't flag it either way (harness friction 1).
 - This section is written but not committed: the session commits it.
 - Completion detection: unchanged since round 1, and reported in the chat.
+
+---
+
+## Round 3 — 2026-11-18 (HEAD `9c6d890c`)
+
+**Diff checked:** `git diff 5e242047..HEAD`, three commits:
+- `a49c76a5`: the merge of `origin/staging` at `02e21816`, which brings A10.18's property operations (#136) and #135. The merge's own changes are staging's, reviewed in their pull requests. Only its conflict resolutions and the ledger pointer are checked here (below).
+- `fc4cf1b1` (test): ADR 0022 Amendment 3; the story's "Changed at review round 1" note; the test plan's "Added at review round 2"; and AT54–AT58, RM47 and MS23.
+- `9c6d890c` (impl): R2-1's fix, R2-3's and R2-5's words, the round-2 deviations and the Evidence.
+
+Each phase kept to its files: `git diff a49c76a5 fc4cf1b1 -- src firmware docs` and `git diff fc4cf1b1 9c6d890c -- test` are both empty.
+
+**How it was made.** As in rounds 1 and 2: a reviewer agent with no Edit access. This section is its only write to a tracked file, and its gate record is under the ignored `tmp/gate-runs/`. It checked each fix as a fresh claim:
+- probes 4 and 5, re-run against HEAD, and a new probe 6 (`probes/probe6.js` in the session's scratchpad);
+- nine new breaks (`probes/mutate3.js`), in a scratch copy of HEAD;
+- the round's tests on `fc4cf1b1`, which holds round 2's code;
+- the merge's resolutions, read against both of its parents.
+
+It made no call to the local stack, any container, GitHub or Loom. The independent check before the commit (workflow 5, P13) wasn't applied.
+
+### Gates (run by the reviewer at `9c6d890c`)
+
+- [ ] **The full gate** (`npm test`): not run, for round 1's reason. It runs as the pull request's CI check.
+- [x] **The scoped gate:** round 1's eight suites, with the same variables, and the `node_modules` link made for the run and removed after. Its `npm run gate:status -- --label a10-22-review-r3` line, the worktree's path shortened:
+
+  ```
+  20261118T055648Z-44540-58f1 [a10-22-review-r3] started 2026-11-18T05:56:48.946Z on 9c6d890c+dirty — PASS, exit 0, 1185 passed, 0 failed, 10 skipped, 8/8 suites · <worktree>/tmp/gate-runs/20261118T055648Z-44540-58f1.json
+  ```
+
+  - `+dirty` is the link alone (`dirtyCount: 1`).
+  - Only operations moved, from 972 to 1024 passed, 4 skipped. 1185 is round 2's 1133, A10.18's 45 property tests, which came with the merge, and this round's seven.
+  - Suite by suite, that is the Implementer's record `20261118T054955Z-30922-7f5b`, which ran on the fix uncommitted over `fc4cf1b1`.
+- [x] **Each suite alone,** every endpoint dead:
+  - add-to-concept 49 passed, remove-from-concept 36, memberships-shared 23, memberships-agent-through-cli 1;
+  - A10.18's suites, which came with the merge: add-property 15, remove-property 8, set-schema 10, update-property 11, properties-agent-through-cli 1;
+  - graph-rules-builder 26; graph-rule-firmware 13, 4 skipped (live); firmware-element-sync 21.
+- [x] **Red before green.** `fc4cf1b1`'s tree, extracted: add-to-concept 47 passed, 2 failed (AT54, AT58); remove-from-concept 35/1 (RM47); memberships-shared 22/1 (MS23); the agent 1/0. That is the test plan's record exactly. AT55, AT56 and AT57 pass on round 2's code, as the plan says: they hold what it already did, or what the fix must keep.
+- [x] **Breaking the real code,** one break at a time in a scratch copy of HEAD:
+
+  | Broken | Failed |
+  |---|---|
+  | R2-1's fix undone: rule 4 only when a section is written (`add-to-concept.js:195`) | AT54 |
+  | a wrong fix: rule 4 on every call that isn't a repeat (`:195`) | AT55, alone across the four suites |
+  | rule 4 skipped for a node already in the concept (`:195`) | AT54, AT57 |
+  | rule 4 skipped for a node kept beside (`ownChanged` left out, `:195`) | AT57, AT40, AT43 |
+  | would-be tags written for a section given alone (`:217`) | AT56 |
+  | `wordTypes` left alone for a node already in the concept (`:173`) | AT52, AT54 |
+  | `LETTERS`' description without the reinstall gap (`_memberships.js:138`) | MS23 |
+  | remove-from-concept's description without it (`remove-from-concept.js:52`) | RM47 |
+  | add-to-concept's description without the way for a node kept beside (`add-to-concept.js:45`) | AT58 |
+
+  Every file was restored after its break, and the copy compared equal to HEAD afterwards. The second row shows that AT55 is what tells R2-1's fix from judging every call.
+- [x] **`node src/firmware/graph-rules.js --check`:** the 8 items are current.
+- [x] **`bash scripts/harness-lint.sh`:** clean (0 violations) on HEAD's committed tree, run in the scratch copy. With this section in place, it reports one violation, L1: this review now ends PASS, and the story is `In Progress` until the session's review commit sets it `Done`.
+- [x] **Staging hasn't moved since the merge:** `origin/staging` (`02e21816`) is in HEAD.
+- [ ] _Playwright not applicable. Lint, typecheck and build not configured._
+
+### The merge's resolutions
+
+Read with `git show --cc a49c76a5`, against each parent:
+- **Entry 7's Enforced by.** Staging's said `graph add-to-concept` "will call it when it is built"; this branch's said the property operations "will call when they are built". The merge has both as built: "`graph create-set`, `graph update-node`, `graph add-to-concept` and the derive step … call too, and the property operations (A10.18), over the nodes they write". Each side keeps its own words for its own operation. No other sentence in the rulebook or the elements still calls either one to come; only A10.31's "will call it over the graph" remains, which is to come.
+- **Rule 7's element** is regenerated from that: its `enforcedBy` is the union, its `check` is staging's, and `--check` is current.
+- **`changes.js`' header** keeps both sentences, story 18's and then story 22's.
+- **The rule-8 ledger row's new sentence** is accurate. Story 18's open row `2026-11-17-rule-three-rewrite-awaits-firmware-reinstall` carries rule 3's element and its own rewording of rule 7's, and one reinstall closes both. Not this story's, but worth a line there: story 18's row still calls `2026-11-17-rule-seven-rewrite-awaits-firmware-reinstall` waiting on that reinstall, and story 42 closed that row on 2026-11-18.
+- **The catalog** merged without a conflict, and each side's rows are its own: staging's four property rows and this branch's two membership rows.
+
+A10.18's property reports judge each element's tapestryJson from the store (`_properties.js:1046–1066`). The derive step lays the owner's sections over that JSON, so the two stories read a node kept beside alike.
+
+### Round 2's findings, re-checked
+
+| Round 2 | Disposition | Check |
+|---|---|---|
+| R2-1, rule 4 on a member's changed JSON | Fixed, as Amendment 3 item 1 says | `add-to-concept.js:195` judges on `jsonChanged \|\| ownChanged`. Probe 4, on HEAD: P1 is now refused `invalid-fields` ("`dog.breed` is required"), as P2 is, and Mark Me's `wordTypes` is unchanged. P3 and P4 answer as in round 2. AT54 holds the fix, and AT55 the other side: a call that writes only a set's link and its tags is reported, not refused. The breaks show each fails alone where it should. |
+| R2-2, the story's AC4 | Done | The story's note (line 111) records AC4's repeat, the refusal of a call with no fields for a member that lacks its section, AC2's "stays as it is" and AC3's check on a changed JSON. Its heading says "round 1" but names both amendments. |
+| R2-3, `letters`' words | Fixed | Both descriptions say `letters` reads through the relationship concept, and that an event signed since the last reinstall, as today's add-to-set signs one, can be missing (`_memberships.js:138`, `remove-from-concept.js:52`). MS23 and RM47 hold them. |
+| R2-4, two untested parts | Fixed | AT56: a section given alone writes no would-be tag, through no set or through a set the node is directly in. AT57: rule 4 judges that section, own and beside. The breaks show each catches its part. |
+| R2-5, the way for a node kept beside | Fixed in part | `add-to-concept.js:45` now says update-node changes `differs`' fields for the instance's own node, and that for a node kept beside, a removal and then an add do. AT58 holds the words. The second half fails in the case R2-5 named: R3-2. |
+| R2-6, the merge | Done | As above. |
+
+### The round-2 deviations
+
+1. **The description says when rule 4 runs.** It is accurate (probe 4). Item 1 changed what the repeat's paragraph said, so the extra words are right to be there.
+2. **The refusal carries the rule's own message,** not the way on, since Amendment 3 doesn't ask for it. Round 2's R2-1 asked that "the refusal should say how to go on". The amendment didn't take that up, and the Deviation records it, which is how it surfaced. What it leaves is R3-1.
+3. **No live re-check: accepted.** The fix changes only the condition on which `Sch.checkElements` runs (`add-to-concept.js:195`). No statement the graph runs changed. `checkElements` reads the schema with the statement round 1's live check ran when it refused `invalid-fields` (L1h), and judges in the process with ajv, which the fake runs too. AT54 runs that path. A live run could show nothing the fake can't.
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R3-1. `src/operations/catalog/graph/add-to-concept.js:195`, with `:165`: a node already in the concept, refused for a misfit its `wordTypes` change brings, is told a field is required that the call can't take.**
+   - **Why the call can't take it.** In a call that writes no section, `fields` aren't merged into the section the node holds (`:165`); they are only compared, in `differs`.
+   - **Probe 6, Q1.** Mark Me, refused "`dog.breed` is required" when put in golden retriever's superset through dog, is given `fields: { breed: "goldenRetriever" }` in the same call, and is refused again, word for word.
+   - **The spec.** AC8 asks each refusal to name "the operation to use where there is one". There is one here, as probe 5 shows: add the node to golden retriever itself, which reports dog's verdict without refusing, then set its breed with update-node. Round 2 asked for it (R2-1); Deviation 2 says why it isn't there.
+   - **Asked, for the Architect:** either way works.
+     - When the call writes no section, its refusal says that fields given here aren't written into the section the node holds, and names the way on.
+     - Or the call merges `fields` into the held section when they are given, so the breed can come with the set.
+2. **R3-2. `add-to-concept.js:45`: "For a node kept beside another author's letter, which `graph update-node` refuses, a removal and then an add with the fields change them."**
+   - **Where it fails.** When the membership is the author's letter's claim, the removal is refused `author-claim`.
+   - **Probe 6, Q2.** Peer Item is in beagle by its letter's `z`, and holds its author's beagle section. add-to-concept with fields is `already-element`, and remove-from-concept is refused `author-claim`. R2-5 named this case ("can be refused too"), and the new sentence leaves it out.
+   - **The sentence is also narrow.** It names only another author's letter, though person nodes, placeholders and firmware's own elements are kept beside too, and update-node refuses them as well. For firmware's own, the removal can be refused `firmware-membership`.
+   - **Asked:** for example, "For a node kept beside, which `graph update-node` refuses, a removal and then an add with the fields change the owner's own section; a section the author's letter holds, for a membership their letter claims, stays theirs." AT58's patterns still match that wording.
+
+### Harness friction
+
+1. **Known, seen again:** the full gate can't run on this Mac, and the gate's route walks need the `node_modules` link. No new row. Round 2's friction 1 (L1 checks one direction) stands. The session met it by hand: round 2's commit (`5e242047`) set the story back to `In Progress`.
+
+### Verdict (round 3)
+
+**PASS**
+
+**What holds.** R2-1 is fixed as AC3 reads. A call that changes a member's JSON, a section or `wordTypes`, is judged as a new member's is. One that writes only a set's link and its tags is reported. AT54 and AT55 hold the two sides, and AT55 is what tells the fix from judging every call. R2-2, R2-3, R2-4 and R2-6 are done, and R2-5 is done in part.
+
+**The evidence.**
+- The merge's resolutions keep what each side meant, and staging's suites pass with this story's.
+- Every new test failed first, or held what it should, as the plan records.
+- All nine new breaks are caught.
+- The scoped gate passes on `9c6d890c`.
+
+**The non-blocking findings:** a refusal whose words lead to a retry that can't succeed (R3-1), and a sentence that claims a way that is sometimes refused (R3-2). Both are words. Neither lets a write through, or changes the graph wrongly.
+
+**Still to come:**
+- the full gate, as the pull request's CI check;
+- the firmware reinstall for rules 7 and 8 on staging and production, each on the owner's yes, which the rule-8 row and story 18's row carry together.
+
+### Close-out (not committed)
+
+- The story's status is `In Progress`, set back in round 2's commit (`5e242047`). With this PASS, the session's review commit sets it to `Done` in place. Until then harness-lint's L1 check reports it, as it does with this section written.
+- This section is written but not committed: the session commits it.
+- Completion detection: unchanged. The book isn't complete: the rebuild and the race are still ahead. Reported in the chat.
