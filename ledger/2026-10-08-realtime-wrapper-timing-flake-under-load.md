@@ -106,3 +106,17 @@ before widening the window.
   0.74 s and "node exits 0" at 0.78 s (starts `[0, 0.74, 2.75]` and `[0, 0.78, 2.79]` s). Nothing else was running. The
   diff touched only test files.
 - **Afterwards:** the suite passed alone (24/0).
+
+**Occurrence, 2026-11-18, on CI** (the records PR TapestryProtocol/tapestry#143, for `graph-operations-first-slice` #43).
+- **The failing run:** the `Test` workflow's run 44335714732, attempt 1, on the PR's head `7ebbb80e`. The gate's record on the runner is `20261118T152701Z-2593-a1b0`.
+  - RW7, "node exits 1" and "node exits 0": the first restart came at 0.77 s (starts `[0, 0.77, 2.8]` s).
+  - It was the run's only failure: 8,041 passed, 1 failed and 644 skipped, across 346 suites.
+  - The PR changed one markdown file. No tagging-edges file had changed since the last green run, on `52ac2cf6`.
+- **The first on CI.** Every occurrence above is a local gate.
+  - A GitHub-hosted runner gives each job a fresh machine, so no other gate ran beside this one.
+  - It was again exactly 0.77 s, which fits the systematic-edge reading above.
+  - So the zero-flake record that `.github/workflows/test.yml`'s header and OPERATIONS.md §15 cite no longer holds.
+- **Retried, against §15.** The failed job was run again by hand, and #143 merged on that pass (attempt 2, at 16:15:52Z).
+  - §15 says the first run's exit code is the verdict, and that a stack-free flake's answer is a cited quarantine entry, not a retry.
+  - The session that reran it hadn't read §15. The change was docs only, so the retry hid no regression.
+  - The quarantine file §15 describes doesn't exist yet.
