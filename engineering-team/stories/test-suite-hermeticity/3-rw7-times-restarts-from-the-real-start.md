@@ -102,6 +102,6 @@ The probe, its scripts and their output are in the main checkout's `tmp/rw7-prob
 
 - ADR: none. Architecture is skipped: a Bug whose fix follows from its cause, under Standard.
 - Test plan: `engineering-team/stories/test-suite-hermeticity/3-rw7-times-restarts-from-the-real-start.test-plan.md`
-- Review: (filled in after Review)
+- Review: `engineering-team/reviews/test-suite-hermeticity/3-rw7-times-restarts-from-the-real-start.md`
 - Ledger: `ledger/2026-10-08-realtime-wrapper-timing-flake-under-load.md`
 - The reproduction: the probe and its output, in the main checkout's `tmp/rw7-probe/` (git ignores it).
