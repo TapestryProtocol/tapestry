@@ -1,6 +1,6 @@
 # Story 22: `graph add-to-concept` and `remove-from-concept` — make any node an element of another concept, or put it in a set, and take the owner's claim out again, never out of the node's last concept
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.22 — https://loom.brainstorm.world/t/A10.22
@@ -200,4 +200,4 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0022-add-to-concept-and-remove-from-concept.md](../../decisions/graph-operations-first-slice/0022-add-to-concept-and-remove-from-concept.md)
 - Test plan: [22-add-to-concept-and-remove-from-concept.test-plan.md](22-add-to-concept-and-remove-from-concept.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [reviews/graph-operations-first-slice/22-add-to-concept-and-remove-from-concept.md](../../reviews/graph-operations-first-slice/22-add-to-concept-and-remove-from-concept.md)
