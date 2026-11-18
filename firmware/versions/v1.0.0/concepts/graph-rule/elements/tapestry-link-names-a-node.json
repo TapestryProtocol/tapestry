@@ -12,7 +12,7 @@
   "graphRule": {
     "name": "tapestry-link-names-a-node",
     "number": 9,
-    "says": "every `tapestry:` link in the markdown of the instance's own nodes names a node in this graph. Its key is the key of a node `graph resolve` answers: any node but a change entry or a tag. A `tapestry:` link means \"in this graph\" (ADR graph-rules/0002, Decision 2), so a key no such node has is a dead link, such as one to a node deleted since, or a key from another instance.",
+    "says": "every `tapestry:` link in the markdown of the instance's own nodes names a node in this graph. Its key is the key of a node in this graph other than a change entry or a tag, whatever the point of view. A `tapestry:` link means \"in this graph\" (ADR graph-rules/0002, Decision 2), so a key no such node has is a dead link, such as one to a node deleted since, or a key from another instance.",
     "kind": "a graph rule, about the instance's own nodes (D4). Links in other people's letters are left alone, and a `nostr:` link to a node this graph doesn't hold isn't judged, since its letter may be on a relay.",
     "about": "the graph",
     "refusesOrReports": "it only reports. `graph delete-node` leaves the links to a node dead, and a renderer is to show a dead link as its text (ADR graph-rules/0002, Decision 4).",
