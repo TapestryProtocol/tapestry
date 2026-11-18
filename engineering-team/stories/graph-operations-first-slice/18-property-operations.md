@@ -215,6 +215,19 @@ Review round 1 passed with nine non-blocking findings, and the owner chose to fi
   - **L7:** on a concept with 1,000 elements, add-property took 0.69 s and set-schema 0.34 s.
   - **L4,** the restore, wasn't run again: the fixes touch the inputs' checks and the address lookup, not what a backup holds.
 
+### Review round 2's fix (2026-11-17)
+
+Round 2 found that round 1's rewrite of the address check could give a new property an address another node holds, when two new siblings' keys slug alike (`Price` and `price`). The Tester's SS10 (`4afded16`) pins Decision 5's search, which no suite reached before. Amendment 3's account of the check is corrected (`ed32ca77`), and the fix is `68e48fbc`: a new node's nonces are read when its plain address is held, already taken, or shared with another new node of the same write.
+- **The suites, each alone with every endpoint dead:** add-property 15/0, update-property 11/0, remove-property 8/0, set-schema 10/0, properties-agent-through-cli 1/0. On round 2's code, `faa91ee4`, set-schema was 9/1: SS10's `price` got the held `~1`. The reviewer's three-step probe (`tmp/review-18/probe-nonce-sequence.js`) now gives `pRice` `~2`, with no address held twice.
+- **The scoped gate,** the same five registry entries. `npm run gate:status -- --label a10-18-story-18-round-2-fix` reads:
+  `20261118T034233Z-83670-8abf [a10-18-story-18-round-2-fix] started 2026-11-18T03:42:33.436Z on 68e48fbc+dirty — PASS, exit 0, 1016 passed, 0 failed, 6 skipped, 5/5 suites`
+  - The dirty path is the `node_modules` link alone.
+- **The live check on the commit** (`main-round3.log`, `report-main-round3.json`, `hand-calls.md`'s last section). Its report stamps code `68e48fbc7e694241451d3611e53237abb10b1302`, with nothing beside it but the `node_modules` link. **25 of 25 passed,** on `live teapot wiai`:
+  - **L8, new:** the reviewer's three set-schema calls on the real instance. `Price` took the plain address and `price` `~1`; with `Price` taken out, `PRICE` took the plain address and `pRice` `~2`. No address is held twice.
+  - L1, L2, L3, L5 and L7 as before, L7's add-property in 0.71 s and set-schema in 0.34 s at 1,000 elements.
+  - The relay held 465 at all five counts, L8's writes inside the bracket.
+  - L4 wasn't run again, for round 1's fixes' reason.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
