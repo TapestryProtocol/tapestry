@@ -293,3 +293,78 @@ The optional independent check was not applied in this round.
 ### Verdict (round 2)
 
 **CHANGES_REQUESTED**
+
+## Round 3 — 2026-11-17 (HEAD `8f493feb`)
+
+**Diff:** `git diff faa91ee4..8f493feb`, where `faa91ee4` is round 2's review commit. Four commits:
+- `4afded16`: the Tester's SS10, for Decision 5's address search, and the test plan's "Added at review round 2";
+- `ed32ca77`: Amendment 3's account of the address check, corrected;
+- `68e48fbc`: the Implementer's fix, with `unreadable-schema`'s declared text and set-schema's description;
+- `8f493feb`: the Evidence, with a stamped live check on `68e48fbc` and a new L8.
+
+6 files, +68 −7. Each commit touches only its own role's files: the Tester's `test/` and the test plan, the ADR's commit the ADR, the Implementer's `src/`, and the Evidence's the story. No file under `src/`, `firmware/`, `bin/`, `clients/` or `test/` changed between `68e48fbc` and `8f493feb`. `faa91ee4` holds round 2 as written. It also sets the story back to Approved, words the story's review link without verdicts, and files round 2's two harness-friction items as ledger rows `2026-11-17-fix-round-admits-untested-optional-change` and `2026-11-17-no-check-scans-raw-characters`.
+
+**In short:** round 2's blocking finding and its non-blocking one are fixed. I found no path that can hand out an address whose holder wasn't read. Nothing blocks.
+
+### Quality gates (round 3, run by reviewer)
+
+- [x] **`npm test`, scoped,** as in rounds 1 and 2. `npm run -s gate:status -- --label a10-18-story-18-review-3` reads:
+  `20261118T035018Z-99833-bf25 [a10-18-story-18-review-3] started 2026-11-18T03:50:18.125Z on 8f493feb+dirty — PASS, exit 0, 1016 passed, 0 failed, 6 skipped, 5/5 suites` (record `tmp/gate-runs/20261118T035018Z-99833-bf25.json`)
+  - `+dirty` is the `node_modules` link alone (`dirtyCount` 1).
+  - operations 915/0/4, external-cli 53/0/0, openapi-coverage 13/0/0, admin-action-sweep 9/0/0, schema-save-finds-the-right-header 26/0/2. set-schema is 10/0, with SS10. Every other suite's count is round 2's.
+- [x] **The full gate was not run here,** for round 1's reason. The PR's CI runs it.
+- [x] **SS10 fails without its fix, for the right reason.** I extracted `faa91ee4` into `tmp/review-18/at-faa91ee4/` (its `src/` is `27f1a985`'s), put HEAD's `test/` over it, and ran set-schema alone, every endpoint dead: 9/1. SS10's first premise holds there, since weight's held plain address gives `~1`. Its second fails: `price` got `price-78fe1761~1`, the address the seed's node holds. That is the test plan's account (`18-property-operations.test-plan.md:146`).
+- [x] **`bash scripts/harness-lint.sh`:** clean, 0 violations, before this round was appended. **`node src/firmware/graph-rules.js --check`:** the 7 items current. **Code points:** no control, format or combining character, and no variation selector, in round 3's added lines or the whole branch's.
+- [x] **Probes**, under `tmp/review-18/`, every endpoint dead, each on HEAD and on the `faa91ee4` copy:
+  - `probe-nonce.js` and `probe-nonce-sequence.js`, round 2's. On HEAD, `price` and `pRice` take `~2`, and no address is held twice.
+  - `probe-nonce-paths.js`, new, covers five paths SS10 doesn't reach. On HEAD every one holds:
+    - **A:** two keys that slug alike under a new object, with the children's `~1` held: `price` takes `~2`.
+    - **A2:** as A, with the new object's own plain address held. The object takes `~1`, its children's search keys off that address, and `price` again takes `~2`.
+    - **B:** catching up makes the two siblings, with `~1` held: `price` takes `~2`.
+    - **C:** one set-schema takes both alike keys out and adds two new ones. The new ones reuse the freed plain address and `~1`, and no address is held twice.
+    - **D:** all 100 addresses held: 409 `no-free-address`, with the graph unchanged.
+  - On the `faa91ee4` copy, A, A2 and B each leave an address held twice. So the probe sees the defect, and HEAD doesn't have it.
+- [x] **The live check on the commit**, read against `tmp/live-check-18/main-round3.log`, `report-main-round3.json`, `up-round3.log` and `hand-calls.md`'s last section:
+  - **The stamp holds.** It names `68e48fbc7e694241451d3611e53237abb10b1302`, with only `?? node_modules` beside it.
+  - **The timeline holds**, in local time. `_properties.js` and `set-schema.js` were last changed at 22:41:50, `68e48fbc` was committed at 22:42:28, the stack booted at 22:44:11, and the report was written at 22:49:10.
+  - **25 of 25 checks are `ok`,** on `live teapot wiai`. L7 took 0.707458 s and 0.337553 s.
+  - **L8 is my three set-schema calls, on the real instance** (`live.js:275-285`). `Price` took the plain address and `price` took `~1`; then `PRICE` took the plain address and `pRice` took `~2`. Its query for an address held twice covers every node whose address starts with the plain one, so the `~n` forms too. It found none.
+  - **The relay held 465 at all five counts,** with L8 between the reinstall's count and the last (`live.js:287`).
+
+### Round 2's findings
+
+| Round 2 | Disposition |
+|---|---|
+| Blocking 1: the address check could hand out a held address | **Fixed** at `_properties.js:789-798`. A plain address that two nodes of one level share now counts as crowded (`:794-797`), so every candidate a crowded node may take is read. A node that isn't crowded takes its plain address, which was read. No nonce equals a plain d-tag, since a slug holds no `~`, and a shared plain address makes both nodes crowded. Across levels, `taken` keeps this write's earlier addresses, and every read comes before the write's first node. SS10 pins the search (`set-schema.test.js:299-326`), and my probes cover catching up, nested levels, freed addresses and exhaustion. The comment (`:789-791`) and Amendment 3 (`0018-property-operations.md:500`) now say what the code does. |
+| Non-blocking 1: `unreadable-schema`'s declared text | **Fixed.** `_properties.js:81` now names a refused description and properties under a non-object. `set-schema.js:33` names create-concept's description check. |
+| Harness friction 1 and 2 | Filed by `faa91ee4`, as ledger rows `2026-11-17-fix-round-admits-untested-optional-change` and `2026-11-17-no-check-scans-raw-characters`. |
+
+**A correction to round 2's record.** Round 2's blocking 1 said Neo4j would keep the doubled address silently. That holds only on a graph without the setup task's constraints, such as a scratch stack (ledger row `2026-11-13-scratch-stack-indexes-and-volume`).
+- A tag's uuid hashes its node's address, the tag and its index (`_eventless.js:31-39`). So a second node at an address, made by these writes, gets a `d` tag with the same uuid as the first node's.
+- `nostrEventTag_uuid` (`setup/neo4jConstraintsAndIndexes.sh:48`) would most likely refuse that tag, failing the write. Production's graphs have that constraint, so there the defect would have shown as a failed write, not a doubled node.
+- I found this by reading. It changes nothing now that the check is fixed.
+
+### Findings (round 3)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **Optional: no suite pins `no-free-address`.** All four writes declare it, and probe D shows it refuses with the graph unchanged. Optional: a case over SS10's seed, which already places holders at chosen addresses.
+
+#### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+None new. Round 2's two items are filed. The correction above traces to a scratch stack lacking production's constraints, which ledger row `2026-11-13-scratch-stack-indexes-and-volume` already records.
+
+The optional independent check was not applied in this round.
+
+### On PASS (round 3, same commit)
+
+- [x] The committing session sets the story's Status line to Done, in this round's commit, since this reviewer edits no other file. Until then harness-lint's L1 reports the story, as it did after round 1.
+- [x] Completion detection is performed. The result and any book arithmetic go in the chat, never in this file. `/close-book` is offered if the book looks complete.
+
+### Verdict (round 3)
+
+**PASS**
