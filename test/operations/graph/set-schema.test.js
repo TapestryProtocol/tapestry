@@ -19,14 +19,17 @@
  *   SS7   32 levels are allowed; a 33rd is refused, by set-schema and by add-property
  *   SS8   each refusal, and the graph as it was after them
  *   SS9   nothing is signed; callers; an admin's set is the admin's; the command; the list and /docs
+ *   SS10  a new property node takes its plain address, else the first free nonce, never one another node holds: one
+ *         held plain address, and two new siblings whose keys slug alike (Decision 5; review round 2, blocking 1)
  */
 
 const path = require('path');
 const { spawnSync } = require('child_process');
 const S = require('../../helpers/graphOpsSuite');
 const P = require('../../helpers/propertyGraph');
+const G = require('../../helpers/graphFake');
 
-const { ROOT, ADMIN, assert, show, tmp } = S;
+const { ROOT, TA, ADMIN, assert, show, tmp } = S;
 const cp = (n) => String.fromCodePoint(n); // a control or invisible character, never one typed raw in this file
 const { test, run } = S.makeSuite('operations: graph set-schema');
 const set = P.post('set');
@@ -291,6 +294,35 @@ test('SS9: nothing is signed; callers; an admin\'s set is the admin\'s; the comm
   `], { cwd: ROOT, encoding: 'utf8', env: S.childEnv(tmp('set-schema-docs-')) });
   const line = (child.stdout || '').split('RESULT:')[1];
   assert(line && show(JSON.parse(line)) === show(['post']), `/docs has POST ${P.ROUTE.set}; got ${line}`);
+});
+
+test('SS10: a new property node takes its plain address, else the first free nonce, never one another node holds (Decision 5; review round 2, blocking 1)', async () => {
+  P.needDecls(['set-schema', 'add-property']);
+  const ctx = await P.prepare('set-schema-nonce');
+  const { file, made } = ctx;
+  const TH = made.teaHouse.conceptHeader;
+  const ppUuid = P.node(S.readState(file), made.teaHouse.nodes.primaryProperty).props.uuid;
+  const plain = (key) => `39999:${TA}:${P.childD(key, ppUuid)}`;
+  // Nodes that hold addresses a new property would take, as other letters can: weight's plain address, and price's ~1.
+  const s = S.readState(file);
+  const b = P.over(s);
+  for (const uuid of [plain('weight'), `${plain('price')}~1`]) b.lettered({ uuid, labels: ['ListItem'], name: `held at ${uuid}`, tags: [['d', uuid.split(':').slice(2).join(':')]] });
+  G.writeState(file, s);
+  const twice = (state) => { const seen = new Map(); for (const n of state.nodes) if (n.props.uuid) seen.set(n.props.uuid, (seen.get(n.props.uuid) || 0) + 1); return [...seen].filter(([, c]) => c > 1).map(([u]) => u); };
+
+  const x = P.runOn(file, [add('weight', 'owner', { concept: TH, name: 'weight', type: 'number' })]);
+  const w = ok(x, 'weight').property;
+  assert(w.address === `${plain('weight')}~1`, `weight's plain address is held, so it takes ~1; got ${w.address}`);
+
+  const doc = P.copy(P.schemaDoc(S.readState(file), TH));
+  Object.assign(doc.properties.teaHouse.properties, { Price: { type: 'number' }, price: { type: 'number' } });
+  const y = P.runOn(file, [set('siblings', 'owner', { concept: TH, schema: doc })]);
+  const added = ok(y, 'siblings').added;
+  const at = (field) => (added.find((p) => p.field === field) || {}).address;
+  assert(at('Price') === plain('price') && at('price') === `${plain('price')}~2`,
+    `Price and price slug alike: one takes the plain address, and the other skips the held ~1 for ~2; got ${show({ Price: at('Price'), price: at('price') })}`);
+  const dup = twice(S.readState(file));
+  assert(dup.length === 0, `no address is held by two nodes; got ${show(dup)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

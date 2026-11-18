@@ -133,3 +133,14 @@ The live check's first run (L1a) found Decision 10 refusing the first property w
 - **add-property, 14/1:** AP11 fails on `r-piece-desc-control`: `200`, the property added. AP15 passes: the cap was already as the ADR says.
 - **update-property, 9/2:** UP10 fails on its `r-piece-desc-control`: `200`, updated. UP4 fails after it, on the description that update left on price.
 - **set-schema, 7/2:** SS8 fails on `r-desc-control`: `200`, set. `r-props-under-string` landed too. SS9 fails after them, on gadget's schema those two sets left.
+
+## Added at review round 2 (2026-11-17)
+
+Round 2 found that round 1's rewrite of the address check could give a new property an address another node holds (its blocking 1). No suite reached Decision 5's nonce search before that rewrite or after it.
+
+- **SS10** (set-schema's suite) runs on its own seed, `prepare` with two more nodes: one at weight's plain address under tea house's primary property, and one at price's `~1`. Then:
+  - add-property adds `weight`: its plain address is held, so it takes `~1`;
+  - set-schema adds `Price` and `price`, whose keys slug alike, so both have price's plain address. One takes it, and the other skips the held `~1` for `~2`;
+  - no address is held by two nodes.
+
+**Verification**, on the code at `faa91ee4` (round 2's), with every endpoint dead: set-schema is 9/1. SS10 fails on its second premise: `price` got `price-<hash8>~1`, the address the seed's node holds. The single held address, weight's, already gave `~1`.
