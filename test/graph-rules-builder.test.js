@@ -151,7 +151,7 @@ const REAL = [
   {
     number: 9, name: 'tapestry-link-names-a-node', title: 'Tapestry Link Names A Node', code: false, alsoSays: [], status: 'proposed',
     source: 'ADR graph-rules/0002',
-    description: "Every tapestry: link in the markdown of the instance's own nodes names a node in this graph: some node here has its key.",
+    description: "Every tapestry: link in the markdown of the instance's own nodes names a node in this graph.",
   },
 ];
 const GRAPH_RULE_KEYS = ['name', 'number', 'says', 'kind', 'about', 'refusesOrReports', 'check', 'repair', 'enforcedBy', 'status', 'source', 'alsoSays', 'code'];

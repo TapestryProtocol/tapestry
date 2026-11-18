@@ -146,11 +146,11 @@ The format, which `node src/firmware/graph-rules.js` checks:
 
 ## 9. `tapestry-link-names-a-node`
 
-- **Says:** every `tapestry:` link in the markdown of the instance's own nodes names a node in this graph: some node here has its key. A `tapestry:` link means "in this graph" (ADR graph-rules/0002, Decision 2), so a key no node has is a dead link, most often to a node deleted since.
-- **Kind:** a graph rule, about the instance's own nodes. Links in other people's letters are left alone, and a `nostr:` link to a node this graph doesn't hold isn't judged, since its letter may be on a relay.
-- **Refuses or reports:** it only reports. `graph delete-node` leaves the links to a node dead, and a renderer shows a dead link as its text.
-- **Check:** find each `tapestry:` link in the markdown of the instance's own nodes, with a CommonMark parser so that examples in code aren't read as links, and name each link whose key no node has, with the node that holds it. `rules check` (A10.31) will run it over the graph.
-- **Repair:** none yet. `graph update-node` changes a node's markdown: point the link at a node that exists, or make it plain text.
+- **Says:** every `tapestry:` link in the markdown of the instance's own nodes names a node in this graph. Its key is the key of a node `graph resolve` answers: any node but a change entry or a tag. A `tapestry:` link means "in this graph" (ADR graph-rules/0002, Decision 2), so a key no such node has is a dead link, such as one to a node deleted since, or a key from another instance.
+- **Kind:** a graph rule, about the instance's own nodes (D4). Links in other people's letters are left alone, and a `nostr:` link to a node this graph doesn't hold isn't judged, since its letter may be on a relay.
+- **Refuses or reports:** it only reports. `graph delete-node` leaves the links to a node dead, and a renderer is to show a dead link as its text (ADR graph-rules/0002, Decision 4).
+- **Check:** a check finds each `tapestry:` link in the markdown of the instance's own nodes, reading a value held as an `lmdb:` pointer from the text it resolves to (ADR graph-rules/0002, Decision 6), and names each link whose key no such node has, with the node that holds it. It reads markdown with a CommonMark parser, so that examples in code aren't read as links and reference definitions are (the ADR's Implementation notes). `rules check` (A10.31) will run it over the graph.
+- **Repair:** none yet. `graph update-node` changes an element's fields, and `graph update-concept` a concept's description: point the link at a node that exists, or make it plain text.
 - **Enforced by:** nothing yet. `rules check` (A10.31) will.
 - **Status:** proposed.
 - **Source:** ADR graph-rules/0002.
