@@ -103,6 +103,14 @@ None in the concept graph: this is test infrastructure. The wrapper under test i
 
 The probe, its scripts and their output are in the main checkout's `tmp/rw7-probe/`.
 
+### Review round 1's fixes (2026-11-18)
+
+- **The fixes are committed as `9ea9c95a`,** after round 1's review (`04b8fe47`). The suite's code didn't change.
+- **`bash scripts/harness-lint.sh`** on the committed tree is clean. Before the fixes it failed L10 on `7b6e0e24`. While making them it failed L15 once, on a row name over six words; the row was renamed `2026-11-18-no-map-of-suites-per-file`.
+- **The scoped gate,** on the committed, clean tree, with the reviewer's seven suites added (17 in all), every endpoint dead:
+  - its record, `20261118T192258Z-89344-3bf5 [thg-3-r1-fixes]`: 380 passed, 3 failed, 41 skipped;
+  - the three failures: `router-stream-limit-on-connect` P1–P3, the known GNU `sed -i` problem on macOS (ledger row `2026-10-09-router-patch-sed-macos`). This branch changes neither that suite nor `src/`. In the Linux container the suite passed 26 of 26.
+
 ## Linked artifacts
 
 - ADR: none. Architecture is skipped: a Bug whose fix follows from its cause, under Standard.
