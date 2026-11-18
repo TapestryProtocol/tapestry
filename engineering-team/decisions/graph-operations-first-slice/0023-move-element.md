@@ -226,7 +226,7 @@ Why the `n` tags change (Context 4): no reinstall pass reads them. They keep the
 **11. A restore keeps the move, and a reinstall keeps it except for a superset's redundant link.**
 - **A backup restored on a fresh instance** restores the graph whole (BIBLE §30), with the links and tags as the move left them.
 - **A firmware reinstall** (Context 4), by the move's shape:
-  - **Between two sets:** it lasts. No reinstall pass links a set from a tag. When the node's `z` names the concept, it may also be directly under the concept's superset afterwards, as every element in a set is (ADR 0020 Decision 10). That link is pass 1d's: a reinstall gives it to every element in a set whose `z` names the concept, moved or not, including one create-element made in a set and that was never under the superset (worded so at the live check, 2026-11-18, which saw it; the decision is unchanged).
+  - **Between two sets:** it lasts. No reinstall pass links a set from a tag. When the node's `z` names the concept, it may also be directly under the concept's superset afterwards, as every element in a set is (ADR 0020 Decision 10). That link is pass 1d's, and was there before the move too (Amendment 1 corrects this sentence).
   - **Out of a superset into a set, the filing of an element:** the link to `to` lasts. The link from `from` comes back when the node has a `z` naming the concept, as every node create-element makes has, and as another author's letter that names the concept has: pass 1d makes it. Pass 1e takes it out again on a firmware concept with a manifest, and wire-implicit-elements on other concepts only when something in the run was linked before it. So on the owner's own concepts, a filed node is usually directly in the superset again after a reinstall. It is still in the set, and its concepts are the same. A node with no such `z`, such as a person node, a placeholder, or a node kept beside whose letter names no such concept, stays as it was moved.
   - **Up to a superset while another set of the concept still holds the node:** the superset's link is redundant. Pass 1e takes it out on a firmware concept with a manifest (ledger row `2026-11-16-prune-drops-superset-has-element`), and wire-implicit-elements may on others. The node is still not in `from`, and its concepts are the same.
 - **So AC7 as written** ("directly in `to` and not directly in `from`") holds after a restore, and after a reinstall for a move between two sets. In the two other shapes it doesn't hold for the superset's link. This is ADR 0020's reading of a reinstall, which "the same concepts and sets as before" sums up. Proposed story amendment 2 says it for AC7.
@@ -353,3 +353,17 @@ Signing in, the inputs' types and the body are the module's built-in refusals: 4
 - **Moving a node across concepts,** a set under another parent, or many nodes in one call; an element's order in a set (the story's Out of scope).
 - **Counting the owner's claims in reads** (ADR 0022 follow-up 1), and publishing the move (`export nostr`, A10.34).
 - **Today's `delete-relationship` and `add-to-set` routes,** which stay as they are (D15).
+
+## Amendment 1 (2026-11-18, at review round 1; the owner chose to fix the review's non-blocking findings before the PR) — what pass 1d gives a node moved between two sets
+
+**What the live check found.** Decision 11's first shape, a move between two sets, said of the superset's link that a reinstall can give the node: "That link is pass 1d's, and was there before the move too." The first half holds. The second doesn't always.
+
+At the live check (`tmp/live-check-23/`, L2 and L3, 2026-11-18), create-element made Hopper directly in a set of live beagle, and it was never under the superset. It was moved to the concept's other set, and then the instance was reinstalled. After the first reinstall, Hopper was directly under live beagle's superset as well as in its new set (`report-reinstall.json`, `"was":[]` to the superset's key). The same happened to Snoopy, whose last move was also between two sets: it had been filed out of the superset before that move, so it wasn't under the superset then either. In both cases no reinstall ran before the move, so the link wasn't "there before the move".
+
+**The decision is unchanged.** A move between two sets still lasts through a reinstall: the node is directly in `to` and not in `from`, with the same concepts and sets. Only the account of the superset's link is corrected. It now reads:
+
+> That link is pass 1d's: a reinstall gives it to every element in a set whose `z` names the concept, moved or not, including one create-element made in a set that was never under the superset.
+
+That is ADR 0020 Decision 10's reading of a reinstall, and the amended AC7 allows it: it constrains `from` and `to`, not a third link to the concept's superset.
+
+**How it was recorded.** Decision 11 was first reworded in place, in `0b4a9f7c`, after the owner had accepted the ADR. Review round 1 (non-blocking finding 2) asked for the change to be recorded as a dated amendment, as this epic records changes after acceptance (ADR 0028 Amendment 2). Decision 11 is back to its accepted words, with a pointer here. The owner ratified the corrected wording at review round 1, 2026-11-18, choosing to fix the findings before the pull request.

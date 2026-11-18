@@ -81,6 +81,8 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 
 **Changed at Architecture** (the owner's approval of ADR 0023, Option A, 2026-11-18): the background's seventh fact is corrected (a reinstall links from a `z` tag, never an `n`); AC7 says what a reinstall can do to a superset's direct link to a node a set of its concept holds; AC4 counts no concept keyed `word` or `graphContext`; and AC1 says what `graph history` finds a move by when the node was already in `to`. The other choice, Option C, would have changed install's pass 1d so AC7 held as first written; the owner kept install out of this story's scope.
 
+**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-18, with ADR 0023 Amendment 1): no criterion changes. The ADR's account of what a reinstall gives a node moved between two sets is corrected. Pass 1d links the concept's superset to every element in a set whose `z` names the concept, moved or not, so after a reinstall such a node can be directly under the superset though it never was before; the live check saw it on a node create-element made in a set. AC7, as amended at Architecture, already allows that link: it constrains `from` and `to` only.
+
 For Architecture, not this gate:
 
 - **How "the same concept" is found** when word's class thread holds nearly every set, and what to make of `graphContext`, whose key is reserved too.
