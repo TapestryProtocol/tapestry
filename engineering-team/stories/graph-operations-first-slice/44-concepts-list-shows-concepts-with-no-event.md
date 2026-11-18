@@ -65,7 +65,8 @@ As the owner, I want every concept in my graph on the Concepts page and in the D
 
 - **ADR graph-operations-first-slice/0016 has a dated note.** Its Consequences said the UI's concept list reads only `NostrEvent` headers, which this story makes false. The note says what changed and that the name lookups are as they were. The story didn't ask for it.
 - **The kept-list's Dashboard entry stays, with a new reason.** The tile's line changed, but the onboarding check's line has the same text. So the entry stays, and its reason now names the onboarding check, which counts concepts only to see whether the firmware is installed (test S6). The Concepts page's entry is gone, since its line changed (G11 holds the list to the code).
-- **The other nine kept lines on the same reason** are ledger row `2026-11-18-kept-lines-claim-headers-always-events`, as the test plan said.
+- **The other kept lines on the same reason,** eight since round 2, are ledger row `2026-11-18-kept-lines-claim-headers-always-events`, as the test plan said.
+- **Round 2: Shared by me's waiting count counts these concepts too.** None of the ACs named Shared by me. Its "Haven't shared these yet — N waiting →" links to this page's Not yet shared (mine), and ADR shared-concepts-seeding/0002 holds the two to one population. AC3 put concepts with no event on that list, so review round 1 found the count one short of it (blocking 1). David chose to count them (2026-11-18), keeping AC3 as approved. Shared by me's scan now matches this page's, and its kept entry is gone. Tests S7 and L5 hold the two together.
 - **The row's event fact is a kept line of its own.** `h:NostrEvent AS hasEvent` names `NostrEvent` alone, so the key-path guard's G18 asked for it to be classified; the first scoped gate failed there. It is about the event itself, so it is in the kept-list, with why. The test plan hadn't foreseen it.
 
 ## Evidence
@@ -93,6 +94,24 @@ Run on this Mac. No full `npm test` ran here: the local stack is the owner's age
   - **W1, X1 and X2 couldn't load `express`.** The worktree had no `node_modules`: a link to the main checkout's packages had been meant during Test Design, but was never made, so the route walk had no packages. Fixed by linking the checkout's `node_modules`, as the other worktrees do. No code changed for these three.
 - **The scoped gate, run again** with the same 14 entries, endpoints and Node, passes. `node test/gate-status.js --label story-44-impl-2` reads:
   `20261118T160933Z-43661-5cf5 [story-44-impl-2] started 2026-11-18T16:09:33.031Z on 6842af3d+dirty — PASS, exit 0, 1332 passed, 0 failed, 28 skipped, 14/14 suites`
+
+### Round 2 (Implementation, 2026-11-18)
+
+Review round 1's cases came first: S7, L5, and L1's element and set counts (`c37508a2`). Before the fix, on a scratch stack, they gave 13 passed and 2 failed, S7 and L5, each for the missing population. The test plan's Verification quotes them.
+
+- **The suite, stack-free:** 10 passed, 0 failed, 5 skipped, under both Node 24.18.0 and Node 22.23.1.
+- **The suite on the scratch stack:** 15 passed, 0 failed, 0 skipped.
+- **The key-path guard alone:** 20 passed, 0 failed. G11 holds without Shared by me's old entry.
+- **The new cases catch their parts of the fix.** Three scratch edits were each undone and checked byte for byte against the fix, each run on the scratch stack:
+
+  | Edit | Fails |
+  |---|---|
+  | Shared by me's scan back to `NostrEvent` alone | S7, L5 |
+  | Shared by me's scan filtering differently (kind 39998 only) | S7 |
+  | The page's element walks by `NostrEvent` alone | L1 |
+- **The scoped gate,** the reviewer's 16 registry entries, through the gate engine, every endpoint dead, Node 24.18.0. A stub `curl` and a stub `docker`, each refusing, were first on `PATH`, so `ledger-row-ids`' run of the session-start digest couldn't probe this Mac's stack. Run alone that way, the digest reported "stack absent" while the stack was up. `node test/gate-status.js --label story-44-round2` reads:
+  `20261118T165237Z-42474-c07b [story-44-round2] started 2026-11-18T16:52:37.783Z on 8865dabf+dirty — PASS, exit 0, 1424 passed, 0 failed, 29 skipped, 16/16 suites`
+  That is round 1's review gate, 1423/0/28, plus S7 passing and L5 skipped with no scratch stack. The dirty paths are this commit's own changes and the `node_modules` link.
 
 ## Linked artifacts
 - ADR: none. Architecture was skipped, as for a bug with an obvious fix (David, 2026-11-18).
