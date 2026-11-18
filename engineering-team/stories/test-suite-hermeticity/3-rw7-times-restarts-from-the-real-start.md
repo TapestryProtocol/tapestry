@@ -1,6 +1,6 @@
 # Story 3: RW7 times each restart from when node really started, so a busy test process can't fail it
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Bug
 

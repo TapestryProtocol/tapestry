@@ -407,3 +407,133 @@ Round 2's other new claims hold too:
 
 ### Verdict (round 2)
 **CHANGES_REQUESTED**
+
+## Round 3 — 2026-11-18 (HEAD `663d11e3`)
+
+**Diff:** `git diff e313f62e..HEAD`, 7 files, +25 −8. It has two commits: `ea51978d`, round 2's fixes (7 files, +16
+−8), and `663d11e3`, their Evidence (the story only, +9). It changes only records: `git diff e313f62e..HEAD -- test/
+src/ scripts/` is empty. The whole change, `git diff 566d2eb3..HEAD`, is 14 files, +766 −11.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] `npm test` (the full gate): **not run on this Mac**, for the reason round 1 gives. In its place, I ran the
+      19-suite scoped gate (round 2's 17, with `rollup-scanners` and `harness-stats`) through the gate engine, on the
+      clean committed tree, with every endpoint dead:
+      `20261118T200744Z-66992-7c15 [thg-3-review-r3] started 2026-11-18T20:07:44.510Z on 663d11e3 — FAIL, exit 1, 425 passed, 3 failed, 41 skipped, 19/19 suites; failed: router-stream-limit-on-connect`
+  - The record's `git.dirty` is false.
+  - **`router-stream-limit-on-connect` 23/3/0, not caused by this diff.** P1–P3 fail on BSD `sed`'s "invalid command
+    code f" (ledger row `2026-10-09-router-patch-sed-macos`). Its OPERATIONS.md check, O1, passes. In a throwaway
+    `node:22-bookworm` container (Node 22.23.3, GNU sed 4.9, the worktree mounted read-only) it passed 26/0/0.
+  - **Every other suite passed,** with round 2's counts: `tagging-edges-realtime-wrapper` 25/0/0, `ci-test-job`
+    14/0/0, `live-link-checks` 26/0/0, `workflow-hardening` 36/0/0, `honest-publish-reporting-ci-guard` 4/0/1,
+    `information-for-agents` 32/0/25, `llms-txt` 12/0/15, `harness-lint` 85/0/0, `ledger-row-ids` 6/0/0,
+    `session-start` 32/0/0, `bullboard-admin-access` 9/0/0, `generalized-task-scheduler` 12/0/0,
+    `reconciliation-incremental-mode` 16/0/0, `reconciliation-rearchitecture` 15/0/0, `task-queue-bullmq` 18/0/0,
+    `task-queue-neo4j-resource-class` 15/0/0, `rollup-scanners` 33/0/0, `harness-stats` 12/0/0.
+  - These are the counts of the Implementer's `20261118T195354Z-73187-3343`, which ran on `ea51978d` with
+    `git.dirty` false.
+- [x] **`bash scripts/harness-lint.sh`** at `663d11e3`, clean tree: `harness-lint: clean (0 violations)`, exit 0. L10
+      lands on `ea51978d`, the latest commit touching a harness-definition path, which touches both
+      `.github/workflows/test.yml` and `engineering-team/CHANGELOG.md`.
+- [x] **The suite alone:** on this Mac (bash 5.3.15), 25/0/0 in three runs of three; in the Linux container, 25/0/0.
+- [x] **`ci-test-job` W8:** `test.yml` at HEAD matches none of W8's patterns (`/\bretry\b/i`, `/rerun/i`,
+      `/--retries?\b/`, Playwright, a retry action).
+- [x] `git diff --check 566d2eb3..HEAD`: clean.
+- [x] **GitHub, read only, one request at a time, no polling.** Attempts 1 and 2 of `43808151504`, `43985723290` and
+      `44335714732`; the failed-step log of attempt 1 of all three, and of attempt 2 of `43808151504`; PR #83; the
+      `Test` workflow's run listing, twice (185 runs, 2026-10-27T01:36Z to 2026-11-18T19:55Z); run `43550764867`,
+      and PR #53's listing and event timeline; and `gh`'s login.
+- [ ] `npm run test:playwright`: not applicable.
+- [ ] _Lint, typecheck and build not configured — skipped._
+
+The optional independent check before commit (workflow 5) was not applied.
+
+### Round 2's findings, as fixed
+
+| # | The fix | How I checked it | Result |
+|---|---|---|---|
+| Blocking 1 | A paragraph naming the three reruns by run id (`OPERATIONS.md:1066–1068`); no count in `test.yml:9`; `engineering-team/CHANGELOG.md:122` and `ledger/2026-11-16-ci-gate-flake-history-claim-untrue.md:19` follow it | Against GitHub (the table below). Of the `Test` workflow's 185 runs, exactly these three have a second attempt. W8 passes, and L10 is clean. | holds; "by hand" is non-blocking 1 |
+| Non-blocking 1 | `ledger/2026-11-18-gate-before-commit-misses-lint-l10.md:10`; its fix shape, `:20–22` | The three records are all on `92554055` with `git.dirty` true, and `harness-lint` passed 85/0/0 in each. The last two read PASS. The first reads FAIL, 271/1/41: `ci-test-job` 13/1/0 is its only failing suite, with `failures: []`. So I put the first wording back into a scratch copy of `7b6e0e24`'s `test.yml` ("not a second run" → "never a retry"): `ci-test-job` gives 13/1, W8 alone, and 14/0 unchanged. The four `file:line` references say what the row says, and none of those files names the harness lint. | holds |
+| Non-blocking 2 | `ledger/2026-11-18-no-map-of-suites-per-file.md:11` | Of the registry's five `task-queue-*` suites (`test/registry.js:76`, `:77`, `:89`, `:363`, `:376`), only the two now named read OPERATIONS.md. | holds |
+| Non-blocking 3 | Story line 74 | RW25 reads each start's `at` (`test:1348–1349`), and the quick scenario's window ends at `starts[0].at + MS.quickWindow` (`test:619`). | holds |
+| Non-blocking 4 | Story line 102 | The three runs started from 17:19:56Z to 17:24:51Z; `7b6e0e24` was committed at 17:26:43Z. | holds; the sentence's placement is non-blocking 2 |
+| Non-blocking 5 | Story lines 118–120 | Record `20261118T195354Z-73187-3343`: on `ea51978d`, clean, 425/3/41, `rollup-scanners` 33/0/0, `harness-stats` 12/0/0, router P1–P3 failing. `ea51978d` was committed at 19:53:37Z, and the run started at 19:53:54Z. | holds |
+
+Round 2's harness friction 1 is now in the L10 row's fix shape.
+
+**§15's three reruns, against GitHub.** Each run's attempt 1 failed as §15 says, and §15's dates are the runs' own
+(UTC):
+
+| Run | Branch, commit | Attempt 1 | Attempt 2 |
+|---|---|---|---|
+| `43808151504` | `fix/resync-test-raw-bidi`, PR #83's head (`4df10d9b`) | 2026-11-16, 05:07:09Z–05:14:38Z. One failure: `information-for-agents` L1, a 502, at 05:09:30Z | 05:30:07Z–05:38:34Z. One failure: `operations` K1, at 05:36:51Z; L1 passed |
+| `43985723290` | `docs/relay-tools-staging-host`, `b0a7cf52` | 2026-11-17, 00:12:23Z–00:22:07Z. RW7 alone | 00:55:39Z–01:05:08Z, success |
+| `44335714732` | `docs/concept-writes-header-lock-ship-records`, #143's `7ebbb80e` | 2026-11-18, 15:26:46Z–15:41:01Z. RW7 alone | 16:02:14Z–16:15:53Z, success |
+
+- PR #83's head branch is `fix/resync-test-raw-bidi` (opened 05:06:40Z), so `43808151504` is its first run. The K1
+  row names that run's attempt 2 as its source (`ledger/2026-11-16-k1-lock-check-races-worker.md:5`).
+- **A failed run repeated another way:** one commit, PR #53's `31e84b40`, has a failed run followed by a fresh one
+  (`43520785618`, then `43550764867`). The second came from reopening the PR 4.5 hours after it was closed, not from a
+  rerun. It failed too, and the PR merged after it. I don't count it, and §15 is right not to.
+
+### Findings (round 3)
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. **`OPERATIONS.md:1066`** (and `test.yml:9`, `engineering-team/CHANGELOG.md:122`,
+   `ledger/2026-11-16-ci-gate-flake-history-claim-untrue.md:19`,
+   `ledger/2026-10-08-realtime-wrapper-timing-flake-under-load.md:128`) — "run again by hand". What the record shows
+   for each second attempt:
+   - **Who started it:** GitHub's `triggering_actor` is `nousclawds4` for all three. That is this Mac's `gh` login (a
+     user account), the account PR #83 was opened under. None came from the owner's account, `wds4`.
+   - **`43808151504`:** "the coordinator reports requesting it at 05:30:07Z"
+     (`engineering-team/reviews/graph-operations-first-slice/resync-test-raw-bidi.md:29`), when attempt 2 started. How
+     it was asked for isn't recorded.
+   - **`44335714732`:** "The session that reran #143's hadn't read §15" (the RW7 row, line 130). The coordinator
+     session's merge script for #143 (`merge-143.sh`, in that session's scratchpad, outside the repo) ran
+     `gh run rerun "$TEST_RUN" --repo "$R" --failed` at 16:02:13Z, a second before attempt 2 started. Its header says
+     it was written to merge #143 on the owner's "Merge once CI passes", after a first run that failed RW7 alone.
+   - **`43985723290`:** the record shows only the account, and a start 33 minutes after attempt 1 ended. Nothing in
+     the repo says who asked or how.
+   - **Nothing automatic:** nothing in `.github/`, `scripts/` or `.claude/` reruns a workflow run.
+
+   So "by hand" holds in the sense §15 uses for the link checks, "by hand (the Actions tab …)"
+   (`OPERATIONS.md:1056`): asked for, not automatic. It doesn't hold if it's read as "by a person": the record shows
+   the agent account each time, and names an agent session for two. That bears on the owner's open question on the
+   2026-11-16 row, since every breach of the policy on record came through the agent account.
+
+   Optional improvement: say who, in §15 and the 2026-11-16 row. For example: "Three failed runs were run again on
+   request, each from `nousclawds4`, the account agent sessions use, against this policy". `test.yml` can stay as it
+   is. Any wording suggested here is itself a claim for the next round to check.
+2. **Story line 102** — "All three of these gate runs were on `92554055+dirty` …" comes before two of the three runs
+   are named. It also now stands between the record at line 100 and "The run before it", so "it" reads as
+   `7b6e0e24`, which all three ran before.
+   Optional improvement: move the sentence to the end of the paragraph, or write "The run before that record".
+
+#### Harness friction (round 3)
+1. **Nothing on an agent's way to a merge says that a red `stack-free` is the verdict, not a cue to rerun.**
+   - All three reruns on record came from the agent account (non-blocking 1). The records say two of the sessions
+     hadn't read §15 (`ledger/2026-11-16-link-check-fails-during-prod-deploy.md:13`; the RW7 row, line 130), and
+     #143's was made to carry out "Merge once CI passes".
+   - The merge skills (`.claude/skills/cycle-staging/SKILL.md`, `cycle-prod/SKILL.md`, `cycle-full/SKILL.md`) never
+     name the `stack-free` check. The nearest is `cycle-prod/SKILL.md:151`: a BLOCKED merge means "investigate,
+     surface, don't override". AGENTS.md, CLAUDE.md and `docs/SAFE_TO_MERGE.md` don't state §15's rule either;
+     SAFE_TO_MERGE's "re-run the check" is about its own check.
+   - No open row covers it. The facts sit in two DONE rows, and the open 2026-11-16 row is about the premise's
+     wording.
+   - It fits a meta row whose fix shape has the merge path say what §15 says: a red run is stopped and reported, not
+     run again.
+2. Not new: the first Implementation record names no failed test (`ci-test-job` returns counts only, so its
+   `failures` is empty). That is ledger row `2026-10-28-suite-results-omit-names-and-skips`, seen again. I confirmed
+   W8 by mutation instead.
+3. Not new: "by hand" is round 1's own wording (its blocking 2), taken from the RW7 row and carried through two
+   rounds: the case in rule 10 (`roles/reviewer.md:50`).
+
+### Close-out (round 3, same commit, when the verdict passes)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection performed. The result is reported in the chat, never in this file.
+
+### Verdict (round 3)
+**PASS**
