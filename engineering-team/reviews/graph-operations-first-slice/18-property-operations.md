@@ -194,3 +194,102 @@ None.
 ## Verdict
 
 **PASS**
+
+## Round 2 — 2026-11-17 (HEAD `3f4cb7a8`)
+
+**Diff:** `git diff 1ab4e00c..3f4cb7a8`, where `1ab4e00c` is round 1's review commit. Four commits:
+- `d8a8bb1b`: ADR 0018 Amendment 3, with a pointer under Decisions 4 and 11;
+- `0e2039e0`: the Tester's cases for findings 3, 4, 5 and 8, and the test plan's "Added at review round 1";
+- `27f1a985`: the Implementer's fixes, the docs, the Evidence's corrections and a new ledger row;
+- `3f4cb7a8`: the Evidence for the fixes, with the live check run again on `27f1a985`.
+
+12 files, +152 −17. Only the Tester's commit touches `test/`, and the Implementer's touches no test. No file under `src/`, `firmware/`, `bin/`, `clients/` or `test/` changed between `27f1a985` and `3f4cb7a8`. Round 1's text above is as committed at `1ab4e00c`, with the committing session's "Checked before the commit" line and its On PASS ticks.
+
+**In short:** eight of round 1's nine findings are fixed or recorded as asked. The ninth, an optional speed-up of the address check, was rewritten, and the rewrite can give a new property an address another node holds. That blocks this round.
+
+### Quality gates (round 2, run by reviewer)
+
+- [x] **`npm test`, scoped,** as in round 1: the same five registry entries through the gate engine, every endpoint dead, Node 24.18.0. `npm run -s gate:status -- --label a10-18-story-18-review-2` reads:
+  `20261118T032436Z-37554-2ac3 [a10-18-story-18-review-2] started 2026-11-18T03:24:36.340Z on 3f4cb7a8+dirty — PASS, exit 0, 1015 passed, 0 failed, 6 skipped, 5/5 suites` (record `tmp/gate-runs/20261118T032436Z-37554-2ac3.json`)
+  - `+dirty` is the `node_modules` link alone (`dirtyCount` 1).
+  - operations 914/0/4, external-cli 53/0/0, openapi-coverage 13/0/0, admin-action-sweep 9/0/0, schema-save-finds-the-right-header 26/0/2. add-property is 15/0, with AP15. Every other suite's count is round 1's.
+- [x] **The full gate was not run here,** for round 1's reason. The PR's CI runs it.
+- [x] **The new cases fail without their fixes.** I extracted `1ab4e00c` into `tmp/review-18/at-1ab4e00c/`, put HEAD's `test/` over it, and ran the three changed suites alone, every endpoint dead:
+  - add-property 14/1. AP11's `r-piece-desc-control` got 200, added. AP15 holds there too: it pins what round 1's code already did.
+  - update-property 9/2. UP10's `r-piece-desc-control` got 200, updated, and UP4 then fails on the description that update left on price.
+  - set-schema 7/2. SS8's `r-desc-control` got 200, set, and SS9 then fails on gadget's schema.
+  - Those are the test plan's counts and reasons (`18-property-operations.test-plan.md:132-135`).
+- [x] **`bash scripts/harness-lint.sh`:** clean, 0 violations. **`node src/firmware/graph-rules.js --check`:** the 7 items current.
+- [x] **Code points.** No control, format or combining character, and no variation selector, in the added lines of round 2 or of the whole branch (`af392639..3f4cb7a8`). `test/helpers/propertyGraph.js:66` writes its range as ASCII escapes, and its `slugOf` gives `dtag.slug`'s answers for accented names.
+- [x] **Probes**, under `tmp/review-18/`, each with dead endpoints:
+  - `probe-inputs.js` and `probe-description.js`, run again. A description holding U+0001 is now refused `bad-description` as the input, inside `schema`, and on a set-schema field, and no tag lands. A string field with properties is `bad-type`.
+  - `probe-current-schema.js`. add-property on a concept whose current schema has either problem is refused 409 `unreadable-schema`, with the graph unchanged, and set-schema still replaces that schema.
+  - `probe-nonce.js` and `probe-nonce-sequence.js`, each on HEAD and on the `1ab4e00c` copy: the address check (blocking 1).
+- [x] **The live check's rerun**, read against `tmp/live-check-18/main-round2.log`, `report-main-round2.json`, `up-round2.log` and `hand-calls.md`'s last section:
+  - **The stamp holds.** The report stamps `27f1a985c576ecca7d930d6e4996aca8e20ce370`, with only `?? node_modules` beside it. `live.js:146-148` takes it from `git rev-parse HEAD` and `git status`, and hashes any modified file under `src/` or `firmware/`.
+  - **The timeline holds**, in local time. `_properties.js` and `set-schema.js` were last changed at 22:14:32 and 22:14:47, `27f1a985` was committed at 22:16:20, `up-round2.log` booted the stack at 22:18:13, and the run went from 22:19:51 to 22:23:17. So it ran the committed code, which is HEAD's.
+  - **24 of 24 checks are `ok`,** on `live teapot z8sw`. L7 took 0.68595 s and 0.341319 s. L3 compares with the schema read before the reinstall (`live.js:251-258`).
+  - **The relay held 465 at all five counts** (`live.js:152`, `:207`, `:246`, `:257`, `:275`): before the seed, after L1, after L2 and L7, after the reinstall, and at the end.
+  - L4 wasn't run again. The Evidence says so, and why (`18-property-operations.md:216`), so its record is still run 2's.
+
+### Round 1's findings
+
+| Round 1 | Disposition |
+|---|---|
+| Non-blocking 1: two writes skip the header lock | **Recorded as known limits,** as asked: Decision 11's pointer (`0018-property-operations.md:305`), Amendment 3 item 1 (`:492-496`), and ledger row `2026-11-17-concept-writes-skip-header-lock`. I re-derived each claim. create-element (`create-element.js:106`), update-node (each concept it judges, `update-node.js:182`) and delete-node (`delete-node.js:200`) take the header's lock. update-concept takes C1 (`_concepts.js:617-624`), and mark-field takes none. map-fields removes every copy in the concept's namespace that no mark yields (`map-fields.js:7-9`). Accepted. |
+| Non-blocking 2: the live check ran on a prototype | **Resolved beyond the ask:** the check ran again on the commit, with a stamp (above). The Evidence's account of the two later edits (`18-property-operations.md:180`) has no record to check it against, but the rerun makes it moot for L1–L3 and L5–L7. |
+| Non-blocking 3: no suite for the cap or `beyond` | **Fixed for the cap.** AP15 (`add-property.test.js:433`) pins 60 counted and 50 named, the first 50 by tapestryKey, in both lists. **`beyond: true`** gets a test-plan note with its reason (`18-property-operations.test-plan.md:128`), and the Deviation is bounded to 10,000 (`18-property-operations.md:155`). Accepted. |
+| Non-blocking 4: a description's control character | **Fixed.** `pieceInput` (`_properties.js:254-257`) and `schemaProblem` (`:347-348`) check it, and set-schema declares `bad-description`. AP11's, UP10's and SS8's new cases fail on round 1's code. A current schema with such a field is refused `unreadable-schema` (probe), though that refusal's declared text doesn't say so (round 2's non-blocking 1). |
+| Non-blocking 5: raw U+0300 and U+036F | **Fixed** at `test/helpers/propertyGraph.js:66`, and the Evidence's scan sentence is corrected (`18-property-operations.md:169`). |
+| Non-blocking 6: the record's accuracy | **Fixed:** `18-property-operations.md:168`, the ledger row (`2026-11-16-route-walk-needs-node-modules.md:18`), L6's line (`:193`), and L3's comparison in the rerun. |
+| Non-blocking 7: the design handoff's status line | **Fixed** (`docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md:3`). It no longer says no other BIBLE text exists, and claims no full list. |
+| Non-blocking 8: properties under a non-object | **Fixed.** `schemaProblem` refuses it `bad-type` (`_properties.js:343-346`), SS8's `r-props-under-string` pins it, and a current schema with one is refused `unreadable-schema` (probe). So after catching up, a node with children is always an object, and update-property's `has-properties` can only meet a type change away from object, as Amendment 3 item 3 says. |
+| Non-blocking 9 (optional): the address check at the size bound | **Changed, and regressed:** round 2's blocking 1. |
+| Harness friction 1: live-check records | Filed as ledger row `2026-11-17-live-check-records-name-no-commit`, and its fix tried in the rerun. |
+| Harness friction 2: On PASS after Verdict | Unchanged. Row `2026-10-07-on-pass-heading-reads-as-verdict` is still OPEN. |
+
+### Findings (round 2)
+
+#### Blocking
+
+1. **`src/operations/catalog/graph/_properties.js:789-795`: the rewritten address check can give a new property an address another node already holds.**
+   - **The cause.** `crowded` (`:792`) is worked out before the assignment loop adds to `taken` (`:794-798`). Two new siblings in one write whose keys slug alike (`Price` and `price`, or `first name` and `first_name`) share one plain d-tag. Neither counts as crowded, so the second one's nonces are never looked up, and it takes `~1` whether or not a node holds it.
+   - **Reproduced by the operations alone** (`probe-nonce-sequence.js`), on tea house:
+     1. set-schema adds `Price` and `price`, which take the plain address and `~1`;
+     2. set-schema takes `Price` out;
+     3. set-schema adds `PRICE` and `pRice`. `PRICE` takes the plain address, and `pRice` takes `~1`, which `price` holds.
+   - **The result.** After step 3, two property nodes of one concept share `39999:<TA>:price-<hash8>~1`. On round 1's code (`1ab4e00c`), the same three calls give `pRice` `~2`, and no address is held twice. `probe-nonce.js` shows the same thing in one call, over a node seeded at `~1`.
+   - **Nothing refuses it in Neo4j.** The only uniqueness constraint on an address is on `NostrEvent.uuid` (`setup/neo4jConstraintsAndIndexes.sh:45`). These nodes have no event, and `tapestry_node_uuid` is a plain index. So the doubling is silent: a lookup by address finds two nodes, and `export nostr` (A10.34) would send two letters for one address.
+   - **The other writes reach it too.** Catching up uses the same loop, so add-property, update-property and remove-property hit it when catching up and the write's own change make two such siblings in one write. I found that by reading.
+   - **No suite reaches Decision 5's nonce search at all,** before this change or after. Round 1 didn't notice that either.
+   - **Asked:**
+     - fix the check so that a plain address another new node in the same write takes gets its nonces looked up too (for example, treat a plain address that two of `ready` share as crowded), or go back to round 1's single lookup, since finding 9 was optional;
+     - correct Amendment 3's account of it ("the nonces only for one that is held", `0018-property-operations.md:500`) and the comment at `_properties.js:789`;
+     - a suite case for Decision 5's search (the Tester's): a held plain address gives `~1`, and two new siblings whose keys slug alike, with `~1` held, give `~2` and leave no address held twice.
+
+#### Non-blocking
+
+1. **`_properties.js:81`: `unreadable-schema`'s declared text lists only the older causes.**
+   - A current schema with a field description the check refuses, or with properties under a non-object, now answers `unreadable-schema` (probe), as Amendment 3 says. The refusal's message names the cause. But its declared `when`, which `/docs` and the operations list show, doesn't.
+   - In the same vein, set-schema's description (`set-schema.js:33`) says "a description that check would take". "That check" reads back to create-concept's name check, but it is create-concept's description check.
+   - **Asked:** add both causes to the `when`, and name the description check.
+
+#### Harness friction *(each becomes an OPEN.md row, type `meta`)*
+
+1. **A fix round can change code for a finding that asks for no test.**
+   - Round 1's finding 9 was an optional, unmeasured speed-up, and it named no test for the path it touched. The Tester's cases covered findings 3, 4, 5 and 8, so the address check's rewrite went in with nothing to catch it.
+   - Round 1 also missed that Decision 5's nonce search had no case.
+   - **Fix shape:** in a fix round, every code change a fix makes gets a Tester case first, optional findings included, or the round's Evidence says the path is untested. A reviewer's optional change names the test that would guard its path.
+2. **No harness check looks for raw control, format or combining characters.**
+   - Two stories have now found them by hand: ledger row `2026-11-16-raw-bidi-control-in-resync-test`, and round 1's finding 5. This story's own scan didn't count combining marks.
+   - **Fix shape:** a harness-lint check over each branch's added lines, by code point, asking for an escape in their place.
+
+The optional independent check was not applied in this round.
+
+### On PASS (round 2, same commit)
+
+- [ ] Not applicable: this round requests changes. Round 1's commit set the story's Status line to Done. In this round's commit it should read Approved again, until a round passes. That edit is the committing session's, since this reviewer edits no other file. harness-lint's L1 looks only at a review whose last verdict passes, so it won't flag a Done story beside this one.
+
+### Verdict (round 2)
+
+**CHANGES_REQUESTED**

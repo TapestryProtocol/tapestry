@@ -1,6 +1,6 @@
 # Story 18: `graph add-property`, `update-property`, `remove-property` and `set-schema` — change a concept's properties, with no event
 
-**Status:** Done
+**Status:** Approved
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.18 — https://loom.brainstorm.world/t/A10.18
@@ -226,4 +226,4 @@ Review round 1 passed with nine non-blocking findings, and the owner chose to fi
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md](../../decisions/graph-operations-first-slice/0018-property-operations.md)
 - Test plan: [18-property-operations.test-plan.md](18-property-operations.test-plan.md)
-- Review: [engineering-team/reviews/graph-operations-first-slice/18-property-operations.md](../../reviews/graph-operations-first-slice/18-property-operations.md) (round 1, PASS, nine non-blocking findings)
+- Review: [engineering-team/reviews/graph-operations-first-slice/18-property-operations.md](../../reviews/graph-operations-first-slice/18-property-operations.md) (rounds 1 and 2; each round's verdict is in the review)
