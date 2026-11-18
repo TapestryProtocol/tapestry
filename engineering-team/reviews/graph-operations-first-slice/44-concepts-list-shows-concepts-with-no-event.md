@@ -241,3 +241,51 @@ None.
 
 ### Verdict (round 2)
 **PASS**
+
+## Round 3
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-18
+**Diff:** `git show bc630659`, one docs commit on top of `ea92b30e` (round 2's PASS, with the story flipped to Done). It changes only `ledger/2026-11-05-suite-probe-reaches-private-container.md`, +18 −4, after David chose "Fix findings first".
+**Independent check** (workflow 5, optional): not applied.
+
+### Quality gates
+- [x] **`bash scripts/harness-lint.sh`:** `harness-lint: clean (0 violations)`, exit 0, before this section and again with it in place. The review is PASS-final and the story Done, so L1 holds. No suite was run: the commit changes one ledger row and no code, and the scratch stack is down.
+
+### Each changed statement, checked against the source
+
+| Statement in the row | Holds? | Source |
+|---|---|---|
+| `ledger-row-ids` runs the digest "once per merge order" (`:41`) | yes | the loop over two merge orders (`test/ledger-row-ids.test.js:103`) runs `scripts/session-start.sh` each pass (`:111`) |
+| round 1's gate made the probe "twice" (`:41-42`) | yes | the suite passed 6/0 in round 1, so both passes ran |
+| `localhost:7778` is "the agent-memory `tapestry` container's published port on this Mac" (`:42`) | yes | `docker ps --filter publish=7778`, round 2 |
+| the probe reads its port only from `/etc/brainstorm.conf` (`:42-44`, unchanged text) | yes | `scripts/session-start.sh:41-45` |
+| the stubs are "this row's second fix shape" (`:44-45`, unchanged text) | yes | the note before it gives "the suites put a stub `curl` first on `PATH`" as its second fix (`:35-37`) |
+| `neo4j-driver.js:33` falls back to `bolt://localhost:7687` (`:49`) | yes | `src/lib/neo4j-driver.js:33`, and the file reads no `process.env` |
+| `getConfigFromFile` reads only `BRAINSTORM_CONF_PATH` or `/etc/brainstorm.conf` (`:49-50`) | yes | `src/utils/config.js:19`; with no conf file the function returns the default and never reads the env for the key (`:66-75`) |
+| "so no env variable reaches it" (`:50`) | not as written | non-blocking 1 below |
+| the agent-memory container publishes 7687 (`:50-51`) | yes | `docker ps`, round 2 |
+| each suite that names the driver stubs or fakes it, and `operations.test.js` gives its children a dead conf (`:52-53`) | yes | round 2's survey; `:160` is `childEnv`'s doc comment and `:173` its `BRAINSTORM_CONF_PATH` |
+| the suites under `test/operations/` run in-process with the gate's env (`:54-55`) | yes | `operations.test.js:1164` (`require`), `:1172` (`run()`) |
+| fix shape: `BRAINSTORM_CONF_PATH` at a conf with Neo4j and Redis at port 9, as story 43's reviewer did (`:57-58`) | yes | story 43's review, Quality gates |
+
+### Findings (round 3)
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. **`ledger/2026-11-05-suite-probe-reaches-private-container.md:50`: "so no env variable reaches it" isn't true as written.**
+   - **Why:** `config.js:19` reads `process.env.BRAINSTORM_CONF_PATH`, an env variable, and it's the one the note's own fix shape sets.
+   - **Whose wording:** mine, from round 2 ("so no env variable moves it", Harness friction 1 above). It was imprecise in the same way, and the note carried it over.
+   - **What's meant:** the endpoint variables a dead-endpoint run sets, `NEO4J_URI` among them, can't move the driver. Only a conf file named by `BRAINSTORM_CONF_PATH` can.
+   - **Optional fix, next time the row is edited:** "so `NEO4J_URI` and the other endpoint variables don't reach it; only a conf named by `BRAINSTORM_CONF_PATH` does".
+   - **Line range:** the `:102–111` range at `:41`, also mine from round 2, starts one line early. The loop header is `:103`; line 102 is blank. It still covers the loop and the digest call, so `:103–111` is optional too.
+
+   The sentence beside it names `BRAINSTORM_CONF_PATH`, so neither slip can send a reader to the wrong fix, and neither needs a round of its own.
+
+### A note on round 1's miss
+This row already named `ledger-row-ids` before story 44 (`:25`): "says 'No stack, no network' (`:14`), but it runs `scripts/session-start.sh`". So the trap round 1 fell into was on record. Round 1 read only the row's opening lines and didn't reach it.
+
+### Verdict (round 3)
+**PASS**
