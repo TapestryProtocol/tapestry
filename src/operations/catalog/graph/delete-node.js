@@ -14,7 +14,7 @@
  */
 
 const { refusal } = require('../../refusal');
-const { CHANGE_ENTRY, ENTRY, entryOf } = require('../../changes');
+const { CHANGE_ENTRY, ENTRY } = require('../../changes');
 const R = require('../../reads');
 const K = require('./_concepts');
 const F = require('./_fields');
@@ -33,12 +33,10 @@ const propsOf = (n) => sortKeys(Object.fromEntries(Object.entries(isObject(n) ? 
 const asCount = (x) => (typeof x === 'number' ? x : x && typeof x.toNumber === 'function' ? x.toNumber() : Number(x) || 0);
 
 // ── the statements ──
-const U0 = 'MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange RETURN n';
-/** D1, the entries that may record the node's deletion, newest first (Decision 3). */
-const D1 = `MATCH (c:GraphChange)
-  WHERE $key IN c.keys AND c.changes CONTAINS '"change":"node-deleted"'
-  RETURN c.tapestryKey AS id, c.at AS at, c.byRole AS byRole, c.byPubkey AS byPubkey, c.operation AS operation, c.changes AS changes
-  ORDER BY c.at DESC, c.tapestryKey DESC`;
+// U0, D1 (the entries that may record the node's deletion) and D4 (its relationships one way) are _nodes.js's, shared
+// with the property operations (ADR graph-operations-first-slice/0018 Implementation notes): N.U0, N.removalOf and
+// N.relationshipsOf, and N.wholeNodeOf for step 7's reads.
+const U0 = N.U0;
 /** D2, the nodes a class-thread link runs to from the node, itself aside (Decision 5). */
 const D2 = `MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m)
   WHERE NOT x:GraphChange AND type(r) IN $types AND elementId(m) <> elementId(x)
@@ -46,11 +44,6 @@ const D2 = `MATCH (x:TapestryNode {tapestryKey: $key})-[r]->(m)
   ORDER BY tapestryKey LIMIT ${CAP + 1}`;
 /** D3, the count of a node's relationships one way (Decision 8). */
 const D3 = (out) => `MATCH (x:TapestryNode {tapestryKey: $key})${out ? '-[r]->' : '<-[r]-'}(m) WHERE NOT x:GraphChange RETURN count(r) AS n`;
-/** D4, a node's relationships one way, each with its elementId, its properties and the node at its other end (Decision 9). */
-const D4 = (out) => `MATCH (x:TapestryNode {tapestryKey: $key})${out ? '-[r]->' : '<-[r]-'}(m)
-  WHERE NOT x:GraphChange
-  RETURN elementId(r) AS id, type(r) AS type, properties(r) AS properties, m.tapestryKey AS tapestryKey,
-         coalesce(m.tapestryValue, m.name) AS name, m.uuid AS address, m.pubkey AS author, labels(m) AS labels`;
 /** D6, the delete (Decision 10; Amendment 1, item 2): each of its own tags, then the node. */
 const D6_TAG = 'MATCH (t:NostrEventTag:TapestryNode {tapestryKey: $key}) DETACH DELETE t';
 const D6_NODE = 'MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange DETACH DELETE n';
@@ -109,29 +102,15 @@ const answerNode = (f) => ({ tapestryKey: f.key, name: f.name, address: f.uuid, 
 /** What made-elsewhere says, for the slug X.changedElsewhere found (Decision 5's table). */
 function sayElsewhere(label, { slug, what }) {
   if (slug === 'concept-header') return `${label} is a concept header. A concept goes whole, with its core nodes, through graph delete-concept (A10.17, to come), once it has no elements or sets. Nothing changed.`;
-  if (slug === 'json-schema') return `${label} is ${what}, one of its concept's core nodes, which goes with its concept: graph delete-concept (A10.17, to come) deletes a concept with its core nodes, and graph set-schema (A10.18, to come) replaces a schema. Nothing changed.`;
-  if (slug === 'property') return `${label} is ${what}, which graph remove-property (A10.18, to come) takes out of its property tree and its concept's schema. Nothing changed.`;
+  if (slug === 'json-schema') return `${label} is ${what}, one of its concept's core nodes, which goes with its concept: graph delete-concept (A10.17, to come) deletes a concept with its core nodes, and graph set-schema (A10.18) replaces a schema. Nothing changed.`;
+  if (slug === 'property') return `${label} is ${what}, which graph remove-property (A10.18) takes out of its property tree and its concept's schema. Nothing changed.`;
   if (slug === 'set') return `${label} is ${what}. Sets are graph delete-set's (A10.17, to come), which deletes an empty set with the checks a set needs: the sets below it, its links to its parents, and the letters that still name it. Nothing changed.`;
   if (slug === 'graph-rule') return `${label} is ${what}, made from the rulebook, docs/GRAPH_RULES.md, and installed by firmware: a rule is changed or taken out in the rulebook, never in the graph. Nothing changed.`;
   return `${label} is ${what}, one of its concept's core nodes, which goes with its concept: graph delete-concept (A10.17, to come) deletes a concept with all of them. Nothing changed.`;
 }
 
-/** D4 both ways: [{ id, type, direction, properties, tapestryKey, name, address, author, labels }]. */
-async function relationshipsOf(read, key) {
-  const out = (await read(D4(true), { key })).map((r) => ({ ...r, direction: 'out' }));
-  const into = (await read(D4(false), { key })).map((r) => ({ ...r, direction: 'in' }));
-  return [...out, ...into];
-}
-
 /** The newest entry that records the deletion of the node keyed `key`, with its node-deleted change; or null (Decision 3). */
-async function deletionOf(read, key) {
-  for (const row of await read(D1, { key })) {
-    const entry = entryOf(row);
-    const change = entry.changes.find((c) => isObject(c) && c.change === 'node-deleted' && c.node === key);
-    if (change) return { entry, change };
-  }
-  return null;
-}
+const deletionOf = (read, key) => N.removalOf(read, key, 'node-deleted');
 
 /** Who made an entry, in words. */
 const whoOf = (by) => (by && by.role === 'local' ? 'the command inside the instance' : `${by && by.role} ${by && by.pubkey}`);
@@ -227,18 +206,7 @@ module.exports = {
     if (counted > CAP) throw tooMany(counted);
 
     // 7. It, read whole (Decision 9): its tags first, so a relationship between it and its tag is read under the tag.
-    const mine = await relationshipsOf(read, key);
-    const tags = [];
-    const tagKeys = new Set();
-    for (const t of mine.filter((r) => r.direction === 'out' && r.type === 'HAS_TAG' && Array.isArray(r.labels) && r.labels.includes('NostrEventTag'))) {
-      if (typeof t.tapestryKey !== 'string') throw new Error(`a tag of ${labelOf(facts)} has no tapestryKey, so it can't be deleted with it; run lifecycle migrate first`);
-      if (tagKeys.has(t.tapestryKey)) continue; // a second HAS_TAG to one tag: the tag is read and deleted once (Amendment 3)
-      tagKeys.add(t.tapestryKey);
-      const rels = await relationshipsOf(read, t.tapestryKey);
-      if (rels.some((r) => r.direction === 'in' && r.type === 'HAS_TAG' && r.tapestryKey !== key)) continue; // another node has it too: it stays
-      const [whole] = await read(U0, { key: t.tapestryKey });
-      tags.push({ key: t.tapestryKey, node: whole ? whole.n : {}, rels });
-    }
+    const { relationships: mine, tags } = await N.wholeNodeOf(read, key, { node: n, label: labelOf(facts) });
     const ownTags = new Set(tags.map((t) => t.key));
     const seen = new Set();
     const removed = [];   // the answer's relationships
@@ -275,11 +243,9 @@ module.exports = {
         if (r.tapestryKey !== key && !ownTags.has(r.tapestryKey)) others.add(r.tapestryKey);
       }
       const record = { labels: [...(Array.isArray(t.node._labels) ? t.node._labels : [])].sort(), properties: props };
-      if (typeof props.value === 'string' && props.value.startsWith('lmdb:')) {
-        // What the store holds, as it holds it, parse or not; null when its entry is missing (Amendment 3).
-        const { resolveValue } = require('../../../lib/tapestry-resolve');
-        record.stored = resolveValue(props.value);
-      }
+      // What the store holds, as it holds it, parse or not; null when its entry is missing (Amendment 3).
+      const stored = N.storedOf(props.value);
+      if (stored !== undefined) record.stored = stored;
       record.relationships = rels;
       return record;
     });

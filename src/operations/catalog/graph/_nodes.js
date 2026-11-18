@@ -19,6 +19,17 @@
  *   NOT_OWN_NODE, PERSON_NODE, PLACEHOLDER_NODE  the refusals' declarations, which each write that calls requireOwn or
  *                                     refuseUnlessOwn lists
  *
+ * And what a write that removes a node shares, moved from graph delete-node (story graph-operations-first-slice #18,
+ * ADR graph-operations-first-slice/0018 Implementation notes), so a removal's change entry keeps the whole node:
+ *   relationshipsOf(read, key)        D4 both ways: [{ id, type, direction, properties, tapestryKey, name, address, author, labels }]
+ *   wholeNodeOf(read, key, opts)      the node read whole: U0 (unless opts.node gives it), D4, and each tag only it has,
+ *                                     with that tag's relationships → { node, relationships, tags: [{ key, node, rels }] },
+ *                                     or null for no node
+ *   storedOf(value)                   what the store holds for an lmdb: value, parse or not (null when its entry is
+ *                                     missing); undefined for any other value
+ *   removalOf(read, key, change)      the newest entry recording a change of that name for the node → { entry, change },
+ *                                     or null: a removal's repeat finds its entry with it
+ *
  * A node is the instance's own when the read conventions answer `own: true` for it (src/operations/reads.js, C3): its
  * author is its assistant's or its owner's key, or it records none. An admin's letter is someone else's, as is anyone's
  * but those two keys (the owner's answer, story 21 open question 3). Two kinds of node are never its own, whatever key
@@ -131,4 +142,80 @@ async function requireOwn(read, key, { input = 'node' } = {}) {
   return refuseUnlessOwn(facts, { input });
 }
 
-module.exports = { KEY_PATTERN, TYPE_PATTERN, keyInput, typeInput, UNKNOWN_NODE, NOT_OWN_NODE, PERSON_NODE, PLACEHOLDER_NODE, RELATIONSHIP, requireNodes, factsOf, whoseNode, refuseUnlessOwn, requireOwn, labelOf };
+// ── a node read whole, and the entry that records its removal (moved from delete-node.js; ADR 0018) ──
+const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+
+/** U0: a node read whole by its tapestryKey, change entries left out. */
+const U0 = 'MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange RETURN n';
+/** D1: the entries that may record a change named `change` of the node, newest first (ADR 0026 Decision 3). */
+const D1 = (change) => `MATCH (c:GraphChange)
+  WHERE $key IN c.keys AND c.changes CONTAINS '"change":"${change}"'
+  RETURN c.tapestryKey AS id, c.at AS at, c.byRole AS byRole, c.byPubkey AS byPubkey, c.operation AS operation, c.changes AS changes
+  ORDER BY c.at DESC, c.tapestryKey DESC`;
+/** D4, a node's relationships one way, each with its elementId, its properties and the node at its other end (ADR 0026 Decision 9). */
+const D4 = (out) => `MATCH (x:TapestryNode {tapestryKey: $key})${out ? '-[r]->' : '<-[r]-'}(m)
+  WHERE NOT x:GraphChange
+  RETURN elementId(r) AS id, type(r) AS type, properties(r) AS properties, m.tapestryKey AS tapestryKey,
+         coalesce(m.tapestryValue, m.name) AS name, m.uuid AS address, m.pubkey AS author, labels(m) AS labels`;
+// A change's name is a constant of the code, kebab-case, never input: only such a name reaches D1's text.
+const CHANGE_NAME = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
+/** D4 both ways: [{ id, type, direction, properties, tapestryKey, name, address, author, labels }]. */
+async function relationshipsOf(read, key) {
+  const out = (await read(D4(true), { key })).map((r) => ({ ...r, direction: 'out' }));
+  const into = (await read(D4(false), { key })).map((r) => ({ ...r, direction: 'in' }));
+  return [...out, ...into];
+}
+
+/**
+ * The node keyed `key` read whole (ADR 0026 Decision 9): the node (U0, unless `node` gives it as U0 read it), its
+ * relationships both ways, and each of its tags that no other node has, with that tag's own relationships, read
+ * before anything else so a relationship between the node and its tag is read under the tag. → { node, relationships,
+ * tags: [{ key, node, rels }] }, or null when no node has the key. `label` names the node in a failure's message.
+ */
+async function wholeNodeOf(read, key, { node = undefined, label = null } = {}) {
+  let n = node;
+  if (n === undefined) {
+    const [found] = await read(U0, { key });
+    n = found && isObject(found.n) ? found.n : null;
+  }
+  if (!n) return null;
+  const relationships = await relationshipsOf(read, key);
+  const tags = [];
+  const tagKeys = new Set();
+  for (const t of relationships.filter((r) => r.direction === 'out' && r.type === 'HAS_TAG' && Array.isArray(r.labels) && r.labels.includes('NostrEventTag'))) {
+    if (typeof t.tapestryKey !== 'string') throw new Error(`a tag of ${label || key} has no tapestryKey, so it can't be deleted with it; run lifecycle migrate first`);
+    if (tagKeys.has(t.tapestryKey)) continue; // a second HAS_TAG to one tag: the tag is read and deleted once (ADR 0026 Amendment 3)
+    tagKeys.add(t.tapestryKey);
+    const rels = await relationshipsOf(read, t.tapestryKey);
+    if (rels.some((r) => r.direction === 'in' && r.type === 'HAS_TAG' && r.tapestryKey !== key)) continue; // another node has it too: it stays
+    const [whole] = await read(U0, { key: t.tapestryKey });
+    tags.push({ key: t.tapestryKey, node: whole ? whole.n : {}, rels });
+  }
+  return { node: n, relationships, tags };
+}
+
+/** What the store holds for an lmdb: value, as it holds it, parse or not; null when its entry is missing; undefined for any other value. */
+function storedOf(value) {
+  if (typeof value !== 'string' || !value.startsWith('lmdb:')) return undefined;
+  const { resolveValue } = require('../../../lib/tapestry-resolve');
+  return resolveValue(value);
+}
+
+/** The newest entry that records a change named `change` of the node keyed `key`, with that change → { entry, change }, or null. */
+async function removalOf(read, key, change) {
+  if (!CHANGE_NAME.test(String(change))) throw new Error(`a change's name is kebab-case; got ${JSON.stringify(change)}`);
+  const { entryOf } = require('../../changes');
+  for (const row of await read(D1(change), { key })) {
+    const entry = entryOf(row);
+    const found = entry.changes.find((c) => isObject(c) && c.change === change && c.node === key);
+    if (found) return { entry, change: found };
+  }
+  return null;
+}
+
+module.exports = {
+  KEY_PATTERN, TYPE_PATTERN, keyInput, typeInput, UNKNOWN_NODE, NOT_OWN_NODE, PERSON_NODE, PLACEHOLDER_NODE, RELATIONSHIP,
+  requireNodes, factsOf, whoseNode, refuseUnlessOwn, requireOwn, labelOf,
+  U0, relationshipsOf, wholeNodeOf, storedOf, removalOf,
+};

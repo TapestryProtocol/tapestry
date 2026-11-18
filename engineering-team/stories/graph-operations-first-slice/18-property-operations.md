@@ -1,6 +1,6 @@
 # Story 18: `graph add-property`, `update-property`, `remove-property` and `set-schema` — change a concept's properties, with no event
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-17
 **Type:** Feature
 **Loom:** A10.18 — https://loom.brainstorm.world/t/A10.18
@@ -137,6 +137,97 @@ For Architecture, not this gate (each answered in ADR 0018):
 - **What makes a name unable to key a field** of an element's JSON (AC7).
 - **How the first write's catching-up** is told apart from its own change in the answer and the change entry (AC2).
 
+## Deviations
+
+- **field-mark-allowed's `no-property-node` names the property writes beside `generate-property-tree`,** not in its place (Decision 15 said "in place of"). mark-field's MF6 pins that the message names that route and says it signs, and D15 leaves the route as it is. So the message says `graph set-schema`, or any other property write, gives a concept's fields their nodes and signs nothing, and that the route does it too but signs. Its `when` and rulebook §3 say the same.
+- **delete-node's messages keep "(A10.18)"** and drop only ", to come": DN25 pins `A10.18` in the made-elsewhere message for a property.
+- **BIBLE's property tree is in §6, not §9.** Decision 15 names §9, but the property tree's layout, its deterministic d-tags and the two-way sync table are in §6's Property Relationships. They are edited there, and the "Last updated" line names §6.
+- **The tree read, and update-property's and remove-property's search for a property's concept, go 33 levels deep,** one more than the 32 the writes keep, where Decision 11 wrote `*1..32`. So a node one level too deep is refused `tangled-tree`, naming its depth, rather than missed.
+- **The property tree graph names each property node by its d-tag,** not its word slug. Two properties under different parents can share a key, and so a slug, and the graph's relationships name nodes by slug. The schema node, the primary property and the properties set keep their word slugs, as create-concept writes them.
+- **A node that catching up would add and the write's own change takes out again** (set-schema dropping a field the schema had but the tree lacked) is neither made nor recorded. Its two changes would cancel out, and a removal's entry keeps a node that existed.
+- **The four declare no `no-schema` of their own.** The guard rule `element-fits-schema` declares `no-schema` at 409, the status Amendment 1 gives a concept with no schema node or two, and a declaration listing the code again would list it twice.
+- **Each declares every refusal its shared code can give,** beyond Amendment 1's lists: remove-property's `bad-schema` and `no-free-address`, update-property's `no-free-address`, and set-schema's `not-wrapped` (400) for a concept with no key, which catching up can't avoid. So no refusal comes back as a 500.
+- **remove-property's `already-gone` answers `removed: []` and `elements: null`:** it judged nothing, and the entry it names in `removal` holds what was taken out.
+- **`already-exists` and `unchanged` can still carry a change entry** when catching up, or a fill-in of Decision 3, wrote something first. The outcome is the write's own change.
+- **`not-own-node` covers every node the write rewrites or takes out,** a parent whose view changes among them, not only those a plan lists as changed: a rewrite is a change.
+- **The whole node a property-removed change keeps** gives each relationship `from` and `to` beside delete-node's `direction` and `other`, so RM2's reading, and an undo, need no second lookup. delete-node's own entry is unchanged.
+- **A catch-up change's `was` for a node in the old shape** is `{ schema: null, required }`, its required flag read from its boolean `property.required` where its parent has no piece.
+- **The report's lists are in tapestryKey order,** so which 50 it names doesn't depend on the read's order, for a concept of up to 10,000 elements. Past that, the read's order decides which 10,000 are judged, and so which can be named (review round 1, finding 3).
+- **A piece that names `__proto__` is refused `bad-schema`,** by add-property and update-property alike. update-property merges a piece's keywords by assignment, and assigning `__proto__` would set the definition's prototype, not a keyword. No suite pins it; a probe of `pieceInput` refuses it as text and as a parsed object, and accepts `{"minLength": 1}`.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-17)
+
+Run on this Mac, each with every service endpoint dead and `TAPESTRY_CONTAINER=no-such-container`. No full `npm test` ran here: the local stack is the owner's agent-memory instance, and the PR's CI runs the full gate.
+- **The five suites, each alone:** add-property 14/0, update-property 11/0, remove-property 8/0, set-schema 9/0, properties-agent-through-cli 1/0.
+- **Their neighbours, each alone:** delete-node 40/0 on the functions moved to `_nodes.js`, mark-field 16/0, update-node 42/0, rules/element-fits-schema 11/0, rules/field-mark-allowed 14/0, graph-rule-firmware 13/0 and graph-rules-builder 26/0.
+- **The scoped gate,** through the gate engine: CI's registry entries for an operations change, `operations.test.js` (which runs every suite under `test/operations/`), `external-cli`, `openapi-coverage`, `admin-action-sweep` and `schema-save-finds-the-right-header`. `npm run gate:status -- --label a10-18-story-18-impl-final` reads:
+  `20261118T021214Z-39591-5716 [a10-18-story-18-impl-final] started 2026-11-18T02:12:14.004Z on bd017881+dirty — PASS, exit 0, 1014 passed, 0 failed, 6 skipped, 5/5 suites`
+  - **Dirty** is this commit's implementation, uncommitted beside the tests' commit.
+  - **The first run failed 13,** each for want of a `node_modules` in this worktree (record `20261118T020059Z-33339-696e`; ledger row `2026-11-16-route-walk-needs-node-modules`, this occurrence added): most on the route walker's `Cannot find module …/node_modules/express`, openapi-coverage's D2 on `js-yaml` in its throwaway copy, and `schema-save-finds-the-right-header`, which didn't load, on `…/node_modules/nostr-tools` (review round 1 corrected this line). With the main checkout's linked in, untracked, the rest passed.
+- **harness-lint** is clean, and `node src/firmware/graph-rules.js --check` finds rules 3 and 7 current. A code-point scan of every file touched finds no control or invisible character this branch added (BIBLE.md's three U+FE0F are staging's). It counted controls and format characters only: review round 1 found two combining marks it didn't count, U+0300 and U+036F in `test/helpers/propertyGraph.js:66`, now written as escapes.
+- **Before the implementation,** at `e509c390` (staging with A10.20.b merged in), the five suites were 0/13, 0/11, 0/8, 0/9 and 0/1, each failing because its declaration didn't exist.
+
+### The live check (Implementation, 2026-11-17)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The records are in this worktree's `tmp/live-check-18/` (ignored by git): `live.js`, `report-main.json`, `main.log`, `hand-calls.md` (the calls made by hand), `up.log`, and for L4 `backup.json`, `up-restore.log` and `report-restored.json`.
+- **The instance.** It booted from image `agent-memory-tapestry:latest` with this branch's `src/` mounted. The image's firmware differed from the branch's (digests `4610d6d4fdc8` and `99c0db5f3e01`). The branch's firmware, `bin/tapestry.js` and `clients/cli` were copied in, the control panel restarted, and the firmware installed again. Three throwaway keys were made, and the owner's and an admin's set in `/etc/brainstorm.conf`.
+- **The calls** went through `docker exec` to `127.0.0.1:7778`, as the trusted local operator. The agent's and the visitor's went through the instance's nginx. The rule's check form ran inside the container, with the app's own modules, store and database.
+
+**Run 1 found Decision 10 refusing every first write (L1a).** add-property on a concept `graph create-concept` made was refused `invalid-fields`: the rewritten property tree graph fails firmware's installed `graph` schema (`graph.graphType` is required), and the JSON schema node `validation tool`'s wordType conditionals. Both nodes fail those before any property write. The owner ruled that the check refuses only what the write breaks (ADR Amendment 2), and run 2 ran with that check.
+
+**Run 2: 23 of 23 passed** (`report-main.json`), on concept `live teapot jf5c`. It ran on `_properties.js` uncommitted, with Amendment 2's check. Before `c6a2ea51`, that file changed twice more: the check's comment, which then named Amendment 2, and `pieceInput`'s refusal of a `__proto__` key. Review round 1 (finding 2) asked for this account. The live check ran again on the commit at round 1's fixes (below).
+- **L1:**
+  - add-property lands, catching up name, slug and description first, nothing filled in, and judges the three derived elements;
+  - a nested property is required under its parent;
+  - making volume required stops the three elements fitting, and the rule's check form, run in the container, finds exactly those, with the same problems;
+  - remove-property takes address and city out of the tree and the schema;
+  - set-schema adds brand, and the schema reads back as given; the same schema again is `unchanged`, with no entry;
+  - the Properties tab's own query lists each field with its type and its parent;
+  - mark-field marks volume. Its type can't then change (`marked-field`), and its description can;
+  - the hygiene check finds the primary property's record consistent with the schema.
+- **L2:** two add-property calls at once on one concept both landed. The same add twice at once answered one `added` and one `already-exists`, with one node.
+- **L3:** after a firmware reinstall, the property nodes, their tags and relationships, and the schema node's JSON were as before. Each node's derive stamp (`tapestryJsonUpdatedAt`) was left out of the comparison, since a reinstall's derive pass sets it.
+- **L5:** an admin agent with its own key, through nginx and the external CLI, added spout, updated it, set the schema with lid, and removed spout, each recorded as its own; the concept's history gave the four newest first. A visitor through nginx got 401.
+- **L6:** the relay held 465 events before the seed and 465 after L1's writes: none of them signed. The count didn't bracket L2, L5 or L7 (review round 1, finding 6); the suites' spy covers those, and the run on the committed code brackets every write.
+- **L7:** on a concept with 1,000 elements, all derived, add-property took 0.74 s (catching up first, judging each element before and after) and set-schema 0.34 s. Making the elements took 120 s and the derive pass 6.1 s.
+
+**L4, after it: 1 of 1 passed** (`report-restored.json`). Backup `20261118T020341Z-db606e37` (6.3 MB: 9,674 nodes and 9,177 relationships), taken after run 2, was uploaded to a fresh instance and restored there:
+- the transaction (21933) and the counts matched exactly, and the instance took the backup's assistant;
+- the property nodes, with their tapestryKeys, labels, properties, tags and relationships, and the schema node's JSON, were as run 2 left them.
+
+Each `down` first checked that the container mounted this worktree's `src/`. The instance is removed after the check.
+
+### Review round 1's fixes (2026-11-17)
+
+Review round 1 passed with nine non-blocking findings, and the owner chose to fix them before the PR: ADR Amendment 3 (`d8a8bb1b`), the Tester's cases (`0e2039e0`), and the fixes (`27f1a985`).
+- **The suites, each alone with every endpoint dead:** add-property 15/0, update-property 11/0, remove-property 8/0, set-schema 9/0, properties-agent-through-cli 1/0. On the code before the fixes, `1ab4e00c`, the new cases failed: add-property 14/1, update-property 9/2, set-schema 7/2 (the test plan's "Added at review round 1").
+- **The scoped gate,** the same five registry entries through the gate engine. `npm run gate:status -- --label a10-18-story-18-round-1-fixes` reads:
+  `20261118T031634Z-20933-134f [a10-18-story-18-round-1-fixes] started 2026-11-18T03:16:34.639Z on 27f1a985+dirty — PASS, exit 0, 1015 passed, 0 failed, 6 skipped, 5/5 suites`
+  - The dirty path is the untracked `node_modules` link alone.
+- **harness-lint** is clean. A code-point scan of every file touched, counting combining marks too, finds none this branch added.
+- **The live check, again, on the commit** (`main-round2.log`, `report-main-round2.json`; ledger row `2026-11-17-live-check-records-name-no-commit`'s fix, tried here):
+  - It ran on a fresh scratch stack, set up as before (`hand-calls.md`, "Review round 1's fixes"). Its report stamps code `27f1a985c576ecca7d930d6e4996aca8e20ce370`, with nothing beside it but the `node_modules` link.
+  - **24 of 24 passed,** on `live teapot z8sw`: L1, L2, L3, L5 and L7 as before.
+  - **L6** counts the relay at five points: before the seed, after L1, after L7, after the reinstall, and at the end. Each held 465, so it now brackets every write of the run, the agent's among them.
+  - **L3** compares the schema with the one read before the reinstall.
+  - **L7:** on a concept with 1,000 elements, add-property took 0.69 s and set-schema 0.34 s.
+  - **L4,** the restore, wasn't run again: the fixes touch the inputs' checks and the address lookup, not what a backup holds.
+
+### Review round 2's fix (2026-11-17)
+
+Round 2 found that round 1's rewrite of the address check could give a new property an address another node holds, when two new siblings' keys slug alike (`Price` and `price`). The Tester's SS10 (`4afded16`) pins Decision 5's search, which no suite reached before. Amendment 3's account of the check is corrected (`ed32ca77`), and the fix is `68e48fbc`: a new node's nonces are read when its plain address is held, already taken, or shared with another new node of the same write.
+- **The suites, each alone with every endpoint dead:** add-property 15/0, update-property 11/0, remove-property 8/0, set-schema 10/0, properties-agent-through-cli 1/0. On round 2's code, `faa91ee4`, set-schema was 9/1: SS10's `price` got the held `~1`. The reviewer's three-step probe (`tmp/review-18/probe-nonce-sequence.js`) now gives `pRice` `~2`, with no address held twice.
+- **The scoped gate,** the same five registry entries. `npm run gate:status -- --label a10-18-story-18-round-2-fix` reads:
+  `20261118T034233Z-83670-8abf [a10-18-story-18-round-2-fix] started 2026-11-18T03:42:33.436Z on 68e48fbc+dirty — PASS, exit 0, 1016 passed, 0 failed, 6 skipped, 5/5 suites`
+  - The dirty path is the `node_modules` link alone.
+- **The live check on the commit** (`main-round3.log`, `report-main-round3.json`, `hand-calls.md`'s last section). Its report stamps code `68e48fbc7e694241451d3611e53237abb10b1302`, with nothing beside it but the `node_modules` link. **25 of 25 passed,** on `live teapot wiai`:
+  - **L8, new:** the reviewer's three set-schema calls on the real instance. `Price` took the plain address and `price` `~1`; with `Price` taken out, `PRICE` took the plain address and `pRice` `~2`. No address is held twice.
+  - L1, L2, L3, L5 and L7 as before, L7's add-property in 0.71 s and set-schema in 0.34 s at 1,000 elements.
+  - The relay held 465 at all five counts, L8's writes inside the bracket.
+  - L4 wasn't run again, for round 1's fixes' reason.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
@@ -147,5 +238,5 @@ For Architecture, not this gate (each answered in ADR 0018):
 - The rule the reports call: ADR [0020](../../decisions/graph-operations-first-slice/0020-create-element.md) and [0020a](../../decisions/graph-operations-first-slice/0020a-the-document-a-schema-describes.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md](../../decisions/graph-operations-first-slice/0018-property-operations.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [18-property-operations.test-plan.md](18-property-operations.test-plan.md)
+- Review: [engineering-team/reviews/graph-operations-first-slice/18-property-operations.md](../../reviews/graph-operations-first-slice/18-property-operations.md) (rounds 1 to 3; each round's verdict is in the review)
