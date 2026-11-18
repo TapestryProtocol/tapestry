@@ -71,6 +71,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     the derive step both judge a node's tapestryJson, and give one verdict, as ADR 0020a decides; the writes stop
     reporting `word` as failing for `graphContext` (Loom A10.20.b). A subtask has no A10 number of its own, so it takes
     the next number free; a later A10.42 takes another.
+43. `stories/graph-operations-first-slice/43-concept-writes-take-header-lock.md` — a rename by graph update-concept,
+    or a field mark by graph mark-field, beside a property write on the same concept: the two go one after the other,
+    and neither is lost; closes ADR 0018's known limit of the lock (Loom A10.18.a, a subtask, numbered as story 42).
 
 ## Key facts / guardrails
 
