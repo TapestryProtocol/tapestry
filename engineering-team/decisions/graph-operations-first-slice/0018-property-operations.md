@@ -295,6 +295,8 @@ We chose **Option A**. It is the only one that keeps the readers as they are, an
 
 **10. What is written is checked** (D9; ADR 0020, Decision 16). After the writes, inside the transaction, `_schemas.checkElements(read, items, { every: true })` runs over one `{ concept, json }` item for each node written and each concept it is an element of (`F.conceptsOfNodes`), but those keyed `word` or `graphContext` (`_elements.RESERVED_KEYS`). The nodes written are property nodes, the primary property, the schema node and the property tree graph. So a node that doesn't fit its concept's schema is refused `invalid-fields`, and the whole write rolls back. By construction this only catches a bug, or a frame that Decision 3's fill-ins missed.
 
+*Amended at Implementation: the check refuses only what the write breaks, judging each node's JSON before and after (Amendment 2).*
+
 **11. The lock** (AC8).
 - **Who takes it:** each write takes `S.lockNode` on the concept's header, the lock create-element and update-node take on it.
 - **When:** add-property and set-schema take it before they read anything. update-property and remove-property find the property's concept first, with `(p)-[:IS_A_PROPERTY_OF*1..32]->(:Property)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(h)`, then lock `h`, then read again.
@@ -456,3 +458,27 @@ The suites pin these, where the Decision left them open or said two things. They
 9. **The fake learns nothing new.** Every statement Decision 7's steps need is one `test/helpers/graphFake.js` already runs: reads over paths, the node and tag creates, an edge's MERGE, the copies, the tag and node deletes, and the lock. The Implementer keeps to those shapes. The suites' seed, `test/helpers/propertyGraph.js`, is new.
 10. **The report's agreement with the rule** (Decision 9) is pinned by AP7. It runs the rule's `{ node, concept }` form over the final graph, in a child process. AP7 passes only once story 42's build has the rule read tapestryJson.
 11. **Found at Test Design, and not changed here.** The concept page's Properties tab shows a Required column from `property.required`, which it reads as the field's own flag (`ui/src/pages/concepts/ConceptProperties.jsx:50–58`). In this ADR's view, as in firmware's `property` schema, `property.required` is an object's list of required children. So the tab marks an object that has required children, and not a required leaf. Ledger row `2026-11-17-properties-tab-misreads-required`.
+
+## Amendment 2 (2026-11-17, at Implementation, the owner's ruling) — the check of what was written refuses only what the write breaks
+
+**What the live check found** (L1a, on a scratch stack from `scripts/scratch-stack.sh`, booted from the local image with this branch's `src/` and firmware). On an installed instance, Decision 10 refused the first property write on a concept `graph create-concept` made, `invalid-fields`:
+- the property tree graph, which every first write rewrites, is an element of firmware's `graph` concept there. Its JSON, in create-concept's shape, lacks `graph.graphType`, which `graph`'s installed schema requires;
+- the JSON schema node is an element of `validation tool`, whose installed wordType conditionals no schema node's `word.wordTypes` meets.
+
+Both failures are there before any property write: create-concept's own nodes already have them (ledger row `2026-11-17-six-concepts-failing-verdicts-undiagnosed`, which counts `graph` 132 of 132 and `validation tool` 44 of 44). The suites' fake graph has neither concept, so they didn't show it. As written, Decision 10 would refuse every property write on every installed instance.
+
+**Decision 10 now reads.**
+- After the writes, inside the transaction, the rule `element-fits-schema`'s write form judges each node written against each concept it is an element of (`F.conceptsOfNodes`), those keyed `word` or `graphContext` aside, as before.
+- It judges twice: the node's JSON as the write leaves it, and, for a node that existed, its JSON before the write.
+- The write is refused, with the rule's code (`invalid-fields`, or `no-schema`), only for a finding of the JSON as written that the JSON before didn't have:
+  - a concept the node fitted before;
+  - or a problem, by its words, that the JSON before didn't have.
+- A node the write makes has no JSON before, so every finding of its own refuses it.
+
+So a write never leaves a node failing a schema in a new way, and a problem the instance's schemas already had stays theirs: `rules check` (A10.31) and that row's diagnosis deal with it, not this write. It still catches what Decision 10 was for, a bug or a frame that Decision 3's fill-ins missed.
+
+**The cost.** A second judging of the nodes that existed: the primary property, the schema node, the tree graph and the property nodes rewritten, each schema compiled once (`_schemas.judge`).
+
+**What the suites pin** (the Tester's, at this amendment):
+- AP3 reads the price node's memberships as the adds left it: the suite's own mark-field call, later, adds the mark's edge;
+- AP14 seeds what an instance has: firmware's `graph` concept with a schema that requires `graph.graphType`, the concept's tree graph one of its elements, and a concept whose schema requires a property's description, every property node its element. A first write lands, with the tree graph failing `graph` before and after. A new property with no description is refused, and so is a description taken out of one that had it.
