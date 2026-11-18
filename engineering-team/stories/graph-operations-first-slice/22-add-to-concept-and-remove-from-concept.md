@@ -166,7 +166,7 @@ For Architecture, not this gate:
 - **No live re-check:** these are words, and the coordinator's brief said to skip it.
 
 **Review round 4's** (ADR Amendment 5):
-- **Each concept to add the node to has its key given in the review's form:** "with graph add-to-concept, concept <key> and set <set>". When the set joins more than one such concept, the words name each one with its own key ("<name> (<address>) with concept <key>"), all with the same `set`, one add for each. Neither a test nor Amendment 5 covers that case.
+- **Each concept to add the node to has its key given in the review's form:** "with graph add-to-concept, concept <key> and set <set>". When the set joins more than one such concept, the words name each one with its own key ("<name> (<address>) with concept <key>"), all with the same `set`, one add for each. Neither a test nor Amendment 5 covers that case. *(Review round 5: MS24 now tests it, the review's R5-1.)*
 - **No live re-check:** the change is to words alone.
 
 ## Evidence
@@ -269,7 +269,7 @@ Review round 3 passed with two non-blocking findings, both about words, and the 
 - **harness-lint:** clean.
 - **No live re-check** (Deviations, round 3).
 
-### Review round 4's fixes (2026-11-18, uncommitted on `e9b1310d`)
+### Review round 4's fixes (2026-11-18, on `e9b1310d` with the fixes uncommitted, since committed as `599dbdd6`)
 
 Review round 4 passed with three non-blocking findings, and the owner chose to fix them before the PR. ADR Amendment 5 says what each fix is. The Tester's tests and the seed's two new sets, scrollShelf and showGoldens, are in `e9b1310d`.
 - **What changed.**
@@ -283,6 +283,14 @@ Review round 4 passed with three non-blocking findings, and the owner chose to f
 - **The scoped gate:** record `20261118T074914Z-92395-b18f`, PASS, 1,193 passed, 0 failed, 10 skipped, over the same 8 suites, on `e9b1310d+dirty`. `node_modules` was linked for the run and the link removed after.
 - **harness-lint:** clean.
 - **No live re-check** (Deviations, round 4).
+
+### Review round 5's nit (2026-11-18, on `5826c324` with the test uncommitted)
+
+Review round 5 passed with one optional finding, R5-1, and the owner chose to fix it before the PR. The fix is a test, and no code changed. MS24 calls `say.memberMisfit` directly for a set that joins two or three concepts, the case no seeded call reaches.
+- **The suites,** each alone on this Mac with every service endpoint dead; none failed: memberships-shared 24 passed, add-to-concept 57, remove-from-concept 36, memberships-agent-through-cli 1.
+- **The scratch edits:** seven breaks of that branch, and each fails MS24 alone (the test plan's "Added at review round 5").
+- **harness-lint:** clean.
+- **No scoped gate or live re-check.** The change is one new test of words. The pull request's CI runs the full gate.
 
 ## Linked artifacts
 

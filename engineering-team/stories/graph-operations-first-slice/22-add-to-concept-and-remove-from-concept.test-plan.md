@@ -513,3 +513,53 @@ firmware-element-sync: 21 passed, 0 failed, 0 skipped
 ```
 
 Every earlier round's test passes on this code.
+
+## Added at review round 5 (2026-11-18)
+
+Review round 5 passed with one optional finding, R5-1, and the owner chose to fix it before the PR. `say.memberMisfit`'s branch for a set that joins more than one concept (`_memberships.js:127–128`) had no test. No seeded call reaches it: that needs a set whose joined concepts each add a key to `wordTypes`, with the named concept misfitting. With each concept's key taken out of the branch, every suite stayed green. The review read the words in a direct call and found them right, so the test is a guard that passes today. No code changes.
+
+| Finding | Test | What it pins |
+|---|---|---|
+| R5-1, the way on through several concepts | **MS24** | It calls `say.memberMisfit` directly, with dog as the named concept and two, then three, joined concepts: golden retriever, irish setter and show dog. Each joined concept is named by its own label, its name and address, then "with concept" and its own key. They come in the order given, the last after "and". One "set <set>" stands for all of them: the set's key appears once. The update-node step names dog's key as `concept`. The one-concept wording, "which the set joins", isn't used. |
+
+**Why the shared suite.** The words are the shared module's, `_memberships.js`. The test needs no seed and no harness run, like MS1 and MS23. So it is MS24 in memberships-shared, not an AT in the add suite.
+
+**The header objects.** `X.conceptLabel` reads a concept's `name`, then its `uuid`, else its `key`. So each object, header-shaped as `K.headersByKey` gives the joined concepts, carries three fields:
+- `key`, a tapestryKey;
+- `uuid`, an address `39998:<TA>:<slug>`;
+- `name`.
+
+MS24 first checks that each label holds its name and address. What it then pins is memberMisfit's own wording.
+
+**The scratch edits.** These ran as round 4's did: on a copy of HEAD (`5826c324`) with MS24 laid over it, each file restored after its edit, against a baseline of the same suites on the copy. Each edit is to the several-concepts branch of `say.memberMisfit`, and each ran all four suites that load the seed.
+- **a** takes each concept's key out, the review's break: MS24 fails.
+- **b** takes the set out: MS24 fails.
+- **c** drops the first concept, by an off-by-one in the list's slice: MS24 fails.
+- **d** names each concept with the next one's key: MS24 fails.
+- **e** gives the concepts in the reverse of the order given: MS24 fails.
+- **f** takes the named concept's key out of update-node, in this branch only: MS24 fails.
+- **g** uses the one-concept wording for two and three concepts: MS24 fails.
+
+No other test in the four suites answered differently under any of them.
+
+Their output, each suite's passed/failed after the edit:
+
+```
+baseline (the copy, unchanged): add-to-concept 57/0; remove-from-concept 36/0; memberships-shared 24/0; memberships-agent-through-cli 1/0
+{"id":"a","what":"each concept's key taken out of the several-concepts branch (the review's break)","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+{"id":"b","what":"the set taken out of the several-concepts branch","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+{"id":"c","what":"one concept dropped from the list: the first, by an off-by-one in its slice","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+{"id":"d","what":"each concept named with the next one's key","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+{"id":"e","what":"the concepts in the reverse of the order given","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+{"id":"f","what":"update-node without the named concept's key, in the several-concepts branch only","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+{"id":"g","what":"the one-concept wording used for two and three concepts","changed":["MS24 PASS -> FAIL"],"suites":{"add-to-concept":"57/0","remove-from-concept":"36/0","memberships-shared":"23/1","memberships-agent-through-cli":"1/0"}}
+```
+
+**Today's code** (HEAD `5826c324`), each suite alone with every endpoint dead:
+
+```
+operations: what add-to-concept and remove-from-concept share: 24 passed, 0 failed, 0 skipped
+operations: graph add-to-concept: 57 passed, 0 failed, 0 skipped
+operations: graph remove-from-concept: 36 passed, 0 failed, 0 skipped
+operations: an admin agent adds and removes memberships through the external CLI: 1 passed, 0 failed, 0 skipped
+```

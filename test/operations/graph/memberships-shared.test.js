@@ -48,6 +48,10 @@
  *   Review round 2 (ADR Amendment 3):
  *   MS23 letters' description says it finds the relationship events through the relationship concept, and one signed
  *        since the last reinstall can be missing (item 3)
+ *   Review round 5 (the review's R5-1):
+ *   MS24 say.memberMisfit's way on through two or three concepts, called directly with header-shaped objects, since no
+ *        seeded call reaches it: each concept by its own label and key, in order, under one set, then update-node with
+ *        the named concept's key (a guard of what the code does)
  */
 
 const fs = require('fs');
@@ -716,6 +720,37 @@ test('MS23 [Amendment 3 item 3]: letters\' description in _memberships.js says i
   assert(/relationship concept/i.test(text), `it says letters finds the instance's own relationship events through the relationship concept, as remove-from-concept's RM45 shows (Amendment 3, item 3); got ${show(text)}`);
   assert(sentences.some((s) => /\b(since|after)\b[^.]*\b(last|latest)\b[^.]*\breinstall/i.test(s) && missing.test(s)),
     `and that one signed since the last firmware reinstall, as one today's add-to-set has just signed, can be missing until a reinstall wires it; got ${show(text)}`);
+});
+
+// ── review round 5 (the review's R5-1): the way on through several concepts, which no seeded call reaches ──
+test('MS24 [AC8, Amendment 5 items 1 and 2; the review\'s R5-1]: say.memberMisfit\'s way on through two or three concepts names each by its own label with its own key, in order, the last after "and", under one set, then update-node with the named concept\'s key', () => {
+  const p = path.join(ROOT, MEMBERSHIPS);
+  if (!fs.existsSync(p)) throw new Error(`${MEMBERSHIPS} does not exist yet (${ADR} Amendment 4, item 1)`);
+  const M = require(p);
+  const X = require(path.join(ROOT, 'src/operations/catalog/graph/_elements.js'));
+  assert(M.say && typeof M.say.memberMisfit === 'function', `_memberships.js exports say.memberMisfit (Amendment 4, item 1); got ${show(Object.keys(M.say || {}))}`);
+  // Header-shaped, as K.headersByKey gives the joined concepts: X.conceptLabel reads name, then uuid (else key).
+  const header = (n, slug, name) => ({ key: `00000000-0000-4000-8000-00000000${n}`, uuid: `39998:${TA}:${slug}`, name });
+  const dog = header('0d01', 'dog', 'dog');
+  const joined = [header('0e01', 'golden-retriever', 'golden retriever'), header('0e02', 'irish-setter', 'irish setter'), header('0e03', 'show-dog', 'show dog')];
+  const SET = '00000000-0000-4000-8000-000000000f01';
+  const labels = joined.map((h) => X.conceptLabel(h));
+  assert(joined.every((h, i) => labels[i].includes(`"${h.name}"`) && labels[i].includes(h.uuid)), `X.conceptLabel gives each header its name and address, so what follows is about memberMisfit's own words; got ${show(labels)}`);
+  for (const n of [2, 3]) {
+    const joining = joined.slice(0, n);
+    const text = String(M.say.memberMisfit(dog, 'dog', joining, SET));
+    const each = joining.map((h, i) => `${labels[i]} with concept ${h.key}`);
+    const at = each.map((e) => text.indexOf(e));
+    assert(at.every((i) => i >= 0),
+      `${n} concepts: each is named by its own label with "with concept <its key>", since add-to-concept's concept takes a tapestryKey (Amendment 5, item 1; the review's R5-1); not found: ${show(each.filter((e, i) => at[i] < 0))}; the words: ${show(text)}`);
+    assert(at.every((i, j) => j === 0 || i > at[j - 1]) && text.includes(`${each.slice(0, -1).join(', ')} and ${each[n - 1]}`),
+      `${n} concepts: in the order given, the last after "and"; the words: ${show(text)}`);
+    assert(text.split(SET).length === 2 && text.includes(`set ${SET}`),
+      `${n} concepts: one "set ${SET}", the refused call's own, stands for all of them (Amendment 5, item 2); the words: ${show(text)}`);
+    assert(new RegExp(`update-node[^.]*\\bconcept\\W{0,4}${dog.key}`).test(text),
+      `${n} concepts: then update-node, naming the named concept's key, ${dog.key} (Amendment 5, item 2); the words: ${show(text)}`);
+    assert(!text.includes('which the set joins'), `${n} concepts: the one-concept wording, "which the set joins", isn't used; the words: ${show(text)}`);
+  }
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
