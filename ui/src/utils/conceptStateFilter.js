@@ -105,9 +105,15 @@ function isShared(row, ctx) {
   return publicationOf(row, ctx) === true;
 }
 
-/** No b tag at all — the DispositionPanel's prompt set. Unchanged by this story. */
+/**
+ * No b tag at all — the DispositionPanel's prompt set. A header with no event
+ * (hasEvent false, graph create-concept's) is left out: each disposition re-signs
+ * the header's latest event, and it has none yet (story graph-operations-first-slice
+ * #44). A row that doesn't say is judged as before.
+ */
 function isUndispositioned(row, ctx) {
   if (!isMine(row, ctx && ctx.taPubkey)) return false;
+  if (row.hasEvent === false) return false;
   const d = dispOf(row);
   return !d.wired && !d.selfDeclared && !d.deferred;
 }

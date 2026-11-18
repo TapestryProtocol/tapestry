@@ -134,7 +134,7 @@
     {
       "file": "ui/src/pages/Dashboard.jsx",
       "text": "MATCH (n:NostrEvent:ListHeader)-[:IS_THE_CONCEPT_FOR]->()",
-      "reason": "The Dashboard's count of concepts, by their headers: a header is always an event."
+      "reason": "The Dashboard's onboarding check, which counts concepts only to see whether the firmware is installed: the firmware's own concepts come from events, and graph create-concept refuses not-installed without them (story graph-operations-first-slice #44). The Concepts tile counts every concept."
     },
     {
       "file": "ui/src/pages/Dashboard.jsx",
@@ -148,8 +148,8 @@
     },
     {
       "file": "ui/src/pages/concepts/ConceptList.jsx",
-      "text": "MATCH (h:NostrEvent)",
-      "reason": "A scan for concept headers (each followed by WHERE (h:ListHeader …) AND h.kind IN [9998, 39998], or by kind 39998): a header is always an event, never an event-less set."
+      "text": "h:NostrEvent AS hasEvent,",
+      "reason": "Whether a listed header came from an event, for its row's Disposition cell and Save & next: about the event itself. The scan before it finds every header, with an event or not (story graph-operations-first-slice #44)."
     },
     {
       "file": "ui/src/pages/events/DListItemRatings.jsx",
@@ -185,11 +185,6 @@
       "file": "ui/src/pages/reading/writeVerbs.js",
       "text": "const same = await R('MATCH (h:NostrEvent) WHERE h.kind IN [9998, 39998] AND h.name = $n RETURN h.uuid AS u', { n: kn || '' });",
       "reason": "Concept headers by name (kind 9998 or 39998): a header is always an event."
-    },
-    {
-      "file": "ui/src/pages/shared-concepts/SharedByMe.jsx",
-      "text": "MATCH (h:NostrEvent)",
-      "reason": "A scan for concept headers (each followed by WHERE (h:ListHeader …) AND h.kind IN [9998, 39998], or by kind 39998): a header is always an event, never an event-less set."
     }
   ]
 }

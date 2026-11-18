@@ -147,7 +147,7 @@ create-concept's already-exists answer and update-concept's answer use it, and `
 
 **What this constrains**
 
-- **Today's routes can't find these concepts.** The seventeen name lookups and the UI's concept list read only `NostrEvent` headers (the story's Out of scope). Until A10.18 and A10.20 land, a concept made here gets properties and elements from no route.
+- **Today's routes can't find these concepts.** The seventeen name lookups and the UI's concept list read only `NostrEvent` headers (the story's Out of scope). Until A10.18 and A10.20 land, a concept made here gets properties and elements from no route. *(2026-11-18: story graph-operations-first-slice #44 makes the UI's concept list and the Dashboard's Concepts tile show these concepts. The name lookups are as they were.)*
 - **A rename of a concept that has a letter can be undone by importing that letter again.** `importEventDirect` replaces a node's tags with the event's. So an old letter imported again, by `POST /api/neo4j/event-update`, say, brings back the old names. The answer's `letterOutOfDate` warns. Keeping a newer local version over an older letter is for provenance (design §5, question 2) and `export nostr` (A10.34).
 - **Concept writes are one at a time** on each instance: they all take one lock. That is fine at this scale. A bulk create (catalog §10, question 6) would hold it once for the batch.
 - **A key, once given, is the concept's for good.** After a slug change, a create whose name gives the old key is refused (`key-in-use`) while the renamed concept keeps it. This corrects the story's AC6, which said such a create makes a new concept. The owner approved the correction with this ADR (2026-11-15).

@@ -11,8 +11,10 @@ import DispositionPanel from '../../components/DispositionPanel';
 import { dispositionOf } from '../../utils/bDisposition';
 import { STATES, matchesState, needsPublication, unconfirmedCount, normalizeState } from '../../utils/conceptStateFilter';
 
+// Every header, with an event or not. A concept graph create-concept made has no event, so no NostrEvent label (D7),
+// only the shared one; hasEvent tells the two apart (story graph-operations-first-slice #44).
 const QUERY = `
-  MATCH (h:NostrEvent)
+  MATCH (h:NostrEvent|TapestryNode)
   WHERE (h:ListHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
   OPTIONAL MATCH (h)-[:IS_THE_CONCEPT_FOR]->(s:Superset)
   OPTIONAL MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h)
@@ -47,6 +49,7 @@ const QUERY = `
     bValues,
     h.name AS name,
     h.pubkey AS author,
+    h:NostrEvent AS hasEvent,
     CASE WHEN 'ConceptHeader' IN labels(h) THEN 1 ELSE 0 END AS hasConceptHeader,
     supersetCount,
     schemaCount,
@@ -155,7 +158,9 @@ export default function ConceptList() {
   // Merge health status + b-disposition into row data for sorting/filtering.
   // Disposition (ADR shared-concepts-adoption/0001): derived per row from the
   // header's b-tag values; "undispositioned (mine)" = TA-authored with no b —
-  // the BIBLE §31 first-person prompt set.
+  // the BIBLE §31 first-person prompt set. A header with no event is left out:
+  // each disposition re-signs the header's latest event, and it has none yet
+  // (story graph-operations-first-slice #44).
   const enrichedData = useMemo(() => {
     if (!data) return [];
     return data.map(row => {
@@ -168,7 +173,7 @@ export default function ConceptList() {
         ...row,
         _healthSort: healthSort, _healthSummary: h?.summary || '',
         _disp: disp, _acted: acted,
-        _undispositionedMine: undispositioned && row.author === TA_PUBKEY,
+        _undispositionedMine: undispositioned && row.author === TA_PUBKEY && row.hasEvent !== false,
       };
     });
   }, [data, healthMap, TA_PUBKEY, actedUuids]);
@@ -251,6 +256,15 @@ export default function ConceptList() {
     if (d.selfDeclared) chips.push(<span key="s" title="self-declared shared concept">🤝</span>);
     if (d.deferred) chips.push(<span key="p" title="deliberately private (no shared affiliation)">🔒</span>);
     if (chips.length === 0) {
+      // A concept with no event can't be dispositioned until it has one: each
+      // action re-signs the header's latest event (story graph-operations-first-slice #44).
+      if (row.hasEvent === false) {
+        return (
+          <span className="text-muted" title="This concept is in the graph only, with no nostr event yet; it can be dispositioned once it is published.">
+            no event yet
+          </span>
+        );
+      }
       return row.author === TA_PUBKEY
         ? (
           <button

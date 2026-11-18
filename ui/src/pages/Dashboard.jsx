@@ -113,8 +113,9 @@ function OnboardingChecklist({ user, assistantStatus, conceptCount, constraintsO
 /* ─── Stats Cards ─────────────────────────────────────────── */
 
 function StatsRow() {
+  // Every concept, with an event or not: graph create-concept's have none (story graph-operations-first-slice #44).
   const { data: conceptData } = useCypher(`
-    MATCH (n:NostrEvent:ListHeader)-[:IS_THE_CONCEPT_FOR]->()
+    MATCH (n:ListHeader)-[:IS_THE_CONCEPT_FOR]->()
     RETURN count(DISTINCT n) AS cnt
   `);
   const { data: nodeData } = useCypher(`
