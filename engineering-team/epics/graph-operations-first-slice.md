@@ -74,6 +74,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 43. `stories/graph-operations-first-slice/43-concept-writes-take-header-lock.md` — a rename by graph update-concept,
     or a field mark by graph mark-field, beside a property write on the same concept: the two go one after the other,
     and neither is lost; closes ADR 0018's known limit of the lock (Loom A10.18.a, a subtask, numbered as story 42).
+44. `stories/graph-operations-first-slice/44-concepts-list-shows-concepts-with-no-event.md` — the Concepts page and
+    the Dashboard's Concepts tile show a concept made with no event, as they show any other, and its row offers no
+    Disposition… until it has an event; a bug left by story 16, with no Loom task of its own, so it takes the next
+    number free.
 
 ## Key facts / guardrails
 
