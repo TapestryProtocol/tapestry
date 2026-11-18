@@ -1,6 +1,6 @@
 # Story 44: The Concepts page and the Dashboard show a concept with no event
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Bug
 **Loom:** none of its own. It follows up A10.16 (story 16), and bugs stay in the repo's own tracker.

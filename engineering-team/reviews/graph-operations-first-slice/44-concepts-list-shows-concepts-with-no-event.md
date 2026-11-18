@@ -149,3 +149,95 @@ No ADR for this story. Against the records it touches:
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+## Round 2
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-18
+**Diff:** `git diff 4a92ecae..HEAD`, HEAD `dcb2a9c8`. `4a92ecae` is round 1's review. Three commits: `c37508a2` (round 1's cases, written before the fix and shown failing, with test-plan edits), `8865dabf` (the two harness notes) and `dcb2a9c8` (the fix, the kept-list, the ledger row, and the story's Deviations and Evidence). 8 files, +163 −22.
+**Ruling:** David chose "count them": Shared by me's waiting count counts concepts with no event, and AC3 stands as approved (relayed by the coordinator, 2026-11-18).
+**Independent check** (workflow 5, optional): not applied.
+
+### A correction to round 1's gate account
+
+Round 1 said its gate ran with every endpoint dead, and that it left `session-start` out because the digest that suite runs probes `localhost:7778`. Both statements were incomplete:
+- **`ledger-row-ids` runs the same digest.** `test/ledger-row-ids.test.js:111` runs `scripts/session-start.sh` once per merge order, in the loop at `:102-111`, through `run()` (`:42-45`), which passes the gate's env and `PATH` through. The digest's probe is `curl -sf -m 2 http://localhost:7778/api/concept-graph/summaries -o /dev/null` (`scripts/session-start.sh:41-47`). The suite passed 6/0 in round 1, so both passes ran, and round 1's gate made the probe twice.
+- **What answers there.** On this Mac, host port 7778 is the `tapestry` container's published panel port, the owner's agent-memory instance (`docker ps --filter publish=7778`; the host listener is Colima's SSH port forward). So two read-only GETs of the public summaries route reached it. Nothing was written, and the digest discards the answer.
+- **How round 1 missed it.** Its stack-free check grepped the `harness-lint` and `ledger-row-ids` test files for `docker`, `curl`, `localhost` and `7778`. That misses a script a suite runs by path. Round 1's Harness friction 2 ("…has to leave it out, as this one did") is wrong for the same reason.
+- **This round** put the coordinator's refusing stubs, `curl` and `docker`, first on `PATH` for every run with dead endpoints. Run alone that way, the digest prints "stack absent".
+
+### Quality gates (round 2, run by reviewer, not trusted)
+
+- [x] **`npm test`, scoped:** round 1's 16 registry entries, through the gate engine, with the same dead endpoints, the stubs first on `PATH`, and Node 24.18.0. `node test/gate-status.js --label story-44-review-round2` reads:
+  `20261118T170416Z-2374-d76c [story-44-review-round2] started 2026-11-18T17:04:16.036Z on dcb2a9c8+dirty — PASS, exit 0, 1424 passed, 0 failed, 29 skipped, 16/16 suites` (record `tmp/gate-runs/20261118T170416Z-2374-d76c.json`)
+  - **Dirty by one path:** `dirtyCount` is 1, the `node_modules` link, so the code under test is `dcb2a9c8`. The Implementer's round 2 gate ran on `8865dabf+dirty` (`dirtyCount` 4), before the fix was committed, so this is the first gate on the committed fix.
+  - **Per suite:** each as in round 1, except this story's suite at 10/0/5 (S7 passes, L5 skips). That is 1,423 + 1 passed and 28 + 1 skipped. Inside operations, G11, G18 and G19 pass.
+- [x] **The Implementer's quoted line** (`story-44-round2`) matches its record word for word.
+- [x] **The suite alone, stack-free,** with the stubs: 10 passed, 0 failed, 5 skipped, under Node 24.18.0 and again under Node 22.23.1.
+- [x] **The suite on `tapestry-scratch`,** without the stubs and with `TAPESTRY_CONTAINER_PORT` unset: 15 passed, 0 failed, 0 skipped.
+- [x] **The key-path guard alone,** with the stubs: 20 passed, 0 failed, G11 and G18 among them.
+- [x] **Round 1's probe, run again at HEAD** (read-only, `sharedbyme-probe.js`):
+  - Shared by me's population has 46 rows, and so does the page.
+  - Shared by me would say `{kind: 'waiting', count: 34}`, and the list it links to holds 34. Nothing on the list is missing from the count; in round 1 it was 33 against 34.
+- [x] **The cases against edits.** These ran in a scratchpad tree holding only the eight files the suite reads; the worktree was untouched. "Stack" runs had every endpoint dead and the stubs on `PATH`. "Live" runs went to `tapestry-scratch`.
+
+  | Tree | Stack | Live |
+  |---|---|---|
+  | HEAD as committed | 10/0/5 | 15/0/0 (the worktree run above) |
+  | Before the fix: Shared by me and the kept-list at `4a92ecae` | 9/1/5: S7 | 13/2/0: S7, L5 |
+  | Base `3b7ae010` sources, suite from HEAD | 3/7/5: U1, S1–S6 | not run |
+  | R1: Shared by me's scan back to `NostrEvent` alone | 9/1/5: S7 | 13/2/0: S7, L5 |
+  | R2: Shared by me's scan by `TapestryNode` alone | 9/1/5: S7 | not run |
+  | R3: Shared by me's `WHERE` on kind 39998 only | 9/1/5: S7 | 14/1/0: S7 |
+  | R4: the page's element walks on `NostrEvent` alone | 10/0/5 | 14/1/0: L1 |
+  | M1: the page's scan back to `NostrEvent` alone | 8/2/5: S1, S7 | not run |
+  | M3: the filter without its event check | 9/1/5: U1 | not run |
+  | M7: `hasEvent` dropped from the RETURN | 9/1/5: S2 | not run |
+
+  The before-the-fix rows match the test plan's new Verification exactly. R1, R3 and R4 are the Evidence's three edits, and each fails as its table says. At base S7 passes, which is right: both scans were `NostrEvent` then, so they agreed.
+- [x] **Cost.** A read-only `EXPLAIN` of Shared by me's population query on scratch shows a `UnionNodeByLabelsScan` on `h:ListHeader|ConceptHeader` at `4a92ecae`, and two `NodeByLabelScan`s on the same labels at HEAD. So the wider label costs nothing measurable, as on the page in round 1.
+- [x] **`bash scripts/harness-lint.sh`:** `harness-lint: clean (0 violations)`, exit 0, before this section.
+  - **With it in place:** one violation, L1. This section's PASS is the review's last verdict, beside a story still `In Progress`, which is expected until the calling session flips the Status.
+  - **With the flip:** in a `git archive` copy holding this file and the Status flipped to Done, `harness-lint: clean (0 violations)`.
+- [ ] `npm run test:playwright`: not run, as in round 1.
+
+### Round 1's findings
+
+| Finding | Status | Evidence |
+|---|---|---|
+| Blocking 1: Shared by me's count no longer matched its list | resolved | `SharedByMe.jsx:42` scans `MATCH (h:NostrEvent\|TapestryNode)`, the page's own label expression (`ConceptList.jsx:17`), with the same `WHERE`. Its kept entry is gone, and G11 passes without it. The ledger row lists eight lines, and its false example is gone. The test plan has a dated note (`…test-plan.md:78`), and the story has a Deviation. S7 and L5 hold the two together, and both fail before the fix. |
+| Non-blocking 1: L1 didn't check the element, set or property counts | resolved | The fixture makes one element with no event through `graph create-element` (`…test.js:293`). L1 asserts `elementCount` 1, `setCount` at least 1 and an integer `propertyCount` (`:312-314`). R4 shows the element check catches the walks losing `ListItem`. A repeat answers `already-exists` by name (`create-element.js:35`, `:136`), so reruns keep one element. |
+| Harness friction 1: the container-port trap | filed | `ledger/2026-11-18-container-port-skips-scratch-checks.md`. Its claims hold: `scratchLoopback.js:14`, `scratchRefusal()` at `:19-31`, and round 1's run. The test plan and the suite's header now say to leave the variable unset. |
+| Harness friction 2: the digest's probe | noted | A dated note on `ledger/2026-11-05-suite-probe-reaches-private-container.md`. It says round 1's gate made the probe once; it made it twice (non-blocking 1 below). |
+| Harness friction 3: the untracked link | already logged | Nothing to do. |
+
+**My own suggested wording, checked as fresh claims** (roles/reviewer.md, step 10):
+- **The scan I suggested is right for Shared by me.** It admits all four kinds of header S1 judges. The population feeds only the waiting count (`SharedByMe.jsx:82-93`), so nothing else on the page changes, and the plan's cost is unchanged.
+- **"`elementCount` 1 and `setCount` at least 1."** The first is a real check, as R4 shows. The second only shows that the superset is counted: the fixture has no subset, so a walk that dropped subsets would still pass. The set walk itself (`ConceptList.jsx:27`) is unchanged by this story and names no label, so that is enough here.
+
+### The new tests and records, checked
+
+- **S7** (`…test.js:250`) reads both scans from source. It compares their label expressions over S1's four kinds of header, then the `WHERE` after each first `MATCH` (`whereOf`, `:120`), with white space folded. It reads only the first line of a `WHERE`; both are one line.
+- **L5** (`:365`) is round 1's probe made a test. It asks both pages' question with nothing declared and the relay answering, so no call leaves the machine, and it holds the count to the list.
+- **The commits split by role.** `c37508a2` touches only the suite and the plan. `dcb2a9c8` doesn't touch the suite; its kept-list edit is the guard's data, which G11 requires.
+- **The kept-list** has 37 entries, 8 of them on "a header is always an event", in exactly the files and counts the ledger row lists.
+- **The story's round 2 Deviation and Evidence:** each claim checked above holds, except the ledger note's count, which non-blocking 1 corrects.
+- **ADR 0016's dated note** is still accurate. It names the page and the tile, and the name lookups are unchanged.
+
+### Findings (round 2)
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. **`ledger/2026-11-05-suite-probe-reaches-private-container.md:41`: "once" should be "twice".** The note says round 1's gate "made the digest's read-only probe of `localhost:7778` once". But `ledger-row-ids` runs the digest once per merge order (`test/ledger-row-ids.test.js:102-111`), and it passed 6/0 in round 1, so both ran. Asked change: say "twice, once per merge order". If wanted, also say that port 7778 here is the agent-memory `tapestry` container's published port.
+
+#### Harness friction
+1. **The dead-endpoint recipe leaves Neo4j at the driver's default.** `src/lib/neo4j-driver.js:33` falls back to `bolt://localhost:7687`. `getConfigFromFile` reads only `BRAINSTORM_CONF_PATH` or `/etc/brainstorm.conf` (`src/utils/config.js:19`), so no env variable moves it. On this Mac the agent-memory `tapestry` container publishes 7687.
+   - **Nothing reached it in either gate.** Every suite here that names the driver stubs it: `memberships-shared`, `element-schemas`, `status`, `cache-counts`, `migrate-job` K6 and `tapestry-key-paths`. `tagging-edges-wiring` swaps in a fake factory. `operations.test.js` gives its children a conf with Neo4j and Redis at port 9 (`:161-173`). Neither gate's output shows a Neo4j error.
+   - **But nothing stops it either.** The suites under `test/operations/` run in-process, with the gate's own env (`operations.test.js:1164`, `:1172`). So one new suite that used the real driver would open a connection to the owner's database.
+   - **Fix shape:** the recipe sets `BRAINSTORM_CONF_PATH` to a conf with Neo4j and Redis at port 9, as story 43's reviewer did. It's the same class as `ledger/2026-11-05-suite-probe-reaches-private-container.md`, so a dated note there fits.
+2. **Grepping a suite's own file for network words isn't a stack-free check.** That was round 1's miss, described above. It is the same row's class, and this round used that row's stub-`PATH` fix shape, so no new row is needed.
+
+### Verdict (round 2)
+**PASS**
