@@ -299,3 +299,79 @@ The scratch mutations:
 {"id":"G6a","what":"item 6's kept case: json tags that differ no longer refused (the first taken)","suites":{"remove-from-concept":{"pass":30,"fail":5,"failed":["RM45","RM46","RM32","RM35","RM41"]}}}
 {"id":"G6b","what":"item 6's kept case: tapestryOwnSections that don't parse no longer refused (read as none)","suites":{"remove-from-concept":{"pass":30,"fail":5,"failed":["RM45","RM46","RM32","RM35","RM41"]}}}
 ```
+
+## Added at review round 2 (2026-11-18)
+
+Review round 2 asked for changes: one blocking gap, which round 1's fix for `wordTypes` opened, and five non-blocking ones (ADR Amendment 3, items 1–6). The owner chose to fix them before the PR. Each item that code or published words can show got its tests before any fix.
+
+| Item | Tests | What they pin |
+|---|---|---|
+| 1, rule 4 judges a changed JSON (R2-1) | **AT54** | Mark Me is put in dog, with no breed. Then it is put in golden retriever's superset through dog, so its `wordTypes` would gain `goldenRetriever`. Dog's schema judges the JSON the call would leave: `invalid-fields` by `element-fits-schema`, naming `dog.breed` in dog's schema. Golden retriever, which the set joins, isn't what refuses it. Nothing changes: no link, no `n`, no entry, `wordTypes` as it was. Command Beagle, a new member, put in the same set is refused the same way today. |
+| | **AT55** | The other side. Bare's beagle section holds neither name nor slug. Bare is put in show beagles with fields, as AT5 puts rover there. Its JSON is unchanged, and only the set's link and its `n` are written. So it is `added`, beagle's verdict reported (`fits: false`, naming `beagle.name` and `beagle.slug`), not refused. `differs` names the field given, which isn't written. |
+| 2, the story's AC2 and AC4 (R2-2) | none | The story's words; no code changes. |
+| 3, `letters`' words (R2-3) | **MS23** | `M.LETTERS`' description says `letters` finds the instance's own relationship events through the relationship concept. One of its sentences says an event signed since the last reinstall can be missing. |
+| | **RM47** | The same in remove-from-concept's published description, read from the operations listing. A sentence matches when it has "since" (or "after") with "last" and "reinstall", and one of "missing", "miss", "absent", "left out" or "not (yet) listed / named / found / there". |
+| 4, item 1's untested parts (R2-4) | **AT56** | A section given alone writes no would-be tag. FILL's Fetch, given pet's section, gains no `z` naming pet. walkerMax, directly in walkers, is given pet's section through walkers. Its seed tags name neither pet nor walkers, and it gains neither. |
+| | **AT57** | Rule 4 judges the section given alone. Fetch, kept in its json tag, and Snowy, kept beside, are each in pet through walkers with no pet section. Each is given `description: 5`, and each is refused `invalid-fields`, naming `pet.description`. Nothing changes. |
+| 5, `differs`' words (R2-5) | **AT58** | add-to-concept's published description has a sentence naming a node kept beside (or another author), a removal and an add. It also says update-node refuses such a node, or that the change isn't made through update-node. |
+| 6, the merge with staging (R2-6) | none new | Done at `a49c76a5`. The builder, firmware and sync suites run on the merged tree, as below. |
+
+**The seed doesn't change.** ROUND2 is a run of its own: three harness runs over one fresh seed, each read back after it ran.
+- **SETUP** puts Mark Me in dog, Fetch and Snowy in dog through walkers, and Bare in show beagles. It also gives walkerMax its pet section through walkers.
+- **GR** holds AT54's two calls into golden retriever's superset.
+- **BAD** holds AT57's two refusals.
+
+Every call in GR, once item 1 is built, and every call in BAD is refused. So each run must leave the graph as the run before it left it, and AT54 and AT57 compare the whole graph, change entries included.
+
+**Tests that pass today.**
+- AT56 and AT57 pin what the code already does.
+- AT55 pins the other side, which item 1's fix must keep.
+
+**The scratch edits.** Each ran on a copy, never the real `src/`. The copy is a `git archive` of HEAD with this round's tests laid over it, and every file was restored after each edit. Each edit's suites ran against a baseline of the same suites on the copy, and only tests whose result changed are listed:
+- **N12** is the Reviewer's candidate fix: rule 4 runs whenever the call changes the node's JSON. AT54 passes, and no other test in the four suites that load add-to-concept answers differently.
+- **N13** is a wrong fix: rule 4 judges every call that isn't a repeat, so a JSON left unchanged too. AT54 passes under it as well, and AT55 fails. So AT55 is what tells the two fixes apart.
+- **N4** writes the would-be tags for a section given alone, and AT56 fails, on Fetch.
+- **N4s** does the same only when a set is given, and AT56 still fails, on walkerMax.
+- **N5** skips rule 4 for a node already in the concept, and AT57 fails, on Fetch.
+- **N5b** skips it only for a node kept beside, and AT57 still fails, on Snowy.
+- **W** lays Amendment 3's words in, and MS23, RM47 and AT58 pass.
+- **Wp** gives half of each set of words: the relationship concept without the reinstall gap, and the removal and the add without update-node's refusal. MS23, RM47 and AT58 each still fail, on their second assertion.
+
+Their output, each suite's passed/failed after the edit:
+
+```
+baseline (the copy, unchanged): add-to-concept 47/2 (AT54, AT58); remove-from-concept 35/1 (RM47); memberships-shared 22/1 (MS23); memberships-agent-through-cli 1/0
+{"id":"N12","what":"the Reviewer's candidate fix for R2-1: rule 4 runs whenever the call changes the node's JSON","changed":["AT54 FAIL -> PASS"],"suites":{"add-to-concept":"48/1","remove-from-concept":"35/1","memberships-shared":"22/1","memberships-agent-through-cli":"1/0"}}
+{"id":"N13","what":"a wrong fix for R2-1: rule 4 judges every call that is not a repeat, one that leaves the JSON unchanged included","changed":["AT54 FAIL -> PASS","AT55 PASS -> FAIL"],"suites":{"add-to-concept":"47/2"}}
+{"id":"N4","what":"R2-4's first part taken out: the would-be tags written for a section given alone","changed":["AT56 PASS -> FAIL"],"suites":{"add-to-concept":"46/3"}}
+{"id":"N4s","what":"N4 for a section given through a set only: the would-be tags written when a set is given, though no link is made","changed":["AT56 PASS -> FAIL"],"suites":{"add-to-concept":"46/3"}}
+{"id":"N5","what":"R2-4's second part taken out: rule 4 skipped for a section given to a node already in the concept","changed":["AT57 PASS -> FAIL"],"suites":{"add-to-concept":"46/3"}}
+{"id":"N5b","what":"N5 for a node kept beside only: rule 4 skipped for a section given beside to a node already in the concept","changed":["AT57 PASS -> FAIL"],"suites":{"add-to-concept":"46/3"}}
+{"id":"W","what":"items 3 and 5's words, as Amendment 3 gives them","changed":["AT58 FAIL -> PASS","RM47 FAIL -> PASS","MS23 FAIL -> PASS"],"suites":{"add-to-concept":"48/1","remove-from-concept":"36/0","memberships-shared":"23/0"}}
+{"id":"Wp","what":"half of each: the relationship concept without the reinstall gap; the removal and the add without update-node's refusal","changed":[],"suites":{"add-to-concept":"47/2","remove-from-concept":"35/1","memberships-shared":"22/1"},"stillFailing":["AT58: and that graph update-node, which refuses such a node, isn't the way for it…","RM47: and that one signed since the last firmware reinstall, as one today's add-to-set has just signed, can be missi…","MS23: and that one signed since the last firmware reinstall, as one today's add-to-set has just signed, can be missi…"]}
+```
+
+**Today's code** (`f7a72259`, at `a49c76a5` with staging merged), each suite alone with every endpoint dead:
+
+```
+  FAIL  AT54 [AC3, Amendment 3 item 1]: a node already in dog, with no breed, put in golden retriever's superset through dog is refused invalid-fields naming dog.breed, as a new member is: the wordTypes the call would write is judged, and nothing changes
+        Mark Me, already in dog with its section, put in the same set must be refused alike: the call would add goldenRetriever to its wordTypes, a change to its JSON, so dog's schema judges the JSON as the call would leave it (Amendment 3, item 1; AC3); got 200 {"success":true,"data":{"outcome":"added",…,"kept":"json-tag","concepts":[{…,"key":"dog","fits":false,"problems":[{"path":"dog","message":"`dog.breed` is required"},…
+  FAIL  AT58 [AC4, Amendment 3 item 5]: the published description says how the fields differs names change: graph update-node for the instance's own node, and for a node kept beside another author's letter, which update-node refuses, a removal and then an add
+        a sentence says a node kept beside another author's letter changes the fields differs names by a removal and then an add with them (Amendment 3, item 5; ledger row 2026-11-18-update-node-refuses-owner-sections-beside); its sentences on differs are ["Safe to repeat: … naming in `differs` each field given that differs from what its section holds; `graph update-node` changes those."]
+operations: graph add-to-concept: 47 passed, 2 failed, 0 skipped
+
+  FAIL  RM47 [AC6, Amendment 3 item 3]: the published description says letters finds the instance's own relationship events through the relationship concept, and that one signed since the last reinstall can be missing
+        it says letters finds the instance's own relationship events through the relationship concept, as RM45 shows (Amendment 3, item 3); its sentences on letters and reinstalls are ["… so a firmware reinstall doesn't link it again.","… since the next import or a firmware reinstall would make it again.","`letters` names the instance's own letters that still state a removed membership: the node's own letter, and a relationship event that names a removed pair."]
+operations: graph remove-from-concept: 35 passed, 1 failed, 0 skipped
+
+  FAIL  MS23 [Amendment 3 item 3]: letters' description in _memberships.js says it finds the instance's own relationship events through the relationship concept, and that one signed since the last reinstall can be missing
+        it says letters finds the instance's own relationship events through the relationship concept, as remove-from-concept's RM45 shows (Amendment 3, item 3); got "The instance's own letters that still state a removed membership: the node's own letter, for one of the instance's own nodes that has one, and a relationship event of the instance's own that names a removed pair, as today's add-to-set signs one. export nostr (A10.34) is what sends letters that match"
+operations: what add-to-concept and remove-from-concept share: 22 passed, 1 failed, 0 skipped
+
+operations: an admin agent adds and removes memberships through the external CLI: 1 passed, 0 failed, 0 skipped
+graph-rules-builder: 26 passed, 0 failed, 0 skipped
+graph-rule-firmware: 13 passed, 0 failed, 4 skipped (GL1–GL4, live)
+firmware-element-sync: 21 passed, 0 failed, 0 skipped
+```
+
+Round 1's tests all pass on this code, AT49–AT53, RM45, RM46 and MS19–MS22 among them.

@@ -48,6 +48,16 @@
  *        recorded as field-changed (item 2)
  *   AT53 a node already in the concept whose JSON can't be read is unreadable-json, the JSON read before the repeat
  *        (item 5; a guard of what the code does)
+ *   Review round 2 (ADR Amendment 3), in a run of its own (ROUND2), FILL's or MAIN's listing:
+ *   AT54 a node already in dog, with no breed, put in golden retriever's superset through dog is refused
+ *        invalid-fields naming dog.breed, as a new member is: a call that changes wordTypes is judged (item 1)
+ *   AT55 a call that leaves the JSON as it was, writing a set's link and its tags alone, isn't refused for a misfit the
+ *        node already had: it is reported (item 1, the other side)
+ *   AT56 a section given alone writes no would-be z or n tag (item 4; a guard of what the code does)
+ *   AT57 rule 4 judges the section given alone: fields pet's schema refuses are invalid-fields, own or beside (item 4;
+ *        a guard of what the code does)
+ *   AT58 the published description: update-node changes what differs names for the instance's own node; for a node
+ *        kept beside, which update-node refuses, a removal and then an add do (item 5)
  */
 
 const fs = require('fs');
@@ -619,6 +629,143 @@ test('AT52 [AC2, Amendment 2 item 2]: a node already in the concept, put in a se
   const w = changeOf(d, 'field-changed').filter((c) => c.field === 'word.wordTypes');
   assert(w.length === 1 && show(w[0].was) === show(['word', 'beagle', 'dog']) && show(w[0].now) === show(['word', 'beagle', 'dog', 'pet']), `the entry records field-changed on word.wordTypes; got ${show(d.change)}`);
   assert(!('pet' in j) && show(j.dog) === show({ name: 'Mark Me', slug: 'mark-me' }), `and no section for pet, which wasn't named; dog's is as it was; got ${show(j)}`);
+});
+
+// ── review round 2 (ADR Amendment 3, items 1, 4 and 5): a call that changes the node's JSON is judged; one that doesn't is reported ──
+let ROUND2 = null;
+/**
+ * Three runs over one seed, each read back after it. SETUP: Mark Me put in dog, with no breed; Fetch, and Snowy kept
+ * beside, put in dog through walkers, so each is in pet with no pet section (AT49's and AT50's state); Bare, whose
+ * beagle section holds neither name nor slug, put in show beagles with fields, as AT5 puts rover there; walkerMax,
+ * directly in walkers and so in pet with no pet section, put in pet through walkers with fields. GR: Mark Me, then
+ * Command Beagle, put in golden retriever's superset through dog. BAD: Fetch and Snowy given pet sections pet's schema
+ * refuses. Every call in GR (once Amendment 3 item 1 is built) and in BAD is refused, so each leaves the graph as the
+ * run before it left it.
+ */
+function round2() {
+  if (ROUND2) return ROUND2;
+  ROUND2 = (async () => {
+    const { file, k } = await fresh();
+    const before = S.readState(file);
+    const setup = runOn(file, [
+      add('r2-dog', k.markMe, k.dog),
+      add('r2-into-walkers', k.fetch, k.dog, { set: k.walkers }),
+      add('r2-peer-into-walkers', k.snowy, k.dog, { set: k.walkers }),
+      add('r2-misfit-in-set', k.bare, k.beagle, { set: k.showBeagles, fields: { description: 'bare, and shown' } }),
+      add('r2-max-pet', k.walkerMax, k.pet, { set: k.walkers, fields: { description: 'Max, a pet in walkers' } }),
+    ]).a;
+    const setUp = S.readState(file);
+    const gr = runOn(file, [
+      add('r2-gr', k.markMe, k.dog, { set: k.goldenRetrieverSuperset }),
+      add('r2-new-gr', k.commandBeagle, k.dog, { set: k.goldenRetrieverSuperset }),
+    ]).a;
+    const afterGr = S.readState(file);
+    const bad = runOn(file, [
+      add('r2-pet-bad', k.fetch, k.pet, { fields: { description: 5 } }),
+      add('r2-peer-pet-bad', k.snowy, k.pet, { fields: { description: 5 } }),
+    ]).a;
+    const afterBad = S.readState(file);
+    const req = (id) => ([setup, gr, bad].find((x) => x.requests[id]) || setup).req(id);
+    return { k, before, setUp, afterGr, afterBad, req };
+  })();
+  return ROUND2;
+}
+/** Whether two states hold the same nodes and relationships, change entries among them. */
+const unchanged = (a, b) => show(a.nodes) === show(b.nodes) && show(a.rels) === show(b.rels);
+const sentencesOf = (text) => String(text || '').split(/(?<=[.!?])\s+/);
+
+test('AT54 [AC3, Amendment 3 item 1]: a node already in dog, with no breed, put in golden retriever\'s superset through dog is refused invalid-fields naming dog.breed, as a new member is: the wordTypes the call would write is judged, and nothing changes', async () => {
+  needDecl();
+  const { k, setUp, afterGr, req } = await round2();
+  const first = req('r2-dog');
+  const j = C.json(setUp, k.markMe);
+  assert(first.status === 200 && first.body.data.outcome === 'added' && show(j.dog) === show({ name: 'Mark Me', slug: 'mark-me' }) && show(j.word.wordTypes) === show(['word', 'beagle', 'dog']),
+    `the path under test ran: Mark Me joined dog, its dog section holding no breed and its wordTypes no goldenRetriever; got ${first.status} ${show(first.body).slice(0, 300)}, its JSON ${show(j)}`);
+  const anew = req('r2-new-gr');
+  assert(anew.status === 400 && anew.body.code === 'invalid-fields' && anew.body.rule === RULE && /`?dog\.breed`? is required/.test(err(anew.body)),
+    `Command Beagle, a new member of dog, put in golden retriever's superset is refused: once wordTypes holds goldenRetriever, dog's schema asks for that breed (its Reverse conditional); got ${anew.status} ${show(anew.body).slice(0, 400)}`);
+  const x = req('r2-gr');
+  assert(x.status === 400 && x.body.code === 'invalid-fields',
+    `Mark Me, already in dog with its section, put in the same set must be refused alike: the call would add goldenRetriever to its wordTypes, a change to its JSON, so dog's schema judges the JSON as the call would leave it (Amendment 3, item 1; AC3); got ${x.status} ${show(x.body).slice(0, 500)}`);
+  assert(x.body.rule === RULE && /`?dog\.breed`? is required/.test(err(x.body)) && err(x.body).includes('"dog"') && !/`?goldenRetriever`? is required/.test(err(x.body)),
+    `refused by ${RULE} for dog's schema, the concept named, naming dog.breed: golden retriever, which the set joins, is reported, never refused for; got ${show(x.body)}`);
+  assert(unchanged(afterGr, setUp) && entriesIn(afterGr).length === entriesIn(setUp).length,
+    `nothing changes: no link from golden retriever's superset, no n naming it, wordTypes as it was, no entry; Mark Me is in from ${show(into(afterGr, k.markMe))}, its wordTypes ${show(C.json(afterGr, k.markMe).word.wordTypes)}`);
+});
+
+test('AT55 [AC3, Amendment 3 item 1]: a call that leaves the node\'s JSON as it was, writing a set\'s link and its tags alone, isn\'t refused for a misfit the node already had: the named concept\'s verdict is reported', async () => {
+  needDecl();
+  const { k, before, setUp, req } = await round2();
+  const x = req('r2-misfit-in-set');
+  assert(x.status === 200 && x.body.data && x.body.data.outcome === 'added',
+    `Bare, in beagle with a section holding neither name nor slug, put in show beagles as AT5 puts rover there: added, not refused, since the call changes none of its JSON (Amendment 3, item 1); got ${x.status} ${show(x.body).slice(0, 500)}`);
+  const d = x.body.data;
+  const beagle = (d.concepts || [])[0];
+  assert(beagle && beagle.concept === k.beagle && beagle.fits === false && /beagle\.name/.test(show(beagle.problems)) && /beagle\.slug/.test(show(beagle.problems)),
+    `beagle, the concept named, is reported first, not fitting, naming what its section lacks; got ${show(d.concepts)}`);
+  assert(show(C.json(setUp, k.bare)) === show(C.json(before, k.bare)) && show(jsonTags(setUp, k.bare).map((t) => t.value)) === show(jsonTags(before, k.bare).map((t) => t.value)),
+    `its JSON is exactly as it was; got ${show(C.json(setUp, k.bare))}`);
+  const f = byInput(d)['fields.description'];
+  assert(f && f.given === 'bare, and shown' && f.holds === 'bare', `the field given is named in differs, with what the section holds, and not written; got ${show(d.differs)}`);
+  assert(show(into(setUp, k.bare)) === show([k.beagleSuperset, k.showBeagles].sort()), `it is in show beagles as well as under beagle's superset; got ${show(into(setUp, k.bare))}`);
+  const added = C.tagArrays(setUp, k.bare).slice(C.tagArrays(before, k.bare).length);
+  assert(show(added) === show([['n', C.node(before, k.showBeagles).props.uuid]]), `the set's would-be n is written; got ${show(added)}`);
+  assert(changeOf(d, 'membership-added').length === 1 && changeOf(d, 'tag-added').length === 1 && changeOf(d, 'section-added').length === 0 && changeOf(d, 'field-changed').length === 0,
+    `the entry records the set's link and its n alone: no section, no wordTypes; got ${show(d.change && d.change.changes)}`);
+});
+
+test('AT56 [AC2, Amendment 3 item 4]: a section given alone to a node already in the concept writes no would-be tag: no z naming the concept, and no n naming a set it is given through', async () => {
+  const d = await filled('fill-pet');
+  const { k, file, before } = await fill();
+  const g = S.readState(file);
+  const uuid = (key) => C.node(before, key).props.uuid;
+  assert(changeOf(d, 'section-added').length === 1 && changeOf(d, 'membership-added').length === 0, `the path under test ran: Fetch, in pet through walkers, was given pet's section and no link (AT49); got ${show(d.change && d.change.changes)}`);
+  assert(changeOf(d, 'tag-added').length === 0 && show(tagsBut(g, k.fetch, 'json')) === show([...tagsBut(before, k.fetch, 'json'), ['z', uuid(k.dog)], ['n', uuid(k.walkers)]]),
+    `Fetch's tags are the seed's and the z and n its link through walkers brought, with no z naming pet: the would-be tags go with a link, and a section given alone makes none (Amendment 2, item 1); got ${show(tagsBut(g, k.fetch, 'json'))}, tag-added ${show(changeOf(d, 'tag-added'))}`);
+  const r2 = await round2();
+  const x = r2.req('r2-max-pet');
+  const m = (x.body && x.body.data) || {};
+  const was = tagsBut(r2.before, r2.k.walkerMax, 'json');
+  const u2 = (key) => C.node(r2.before, key).props.uuid;
+  assert(!was.some((t) => (t[0] === 'z' && t[1] === u2(r2.k.pet)) || (t[0] === 'n' && t[1] === u2(r2.k.walkers))), `walkerMax's seed tags name neither pet nor walkers, so a would-be tag would show; got ${show(was)}`);
+  assert(x.status === 200 && m.outcome === 'added' && changeOf(m, 'section-added').length === 1 && changeOf(m, 'membership-added').length === 0 && show(C.json(r2.setUp, r2.k.walkerMax).pet) === show({ name: 'Max', slug: 'max', description: 'Max, a pet in walkers' }),
+    `the path under test ran: walkerMax, directly in walkers and so in pet, put in pet through walkers, was given pet's section and no link; got ${x.status} ${show(x.body).slice(0, 400)}`);
+  assert(changeOf(m, 'tag-added').length === 0 && show(tagsBut(r2.setUp, r2.k.walkerMax, 'json')) === show(was),
+    `no tag is written, neither a z naming pet nor an n naming walkers: a node given its section through a set it is already directly in gets no link, so no would-be tag; got ${show(tagsBut(r2.setUp, r2.k.walkerMax, 'json'))}, tag-added ${show(changeOf(m, 'tag-added'))}`);
+});
+
+test('AT57 [AC3, Amendment 3 item 4]: rule 4 judges the section a node already in the concept is given: fields pet\'s schema refuses are invalid-fields, own or beside, and nothing changes', async () => {
+  needDecl();
+  const { k, afterGr, afterBad, req } = await round2();
+  for (const id of ['r2-into-walkers', 'r2-peer-into-walkers']) {
+    const x = req(id);
+    assert(x.status === 200 && x.body.data.outcome === 'added', `the path under test ran: ${id} put the node in dog through walkers, and so in pet; got ${x.status} ${show(x.body).slice(0, 300)}`);
+  }
+  for (const [key, who] of [[k.fetch, 'Fetch'], [k.snowy, 'Snowy']]) {
+    const j = C.json(afterGr, key) || {};
+    const own = ownSections(afterGr, key) || {};
+    assert(show(into(afterGr, key)) === show([k.beagleSuperset, k.walkers].sort()) && !('pet' in j) && !('pet' in own), `${who} is in pet through walkers with no pet section, in its JSON or beside it; got in from ${show(into(afterGr, key))}, ${show({ json: Object.keys(j), beside: Object.keys(own) })}`);
+  }
+  for (const [id, who] of [['r2-pet-bad', 'Fetch, kept in its json tag'], ['r2-peer-pet-bad', "Snowy, kept beside its author's letter"]]) {
+    const x = req(id);
+    assert(x.status === 400 && x.body.code === 'invalid-fields' && x.body.rule === RULE && /pet\.description/.test(err(x.body)) && /string/.test(err(x.body)),
+      `${who}, given a pet section whose description isn't text: pet's schema judges the section the call writes, invalid-fields naming pet.description (Amendment 2, item 1; Amendment 3, item 4); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  }
+  assert(unchanged(afterBad, afterGr) && entriesIn(afterBad).length === entriesIn(afterGr).length,
+    `nothing changes: neither gains a pet section, and no entry; Fetch's pet ${show(C.json(afterBad, k.fetch).pet)}, Snowy's beside ${show((ownSections(afterBad, k.snowy) || {}).pet)}`);
+});
+
+test('AT58 [AC4, Amendment 3 item 5]: the published description says how the fields differs names change: graph update-node for the instance\'s own node, and for a node kept beside another author\'s letter, which update-node refuses, a removal and then an add', async () => {
+  needDecl();
+  const { a } = await main();
+  const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'add-to-concept');
+  assert(e, `graph add-to-concept is listed; problems: ${show((a.req('list').body.data || {}).problems)}`);
+  const text = String(e.description || '');
+  const onDiffers = sentencesOf(text).filter((s) => /differs|update-node/.test(s));
+  const beside = sentencesOf(text).filter((s) => /\bbeside\b|another author/i.test(s) && /\bremov(al|als|e|es|ing)\b/i.test(s) && /\badd(s|ed|ing)?\b/i.test(s));
+  assert(beside.length > 0, `a sentence says a node kept beside another author's letter changes the fields differs names by a removal and then an add with them (Amendment 3, item 5; ledger row 2026-11-18-update-node-refuses-owner-sections-beside); its sentences on differs are ${show(onDiffers)}`);
+  assert(/update-node[^.]*\brefuses\b|\brefuses\b[^.]*update-node|\bnot (through|with|by|via)\b[^.]*update-node/i.test(text),
+    `and that graph update-node, which refuses such a node, isn't the way for it; its sentences on differs are ${show(onDiffers)}`);
 });
 
 // ── REF: every refusal, over a graph that must end as it began ──

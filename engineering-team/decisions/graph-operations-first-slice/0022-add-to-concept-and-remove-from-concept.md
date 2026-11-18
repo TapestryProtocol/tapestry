@@ -413,3 +413,22 @@ The review passed with eight non-blocking findings (`engineering-team/reviews/gr
 8. **The follow-ups get rows** (finding 8).
    - **Ledger rows** go to the Consequences' follow-ups 1, 2, 3 and 5. Follow-up 1's row also states the other half of the missing provenance: from a point of view that counts a node's author, the owner's membership counts as that author's.
    - **A Loom memo on A10.20.c** carries follow-up 4: a removal's section lingers in a cache entry until its rebuild drops the sections a removal names.
+
+## Amendment 3 (2026-11-18, at review round 2; the owner chose to fix review findings before the PR) — what round 2 found
+
+Review round 2 found one blocking gap, which round 1's fix for `wordTypes` opened, and five non-blocking ones (the review's Round 2).
+
+1. **Rule 4 judges whenever the call changes the node's JSON** (R2-1; Decision 8, step 8; AC3). A call can change the node's JSON by giving a new section (Amendment 2, item 1) or by adding keys to `wordTypes` (Amendment 2, item 2). Either way, the named concept's schema now judges the JSON as the call would leave it. A misfit is refused `invalid-fields`, or `no-schema`, as it is for a new member. Only a call that leaves the JSON unchanged, writing a set's link and its tags alone, reports the named concept's verdict without refusing.
+
+   That is AC3 as approved: "the node's JSON, as the call would leave it, is checked against the concept's JSON Schema". Without it, a node in dog with no breed, put in golden retriever's set through dog, gained `goldenRetriever` in its `wordTypes` and stored JSON dog's schema refuses. The other concepts a membership joins are still reported, and never refused for.
+2. **The story's AC2 and AC4 follow Amendment 2** (R2-2). Beside its "Added at Architecture" note, the story now records three things:
+   - A repeat is `already-element` only when the node's view holds the concept's section.
+   - A member lacking its section is given one. So a call with no fields for such a member is refused `invalid-fields` when the concept's schema asks for fields.
+   - AC2's "its section stays as it is" holds for a member that already has one.
+3. **`letters` says what it can see** (R2-3). `_memberships.js` and remove-from-concept's description say that `letters` finds the instance's own relationship events through the relationship concept. One signed since the last firmware reinstall, such as one today's add-to-set has just signed, can be missing until a reinstall wires it.
+4. **Item 1's two untested parts get tests** (R2-4). A section-only add writes no would-be tags, and rule 4 judges the section it writes. Each test fails when its part is taken out by a scratch edit.
+5. **add-to-concept's words on `differs`** (R2-5). For the instance's own node, `graph update-node` changes the fields that differ. For a node kept beside another author's letter, a removal and then an add with the fields do it, since update-node refuses such a node (ledger row `2026-11-18-update-node-refuses-owner-sections-beside`).
+6. **The merge with staging** (R2-6) is done, at `a49c76a5`:
+   - rulebook entry 7 names add-to-concept and the property operations as built, and rule 7's element is regenerated from it;
+   - `changes.js`'s header keeps stories 18's and 22's sentences;
+   - the rule-8 ledger row points at story 18's reinstall row, which the same reinstall closes.

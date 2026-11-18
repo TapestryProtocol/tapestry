@@ -42,6 +42,9 @@
  *        (item 4)
  *   RM46 the owner's claim beside an author's letter that doesn't parse is taken out, writing only tapestryOwnSections
  *        (item 6)
+ *   Review round 2 (ADR Amendment 3):
+ *   RM47 the published description says letters finds the relationship events through the relationship concept, and
+ *        one signed since the last reinstall can be missing (item 3)
  */
 
 const fs = require('fs');
@@ -451,6 +454,25 @@ test('RM46 [AC5, Amendment 2 item 6]: the owner\'s claim is taken out beside an 
   assert(show(into(g, k.peerGarbled)) === show([k.beagleSuperset]), `pet's link goes; it stays in beagle by its z; got ${show(into(g, k.peerGarbled))}`);
   const sec = changeOf(d, 'section-removed');
   assert(sec.length === 1 && sec[0].field === 'pet' && show(sec[0].was) === show(ownSections(before, k.peerGarbled).pet) && changeOf(d, 'tag-removed').length === 0, `the entry keeps the owner's pet section, and no tag of theirs goes; got ${show(d.change)}`);
+});
+
+// ── review round 2 (ADR Amendment 3, item 3) ──
+const sentencesOf = (text) => String(text || '').split(/(?<=[.!?])\s+/);
+/** A word saying something can be absent from what letters names. */
+const MISSING = /\b(missing|miss|misses|absent|left out|not (yet )?(listed|named|found|there))\b/i;
+/** The sentences that say an event signed since the last reinstall can be missing. */
+const sinceTheLastReinstall = (text) => sentencesOf(text).filter((s) => /\b(since|after)\b[^.]*\b(last|latest)\b[^.]*\breinstall/i.test(s) && MISSING.test(s));
+
+test('RM47 [AC6, Amendment 3 item 3]: the published description says letters finds the instance\'s own relationship events through the relationship concept, and that one signed since the last reinstall can be missing', async () => {
+  needDecl();
+  const { a } = await main();
+  const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'remove-from-concept');
+  assert(e, `graph remove-from-concept is listed; problems: ${show((a.req('list').body.data || {}).problems)}`);
+  const text = String(e.description || '');
+  const onLetters = sentencesOf(text).filter((s) => /letters|relationship event|reinstall/.test(s));
+  assert(/relationship concept/i.test(text), `it says letters finds the instance's own relationship events through the relationship concept, as RM45 shows (Amendment 3, item 3); its sentences on letters and reinstalls are ${show(onLetters)}`);
+  assert(sinceTheLastReinstall(text).length > 0,
+    `and that one signed since the last firmware reinstall, as one today's add-to-set has just signed, can be missing from letters until a reinstall wires it; its sentences on letters and reinstalls are ${show(onLetters)}`);
 });
 
 // ── REF: every refusal, over a graph that must end as it began ──

@@ -45,6 +45,9 @@
  *        supersets under its own"; both elements are regenerated to match (item 7)
  *   MS21 add-to-concept and remove-from-concept publish no-superset and not-installed worded for themselves (item 7)
  *   MS22 ledger rows carry follow-ups 1, 2, 3 and 5, follow-up 1's with the other half of the provenance gap (item 8)
+ *   Review round 2 (ADR Amendment 3):
+ *   MS23 letters' description says it finds the relationship events through the relationship concept, and one signed
+ *        since the last reinstall can be missing (item 3)
  */
 
 const fs = require('fs');
@@ -700,6 +703,19 @@ test('MS22 [Amendment 2 item 8]: ledger rows carry ADR 0022\'s follow-ups 1, 2, 
   }
   assert(naming(1).some((r) => /owner'?s membership/i.test(r.text) && /counts as[^.]{0,80}author/i.test(r.text)),
     `follow-up 1's row also says that, from a point of view that counts a node's author, the owner's membership counts as that author's; got ${show(naming(1).map((r) => r.f))}`);
+});
+
+// ── review round 2 (ADR Amendment 3) ──
+test('MS23 [Amendment 3 item 3]: letters\' description in _memberships.js says it finds the instance\'s own relationship events through the relationship concept, and that one signed since the last reinstall can be missing', () => {
+  const p = path.join(ROOT, MEMBERSHIPS);
+  if (!fs.existsSync(p)) throw new Error(`${MEMBERSHIPS} does not exist yet (${ADR} Decision 13)`);
+  const text = String(((require(p).LETTERS) || {}).description || '');
+  assert(text, `M.LETTERS, the answer's letters schema, has a description; got ${show(require(p).LETTERS)}`);
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const missing = /\b(missing|miss|misses|absent|left out|not (yet )?(listed|named|found|there))\b/i;
+  assert(/relationship concept/i.test(text), `it says letters finds the instance's own relationship events through the relationship concept, as remove-from-concept's RM45 shows (Amendment 3, item 3); got ${show(text)}`);
+  assert(sentences.some((s) => /\b(since|after)\b[^.]*\b(last|latest)\b[^.]*\breinstall/i.test(s) && missing.test(s)),
+    `and that one signed since the last firmware reinstall, as one today's add-to-set has just signed, can be missing until a reinstall wires it; got ${show(text)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
