@@ -56,6 +56,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     another concept, or put it in a set, its new section checked against the concept's schema and kept beside another
     author's letter, and take the owner's claim out again, never out of the node's last concept; brings D9's rule into
     the rulebook (Loom A10.22).
+23. `stories/graph-operations-first-slice/23-move-element.md` — move an element from one set or superset of a concept
+    to another in one write, never in both or in neither, its concepts, JSON and fields left as they were; refuses sets
+    of different concepts, a set that doesn't hold the node directly, and a link that isn't the owner's (Loom A10.23).
 26. `stories/graph-operations-first-slice/26-delete-node.md` — delete one of this instance's own elements, with its
     relationships and tags, the whole node kept in its change entry so a mistake can be undone; teaches the shared test
     of whose node it is the person nodes and placeholders the import makes (Loom A10.26).
