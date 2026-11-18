@@ -106,6 +106,8 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
    - **remove-from-concept takes out only the owner's claims.** A membership the author's event claims, or firmware's definition makes, stays: a reinstall or the next import would make it again, and whether it counts is each point of view's call, as unlink-set leaves a peer's link and firmware's (story 28, open questions 1 and 2).
    - **Reads don't count the owner's claim yet** (Out of scope). From the owner's point of view, a node whose author it doesn't count stays out of the concept's elements even once added, until relationships record who made them.
 
+**Added at Architecture** (the owner's approval, 2026-11-17, with ADR 0022): AC8's list gains `name-in-use`, for adding one of this instance's own nodes to a concept where another of its own elements has the node's name, or sits at the address the name gives, since create-element's repeat would then have two answers (as story 21's open question 2 settled for a rename); and `tag-node`, for a tag, which is part of a letter, records no author, and is no element. The ADR's other refusals beyond the list, `not-installed`, `unreadable-json` and a length limit on the JSON, are mechanics the other element writes have too. The owner's sections beside another author's letter are kept in one node property of the instance's own, `tapestryOwnSections` (ADR 0022, Option A).
+
 For Architecture, not this gate:
 
 - **Where the owner's section lives on a node whose JSON is another author's letter or firmware's definition** (AC5): beside it, so that the graph's record of the letter is unchanged, the node's tapestryJson (ADR 0020a) holds the section, the rule judges it, and importing the letter again, or a reinstall, leaves it. And what the call does when the author's own JSON already has a section for the concept.
@@ -133,6 +135,6 @@ For Architecture, not this gate:
 - The field marks they carry: [stories/graph-operations-foundation/5-field-mapping.md](../graph-operations-foundation/5-field-mapping.md)
 - The rulebook and its graph rule concept: [docs/GRAPH_RULES.md](../../../docs/GRAPH_RULES.md); [41-graph-rule-concept.md](41-graph-rule-concept.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
-- ADR: (filled in after Architecture phase)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0022-add-to-concept-and-remove-from-concept.md](../../decisions/graph-operations-first-slice/0022-add-to-concept-and-remove-from-concept.md)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
