@@ -12,6 +12,11 @@
  * parentJsonSchemas holds the rule element-fits-schema's verdicts on the tapestryJson built here, through the one check
  * the rule uses, against the concepts the rule judges (./schema-verdicts.js; story graph-operations-first-slice #42; ADR
  * graph-operations-first-slice/0042 Decision 5). A derive pass passes ctx.judge, one checker for all its nodes.
+ *
+ * The owner's sections kept beside another author's letter or firmware's definition (the node property
+ * tapestryOwnSections, which graph add-to-concept writes) are laid over the base before the word block and graphContext
+ * are built, so a node's tapestryJson holds them, and the rule judges them there (story graph-operations-first-slice
+ * #22; ADR graph-operations-first-slice/0022 Decision 6 and Amendment 1, item 12).
  */
 
 const { runCypher } = require('../neo4j-driver');
@@ -77,7 +82,12 @@ async function getExistingWordJson(node) {
 async function deriveWord(node, ctx = {}) {
   const { uuid, tapestryKey, name, labels, elementId } = node;
 
-  const base = await getExistingWordJson(node) || {};
+  const existing = await getExistingWordJson(node) || {};
+  // The owner's sections beside the letter (ADR graph-operations-first-slice/0022 Decision 6). Sections that can't be
+  // read are left out, so the node still derives from its letter.
+  const { overlaySections, ownSectionsOf } = require('../../operations/catalog/graph/_fields');
+  const own = ownSectionsOf(node.tapestryOwnSections).sections;
+  const base = own ? overlaySections(existing, own) : existing;
 
   // ── word section ──
   if (!base.word) base.word = {};

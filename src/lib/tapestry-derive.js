@@ -82,10 +82,13 @@ function pickDeriver(labels) {
 /**
  * What a deriver reads of a node, and the node's element id. Every query of a rebuild starts from the node itself
  * (`MATCH (n) WHERE elementId(n) = $elementId`, a direct lookup), so no query reads the whole graph to find it:
- * 3.85 million nodes on staging since `tapestry-keys` (graph-operations-foundation #8).
+ * 3.85 million nodes on staging since `tapestry-keys` (graph-operations-foundation #8). tapestryOwnSections is the
+ * owner's sections kept beside another author's letter, which the word deriver lays over (ADR
+ * graph-operations-first-slice/0022 Decision 6).
  */
 const NODE_FIELDS = `n.tapestryKey AS tapestryKey, n.uuid AS uuid, n.name AS name,
            n.slug AS slug, n.kind AS kind, n.pubkey AS pubkey,
+           n.tapestryOwnSections AS tapestryOwnSections,
            labels(n) AS labels, elementId(n) AS elementId`;
 
 /**

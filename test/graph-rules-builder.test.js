@@ -12,7 +12,7 @@
  * rules, and fixtures. Run on its own with `node test/graph-rules-builder.test.js`.
  *
  *   GB1  the script exports its three parts
- *   GB2  the real rulebook reads as seven entries, numbered 1 to 7, with no problem; entry 1 is tapestry-key-unique [AC2]
+ *   GB2  the real rulebook reads as eight entries, numbered 1 to 8, with no problem; entry 1 is tapestry-key-unique [AC2]
  *   GB3  each real item's name, number, title, description, about, status and source                              [AC2, AC3]
  *   GB4  each real item's fields hold the rulebook's text: continuation lines dedented, other fields in alsoSays   [AC3]
  *   GB5  a real item whose rule has code holds the code's declaration; entry 1's code is null                       [AC3]
@@ -139,6 +139,13 @@ const REAL = [
     source: 'ADR graph-operations-first-slice/0020, ADR graph-operations-first-slice/0020a and ADR graph-operations-first-slice/0042',
     description: "A node's fully realized tapestryJson fits the JSON schema of each concept it is an element of.",
   },
+  // Rule 8, joined with story graph-operations-first-slice #22 (ADR graph-operations-first-slice/0022 Decision 12). Its
+  // Says opens with that Decision's sentence; the rest of the sentence is the rulebook's to word, so a pattern.
+  {
+    number: 8, name: 'node-has-a-concept', title: 'Node Has A Concept', code: true, alsoSays: [],
+    source: 'ADR graph-operations-first-slice/0022',
+    description: /^Every node is an element of at least one concept other than word\b/,
+  },
 ];
 const GRAPH_RULE_KEYS = ['name', 'number', 'says', 'kind', 'about', 'refusesOrReports', 'check', 'repair', 'enforcedBy', 'status', 'source', 'alsoSays', 'code'];
 
@@ -147,7 +154,7 @@ function t(name, fn) { tests.push([name, fn]); }
 
 t('GB1: src/firmware/graph-rules.js exports parseRulebook, itemsFor and elementFiles', () => { builder(); });
 
-t('GB2 (AC2): the real rulebook reads as seven entries, numbered 1 to 7, with no problem, and entry 1 is tapestry-key-unique', () => {
+t('GB2 (AC2): the real rulebook reads as eight entries, numbered 1 to 8, with no problem, and entry 1 is tapestry-key-unique', () => {
   const r = build(builder(), realInputs());
   assert(r.problems.length === 0, `no problem with today's rulebook and rules; got ${short(r.problems, 1200)}`);
   const got = r.entries.map((e) => [e.number, e.name]);
@@ -163,7 +170,8 @@ t("GB3 (AC2, AC3): each real item's word block, number, about, status and source
     const w = it.json.word || {};
     assert(w.slug === want.name && w.name === want.name, `${want.name}: word.slug and word.name are the rule's name (Decision 2); got ${show({ slug: w.slug, name: w.name })}`);
     assert(w.title === want.title, `${want.name}: word.title is "${want.title}"; got ${show(w.title)}`);
-    assert(w.description === want.description, `${want.name}: word.description is the first sentence of Says, as plain text, capitalized:\n          want ${show(want.description)}\n          got  ${show(w.description)}`);
+    const described = want.description instanceof RegExp ? want.description.test(String(w.description)) : w.description === want.description;
+    assert(described, `${want.name}: word.description is the first sentence of Says, as plain text, capitalized:\n          want ${want.description instanceof RegExp ? String(want.description) : show(want.description)}\n          got  ${show(w.description)}`);
     assert(show(w.wordTypes) === show(['word', 'graphRule']), `${want.name}: word.wordTypes is ["word","graphRule"]; got ${show(w.wordTypes)}`);
     const g = it.json.graphRule;
     assert(g.name === want.name && g.number === want.number, `${want.name}: graphRule.name and number; got ${show({ name: g.name, number: g.number })}`);
