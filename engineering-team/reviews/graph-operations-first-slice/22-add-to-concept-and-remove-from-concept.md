@@ -854,3 +854,44 @@ None.
 - The story's status is `Done`, from round 3's commit. With this verdict, harness-lint's L1 check is satisfied.
 - This section is written but not committed: the session commits it.
 - Completion detection: unchanged. The book isn't complete: the rebuild and the race are still ahead. Reported in the chat.
+
+---
+
+## R5-1's fix — 2026-11-18 (`e224d1eb`)
+
+**Checked:** `git show e224d1eb`, one commit on round 5's `5826c324`. It changes MS24 in `test/operations/graph/memberships-shared.test.js`, the test plan's "Added at review round 5", and the story's notes. No source or firmware file changes (`git show --stat e224d1eb -- src firmware` is empty).
+
+**MS24 pins what R5-1 asked.** It calls `say.memberMisfit` directly, with header-shaped objects, as `K.headersByKey` gives them, for two and then three joined concepts. It checks five things:
+- each concept by its own label, with "with concept" and its own key;
+- the concepts in the order given, the last after "and";
+- one `set <set>` for all of them, the key appearing once;
+- update-node naming the named concept's key;
+- that the one-concept wording, "which the set joins", isn't used.
+
+R5-1 asked for each key and the one set; the rest is more than it asked. The test first checks that `X.conceptLabel` gives each header its name and address, so a failure is the way-on words', not the label's. Loading the two modules in the suite's own process opens nothing (MS10).
+
+**Ran,** each suite alone at `e224d1eb`, with `BRAINSTORM_BASE_URL=http://127.0.0.1:9`, `TAPESTRY_PORT=9`, `TAPESTRY_CONTAINER=no-such-container`, `NEO4J_URI=bolt://127.0.0.1:9` and `REDIS_PORT=9`:
+- memberships-shared 24 passed, MS24 among them;
+- add-to-concept 57;
+- remove-from-concept 36;
+- memberships-agent-through-cli 1.
+
+None failed. These are the story's Evidence counts.
+
+**The breaks,** on a scratch copy of HEAD (`git archive`), never the worktree's files, all four suites under each:
+- each concept's key taken out of the several-concepts branch, round 5's break (`_memberships.js:127`): MS24 fails, and no other test changes;
+- the `set` taken out of that branch (`:128`): MS24 fails, and no other test changes.
+
+The copy compared equal to HEAD afterwards, and `git status` was clean.
+
+**The notes are accurate.**
+- **The test plan.** Its account of the branch (`_memberships.js:127–128`) and of why the test sits in the shared suite holds, and so does its note that `conceptLabel` reads `name`, then `uuid`, else `key`. Its seven scratch edits (a)–(g), each failing MS24 alone, match the Tester's script and output (`mutate-r5.js` and `mutate-r5.out` in the session's scratchpad).
+- **The story.**
+  - Round 4's first deviation is annotated that MS24 now tests it.
+  - Round 4's Evidence heading names its commit, `599dbdd6`, the round-4 fix.
+  - "Review round 5's nit" gives the suites' counts above. It says no scoped gate or live re-check was run, which is right for one new test of words with no code change; the pull request's CI runs the full gate.
+- **harness-lint:** clean (0 violations), before this section was written.
+
+**Found:** nothing.
+
+**Verdict for the fix: PASS**
