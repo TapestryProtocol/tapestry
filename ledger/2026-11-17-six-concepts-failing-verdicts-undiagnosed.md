@@ -9,7 +9,7 @@
 **What was seen.** After a derive pass over all 444 list items on a scratch stack, 679 of the 1,169 cached verdicts fail. The rule's check agrees with the cache on each one (`tmp/live-check-42/report.json` in that worktree, `agreement.tally`; ignored by git).
 - **Diagnosed:**
   - `word`'s 430, by the two rows below;
-  - two that the live check made on purpose: each run's Rex, whose entry it put without a description.
+  - two that the live check made on purpose: runs 2 and 3 each made a Rex, and put its entry without a description. Run 1 made none.
 - **Not diagnosed:** the other 247.
   - `graph`, 132 of 132;
   - `validation tool`, 44 of 44;
