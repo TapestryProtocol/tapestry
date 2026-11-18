@@ -43,3 +43,5 @@ clean. That makes seven known occurrences.
 reviewer agent wrote a CHANGES_REQUESTED review to the template, and its first lint read it as passed, from the
 template's closing `## On PASS (same commit)` heading. It dropped the heading before committing. That makes eight
 known occurrences; the template is still unchanged.
+
+**Another occurrence, 2026-11-17 (book `graph-operations-first-slice`, story 42's review round 1).** A reviewer agent writing a CHANGES_REQUESTED review to the template put the On PASS section above `## Verdict` by hand, as story 27's round 1 had, so the lint read the review right. That makes nine known occurrences; the template is still unchanged.

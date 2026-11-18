@@ -136,13 +136,14 @@ module.exports = {
           description: "On created, each concept the set is an element of, the set concept first, then by tapestryKey, and whether its JSON fits that concept's schema; empty on already-exists",
           items: {
             type: 'object',
-            required: ['concept', 'key', 'fits', 'problems', 'problem'],
+            required: ['concept', 'key', 'fits', 'problems', 'problem', 'waiting'],
             properties: {
               concept: { type: 'string', description: "The tapestryKey of the concept's header" },
               key: { type: 'string', nullable: true, description: "The concept's key" },
-              fits: { type: 'boolean', nullable: true, description: "Whether the set's JSON fits the concept's schema; null when the concept has no schema to check against" },
+              fits: { type: 'boolean', nullable: true, description: "Whether the set's JSON fits the concept's schema; null when the concept has no schema to check against, or when the JSON misses only what the derive step builds (waiting)" },
               problems: { type: 'array', items: X.PROBLEM, description: 'Each problem with its JSON under that schema' },
-              problem: { type: 'string', nullable: true, description: 'Why there is no schema to check against' },
+              problem: { type: 'string', nullable: true, description: 'Why there is no schema to check against, or that the concept waits for the derive step' },
+              waiting: { type: 'boolean', description: "Whether the JSON misses its graphContext, which only the derive step builds, so the problems about it were set aside (ADR graph-operations-first-slice/0042)" },
             },
           },
         },
@@ -242,10 +243,12 @@ module.exports = {
 
     // 9. Its marks (Decision 12), the other concepts' verdicts (Decision 13) and the entry (Decision 14).
     const mapped = await F.mapNodes(tx, [key]);
-    const concepts = [{ concept: setConcept.concept, key: 'set', fits: true, problems: [], problem: null }];
+    // The set concept's entry comes from the same check, so it says waiting when that is what it is (ADR 0042 Decision 4).
+    const named = await Sch.fits(read, setConcept.concept, json);
+    const concepts = [{ concept: setConcept.concept, key: 'set', fits: named.fits, problems: named.problems, problem: named.problem, waiting: named.waiting }];
     for (const c of memberOf) {
       const r = await Sch.fits(read, c, json);
-      concepts.push({ concept: c, key: (headers.get(c) && headers.get(c).oKey) || null, fits: r.fits, problems: r.problems, problem: r.problem });
+      concepts.push({ concept: c, key: (headers.get(c) && headers.get(c).oKey) || null, fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting });
     }
     return {
       data: {

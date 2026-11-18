@@ -103,9 +103,11 @@ async function findByKey(tapestryKey) {
 /**
  * Derive tapestryJSON for a single node.
  * @param {{ tapestryKey: string, uuid: string, labels: string[], elementId?: string, ... }} node
+ * @param {{ judge?: object }} [ctx] what a derive pass shares with each node's deriver: one _schemas.js judge, so each
+ *   concept's schema is read and compiled once a pass (ADR graph-operations-first-slice/0042 Decision 6)
  * @returns {{ tapestryKey, derivedBy, envelope }|null}
  */
-async function deriveNode(node) {
+async function deriveNode(node, ctx = {}) {
   const deriver = pickDeriver(node.labels || []);
   if (!deriver) return null;
 
@@ -116,7 +118,7 @@ async function deriveNode(node) {
     node = { ...node, elementId: found.elementId };
   }
 
-  const data = await deriver.fn(node);
+  const data = await deriver.fn(node, ctx);
   if (!data) return null;
 
   const envelope = await store.put(node.tapestryKey, data, {
@@ -162,10 +164,14 @@ async function deriveAll(label) {
   `);
 
   let derived = 0, skipped = 0, errors = 0;
+  // One judge for the pass: each concept's schema is read and compiled once, not once a node (ADR
+  // graph-operations-first-slice/0042 Decision 6). A schema changed during the pass is seen by the next one.
+  const { judge } = require('../operations/catalog/graph/_schemas');
+  const ctx = { judge: judge((cypher, params) => runCypher(cypher, params)) };
 
   for (const node of rows) {
     try {
-      const result = await deriveNode(node);
+      const result = await deriveNode(node, ctx);
       if (result) derived++;
       else skipped++;
     } catch (err) {

@@ -17,7 +17,9 @@
  *   CS2  Kennel Club is the letter today's create-set would sign, plus json: its address, kind and author, and the tags
  *        d, name, z, s, description and json, in that order, with the import's tag uuids; no id
  *   CS3  its JSON is firmware's set-file shape, keys in order, and fits the set concept's schema; word, which reaches
- *        the set concept's superset, is reported as not fitting, for graphContext, and doesn't stop it
+ *        the set concept's superset, is reported as waiting for the derive step, which builds the graphContext its
+ *        schema requires, and doesn't stop it (story graph-operations-first-slice #42, AC4; ADR 0042 Decisions 3 and
+ *        4); every entry says whether it waits, as the declared answer says it does
  *   CS4  its two links: one from its parent by IS_A_SUPERSET_OF, one from the set concept's superset by HAS_ELEMENT;
  *        nothing else is wired
  *   CS5  graph history finds its entry by the set and by the parent; list-elements of the set concept lists it;
@@ -211,16 +213,22 @@ test('CS2: Kennel Club is the letter today\'s create-set would sign, plus json: 
   assert(C.tags(g, d.set.tapestryKey).every((t) => typeof t.key === 'string'), 'each tag node is keyed');
 });
 
-test('CS3: its JSON is firmware\'s set-file shape and fits the set concept\'s schema; word is reported, for graphContext, and doesn\'t stop it', async () => {
+test('CS3: its JSON is firmware\'s set-file shape and fits the set concept\'s schema; word is reported as waiting for the derive step, and doesn\'t stop it', async () => {
   const d = await ok('kennel');
   const { k } = await main();
   const json = C.json(await graph(), d.set.tapestryKey);
   assert(show(json) === show(setJson('Kennel Club', 'Beagles that show.')), `the JSON is a word block (the-set-of-…, The set of …, The Set of …, wordTypes word and set) and a set section (slug, name, title, description), keys in Decision 9's order; got ${show(json)}`);
   const cs = d.concepts || [];
   assert(show(keysIn(cs)) === show([k.setConcept, k.word]), `concepts: the set concept first, then word, each a concept the set is an element of (Decision 13); got ${show(cs)}`);
-  assert(cs[0].key === 'set' && cs[0].fits === true && show(cs[0].problems) === show([]) && cs[0].problem === null, `it fits the set concept's schema (rule 4); got ${show(cs[0])}`);
-  assert(cs[1].key === 'word' && cs[1].fits === false && (cs[1].problems || []).some((p) => /graphContext/.test(`${p.path} ${p.message}`)),
-    `word's schema requires graphContext, which only the derive step writes: reported, not refused (ADR 0020 Amendment 1); got ${show(cs[1])}`);
+  assert(cs[0].key === 'set' && cs[0].fits === true && show(cs[0].problems) === show([]) && cs[0].problem === null && cs[0].waiting === false, `it fits the set concept's schema (rule 4), and waits for nothing; got ${show(cs[0])}`);
+  assert(cs[1].key === 'word' && cs[1].fits === null && cs[1].waiting === true && show(cs[1].problems) === show([]) && /derive step/.test(String(cs[1].problem)),
+    `word's schema requires graphContext, which only the derive step builds: word is reported as waiting for it, not as failing, and not refused (story 42, AC4; ADR 0042 Decisions 3 and 4); got ${show(cs[1])}`);
+  const entry = require(path.join(ROOT, 'src/operations/catalog/graph/create-set.js')).result.schema.properties.concepts.items;
+  assert(entry.required.includes('waiting') && entry.properties.waiting && entry.properties.waiting.type === 'boolean',
+    `the declared answer's concepts entry has a required boolean, waiting (ADR 0042 Decision 4); got ${show(entry)}`);
+  const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
+  const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(path.join(ROOT, 'src/operations/catalog/graph/create-set.js')).result.schema.properties.concepts);
+  assert(validConcepts(cs), `the answer's concepts validate against the declared answer, waiting and all (ADR 0042 Decision 4; review round 1, non-blocking 3); got ${show(validConcepts.errors)}`);
 });
 
 test('CS4: its two links: IS_A_SUPERSET_OF from its parent, HAS_ELEMENT from the set concept\'s superset, and nothing else', async () => {
