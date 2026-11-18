@@ -159,7 +159,7 @@ We chose **Option A**. It is the only one that keeps the readers as they are, an
   - Each one filled in is named in the answer's `filledIn`.
   - So set-schema reads back as the schema given, but for what `filledIn` names (AC5).
 
-**4. What a field may be.** In set-schema's schema, at every level under the section through `properties`, and in a piece:
+**4. What a field may be.** *(Amendment 3, items 2 and 3, adds a field's description and an object's properties.)* In set-schema's schema, at every level under the section through `properties`, and in a piece:
 - **A type.** A definition has a `type`: one of the seven, or a list of them with none repeated. A field with none, such as `{ "$ref": … }` or `{ "enum": [...] }` alone, is refused `bad-type`, naming its place. A property node must have a `type` (fact 4), and this narrows AC5 for such fields.
 - **A key.** Each one passes create-concept's name check exactly as given: `CN.cleanName` leaves it as it is, and `CN.nameProblem` finds nothing. It also isn't `__proto__`, which a JSON object built by assignment can't hold (ledger row `2026-11-17-concept-key-can-be-proto`). Else `bad-name`, naming the place.
 - **A size.** At most 32 levels under the section, and 1,000 properties in all. Else `schema-too-large`: one transaction holds every node, and every node goes into the change entry.
@@ -301,6 +301,8 @@ We chose **Option A**. It is the only one that keeps the readers as they are, an
 - **Who takes it:** each write takes `S.lockNode` on the concept's header, the lock create-element and update-node take on it.
 - **When:** add-property and set-schema take it before they read anything. update-property and remove-property find the property's concept first, with `(p)-[:IS_A_PROPERTY_OF*1..32]->(:Property)-[:IS_THE_PRIMARY_PROPERTY_FOR]->(h)`, then lock `h`, then read again.
 - **What it gives:** two writes to one concept go one after the other, and an element write beside a property write waits too. After the lock, a property another write removed is gone, so the second remove answers `already-gone`, and an update answers `unknown-property`.
+
+*Amended at review round 1: two other writes that rewrite these nodes don't take this lock, a known limit (Amendment 3, item 1).*
 
 **12. The change entries.** New change names, each with `concept`, `node` (the property's tapestryKey), `field` and `path` (the keys from the section down):
 - `property-added`, with `now: { schema, required }`;
@@ -482,3 +484,17 @@ So a write never leaves a node failing a schema in a new way, and a problem the 
 **What the suites pin** (the Tester's, at this amendment):
 - AP3 reads the price node's memberships as the adds left it: the suite's own mark-field call, later, adds the mark's edge;
 - AP14 seeds what an instance has: firmware's `graph` concept with a schema that requires `graph.graphType`, the concept's tree graph one of its elements, and a concept whose schema requires a property's description, every property node its element. A first write lands, with the tree graph failing `graph` before and after. A new property with no description is refused, and so is a description taken out of one that had it.
+
+## Amendment 3 (2026-11-17, at review round 1) — two known limits of the lock, and two refusals the review found missing
+
+Review round 1 passed with nine non-blocking findings, and the owner chose to fix them before the PR. Three change what this ADR decides.
+
+1. **Two other writes don't take the concept header's lock (Decision 11; review finding 1).** So "two writes to one concept go one after the other" holds among the four property writes, the element writes and delete-node, but not for these two:
+   - **update-concept's rename** takes the concept-header concept's lock (`_concepts.js`'s C1), reads the concept's core nodes, then rewrites the json tags of its schema node, primary property and tree graph where they still hold the old names' text. Beside a property write, it can write back what it read before that write committed. The schema node then no longer has the property write's change, and the next property write's catching up follows the schema, taking the new node out. That node is kept whole in its entry, so it can be put back.
+   - **mark-field** takes no lock. A type change, or a removal, can land on a field marked between the property write's read of the marks and its commit. A removal then leaves the mark's copies on the elements with no mark; `graph map-fields` clears them.
+
+   Both need an owner or an admin to run two writes on one concept at once, and each entry keeps what was lost. These four don't change update-concept or mark-field: story 18's scope ends at the property writes. Ledger row `2026-11-17-concept-writes-skip-header-lock` carries the fix: each takes `S.lockNode` on the concept's header before it reads.
+2. **A field's description is checked wherever it comes from (Decision 4; review finding 4).** A field's description becomes its node's `description` tag. So a description given in `schema` (add-property, update-property), or on a field of set-schema's schema, must pass create-concept's description check, as the `description` input does: else `bad-description` (400), naming the place. set-schema declares `bad-description` too. A current schema with such a field can't be caught up to (`unreadable-schema`).
+3. **Only an object holds properties (Decision 4; review finding 8).** A field whose type isn't object, or a list of types that includes object, can't have `properties`: set-schema refuses it `bad-type`, naming the place, and a current schema with one can't be caught up to. So a property with properties under it is always an object, and update-property's `has-properties` refuses only a type away from object, as Decision 7.2 says.
+
+The review's other findings change nothing decided here: the records and docs (findings 2, 5, 6 and 7), a suite case for the report's cap (finding 3, the Tester's), and the address check's two steps (finding 9: each new node's plain d-tag first, then the nonces only for one that is held).
