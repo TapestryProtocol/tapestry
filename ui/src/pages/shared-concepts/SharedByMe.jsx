@@ -35,9 +35,11 @@ const stateOf = (published) => (published === null ? STATE.unknown : published ?
 // The concept population, for the waiting-count only. Deliberately minimal —
 // this page needs no element counts, no schema joins, none of the Concepts
 // list's aggregation; just enough to ask the shipped predicate whether each
-// header is still waiting (ADR shared-concepts-seeding/0002).
+// header is still waiting (ADR shared-concepts-seeding/0002). It scans every
+// header, with an event or not, as the Concepts page does, so the count and the
+// list it links to can't disagree (story graph-operations-first-slice #44).
 const POPULATION_QUERY = `
-  MATCH (h:NostrEvent)
+  MATCH (h:NostrEvent|TapestryNode)
   WHERE (h:ListHeader OR h:ConceptHeader) AND h.kind IN [9998, 39998]
   OPTIONAL MATCH (h)-[:HAS_TAG]->(bt:NostrEventTag {type: 'b'})
   RETURN h.uuid AS uuid, h.pubkey AS author, collect(DISTINCT bt.value) AS bValues

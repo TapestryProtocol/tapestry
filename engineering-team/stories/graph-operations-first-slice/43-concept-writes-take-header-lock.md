@@ -117,6 +117,39 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
   - In one run (run 8: the mark first, update-node 130 ms after), update-node's transaction failed with `Neo.TransientError.Transaction.DeadlockDetected`. The driver ran it a second time, and it answered 200 at 1,818 ms, with the copy blue.
   - In all twelve runs, every call answered 200 and every copy is blue. So ADR 0018 Amendment 4 item 3 holds as written.
 
+### On staging and production (2026-11-18)
+
+**Staging: TapestryProtocol/tapestry#140.**
+- **Its CI:** the `Test` run 44262093720 (`stack-free`) passed on the PR's head, `378a844c`.
+- **The merge:** the owner merged it on GitHub at 13:15:21Z, with `378a844c` still its head. Its merge commit is `52ac2cf6`. No safe-to-merge check is on record before it.
+- **The deploy:** `deploy-staging.yml` run 44311862437 succeeded, 13:15:25Z to 13:17:19Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`), 13:23:49Z to 13:24:27Z, was clean:
+  - tier 1: stable after 3 polls, with Neo4j answering after 3;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504;
+  - tier 3: `/docs`, which the server builds at startup from the operations it loaded, lists `graph update-concept` and `graph mark-field` once each, as it does `add-property`, `update-property`, `remove-property` and `create-concept`. That shows the two changed files load. The lock itself shows only when two writes race;
+  - tier 5: the concept graph's summaries answered 200.
+
+  Tier 4 didn't apply, since no UI changed.
+- **Loom** marked A10.18.a done and verified, weakly, on the merge: #140 had no approval from a teammate other than the owner.
+- **No firmware reinstall:** no firmware file changed.
+
+**Production: TapestryProtocol/tapestry#142,** the promotion.
+- **What it carried:** staging at `52ac2cf6`, from `promote/concept-writes-header-lock-2026-11-18`, a branch cut at that commit. That is #138 to #140:
+  - story 18's records, and its reinstall row closed;
+  - A10.42's spec and ADR graph-rules/0002;
+  - this story, ADR 0018's Amendment 4, and the fix.
+
+  The owner approved promoting #140. Shown that #138 and #139 rode along, both docs only, the owner approved the whole bundle. #141, merged into staging at 14:41Z, stayed out.
+- **Its checks:** the `stack-free` run 44327246007 passed on `52ac2cf6`, as did `deploy`, `main-source-guard` and `publish`.
+- **The safe-to-merge check** against production said safe at 15:06:51Z: no task active, and the next scheduled one at 16:00Z.
+- **The merge,** at 15:06:56Z, was pinned with `--match-head-commit 52ac2cf6`. Its merge commit is `bba0c2c3`.
+- **The deploy:** `deploy-tapestry.yml` run 44331855413 succeeded, 15:06:59Z to 15:08:52Z.
+- **The smoke test,** 15:08:58Z to 15:09:56Z, was clean, with the same checks as on staging. Neo4j answered after 10 polls. `/docs` listed the same 30 operation routes a minute before the merge and after the deploy. Tier 4 didn't apply.
+
+**Not checked on either server:**
+- **The lock itself.** It shows only when two writes race on one concept, which takes the owner or an admin, and the smoke test makes no writes. The live check covered it on a scratch stack.
+- **The agent-memory instance on the Mac Studio** has none of this code. It takes it only at the owner's word.
+
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md` (Decision 11; Amendment 3, item 1; Amendment 4). Architecture is skipped: the fix's shape is decided there.
