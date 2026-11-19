@@ -111,7 +111,7 @@ We chose **Option A**, because it is the only one in which the allowed values ar
    - A firmware concept may be the source, and so may another author's.
 4. **A property that can hold a reference.**
    - **What it may hold.** The piece's `type` is `string`, or a list of types whose members other than `null` are `string` alone. Or the piece is a list: `type` `array`, with `items` an object whose `type` follows the same rule. Anything else is `not-enumerable`.
-   - **What it must accept.** The piece is compiled alone, with rule 4's ajv options, and must accept `tapestry:00000000-0000-4000-8000-000000000000`, or a list holding it. Anything that would refuse every reference is `refuses-references`, naming `graph update-property` to take it out: the piece's own `enum` or `const`, or a `pattern`, `format` or length a reference can't meet, and the same in `items`. This widens AC6's "an `enum`" (proposed amendment 2).
+   - **What it must accept.** The piece is compiled alone, with rule 4's ajv options, and must accept `tapestry:00000000-0000-4000-8000-000000000000`, or a list holding it. Anything that would refuse every reference is `refuses-references`, naming `graph update-property` to take it out: the piece's own `enum` or `const`, or a `pattern` or length a reference can't meet, and the same in `items`. This widens AC6's "an `enum`" (proposed amendment 2). A `format` never refuses one, since rule 4's ajv options load no formats (Amendment 1).
 5. **`graph unenumerate`.**
    - Its steps are enumerate's 1 to 4 and 10.
    - Then it takes out every `ENUMERATES` into the property, from wherever it starts, and counts them.
@@ -214,3 +214,8 @@ We chose **Option A**, because it is the only one in which the allowed values ar
 - The letter: how the link and a `tapestry:` value are written as events and read back (K5.1, K5.5), and `export nostr`'s rewrite (A10.34).
 - Bringing firmware's five edges, firmware's definition, the audit and apply-enumerations into line (ledger row `2026-11-19-enumerates-has-two-shapes`), and repairing Grok Bots' tangled tree (`rules repair`, A10.31).
 - A guard in the property writes against dropping or retyping an enumerated property (the ledger row above).
+
+## Amendment 1 (2026-11-18, at test design; approved by the owner with the test plan) — the five refusals' statuses, and `format`
+
+1. **Statuses.** `not-enumerable`, `refuses-references`, `enumerated-elsewhere`, `reserved-source` and `no-superset` are each 409, as the existing refusals of their kind are: `reserved-key`, `no-superset` and `made-elsewhere` (`_elements.js:67–74`), `has-properties` and `marked-field` (`_properties.js:90–91`), and `different-concepts` (`move-element.js:56`). Rule 10's `value-not-allowed` stays 400, as rule 4's `invalid-fields` is.
+2. **`format`.** Rule 4's ajv options load no formats (fact 4), and ajv 8.18 with `strict: false` ignores a format it doesn't know, so `{ "type": "string", "format": "email" }` accepts a reference. Decision 4's check compiles the piece with those options, so a `format` never refuses a reference. Decision 4 and the story's AC6 drop it from the list of what does.
