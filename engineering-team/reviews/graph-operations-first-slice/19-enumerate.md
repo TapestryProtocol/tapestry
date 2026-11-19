@@ -320,3 +320,225 @@ None new. The gate line's `+dirty` comes from the worktree's untracked `node_mod
 ## On PASS (same commit)
 - [ ] Story `**Status:**` flipped to `Done` in place, and its Review link filled in. This is left to the session: its brief let this review change no other file. harness-lint's L1 (a PASS review's story is Done) will flag this file until the flip lands with it in the review commit.
 - [x] Completion detection performed. Its result goes in the chat, not this file.
+
+## Round 2 — 2026-11-19 (HEAD `83917338`)
+
+The owner chose to fix round 1's six non-blocking findings before the pull request. Round 1 was committed as `3a5edb47`, and the round added three commits after it:
+- `8df52fe5`, the session's: ADR 0019 Amendment 2 (`0019-enumerate-and-unenumerate.md:223–234`) and the story's "Changed at review round 1" line (`19-enumerate.md:113`);
+- `bb6d6255`, the Tester's:
+  - red cases for Amendment 2's items 1 to 3: EN30 and EN31, new; EV7 and CE51, widened;
+  - guards for finding 3: EN4, EN14, EN20 and UE17, widened; EV17 and CE54, new;
+  - EN19 widened to check each keyword is named, the seed's nine new bot fields, and the plan's section "Review round 1's cases";
+- `83917338`, the Implementer's:
+  - the fixes, in `_enumerations.js` and `_schemas.js`;
+  - the refusal's declaration, enumerate's description, the catalog row, rulebook entry 10 and its firmware element;
+  - a clause added to Amendment 2's item 2;
+  - the story's four new Deviations and its Evidence;
+  - the widened ledger row, and the new bug row `2026-11-19-property-load-names-concept-input`.
+
+**How it was made.** A reviewer agent with no Edit access appended this section at the session's request.
+- **The same limits as round 1.** It never ran `npm test` or docker, and made no call to localhost:7778, any network endpoint, GitHub or Loom.
+- **How the suites ran.** Every suite ran with `tmp/a10-19-test-design/env.sh` sourced: stub `curl` and `docker` first on `PATH`, every endpoint dead, `TAPESTRY_CONTAINER=no-such-container` and `TAPESTRY_CONTAINER_PORT` unset.
+- **The scratch copies.** The breaks, the probes and the red-before-green run used `git archive` copies under the ignored `tmp/review-19-r2/`: two of `83917338` and one of `bb6d6255`. The probe (`probe-refs.js`) required only those copies' modules. The runners, the probe and every log are there too.
+- **The worktree.** `git status` was clean after each step.
+- **Fresh claims.** Each fix was checked against the code, the commands and the probes below, not against the commit messages.
+- **The independent check** before the commit (P13) wasn't applied.
+
+### Gates (run by the reviewer at `83917338`)
+
+- [x] **The scoped gate,** through the gate engine: round 1's five entries, from `tmp/review-19/gate.sh` copied to `tmp/review-19-r2/gate.sh` with only its label changed. With the path shortened:
+
+  ```
+  20261119T171556Z-48675-a14c [a10-19-review-r2] started 2026-11-19T17:15:56.737Z on 83917338+dirty — PASS, exit 0, 1267 passed, 0 failed, 6 skipped, 5/5 suites · …/tmp/gate-runs/20261119T171556Z-48675-a14c.json
+  ```
+
+  - **The `+dirty` is the gate's `node_modules` link alone** (`dirtyCount` 1). `git status --porcelain` held no entry before the link was made, only `?? node_modules` while it existed, and none after it was removed.
+  - **By suite:**
+    - operations: 1,166 passed, 4 skipped;
+    - external-cli: 53;
+    - openapi-coverage: 13;
+    - admin-action-sweep: 9;
+    - schema-save-finds-the-right-header: 26, 2 skipped.
+
+    The six skipped are the live tests: LK1–LK4, L1 and L2.
+  - **The total is round 1's 1,263 plus the four new tests:** EN30, EN31, EV17 and CE54. It is also the total of the Implementer's record, `20261119T170016Z-23376-7bf7` (1,267/0/6), which ran on `bb6d6255+dirty`, before the fixes were committed.
+- [x] **Each suite alone** at `83917338`, with `zsh tmp/review-19/run-suites.sh` (pass/fail/skipped):
+
+  | Suite | Result | Suite | Result |
+  |---|---|---|---|
+  | enumerate | 31/0/0 | add-property | 15/0/0 |
+  | unenumerate | 17/0/0 | update-property | 11/0/0 |
+  | enumerated-value-allowed | 17/0/0 | remove-property | 8/0/0 |
+  | create-element | 39/0/0 | set-schema | 10/0/0 |
+  | update-node | 46/0/0 | graph-rule-firmware | 13/0/4 (GL1–GL4, live) |
+  | add-to-concept | 60/0/0 | firmware-element-sync | 21/0/0 |
+  | enumerate-agent-through-cli | 1/0/0 | graph-rules-builder | 26/0/0 |
+
+  - Each is the story's Evidence (`19-enumerate.md:186–189`).
+  - The Evidence's other four, element-fits-schema 11, mark-field 16, relationship-type-allowed 10 and graph-fake 33, are the same in the gate's operations run.
+- [x] **`node src/firmware/graph-rules.js --check`:** `graph-rules: the 10 items in firmware/active/concepts/graph-rule/elements are current.` The element's diff is its `says` alone, which is the text of the rulebook's Says (`docs/GRAPH_RULES.md:160`).
+- [x] **`bash scripts/harness-lint.sh`:** `harness-lint: clean (0 violations)`, before this section and again after it.
+- [x] **Red before green.** 18 suites ran alone on `bb6d6255`'s tree, extracted.
+  - **What failed:** EN30, EN31, EV7 and CE51, and nothing else. enumerate was 29/2, the rule 16/1 and create-element 38/1.
+  - **What passed:**
+    - this story's other suites: unenumerate 17, update-node 46, add-to-concept 60 and the agent's 1;
+    - the property writes: add-property, update-property, remove-property and set-schema;
+    - beside them: element-fits-schema, mark-field, relationship-type-allowed and graph-fake;
+    - and the three rule-list suites.
+  - These are the counts in the plan's "Verification at HEAD", and each failure is the one the plan quotes.
+- [x] **The phases kept to their own files:**
+  - `git diff 3a5edb47 8df52fe5 -- src test firmware` is empty: the session's commit is the ADR and the story alone;
+  - `git diff 8df52fe5 bb6d6255` touches five files under `test/` and the test plan, nothing else;
+  - `git diff bb6d6255 83917338 -- test` is empty: the Implementer changed no test.
+- [x] **The merge.** As last fetched, `origin/staging` is still `9f1b4818`, an ancestor of `83917338`. No fetch was made.
+- [x] **Nothing new beyond the story.**
+  - `package.json`, `package-lock.json` and `clients/` are unchanged since round 1.
+  - The round's diff adds no `console`, `debugger`, `TODO`, 64-hex literal or secret.
+
+### Round-1 findings, re-checked
+
+1. **Fixed: a list's sample, and the words of `refuses-references`** (Amendment 2, items 1 and 2).
+   - **The sample.** `tryReference` (`_enumerations.js:116–124`) tries a list with `max(1, minItems)` references. `samples(n)` (`:44`) gives each a different key, `SAMPLE` first.
+     - A `minItems` above `LIMIT`, 10,000 (`F.MAX_ELEMENTS`), is refused before it is tried (`:121`), with words of its own (`:417`).
+     - A probe showed a `minItems` that isn't a whole number, or is negative, doesn't compile, so it can't get past `:120`.
+   - **The words.** `refusingKeywords` (`:94–107`) reads each error's `schemaPath`: its first segment, or its second under `#/items/`, for the items'. `then` and `else` count as `if` (`:102`).
+     - `say.refusesReferences` (`:412–430`) names each keyword. It gives `'{"<keyword>": null}'` for each of the piece's own, and the items' replacement once.
+     - It says how many references were tried. It has its own words for a piece that doesn't compile alone (`:416`).
+     - The fixed list `REFUSING` is gone.
+   - **Probed** on a copy of `83917338`, each piece compiled alone and inside a wrapped schema as rule 4 compiles one. A `oneOf` that no branch meets, or that both branches meet, is named `its oneOf`; an `allOf` is `its allOf`; `if` with `then`, and `if` with `else`, are both `its if`; a `contains` is `its contains`; and an items' `oneOf` is `its items' oneOf`. That is what the declaration (`:60`) and item 2 say.
+   - **The fixes, broken one at a time** on a scratch copy. In each, the other tests were as on the real code:
+
+     | Break | Turns red |
+     |---|---|
+     | a list tried with `SAMPLE` repeated | EN30 |
+     | at most 9,999 tried | EN30 |
+     | no cap | EN30, EN22 |
+     | a combinator's inner keyword named as the piece's own | EN31 |
+     | the items' keywords dropped | EN19 |
+     | `validatorOf` giving no errors | EN19, EN31 |
+
+     The first five are the Tester's W1–W4 and W6, here on the real code. The Tester ran those on a sketch.
+   - **`validatorOf`'s change** (`_schemas.js:186–190`) adds `errors`, and computes `fits` and `problems` as before. Its other callers read only those:
+     - the property writes' check, `schemaProblem`, reads `problem` (`_properties.js:359–360`);
+     - their report, `reportOf`, reads `fits` and `problems` (`:1050–1052`, `:1062–1065`).
+
+     Rule 4's check doesn't call it: it compiles through `judge` (`_schemas.js:223–257`).
+     - The property writes' four suites pass unchanged. Among them is AP7, which pins their report to rule 4's verdicts.
+     - So do `_schemas.js`'s 14 tests and element-fits-schema's 11, in the gate.
+   - **The Implementer's Deviations 1, 2 and 4** (`19-enumerate.md:147–148`, `:150`) hold as written.
+     - enumerate's description (`enumerate.js:44`) and the catalog row (`docs/GRAPH_OPERATIONS_CATALOG.md:96`) give the same causes.
+     - Neither names a piece that doesn't compile alone. The declaration does.
+     - Deviation 3 is non-blocking 2 below.
+   - **Item 2's last clause is the Implementer's.** It says "`then` and `else` are named as `if`, and a `contains` as `its contains`" (`0019-enumerate-and-unenumerate.md:230`). It was added in `83917338`, and isn't among the Deviations.
+     - It is what the code does, by the probes above.
+     - No test pins it: with `:102` taken out, every enumerate test still passes.
+     - No change asked, but the owner ratifies it with the rest of the amendment.
+2. **Fixed: a `null` in a list** (Amendment 2, item 3).
+   - **The code.** `check` takes a list's `null` items out before judging, and skips a list that is then empty (`_enumerations.js:315–316`).
+   - **The words.** Three places now say "a `null`, as a field's value or as an item of a list": the rulebook's Says (`docs/GRAPH_RULES.md:160`), its firmware element and the rule's comment (`enumerated-value-allowed.js:16`).
+   - **The breaks.** A list's nulls judged again turns EV7 and CE51 red. A list that holds a null skipped whole turns EV7 red (`nullItemName`), as W5 did on the Tester's sketch.
+   - **Item 3 goes further than round 1's first fix,** which skipped a null "when the items' type allows one". Item 3 skips every null and leaves its type to rule 4. That is safe in every write:
+     - rule 4 runs first in all three (`create-element.js:164–165`, `update-node.js:297–298`, `add-to-concept.js:207–213`);
+     - rule 10 never refuses a null, so rule 4 refuses one that its type doesn't allow, whichever rule runs first.
+
+     The plan gives CE54 as the reason (`19-enumerate.test-plan.md:348`). CE54 covers create-element alone, but the conclusion holds without it.
+   - **The ratification.** Amendment 2 records items 1 to 3 as the Architect's choice of the first fix each finding offered, for the owner to ratify at this gate. The Reviewer can't verify that ratification. It is the owner's to confirm.
+3. **Fixed, and the guards bite.** Round 1's breaks, unchanged from `tmp/review-19/breaks.js`, ran one at a time on a `git archive` copy of `83917338`. After each, the file was put back and compared with its committed blob.
+   - **On the real code,** the seven suites passed: enumerate 31, unenumerate 17, the rule 17, create-element 39, update-node 46, add-to-concept 60 and the agent 1.
+   - **Each break:**
+
+     | Break | Suites run | Result |
+     |---|---|---|
+     | B12, `P.load` before the lock (`enumerate.js:86–89`) | enumerate | 30/1: EN14 |
+     | B26, the links read before the lock (`unenumerate.js:80`, `:86`) | unenumerate | 16/1: UE17 |
+     | B37, rule 10 before rule 4 (`create-element.js:164–165`) | create-element | 38/1: CE54, refused `value-not-allowed` |
+     | B44, rule 10 reads a link from any start (`_enumerations.js:147`) | the rule, enumerate, create-element, update-node, add-to-concept | the rule 16/1: EV17, a finding for `bot.flag`; the other four as on the real code |
+     | B16, a repeat wins over elsewhere (Deviation 1 reversed; `enumerate.js:106`) | enumerate | 30/1: EN20, answered `already-enumerated` |
+     | B45, the report judges only the field just linked (Deviation 3 reversed; `enumerate.js:128`) | enumerate | 30/1: EN4, one entry, Grok Four's |
+
+   - **Each break turned its own guard red,** and no other test.
+   - **The plan's edge case** for a set's link now names EV17 (`19-enumerate.test-plan.md:53`).
+4. **Fixed.** Ledger row `2026-11-19-property-writes-drop-enumerations` now has a bullet for what Decision 4's test refuses at link time (`:12`). Its fix shape names "that test, `holdsReference` and `acceptsReference` … not the type alone" (`:14`).
+   - Its claim that no property write reads `ENUMERATES` holds. Neither `_properties.js`, `update-property.js` nor `set-schema.js` mentions it, nor does `remove-property.js` or `add-property.js`.
+   - Amendment 2's item 4 says the same.
+5. **Fixed.** Ledger row `2026-11-19-property-load-names-concept-input`, typed `bug`, matches the code:
+   - **`load`'s refusals** answer `input: 'concept'` at `_properties.js:632`, `:635`, `:636`, `:638`, `:645`, `:650` and `:657`, and at `:681` for a schema it can't catch up to.
+   - **`unknown-concept` is the exception,** through `missing` (`:631`).
+   - **The four callers it names** take `property` and pass `missing`: `update-property.js:82`, `remove-property.js:100`, `enumerate.js:89` and `unenumerate.js:81`.
+   - **add-property and set-schema** pass `inputs.concept` (`add-property.js:87`, `set-schema.js:81`).
+
+   The story's Evidence points to the row (`19-enumerate.md:181`).
+6. **Recorded, and out of this review's reach.** The story's Evidence names memo 136 on Loom task A10.34 (`19-enumerate.md:196`). Loom is out of this review's reach, so the memo wasn't read. The session confirmed that it exists.
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **`engineering-team/stories/graph-operations-first-slice/19-enumerate.md:113`: the "Changed at review round 1" line leaves out item 1's cap.**
+     - It says "A list whose `minItems` asks for two references or more is linked, where it was refused."
+     - A `minItems` above 10,000 is still refused (`_enumerations.js:121`; EN30).
+     - **Fix:** "two references or more, up to 10,000".
+  2. **The new Deviation 3 (`19-enumerate.md:149`): `its definitions` is reachable in a working concept, in two shapes, and in each its way out can't free the field.**
+     - **How rule 4 compiles the schema:**
+       - Rule 4 compiles the concept's whole schema at once (`_schemas.js:130–137`, through `judge`).
+       - The property writes' check compiles the same document the same way (`schemaProblem`, `_properties.js:359`).
+       - `P.load` refuses a concept whose current schema fails that check (`unreadable-schema`, `:678–681`). It does so before enumerate's step 6.
+     - **Where a nested `$ref` resolves:**
+       - A `$ref` such as `#/definitions/short` resolves against the schema that holds it: the whole document's root, unless the piece has an `$id`.
+       - enumerate's `tryReference` compiles the piece alone, so there `#` is the piece.
+       - The probe's errors show it: "can't resolve reference #/definitions/short from id #", against "… from id urn:example:piece" once the piece has an `$id`.
+     - **The plain case never reaches the words.** Take a piece holding its own `definitions.short` and `"$ref": "#/definitions/short"`, under a root with no `short`. Its whole schema doesn't compile, and `load` refuses it first.
+     - **Shape (a): the piece has an `$id`.** Both compiles read the piece's own definition, so the refusal is right. But its way out, `'{"definitions": null}'`, leaves the `$ref` unresolvable. update-property refuses that write `bad-schema`, because the whole schema no longer compiles.
+     - **Shape (b): the root's `definitions` holds the same name.**
+       - The whole schema reads the root's definition, never the piece's.
+       - With the root's definition accepting a reference, rule 4 accepts one at that field. Yet enumerate says the schema "would refuse every reference: its definitions leaves no … value it allows".
+       - After the way out, the next enumerate refuses it as a piece that "doesn't compile on its own", which is true.
+       - A list whose items reach the piece's `definitions` is the same, and is named `its definitions`, not the items'.
+     - **Neither shape lets a value through or changes anything.**
+       - Both need hand-written JSON Schema. No test, seed or firmware concept has a piece with its own `definitions`.
+       - The one firmware schema with `$ref`s, word's, points them at its root's `$defs`.
+     - **Decision:** no change in this story. The session should write a ledger row, typed `bug`, which also takes non-blocking 3. Its fix shape is either of these:
+       - when an error's path starts at `definitions` or `$defs`, name the `$ref` that reaches it, with `'{"$ref": null}'`, or the items' way when that `$ref` is under `items`;
+       - or try the piece in place, inside the whole schema, where its `$ref`s resolve as rule 4 resolves them.
+  3. **`src/operations/catalog/graph/_enumerations.js:122`: a piece that refers to itself sends ajv into endless recursion, and enumerate answers 500.**
+     - **The piece:** `{ "type": "string", "$ref": "#" }`.
+     - **Inside the whole schema,** `#` is the concept's root, an object. So rule 4 refuses a string there for its type, and nothing recurses.
+     - **The write that makes it goes through.** update-property's piece input takes a `$ref` (`_properties.js:241–261`), and the whole schema compiles.
+     - **Alone,** `#` is the piece itself. `v.check` throws `RangeError: Maximum call stack size exceeded`, which escapes `acceptsReference` at `enumerate.js:96`.
+     - **The same happens** with a list's `"$ref": "#"`, and with an items' `"$ref": "#/items"`.
+     - **It isn't new.** Round 1's `acceptsReference` throws the same way, probed on `bb6d6255`'s tree. The transaction rolls back, so nothing changes.
+     - **Fix, in the same ledger row:** `tryReference` catches a throw from the check, and answers as it does for a piece that can't be tried alone, naming the `$ref`.
+  4. **The Tester's open points: neither needs a test for this story.**
+     - **`oneOf` and `allOf`** go through the same line as `anyOf` (`:100`), which EN31 pins, and the probes find both named as item 2 says. A test would guard against a special case the code doesn't have.
+     - **A piece that doesn't compile alone** is reachable, and untested.
+       - **The main shape** is a field with a `type` beside a `$ref` into the root's `definitions`. set-schema's own test refuses one without a `type` (`set-schema.test.js:126`, `:255`). The property writes keep the root's `definitions`: `withFillIns` fills them in only when they are missing (`_properties.js:297–305`).
+       - **Probed too:** a JSON pointer into the concept's own properties, a nested `$schema` naming draft 2020-12, and shape (b) after its way out.
+       - **The words:** each is refused in the words Amendment 2 asks for (`_enumerations.js:416`), with ajv's reason, such as "can't resolve reference #/definitions/anyString from id #".
+       - **A false refusal by design:** where the root's definition accepts a reference, the refusal is false. Decision 4 compiles the piece alone, and Amendment 2 kept that.
+       - **A test is optional.** A case in R pinning these words is worth adding when the suite is next changed. It isn't needed now: the branch is one line (`:416`), and a regression there would only make the words vaguer, not let a property through.
+  5. **Outside this diff, for the session to judge:** a field whose `$ref` points at itself, such as `"$ref": "#/properties/bot/properties/field"`.
+     - **It passes the property writes' compile:** `schemaProblem` finds no problem.
+     - **ajv then recurses without end** judging any value at that field. The probe's whole-schema check threw `RangeError`.
+     - **Rule 4's check and the property writes' report** compile the whole schema the same way. So each write that judges such an element would answer 500. The derive step wasn't probed.
+     - **This is the code of stories 18 and 20,** not this story's. A ledger row would keep it from being lost.
+
+### Harness friction
+
+- None new. The gate line's `+dirty` is the worktree's untracked `node_modules` link, which ledger row `2026-11-16-worktree-node-modules-link-untracked` already records.
+
+### Verdict
+
+**PASS**
+- **The round-1 findings:** each is fixed. Findings 1 to 5 were checked against the code, the probes and the breaks. Finding 6's memo is on Loom, out of reach, and the session confirmed that it exists.
+- **The tests:** the new red cases failed on `bb6d6255` alone and pass at `83917338`. Each guard turns red on its own break and on nothing else, and breaking the fixes themselves is caught.
+- **The gates:** the scoped gate, each suite alone, the rule element's `--check` and harness-lint pass at `83917338`, and each phase kept to its own files.
+- **The five non-blocking findings:**
+  - a wording slip in the story;
+  - a way out that can't work, in two hand-written schema shapes;
+  - a 500 for a piece that refers to itself, there since round 1;
+  - an optional test;
+  - and an issue outside the diff.
+
+  None lets through a value that a rule should refuse, and none changes the graph.
+- **The owner's to ratify:** Amendment 2's items 1 to 3, with item 2's last clause.
+- **The story:** its `**Status:**` stays `Done`.
