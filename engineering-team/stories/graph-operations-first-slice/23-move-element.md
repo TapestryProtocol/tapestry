@@ -1,6 +1,6 @@
 # Story 23: `graph move-element` — move an element from one set of a concept to another, in one step
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Feature
 **Loom:** A10.23 — https://loom.brainstorm.world/t/A10.23
@@ -81,6 +81,8 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 
 **Changed at Architecture** (the owner's approval of ADR 0023, Option A, 2026-11-18): the background's seventh fact is corrected (a reinstall links from a `z` tag, never an `n`); AC7 says what a reinstall can do to a superset's direct link to a node a set of its concept holds; AC4 counts no concept keyed `word` or `graphContext`; and AC1 says what `graph history` finds a move by when the node was already in `to`. The other choice, Option C, would have changed install's pass 1d so AC7 held as first written; the owner kept install out of this story's scope.
 
+**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-18, with ADR 0023 Amendment 1): no criterion changes. The ADR's account of what a reinstall gives a node moved between two sets is corrected. Pass 1d links the concept's superset to every element in a set whose `z` names the concept, moved or not, so after a reinstall such a node can be directly under the superset though it never was before; the live check saw it on a node create-element made in a set. AC7, as amended at Architecture, already allows that link: it constrains `from` and `to` only.
+
 For Architecture, not this gate:
 
 - **How "the same concept" is found** when word's class thread holds nearly every set, and what to make of `graphContext`, whose key is reserved too.
@@ -92,7 +94,17 @@ For Architecture, not this gate:
 
 ## Deviations
 
-*(filled in Implementation)*
+Judgment calls made in Implementation (2026-11-18), each too small for an ADR amendment:
+
+- **`concepts` is read after the move.** A `moved` answer lists the concepts still reaching the node without `from`'s link, with `to`'s; `already-moved` lists those reaching it as it is. Decision 12 says the list "is the same before and after", which holds for every concept AC4 counts. On a move that joins or leaves word or graphContext, which AC4 doesn't count, it says where the node is now (the test plan leaves this unpinned).
+- **`from` is checked whole, then `to`** (Decision 2, step 5): unknown-node, then not-a-set, for `from`, then the same for `to`. The plan leaves the order between them unpinned.
+- **`different-concepts`' way on, when a set is in several concepts,** names the innermost of `to`'s for `graph add-to-concept` and the innermost of `from`'s for `graph remove-from-concept`, by Decision 4's rule for the move's concept. When `to` is in no concept but word's or graphContext's, there is no add-to-concept to name, since it refuses those keys, so the refusal says to pass another `to`.
+- **`not-in-from` lists the sets** M1 finds from every shared concept's superset, each once, sorted by tapestryKey. With one, it says to pass that key as `from`; with several, to pass the one to move the node out of.
+- **The note's sentence on pass 1d** is given when `from` is a superset, one of `from`'s concepts has `from` as its own superset, and a `z` of the node names that concept's header. That holds for a node kept beside as well as for one of the instance's own, since a reinstall reads the author's `z` too (ME11).
+- **The node's own letter in `letters`** is worded here, naming each `n` that names `from` and the `n` missing for `to`; `M.ownLetters` gives only the relationship events (Decision 10).
+- **`firmware-membership` keeps `M.say.firmwareMembership`'s words** (Decision 6), whose last clause says the membership "isn't taken out". For a move, that means the link from `from` stays.
+- **`guards: []` is declared,** so the listing's empty guard list is the declaration's own (Decision 7).
+- **The new ledger row** on `M.say.authorClaim`'s words is `2026-11-18-author-claim-words-misname-n-remaker`, typed `bug`: what the refusal says remakes an `n` claim is wrong, though the refusal itself is right.
 
 ## Linked artifacts
 
@@ -103,5 +115,5 @@ For Architecture, not this gate:
 - The write path it goes through: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0023-move-element.md](../../decisions/graph-operations-first-slice/0023-move-element.md)
-- Test plan: *(Test Design)*
-- Review: *(Review)*
+- Test plan: [23-move-element.test-plan.md](./23-move-element.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/23-move-element.md](../../reviews/graph-operations-first-slice/23-move-element.md)

@@ -40,6 +40,10 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * the section whole, and property, tapestryOwnSections, for one kept beside another author's letter; a tag's field,
  * its type, and was or now, its value; and wordTypes' was and now (story graph-operations-first-slice #22, ADR
  * graph-operations-first-slice/0022 Decision 14).
+ * A move's are a membership's and a tag's: membership-removed for the link out of from, with count when more than one
+ * copy went, and membership-added for the link into to, unless it was there, each naming the move's concept; and
+ * tag-removed and tag-added for its n tags (story graph-operations-first-slice #23, ADR
+ * graph-operations-first-slice/0023 Decision 13).
  */
 const CHANGE = Object.freeze({
   type: 'object',

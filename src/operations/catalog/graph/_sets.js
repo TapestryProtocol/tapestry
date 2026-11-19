@@ -32,7 +32,7 @@
  *   describe(node)                                 "<name>" (<tapestryKey>), for messages
  *
  * And what the set writes share (story graph-operations-first-slice #27, ADR graph-operations-first-slice/0027):
- * graph create-set now, and graph delete-set (A10.17) and move-element (A10.23) when they are built.
+ * graph create-set now, and graph delete-set (A10.17) when it is built.
  *   requireParent(tx, parent)                      unknown-node, then not-a-parent, as link-set reads a parent (Decision 4)
  *   linkUnder(tx, parent, set)                     one class-thread link from parent to set, by link-set's MERGE (Decision 11)
  *   setJson({ name, slug, description, others })   a set's word-wrapper JSON, as firmware's set files hold it (Decision 9)

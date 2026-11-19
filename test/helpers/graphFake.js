@@ -111,6 +111,14 @@
  * gets { call: 'meanwhile', at } just before the statement. It fires once, and only while the transaction has written
  * nothing that stays: the fake can't merge two writes, so it throws, naming the node, when this one already has.
  *
+ * Story graph-operations-first-slice #23 (its test plan; ADR graph-operations-first-slice/0023 Decision 8) adds
+ * failures.beforeRelDelete { drop, add }: another write that doesn't lock the node, as today's delete-relationship and
+ * add-to-set don't, commits just before this transaction's first statement that deletes relationships (a MATCH … DELETE
+ * r, the fake's 'delete' kind; never a DETACH DELETE). Each of `drop`, { type, from, to } by its ends' tapestryKeys,
+ * goes, every copy; each of `add` comes. It changes the committed graph and this transaction's alike, so a rollback
+ * keeps it, as failures.meanwhile's does; the log gets { call: 'beforeRelDelete' } just before the statement. It fires
+ * once, and throws, naming the key, when one of its ends names no node.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -593,6 +601,29 @@ function vanish(state, { key, add = [] }) {
   for (const n of add) state.nodes.push({ eid: state.nextEid++, labels: [...n.labels], props: { ...n.props } });
 }
 
+/**
+ * failures.beforeRelDelete's other write (story graph-operations-first-slice #23), in each of `states` alike: each
+ * relationship of `drop`, { type, from, to } by tapestryKey, goes, every copy, and each of `add` comes, with the same
+ * eid in every state.
+ */
+function otherWrite(states, { drop = [], add = [] } = {}) {
+  let next = Math.max(...states.map((st) => st.nextEid));
+  const eids = add.map(() => next++);
+  for (const st of states) {
+    const eidOf = (key) => {
+      const n = st.nodes.find((x) => x.props.tapestryKey === key && !x.labels.includes('GraphChange'));
+      if (!n) throw new Error(`failures.beforeRelDelete names ${key}, which no node has`);
+      return n.eid;
+    };
+    for (const d of drop) {
+      const [a, b] = [eidOf(d.from), eidOf(d.to)];
+      st.rels = st.rels.filter((r) => !(r.type === d.type && r.from === a && r.to === b));
+    }
+    add.forEach((x, i) => st.rels.push({ eid: eids[i], type: x.type, from: eidOf(x.from), to: eidOf(x.to), props: {} }));
+    st.nextEid = next;
+  }
+}
+
 /** Run one statement over state `s` (changed in place); { rows, counters }. */
 function exec(s, cypher, params = {}, { write = false } = {}) {
   const q = String(cypher);
@@ -685,8 +716,18 @@ function fakeGraph(stateFile) {
         for (const st of [committed, s]) Object.assign(st, copy(graphPart(m.graph)));
         log.splice(log.length - 1, 0, { call: 'meanwhile', at: m.at });
       };
+      // failures.beforeRelDelete (story graph-operations-first-slice #23): another write that doesn't lock the node
+      // commits just before this transaction's first relationship DELETE.
+      const beforeRelDelete = (e) => {
+        const f = committed.failures && committed.failures.beforeRelDelete;
+        if (!f || e.kind !== 'delete') return;
+        delete committed.failures.beforeRelDelete;
+        if (s.failures) delete s.failures.beforeRelDelete;
+        otherWrite([committed, s], f);
+        log.splice(log.length - 1, 0, { call: 'beforeRelDelete' });
+      };
       const tx = {
-        async run(cypher, params) { const e = entryOf('tx.run', cypher, params); log.push(e); first(); meanwhile(e); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
+        async run(cypher, params) { const e = entryOf('tx.run', cypher, params); log.push(e); first(); meanwhile(e); beforeRelDelete(e); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
         async read(cypher, params) { log.push({ call: 'tx.read', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params).rows; },
       };
       try {
