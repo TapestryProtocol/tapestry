@@ -592,3 +592,10 @@ The owner chose to fix round 1's six non-blocking findings before the pull reque
 **PASS**
 
 The story's line, the Deviation, the ratification and both rows do what round 2 asked, and no code changed. One shape in the new row is described wrongly, a slip carried over from round 2's own wording. It is non-blocking, and the owner's to fix or not. The story's `**Status:**` stays `Done`.
+
+### Round 3's finding, re-checked (2b657175)
+
+- **Non-blocking 1: fixed.** `git diff 068ceb75 2b657175` touches one bullet, `ledger/2026-11-19-enumerate-misreads-a-ref.md:15`, and no other file. It now names only a string's or a list's `"$ref": "#"` as the shapes update-property takes. It says an items' `"$ref": "#/items"` throws the same way alone, but is refused `bad-schema` unless the root has an `items` keyword of its own.
+- **That is what `tmp/review-19-r2/probe-r3.js` gave.** Without a root `items`, the property writes' check fails ("can't resolve reference #/items from id #"), and their commit refuses that as `bad-schema` (`_properties.js:769–772`). With one, the check passes and the piece alone throws `RangeError`. harness-lint is clean, 0 violations, before these lines and after them.
+
+**PASS**
