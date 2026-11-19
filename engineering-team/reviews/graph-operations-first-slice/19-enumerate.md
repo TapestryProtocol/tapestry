@@ -542,3 +542,53 @@ The owner chose to fix round 1's six non-blocking findings before the pull reque
   None lets through a value that a rule should refuse, and none changes the graph.
 - **The owner's to ratify:** Amendment 2's items 1 to 3, with item 2's last clause.
 - **The story:** its `**Status:**` stays `Done`.
+
+## Round 3 — 2026-11-19 (HEAD 222ab29f): round 2's findings
+
+**Diff:** `git show 222ab29f`, on top of round 2's review commit `16f7772a`. It touches four files: two lines of the story, the intro to ADR 0019's Amendment 2, and two new ledger rows. `git diff 16f7772a 222ab29f -- src test firmware docs BIBLE.md` is empty. **The owner's answer**, as the coordinator reports it: "Fix findings first", at round 2's gate. The owner had been told that either answer accepted Amendment 2.
+
+### What I checked
+
+- **The story's line** (`19-enumerate.md:113`) now says a list asking for "two references or more, up to 10,000, is linked, where it was refused; one that asks for more is still refused, in words that say so". That is the code: `_enumerations.js:121` refuses a `minItems` above `LIMIT` (10,000), with its own words at `:417`, and EN30 pins both.
+- **The Deviation** (`19-enumerate.md:149`) now says what round 2 found, and points to row `2026-11-19-enumerate-misreads-a-ref`.
+- **The ratification** (`0019-enumerate-and-unenumerate.md:225`) is recorded from the session's account, item 2's last clause included. The Reviewer can't verify it, so it is the owner's to confirm.
+- **Row `2026-11-19-enumerate-misreads-a-ref`** matches round 2's evidence and the code, but for one shape (non-blocking 1):
+  - **Its names hold:** `tryReference`, `refusingKeywords`, `say.refusesReferences` and `acceptsReference` in `_enumerations.js`; `judge` in `_schemas.js`; and `P.load`'s `unreadable-schema`.
+  - **Its `definitions` shapes** (`:10–14`) are round 2's probes. A rerun showed that the `$defs` variant behaves the same, named `its $defs`.
+  - **Its fix shapes** are round 2's for non-blocking 2 and 3, and it takes 4's optional test (`:21`).
+  - **"No test, seed or firmware concept has one" holds.** Their only `$ref`s point into a root's `definitions` or `$defs`.
+- **Row `2026-11-19-self-ref-field-recurses-rule-four`** matches round 2's non-blocking 5 and the code: `schemaProblem` and `reportOf` in `_properties.js`, `compile` and `judge` in `_schemas.js`, and ADRs 0018 and 0020. It keeps "the derive step wasn't probed".
+- **The checks.**
+  - `bash scripts/harness-lint.sh` is clean, 0 violations, L15 included, before this section and after it.
+  - `test/ledger-row-ids.test.js` is 6/0, with every endpoint dead.
+  - There was no gate-engine run, since no code or test changed. The new probe is `tmp/review-19-r2/probe-r3.js`.
+
+### Round 2's findings
+
+| Round 2 | Disposition |
+|---|---|
+| Non-blocking 1: the story's line leaves out the cap | **Fixed** (`19-enumerate.md:113`) |
+| Non-blocking 2: `its definitions`, and a way out that can't free the field | **Recorded** in row `2026-11-19-enumerate-misreads-a-ref`, as round 2 decided |
+| Non-blocking 3: a piece that refers to itself, and a 500 | **Recorded** in the same row, with one of its three shapes wrong (below) |
+| Non-blocking 4: the optional test | **Recorded** in the same row's fix (`:21`) |
+| Non-blocking 5: rule 4 recursing on a field that refers to itself | **Recorded** in row `2026-11-19-self-ref-field-recurses-rule-four` |
+
+### Findings (round 3)
+
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **`ledger/2026-11-19-enumerate-misreads-a-ref.md:15`: update-property doesn't take an items' `"$ref": "#/items"`.**
+     - **What the row says,** of all three shapes: inside the whole schema `#` is the concept's root, so nothing recurses, "and update-property takes the piece".
+     - **That holds** for a string's `"$ref": "#"` and a list's.
+     - **It doesn't hold for an items' `#/items`.** Inside the whole schema, `#/items` is the root's `items`, which a wrapped schema doesn't have.
+       - The property writes' check refuses the write as `bad-schema` ("can't resolve reference #/items from id #").
+       - `P.load` would refuse a concept holding one before enumerate's step 6.
+     - **Only a root with an `items` keyword of its own lets it through,** like shape (b)'s shared name. Then enumerate answers 500, as the row says.
+     - **The slip is round 2's.** Its non-blocking 3 listed this shape beside the reachable ones, though only its throw alone had been probed.
+     - **Fix:** drop the third shape, or say it needs an `items` keyword at the root.
+
+### Verdict (round 3)
+
+**PASS**
+
+The story's line, the Deviation, the ratification and both rows do what round 2 asked, and no code changed. One shape in the new row is described wrongly, a slip carried over from round 2's own wording. It is non-blocking, and the owner's to fix or not. The story's `**Status:**` stays `Done`.
