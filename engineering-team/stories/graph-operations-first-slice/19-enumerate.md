@@ -1,6 +1,6 @@
 # Story 19: `graph enumerate` — make a property's allowed values the elements of another concept, and take it back
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Feature
 **Loom:** A10.19 — https://loom.brainstorm.world/t/A10.19
@@ -110,6 +110,8 @@ Settled by CLAUDE.md's principles, the owner's rules and the design, and approve
 
 **Changed at Test Design** (ADR 0019 Amendment 1, 2026-11-18): AC6 no longer lists a `format` among what refuses a `tapestry:` value. Rule 4's ajv options load no formats, so a format never refuses one.
 
+**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-19, with ADR 0019 Amendment 2): AC6's third bullet names every keyword that leaves no `tapestry:` value, read from the check itself, not only an `enum`, a `const`, a `pattern` or a length: a list's `maxItems` of 0 and a `not` are refused too, each named, as they already were in words that named nothing. A list whose `minItems` asks for two references or more, up to 10,000, is linked, where it was refused; one that asks for more is still refused, in words that say so. AC2's list of strings may also hold a `null`, which isn't judged.
+
 For Architecture, not this gate (answered by ADR 0019):
 
 - **How the values follow the source:** worked out when a write checks a value, or a copy kept in the property's piece and the schema node and renewed whenever the source's elements change. ADR 0018 expected a copy in the piece, the catalog says the values are computed (D10), and the owner's glossary entry on horizontal integration calls the schema's list the serialized side of the link, rebuilt from it. Also what today's readers of the schema node then see (D15).
@@ -120,6 +122,78 @@ For Architecture, not this gate (answered by ADR 0019):
 - **Whether the audit's wiring rule gets D15's cheap fix,** so it stops flagging every link these writes make.
 - **A large source:** how many elements an answer lists, and what a check costs.
 - **The answers' and the change entries' shapes,** and the refusals' codes and statuses.
+
+## Deviations
+
+Judgment calls made in Implementation (2026-11-19), each too small for an ADR amendment:
+
+- **`enumerated-elsewhere` wins over a repeat.** A property linked from the source's superset and from another start too is refused, naming the other start, rather than answered `already-enumerated`: Decision 2 runs step 9 after step 8, and a property has one source (Decision 1). The plan leaves this case unpinned.
+- **`check` is shared.** Beside rule 10's two reads, `_enumerations.js` exports `check(read, items, { fields, pov })`, the rest of the rule: the values each item holds, the second read, and the findings. The rule calls it, and so does `valuesReport`, so the report is judged by rule 10's check (Decision 9) with the point of view enumerate resolved once.
+- **The report judges every enumerated field of the concept,** not only the one just linked, as rule 10 judges a write: one entry for each element and field, which is what a later write to that element is refused for.
+- **Rule 10 reads twice more than Decision 7 counts:** once for the items' concepts' keys and the sources' names (`K.headersByKey`), and once for the owner's point of view (`R.resolvePov`, which reads whether any score exists). Both are made once a concept has an enumerated field, so a concept with none still costs one read, and the count still doesn't grow with the items.
+- **The second read tests the class thread's reach with `EXISTS { MATCH … }`,** the pattern Decision 6 gives, rather than counting its paths, so Neo4j can stop at the first. The fake graph runs it; Neo4j is first met at the live check.
+- **A list piece is now tried with `max(1, minItems)` different references, up to 10,000** (ADR 0019 Amendment 2, item 1), where until review round 1 it was tried with a list holding one reference, which refused a list with `minItems` above 1. And a list is `type: "array"` alone, as Decision 4 writes it: only a string takes the nullable form `["string", "null"]`.
+- **A key naming a tag or a change entry** is answered as one that names no node (Decision 6), the message saying neither is one.
+- **unenumerate's `source`** is the link's source only when every link it took out ran from one concept's superset; it is null when none went, when they ran from more than one start, or from a set. The change entry names each start. The plan leaves both cases unpinned.
+- **`enumeration-removed` is one change per start,** each with its `count`, and `concept` only when the start is a concept's superset: a set names no source concept (the plan leaves this unpinned).
+- **`letters.searched` is a sentence** (the plan's raised point 3): what the search covered, or that none ran when no link was taken out.
+- **`allowed.count` counts to 10,001** (Decision 9), from one read of at most 10,001 rows: 10,001 means more than 10,000.
+- **Rule 10's message ends with "Nothing changed."** and the way on, as the operations' refusals do. update-node joins every finding's message, so with more than one finding it says so once for each.
+- **The link's `MERGE` checks it joined one pair,** as the property writes' `edge` does: the source's superset isn't locked (Decision 12), so one deleted by another write at that moment fails the call, which asks to try again.
+- **The new ledger row** on the property writes that drop or retype an enumerated property is `2026-11-19-property-writes-drop-enumerations`, typed `bug`; rule 10's graph rule item joins rule 9's pending reinstall, ledger row `2026-11-18-rule-nine-awaits-firmware-reinstall`.
+
+Judgment calls made in review round 1's fixes (2026-11-19, ADR 0019 Amendment 2), each too small for an amendment:
+
+- **`validatorOf`'s check also gives ajv's errors,** as `errors`, each `{ keyword, schemaPath }`; `fits` and `problems` are as they were, and the property writes' report reads only those. `say.refusesReferences` tries the piece again to name what refuses, so enumerate's call is unchanged and a refused piece is compiled twice.
+- **The refusal's other words.** A piece that doesn't compile alone is refused with `validatorOf`'s reason, and told to change it with `graph update-property` so that it compiles alone. A `minItems` above 10,000 is given `'{"minItems": null}'`, or a `minItems` of 10,000 or less, as its way on. A list's refusal says how many references were tried. The keywords are named in ajv's order, the piece's own before the items'.
+- **A keyword reached through a `$ref` into the piece's own `definitions`** is named by its path's first keyword, `its definitions`: neither Amendment 2 nor a test settles it. Review round 2 found its way out can't free the field, and a `$ref` that refers to itself makes enumerate answer 500; ledger row `2026-11-19-enumerate-misreads-a-ref` records both (non-blocking 2 and 3).
+- **enumerate's description,** which `/docs` and the CLI's help show beside the refusal's declaration, lists the same causes of `refuses-references` as the catalog's row.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-19, on `3a3b3882` with the implementation uncommitted)
+
+Each ran alone on this Mac with every service endpoint dead and stub `curl` and `docker` first on `PATH` (the Tester's `tmp/a10-19-test-design/env.sh`). None failed:
+- **This story's:** enumerate 29 passed, unenumerate 17, enumerate-agent-through-cli 1, enumerated-value-allowed 16.
+- **The changed ones:** create-element 38, update-node 46, add-to-concept 60, mark-field 16, relationship-type-allowed 10, graph-fake 33.
+- **Rule 10's item:** graph-rule-firmware 13 passed, 4 skipped (its live tests), firmware-element-sync 21, graph-rules-builder 26. element-fits-schema 11.
+- **The scoped gate:** record `20261119T051821Z-40550-80a1`, PASS, 1,263 passed, 0 failed, 6 skipped (live tests), over CI's five entries for an operations change. An earlier run, `20261119T051302Z-33202-eef3`, failed 13 tests, each only because the worktree has no `node_modules` of its own; the rerun linked the main checkout's, and the link was taken out after it.
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-19, on `3a3b3882` with the implementation uncommitted)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The scripts (`keys.js`, `setup.sh`, `live.js`, `restore.sh`), every call's request and answer, and `hand-calls.md`, the commands run by hand with their output, are in this worktree's `tmp/live-check-19/` (ignored by git).
+- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this worktree's `src/` mounted, from 05:41:46 to 05:51:34 UTC. The image's firmware (`c4c302955e90`) lacked the branch's graph rule concept and had no file the branch lacks, so the branch's was copied over it in place (`d6d3385ebecb`). The control panel restarted at 05:43:29 and the firmware installed. The branch's `bin/tapestry.js` and `clients/cli` were copied in. The four new files' digests matched inside and out (`setup.log`).
+- **Keys.** Throwaway keys for the owner, an admin for the agent, a stranger and two peers, scored 0.2 and 0.01 (`keys.json`, mode 600).
+- **Afterwards** it was removed, after a second, fresh boot for the restore. `docker ps -a` then listed the same containers as before the boot, `tapestry` up 3 days. No code changed during the check.
+
+**All of the script's 34 checks passed** (`main.log`, `reinstall.log`, `restored.log`; each check's detail in `report-*.json`):
+- **S0–S8, the seed and the local caller's calls:** the instance listed both operations and rule 10 as a guard of the three element writes. Linking bot's `project` to project made one `ENUMERATES` from project's superset, carrying nothing, the property still under the primary property alone. `allowed` held the instance's own two elements and the peer scored above the cutoff, not the one below it. `values` named the one element written before the link with a name. The repeat answered `already-enumerated`, and `tapestry graph enumerate` inside the instance was recorded as `local`. create-element, update-node and add-to-concept refused a name, a peer's element below the cutoff, a list holding a name, a key naming no node and the source's own header, each saying why, and took references.
+- **L1:** the admin agent, through nginx and the unchanged external CLI, ran XN1's sequence: it linked robot's field to venture, was told `already-enumerated`, named Moonshot by key, was refused it by name (naming `graph resolve`), named a venture added after the link, took the link back (`removed: 1`) and was refused a firmware concept's property (`firmware-concept`). No firmware concept had a field under its primary property, so one was made by hand under class thread's, as the suites' seed does. The field's history was the agent's three entries (`main.log`, L1a–L1g).
+- **L2:** two enumerates of one property, fired from one node process in the container, 13 times at 0–400 ms (9 overlapping): always one `enumerated` and one `already-enumerated`, one link, one entry. Beside the plan, an enumerate and a create-element of a name in that field, 5 times: the element was made before the link once (at 0 ms) and refused after it four times, never half of each (`main.log`, L2a and L2b).
+- **L3:** after a firmware reinstall (82 s), all 17 links were there, carrying nothing; create-element refused a name and took a reference in three linked concepts, the route's included; firmware's own five edges to JSON schema nodes were as they were; and the graph rule concept held 10 items, `enumerated-value-allowed` among them (`reinstall.log`). `graph-rule-firmware.test.js` passed GL1–GL3 live (`graph-rule-firmware.log`).
+- **L4:** backup `20261119T054611Z-d43433ca` (3.79 MB: 5,554 nodes, 6,116 relationships), taken before the reinstall, was restored on a fresh instance, its transaction and counts exact. The 17 links, the checks on values and firmware's edges were as before (`restore.log`, `restored.log`).
+- **L5:** today's `POST /api/normalize/enumerate` on a property graph add-property made linked project's superset to it, hung it on grok bot's JSON schema node too, and signed two letters. Both new operations refused it `tangled-tree`, its link kept, and create-element in grok bot was checked against the link through the property's chain. After the reinstall, with the extra edge taken out by hand as `rules repair` will, unenumerate took the link out and named the route's letter, which the reinstall had wired into the relationship concept (`main.log`, L5a–L5c; `reinstall.log`, L5d).
+- **L6:** through nginx, a visitor got 401 from both routes, and the stranger, signed in by the CLI, 403 with its cookie (`main.log`).
+- **L7:** with a source of 1,000 elements, enumerate answered 1,000, the first 50 named, in 0.132 s, and 0.062–0.069 s on repeats. create-element naming one took 0.124 s median with the check, against 0.121 s in a concept with no link (`main.log`, L7a and L7b).
+- **L8:** the relay held 468 events before L1 and after L1, L2, L6 and L7. Only today's route, in L5, added its two letters (470), and the reinstall and L5d added none (`main.log`, `reinstall.log`).
+
+**Surprising, but within the ADR:** the refusals `P.load` gives (`firmware-concept`, `not-own-concept`, `tangled-tree`) say `input: concept`, an input these operations don't have. The property writes answer the same, and the plan leaves it unpinned. Ledger row `2026-11-19-property-load-names-concept-input` records it (review round 1, non-blocking 5).
+
+### Review round 1's fixes (2026-11-19)
+
+On `bb6d6255`, the Tester's round-1 cases, with ADR 0019 Amendment 2's items 1 to 3 built and not yet committed. Each suite ran alone on this Mac with every service endpoint dead and stub `curl` and `docker` first on `PATH` (`tmp/review-19/run-suites.sh`, which sources `tmp/a10-19-test-design/env.sh`; its output is in `tmp/a10-19-round1-fixes/suites.log`). None failed:
+- **This story's:** enumerate 31 passed, unenumerate 17, enumerate-agent-through-cli 1, enumerated-value-allowed 17. EN30, EN31 and EV7 failed before the fixes.
+- **The element writes:** create-element 39 (CE51 failed before), update-node 46, add-to-concept 60.
+- **Beside them:** element-fits-schema 11, mark-field 16, relationship-type-allowed 10, graph-fake 33; and, since `validatorOf`'s check now gives ajv's errors too, the property writes: add-property 15, update-property 11, remove-property 8, set-schema 10.
+- **Rule 10's item:** `node src/firmware/graph-rules.js` rewrote `enumerated-value-allowed.json`, its `says` alone, and `--check` finds the 10 items current. graph-rule-firmware 13 passed, 4 skipped (GL1–GL4, its live tests), firmware-element-sync 21, graph-rules-builder 26.
+- **The scoped gate:** record `20261119T170016Z-23376-7bf7`, over CI's five entries for an operations change, with the main checkout's `node_modules` linked for the run and the link taken out after it (`tmp/a10-19-round1-fixes/gate.sh`, the reviewer's script with its label changed). By suite: operations 1,166 passed, 4 skipped; external-cli 53; openapi-coverage 13; admin-action-sweep 9; schema-save-finds-the-right-header 26, 2 skipped. The six skipped are live tests: LK1–LK4, L1 and L2. The `+dirty` is this commit's 11 files and the link (`dirtyCount` 12). Its line, the path shortened:
+
+  ```
+  20261119T170016Z-23376-7bf7 [a10-19-round1-fixes] started 2026-11-19T17:00:16.562Z on bb6d6255+dirty — PASS, exit 0, 1267 passed, 0 failed, 6 skipped, 5/5 suites · …/tmp/gate-runs/20261119T170016Z-23376-7bf7.json
+  ```
+- **harness-lint:** clean.
+- **The Loom memo:** memo 136 on Loom task A10.34 says `export nostr` must rewrite whole `tapestry:` values (ADR 0019 Decision 14; review round 1, non-blocking 6).
 
 ## Linked artifacts
 
@@ -133,5 +207,5 @@ For Architecture, not this gate (answered by ADR 0019):
 - The write path it goes through: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md](../../decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [19-enumerate.test-plan.md](./19-enumerate.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/19-enumerate.md](../../reviews/graph-operations-first-slice/19-enumerate.md)

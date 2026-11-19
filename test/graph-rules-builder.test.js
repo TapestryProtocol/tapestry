@@ -12,7 +12,7 @@
  * rules, and fixtures. Run on its own with `node test/graph-rules-builder.test.js`.
  *
  *   GB1  the script exports its three parts
- *   GB2  the real rulebook reads as nine entries, numbered 1 to 9, with no problem; entry 1 is tapestry-key-unique  [AC2]
+ *   GB2  the real rulebook reads as ten entries, numbered 1 to 10, with no problem; entry 1 is tapestry-key-unique  [AC2]
  *   GB3  each real item's name, number, title, description, about, status and source                              [AC2, AC3]
  *   GB4  each real item's fields hold the rulebook's text: continuation lines dedented, other fields in alsoSays   [AC3]
  *   GB5  a real item whose rule has code holds the code's declaration; entry 1's code is null                       [AC3]
@@ -153,6 +153,14 @@ const REAL = [
     source: 'ADR graph-rules/0002',
     description: "Every tapestry: link in the markdown of the instance's own nodes names a node in this graph.",
   },
+  // Rule 10, joined with story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019 Decision 13): its
+  // number, name, code file, status and source are the ADR's; the words of its Says are the rulebook's, so only that
+  // its first sentence is one.
+  {
+    number: 10, name: 'enumerated-value-allowed', title: 'Enumerated Value Allowed', code: true, alsoSays: [],
+    source: 'ADR graph-operations-first-slice/0019',
+    description: /^[A-Z][\s\S]*\S$/,
+  },
 ];
 const GRAPH_RULE_KEYS = ['name', 'number', 'says', 'kind', 'about', 'refusesOrReports', 'check', 'repair', 'enforcedBy', 'status', 'source', 'alsoSays', 'code'];
 
@@ -161,7 +169,7 @@ function t(name, fn) { tests.push([name, fn]); }
 
 t('GB1: src/firmware/graph-rules.js exports parseRulebook, itemsFor and elementFiles', () => { builder(); });
 
-t('GB2 (AC2): the real rulebook reads as nine entries, numbered 1 to 9, with no problem, and entry 1 is tapestry-key-unique', () => {
+t('GB2 (AC2): the real rulebook reads as ten entries, numbered 1 to 10, with no problem, and entry 1 is tapestry-key-unique', () => {
   const r = build(builder(), realInputs());
   assert(r.problems.length === 0, `no problem with today's rulebook and rules; got ${short(r.problems, 1200)}`);
   const got = r.entries.map((e) => [e.number, e.name]);

@@ -46,7 +46,9 @@ const MADE_BY = {
   IS_A_SUPERSET_OF: /link-set/,
   HAS_ELEMENT: /add-to-concept/,
   IS_A_PROPERTY_OF: /add-property/,
-  ENUMERATES: /enumerate/,
+  // Made and taken out by these two since story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019
+  // Implementation notes: relationship-type-allowed.js:44).
+  ENUMERATES: /graph enumerate and unenumerate/,
   AUTHORS: /import nostr/,
   HAS_TAG: /import nostr/,
   REFERENCES: /import nostr/,

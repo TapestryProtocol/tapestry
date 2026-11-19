@@ -6,7 +6,9 @@
  *
  * A write through the write path (src/operations/write.js). Its guard is the rule element-fits-schema, BIBLE §10's rule
  * 4, which apply runs on the JSON it builds once it holds its locks on the node and the concept's header (as
- * create-element and update-node run it). Any node is taken, whatever its source. One of the instance's own keeps the
+ * create-element and update-node run it), and right after it the rule enumerated-value-allowed, rule 10, over the same
+ * JSON (story graph-operations-first-slice #19, ADR graph-operations-first-slice/0019 Decision 8). Any node is taken,
+ * whatever its source. One of the instance's own keeps the
  * concept's section in its json tag, with the tags a letter for it would carry; another author's letter, a person node,
  * a placeholder or one of firmware's own elements keeps it beside, in tapestryOwnSections, so the author's letter, or
  * firmware's definition, is never written (design D4; _memberships.js). It is safe to repeat by node, concept and set,
@@ -85,9 +87,10 @@ module.exports = {
     },
   },
   refusals: [X.BAD_NAME, X.BAD_FIELDS, M.NOT_INSTALLED_ADD, M.UNKNOWN_NODE, M.TAG_NODE, M.MADE_ELSEWHERE_ADD, F.UNKNOWN_CONCEPT, X.RESERVED_KEY, M.NO_SUPERSET_ADD, X.NOT_A_SET, X.NOT_IN_CLASS_THREAD, M.UNREADABLE_JSON, M.NAME_IN_USE],
-  // The rule's refusals are listed through the guard, but its items are empty: the JSON it judges is built from the
-  // graph, inside the write, so apply runs the rule on it after the locks (ADR 0022 Decision 1, as ADR 0020 Option A).
-  guards: [{ rule: 'element-fits-schema', items: () => [] }],
+  // The rules' refusals are listed through the guards, but their items are empty: the JSON they judge is built from the
+  // graph, inside the write, so apply runs each on it after the locks (ADR 0022 Decision 1, as ADR 0020 Option A; ADR
+  // 0019 Decision 8 for enumerated-value-allowed).
+  guards: [{ rule: 'element-fits-schema', items: () => [] }, { rule: 'enumerated-value-allowed', items: () => [] }],
   repeatKey: ['node', 'concept', 'set'],
 
   async apply(inputs, ctx) {
@@ -206,6 +209,8 @@ module.exports = {
         if (sectionWritten || !isRefusal(e) || e.code !== 'invalid-fields') throw e;
         throw refusal(e.code, `${e.message} ${M.say.memberMisfit(concept, oKey, joining, set)}`, e.extra);
       }
+      // Rule 10 on the same JSON, when the call changes it (ADR 0019 Decision 8).
+      await Sch.checkRule(read, 'enumerated-value-allowed', [{ concept: concept.key, json: view }]);
     }
 
     // 10. The writes (Decision 9): the link, the section and wordTypes, the would-be tags, the marks.

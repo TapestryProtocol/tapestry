@@ -61,6 +61,19 @@
  *   CE40 the marks: Biscuit carries dog's marked fields as dog_breed and dog_age in the same write, its entry records
  *        the copies, and what can't be carried comes back as skipped
  *   CE41 the new modules require nothing that signs
+ *   Story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019 Decision 8; its test plan), over
+ *   test/helpers/enumerationGraph.js's seed with its links (prepareLinked), in runs of their own:
+ *   CE50 a value a link doesn't allow is refused value-not-allowed by enumerated-value-allowed, naming the field, the
+ *        value, the source and the way on; a name, a list holding one, a nested field's, a peer's below the cutoff,
+ *        an uppercase key; nothing is written
+ *   CE51 allowed references are made: the instance's own, a scored peer's, one in a set below, a list of them, a
+ *        nested one; a null, a null in a list beside an allowed reference (review round 1, ADR 0019 Amendment 2 item
+ *        3), and a field left out, aren't judged
+ *   CE52 the values follow the source with no further call: an element create-element adds to it is allowed at once;
+ *        one taken out with remove-from-concept, or deleted, is refused
+ *   CE53 Grok Bots' tangled concept, its link today's route's, is checked all the same
+ *   CE54 rule 10 runs right after rule 4: a value that misfits the schema, and isn't a reference either, is refused
+ *        invalid-fields by element-fits-schema (review round 1)
  */
 
 const fs = require('fs');
@@ -422,15 +435,16 @@ test('CE14: it is listed with its guard, repeatKey, inputs and every refusal, an
   const { a } = await main();
   const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'create-element');
   assert(e, `graph create-element is listed; problems: ${show((a.req('list').body.data || {}).problems)}`);
-  assert(e.kind === 'write' && e.access === 'owner-and-admins' && show(e.guards) === show([RULE]) && show(e.repeatKey) === show(['concept', 'name']),
-    `a write for the owner and admins, guard ${RULE}, repeatKey [concept, name]; got ${show({ kind: e.kind, access: e.access, guards: e.guards, repeatKey: e.repeatKey })}`);
+  // Story graph-operations-first-slice #19 (ADR 0019 Decision 8): rule 10's guard beside rule 4's, its items empty.
+  assert(e.kind === 'write' && e.access === 'owner-and-admins' && show([...(e.guards || [])].sort()) === show([RULE, 'enumerated-value-allowed']) && show(e.repeatKey) === show(['concept', 'name']),
+    `a write for the owner and admins, guards ${RULE} and enumerated-value-allowed, repeatKey [concept, name]; got ${show({ kind: e.kind, access: e.access, guards: e.guards, repeatKey: e.repeatKey })}`);
   const ins = e.inputs || {};
   assert(ins.concept && ins.concept.required === true && ins.name && ins.name.required === true && ins.set && !ins.set.required && ins.fields && !ins.fields.required,
     `concept and name are required, set and fields not; got ${show(ins)}`);
   const kinds = ((ins.fields.schema || {}).oneOf || []).map((x) => x.type).sort();
   assert(show(kinds) === show(['object', 'string']), `fields takes an object or its JSON text (Decision 1); got ${show(ins.fields.schema)}`);
   const status = Object.fromEntries((e.refusals || []).map((x) => [x.code, x.status]));
-  const want = { 'bad-name': 400, 'bad-fields': 400, 'unknown-concept': 404, 'made-elsewhere': 409, 'no-superset': 409, 'not-installed': 409, 'unknown-node': 404, 'not-a-set': 409, 'not-in-class-thread': 409, 'no-free-address': 409, 'invalid-fields': 400, 'no-schema': 409, 'reserved-key': 409 };
+  const want = { 'bad-name': 400, 'bad-fields': 400, 'unknown-concept': 404, 'made-elsewhere': 409, 'no-superset': 409, 'not-installed': 409, 'unknown-node': 404, 'not-a-set': 409, 'not-in-class-thread': 409, 'no-free-address': 409, 'invalid-fields': 400, 'no-schema': 409, 'reserved-key': 409, 'value-not-allowed': 400 };
   for (const [code, st] of Object.entries(want)) assert(status[code] === st, `its refusals include ${code} (${st}), Decision 18's; got ${show(status)}`);
   for (const code of ['missing-input', 'invalid-input', 'unknown-input', 'wrong-content-type', 'sign-in-required', 'not-allowed']) assert(code in status, `its refusals include ${code}; got ${show(Object.keys(status))}`);
   const child = spawnSync(process.execPath, ['-e', `
@@ -771,6 +785,129 @@ test('CE41: the new modules require nothing that signs, publishes or reads a key
     const bad = (src.match(/require\(\s*['"][^'"]*['"]\s*\)/g) || []).filter((r) => /nostr-tools|normalize\/helpers|secureKeyStorage|child_process|strfry|signing/.test(r));
     assert(bad.length === 0, `${f} must require nothing that signs (ADR 0004 Decision 10); it requires ${show(bad)}`);
   }
+});
+
+// ── story graph-operations-first-slice #19: the rule enumerated-value-allowed in create-element (ADR 0019 Decision 8) ──
+const EG = require('../../helpers/enumerationGraph');
+const RULE10 = 'enumerated-value-allowed';
+function needRule10() {
+  needDecl();
+  if (!fs.existsSync(path.join(ROOT, `src/operations/rules/${RULE10}.js`))) throw new Error(`src/operations/rules/${RULE10}.js does not exist yet (ADR graph-operations-first-slice/0019 Decision 7): create-element runs it after rule 4 (Decision 8)`);
+}
+const canon19 = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((o, key) => { o[key] = v[key]; return o; }, {}) : v));
+const graphOf19 = (s) => canon19({ nodes: s.nodes, rels: s.rels });
+
+let ENUM = null;
+function enumRuns() {
+  if (ENUM) return ENUM;
+  ENUM = (async () => {
+    needRule10();
+    const ctx = await EG.prepareLinked('create-element-enumerated');
+    const { file, c, el } = ctx;
+    const bot = (id, name, fields) => post(id, 'owner', { concept: c.bot, name, fields: { description: `${name}, a bot`, ...fields } });
+    const before = S.readState(file);
+    const refusedRun = runOn(file, [
+      bot('name', 'Bad Name', { project: 'Infinite Harness' }),
+      bot('list', 'Bad List', { projects: [EG.ref(el.loom), 'Loom'] }),
+      bot('nested', 'Bad Nested', { team: { lead: 'Ada' } }),
+      bot('peer-lo', 'Bad Peer', { project: EG.ref(el.peerLo) }),
+      bot('upper', 'Bad Upper', { project: `tapestry:${el.loom.toUpperCase()}` }),
+      post('grok-name', 'owner', { concept: c.grokBot, name: 'Grok Beta', fields: { description: 'a grok bot', project: 'Infinite Harness' } }),
+      // CE54 (review round 1): a number in bot's project, a string field, which is no reference either.
+      bot('both', 'Bad Both', { project: 5 }),
+    ]).a;
+    const afterRefused = S.readState(file);
+    const made = runOn(file, [
+      bot('own', 'Good Own', { project: EG.ref(el.infiniteHarness) }),
+      bot('peer-hi', 'Good Peer', { project: EG.ref(el.peerHi) }),
+      bot('deep', 'Good Deep', { project: EG.ref(el.deep) }),
+      bot('list-ok', 'Good List', { projects: [EG.ref(el.loom), EG.ref(el.infiniteHarness)] }),
+      bot('nested-ok', 'Good Nested', { team: { lead: EG.ref(el.ada) } }),
+      bot('null-ok', 'Good Null', { nickname: null }),
+      // CE51 (review round 1, ADR 0019 Amendment 2 item 3): a null in a list whose items may be null isn't judged.
+      bot('null-item-ok', 'Good Null Item', { pastProjects: [null, EG.ref(el.loom)] }),
+      bot('absent', 'Good Absent', {}),
+      post('grok-ref', 'owner', { concept: c.grokBot, name: 'Grok Gamma', fields: { description: 'a grok bot', project: EG.ref(el.infiniteHarness) } }),
+      post('new-source', 'owner', { concept: c.project, name: 'New Project', fields: { description: 'made after the link' } }),
+      post('gone-source', 'owner', { concept: c.project, name: 'Gone Project', fields: { description: 'taken out later' } }),
+      post('deleted-source', 'owner', { concept: c.project, name: 'Deleted Project', fields: { description: 'deleted later' } }),
+    ]).a;
+    const keyOf = (id) => { const x = made.req(id); assert(x.status === 200 && x.body.data.outcome === 'created', `${id} must be made; got ${x.status} ${show(x.body).slice(0, 400)}`); return x.body.data.element.tapestryKey; };
+    const fresh19 = { newSource: keyOf('new-source'), goneSource: keyOf('gone-source'), deletedSource: keyOf('deleted-source') };
+    const follow = runOn(file, [
+      bot('after-new', 'Follows New', { project: EG.ref(fresh19.newSource) }),
+      { id: 'gone-joins-person', method: 'POST', url: EG.ROUTE.addToConcept, caller: 'owner', body: { node: fresh19.goneSource, concept: c.person, fields: { description: 'a person too' } } },
+      { id: 'gone-out', method: 'POST', url: EG.ROUTE.removeFromConcept, caller: 'owner', body: { node: fresh19.goneSource, concept: c.project } },
+      { id: 'deleted', method: 'POST', url: EG.ROUTE.deleteNode, caller: 'owner', body: { node: fresh19.deletedSource } },
+      bot('after-gone', 'Follows Gone', { project: EG.ref(fresh19.goneSource) }),
+      bot('after-deleted', 'Follows Deleted', { project: EG.ref(fresh19.deletedSource) }),
+    ]).a;
+    return { ctx, before, afterRefused, refusedRun, made, follow, fresh19, file };
+  })();
+  return ENUM;
+}
+/** A create-element refused by rule 10: 400 value-not-allowed, the rule named, the field and the value in the words. */
+function refusedByRule10(runResult, id, field, value) {
+  const x = runResult.req(id);
+  assert(x.status === 400 && x.body.code === 'value-not-allowed' && x.body.rule === RULE10, `${id} must be refused 400 value-not-allowed by ${RULE10}; got ${x.status} ${show(x.body).slice(0, 500)}`);
+  assert(String(x.body.error).includes(field) && String(x.body.error).includes(value), `${id}: the refusal names the field ${field} and the value ${value}; got ${show(x.body.error)}`);
+  return x.body;
+}
+
+test('CE50 [story 19 AC3, ADR 0019 Decision 8]: a value a link doesn\'t allow is refused value-not-allowed, naming the field, the value, the source and the way on; nothing is written', async () => {
+  const { refusedRun, ctx, before, afterRefused } = await enumRuns();
+  const { el, c } = ctx;
+  const body = refusedByRule10(refusedRun, 'name', 'bot.project', 'Infinite Harness');
+  for (const part of ['project', c.project, 'graph resolve', 'graph list-elements', 'graph create-element']) assert(String(body.error).includes(part), `the refusal names ${part}: the source concept by name and key, and the way on; got ${show(body.error)}`);
+  refusedByRule10(refusedRun, 'list', 'bot.projects', 'Loom');
+  assert(!String(refusedRun.req('list').body.error).includes(EG.ref(el.loom)), `a list is judged item by item: its allowed reference isn't named; got ${show(refusedRun.req('list').body.error)}`);
+  refusedByRule10(refusedRun, 'nested', 'bot.team.lead', 'Ada');
+  refusedByRule10(refusedRun, 'peer-lo', 'bot.project', EG.ref(el.peerLo));
+  refusedByRule10(refusedRun, 'upper', 'bot.project', el.loom.toUpperCase());
+  assert(graphOf19(afterRefused) === graphOf19(before), 'nothing is written: no node, tag, relationship or entry');
+});
+
+test('CE51 [story 19 AC2, AC3]: allowed references are made, each kept as given; a null, a null in a list beside an allowed reference, and a field left out, aren\'t judged', async () => {
+  const { made, ctx, file } = await enumRuns();
+  const { el } = ctx;
+  const g = S.readState(file);
+  for (const [id, field, value] of [
+    ['own', 'project', EG.ref(el.infiniteHarness)], ['peer-hi', 'project', EG.ref(el.peerHi)], ['deep', 'project', EG.ref(el.deep)],
+    ['list-ok', 'projects', [EG.ref(el.loom), EG.ref(el.infiniteHarness)]], ['nested-ok', 'team', { lead: EG.ref(el.ada) }], ['null-ok', 'nickname', null],
+    // Review round 1, non-blocking 2 (ADR 0019 Amendment 2, item 3): a null is never judged, an item of a list included.
+    ['null-item-ok', 'pastProjects', [null, EG.ref(el.loom)]],
+    ['absent', 'project', undefined],
+  ]) {
+    const x = made.req(id);
+    assert(x.status === 200 && x.body.data.outcome === 'created', `${id} is made; got ${x.status} ${show(x.body).slice(0, 400)}`);
+    const sec = sectionOf(g, x.body.data.element.tapestryKey, 'bot');
+    assert(show(sec[field]) === show(value), `${id}: its ${field} as given; got ${show(sec[field])}`);
+  }
+});
+
+test('CE52 [story 19 AC3]: the values follow the source: an element added to it is allowed at once; one taken out, or deleted, is refused, with no further call', async () => {
+  const { follow, fresh19 } = await enumRuns();
+  const x = follow.req('after-new');
+  assert(x.status === 200 && x.body.data.outcome === 'created', `New Project, which create-element added to project after the link, is allowed; got ${x.status} ${show(x.body).slice(0, 400)}`);
+  for (const id of ['gone-joins-person', 'gone-out', 'deleted']) assert(follow.req(id).status === 200, `the setup's ${id} must succeed; got ${follow.req(id).status} ${show(follow.req(id).body).slice(0, 300)}`);
+  refusedByRule10(follow, 'after-gone', 'bot.project', EG.ref(fresh19.goneSource));
+  refusedByRule10(follow, 'after-deleted', 'bot.project', EG.ref(fresh19.deletedSource));
+});
+
+test('CE53 [story 19 AC3, ADR 0019 Consequences]: Grok Bots\' tangled concept, linked by today\'s route, is checked all the same', async () => {
+  const { refusedRun, made } = await enumRuns();
+  refusedByRule10(refusedRun, 'grok-name', 'grokBot.project', 'Infinite Harness');
+  const x = made.req('grok-ref');
+  assert(x.status === 200 && x.body.data.outcome === 'created', `a reference is made; got ${x.status} ${show(x.body).slice(0, 400)}`);
+});
+
+test('CE54 [story 19 AC3, ADR 0019 Decision 8]: rule 10 runs right after rule 4: a value that misfits the schema, and isn\'t a reference either, is refused invalid-fields by element-fits-schema', async () => {
+  // Review round 1, non-blocking 3: Decision 8's order, which no test checked. 5 misfits bot's project, a string, and
+  // isn't a reference, so rule 4 refuses it first, and rule 10 never judges it.
+  const { refusedRun } = await enumRuns();
+  const x = refusedRun.req('both');
+  assert(x.status === 400 && x.body.code === 'invalid-fields' && x.body.rule === RULE && /bot\.project/.test(String(x.body.error)),
+    `refused 400 invalid-fields by ${RULE}, naming bot.project, not value-not-allowed by ${RULE10}; got ${x.status} ${show(x.body).slice(0, 500)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

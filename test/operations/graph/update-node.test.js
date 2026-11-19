@@ -67,6 +67,14 @@
  *   (review round 2) UN45 fields.description given alone is kept as given, white space and all
  *   (story 42's review round 2) UN46 a node under word's thread, with firmware word's real schema, is updated: the
  *        named concept fits, and word is reported as waiting for the derive step, not as failing; the answer validates
+ *   Story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019 Decision 8; its test plan), over
+ *   test/helpers/enumerationGraph.js's seed with its links (prepareLinked), in runs of their own:
+ *   UN50 a field changed to a value a link doesn't allow is refused value-not-allowed by enumerated-value-allowed;
+ *        nothing is written
+ *   UN51 a field changed to an allowed reference is updated, its JSON holding it
+ *   UN52 every finding is named: three fields that break the rule, in one refusal
+ *   UN53 an element written before the link: a change to another field of its section is refused for the value it
+ *        holds; changing that value to a reference is the way on
  */
 
 const fs = require('fs');
@@ -372,8 +380,9 @@ test('UN11: it is listed with its guard, repeatKey, inputs and every refusal, an
   const { a } = await main();
   const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'update-node');
   assert(e, `graph update-node is listed; problems: ${show((a.req('list').body.data || {}).problems)}`);
-  assert(e.kind === 'write' && e.access === 'owner-and-admins' && show(e.guards) === show([RULE]) && show(e.repeatKey) === show(['node', 'concept', 'name', 'description', 'fields']),
-    `a write for the owner and admins, guard ${RULE}, repeatKey [node, concept, name, description, fields] (Decision 1); got ${show({ kind: e.kind, access: e.access, guards: e.guards, repeatKey: e.repeatKey })}`);
+  // Story graph-operations-first-slice #19 (ADR 0019 Decision 8): rule 10's guard beside rule 4's, its items empty.
+  assert(e.kind === 'write' && e.access === 'owner-and-admins' && show([...(e.guards || [])].sort()) === show([RULE, 'enumerated-value-allowed']) && show(e.repeatKey) === show(['node', 'concept', 'name', 'description', 'fields']),
+    `a write for the owner and admins, guards ${RULE} and enumerated-value-allowed, repeatKey [node, concept, name, description, fields] (Decision 1); got ${show({ kind: e.kind, access: e.access, guards: e.guards, repeatKey: e.repeatKey })}`);
   const ins = e.inputs || {};
   assert(ins.node && ins.node.required === true && ['name', 'description', 'fields', 'concept'].every((i) => ins[i] && !ins[i].required), `node is required; name, description, fields and concept are not; got ${show(ins)}`);
   const kinds = ((ins.fields.schema || {}).oneOf || []).map((x) => x.type).sort();
@@ -383,6 +392,7 @@ test('UN11: it is listed with its guard, repeatKey, inputs and every refusal, an
     'nothing-to-change': 400, 'bad-name': 400, 'bad-fields': 400, 'not-installed': 409, 'unknown-node': 404, 'not-own-node': 409,
     'made-elsewhere': 409, 'firmware-node': 409, 'not-an-element': 409, 'unknown-concept': 404, 'reserved-key': 409, 'not-its-concept': 409,
     'concept-needed': 409, 'unreadable-json': 409, 'no-section': 409, 'name-in-use': 409, 'invalid-fields': 400, 'no-schema': 409,
+    'value-not-allowed': 400,
   };
   for (const [code, st] of Object.entries(want)) assert(status[code] === st, `its refusals include ${code} (${st}), Decision 20's; got ${show(status)}`);
   for (const code of ['missing-input', 'invalid-input', 'unknown-input', 'wrong-content-type', 'sign-in-required', 'not-allowed']) assert(code in status, `its refusals include ${code}; got ${show(Object.keys(status))}`);
@@ -873,6 +883,75 @@ test('UN46: a node under word\'s thread is updated, and word is reported as wait
   const Ajv = require(require.resolve('ajv', { paths: [ROOT] }));
   const validConcepts = new Ajv({ allErrors: true, strict: false }).compile(require(DECL).result.schema.properties.concepts);
   assert(validConcepts(cs), `the answer's concepts validate against the declared answer, word's waiting entry too (ADR 0042 Decision 4); got ${show(validConcepts.errors)}`);
+});
+
+// ── story graph-operations-first-slice #19: the rule enumerated-value-allowed in update-node (ADR 0019 Decision 8) ──
+const EG = require('../../helpers/enumerationGraph');
+const RULE10 = 'enumerated-value-allowed';
+function needRule10() {
+  needDecl();
+  if (!fs.existsSync(path.join(ROOT, `src/operations/rules/${RULE10}.js`))) throw new Error(`src/operations/rules/${RULE10}.js does not exist yet (ADR graph-operations-first-slice/0019 Decision 7): update-node runs it after rule 4 (Decision 8)`);
+}
+const canon19 = (x) => JSON.stringify(x, (k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((o, key) => { o[key] = v[key]; return o; }, {}) : v));
+const graphOf19 = (s) => canon19({ nodes: s.nodes, rels: s.rels });
+
+let ENUM = null;
+function enumRuns() {
+  if (ENUM) return ENUM;
+  ENUM = (async () => {
+    needRule10();
+    const ctx = await EG.prepareLinked('update-node-enumerated');
+    const { file, el } = ctx;
+    const up = (id, node, fields) => post(id, 'owner', { node, fields });
+    const before = S.readState(file);
+    const refusedRun = runOn(file, [
+      up('name', el.grokTwo, { project: 'Infinite Harness' }),
+      up('every', el.grokThree, { project: 'Loom', projects: ['Loom'], team: { lead: 'Ada' } }),
+      up('old-value', el.grokOne, { description: 'Grok One, changed' }),
+    ]).a;
+    const afterRefused = S.readState(file);
+    const madeRun = runOn(file, [
+      up('ref', el.grokTwo, { project: EG.ref(el.loom) }),
+      up('fix', el.grokOne, { project: EG.ref(el.infiniteHarness) }),
+    ]).a;
+    return { ctx, before, afterRefused, refusedRun, madeRun, file };
+  })();
+  return ENUM;
+}
+function refusedByRule10(runResult, id) {
+  const x = runResult.req(id);
+  assert(x.status === 400 && x.body.code === 'value-not-allowed' && x.body.rule === RULE10, `${id} must be refused 400 value-not-allowed by ${RULE10}; got ${x.status} ${show(x.body).slice(0, 500)}`);
+  return String(x.body.error);
+}
+
+test('UN50 [story 19 AC3, ADR 0019 Decision 8]: a field changed to a value a link doesn\'t allow is refused value-not-allowed; nothing is written', async () => {
+  const { refusedRun, before, afterRefused, ctx } = await enumRuns();
+  const words = refusedByRule10(refusedRun, 'name');
+  for (const part of ['bot.project', 'Infinite Harness', ctx.c.project, 'graph resolve']) assert(words.includes(part), `the refusal names ${part}; got ${show(words)}`);
+  assert(graphOf19(afterRefused) === graphOf19(before), 'nothing is written: Grok Two\'s JSON as it was, and no entry');
+  assert(show(sectionOf(afterRefused, ctx.el.grokTwo, 'bot').project) === show(EG.ref(ctx.el.infiniteHarness)), 'Grok Two keeps its reference');
+});
+
+test('UN51 [story 19 AC3]: a field changed to an allowed reference is updated, its JSON holding it', async () => {
+  const { madeRun, ctx, file } = await enumRuns();
+  const x = madeRun.req('ref');
+  assert(x.status === 200 && x.body.data.outcome === 'updated', `updated; got ${x.status} ${show(x.body).slice(0, 400)}`);
+  assert(sectionOf(S.readState(file), ctx.el.grokTwo, 'bot').project === EG.ref(ctx.el.loom), 'its project is now Loom\'s reference');
+});
+
+test('UN52 [story 19 AC3, ADR 0019 Decision 8]: every finding is named: three fields that break the rule, in one refusal', async () => {
+  const { refusedRun } = await enumRuns();
+  const words = refusedByRule10(refusedRun, 'every');
+  for (const place of ['bot.project', 'bot.projects', 'bot.team.lead']) assert(words.includes(place), `the refusal names ${place}, every finding of the rule (Decision 8); got ${show(words)}`);
+});
+
+test('UN53 [story 19 AC3]: an element written before the link: a change to another field of its section is refused for the value it holds; changing it to a reference is the way on', async () => {
+  const { refusedRun, madeRun, ctx, file } = await enumRuns();
+  const words = refusedByRule10(refusedRun, 'old-value');
+  assert(words.includes('bot.project') && words.includes('Infinite Harness'), `Grok One's description can't change while its project is a name: a later write is judged as any write is (AC3); got ${show(words)}`);
+  const x = madeRun.req('fix');
+  assert(x.status === 200 && x.body.data.outcome === 'updated' && sectionOf(S.readState(file), ctx.el.grokOne, 'bot').project === EG.ref(ctx.el.infiniteHarness),
+    `giving its project the reference is updated, as the refusal suggests; got ${x.status} ${show(x.body).slice(0, 400)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

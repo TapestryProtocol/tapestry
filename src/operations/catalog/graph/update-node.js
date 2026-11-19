@@ -7,7 +7,9 @@
  * A write through the write path (src/operations/write.js). It edits the node's stored JSON, its json tag, in place:
  * the fields merged into one concept's section, and a rename's values where they held what the old name gave. Its
  * guard is the rule element-fits-schema, BIBLE §10's rule 4, which apply runs on the JSON it built, for each concept
- * whose section the call changes, once the write holds its locks (as create-element runs it; Option A). It refuses a
+ * whose section the call changes, once the write holds its locks (as create-element runs it; Option A), and right after
+ * it the rule enumerated-value-allowed, rule 10, over the same JSON (story graph-operations-first-slice #19, ADR
+ * graph-operations-first-slice/0019 Decision 8). It refuses a
  * node that came from someone else's event (design D4) with _nodes.js's requireOwn, the one test merge-nodes,
  * delete-node and copy-node will use too. It is safe to repeat: a call that gives only what the node holds changes
  * nothing and records nothing. It signs nothing, and leaves the derived cache as it is (the owner's answer, open
@@ -125,9 +127,10 @@ module.exports = {
     },
   },
   refusals: [NOTHING_TO_CHANGE, X.BAD_NAME, BAD_FIELDS, NOT_INSTALLED, UNKNOWN_NODE, N.NOT_OWN_NODE, N.PERSON_NODE, N.PLACEHOLDER_NODE, MADE_ELSEWHERE, FIRMWARE_NODE, NOT_AN_ELEMENT, F.UNKNOWN_CONCEPT, X.RESERVED_KEY, NOT_ITS_CONCEPT, CONCEPT_NEEDED, UNREADABLE_JSON, NO_SECTION, NAME_IN_USE],
-  // The rule's refusals are listed through the guard, but its items are empty: the JSON it judges is built from the
-  // graph, inside the write, so apply runs the rule on it after the locks (ADR 0021 Decision 11, as ADR 0020 Option A).
-  guards: [{ rule: 'element-fits-schema', items: () => [] }],
+  // The rules' refusals are listed through the guards, but their items are empty: the JSON they judge is built from the
+  // graph, inside the write, so apply runs each on it after the locks (ADR 0021 Decision 11, as ADR 0020 Option A; ADR
+  // 0019 Decision 8 for enumerated-value-allowed).
+  guards: [{ rule: 'element-fits-schema', items: () => [] }, { rule: 'enumerated-value-allowed', items: () => [] }],
   repeatKey: ['node', 'concept', 'name', 'description', 'fields'],
 
   async apply(inputs, ctx) {
@@ -286,10 +289,14 @@ module.exports = {
       }
     }
 
-    // 11. Rule 4 (Decision 11): each judged concept whose section changed, every finding named.
+    // 11. Rule 4 (Decision 11): each judged concept whose section changed, every finding named. Then rule 10 over the
+    // same items, every finding named too (ADR 0019 Decision 8).
     const changedKeys = new Set([...renamedSections, ...(fieldChanges.length ? [targetKey] : [])]);
     const items = judged.filter((c) => changedKeys.has(byKey.get(c).oKey)).map((c) => ({ concept: c, json }));
-    if (items.length) await Sch.checkElements(read, items, { every: true });
+    if (items.length) {
+      await Sch.checkElements(read, items, { every: true });
+      await Sch.checkRule(read, 'enumerated-value-allowed', items, { every: true });
+    }
 
     // 12. The write (Decision 13): the node's name, its name tags, and its json tags, inline.
     const writes = [];
