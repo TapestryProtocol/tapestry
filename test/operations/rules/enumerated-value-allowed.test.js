@@ -9,10 +9,11 @@
  * Stack-free. The rule's one definition, violations(items, read), is called directly, in a child process with the TA
  * and the owner set (test/helpers/graphOpsSuite.js's childEnv), over the graph test/helpers/enumerationGraph.js seeds
  * (it says what the graph holds), through graphFake's readerOver, as the element writes call it, with { concept, json }
- * items. The links are made first, as today's route makes them: project's superset to bot's project, projects and
- * nickname; person's superset to bot's team.lead and to person's mentor; project's superset to grok bot's project,
- * whose tree is tangled, its property also IS_A_PROPERTY_OF its JSON schema node (Grok Bots' shape); and firmware's
- * shape, person's superset to bot's JSON schema node, with a destinationPath naming bot.spare.
+ * items. The links are made first, as today's route makes them: project's superset to bot's project, projects,
+ * nickname and pastProjects (a list whose items may be null); person's superset to bot's team.lead and to person's
+ * mentor; project's superset to grok bot's project, whose tree is tangled, its property also IS_A_PROPERTY_OF its JSON
+ * schema node (Grok Bots' shape); firmware's shape, person's superset to bot's JSON schema node, with a destinationPath
+ * naming bot.spare; and, for EV17, the flagship set, a set below project's superset, to bot's flag.
  *
  *   EV1  the rules' loader finds it: its name, a summary, refuses: true, and its one refusal, value-not-allowed (400)
  *   EV2  a value that isn't a reference: a name, a slug, an address, a nostr: link, an uppercase key, a bare key, an
@@ -24,7 +25,8 @@
  *   EV5  allowed values pass: the instance's own, the owner's, a scored peer's, one with no author, one in a set below
  *   EV6  a list is judged item by item: one finding, naming each value not allowed; a list that holds only allowed
  *        values, and an empty one, pass
- *   EV7  a null, in a field whose type allows it, and a field left out, aren't judged
+ *   EV7  a null, as a field's value or as an item of a list, and a field left out, aren't judged; a value beside a
+ *        null in a list is (review round 1, ADR 0019 Amendment 2 item 3)
  *   EV8  a nested property is found by its chain, and its finding gives its place, bot.team.lead
  *   EV9  Grok Bots' shape: a property found through its chain to the primary property, though it also hangs on the
  *        JSON schema node
@@ -36,6 +38,8 @@
  *   EV14 the message names the field, the value, why, the source concept by name and key, and the way on
  *   EV15 the rulebook holds its entry, §10, in its format: enforced, by the three element writes, from ADR 0019
  *   EV16 the graph rule concept's firmware has its element, as node src/firmware/graph-rules.js makes it
+ *   EV17 a link from a set, not a superset, is never read: the field it ends at isn't judged, the item's others are
+ *        (review round 1)
  */
 
 const fs = require('fs');
@@ -65,6 +69,8 @@ async function results() {
     needRule();
     const ctx = await EG.prepareLinked('rule-10');
     const { file, c, sup, el, uuid } = ctx;
+    // EV17 (review round 1): a link from a set, which rule 10's first read must not take for a field's link.
+    EG.link(file, ctx.set.flagship, ctx.f.bot.flag);
     const json = (oKey, fields) => EG.elementJson(oKey, fields);
     const bot = (fields) => ({ concept: c.bot, json: json('bot', fields) });
     const person = (fields) => ({ concept: c.person, json: json('person', fields) });
@@ -101,6 +107,10 @@ async function results() {
       nickRef: one({ nickname: ref(el.loom) }),
       nickBad: one({ nickname: 'Loom' }),
       absent: one({}),
+      nullItem: one({ pastProjects: [null] }),
+      nullItemRef: one({ pastProjects: [null, ref(el.loom)] }),
+      nullItemName: one({ pastProjects: [null, 'A Name'] }),
+      setStart: one({ flag: 'not a reference at all', project: 'Loom' }),
       nested: one({ team: { lead: 'Ada' } }),
       nestedOk: one({ team: { lead: ref(el.ada) } }),
       self: [person({ mentor: ref(el.grace) })],
@@ -228,11 +238,17 @@ test('EV6 [AC2, Decision 6]: a list is judged item by item: one finding naming e
   await none('listEmpty');
 });
 
-test('EV7 [Decision 6]: a null, in a field whose type allows it, and a field left out, aren\'t judged; a nullable field\'s value is', async () => {
+test('EV7 [Decision 6, Amendment 2 item 3]: a null, as a field\'s value or as an item of a list, and a field left out, aren\'t judged; a nullable field\'s value is, and so is a value beside a null', async () => {
   await none('nullField');
   await none('absent');
   await none('nickRef');
   await oneFinding('nickBad', 'nickname', ['Loom']);
+  // Review round 1, non-blocking 2: a null inside a list whose items' type allows one isn't judged either, whatever
+  // stands beside it; a value beside it that isn't allowed is refused for that value alone.
+  await none('nullItem');
+  await none('nullItemRef');
+  const x = await oneFinding('nullItemName', 'pastProjects', ['A Name']);
+  assert(!/\bnull\b/i.test(String(x.message)), `the finding is about 'A Name' alone: its message doesn't mention the null; got ${show(x.message)}`);
 });
 
 test('EV8 [Decision 7]: a nested property is found by its chain, and its finding gives its place, bot.team.lead', async () => {
@@ -310,6 +326,12 @@ test('EV16 [Decision 13]: the graph rule concept\'s firmware has its element, as
   assert(el.graphRule && el.graphRule.name === NAME && el.graphRule.number === 10 && el.graphRule.status === 'enforced', `its graphRule section: rule 10, enforced; got ${show(el.graphRule && { name: el.graphRule.name, number: el.graphRule.number, status: el.graphRule.status })}`);
   const check = spawnSync(process.execPath, [path.join(ROOT, 'src/firmware/graph-rules.js'), '--check'], { cwd: ROOT, encoding: 'utf8', timeout: 60000 });
   assert(check.status === 0, `node src/firmware/graph-rules.js --check finds the files as the rulebook makes them; exit ${check.status}: ${(check.stdout + check.stderr).slice(-400)}`);
+});
+
+test('EV17 [Decision 7]: a link from a set, not a superset, is never read: the field it ends at isn\'t judged, though the item\'s other fields are', async () => {
+  // Review round 1, non-blocking 3: the plan's edge case ("rule 10 never reads it"), which no test checked. The
+  // flagship set links bot's flag; the item's project is judged in the same check, so the rule ran.
+  await oneFinding('setStart', 'project', ['Loom']);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

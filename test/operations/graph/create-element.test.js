@@ -67,10 +67,13 @@
  *        value, the source and the way on; a name, a list holding one, a nested field's, a peer's below the cutoff,
  *        an uppercase key; nothing is written
  *   CE51 allowed references are made: the instance's own, a scored peer's, one in a set below, a list of them, a
- *        nested one; a null, and a field left out, aren't judged
+ *        nested one; a null, a null in a list beside an allowed reference (review round 1, ADR 0019 Amendment 2 item
+ *        3), and a field left out, aren't judged
  *   CE52 the values follow the source with no further call: an element create-element adds to it is allowed at once;
  *        one taken out with remove-from-concept, or deleted, is refused
  *   CE53 Grok Bots' tangled concept, its link today's route's, is checked all the same
+ *   CE54 rule 10 runs right after rule 4: a value that misfits the schema, and isn't a reference either, is refused
+ *        invalid-fields by element-fits-schema (review round 1)
  */
 
 const fs = require('fs');
@@ -810,6 +813,8 @@ function enumRuns() {
       bot('peer-lo', 'Bad Peer', { project: EG.ref(el.peerLo) }),
       bot('upper', 'Bad Upper', { project: `tapestry:${el.loom.toUpperCase()}` }),
       post('grok-name', 'owner', { concept: c.grokBot, name: 'Grok Beta', fields: { description: 'a grok bot', project: 'Infinite Harness' } }),
+      // CE54 (review round 1): a number in bot's project, a string field, which is no reference either.
+      bot('both', 'Bad Both', { project: 5 }),
     ]).a;
     const afterRefused = S.readState(file);
     const made = runOn(file, [
@@ -819,6 +824,8 @@ function enumRuns() {
       bot('list-ok', 'Good List', { projects: [EG.ref(el.loom), EG.ref(el.infiniteHarness)] }),
       bot('nested-ok', 'Good Nested', { team: { lead: EG.ref(el.ada) } }),
       bot('null-ok', 'Good Null', { nickname: null }),
+      // CE51 (review round 1, ADR 0019 Amendment 2 item 3): a null in a list whose items may be null isn't judged.
+      bot('null-item-ok', 'Good Null Item', { pastProjects: [null, EG.ref(el.loom)] }),
       bot('absent', 'Good Absent', {}),
       post('grok-ref', 'owner', { concept: c.grokBot, name: 'Grok Gamma', fields: { description: 'a grok bot', project: EG.ref(el.infiniteHarness) } }),
       post('new-source', 'owner', { concept: c.project, name: 'New Project', fields: { description: 'made after the link' } }),
@@ -860,13 +867,16 @@ test('CE50 [story 19 AC3, ADR 0019 Decision 8]: a value a link doesn\'t allow is
   assert(graphOf19(afterRefused) === graphOf19(before), 'nothing is written: no node, tag, relationship or entry');
 });
 
-test('CE51 [story 19 AC2, AC3]: allowed references are made, each kept as given; a null, and a field left out, aren\'t judged', async () => {
+test('CE51 [story 19 AC2, AC3]: allowed references are made, each kept as given; a null, a null in a list beside an allowed reference, and a field left out, aren\'t judged', async () => {
   const { made, ctx, file } = await enumRuns();
   const { el } = ctx;
   const g = S.readState(file);
   for (const [id, field, value] of [
     ['own', 'project', EG.ref(el.infiniteHarness)], ['peer-hi', 'project', EG.ref(el.peerHi)], ['deep', 'project', EG.ref(el.deep)],
-    ['list-ok', 'projects', [EG.ref(el.loom), EG.ref(el.infiniteHarness)]], ['nested-ok', 'team', { lead: EG.ref(el.ada) }], ['null-ok', 'nickname', null], ['absent', 'project', undefined],
+    ['list-ok', 'projects', [EG.ref(el.loom), EG.ref(el.infiniteHarness)]], ['nested-ok', 'team', { lead: EG.ref(el.ada) }], ['null-ok', 'nickname', null],
+    // Review round 1, non-blocking 2 (ADR 0019 Amendment 2, item 3): a null is never judged, an item of a list included.
+    ['null-item-ok', 'pastProjects', [null, EG.ref(el.loom)]],
+    ['absent', 'project', undefined],
   ]) {
     const x = made.req(id);
     assert(x.status === 200 && x.body.data.outcome === 'created', `${id} is made; got ${x.status} ${show(x.body).slice(0, 400)}`);
@@ -889,6 +899,15 @@ test('CE53 [story 19 AC3, ADR 0019 Consequences]: Grok Bots\' tangled concept, l
   refusedByRule10(refusedRun, 'grok-name', 'grokBot.project', 'Infinite Harness');
   const x = made.req('grok-ref');
   assert(x.status === 200 && x.body.data.outcome === 'created', `a reference is made; got ${x.status} ${show(x.body).slice(0, 400)}`);
+});
+
+test('CE54 [story 19 AC3, ADR 0019 Decision 8]: rule 10 runs right after rule 4: a value that misfits the schema, and isn\'t a reference either, is refused invalid-fields by element-fits-schema', async () => {
+  // Review round 1, non-blocking 3: Decision 8's order, which no test checked. 5 misfits bot's project, a string, and
+  // isn't a reference, so rule 4 refuses it first, and rule 10 never judges it.
+  const { refusedRun } = await enumRuns();
+  const x = refusedRun.req('both');
+  assert(x.status === 400 && x.body.code === 'invalid-fields' && x.body.rule === RULE && /bot\.project/.test(String(x.body.error)),
+    `refused 400 invalid-fields by ${RULE}, naming bot.project, not value-not-allowed by ${RULE10}; got ${x.status} ${show(x.body).slice(0, 500)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

@@ -14,7 +14,8 @@
  * superset (its tree tangled, the seed's); and firmware's shape, person's superset to bot's JSON schema node. Then U0
  * links bot's project with graph enumerate; U1 takes that link out alone, so the graph before and after it can be
  * compared whole; U2 takes out the others and repeats; UR holds only refusals; UC takes a link out of a property with
- * none after the schema moved ahead of the tree. not-installed has a run of its own.
+ * none after the schema moved ahead of the tree. not-installed and UE17's yardstick, an unenumerate refused at its
+ * step 2, have runs of their own.
  *
  *   UE1  a link graph enumerate made is taken out: that ENUMERATES goes, and nothing else changes; nothing is signed
  *   UE2  the answer: unenumerated; the property; the source it had; removed; letters; the property writes' fields; the
@@ -34,7 +35,8 @@
  *   UE14 the internal command takes a link out, recorded as the command's; its refusal is the route's
  *   UE15 listed with its guard, repeatKey, its one input and every refusal, and its /docs entry; inputs are checked
  *   UE16 firmware's edge to a JSON schema node is never taken out
- *   UE17 the write's first statements set and clear the lock on the property's concept's header
+ *   UE17 the write's first statements set and clear the lock on the property's concept's header; before it, only the
+ *        install check and the property's concept are read, the links after it (review round 1)
  */
 
 const fs = require('fs');
@@ -91,6 +93,12 @@ function main() {
     const beforeU1 = S.readState(file);
     const u1 = P.runOn(file, [un('unlink', 'owner', { property: f.bot.project })], [], true);
     const afterU1 = S.readState(file);
+    // UE17's yardstick (review round 1): an unenumerate refused at its step 2 (enumerate's), for a key that names no
+    // node, alone on a copy of the graph U1 started from. It reads what steps 1 and 2 read, and nothing else.
+    const yardFile = path.join(tmp('unenumerate-step-two-'), 'graph.json');
+    G.writeState(yardFile, beforeU1);
+    const yard = { run: P.runOn(yardFile, [un('nobody', 'owner', { property: EG.NOBODY })]), from: beforeU1.log.length };
+    yard.after = S.readState(yardFile);
     const u2 = P.runOn(file, [
       un('again', 'owner', { property: f.bot.project }),
       un('none', 'owner', { property: f.bot.spare }),
@@ -130,7 +138,7 @@ function main() {
     G.writeState(file, s);
     const uc = P.runOn(file, [un('catchup', 'owner', { property: f.bot.spare })]);
     const afterUC = S.readState(file);
-    return { ctx, letter, start, u0, u1, u2, ur, uc, beforeU1, afterU1, afterU2, afterUR, afterUC };
+    return { ctx, letter, start, u0, u1, u2, ur, uc, yard, beforeU1, afterU1, afterU2, afterUR, afterUC };
   })();
   return MAIN;
 }
@@ -321,14 +329,24 @@ test('UE16 [Decision 1]: firmware\'s edge to a JSON schema node is never taken o
   assert(fw(start).length === 1 && P.same(fw(afterUC), fw(start)), `person's superset to bot's JSON schema node stays as it was; got ${show(fw(afterUC))}`);
 });
 
-test('UE17 [Decisions 5 and 12]: the write\'s first statements set and clear the lock on the property\'s concept\'s header', async () => {
-  const { ctx, beforeU1, afterU1 } = await main();
+test('UE17 [Decisions 5 and 12]: the write\'s first statements set and clear the lock on the property\'s concept\'s header; before it, only the install check and the property\'s concept are read', async () => {
+  const { ctx, yard, beforeU1, afterU1 } = await main();
   const txns = P.transactions(afterU1.log, beforeU1.log.length).filter((t) => t.end === 'commit');
   assert(txns.length === 1, `one committed write; got ${show(txns.map((t) => t.steps.map((st) => st.kind)))}`);
   const writes = txns[0].steps.filter((st) => st.call === 'tx.run');
   assert(writes[0] && writes[0].kind === 'copies' && show(writes[0].keys) === show([ctx.c.bot]) && writes[1] && writes[1].kind === 'copies' && show(writes[1].keys) === show([ctx.c.bot]),
     `its first two statements that write set and clear the lock on bot's header; got ${show(writes.slice(0, 3))}`);
   assert(writes.some((st) => st.kind === 'delete') && writes.some((st) => st.kind === 'create'), `then the link's DELETE and the entry; got ${show(writes.map((st) => st.kind))}`);
+  // Review round 1, non-blocking 3 (Decision 5: enumerate's steps 1 to 4, then the links): the concept and the links
+  // into the property are read after the lock, so only steps 1 and 2 read before it, as the yardstick reads them.
+  const early = txns[0].steps.slice(0, txns[0].steps.indexOf(writes[0])).filter((st) => st.call === 'tx.read').map((st) => st.query);
+  const y = yard.run.req('nobody');
+  const yt = P.transactions(yard.after.log, yard.from);
+  assert(y.status === 404 && y.body.code === 'unknown-property' && yt.length === 1 && !yt[0].steps.some((st) => st.call === 'tx.run'),
+    `the yardstick is refused unknown-property at step 2, in one transaction that writes nothing; got ${y.status} ${show(y.body).slice(0, 300)}, ${show(yt.map((t) => t.steps.map((st) => st.kind)))}`);
+  const steps12 = yt[0].steps.filter((st) => st.call === 'tx.read').map((st) => st.query);
+  assert(steps12.length > 0 && show(early) === show(steps12),
+    `before the lock it reads what steps 1 and 2 read (the install check, the property's concept) and not the links into the property; got before the lock ${show(early)}, steps 1 and 2 ${show(steps12)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

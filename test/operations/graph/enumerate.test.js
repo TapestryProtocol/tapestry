@@ -9,18 +9,21 @@
  *
  * Stack-free: the real catalog, over test/helpers/enumerationGraph.js's seed (it says what the graph holds), with the
  * spy on everything that signs or reads a key. The suite makes these links by hand first, as today's routes leave them:
- * partner, from project's superset (POST /api/normalize/enumerate's shape); flag, from the flagship set; grok bot's
- * project, from project's superset (with its second parent, the seed's); and firmware's shape, person's superset to
- * bot's JSON schema node with a destinationPath. Then A links bot's project alone, so the graph before and after it
- * can be compared whole; B makes the other links and repeats; R holds only refusals, so the graph after R is the graph
- * before it; C repeats a link after the schema moved ahead of the tree. The race and not-installed have runs of their own.
+ * partner, from project's superset (POST /api/normalize/enumerate's shape); flag, from the flagship set; twice, from
+ * project's superset and from the flagship set; grok bot's project, from project's superset (with its second parent,
+ * the seed's); and firmware's shape, person's superset to bot's JSON schema node with a destinationPath. Then A links
+ * bot's project alone, so the graph before and after it can be compared whole; B makes the other links and repeats; R
+ * holds only refusals, so the graph after R is the graph before it; C repeats a link after the schema moved ahead of
+ * the tree. The race, not-installed and EN14's yardstick, an enumerate refused at Decision 2's step 2, have runs of
+ * their own.
  *
  *   EN1  the link: one ENUMERATES, project's superset to bot's project node, carrying nothing; nothing else changes
  *   EN2  the answer: enumerated; the property, its concept and its place; the source; the property writes' fields; the
  *        change entry enumeration-added { type, from, to, concept, nodes } and nothing else
  *   EN3  allowed: the source's elements from the owner's point of view, by tapestryKey, as list-elements lists them
  *   EN4  the values report: the elements written before the link whose value isn't allowed, everyone's, from each
- *        element's JSON; counted, named with field and values; never a refusal
+ *        element's JSON; counted, named with field and values; never a refusal; every enumerated field of the concept
+ *        judged, not only the one just linked (review round 1: the story's Deviation 3)
  *   EN5  graph history finds the entry by the property, the source, the superset and the property's concept;
  *        list-relationships on the property lists the link
  *   EN6  the property's own concept may be its source: person's mentor, from person
@@ -32,13 +35,16 @@
  *   EN11 a link today's route made from the same superset is a repeat too
  *   EN12 two enumerates of one property at once make one link
  *   EN13 a repeat that finds the tree out of line with the schema brings it in line, and records that alone
- *   EN14 the write's first statements set and clear the lock on the property's concept's header
+ *   EN14 the write's first statements set and clear the lock on the property's concept's header; before it, only the
+ *        install check and the property's concept are read (review round 1)
  *   EN15 a source of 60: allowed counts them, names the first 50 by tapestryKey, and says there are more
  *   EN16 unknown-property: no node, a primary property, a concept header, an element
  *   EN17 not-own-concept, firmware-concept and tangled-tree, as the property writes refuse them
  *   EN18 not-enumerable: a number, an object, a list of objects, a list with no item type, a type list with a number
- *   EN19 refuses-references: its own enum and const, a pattern and lengths a reference can't meet, and the same in items
- *   EN20 enumerated-elsewhere: linked from another source's superset, or from a set; it names that start and the way on
+ *   EN19 refuses-references: its own enum and const, a pattern and lengths a reference can't meet, and the same in
+ *        items; each names the keyword that refuses (review round 1)
+ *   EN20 enumerated-elsewhere: linked from another source's superset, or from a set, even beside a link from the
+ *        source's own superset (review round 1: the story's Deviation 1); it names that start and the way on
  *   EN21 the source: unknown-concept (no node, an element; a superset or a set names its concept's header),
  *        reserved-source (word, graphContext), no-superset (none, two)
  *   EN22 the refusal run changed nothing and recorded nothing; each status is the one its declaration lists
@@ -50,6 +56,11 @@
  *   EN28 add-relationship's refusal of ENUMERATES names graph enumerate and unenumerate
  *   EN29 the catalog: enumerate takes property and source, no concept; a row for unenumerate; the old routes' map sends
  *        apply-enumerations to rule 10; "At a glance" counts 62 and lists unenumerate
+ *   Review round 1 (ADR 0019 Amendment 2):
+ *   EN30 a list is tried with as many references as it must hold: minItems 2, with uniqueItems too, and minItems 10,000
+ *        are linked; a minItems above 10,000 is refused refuses-references, in words that say so (item 1)
+ *   EN31 refuses-references names each keyword that refuses, read from the check: a list's maxItems 0, a not, and a
+ *        keyword inside anyOf, named by the anyOf; each with graph update-property (item 2)
  */
 
 const fs = require('fs');
@@ -97,12 +108,22 @@ function main() {
     // Today's routes' links, before anything this story builds runs (the header comment).
     EG.link(file, sup.project, f.bot.partner);
     EG.link(file, set.flagship, f.bot.flag);
+    // Review round 1 (the story's Deviation 1): twice, linked from the source's superset and from a set.
+    EG.link(file, sup.project, f.bot.twice);
+    EG.link(file, set.flagship, f.bot.twice);
     EG.link(file, sup.project, f.grokBot.project);
     EG.link(file, sup.person, ctx.schema.bot, { destinationPath: 'bot.spare', sourcePath: 'slug' });
     const before = S.readState(file);
 
     const a = P.runOn(file, [en('link', 'owner', { property: f.bot.project, source: c.project })], [], true);
     const afterA = S.readState(file);
+
+    // EN14's yardstick (review round 1): an enumerate refused at Decision 2's step 2, for a key that names no node, alone
+    // on a copy of the graph A started from. It reads what steps 1 and 2 read, and nothing else.
+    const yardFile = path.join(tmp('enumerate-step-two-'), 'graph.json');
+    G.writeState(yardFile, before);
+    const yard = { run: P.runOn(yardFile, [en('nobody', 'owner', { property: EG.NOBODY, source: c.project })]), from: before.log.length };
+    yard.after = S.readState(yardFile);
 
     const b = P.runOn(file, [
       en('again', 'owner', { property: f.bot.project, source: c.project }),
@@ -115,6 +136,12 @@ function main() {
       en('prefixed', 'owner', { property: f.bot.prefixed, source: c.project }),
       en('exact', 'owner', { property: f.bot.exact, source: c.project }),
       en('email', 'owner', { property: f.bot.email, source: c.project }),
+      // Review round 1 (ADR 0019 Amendment 2, item 1): lists that must hold two references, or 10,000.
+      en('pair', 'owner', { property: f.bot.pair, source: c.project }),
+      en('unique-pair', 'owner', { property: f.bot.uniquePair, source: c.project }),
+      en('ten-thousand', 'owner', { property: f.bot.tenThousand, source: c.project }),
+      // Review round 1 (the story's Deviation 1): refused, in this run beside the repeats it must not be taken for.
+      en('elsewhere-both', 'owner', { property: f.bot.twice, source: c.project }),
       en('base', 'owner', { property: f.bot.base, source: c.graph }),
       en('station', 'owner', { property: f.bot.station, source: c.relay }),
       en('vessel', 'owner', { property: f.bot.vessel, source: c.fleet }),
@@ -155,6 +182,12 @@ function main() {
       en('r-long', 'owner', { property: f.bot.long, source: c.project }),
       en('r-items-enum', 'owner', { property: f.bot.codes, source: c.project }),
       en('r-items-short', 'owner', { property: f.bot.shortItems, source: c.project }),
+      // Review round 1 (ADR 0019 Amendment 2): a minItems above the 10,000 tried (item 1), and keywords the old fixed list
+      // didn't know (item 2).
+      en('r-over-ten-thousand', 'owner', { property: f.bot.overTenThousand, source: c.project }),
+      en('r-closed', 'owner', { property: f.bot.closed, source: c.project }),
+      en('r-not', 'owner', { property: f.bot.notRef, source: c.project }),
+      en('r-either', 'owner', { property: f.bot.either, source: c.project }),
       en('r-elsewhere', 'owner', { property: f.bot.sponsor, source: c.person }),
       en('r-elsewhere-set', 'owner', { property: f.bot.flag, source: c.project }),
       en('r-source-nobody', 'owner', { property: f.bot.spare, source: EG.NOBODY }),
@@ -179,7 +212,7 @@ function main() {
     G.writeState(file, s);
     const cRun = P.runOn(file, [en('catchup', 'owner', { property: f.bot.project, source: c.project })]);
     const afterC = S.readState(file);
-    return { ctx, a, b, r, cRun, before, afterA, afterB, afterR, afterC };
+    return { ctx, a, b, r, cRun, yard, before, afterA, afterB, afterR, afterC };
   })();
   return MAIN;
 }
@@ -193,10 +226,14 @@ function refused(runResult, id, status, code) {
   assert(x.status === status && x.body.code === code, `${id} must be refused ${status} ${code}; got ${x.status} ${show(x.body).slice(0, 600)}`);
   return x.body;
 }
-/** One of the five refusals ADR 0019 adds: declared with status 409, as the existing refusals of their kind are (Amendment 1), and answered so. */
-async function refusedAsDeclared(id, code) {
-  const { r, b } = await main();
-  const x = r.req(id);
+/**
+ * One of the five refusals ADR 0019 adds: declared with status 409, as the existing refusals of their kind are
+ * (Amendment 1), and answered so. The call is R's, or B's with `run` 'b'.
+ */
+async function refusedAsDeclared(id, code, run = 'r') {
+  const all = await main();
+  const { b } = all;
+  const x = all[run].req(id);
   const e = ((b.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'enumerate');
   const decl = e && (e.refusals || []).find((y) => y.code === code);
   assert(decl && decl.status === 409, `graph enumerate declares ${code} with status 409 (ADR 0019 Amendment 1); got ${show(decl)}`);
@@ -264,8 +301,8 @@ test('EN3 [AC1, AC2, Decision 9]: allowed is the source\'s elements from the own
   }
 });
 
-test('EN4 [AC1, AC3, Decision 9]: the values report names the elements written before the link whose value isn\'t allowed, everyone\'s, judged from their JSON, and refuses none', async () => {
-  const { a, ctx } = await main();
+test('EN4 [AC1, AC3, Decision 9]: the values report names the elements written before the link whose value isn\'t allowed, everyone\'s, judged from their JSON, and refuses none; it judges every enumerated field of the concept', async () => {
+  const { a, b, ctx } = await main();
   const { el, uuid } = ctx;
   const v = ok(a, 'link').values || {};
   const na = (v.notAllowed || {});
@@ -278,6 +315,13 @@ test('EN4 [AC1, AC3, Decision 9]: the values report names the elements written b
     assert(e.address === uuid[e.node] && typeof e.name === 'string', `${e.node}: its name and address; got ${show(e)}`);
   }
   assert(v.judged === 6 && v.limit === 10000 && v.beyond === false, `bot's six elements judged, of 10,000 at most, none beyond; got ${show({ judged: v.judged, limit: v.limit, beyond: v.beyond })}`);
+  // Review round 1, non-blocking 3: the story's Deviation 3. Linking projects judges every enumerated field of bot, as
+  // a later write to one of its elements is judged: A's project too, not only the field just linked.
+  const pr = (ok(b, 'projects').values || {}).notAllowed || {};
+  const rows = (pr.elements || []).map((e) => `${e.node} ${String(e.field).split('.').pop()}`).sort();
+  const wantRows = sorted([`${el.grokOne} project`, `${el.grokFive} project`, `${el.peerBot} project`, `${el.grokFour} projects`]);
+  assert(pr.count === 4 && show(rows) === show(wantRows),
+    `linking projects reports Grok Four's projects and the three whose project A's link doesn't allow, one entry for each element and field; got ${show(pr)}`);
 });
 
 test('EN5 [AC1, Decision 11]: graph history finds the entry by the property, the source, the superset and the property\'s concept; list-relationships on the property lists the link', async () => {
@@ -385,14 +429,24 @@ test('EN13 [AC4, amendment 4]: a repeat that finds the concept\'s tree out of li
   assert(EG.linksInto(afterC, ctx.f.bot.project).length === 1 && P.treeOf(afterC, ctx.c.bot).some((x) => x.name === 'extra') && !P.treeOf(afterR, ctx.c.bot).some((x) => x.name === 'extra'), 'still one link; extra has its property node now');
 });
 
-test('EN14 [Decisions 2 and 12]: the write\'s first statements set and clear the lock on the property\'s concept\'s header', async () => {
-  const { ctx, before, afterA } = await main();
+test('EN14 [Decisions 2 and 12]: the write\'s first statements set and clear the lock on the property\'s concept\'s header; before it, only the install check and the property\'s concept are read', async () => {
+  const { ctx, yard, before, afterA } = await main();
   const txns = P.transactions(afterA.log, before.log.length).filter((t) => t.end === 'commit');
   assert(txns.length === 1, `one committed write; got ${show(txns.map((t) => t.steps.map((st) => st.kind)))}`);
   const writes = txns[0].steps.filter((st) => st.call === 'tx.run');
   assert(writes[0] && writes[0].kind === 'copies' && show(writes[0].keys) === show([ctx.c.bot]) && writes[1] && writes[1].kind === 'copies' && show(writes[1].keys) === show([ctx.c.bot]),
     `its first two statements that write set and clear the lock on bot's header; got ${show(writes.slice(0, 3))}`);
   assert(writes.some((st) => st.kind === 'merge') && writes.some((st) => st.kind === 'create'), `then the link's MERGE and the entry; got ${show(writes.map((st) => st.kind))}`);
+  // Review round 1, non-blocking 3 (Decision 2, steps 1 to 4): the concept, its tree and the links are read after the
+  // lock, so only steps 1 and 2 read before it, as the yardstick, refused at step 2, reads them.
+  const early = txns[0].steps.slice(0, txns[0].steps.indexOf(writes[0])).filter((st) => st.call === 'tx.read').map((st) => st.query);
+  const y = yard.run.req('nobody');
+  const yt = P.transactions(yard.after.log, yard.from);
+  assert(y.status === 404 && y.body.code === 'unknown-property' && yt.length === 1 && !yt[0].steps.some((st) => st.call === 'tx.run'),
+    `the yardstick is refused unknown-property at step 2, in one transaction that writes nothing; got ${y.status} ${show(y.body).slice(0, 300)}, ${show(yt.map((t) => t.steps.map((st) => st.kind)))}`);
+  const steps12 = yt[0].steps.filter((st) => st.call === 'tx.read').map((st) => st.query);
+  assert(steps12.length > 0 && show(early) === show(steps12),
+    `before the lock it reads what steps 1 and 2 read (the install check, the property's concept) and nothing of the concept, its tree or its links; got before the lock ${show(early)}, steps 1 and 2 ${show(steps12)}`);
 });
 
 test('EN15 [Decision 9]: a source of 60 elements: allowed counts 60, names the first 50 by tapestryKey, and says there are more', async () => {
@@ -426,14 +480,18 @@ test('EN18 [AC6, Decision 4]: not-enumerable: a number, an object, a list of obj
   }
 });
 
-test('EN19 [AC6, Decision 4, amendment 2]: refuses-references: its own enum or const, a pattern or a length a reference can\'t meet, the same in items; each names graph update-property', async () => {
+test('EN19 [AC6, Decision 4, amendment 2]: refuses-references: its own enum or const, a pattern or a length a reference can\'t meet, the same in items; each names graph update-property and the keyword that refuses', async () => {
+  // Review round 1, non-blocking 1 (ADR 0019 Amendment 2, item 2): each still names its keyword, an items' one as the items'.
+  const KEYWORD = { 'r-enum': 'enum', 'r-const': 'const', 'r-pattern': 'pattern', 'r-short': 'maxLength', 'r-long': 'minLength', 'r-items-enum': 'enum', 'r-items-short': 'maxLength' };
   for (const id of ['r-enum', 'r-const', 'r-pattern', 'r-short', 'r-long', 'r-items-enum', 'r-items-short']) {
     const body = await refusedAsDeclared(id, 'refuses-references');
     assert(body.input === 'property' && /update-property/.test(err(body)), `${id}: names the property and graph update-property, to take it out first; got ${show(body)}`);
+    const inItems = id.startsWith('r-items-');
+    assert(new RegExp(`\\b${KEYWORD[id]}\\b`).test(err(body)) && (!inItems || /\bitems\b/.test(err(body))), `${id}: names ${inItems ? "its items' " : 'its '}${KEYWORD[id]}, what refuses every reference; got ${err(body)}`);
   }
 });
 
-test('EN20 [AC6, Decision 2 step 9]: enumerated-elsewhere: a link from another source\'s superset, or from a set; it names that start, its concept, and graph unenumerate', async () => {
+test('EN20 [AC6, Decision 2 step 9]: enumerated-elsewhere: a link from another source\'s superset, or from a set, even beside one from the source\'s own superset; it names that start, its concept, and graph unenumerate', async () => {
   const { ctx } = await main();
   const one = await refusedAsDeclared('r-elsewhere', 'enumerated-elsewhere');
   assert(names(err(one), ctx.sup.project, ctx.uuid) && names(err(one), ctx.c.project, ctx.uuid) && /unenumerate/.test(err(one)),
@@ -441,6 +499,11 @@ test('EN20 [AC6, Decision 2 step 9]: enumerated-elsewhere: a link from another s
   const two = await refusedAsDeclared('r-elsewhere-set', 'enumerated-elsewhere');
   assert(names(err(two), ctx.set.flagship, ctx.uuid) && /unenumerate/.test(err(two)), `flag, linked from the flagship set: names the set and graph unenumerate; got ${err(two)}`);
   assert(EG.linksInto((await main()).afterR, ctx.f.bot.sponsor).length === 1, 'sponsor keeps its one link');
+  // Review round 1, non-blocking 3: the story's Deviation 1. The link from project's superset doesn't make the call a
+  // repeat while another start links the property too: a property has one source (Decision 1).
+  const both = await refusedAsDeclared('elsewhere-both', 'enumerated-elsewhere', 'b');
+  assert(names(err(both), ctx.set.flagship, ctx.uuid) && /unenumerate/.test(err(both)), `twice, linked from project's superset and from the flagship set, asked from project: refused, naming the set and graph unenumerate, not answered already-enumerated; got ${err(both)}`);
+  assert(EG.linksInto((await main()).afterB, ctx.f.bot.twice).length === 2, 'twice keeps both its links');
 });
 
 test('EN21 [AC6, Decision 3]: the source: unknown-concept (no node, an element; a superset or a set names its concept\'s header), reserved-source (word, graphContext), no-superset (none, two)', async () => {
@@ -553,6 +616,36 @@ test('EN29 [Implementation notes]: the catalog: enumerate takes property and sou
   const glance = catalog.slice(catalog.indexOf('## At a glance'), catalog.indexOf('## 1.'));
   const line = glance.split('\n').find((l) => /properties and schema/.test(l)) || '';
   assert(/\benumerate\b/.test(line) && /\bunenumerate\b/.test(line), `"properties and schema" lists enumerate and unenumerate; got ${show(line)}`);
+});
+
+// ── review round 1 (2026-11-19; ADR 0019 Amendment 2) ──
+/** Whether a refusal's words name the keyword `kw`: "its kw", "its items' kw", or as JSON or code, "kw" or `kw`. */
+const namesKeyword = (text, kw) => new RegExp(`\\bits (items' )?${kw}\\b|"${kw}"|\`${kw}\``).test(String(text));
+
+test('EN30 [AC6, Decision 4, Amendment 2 item 1]: a list is tried with as many references as it must hold: minItems 2 is linked, with uniqueItems too, and minItems 10,000; above 10,000 it is refused, saying so', async () => {
+  // Review round 1, non-blocking 1: a list was tried with one reference, so minItems 2 was refused in words that weren't true.
+  const { b, ctx } = await main();
+  const { f, sup } = ctx;
+  for (const [id, property] of [['pair', f.bot.pair], ['unique-pair', f.bot.uniquePair], ['ten-thousand', f.bot.tenThousand]]) {
+    const d = ok(b, id);
+    assert(d.outcome === 'enumerated' && d.property.property === property, `${id}: enumerated, since a list of different references meets its minItems${id === 'unique-pair' ? ' and its uniqueItems' : ''}; got ${show({ outcome: d.outcome, property: d.property })}`);
+    assert(EG.linksInto(S.readState(ctx.file), property).filter((l) => l.from === sup.project).length === 1, `${id}: one link from project's superset`);
+  }
+  const body = await refusedAsDeclared('r-over-ten-thousand', 'refuses-references');
+  assert(body.input === 'property' && /\bminItems\b/.test(err(body)) && /\b10,?000\b/.test(err(body)),
+    `minItems 10,001: refused, naming minItems and saying enumerate tries at most 10,000 references; got ${err(body)}`);
+});
+
+test('EN31 [AC6, Decision 4, Amendment 2 item 2]: refuses-references names what refuses, read from the check: a list\'s maxItems 0, a not, a keyword inside anyOf named by the anyOf; each with graph update-property', async () => {
+  // Review round 1, non-blocking 1: these were refused in words that named nothing.
+  const closed = err(await refusedAsDeclared('r-closed', 'refuses-references'));
+  assert(/\bmaxItems\b/.test(closed) && /\{\s*"maxItems"\s*:\s*null\s*\}/.test(closed) && /update-property/.test(closed),
+    `a list with maxItems 0: names maxItems, and '{"maxItems": null}' with graph update-property to take it out; got ${closed}`);
+  const not = err(await refusedAsDeclared('r-not', 'refuses-references'));
+  assert(namesKeyword(not, 'not') && /update-property/.test(not), `a string with not: { pattern: ^tapestry: }: names its not, and graph update-property; got ${not}`);
+  const either = err(await refusedAsDeclared('r-either', 'refuses-references'));
+  assert(/\banyOf\b/.test(either) && !/\bits (maxLength|pattern)\b/.test(either) && /update-property/.test(either),
+    `a string whose anyOf a reference meets no branch of: named by the anyOf, the outermost, not as its own maxLength or pattern; and graph update-property; got ${either}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

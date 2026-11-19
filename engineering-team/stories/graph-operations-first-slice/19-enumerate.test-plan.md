@@ -50,7 +50,7 @@ The stack-free suites can't reach five things, which the live check covers on a 
 
 - [x] A nullable string (`["string", "null"]`) is linked (EN7); a null in it isn't judged (EV7, CE51).
 - [x] The length boundary: `maxLength: 45` and `minLength: 45` accept a reference (EN7); 44 and 46 refuse (EN19). A reference is 45 characters.
-- [x] A link from a set, not a superset: enumerate refuses it as elsewhere (EN20); rule 10 never reads it; unenumerate takes it out (UE6).
+- [x] A link from a set, not a superset: enumerate refuses it as elsewhere (EN20); rule 10 never reads it (EV17, added at review round 1: until then no test checked it); unenumerate takes it out (UE6).
 - [x] Two links into one property from two starts (UE6).
 - [x] Firmware's edge to a JSON schema node, with a `destinationPath`, is never read or changed (EN27, EV12, UE16).
 - [x] Grok Bots' shape: refused by both writes (EN17, UE10), its link kept, and still checked by the element writes (CE53, EV9).
@@ -224,3 +224,125 @@ move-element 44/0   remove-from-concept 36/0   delete-node 40/0   concept-writes
 **Left to Review, not tested:** BIBLE §6 and §29's paragraphs; ADR 0018's note at `:354`; the memo on A10.34 and the ledger row for the property writes that drop or break a link (ADR 0019 Implementation notes).
 
 **At Implementation,** the scoped gate for a review's `gate:status` line is CI's own entries for an operations change, `operations.test.js` (which runs these suites) with `external-cli.test.js`, `openapi-coverage.test.js`, `admin-action-sweep.test.js` and `schema-save-finds-the-right-header.test.js`, never `operations.test.js` beside the suites it runs, and the three rule-list suites above.
+
+## Review round 1's cases (2026-11-19, ADR 0019 Amendment 2)
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/19-enumerate.md`) passed with six non-blocking findings. The owner chose to fix them before the pull request, so the tests come first.
+- **Non-blocking 1 and 2** are Amendment 2's items 1 to 3. Those items are what the red cases pin.
+- **Non-blocking 3** is a Tester's change. The review's four probes, and the story's two Deviations nothing pinned (bullets 1 and 3 of its "Deviations"), become guards.
+- **Amendment 2's item 4** and non-blocking 4 to 6 change a ledger row and the records, so they have no test here.
+
+A **red** case fails today and passes once Amendment 2 is built. A **guard** passes today and fails on its break.
+
+| Case | Suite | What it pins | Kind |
+|---|---|---|---|
+| **EN30**, new | enumerate | Item 1: a list is tried with `max(1, minItems)` different references, at most 10,000. These are each `enumerated`, with one link from project's superset: `pair` (`minItems: 2`), `uniquePair` (that, with `uniqueItems: true`) and `tenThousand` (`minItems: 10000`). `overTenThousand` (`minItems: 10001`) is refused `refuses-references` at its declared 409, in words that name `minItems` and say 10,000. | red |
+| **EN31**, new | enumerate | Item 2: `refuses-references` names what refuses, read from the check, each with `graph update-property`. `closed` (`maxItems: 0`) names `maxItems` and gives `{"maxItems": null}`. `notRef` (`not: { pattern: "^tapestry:" }`) names its `not`. `either` (an `anyOf` of `maxLength: 10` and `pattern: "^nostr:"`) is named by the `anyOf`, and neither branch's keyword is called its own. | red |
+| **EN19**, widened | enumerate | Item 2: its seven refusals still name their keyword. They are `enum`, `const`, `pattern`, `maxLength` and `minLength`, and the items' `enum` and `maxLength`, those two with the word `items`. | passes today; kept |
+| **EV7**, widened | rule | Item 3. Project's superset links `pastProjects`, a list whose items' type is `["string", "null"]`. `[null]` and `[null, <Loom's reference>]` give no finding. `[null, "A Name"]` gives one, whose `values` is `["A Name"]` alone and whose message doesn't mention null. | red |
+| **CE51**, widened | create-element | Item 3 on the write path: `pastProjects: [null, <Loom's reference>]` is made, kept as given. | red |
+| **EN14**, widened | enumerate | The review's first probe (Decisions 2 and 12): before the lock on bot's header, the transaction reads only what steps 1 and 2 read. | guard |
+| **UE17**, widened | unenumerate | The second probe (Decisions 5 and 12): the same for unenumerate, which reads the links after the lock. | guard |
+| **EV17**, new | rule | The third probe (Decision 7), and the edge case above. The flagship set links bot's `flag`. Then `{ flag: "not a reference at all", project: "Loom" }` gives one finding, for `project` alone. | guard |
+| **CE54**, new | create-element | The fourth probe (Decision 8, "right after"): `{ project: 5 }` is refused 400 `invalid-fields` by `element-fits-schema`, naming `bot.project`, not `value-not-allowed`. | guard |
+| **EN20**, widened | enumerate | Deviation 1. `twice` is linked from project's superset and from the flagship set. Enumerated with project as its source, it is refused `enumerated-elsewhere` at its declared 409, naming the set and `graph unenumerate`, and both links stay. | guard |
+| **EN4**, widened | enumerate | Deviation 3: linking `projects` reports four entries, not only the field just linked. They are Grok Four's `projects` and the three elements whose `project` A's link doesn't allow. | guard |
+
+Each assertion carries a one-line comment naming the finding or Deviation it pins.
+
+**The yardstick (EN14, UE17).** The review's probes allowed two reads by their Cypher, and these cases don't. Each suite runs one more call alone, on a copy of the graph its committed call started from: an enumerate, or an unenumerate, of `EG.NOBODY`, a key that names no node. Decision 2 refuses that call `unknown-property` at step 2. So its one transaction reads steps 1 and 2 and writes nothing. The committed call's reads before its lock must be those reads, in order. Moving `P.load` or the links before the lock adds a read there.
+
+**What the seed and the runs gained.**
+- `BOT_FIELDS` (`test/helpers/enumerationGraph.js`) gains nine fields at its end, and set-schema makes each one's property node: `pair`, `uniquePair`, `tenThousand`, `overTenThousand`, `closed`, `notRef`, `either`, `pastProjects` and `twice`.
+- `prepareLinked` links project's superset to `pastProjects`. The rule's suite and the three element writes' suites use it.
+- The enumerate suite links `twice` from project's superset and from the flagship set before A.
+  - B gains `pair`, `unique-pair`, `ten-thousand` and `elsewhere-both`.
+  - R gains `r-over-ten-thousand`, `r-closed`, `r-not` and `r-either`.
+  - `elsewhere-both` is a refusal, but it runs in B, beside the repeats it must not be taken for. So with Deviation 1 reversed, EN22's refusal run still holds refusals only. `refusedAsDeclared` takes the run as a third argument, for it.
+- The rule suite links the flagship set to bot's `flag`, and gains the cases `nullItem`, `nullItemRef`, `nullItemName` and `setStart`.
+- create-element's refused run gains `both`, and its made run gains `null-item-ok`.
+
+**The seed change alone moves nothing.** With only the seed changed, the six suites that use it gave the same counts as at HEAD, all passing: enumerate 29, unenumerate 17, the rule's 16, create-element 38, update-node 46, add-to-concept 60.
+
+**How loosely the words are pinned.** The Implementer writes the words. The cases pin only these:
+- **EN30:** `minItems` as a word, and `10,000` or `10000`.
+- **EN31:**
+  - for `closed`: `maxItems`, `{"maxItems": null}` with any spacing, and `update-property`;
+  - for the `not`: "its not", or `not` quoted as JSON (`"not"`) or as code. The bare word is in most English sentences;
+  - for the `anyOf`: the word `anyOf`, and no "its maxLength" or "its pattern".
+- **EN19:** the keyword as a whole word, so that `graph enumerate` doesn't count as `enum`, and `items` for the items' two.
+- **EV7:** the finding's message doesn't hold `null` as a word, in any case.
+
+### Verification at HEAD
+
+Each suite alone, stack-free, with `zsh tmp/review-19/run-suites.sh <suite>` (it sources `tmp/a10-19-test-design/env.sh`). This ran at `8df52fe5`, with this round's tests uncommitted beside it:
+
+```
+enumerate.test.js                     {"pass":29,"fail":2,"skipped":0}   EN30, EN31
+unenumerate.test.js                   {"pass":17,"fail":0,"skipped":0}
+rules/enumerated-value-allowed        {"pass":16,"fail":1,"skipped":0}   EV7
+create-element.test.js                {"pass":38,"fail":1,"skipped":0}   CE51
+update-node.test.js                   {"pass":46,"fail":0,"skipped":0}
+add-to-concept.test.js                {"pass":60,"fail":0,"skipped":0}
+enumerate-agent-through-cli.test.js   {"pass":1,"fail":0,"skipped":0}
+```
+
+Before this round's tests, the same suites passed 29, 17, 16, 38, 46, 60 and 1, with none failing.
+
+The four failures, each because Amendment 2 isn't built yet (keys and messages shortened):
+
+```
+  FAIL  EN30 [AC6, Decision 4, Amendment 2 item 1]: a list is tried with as many references as it must hold: …
+        pair must answer 200; got 409 {"success":false,"error":"The property …, bot.pair in bot (…), has a schema that would refuse every reference: its schema leaves no tapestry:<tapestryKey> value it allows (a reference is 45 characters: …). … Nothing changed.","code":"refuses-references","input":"property"}
+  FAIL  EN31 [AC6, Decision 4, Amendment 2 item 2]: refuses-references names what refuses, read from the check: …
+        a list with maxItems 0: names maxItems, and '{"maxItems": null}' with graph update-property to take it out; got The property …, bot.closed in bot (…), has a schema that would refuse every reference: its schema leaves no tapestry:<tapestryKey> value it allows …
+  FAIL  EV7 [Decision 6, Amendment 2 item 3]: a null, as a field's value or as an item of a list, and a field left out, aren't judged; …
+        nullItem: no finding; got [{"index":0,…,"code":"value-not-allowed","field":"bot.pastProjects","values":[null],…,"message":"bot.pastProjects holds a value its link doesn't allow: null isn't a reference: …"}]
+  FAIL  CE51 [story 19 AC2, AC3]: allowed references are made, each kept as given; a null, a null in a list beside an allowed reference, …
+        null-item-ok is made; got 400 {"success":false,"error":"bot.pastProjects holds a value its link doesn't allow: null isn't a reference: …
+```
+
+EN30 and EN31 stop at their first part, but their other parts fail today too. A probe of `_enumerations.js` called `acceptsReference` and `say.refusesReferences` on each new piece. It refused `uniquePair` and `tenThousand`, and its words named nothing for `overTenThousand`, `notRef` or `either`.
+
+### Each guard on its break
+
+`tmp/a10-19-round1-tests/run-breaks.js` makes a `git archive` copy of HEAD (`tree-breaks`) and lays this round's five test files over it. It runs the seven suites there for a baseline, which is the table above. Then it takes each break alone, the reviewer's own from `tmp/review-19/breaks.js` unchanged, and runs its suites. It compares each test with the baseline and puts the file back.
+
+Each break turned its guard red and changed no other test:
+
+| Break | What it does | Result, passed/failed with the baseline's red cases |
+|---|---|---|
+| B12 | `P.load` before the lock (`enumerate.js:86–89`) | enumerate 28/3: EN14, naming load's read of the concept before the lock |
+| B26 | the links read before the lock (`unenumerate.js:86`) | unenumerate 16/1: UE17, naming the links' read |
+| B37 | rule 10 before rule 4 (`create-element.js:164–165`) | create-element 37/2: CE54, refused `value-not-allowed` |
+| B44 | rule 10 reads a link from any start (`_enumerations.js:121`) | rule 15/2: EV17, with a finding for `bot.flag`. Enumerate, create-element, update-node and add-to-concept as the baseline |
+| B16 | a repeat wins over elsewhere (`enumerate.js:106`; Deviation 1 reversed) | enumerate 28/3: EN20, answered `already-enumerated` |
+| B45 | the values report judges only the field just linked (`enumerate.js:128`; Deviation 3 reversed) | enumerate 28/3: EN4, with one entry, Grok Four's |
+
+### The red cases pass once Amendment 2 is built
+
+A throwaway sketch of items 1 to 3 ran on a second copy (`tree-fix`). It touched `_enumerations.js` alone (`tmp/a10-19-round1-tests/sim-fix.js`) and never entered the repository.
+- **Item 1:** a list is tried with `max(1, minItems)` different references, and one whose `minItems` is above 10,000 is refused in words of its own.
+- **Item 2:** the keywords come from ajv's errors on that sample, by the first segment of each error's schema path, and the items' by the second.
+- **Item 3:** a list's `null` items are dropped before judging.
+
+On it every suite passes: enumerate 31/0, unenumerate 17/0, the rule's 17/0, create-element 39/0, update-node 46/0, add-to-concept 60/0 and the agent's 1/0.
+
+**The red cases catch wrong fixes.** Each of these ran alone over the sketch:
+
+| Wrong fix | Fails |
+|---|---|
+| W1: a list tried with one reference repeated, which `uniqueItems` refuses | EN30 |
+| W2: at most 9,999 references tried | EN30, as `tenThousand` is refused |
+| W3: no cap, so `minItems: 10001` is tried in full and linked | EN30, and EN22, since the refusal run then changes the graph |
+| W4: a combinator's inner keywords named as the piece's own | EN31 |
+| W5: a list holding a `null` skipped whole | EV7 |
+| W6: the items' keywords dropped from the words | EN19 |
+
+### Not pinned: readings of Amendment 2 left to the Implementer or the Architect
+
+- **A piece that doesn't compile alone,** which is to be refused "in words that say it doesn't compile, and why". The property writes compile the whole schema. The only such piece I can see is one whose `$ref` names the schema's own `$defs`, and I didn't probe whether set-schema keeps them.
+- **A keyword that fails under `then` or `contains`.** ajv reports a failing `if`/`then` under `#/then/…` and `#/if`, and a `contains` under `#/contains/…` and `#/contains`. Neither `then` nor `contains` is among the five that name a keyword by the outermost. So `if` might be named alone, or with `then`. And a `contains`'s `pattern` might be named as the `contains` or as a `pattern`.
+- **`oneOf` and `allOf`,** which are named like `anyOf` but not tried here.
+- **The way the words give to take out a `minItems` above 10,000.**
+- **A `null` in a list whose items' type doesn't allow one.** Rule 4 refuses it first, as CE54 pins the order, so rule 10 never meets it. Item 3 settles raised point 6 above.

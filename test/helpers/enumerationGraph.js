@@ -110,6 +110,18 @@ const BOT_FIELDS = Object.freeze({
   prefixed: { type: 'string', pattern: '^tapestry:' },
   exact: { type: 'string', minLength: 45, maxLength: 45 },
   email: { type: 'string', format: 'email' },
+  // Review round 1 (ADR 0019 Amendment 2): lists that must hold two references, or 10,000, or more than 10,000 (item 1);
+  // keywords outside the old fixed list that refuse every reference (item 2); a list whose items may be null (item 3);
+  // and a field enumerate's suite links twice, from a superset and from a set (the story's Deviation 1).
+  pair: { type: 'array', items: { type: 'string' }, minItems: 2 },
+  uniquePair: { type: 'array', items: { type: 'string' }, minItems: 2, uniqueItems: true },
+  tenThousand: { type: 'array', items: { type: 'string' }, minItems: 10000 },
+  overTenThousand: { type: 'array', items: { type: 'string' }, minItems: 10001 },
+  closed: { type: 'array', items: { type: 'string' }, maxItems: 0 },
+  notRef: { type: 'string', not: { pattern: '^tapestry:' } },
+  either: { type: 'string', anyOf: [{ maxLength: 10 }, { pattern: '^nostr:' }] },
+  pastProjects: { type: 'array', items: { type: ['string', 'null'] } },
+  twice: { type: 'string' },
 });
 const PERSON_FIELDS = Object.freeze({ mentor: { type: 'string' } });
 const GROK_FIELDS = Object.freeze({ project: { type: 'string' } });
@@ -348,9 +360,10 @@ async function prepareEnumeration(label, { bigSource = 0 } = {}) {
 
 /**
  * prepareEnumeration's seed with the links the element writes and the rule enumerated-value-allowed meet, each as
- * today's route makes one: project's superset to bot's project, projects and nickname; person's superset to bot's
- * team.lead and to person's mentor; project's superset to grok bot's project, whose tree is tangled (Grok Bots' shape);
- * and firmware's shape, person's superset to bot's JSON schema node, with a destinationPath naming bot.spare.
+ * today's route makes one: project's superset to bot's project, projects, nickname and pastProjects (a list whose
+ * items may be null; review round 1); person's superset to bot's team.lead and to person's mentor; project's superset
+ * to grok bot's project, whose tree is tangled (Grok Bots' shape); and firmware's shape, person's superset to bot's JSON
+ * schema node, with a destinationPath naming bot.spare.
  */
 async function prepareLinked(label, opts) {
   const ctx = await prepareEnumeration(label, opts);
@@ -358,6 +371,7 @@ async function prepareLinked(label, opts) {
   link(file, sup.project, f.bot.project);
   link(file, sup.project, f.bot.projects);
   link(file, sup.project, f.bot.nickname);
+  link(file, sup.project, f.bot.pastProjects);
   link(file, sup.person, f.bot['team.lead']);
   link(file, sup.person, f.person.mentor);
   link(file, sup.project, f.grokBot.project);
