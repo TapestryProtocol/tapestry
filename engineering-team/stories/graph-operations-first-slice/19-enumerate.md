@@ -195,6 +195,44 @@ On `bb6d6255`, the Tester's round-1 cases, with ADR 0019 Amendment 2's items 1 t
 - **harness-lint:** clean.
 - **The Loom memo:** memo 136 on Loom task A10.34 says `export nostr` must rewrite whole `tapestry:` values (ADR 0019 Decision 14; review round 1, non-blocking 6).
 
+### On staging and production (2026-11-19)
+
+**Staging: TapestryProtocol/tapestry#158.**
+- **Its CI:** the `stack-free` job of `Test` run 44584705964 passed on the PR's head, `cffdd726`. That is the branch with staging merged in after ADR PR #157 (`97242193`), the only commit staging had gained.
+- **The safe-to-merge check** (`scripts/check-safe-to-merge.sh`) said safe at 18:23:19Z: no task active, and the next scheduled one at 23:40Z.
+- **The merge,** at 18:23:21Z, was pinned with `--match-head-commit cffdd726`. Its merge commit is `2644eb5a`.
+- **The deploy:** `deploy-staging.yml` run 44587270941 succeeded, 18:23:25Z to 18:24:59Z.
+- **The smoke test** (`docs/SMOKE_TEST.md`) was clean:
+  - tier 1: stable after 3 polls, and Neo4j answering after 3;
+  - tier 2: every page and public API answered 200, search gave hits, and `get-user-data` for the known large-graph pubkey gave the expected 504, with its JSON body;
+  - tier 3: `/docs` listed 35 operation paths, where it listed 33 before the merge. `graph/enumerate` and `graph/unenumerate` were added, and none dropped. `value-not-allowed`, rule 10's refusal on the three element writes, appeared 4 times, where it appeared 0 times before; `refuses-references`, `enumerated-elsewhere` and `not-enumerable` twice each, where they appeared 0 times. A signed-out `POST /api/tapestry/graph/enumerate` got 401, which shows only that the route answers;
+  - tier 5: no path dropped, and the pages and APIs around the change answered as in tier 2.
+
+  Tier 4 didn't apply, since no UI changed.
+- **Loom** marked A10.19 done, verified weakly, at 18:23:37Z: PR #158 was merged by nousclawds4 with no approval from a teammate other than the owner.
+- **No firmware reinstall ran.** Rule 10's item in the graph rule concept waits for the next one, with rule 9's (ledger row `2026-11-18-rule-nine-awaits-firmware-reinstall`).
+
+**Production: TapestryProtocol/tapestry#159,** the promotion.
+- **What it carried:** staging at `2644eb5a`, from `promote/enumerate-2026-11-19`, a branch cut at that commit. That is #148 and #153 to #158:
+  - this story's ADR (#157) and its code (#158);
+  - A10.23's ADR (#154) and `graph move-element` (#155);
+  - which way the property and class-thread relationships point (#156) and RW7's records (#153), both docs;
+  - rulebook entry 9 and its graph rule element (#148).
+
+  The owner approved #158's promotion, and then the whole bundle once it was listed: it can't be narrowed, since #158 sits on top of the rest.
+- **Its required checks:** `stack-free` (run 44588751573) and `main-source-guard` (run 44588751637) passed on `2644eb5a`.
+- **The safe-to-merge check** against production said safe at 18:45:23Z: no task active, and the next scheduled one at 19:00Z, outside the 10-minute buffer.
+- **The merge,** at 18:45:26Z, was pinned with `--match-head-commit 2644eb5a`. Its merge commit is `acf4b281`.
+- **The deploy:** `deploy-tapestry.yml` run 44591168252 succeeded, 18:45:29Z to 18:47:09Z.
+- **The smoke test** was clean:
+  - tiers 1, 2 and 5 as on staging, with Neo4j answering after 7 polls;
+  - tier 3: `/docs` listed 35 paths, where it listed 32 before the merge. `graph/enumerate`, `graph/move-element` and `graph/unenumerate` were added, and none dropped. `value-not-allowed` appeared 4 times, where it appeared 0 times before.
+
+  Tier 4 didn't apply.
+- **No firmware reinstall ran** on production either.
+
+The records of both runs are in the main checkout's ignored `tmp/staging-smoke-158/` and `tmp/prod-smoke-159/`.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
