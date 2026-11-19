@@ -132,7 +132,7 @@ Judgment calls made in Implementation (2026-11-19), each too small for an ADR am
 - **The report judges every enumerated field of the concept,** not only the one just linked, as rule 10 judges a write: one entry for each element and field, which is what a later write to that element is refused for.
 - **Rule 10 reads twice more than Decision 7 counts:** once for the items' concepts' keys and the sources' names (`K.headersByKey`), and once for the owner's point of view (`R.resolvePov`, which reads whether any score exists). Both are made once a concept has an enumerated field, so a concept with none still costs one read, and the count still doesn't grow with the items.
 - **The second read tests the class thread's reach with `EXISTS { MATCH … }`,** the pattern Decision 6 gives, rather than counting its paths, so Neo4j can stop at the first. The fake graph runs it; Neo4j is first met at the live check.
-- **A list piece is tested with a list holding one reference** (Decision 4, "or a list holding it"), so a list with `minItems` above 1 is refused `refuses-references` though two references would fit. And a list is `type: "array"` alone, as Decision 4 writes it: only a string takes the nullable form `["string", "null"]`.
+- **A list piece is now tried with `max(1, minItems)` different references, up to 10,000** (ADR 0019 Amendment 2, item 1), where until review round 1 it was tried with a list holding one reference, which refused a list with `minItems` above 1. And a list is `type: "array"` alone, as Decision 4 writes it: only a string takes the nullable form `["string", "null"]`.
 - **A key naming a tag or a change entry** is answered as one that names no node (Decision 6), the message saying neither is one.
 - **unenumerate's `source`** is the link's source only when every link it took out ran from one concept's superset; it is null when none went, when they ran from more than one start, or from a set. The change entry names each start. The plan leaves both cases unpinned.
 - **`enumeration-removed` is one change per start,** each with its `count`, and `concept` only when the start is a concept's superset: a set names no source concept (the plan leaves this unpinned).
@@ -141,6 +141,13 @@ Judgment calls made in Implementation (2026-11-19), each too small for an ADR am
 - **Rule 10's message ends with "Nothing changed."** and the way on, as the operations' refusals do. update-node joins every finding's message, so with more than one finding it says so once for each.
 - **The link's `MERGE` checks it joined one pair,** as the property writes' `edge` does: the source's superset isn't locked (Decision 12), so one deleted by another write at that moment fails the call, which asks to try again.
 - **The new ledger row** on the property writes that drop or retype an enumerated property is `2026-11-19-property-writes-drop-enumerations`, typed `bug`; rule 10's graph rule item joins rule 9's pending reinstall, ledger row `2026-11-18-rule-nine-awaits-firmware-reinstall`.
+
+Judgment calls made in review round 1's fixes (2026-11-19, ADR 0019 Amendment 2), each too small for an amendment:
+
+- **`validatorOf`'s check also gives ajv's errors,** as `errors`, each `{ keyword, schemaPath }`; `fits` and `problems` are as they were, and the property writes' report reads only those. `say.refusesReferences` tries the piece again to name what refuses, so enumerate's call is unchanged and a refused piece is compiled twice.
+- **The refusal's other words.** A piece that doesn't compile alone is refused with `validatorOf`'s reason, and told to change it with `graph update-property` so that it compiles alone. A `minItems` above 10,000 is given `'{"minItems": null}'`, or a `minItems` of 10,000 or less, as its way on. A list's refusal says how many references were tried. The keywords are named in ajv's order, the piece's own before the items'.
+- **A keyword reached through a `$ref` into the piece's own `definitions`** is named by its path's first keyword, `its definitions`: neither Amendment 2 nor a test settles it.
+- **enumerate's description,** which `/docs` and the CLI's help show beside the refusal's declaration, lists the same causes of `refuses-references` as the catalog's row.
 
 ## Evidence
 
@@ -171,7 +178,22 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - **L7:** with a source of 1,000 elements, enumerate answered 1,000, the first 50 named, in 0.132 s, and 0.062–0.069 s on repeats. create-element naming one took 0.124 s median with the check, against 0.121 s in a concept with no link (`main.log`, L7a and L7b).
 - **L8:** the relay held 468 events before L1 and after L1, L2, L6 and L7. Only today's route, in L5, added its two letters (470), and the reinstall and L5d added none (`main.log`, `reinstall.log`).
 
-**Surprising, but within the ADR:** the refusals `P.load` gives (`firmware-concept`, `not-own-concept`, `tangled-tree`) say `input: concept`, an input these operations don't have. The property writes answer the same, and the plan leaves it unpinned.
+**Surprising, but within the ADR:** the refusals `P.load` gives (`firmware-concept`, `not-own-concept`, `tangled-tree`) say `input: concept`, an input these operations don't have. The property writes answer the same, and the plan leaves it unpinned. Ledger row `2026-11-19-property-load-names-concept-input` records it (review round 1, non-blocking 5).
+
+### Review round 1's fixes (2026-11-19)
+
+On `bb6d6255`, the Tester's round-1 cases, with ADR 0019 Amendment 2's items 1 to 3 built and not yet committed. Each suite ran alone on this Mac with every service endpoint dead and stub `curl` and `docker` first on `PATH` (`tmp/review-19/run-suites.sh`, which sources `tmp/a10-19-test-design/env.sh`; its output is in `tmp/a10-19-round1-fixes/suites.log`). None failed:
+- **This story's:** enumerate 31 passed, unenumerate 17, enumerate-agent-through-cli 1, enumerated-value-allowed 17. EN30, EN31 and EV7 failed before the fixes.
+- **The element writes:** create-element 39 (CE51 failed before), update-node 46, add-to-concept 60.
+- **Beside them:** element-fits-schema 11, mark-field 16, relationship-type-allowed 10, graph-fake 33; and, since `validatorOf`'s check now gives ajv's errors too, the property writes: add-property 15, update-property 11, remove-property 8, set-schema 10.
+- **Rule 10's item:** `node src/firmware/graph-rules.js` rewrote `enumerated-value-allowed.json`, its `says` alone, and `--check` finds the 10 items current. graph-rule-firmware 13 passed, 4 skipped (GL1–GL4, its live tests), firmware-element-sync 21, graph-rules-builder 26.
+- **The scoped gate:** record `20261119T170016Z-23376-7bf7`, over CI's five entries for an operations change, with the main checkout's `node_modules` linked for the run and the link taken out after it (`tmp/a10-19-round1-fixes/gate.sh`, the reviewer's script with its label changed). By suite: operations 1,166 passed, 4 skipped; external-cli 53; openapi-coverage 13; admin-action-sweep 9; schema-save-finds-the-right-header 26, 2 skipped. The six skipped are live tests: LK1–LK4, L1 and L2. The `+dirty` is this commit's 11 files and the link (`dirtyCount` 12). Its line, the path shortened:
+
+  ```
+  20261119T170016Z-23376-7bf7 [a10-19-round1-fixes] started 2026-11-19T17:00:16.562Z on bb6d6255+dirty — PASS, exit 0, 1267 passed, 0 failed, 6 skipped, 5/5 suites · …/tmp/gate-runs/20261119T170016Z-23376-7bf7.json
+  ```
+- **harness-lint:** clean.
+- **The Loom memo:** memo 136 on Loom task A10.34 says `export nostr` must rewrite whole `tapestry:` values (ADR 0019 Decision 14; review round 1, non-blocking 6).
 
 ## Linked artifacts
 

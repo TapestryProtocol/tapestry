@@ -1,7 +1,7 @@
 'use strict';
 /**
  * What graph enumerate, graph unenumerate and the rule enumerated-value-allowed share (catalog §2, Properties and
- * schema; story graph-operations-first-slice #19; ADR graph-operations-first-slice/0019 and its Amendment 1).
+ * schema; story graph-operations-first-slice #19; ADR graph-operations-first-slice/0019 and its Amendments 1 and 2).
  *
  * A link is one ENUMERATES from a source concept's superset to one of a concept's property nodes, carrying only its
  * type (Decision 1). The property's values are then the source's elements: each value is `tapestry:<tapestryKey>`,
@@ -12,7 +12,8 @@
  *
  *   REF, refOf(value)                   a value's form, and the tapestryKey it names, or null (Decision 6)
  *   holdsReference(piece)               'one' or 'list' for a piece that can hold a reference, else null (Decision 4)
- *   acceptsReference(piece)             whether the piece, compiled alone with rule 4's ajv options, accepts one
+ *   acceptsReference(piece)             whether the piece, compiled alone with rule 4's ajv options, accepts one, or a
+ *                                       list of as many different ones as its minItems asks, at most 10,000
  *   sourceOf(read, key)                 the source, { concept, name, uuid, superset }, or a refusal (Decision 3)
  *   linksInto(read, property)           every ENUMERATES into a property: its start, and the start's concept
  *   enumeratedFieldsOf(read, concept)   rule 10's first read: the concept's enumerated properties, each chain's path
@@ -39,13 +40,13 @@ const P = require('./_properties');
 const REF = /^tapestry:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 /** The reference a piece must accept (Decision 4). Every reference is 45 characters long, as this one is. */
 const SAMPLE = 'tapestry:00000000-0000-4000-8000-000000000000';
+/** `n` references, each naming a different key, SAMPLE first: what a list piece is tried with (Amendment 2, item 1). */
+const samples = (n) => Array.from({ length: n }, (_, i) => `tapestry:00000000-0000-4000-8000-${i.toString(16).padStart(12, '0')}`);
 /** The most elements the allowed list and the report name, and the most the report judges, as the property writes' report (Decision 9). */
 const MAX_LISTED = P.MAX_LISTED;
 const LIMIT = P.LIMIT;
 /** How far the allowed list counts: one past the most the report judges, so 10,001 says "more than 10,000". */
 const COUNTED = LIMIT + 1;
-/** The keywords of a piece that can refuse every reference, for refuses-references' words (Decision 4). */
-const REFUSING = Object.freeze(['enum', 'const', 'pattern', 'minLength', 'maxLength']);
 
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 const has = (o, k) => isObject(o) && Object.prototype.hasOwnProperty.call(o, k);
@@ -56,7 +57,7 @@ const show = (v) => { const s = JSON.stringify(v === undefined ? null : v); retu
 // ── the refusals (Decision 2; Amendment 1, item 1: each is 409, as the refusals of its kind are) ──
 const D = (code, status, when) => Object.freeze({ code, status, when });
 const NOT_ENUMERABLE = D('not-enumerable', 409, "A property that can't hold a reference: its type is neither string nor a list of types whose only one other than null is string, and it isn't a list (type array) whose items have such a type. graph update-property changes its type");
-const REFUSES_REFERENCES = D('refuses-references', 409, "A property whose own schema would refuse every tapestry:<tapestryKey> value: its own enum or const, or a pattern or a length a reference (45 characters) can't meet, on the property or on a list's items. A format never refuses one. The refusal names graph update-property, to take it out first");
+const REFUSES_REFERENCES = D('refuses-references', 409, "A property whose own schema would refuse every tapestry:<tapestryKey> value: its own enum or const, a pattern or a length a reference (45 characters) can't meet, or any other keyword that leaves no reference, such as a list's maxItems of 0 or a not, on the property or on a list's items; or a piece that doesn't compile on its own. A list is tried with as many different references as its minItems asks, and a minItems above 10,000, the most it tries, is refused. A format never refuses one. The refusal names each keyword that refuses, read from the check (one inside anyOf, oneOf, allOf, not or if by the outermost), and graph update-property, to take it out first");
 const ENUMERATED_ELSEWHERE = D('enumerated-elsewhere', 409, 'A property already linked to another source: an ENUMERATES runs into it from another concept\'s superset, or from a set. A property has one source; the refusal names that start, its concept when it is a superset, and graph unenumerate, which takes the link out first');
 const RESERVED_SOURCE = D('reserved-source', 409, 'A source keyed word or graphContext, whose class threads reach nearly every node');
 const NO_SUPERSET = D('no-superset', 409, 'A source with no superset, or more than one, so no one class thread holds the elements a value may name');
@@ -85,21 +86,46 @@ function holdsReference(piece) {
 }
 
 /**
- * Whether the piece accepts a reference, or for a list a list holding one: the piece compiled alone with rule 4's ajv
- * options (_schemas.js's validatorOf), which load no formats, so a format never refuses one (Amendment 1, item 2). A
- * piece that doesn't compile alone accepts none.
+ * The keywords that refuse the sample, from ajv's errors on it (Amendment 2, item 2) → { own, items }, each named once,
+ * in ajv's order. An error's keyword is the first of its schemaPath, or the second under #/items/, which is the items':
+ * so a keyword inside anyOf, oneOf, allOf, not or if is named by the outermost, then and else are named as if, and
+ * contains names itself.
  */
-function acceptsReference(piece) {
-  const v = X.validatorOf(piece);
-  if (v.problem) return false;
-  return v.check(holdsReference(piece) === 'list' ? [SAMPLE] : SAMPLE).fits === true;
+function refusingKeywords(errors) {
+  const own = [];
+  const items = [];
+  for (const e of Array.isArray(errors) ? errors : []) {
+    const path = String((e && e.schemaPath) || '').replace(/^[^#]*#/, '').split('/').filter(Boolean);
+    const inItems = path[0] === 'items' && path.length > 1;
+    let kw = inItems ? path[1] : path[0] || (e && e.keyword);
+    if (typeof kw !== 'string' || !kw) continue;
+    if (kw === 'then' || kw === 'else') kw = 'if';
+    const to = inItems ? items : own;
+    if (!to.includes(kw)) to.push(kw);
+  }
+  return { own, items };
 }
 
-/** The keywords of a piece, and of a list's items, that can refuse every reference, in words: "its enum", "its items' maxLength". */
-function refusingKeywords(piece) {
-  const own = REFUSING.filter((k) => has(piece, k)).map((k) => `its ${k}`);
-  const items = isObject(piece) && isObject(piece.items) ? REFUSING.filter((k) => has(piece.items, k)).map((k) => `its items' ${k}`) : [];
-  return [...own, ...items];
+/**
+ * The piece tried with references (Decision 4; Amendment 2, items 1 and 2): compiled alone with rule 4's ajv options
+ * (_schemas.js's validatorOf), which load no formats, so a format never refuses one (Amendment 1, item 2), and checked
+ * against one reference, or for a list against max(1, minItems) different ones. → { accepts: true }, or { accepts:
+ * false } with why: problem, when the piece doesn't compile alone; tooMany, a list's minItems above the LIMIT tried; or
+ * own and items, the keywords that refuse what was tried, and tried, how many references that was.
+ */
+function tryReference(piece) {
+  const v = X.validatorOf(piece);
+  if (v.problem) return { accepts: false, problem: v.problem };
+  const list = holdsReference(piece) === 'list';
+  const tried = list && Number.isInteger(piece.minItems) && piece.minItems > 1 ? piece.minItems : 1;
+  if (tried > LIMIT) return { accepts: false, tooMany: tried };
+  const r = v.check(list ? samples(tried) : SAMPLE);
+  return r.fits ? { accepts: true } : { accepts: false, tried, list, ...refusingKeywords(r.errors) };
+}
+
+/** Whether the piece accepts a reference, or for a list a list of as many different ones as its minItems asks (tryReference). */
+function acceptsReference(piece) {
+  return tryReference(piece).accepts === true;
 }
 const listed = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
@@ -264,7 +290,8 @@ function valueAt(json, oKey, path) {
 /**
  * Rule 10's check (Decision 7) of items { concept, json }, given `fields`, Map(concept → its enumerated fields, the
  * first read's), and the point of view `pov`. For each field of each item, the values it holds: a list's each on its
- * own, a null or a field left out not judged. Every reference is judged in one read; then one finding for each field
+ * own; a null, as the field's value or as an item of a list, and a field left out, not judged (Amendment 2, item 3), so
+ * a finding's values hold no null. Every reference is judged in one read; then one finding for each field
  * of each item that holds a value the link doesn't allow → [{ item, concept, code, field, values, source, message }],
  * `item` the item itself, `field` its place under the concept's key (bot.team.lead), `values` those not allowed, and
  * `source` { concept, name, superset }.
@@ -284,7 +311,9 @@ async function check(read, items, { fields, pov }) {
     for (const field of fieldsOf(item.concept)) {
       const v = valueAt(item.json, h.oKey, field.path);
       if (v === undefined || v === null) continue;
-      const values = Array.isArray(v) ? v : [v];
+      // A null is never judged, a list's item included: whether one may be there is rule 4's (Amendment 2, item 3).
+      const values = Array.isArray(v) ? v.filter((x) => x !== null) : [v];
+      if (!values.length) continue;
       held.push({ item, field, oKey: h.oKey, values });
       for (const x of values) {
         const key = refOf(x);
@@ -381,17 +410,23 @@ const say = {
     return `The property ${key}, ${place} in ${P.conceptLabel(h)}, holds ${holds}, so it can't hold a reference, tapestry:<tapestryKey>. A field linked to another concept is a string, or a list of types whose only one other than null is string, or a list whose items are strings. Change its type first with graph update-property, or link another field. Nothing changed.`;
   },
   refusesReferences(key, place, h, piece) {
-    const kw = refusingKeywords(piece);
+    // What refuses, read from the check itself (Amendment 2, item 2).
+    const t = tryReference(piece);
+    const head = `The property ${key}, ${place} in ${P.conceptLabel(h)},`;
+    if (t.problem) return `${head} has a schema that doesn't compile on its own, as enumerate tries it with a reference (${t.problem}), so no reference can be checked against it. Change it first with graph update-property so that it compiles alone, then link it. Nothing changed.`;
+    if (t.tooMany) return `${head} is a list whose minItems asks for at least ${count(t.tooMany)} references, and enumerate tries a list of at most ${count(LIMIT)} references, as many as its report judges, so it doesn't link one it can't try. Change it first with graph update-property, where '{"minItems": null}' takes minItems out, or give it a minItems of ${count(LIMIT)} or less, then link it. Nothing changed.`;
+    const own = t.own || [];
+    const items = t.items || [];
+    const kw = [...own.map((k) => `its ${k}`), ...items.map((k) => `its items' ${k}`)];
     const what = kw.length ? `${listed(kw)} ${kw.length === 1 ? 'leaves' : 'leave'}` : 'its schema leaves';
-    const own = REFUSING.find((k) => has(piece, k));
-    const inItems = kw.some((k) => k.startsWith("its items'"));
+    const tried = t.list ? `, in a list of ${t.tried === 1 ? 'one' : `${count(t.tried)} different ones, as its minItems asks`}` : '';
     // update-property's schema input takes out a keyword given as null, and replaces items whole.
     const how = [
-      ...(own ? [`'{"${own}": null}' takes ${own} out`] : []),
-      ...(inItems ? [`'{"items": {"type": "string"}}' gives the items again without what they had`] : []),
+      ...own.map((k) => `'{"${k}": null}' takes ${k} out`),
+      ...(items.length ? [`'{"items": {"type": "string"}}' gives the items again without what they had`] : []),
     ];
     const fix = how.length ? `change it first with graph update-property, where ${listed(how)}` : 'change it first with graph update-property';
-    return `The property ${key}, ${place} in ${P.conceptLabel(h)}, has a schema that would refuse every reference: ${what} no tapestry:<tapestryKey> value it allows (a reference is 45 characters: tapestry: and a lowercase tapestryKey). A link makes its values the source's elements instead, so ${fix}, then link it. Nothing changed.`;
+    return `${head} has a schema that would refuse every reference: ${what} no tapestry:<tapestryKey> value it allows${tried} (a reference is 45 characters: tapestry: and a lowercase tapestryKey). A link makes its values the source's elements instead, so ${fix}, then link it. Nothing changed.`;
   },
   enumeratedElsewhere(key, place, links, headers) {
     const l = links[0];

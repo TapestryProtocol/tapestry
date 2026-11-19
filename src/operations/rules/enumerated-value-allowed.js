@@ -13,7 +13,8 @@
  * to the concept's primary property; a concept with none costs that read alone. Its second read judges every
  * reference the items hold, all in one UNWIND: whether its key names a node, whether the source's class thread reaches
  * that node, and whether it counts from the owner's point of view (reads.js's trust test, ADR 0011). A list is judged
- * item by item; a null, and a field left out, aren't judged. The allowed values are the source's elements as they are
+ * item by item; a null, as a field's value or as an item of a list, and a field left out, aren't judged. The allowed
+ * values are the source's elements as they are
  * when a write is checked, so the rule takes no lock and keeps nothing (Decision 8).
  */
 

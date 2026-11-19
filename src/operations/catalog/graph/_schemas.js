@@ -28,9 +28,11 @@
  *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
  *                                 schema once; its check(concept, json, { writing }) sets nothing aside unless writing
  *   tapestryJsonOf(node)          the node's tapestryJson → { json }, or { problem, missing } (ADR 0042 Decision 1)
- *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems } },
- *                                 or { problem } when it doesn't compile: the property operations' reports judge each
- *                                 element twice with it, before and after (ADR graph-operations-first-slice/0018 Decision 9)
+ *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems,
+ *                                 errors } }, or { problem } when it doesn't compile: the property operations' reports
+ *                                 judge each element twice with it, before and after (ADR graph-operations-first-slice/0018
+ *                                 Decision 9); errors, ajv's own { keyword, schemaPath }, name what refuses graph
+ *                                 enumerate's sample (ADR graph-operations-first-slice/0019 Amendment 2)
  *   checkElements(read, items)    run the rule element-fits-schema over the items and throw its first finding, with
  *                                 rule set, as the write path does: the one call each element write makes in apply.
  *                                 With { every: true }, one refusal names every finding: its code the first's (graph
@@ -171,8 +173,10 @@ function problemsOf(schema, json) {
 
 /**
  * `schema` compiled once, as problemsOf and the rule's check compile one, for judging many documents with nothing set
- * aside (ADR graph-operations-first-slice/0018 Decision 9) → { check(json) → { fits, problems } }, or { problem } when
- * it doesn't compile. Its problems are problemOf's, so its words are the rule's.
+ * aside (ADR graph-operations-first-slice/0018 Decision 9) → { check(json) → { fits, problems, errors } }, or { problem }
+ * when it doesn't compile. Its problems are problemOf's, so its words are the rule's. errors are ajv's own, each {
+ * keyword, schemaPath }, for words that name the keyword that refuses (graph enumerate's refuses-references; ADR
+ * graph-operations-first-slice/0019 Amendment 2, item 2).
  */
 function validatorOf(schema) {
   if (!isObject(schema)) return { problem: "the JSON schema isn't an object" };
@@ -180,7 +184,9 @@ function validatorOf(schema) {
   if (c.reason) return { problem: `the JSON schema doesn't compile: ${c.reason}` };
   return {
     check(json) {
-      return c.validate(json) ? { fits: true, problems: [] } : { fits: false, problems: (c.validate.errors || []).map(problemOf) };
+      if (c.validate(json)) return { fits: true, problems: [], errors: [] };
+      const errors = c.validate.errors || [];
+      return { fits: false, problems: errors.map(problemOf), errors: errors.map((e) => ({ keyword: e.keyword, schemaPath: e.schemaPath })) };
     },
   };
 }
