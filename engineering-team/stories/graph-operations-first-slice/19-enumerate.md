@@ -133,5 +133,5 @@ For Architecture, not this gate (answered by ADR 0019):
 - The write path it goes through: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md](../../decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [19-enumerate.test-plan.md](./19-enumerate.test-plan.md)
 - Review: (filled in after Review phase)

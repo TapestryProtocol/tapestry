@@ -194,6 +194,8 @@ const SCENARIO = {
   'node-has-a-concept': 'own-reordered',
   // Rule 9, proposed, joined with ADR graph-rules/0002 Decision 5.
   'tapestry-link-names-a-node': 'own-reordered',
+  // Rule 10, joined with story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019 Decision 13).
+  'enumerated-value-allowed': 'own-reordered',
 };
 const runs = new Map();
 function runPass1b(scenario = SCENARIO) {
@@ -272,7 +274,7 @@ t('IS9: every lookup finds the header by its address, and every other concept in
 });
 
 t("IS10: with another author's element read first, the assistant's that differs is the one re-signed, never the other's", () => {
-  const others = { 'tapestry-key-unique': 'own-reordered', 'relationship-type-allowed': 'own-reordered', 'concept-slug-unique': 'own-reordered', 'class-thread-acyclic': 'own-reordered', 'set-has-a-parent': 'own-reordered', 'element-fits-schema': 'own-reordered', 'node-has-a-concept': 'own-reordered', 'tapestry-link-names-a-node': 'own-reordered' };
+  const others = { 'tapestry-key-unique': 'own-reordered', 'relationship-type-allowed': 'own-reordered', 'concept-slug-unique': 'own-reordered', 'class-thread-acyclic': 'own-reordered', 'set-has-a-parent': 'own-reordered', 'element-fits-schema': 'own-reordered', 'node-has-a-concept': 'own-reordered', 'tapestry-link-names-a-node': 'own-reordered', 'enumerated-value-allowed': 'own-reordered' };
   const r = runPass1b({ ...others, 'field-mark-allowed': 'other-first+own-changed' });
   const re = r.regenerateJson.map((x) => x.uuid);
   assert(show(re) === show([own('field-mark-allowed')]), `one re-sign, at the assistant's ${own('field-mark-allowed')}, though another author's row came first; got ${show(re)}`);

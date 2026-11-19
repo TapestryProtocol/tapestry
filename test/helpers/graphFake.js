@@ -119,6 +119,13 @@
  * keeps it, as failures.meanwhile's does; the log gets { call: 'beforeRelDelete' } just before the statement. It fires
  * once, and throws, naming the key, when one of its ends names no node.
  *
+ * Story graph-operations-first-slice #19 (its test plan; ADR graph-operations-first-slice/0019 Decisions 1, 5 and 7)
+ * adds ENUMERATES to the types a read over paths may walk, so graph enumerate's and unenumerate's reads of the link
+ * into a property, and the rule enumerated-value-allowed's read of a concept's enumerated properties, run. A read that
+ * holds an UNWIND, as that rule's second read does, goes to test/helpers/pathCypherFake.js, which runs a read's UNWIND.
+ * Its MERGE and DELETE are the relationship statements above: a link is made or taken out between two nodes the
+ * statement finds by tapestryKey, written (a …)-[r:ENUMERATES]->(b …), never from an end found another way.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -377,7 +384,9 @@ function deleteRel(s, q, params) {
 /** The relationship types ADR 0005's reads (S1–S4) walk; a read over paths may name these and no others. */
 const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_THE_PRIMARY_PROPERTY_FOR', 'IS_A_PROPERTY_OF', 'HAS_ELEMENT', 'IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF',
   // ADR graph-operations-first-slice/0016's C9: a concept's core nodes, by the wiring types today's create-concept makes.
-  'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR']);
+  'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR',
+  // ADR graph-operations-first-slice/0019 Decisions 1, 5 and 7: the link from a source's superset to a property.
+  'ENUMERATES']);
 
 /**
  * ADR graph-operations-first-slice/0013's one-hop reads (story graph-operations-first-slice #13): a statement that opens
@@ -637,7 +646,9 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   if (!writes && /^\s*SHOW\s+FULLTEXT\s+INDEXES\b/i.test(bare)) return { rows: showFulltextIndexes(s, q, params), counters: zero() };
   // Its S1 opens with a CALL, which only the path reader runs, whether or not a relationship follows.
   const calls = /^\s*CALL\b/i.test(bare);
-  if (!writes && !hasRel && !optional && !calls) return { rows: readOneNode(s, q, params), counters: zero() };
+  // A read's UNWIND (story graph-operations-first-slice #19, ADR 0019 Decision 7) is the path reader's too.
+  const unwinds = /\bUNWIND\b/i.test(bare);
+  if (!writes && !hasRel && !optional && !calls && !unwinds) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
   if (!writes && (isOneHopFromKey(bare) || isStepFromKeys(bare))) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
