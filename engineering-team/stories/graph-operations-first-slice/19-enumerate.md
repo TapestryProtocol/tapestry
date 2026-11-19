@@ -110,6 +110,8 @@ Settled by CLAUDE.md's principles, the owner's rules and the design, and approve
 
 **Changed at Test Design** (ADR 0019 Amendment 1, 2026-11-18): AC6 no longer lists a `format` among what refuses a `tapestry:` value. Rule 4's ajv options load no formats, so a format never refuses one.
 
+**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-19, with ADR 0019 Amendment 2): AC6's third bullet names every keyword that leaves no `tapestry:` value, read from the check itself, not only an `enum`, a `const`, a `pattern` or a length: a list's `maxItems` of 0 and a `not` are refused too, each named, as they already were in words that named nothing. A list whose `minItems` asks for two references or more is linked, where it was refused. AC2's list of strings may also hold a `null`, which isn't judged.
+
 For Architecture, not this gate (answered by ADR 0019):
 
 - **How the values follow the source:** worked out when a write checks a value, or a copy kept in the property's piece and the schema node and renewed whenever the source's elements change. ADR 0018 expected a copy in the piece, the catalog says the values are computed (D10), and the owner's glossary entry on horizontal integration calls the schema's list the serialized side of the link, rebuilt from it. Also what today's readers of the schema node then see (D15).
