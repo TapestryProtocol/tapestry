@@ -46,6 +46,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     or make them match a whole JSON Schema, with no event, the concept's schema following from its properties; the
     first write on a concept gives the fields its schema already lists their property nodes, and each write reports
     the elements that stop fitting (Loom A10.18).
+19. `stories/graph-operations-first-slice/19-enumerate.md` — make a property's allowed values the elements of another
+    concept, with one `ENUMERATES` from its superset to the property that carries only its type; each value is the
+    `tapestry:<tapestryKey>` of one of its elements, checked by the element writes as the concept grows and shrinks;
+    and take the link back with `graph unenumerate` (Loom A10.19).
 20. `stories/graph-operations-first-slice/20-create-element.md` — make an element of a concept, or of a set in its class
     thread, with no event, its fields checked against the concept's schema; brings BIBLE §10's rule 4 into the
     rulebook as one check the later element writes reuse (Loom A10.20).
@@ -56,6 +60,9 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     another concept, or put it in a set, its new section checked against the concept's schema and kept beside another
     author's letter, and take the owner's claim out again, never out of the node's last concept; brings D9's rule into
     the rulebook (Loom A10.22).
+23. `stories/graph-operations-first-slice/23-move-element.md` — move an element from one set or superset of a concept
+    to another in one write, never in both or in neither, its concepts, JSON and fields left as they were; refuses sets
+    of different concepts, a set that doesn't hold the node directly, and a link that isn't the owner's (Loom A10.23).
 26. `stories/graph-operations-first-slice/26-delete-node.md` — delete one of this instance's own elements, with its
     relationships and tags, the whole node kept in its change entry so a mistake can be undone; teaches the shared test
     of whose node it is the person nodes and placeholders the import makes (Loom A10.26).

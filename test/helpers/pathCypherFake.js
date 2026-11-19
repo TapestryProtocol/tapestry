@@ -23,7 +23,7 @@
  * fake stores as an integer, { $int: '<digits>' } (what a neo4j.int written by graphFake.js's S8 becomes), reads as a
  * JavaScript number, as toJS converts a neo4j Integer.
  *
- * Anything else (UNWIND, a CALL other than graph search's below, UNION, a write, a path variable, an undirected relationship, a relationship with no
+ * Anything else (a CALL other than graph search's below, UNION, a write, a path variable, an undirected relationship, a relationship with no
  * type, arithmetic, a map literal, another function) throws "the fake graph can't run this Cypher", naming what it
  * met, so a test that fails on the fake's limits says so.
  *
@@ -43,6 +43,13 @@
  *   - two speedups that change no answer. A path whose first node is unbound but whose last node is bound is matched
  *     from its last node back. A node pattern with one label and a property map is found through an index of both.
  *     So a read that joins thousands of rows to their tags, or to their authors, runs in moments.
+ *
+ * Story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019, Decision 7: the rule
+ * enumerated-value-allowed's second read takes every reference the items hold "all in one UNWIND") adds a read's
+ * UNWIND clause, `UNWIND <expression> AS <name>`, anywhere a MATCH may stand: one row for each item of a list, none for
+ * an empty list or null, and one row holding a value that isn't a list, as Neo4j's. A statement that writes after an
+ * UNWIND (field mapping's copies, a tag's CREATE) is still a write, which test/helpers/graphFake.js runs itself; a
+ * read never reaches this file with one.
  */
 
 const KEYWORDS = new Set(['MATCH', 'OPTIONAL', 'WHERE', 'WITH', 'RETURN', 'ORDER', 'BY', 'SKIP', 'LIMIT', 'AS', 'DISTINCT',
@@ -331,6 +338,8 @@ function parse(q) {
       clauses.push({ k: 'match', optional, paths, where });
       continue;
     }
+    // Story graph-operations-first-slice #19 (ADR 0019 Decision 7): UNWIND <expression> AS <name>, in a read.
+    if (isKw('UNWIND')) { take(); const e = expr(); kw('AS'); clauses.push({ k: 'unwind', e, v: name() }); continue; }
     if (isKw('WITH')) { take(); const proj = projection(); const where = isKw('WHERE') ? (take(), expr()) : null; clauses.push({ k: 'with', proj, where }); continue; }
     if (isKw('RETURN')) {
       take();
@@ -700,6 +709,15 @@ function runPathQuery(state, cypher, params = {}, { types } = {}) {
           for (const v of varsOf(c.paths)) if (!(v in nulls)) nulls[v] = null;
           next.push(nulls);
         }
+      }
+      rows = next;
+    } else if (c.k === 'unwind') {
+      // One row for each item of the list; none for [] or null; one for a value that isn't a list (Neo4j's UNWIND).
+      const next = [];
+      for (const env of rows) {
+        const list = evaluate(c.e, env, ctx);
+        if (list === null || list === undefined) continue;
+        for (const item of Array.isArray(list) ? list : [list]) next.push({ ...env, [c.v]: item });
       }
       rows = next;
     } else if (c.k === 'with') {

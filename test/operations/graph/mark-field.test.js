@@ -383,7 +383,8 @@ test('MF15: the catalog lists the three operations, and the design records the a
   const catalog = fs.readFileSync(path.join(ROOT, 'docs/GRAPH_OPERATIONS_CATALOG.md'), 'utf8');
   const s2 = catalog.slice(catalog.indexOf('## 2.'), catalog.indexOf('## 3.'));
   for (const op of ['mark-field', 'unmark-field', 'map-fields']) assert(s2.includes(`\`${op}\``), `the catalog's §2 has a row for ${op} (Decision 15)`);
-  assert(/At a glance \(61 operations\)/.test(catalog), 'the catalog\'s "At a glance" counts 61 operations');
+  // 62 since story graph-operations-first-slice #19 added unenumerate (ADR graph-operations-first-slice/0019 Implementation notes).
+  assert(/At a glance \(62 operations\)/.test(catalog), 'the catalog\'s "At a glance" counts 62 operations');
   const glance = catalog.slice(catalog.indexOf('## At a glance'), catalog.indexOf('## 1.'));
   const schemaLine = glance.split('\n').find((l) => /properties and schema/.test(l)) || '';
   assert(['mark-field', 'unmark-field', 'map-fields'].every((op) => schemaLine.includes(op)), `"properties and schema" lists the three; got ${show(schemaLine)}`);

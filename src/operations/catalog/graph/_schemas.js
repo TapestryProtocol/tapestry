@@ -28,14 +28,20 @@
  *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
  *                                 schema once; its check(concept, json, { writing }) sets nothing aside unless writing
  *   tapestryJsonOf(node)          the node's tapestryJson → { json }, or { problem, missing } (ADR 0042 Decision 1)
- *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems } },
- *                                 or { problem } when it doesn't compile: the property operations' reports judge each
- *                                 element twice with it, before and after (ADR graph-operations-first-slice/0018 Decision 9)
+ *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems,
+ *                                 errors } }, or { problem } when it doesn't compile: the property operations' reports
+ *                                 judge each element twice with it, before and after (ADR graph-operations-first-slice/0018
+ *                                 Decision 9); errors, ajv's own { keyword, schemaPath }, name what refuses graph
+ *                                 enumerate's sample (ADR graph-operations-first-slice/0019 Amendment 2)
  *   checkElements(read, items)    run the rule element-fits-schema over the items and throw its first finding, with
  *                                 rule set, as the write path does: the one call each element write makes in apply.
  *                                 With { every: true }, one refusal names every finding: its code the first's (graph
  *                                 update-node, whose change can break more than one concept's section; ADR
  *                                 graph-operations-first-slice/0021 Decision 11)
+ *   checkRule(read, name, items, { every })  the same for the rule named `name`: the element writes run
+ *                                 enumerated-value-allowed with it, right after checkElements, over the same items
+ *                                 (story graph-operations-first-slice #19, ADR graph-operations-first-slice/0019
+ *                                 Decision 8)
  *   listProblems(problems)        the problems in words, at most 20 and then how many more
  *
  * It opens nothing when it loads (ADR graph-operations-foundation/0001 Decision 10): ajv, firmware's relationship names
@@ -167,8 +173,10 @@ function problemsOf(schema, json) {
 
 /**
  * `schema` compiled once, as problemsOf and the rule's check compile one, for judging many documents with nothing set
- * aside (ADR graph-operations-first-slice/0018 Decision 9) → { check(json) → { fits, problems } }, or { problem } when
- * it doesn't compile. Its problems are problemOf's, so its words are the rule's.
+ * aside (ADR graph-operations-first-slice/0018 Decision 9) → { check(json) → { fits, problems, errors } }, or { problem }
+ * when it doesn't compile. Its problems are problemOf's, so its words are the rule's. errors are ajv's own, each {
+ * keyword, schemaPath }, for words that name the keyword that refuses (graph enumerate's refuses-references; ADR
+ * graph-operations-first-slice/0019 Amendment 2, item 2).
  */
 function validatorOf(schema) {
   if (!isObject(schema)) return { problem: "the JSON schema isn't an object" };
@@ -176,7 +184,9 @@ function validatorOf(schema) {
   if (c.reason) return { problem: `the JSON schema doesn't compile: ${c.reason}` };
   return {
     check(json) {
-      return c.validate(json) ? { fits: true, problems: [] } : { fits: false, problems: (c.validate.errors || []).map(problemOf) };
+      if (c.validate(json)) return { fits: true, problems: [], errors: [] };
+      const errors = c.validate.errors || [];
+      return { fits: false, problems: errors.map(problemOf), errors: errors.map((e) => ({ keyword: e.keyword, schemaPath: e.schemaPath })) };
     },
   };
 }
@@ -274,4 +284,21 @@ async function checkElements(read, items, { every = false } = {}) {
   throw refusal(found[0].code, message, { rule: rule.name });
 }
 
-module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements };
+/**
+ * Run the rule named `name` over `items` and throw its first finding, or with `every` one refusal joining every
+ * finding's message, its code the first's, as checkElements does for element-fits-schema (ADR
+ * graph-operations-first-slice/0019 Decision 8). Each element write calls it for enumerated-value-allowed right after
+ * checkElements, over the same items.
+ */
+async function checkRule(read, name, items, { every = false } = {}) {
+  const { findRule } = require('../../rules');
+  const { refusal } = require('../../refusal');
+  const rule = findRule(name);
+  if (!rule) throw new Error(`the rule ${name} isn't loaded`);
+  const found = await rule.violations(items, read);
+  if (!found || !found.length) return;
+  const message = every ? found.map((x) => x.message).join(' ') : found[0].message;
+  throw refusal(found[0].code, message, { rule: rule.name });
+}
+
+module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements, checkRule };

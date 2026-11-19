@@ -75,6 +75,13 @@
  *        scroll shelf through scroll (item 2; a guard of what the code does)
  *   AT66 the other side: a concept with no schema that a membership joins is reported, never refused for: Rover into
  *        the scroll shelf through beagle (Amendment 3, item 1)
+ *   Story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019 Decision 8; its test plan), over
+ *   test/helpers/enumerationGraph.js's seed with its links (prepareLinked), in runs of their own:
+ *   AT70 a node joining a concept with a value a link doesn't allow is refused value-not-allowed by
+ *        enumerated-value-allowed; nothing changes
+ *   AT71 with an allowed reference it is added, its section holding it
+ *   AT72 the rule runs only when the JSON changes: an element already in the concept, holding a value a link doesn't
+ *        allow, put in one of its sets, is added there, not refused
  */
 
 const fs = require('fs');
@@ -475,15 +482,16 @@ test('AT19 [AC9, Decisions 1 and 17]: it is listed with its guard, repeatKey, in
   const { a } = await main();
   const e = ((a.req('list').body.data || {}).operations || []).find((o) => o.group === 'graph' && o.name === 'add-to-concept');
   assert(e, `graph add-to-concept is listed; problems: ${show((a.req('list').body.data || {}).problems)}`);
-  assert(e.kind === 'write' && e.access === 'owner-and-admins' && show(e.guards) === show([RULE]) && show(e.repeatKey) === show(['node', 'concept', 'set']),
-    `a write for the owner and admins, guard ${RULE}, repeatKey [node, concept, set]; got ${show({ kind: e.kind, access: e.access, guards: e.guards, repeatKey: e.repeatKey })}`);
+  // Story graph-operations-first-slice #19 (ADR 0019 Decision 8): rule 10's guard beside rule 4's, its items empty.
+  assert(e.kind === 'write' && e.access === 'owner-and-admins' && show([...(e.guards || [])].sort()) === show([RULE, 'enumerated-value-allowed']) && show(e.repeatKey) === show(['node', 'concept', 'set']),
+    `a write for the owner and admins, guards ${RULE} and enumerated-value-allowed, repeatKey [node, concept, set]; got ${show({ kind: e.kind, access: e.access, guards: e.guards, repeatKey: e.repeatKey })}`);
   const ins = e.inputs || {};
   assert(ins.node && ins.node.required === true && ins.concept && ins.concept.required === true && ins.set && !ins.set.required && ins.fields && !ins.fields.required,
     `node and concept are required, set and fields not (Decision 1); got ${show(ins)}`);
   const kinds = ((ins.fields.schema || {}).oneOf || []).map((x) => x.type).sort();
   assert(show(kinds) === show(['object', 'string']), `fields takes an object or its JSON text; got ${show(ins.fields.schema)}`);
   const status = Object.fromEntries((e.refusals || []).map((x) => [x.code, x.status]));
-  const want = { 'not-installed': 409, 'unknown-node': 404, 'tag-node': 409, 'made-elsewhere': 409, 'unknown-concept': 404, 'reserved-key': 409, 'no-superset': 409, 'not-a-set': 409, 'not-in-class-thread': 409, 'bad-fields': 400, 'bad-name': 400, 'unreadable-json': 409, 'name-in-use': 409, 'invalid-fields': 400, 'no-schema': 409 };
+  const want = { 'not-installed': 409, 'unknown-node': 404, 'tag-node': 409, 'made-elsewhere': 409, 'unknown-concept': 404, 'reserved-key': 409, 'no-superset': 409, 'not-a-set': 409, 'not-in-class-thread': 409, 'bad-fields': 400, 'bad-name': 400, 'unreadable-json': 409, 'name-in-use': 409, 'invalid-fields': 400, 'no-schema': 409, 'value-not-allowed': 400 };
   for (const [code, st] of Object.entries(want)) assert(status[code] === st, `its refusals include ${code} (${st}), Decision 17's; got ${show(status)}`);
   for (const code of ['missing-input', 'invalid-input', 'unknown-input', 'wrong-content-type', 'sign-in-required', 'not-allowed']) assert(code in status, `its refusals include ${code}; got ${show(Object.keys(status))}`);
   const child = spawnSync(process.execPath, ['-e', `
@@ -1202,6 +1210,59 @@ test('AT46 [Decision 4]: an add whose node a delete removed while it waited answ
   const { a } = runOn(file, [add('vanished', k.commandBeagle, k.pet, { fields: { description: 'too late' } })]);
   const x = a.req('vanished');
   assert(x.status === 404 && x.body.code === 'unknown-node', `unknown-node from its second try (ADR 0026 Decision 6); got ${x.status} ${show(x.body).slice(0, 300)}`);
+});
+
+// ── story graph-operations-first-slice #19: the rule enumerated-value-allowed in add-to-concept (ADR 0019 Decision 8) ──
+const EG = require('../../helpers/enumerationGraph');
+const RULE10 = 'enumerated-value-allowed';
+function needRule10() {
+  needDecl();
+  if (!fs.existsSync(path.join(ROOT, `src/operations/rules/${RULE10}.js`))) throw new Error(`src/operations/rules/${RULE10}.js does not exist yet (ADR graph-operations-first-slice/0019 Decision 7): add-to-concept runs it after rule 4 (Decision 8)`);
+}
+const graphOf19 = (s) => show(sortKeys({ nodes: s.nodes, rels: s.rels }));
+
+let ENUM = null;
+function enumRuns() {
+  if (ENUM) return ENUM;
+  ENUM = (async () => {
+    needRule10();
+    const ctx = await EG.prepareLinked('add-to-concept-enumerated');
+    const { file, c, el, set } = ctx;
+    const before = S.readState(file);
+    const refusedRun = runOn(file, [add('bad', el.wanderer, c.bot, { fields: { description: 'a person who is a bot too', project: 'Loom' } })]).a;
+    const afterRefused = S.readState(file);
+    const madeRun = runOn(file, [
+      add('good', el.wanderer, c.bot, { fields: { description: 'a person who is a bot too', project: EG.ref(el.loom) } }),
+      add('into-set', el.grokOne, c.bot, { set: set.crew }),
+    ]).a;
+    return { ctx, before, afterRefused, refusedRun, madeRun, file };
+  })();
+  return ENUM;
+}
+
+test('AT70 [story 19 AC3, ADR 0019 Decision 8]: a node joining a concept with a value a link doesn\'t allow is refused value-not-allowed; nothing changes', async () => {
+  const { refusedRun, before, afterRefused, ctx } = await enumRuns();
+  const x = refusedRun.req('bad');
+  assert(x.status === 400 && x.body.code === 'value-not-allowed' && x.body.rule === RULE10, `refused 400 value-not-allowed by ${RULE10}; got ${x.status} ${show(x.body).slice(0, 500)}`);
+  for (const part of ['bot.project', 'Loom', ctx.c.project, 'graph resolve']) assert(String(x.body.error).includes(part), `the refusal names ${part}; got ${show(x.body.error)}`);
+  assert(graphOf19(afterRefused) === graphOf19(before), 'nothing changes: no link, the JSON as it was, no entry');
+});
+
+test('AT71 [story 19 AC3]: with an allowed reference the node is added, its section holding it', async () => {
+  const { madeRun, ctx, file } = await enumRuns();
+  const x = madeRun.req('good');
+  assert(x.status === 200 && x.body.data.outcome === 'added', `added; got ${x.status} ${show(x.body).slice(0, 400)}`);
+  const j = C.json(S.readState(file), ctx.el.wanderer);
+  assert(j && j.bot && j.bot.project === EG.ref(ctx.el.loom), `Wanderer's bot section holds Loom's reference; got ${show(j && j.bot)}`);
+});
+
+test('AT72 [story 19 AC3, ADR 0019 Decision 8]: the rule runs only when the JSON changes: Grok One, already in bot and holding a name, is put in bot\'s crew set, not refused', async () => {
+  const { madeRun, ctx, before, file } = await enumRuns();
+  const x = madeRun.req('into-set');
+  assert(x.status === 200 && x.body.data.outcome === 'added', `Grok One goes into the crew set, its JSON as it was: no check runs (AC3); got ${x.status} ${show(x.body).slice(0, 400)}`);
+  const g = S.readState(file);
+  assert(EG.linksInto(g, ctx.f.bot.project).length === 1 && C.json(before, ctx.el.grokOne).bot.project === 'Infinite Harness', 'the premise: bot\'s project is linked, and Grok One\'s project is a name, which the rule refuses when it judges');
+  assert(C.into(g, ctx.el.grokOne, 'HAS_ELEMENT').includes(ctx.set.crew) && same(C.json(g, ctx.el.grokOne), C.json(before, ctx.el.grokOne)), 'it is in the set, with its JSON as it was, project a name');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

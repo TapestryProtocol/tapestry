@@ -351,7 +351,7 @@ A change made while catching up has `catchUp: true`. `CHANGE` in `changes.js` do
 - **A10.20.c:** when the writes derive after they commit, these four call it too, and their reports judge the tapestryJson the write leaves.
 - **update-concept's rename could rename the pieces too,** so a catch-up never follows a rename. A small change to `renameRows`, left for a story that touches it.
 - **A concept with two top-level keys,** and fields with no `type` (`$ref`, `anyOf` alone), wait for a concept that needs them.
-- **`graph enumerate`** (catalog §2) will give a piece its `enum` from another concept's elements.
+- **`graph enumerate`** (catalog §2) will give a piece its `enum` from another concept's elements. *(Amended by ADR graph-operations-first-slice/0019 Decision 14: enumerate gives no piece an `enum`. Its link, one `ENUMERATES` from the source's superset to the property, is the only record, and the rule `enumerated-value-allowed` checks each value against the source's elements when an element write stores it.)*
 - **Firmware reinstall required?** Yes, for rule 3's element text (Decision 15), which `node src/firmware/graph-rules.js` regenerates. No concept definition changes.
 
 ## Implementation notes

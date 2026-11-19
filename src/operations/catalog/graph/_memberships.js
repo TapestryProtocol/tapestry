@@ -25,6 +25,9 @@
  *                                        (Decision 11)
  *   firmwareMembership(read, …)          the part of that definition behind a link taken out or a concept left, or null
  *   authorClaim({ facts, tags, … })      the tag of another author's letter that claims one, or null (Decision 10)
+ *   relationshipEvents(read, …)          the instance's own relationship events naming a pair, of the class thread's
+ *                                        termination type or another given (ADR graph-operations-first-slice/0019
+ *                                        Decision 5: graph unenumerate's letters)
  *   ownLetters(read, …)                  the instance's own letters that still state a removed membership (Decision 13),
  *                                        the relationship events found through the relationship concept (Amendment 2,
  *                                        item 4)
@@ -487,14 +490,16 @@ function authorClaim({ facts, tags, ways, left }) {
 }
 
 /**
- * R: the instance's own relationship events naming a pair from one of `from` to `to`, of the class thread's termination
- * type → [{ address, from }]. They are found as elements of the relationship concept (its header at
- * firmware.conceptUuid('relationship')), through its class thread, by the instance's own authors, and only then by
- * their nodeFrom, nodeTo and relationshipType tags: no read scans tag nodes by type and value, which no index covers
- * (ADR 0022 Amendment 2, item 4). An event a firmware reinstall's pass 1d hasn't wired into that concept yet is left
- * out. An instance with no relationship concept has none.
+ * R: the instance's own relationship events naming a pair from one of `from` to `to`, of the relationship type `type`,
+ * the class thread's termination type when none is given → [{ address, from }]. They are found as elements of the
+ * relationship concept (its header at firmware.conceptUuid('relationship')), through its class thread, by the
+ * instance's own authors, and only then by their nodeFrom, nodeTo and relationshipType tags: no read scans tag nodes by
+ * type and value, which no index covers (ADR 0022 Amendment 2, item 4). An event a firmware reinstall's pass 1d hasn't
+ * wired into that concept yet is left out. An instance with no relationship concept has none. graph unenumerate looks
+ * for the letters that claim an ENUMERATES with it (story graph-operations-first-slice #19, ADR
+ * graph-operations-first-slice/0019 Decision 5).
  */
-async function relationshipEvents(read, { from, to, authors }) {
+async function relationshipEvents(read, { from, to, authors, type }) {
   const firmware = require('../../../api/normalize/firmware');
   const uuid = firmware.conceptUuid('relationship');
   if (!uuid || !to || !from.length || !authors.length) return [];
@@ -512,7 +517,7 @@ async function relationshipEvents(read, { from, to, authors }) {
      MATCH (e)-[:HAS_TAG]->(y:NostrEventTag {type: 'relationshipType'})
      WHERE y.value = $type
      RETURN DISTINCT e.uuid AS address, f.value AS from`,
-    { concept: header.key, authors, to, from, type: TERM },
+    { concept: header.key, authors, to, from, type: type === undefined ? TERM : type },
   );
   return rows.filter((r) => typeof r.address === 'string' && r.address);
 }
@@ -545,5 +550,5 @@ module.exports = {
   NOT_INSTALLED_ADD, NOT_INSTALLED_REMOVE, NO_SUPERSET_ADD, NO_SUPERSET_REMOVE,
   NODE, CONCEPT_KEYS, LETTERS,
   say, nodeOf, keysOf, keptIn, theNode, lookedAfterElsewhere, theConcept, anchorOf, sectionFields, tagsOf, jsonOf,
-  isElementLink, waysIn, reaches, firmwareMemberships, firmwareMembership, authorClaim, ownLetters,
+  isElementLink, waysIn, reaches, firmwareMemberships, firmwareMembership, authorClaim, relationshipEvents, ownLetters,
 };

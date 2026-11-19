@@ -1,0 +1,211 @@
+# Story 19: `graph enumerate` — make a property's allowed values the elements of another concept, and take it back
+
+**Status:** Done
+**Created:** 2026-11-18
+**Type:** Feature
+**Loom:** A10.19 — https://loom.brainstorm.world/t/A10.19
+
+## Background
+
+Loom's A10.19 asks for one graph write (catalog §2, Properties and schema):
+
+- **`graph enumerate`:** "Make a property's allowed values the elements of another concept", taking `concept`, `property` and `source`, and answering "the link". It "refuses an unknown concept or property". Today it "signs: `POST /api/normalize/enumerate` and `POST /api/normalize/apply-enumerations`", and the catalog's map of old routes to new says the second becomes "cache rebuild: the allowed values are computed from the source concept's elements (D10)".
+
+Done, for Loom, is when "it is declared once; answers at `/api/tapestry/graph/enumerate` for the owner and admins; has its internal CLI command and /docs entry made from the declaration; has a test for each thing it refuses or reports; and an agent has used it through the external CLI."
+
+This is horizontal integration (BIBLE glossary: "a relationship where a concept's elements define the allowed values for a property"), the Neo4j half of it, for the owner and admin agents. Loom's K5 (from proposal P-8) holds the rest: how a property node and the link are written as nostr events and read back (K5.1, with K5.5's spec), and the DList side (K5.2–K5.4).
+
+Ten facts about today's instances shape the story:
+
+- **The documented shape.** BIBLE §6: `ENUMERATES` runs from a Superset to a Property ("horizontal integration, explicit event"). The relationship tables in `docs/CONFIGURATION.md` and `docs/ARCHITECTURE.md` say the same since 2026-11-18 (PR #156).
+- **The code has three other shapes** (ledger row `2026-11-19-enumerates-has-two-shapes`; Loom memo #91 on K5.1). Firmware install writes each of its manifest's enumerations from the source's superset to the *target concept's JSON schema*, naming the field in a `destinationPath`, with no event. `POST /api/normalize/apply-enumerations`, which copies allowed values into a schema, reads only that shape. Firmware's own definition of the type says Concept Header → Property, which no writer does, and the audit's wiring rule accepts only a header as the start, so it flags every edge both writers make.
+- **On the local instance** (read-only count, 2026-11-19 UTC): five `ENUMERATES`, all firmware's, each from a superset to a JSON schema: concept headers → `word.wordTypes`, graph types → `graph.graphType`, JSON data types → `property.type`, relationship types → `relationship.relationshipType`, dog breeds → `dog.breed`. None ends at a property.
+- **How firmware's values are chosen.** Each manifest enumeration names the field of the source's elements that gives its values (`source-path`: `oKeys.singular`, `slug` or `alias`), and the value is that field, bare: a dog's `breed` is `irishSetter`, which firmware ties to the dog's `wordTypes`. `word.wordTypes` is a list. When none is named, apply-enumerations takes an element's slug, else its name. It gathers the elements from the source's superset and every set below it, everyone's, and skips a source with none.
+- **Today's route, and what an admin agent hit with it.** `POST /api/normalize/enumerate` finds the source concept, the property and the target concept by name, each the first match anywhere in the graph. It writes `ENUMERATES` from the source's superset to the property and signs a relationship event for it. When the property has no edge straight to the target's JSON schema, it adds one, with an event of its own. On 2026-11-18 (US Eastern), an admin agent, Grok Bot, linked the Grok Bots concept's `project` property to the Projects concept this way, on the owner's hosted instance. Read through that instance's public read routes afterwards: the edge runs from Projects' superset to the property, as BIBLE §6 says. But the property, which graph add-property had made (its address and its lack of an event say so), now has two parents, the primary property and the JSON schema, so the property writes refuse the concept (`tangled-tree`; ledger row `2026-11-19-old-routes-hang-properties-on-schema`). The schema lists no allowed values for `project`, which is still `type: string`. The bots hold project names as plain text ("Infinite Harness"), with no relationship to the project.
+- **The new stack can neither make the link nor take it out.** `ENUMERATES` is reserved for `graph enumerate` (`src/operations/rules/relationship-type-allowed.js:44`), so `graph add-relationship` and `remove-relationship` refuse it, and `IS_A_PROPERTY_OF` is reserved for the property writes. A fixed list of allowed values is already possible: `graph update-property` takes JSON Schema's `enum` (story 18). What's missing is a list that follows another concept.
+- **What the property writes do** (story 18, ADR 0018). A concept's property tree is the authority for its schema, and each write rebuilds the JSON schema node from it. They refuse a concept that isn't the instance's own, a firmware concept, and a tree with a node that has two parents. They report the elements that stop fitting, and refuse none for it. ADR 0018 names `graph enumerate` as the write that "will give a piece its enum from another concept's elements".
+- **Whose elements count.** Graph reads count a concept's elements from the owner's point of view by default: the instance's own, and anyone the owner's web of trust scores above the verified cutoff. `pov=everyone` keeps all of them. Nothing per point of view is stored (ADR 0011).
+- **A reference form already exists** (ADR graph-rules/0002, Loom A10.42, accepted 2026-11-18). Markdown in a graph links to a node as `tapestry:<tapestryKey>`, which any node can be the target of, or as `nostr:naddr…` for a node with a letter. A key never changes, so the link survives renames; links by name were rejected because they break on a rename and can name more than one node. Keys are random per instance, so a `tapestry:` link is dead on another instance, never wrong, and export nostr rewrites it to an naddr where the target has a letter.
+- **A relationship keeps only its type.** The owner's rule *reducibility* (on his hosted instance, 2026-11-18): a concept graph must have a well-defined algorithm to its fully reduced state, where each node keeps only its tapestryKey and tapestryValue, and each relationship only its type. The rule names firmware's `ENUMERATES` properties, `sourcePath` and `destinationPath`, as properties with no defined way to reduce yet.
+
+## User-facing description
+
+As an admin agent building a concept graph, or the owner, I want to say in one call that a property's values are the elements of another concept, such as a bot's project being one of the Projects, so that the graph records the link at the property itself, each value names one element of the other concept for good, even after a rename, and a value that names no element of it is refused when it's written.
+
+As the same agent, I want to take the link back, and to be refused, with the reason and the way on, a property the link can't govern, so that a link never leaves the graph tangled the way today's route left the Grok Bots concept.
+
+## Acceptance criteria
+
+- [ ] **AC1 — Link a property to another concept.** Given the owner or an admin is signed in, when they call `POST /api/tapestry/graph/enumerate` with `property` (the tapestryKey of a property of one of this instance's own concepts: a field, not its primary property) and `source` (the tapestryKey of a concept's header; the property's own concept may be its source, as a person's mentor is a person), then the graph gains one `ENUMERATES`, from the source concept's superset to the property node (BIBLE §6; open question 1). It carries its type and nothing else. Nothing else changes: the property stays where it is in its concept's property tree, no relationship to the concept's JSON schema is added, and nothing is signed or sent to a relay. The answer gives the property (its tapestryKey, its concept and its place among the concept's fields), the source concept, `outcome: enumerated`, the elements a value may name as they are at that moment, each with its tapestryKey and name (AC2), the report on the property's concept's elements (AC3), the property writes' `caughtUp`, `filledIn`, `elements`, `letterOutOfDate` and `cacheOutOfDate`, and the change entry, which `graph history` finds by the property and by the source concept. `graph list-relationships` on the property lists the link.
+- [ ] **AC2 — What a value is** (open question 2). An allowed value is `tapestry:<tapestryKey>`, the key of an element of the source concept, written as the graph stores it, the same form ADR graph-rules/0002 gives a link. The elements are those `graph list-elements` lists for the source by default, from the owner's point of view (ADR 0011). A field of type string holds one such value. A list of strings holds any number, each of them allowed. A value that names a node any other way, by its name, its slug or its address, isn't allowed.
+- [ ] **AC3 — The new writes check values, and the values follow the source.** After the link, `graph create-element`, `graph update-node` and `graph add-to-concept` refuse an element of the property's concept whose field holds a value that isn't allowed, or a list that holds one. Nothing changes, and the refusal names the field, the value, the source concept and the way on: `graph resolve` to turn a name into its key, `graph list-elements` on the source for the elements it holds, or `graph create-element` there to add one. An element that leaves the field out is judged as before, by whether the field is required. The allowed values are the source's as they are when a write is checked: an element added to the source, by any operation or by today's routes, is allowed from then on, and one taken out of it, or deleted, is no longer allowed, with no further call (CLAUDE.md, principle 3). A link today's route made counts the same. Elements written before the link stay as they were: enumerate reports those whose value isn't allowed, judged from each element's JSON as the element writes read it, and reported as the property writes report (ADR 0018): counted, at most 50 named, and never refused. A later write to one of them is judged as any write is. Nothing that today's routes or an import write is checked (D15; CLAUDE.md, principle 2).
+- [ ] **AC4 — Safe to repeat.** Given the property already has an `ENUMERATES` from the source's superset, made by this operation or by today's `POST /api/normalize/enumerate`, enumerate with the same `source` changes nothing and records nothing, unless it first brings the concept's properties in line with its schema, which it records as every property write does. It answers `outcome: already-enumerated`, with `change: null` when it changed nothing, the elements a value may name and the report. Two calls at once that link one property make one link.
+- [ ] **AC5 — Take the link back** (open question 3). When the owner or an admin calls `POST /api/tapestry/graph/unenumerate` with `property`, the `ENUMERATES` into the property is taken out, whichever operation or route made it, and nothing else changes: the property's values are judged by its schema alone again, and no element changes. The answer gives the property, the source it had, `outcome: unenumerated`, whether a letter (the relationship event today's route signs) still claims the link, the property writes' `caughtUp`, `filledIn`, `elements`, `letterOutOfDate` and `cacheOutOfDate`, and the change entry, which `graph history` finds by the property and by the source. Called again, or on a property with no link, it answers `outcome: not-enumerated`, and changes and records nothing, unless it first brings the concept's properties in line with its schema, as AC4 says; `change` is `null` when it changed nothing.
+- [ ] **AC6 — What it refuses.** enumerate and unenumerate refuse each of these, change nothing, record no entry, and say in words what was wrong, naming the input, and the operation to use where there is one:
+  - a `property` that names no node, or a node that isn't one of a concept's fields (a concept's primary property, a node that isn't a property); a `source` that names no concept header (for a superset or a set, the refusal names its concept's header, the key to pass);
+  - a property of a concept that isn't this instance's own, or of a firmware concept, and a concept whose property tree isn't a tree (a property with two parents, as Grok Bots' `project` has today), as the property writes refuse them (ADR 0018);
+  - a property that can't hold a value from a list: a type other than string, or a list whose items aren't strings; and one whose own schema would refuse every `tapestry:` value (its own `enum` or `const`, or a `pattern` or length a `tapestry:` value can't meet), naming `graph update-property` to take it out first;
+  - a property already linked to another source, naming that source and `graph unenumerate`;
+  - a `source` keyed `word` or `graphContext`, whose class threads reach nearly every node, and a source with no superset, or more than one.
+- [ ] **AC7 — It lasts, and it reaches agents.** After a backup restored on a fresh instance, and after a firmware reinstall, the link is there and values are checked as before (BIBLE §30; a reinstall never takes out an `ENUMERATES`). Both operations are for the owner and admins: a caller who isn't signed in is refused with 401, and a signed-in person who is neither with 403. Each is listed for agents and has its `/docs` entry, both made from its declaration. Someone with a shell inside the instance runs `tapestry graph enumerate --property <key> --source <key>` and `tapestry graph unenumerate --property <key>` with no sign-in and gets the routes' answers, and its entries name the command as who made them. On a scratch stack, an admin agent with its own key, through the external CLI (A10.6) and with no change to it: makes two concepts and gives the first a string field, links that field to the second, is told it's already linked when it repeats the call, makes an element whose field names an element of the second by `tapestry:<tapestryKey>`, is refused one whose field holds that element's name, adds an element to the second concept and then names it, takes the link back, and is refused a firmware concept's property.
+
+Seven criteria, for a pair of operations, as story 22 was. The property writes' checks and report are story 18's, and the element writes' check is the rule they already run, so the story stays one reviewable change.
+
+## Concepts touched
+
+The handles use this instance's assistant pubkey (`GET /api/assistant/pubkey`); it differs on every instance, so it is never written into code.
+
+- Any of this instance's own concepts, through its property tree (written): the property the link ends at. Its elements are checked (AC3) and reported (AC1).
+- Any concept, through its header and superset (read): the source, whose elements a value may name, from the owner's point of view.
+- `39998:<TA>:property` — property (read): the link ends at one of its elements.
+- `39998:<TA>:relationship-type` — relationship type (read): firmware declares `ENUMERATES` as one of its elements (`property-enumeration`), whose definition says Concept Header → Property; that text is out of scope.
+- `39998:<TA>:word` and `graphContext` (read): refused as a source (AC6).
+- Firmware's concepts (read): refused as the property's concept, allowed as a source.
+- On the owner's hosted instance, `39998:<TA>:grok-bot` and `39998:<TA>:project`: the first users, whose link today's route made. Their bots' names for projects would be reported as not fitting until rewritten as keys (AC3).
+- No firmware concept's definition changes.
+
+## Out of scope
+
+- **Values by name, slug or another field,** such as `name:Irish Setter` or `slug:irish-setter`, or one qualified by its concept, `<concept's tapestryKey>:name:Irish Setter` (open question 2). A later story would only widen what a value may be.
+- **The reduced form of a value:** a relationship from an element to the element its value names, which a `tapestry:` value can become with nothing lost. Normalizing fields into edges is the Tapestry Graph Conjecture's work (design §9), and K5's.
+- **The letter:** how a property node, the link and a `tapestry:` value are written as nostr events and read back (K5.1, with K5.5's spec), and publishing them (`export nostr`, A10.34, which rewrites a `tapestry:` link to an naddr; ADR graph-rules/0002). A link made here is a private thought until then (BIBLE §30).
+- **Whose link a reader accepts** when several people link one property (proposal P-76, under K5.1). This story writes only the owner's own.
+- **A set as the source,** so that only a subset's elements are allowed. With keys for values the link would still need no concept named, only a set's key for `source` and a start at the set (BIBLE §6), so a later story would only widen `source`.
+- **More than one source** for a property, such as an author who is a person or an organization.
+- **Firmware's five edges, firmware's definition of the type, the audit's wiring rule and apply-enumerations,** which keep working as they do now, with their bare values. Bringing them into line with the one shape is ledger row `2026-11-19-enumerates-has-two-shapes`'s work: a firmware change, and `rules check` (A10.31). A dog's `breed` stays `irishSetter`, which firmware ties to its `wordTypes`.
+- **Repairing a tangled tree,** such as Grok Bots' `project` with its two parents: `rules repair` (A10.31), as ledger row `2026-11-19-old-routes-hang-properties-on-schema` says. Rewriting its bots' names as keys is the owner's or an agent's, with `graph update-node`.
+- **Finding elements whose value stopped being allowed** after the link was made, when an element of the source goes away: `rules check` (A10.31), as ADR graph-rules/0002 has it report dead `tapestry:` links.
+- **Making the property:** `graph add-property` (A10.18) first.
+- **A field inside a list's items,** which has no property node of its own (ADR 0018).
+- **Firmware's wordType conditionals,** which apply-enumerations writes for its own enumerations.
+- **Showing the allowed values in today's UI,** such as a picker on the element form, or showing a `tapestry:` value as its target's name (D15; epic graph-curation-ui).
+- **Today's enumerate and apply-enumerations routes,** which stay as they are (D15).
+- **Naming a node by its name or address in an input:** each input takes a tapestryKey, and an agent calls `graph resolve` (A10.9) first.
+- Merging to staging and shipping to production, which wait for the owner's OK (the book's frame).
+
+## Open questions
+
+Resolved at this gate. Each carried the drafting's proposal, for the owner to confirm or change; the owner approved the story as drafted, with all three (2026-11-18).
+
+1. **Which shape does the graph keep?** *Resolved: BIBLE §6's, `ENUMERATES` from the source concept's superset to the property node* (the drafting's proposal, approved by the owner, 2026-11-18). AC1. BIBLE, today's route, the reading pages, the relationship tables and the link Grok Bot made already use it. A superset is where the source's class thread starts, so its elements are exactly the source's, and the link ends at the field it governs. The other choices are the code's other shapes: a start at the source's header (firmware's definition, the audit, and K5.4's "header as a stepping stone"), which reaches the elements only through the superset; or an end at the target's JSON schema with the field named in a path (firmware install, apply-enumerations), which can't be found from the property, and whose path is a property on the relationship, which the reducibility rule leaves no way to reduce.
+2. **What is a value?** *Resolved: `tapestry:<tapestryKey>`, the only form in this story* (the owner's direction, with the drafting's proposal that the other forms wait, approved by the owner, 2026-11-18). AC2. A key names one node, so a value survives renames and is never ambiguous: the check asks only whether that node is an element of the source. For a set in several concepts' class threads (dogs, animals, indoor pets), no concept has to be named, so the link keeps only its type, as the reducibility rule asks. It is the form markdown links already use (ADR graph-rules/0002), and the reference K5 asks for ("items carry references to that list's items"). The other choice is the owner's further forms, `slug:irish-setter` and `name:Irish Setter`, for a field that is top-level, required, unique and a string, qualified by the concept's key when the source is a set. They wait, for these reasons:
+   - **"Unique" isn't something the graph can promise.** create-concept writes `x-tapestry.unique: ["name", "slug"]` into each new schema, but the graph writes don't enforce it. One old route does, and calls it advisory (`src/api/normalize/index.js:2661`). And from the owner's point of view, a peer's element can share a name or a slug with the instance's own, which CLAUDE.md's principle 2 says nothing stops them publishing. So `name:Irish Setter` can name two nodes, and a check would have to refuse it or guess.
+   - **The qualified form gives up what a name is for.** `<tapestryKey for dog>:name:Irish Setter` carries a key anyway, so it reads no better than `tapestry:<tapestryKey for Irish Setter>`, and it still breaks when the breed is renamed.
+   - **Agents already work in keys.** Every graph input takes a tapestryKey, `graph resolve` turns a name into one, and the answers and refusals here list each element with its key and name.
+   - **If they come later,** the choice would sit on the property node, never on the link (reducibility), and only for a source that fixes one concept.
+3. **Can a link be taken back?** *Resolved: yes, in this story, as `graph unenumerate`* (the drafting's proposal, approved by the owner, 2026-11-18). AC5. Nothing else can take an `ENUMERATES` out, since add-relationship and remove-relationship refuse it as reserved, and a mistaken link should go without deleting the property. A link to another source is then refused until it's taken back (AC6), so each call does one thing. The other choice is enumerate alone, as the catalog lists it: a mistaken link would then go only with its property (`graph remove-property`).
+
+Settled by CLAUDE.md's principles, the owner's rules and the design, and approved with the story (2026-11-18):
+
+- The link carries its type and nothing else (the owner's reducibility rule). Nothing about values is kept on it.
+- The allowed values follow the source as it is when a value is checked (principle 3), from the owner's point of view (principle 1; ADR 0011), rather than a copy taken when the link is made, as apply-enumerations takes one.
+- The new element writes check values (AC3); elements already written are reported, not changed; and nothing that today's routes or an import write is refused (principle 2; D15).
+- The property stays where it is in its tree (BIBLE §6). The extra edge today's route adds is what tangled Grok Bots' tree.
+
+**Changed at Architecture** (the owner's approval of ADR 0019, Option A, with its four proposed amendments, 2026-11-18):
+
+- AC3's report judges each element from its JSON as the element writes read it, and reports as the property writes report, counted, at most 50 named, never refused. The property writes judge each element's cached copy, which an element made since the last derive pass doesn't have.
+- AC6 refuses a property whose own schema would refuse every `tapestry:` value, not only one with its own `enum`, and a source with more than one superset as well as one with none.
+- AC1, AC4 and AC5's answers carry the property writes' standard fields, and a repeat that finds the concept's tree out of line with its schema brings it in line and records that, as every property write does.
+
+**Changed at Test Design** (ADR 0019 Amendment 1, 2026-11-18): AC6 no longer lists a `format` among what refuses a `tapestry:` value. Rule 4's ajv options load no formats, so a format never refuses one.
+
+**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-19, with ADR 0019 Amendment 2): AC6's third bullet names every keyword that leaves no `tapestry:` value, read from the check itself, not only an `enum`, a `const`, a `pattern` or a length: a list's `maxItems` of 0 and a `not` are refused too, each named, as they already were in words that named nothing. A list whose `minItems` asks for two references or more, up to 10,000, is linked, where it was refused; one that asks for more is still refused, in words that say so. AC2's list of strings may also hold a `null`, which isn't judged.
+
+For Architecture, not this gate (answered by ADR 0019):
+
+- **How the values follow the source:** worked out when a write checks a value, or a copy kept in the property's piece and the schema node and renewed whenever the source's elements change. ADR 0018 expected a copy in the piece, the catalog says the values are computed (D10), and the owner's glossary entry on horizontal integration calls the schema's list the serialized side of the link, rebuilt from it. Also what today's readers of the schema node then see (D15).
+- **How the property's piece describes a `tapestry:` value:** a pattern, or a list of keys each with its element's name as a title, and how the check reaches create-element, update-node and add-to-concept, whose rule `element-fits-schema` judges against the schema, with the owner's point of view in it (ADR 0011's trust test).
+- **What the check does on a tangled tree,** such as Grok Bots', whose link today's route made.
+- **The catalog row's `concept` input,** which a property's tapestryKey already gives, as update-property takes it; and unenumerate's row.
+- **Which locks the writes take,** beside a property write on the same concept, and beside an element write on the source.
+- **Whether the audit's wiring rule gets D15's cheap fix,** so it stops flagging every link these writes make.
+- **A large source:** how many elements an answer lists, and what a check costs.
+- **The answers' and the change entries' shapes,** and the refusals' codes and statuses.
+
+## Deviations
+
+Judgment calls made in Implementation (2026-11-19), each too small for an ADR amendment:
+
+- **`enumerated-elsewhere` wins over a repeat.** A property linked from the source's superset and from another start too is refused, naming the other start, rather than answered `already-enumerated`: Decision 2 runs step 9 after step 8, and a property has one source (Decision 1). The plan leaves this case unpinned.
+- **`check` is shared.** Beside rule 10's two reads, `_enumerations.js` exports `check(read, items, { fields, pov })`, the rest of the rule: the values each item holds, the second read, and the findings. The rule calls it, and so does `valuesReport`, so the report is judged by rule 10's check (Decision 9) with the point of view enumerate resolved once.
+- **The report judges every enumerated field of the concept,** not only the one just linked, as rule 10 judges a write: one entry for each element and field, which is what a later write to that element is refused for.
+- **Rule 10 reads twice more than Decision 7 counts:** once for the items' concepts' keys and the sources' names (`K.headersByKey`), and once for the owner's point of view (`R.resolvePov`, which reads whether any score exists). Both are made once a concept has an enumerated field, so a concept with none still costs one read, and the count still doesn't grow with the items.
+- **The second read tests the class thread's reach with `EXISTS { MATCH … }`,** the pattern Decision 6 gives, rather than counting its paths, so Neo4j can stop at the first. The fake graph runs it; Neo4j is first met at the live check.
+- **A list piece is now tried with `max(1, minItems)` different references, up to 10,000** (ADR 0019 Amendment 2, item 1), where until review round 1 it was tried with a list holding one reference, which refused a list with `minItems` above 1. And a list is `type: "array"` alone, as Decision 4 writes it: only a string takes the nullable form `["string", "null"]`.
+- **A key naming a tag or a change entry** is answered as one that names no node (Decision 6), the message saying neither is one.
+- **unenumerate's `source`** is the link's source only when every link it took out ran from one concept's superset; it is null when none went, when they ran from more than one start, or from a set. The change entry names each start. The plan leaves both cases unpinned.
+- **`enumeration-removed` is one change per start,** each with its `count`, and `concept` only when the start is a concept's superset: a set names no source concept (the plan leaves this unpinned).
+- **`letters.searched` is a sentence** (the plan's raised point 3): what the search covered, or that none ran when no link was taken out.
+- **`allowed.count` counts to 10,001** (Decision 9), from one read of at most 10,001 rows: 10,001 means more than 10,000.
+- **Rule 10's message ends with "Nothing changed."** and the way on, as the operations' refusals do. update-node joins every finding's message, so with more than one finding it says so once for each.
+- **The link's `MERGE` checks it joined one pair,** as the property writes' `edge` does: the source's superset isn't locked (Decision 12), so one deleted by another write at that moment fails the call, which asks to try again.
+- **The new ledger row** on the property writes that drop or retype an enumerated property is `2026-11-19-property-writes-drop-enumerations`, typed `bug`; rule 10's graph rule item joins rule 9's pending reinstall, ledger row `2026-11-18-rule-nine-awaits-firmware-reinstall`.
+
+Judgment calls made in review round 1's fixes (2026-11-19, ADR 0019 Amendment 2), each too small for an amendment:
+
+- **`validatorOf`'s check also gives ajv's errors,** as `errors`, each `{ keyword, schemaPath }`; `fits` and `problems` are as they were, and the property writes' report reads only those. `say.refusesReferences` tries the piece again to name what refuses, so enumerate's call is unchanged and a refused piece is compiled twice.
+- **The refusal's other words.** A piece that doesn't compile alone is refused with `validatorOf`'s reason, and told to change it with `graph update-property` so that it compiles alone. A `minItems` above 10,000 is given `'{"minItems": null}'`, or a `minItems` of 10,000 or less, as its way on. A list's refusal says how many references were tried. The keywords are named in ajv's order, the piece's own before the items'.
+- **A keyword reached through a `$ref` into the piece's own `definitions`** is named by its path's first keyword, `its definitions`: neither Amendment 2 nor a test settles it. Review round 2 found its way out can't free the field, and a `$ref` that refers to itself makes enumerate answer 500; ledger row `2026-11-19-enumerate-misreads-a-ref` records both (non-blocking 2 and 3).
+- **enumerate's description,** which `/docs` and the CLI's help show beside the refusal's declaration, lists the same causes of `refuses-references` as the catalog's row.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-19, on `3a3b3882` with the implementation uncommitted)
+
+Each ran alone on this Mac with every service endpoint dead and stub `curl` and `docker` first on `PATH` (the Tester's `tmp/a10-19-test-design/env.sh`). None failed:
+- **This story's:** enumerate 29 passed, unenumerate 17, enumerate-agent-through-cli 1, enumerated-value-allowed 16.
+- **The changed ones:** create-element 38, update-node 46, add-to-concept 60, mark-field 16, relationship-type-allowed 10, graph-fake 33.
+- **Rule 10's item:** graph-rule-firmware 13 passed, 4 skipped (its live tests), firmware-element-sync 21, graph-rules-builder 26. element-fits-schema 11.
+- **The scoped gate:** record `20261119T051821Z-40550-80a1`, PASS, 1,263 passed, 0 failed, 6 skipped (live tests), over CI's five entries for an operations change. An earlier run, `20261119T051302Z-33202-eef3`, failed 13 tests, each only because the worktree has no `node_modules` of its own; the rerun linked the main checkout's, and the link was taken out after it.
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-19, on `3a3b3882` with the implementation uncommitted)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The scripts (`keys.js`, `setup.sh`, `live.js`, `restore.sh`), every call's request and answer, and `hand-calls.md`, the commands run by hand with their output, are in this worktree's `tmp/live-check-19/` (ignored by git).
+- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this worktree's `src/` mounted, from 05:41:46 to 05:51:34 UTC. The image's firmware (`c4c302955e90`) lacked the branch's graph rule concept and had no file the branch lacks, so the branch's was copied over it in place (`d6d3385ebecb`). The control panel restarted at 05:43:29 and the firmware installed. The branch's `bin/tapestry.js` and `clients/cli` were copied in. The four new files' digests matched inside and out (`setup.log`).
+- **Keys.** Throwaway keys for the owner, an admin for the agent, a stranger and two peers, scored 0.2 and 0.01 (`keys.json`, mode 600).
+- **Afterwards** it was removed, after a second, fresh boot for the restore. `docker ps -a` then listed the same containers as before the boot, `tapestry` up 3 days. No code changed during the check.
+
+**All of the script's 34 checks passed** (`main.log`, `reinstall.log`, `restored.log`; each check's detail in `report-*.json`):
+- **S0–S8, the seed and the local caller's calls:** the instance listed both operations and rule 10 as a guard of the three element writes. Linking bot's `project` to project made one `ENUMERATES` from project's superset, carrying nothing, the property still under the primary property alone. `allowed` held the instance's own two elements and the peer scored above the cutoff, not the one below it. `values` named the one element written before the link with a name. The repeat answered `already-enumerated`, and `tapestry graph enumerate` inside the instance was recorded as `local`. create-element, update-node and add-to-concept refused a name, a peer's element below the cutoff, a list holding a name, a key naming no node and the source's own header, each saying why, and took references.
+- **L1:** the admin agent, through nginx and the unchanged external CLI, ran XN1's sequence: it linked robot's field to venture, was told `already-enumerated`, named Moonshot by key, was refused it by name (naming `graph resolve`), named a venture added after the link, took the link back (`removed: 1`) and was refused a firmware concept's property (`firmware-concept`). No firmware concept had a field under its primary property, so one was made by hand under class thread's, as the suites' seed does. The field's history was the agent's three entries (`main.log`, L1a–L1g).
+- **L2:** two enumerates of one property, fired from one node process in the container, 13 times at 0–400 ms (9 overlapping): always one `enumerated` and one `already-enumerated`, one link, one entry. Beside the plan, an enumerate and a create-element of a name in that field, 5 times: the element was made before the link once (at 0 ms) and refused after it four times, never half of each (`main.log`, L2a and L2b).
+- **L3:** after a firmware reinstall (82 s), all 17 links were there, carrying nothing; create-element refused a name and took a reference in three linked concepts, the route's included; firmware's own five edges to JSON schema nodes were as they were; and the graph rule concept held 10 items, `enumerated-value-allowed` among them (`reinstall.log`). `graph-rule-firmware.test.js` passed GL1–GL3 live (`graph-rule-firmware.log`).
+- **L4:** backup `20261119T054611Z-d43433ca` (3.79 MB: 5,554 nodes, 6,116 relationships), taken before the reinstall, was restored on a fresh instance, its transaction and counts exact. The 17 links, the checks on values and firmware's edges were as before (`restore.log`, `restored.log`).
+- **L5:** today's `POST /api/normalize/enumerate` on a property graph add-property made linked project's superset to it, hung it on grok bot's JSON schema node too, and signed two letters. Both new operations refused it `tangled-tree`, its link kept, and create-element in grok bot was checked against the link through the property's chain. After the reinstall, with the extra edge taken out by hand as `rules repair` will, unenumerate took the link out and named the route's letter, which the reinstall had wired into the relationship concept (`main.log`, L5a–L5c; `reinstall.log`, L5d).
+- **L6:** through nginx, a visitor got 401 from both routes, and the stranger, signed in by the CLI, 403 with its cookie (`main.log`).
+- **L7:** with a source of 1,000 elements, enumerate answered 1,000, the first 50 named, in 0.132 s, and 0.062–0.069 s on repeats. create-element naming one took 0.124 s median with the check, against 0.121 s in a concept with no link (`main.log`, L7a and L7b).
+- **L8:** the relay held 468 events before L1 and after L1, L2, L6 and L7. Only today's route, in L5, added its two letters (470), and the reinstall and L5d added none (`main.log`, `reinstall.log`).
+
+**Surprising, but within the ADR:** the refusals `P.load` gives (`firmware-concept`, `not-own-concept`, `tangled-tree`) say `input: concept`, an input these operations don't have. The property writes answer the same, and the plan leaves it unpinned. Ledger row `2026-11-19-property-load-names-concept-input` records it (review round 1, non-blocking 5).
+
+### Review round 1's fixes (2026-11-19)
+
+On `bb6d6255`, the Tester's round-1 cases, with ADR 0019 Amendment 2's items 1 to 3 built and not yet committed. Each suite ran alone on this Mac with every service endpoint dead and stub `curl` and `docker` first on `PATH` (`tmp/review-19/run-suites.sh`, which sources `tmp/a10-19-test-design/env.sh`; its output is in `tmp/a10-19-round1-fixes/suites.log`). None failed:
+- **This story's:** enumerate 31 passed, unenumerate 17, enumerate-agent-through-cli 1, enumerated-value-allowed 17. EN30, EN31 and EV7 failed before the fixes.
+- **The element writes:** create-element 39 (CE51 failed before), update-node 46, add-to-concept 60.
+- **Beside them:** element-fits-schema 11, mark-field 16, relationship-type-allowed 10, graph-fake 33; and, since `validatorOf`'s check now gives ajv's errors too, the property writes: add-property 15, update-property 11, remove-property 8, set-schema 10.
+- **Rule 10's item:** `node src/firmware/graph-rules.js` rewrote `enumerated-value-allowed.json`, its `says` alone, and `--check` finds the 10 items current. graph-rule-firmware 13 passed, 4 skipped (GL1–GL4, its live tests), firmware-element-sync 21, graph-rules-builder 26.
+- **The scoped gate:** record `20261119T170016Z-23376-7bf7`, over CI's five entries for an operations change, with the main checkout's `node_modules` linked for the run and the link taken out after it (`tmp/a10-19-round1-fixes/gate.sh`, the reviewer's script with its label changed). By suite: operations 1,166 passed, 4 skipped; external-cli 53; openapi-coverage 13; admin-action-sweep 9; schema-save-finds-the-right-header 26, 2 skipped. The six skipped are live tests: LK1–LK4, L1 and L2. The `+dirty` is this commit's 11 files and the link (`dirtyCount` 12). Its line, the path shortened:
+
+  ```
+  20261119T170016Z-23376-7bf7 [a10-19-round1-fixes] started 2026-11-19T17:00:16.562Z on bb6d6255+dirty — PASS, exit 0, 1267 passed, 0 failed, 6 skipped, 5/5 suites · …/tmp/gate-runs/20261119T170016Z-23376-7bf7.json
+  ```
+- **harness-lint:** clean.
+- **The Loom memo:** memo 136 on Loom task A10.34 says `export nostr` must rewrite whole `tapestry:` values (ADR 0019 Decision 14; review round 1, non-blocking 6).
+
+## Linked artifacts
+
+- Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)
+- Epic: [engineering-team/epics/graph-operations-first-slice.md](../../epics/graph-operations-first-slice.md)
+- Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D4, D10, D15, §7 and §9); catalog §2, Properties and schema
+- The sibling stories it builds on: [18-property-operations.md](./18-property-operations.md), [20-create-element.md](./20-create-element.md), [21-update-node.md](./21-update-node.md), [22-add-to-concept-and-remove-from-concept.md](./22-add-to-concept-and-remove-from-concept.md); the point of view: [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
+- The `tapestry:` form: [ADR graph-rules/0002](../../decisions/graph-rules/0002-markdown-links-to-nodes.md) (Loom A10.42)
+- Ledger rows: [2026-11-19-enumerates-has-two-shapes](../../../ledger/2026-11-19-enumerates-has-two-shapes.md), [2026-11-19-old-routes-hang-properties-on-schema](../../../ledger/2026-11-19-old-routes-hang-properties-on-schema.md)
+- The protocol work beside it: Loom K5, Horizontal integration (https://loom.brainstorm.world/c/K5)
+- The write path it goes through: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
+- The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
+- ADR: [engineering-team/decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md](../../decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md)
+- Test plan: [19-enumerate.test-plan.md](./19-enumerate.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/19-enumerate.md](../../reviews/graph-operations-first-slice/19-enumerate.md)

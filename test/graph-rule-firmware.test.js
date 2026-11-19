@@ -62,8 +62,10 @@ const schema = () => readJson(path.join(DIR, 'json-schema.json'), 'Decision 1');
 const manifest = () => readJson(MANIFEST, '');
 
 // element-fits-schema, rule 7, joined with story graph-operations-first-slice #20 (ADR graph-operations-first-slice/0020 Decision 12);
-// node-has-a-concept, rule 8, with story graph-operations-first-slice #22 (ADR graph-operations-first-slice/0022 Decision 12).
-const RULES = ['tapestry-key-unique', 'relationship-type-allowed', 'field-mark-allowed', 'concept-slug-unique', 'class-thread-acyclic', 'set-has-a-parent', 'element-fits-schema', 'node-has-a-concept'];
+// node-has-a-concept, rule 8, with story graph-operations-first-slice #22 (ADR graph-operations-first-slice/0022 Decision 12);
+// tapestry-link-names-a-node, rule 9, proposed, with ADR graph-rules/0002 Decision 5;
+// enumerated-value-allowed, rule 10, with story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019 Decision 13).
+const RULES = ['tapestry-key-unique', 'relationship-type-allowed', 'field-mark-allowed', 'concept-slug-unique', 'class-thread-acyclic', 'set-has-a-parent', 'element-fits-schema', 'node-has-a-concept', 'tapestry-link-names-a-node', 'enumerated-value-allowed'];
 function elements() {
   if (!fs.existsSync(ELEMENTS)) throw new Error(`firmware/versions/v1.0.0/concepts/graph-rule/elements/ does not exist yet (${ADR} Decision 1)`);
   return fs.readdirSync(ELEMENTS).filter((f) => f.endsWith('.json')).sort().map((f) => ({ file: f, json: JSON.parse(fs.readFileSync(path.join(ELEMENTS, f), 'utf8')) }));

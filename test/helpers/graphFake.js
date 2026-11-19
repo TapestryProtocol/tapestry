@@ -111,6 +111,21 @@
  * gets { call: 'meanwhile', at } just before the statement. It fires once, and only while the transaction has written
  * nothing that stays: the fake can't merge two writes, so it throws, naming the node, when this one already has.
  *
+ * Story graph-operations-first-slice #23 (its test plan; ADR graph-operations-first-slice/0023 Decision 8) adds
+ * failures.beforeRelDelete { drop, add }: another write that doesn't lock the node, as today's delete-relationship and
+ * add-to-set don't, commits just before this transaction's first statement that deletes relationships (a MATCH … DELETE
+ * r, the fake's 'delete' kind; never a DETACH DELETE). Each of `drop`, { type, from, to } by its ends' tapestryKeys,
+ * goes, every copy; each of `add` comes. It changes the committed graph and this transaction's alike, so a rollback
+ * keeps it, as failures.meanwhile's does; the log gets { call: 'beforeRelDelete' } just before the statement. It fires
+ * once, and throws, naming the key, when one of its ends names no node.
+ *
+ * Story graph-operations-first-slice #19 (its test plan; ADR graph-operations-first-slice/0019 Decisions 1, 5 and 7)
+ * adds ENUMERATES to the types a read over paths may walk, so graph enumerate's and unenumerate's reads of the link
+ * into a property, and the rule enumerated-value-allowed's read of a concept's enumerated properties, run. A read that
+ * holds an UNWIND, as that rule's second read does, goes to test/helpers/pathCypherFake.js, which runs a read's UNWIND.
+ * Its MERGE and DELETE are the relationship statements above: a link is made or taken out between two nodes the
+ * statement finds by tapestryKey, written (a …)-[r:ENUMERATES]->(b …), never from an end found another way.
+ *
  * Anything else throws "the fake graph can't run this Cypher", naming the statement, so a test that fails on the
  * fake's limits says so. failures: { change: true } makes a relationship's MERGE or DELETE throw before it writes, and
  * { entry: true } the CREATE of a GraphChange node: the AC4 tests' crash between a change and its entry.
@@ -369,7 +384,9 @@ function deleteRel(s, q, params) {
 /** The relationship types ADR 0005's reads (S1–S4) walk; a read over paths may name these and no others. */
 const PATH_READ_TYPES = Object.freeze(['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_THE_PRIMARY_PROPERTY_FOR', 'IS_A_PROPERTY_OF', 'HAS_ELEMENT', 'IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF',
   // ADR graph-operations-first-slice/0016's C9: a concept's core nodes, by the wiring types today's create-concept makes.
-  'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR']);
+  'IS_THE_PROPERTIES_SET_FOR', 'IS_THE_PROPERTY_TREE_GRAPH_FOR', 'IS_THE_CORE_GRAPH_FOR', 'IS_THE_CONCEPT_GRAPH_FOR',
+  // ADR graph-operations-first-slice/0019 Decisions 1, 5 and 7: the link from a source's superset to a property.
+  'ENUMERATES']);
 
 /**
  * ADR graph-operations-first-slice/0013's one-hop reads (story graph-operations-first-slice #13): a statement that opens
@@ -593,6 +610,29 @@ function vanish(state, { key, add = [] }) {
   for (const n of add) state.nodes.push({ eid: state.nextEid++, labels: [...n.labels], props: { ...n.props } });
 }
 
+/**
+ * failures.beforeRelDelete's other write (story graph-operations-first-slice #23), in each of `states` alike: each
+ * relationship of `drop`, { type, from, to } by tapestryKey, goes, every copy, and each of `add` comes, with the same
+ * eid in every state.
+ */
+function otherWrite(states, { drop = [], add = [] } = {}) {
+  let next = Math.max(...states.map((st) => st.nextEid));
+  const eids = add.map(() => next++);
+  for (const st of states) {
+    const eidOf = (key) => {
+      const n = st.nodes.find((x) => x.props.tapestryKey === key && !x.labels.includes('GraphChange'));
+      if (!n) throw new Error(`failures.beforeRelDelete names ${key}, which no node has`);
+      return n.eid;
+    };
+    for (const d of drop) {
+      const [a, b] = [eidOf(d.from), eidOf(d.to)];
+      st.rels = st.rels.filter((r) => !(r.type === d.type && r.from === a && r.to === b));
+    }
+    add.forEach((x, i) => st.rels.push({ eid: eids[i], type: x.type, from: eidOf(x.from), to: eidOf(x.to), props: {} }));
+    st.nextEid = next;
+  }
+}
+
 /** Run one statement over state `s` (changed in place); { rows, counters }. */
 function exec(s, cypher, params = {}, { write = false } = {}) {
   const q = String(cypher);
@@ -606,7 +646,9 @@ function exec(s, cypher, params = {}, { write = false } = {}) {
   if (!writes && /^\s*SHOW\s+FULLTEXT\s+INDEXES\b/i.test(bare)) return { rows: showFulltextIndexes(s, q, params), counters: zero() };
   // Its S1 opens with a CALL, which only the path reader runs, whether or not a relationship follows.
   const calls = /^\s*CALL\b/i.test(bare);
-  if (!writes && !hasRel && !optional && !calls) return { rows: readOneNode(s, q, params), counters: zero() };
+  // A read's UNWIND (story graph-operations-first-slice #19, ADR 0019 Decision 7) is the path reader's too.
+  const unwinds = /\bUNWIND\b/i.test(bare);
+  if (!writes && !hasRel && !optional && !calls && !unwinds) return { rows: readOneNode(s, q, params), counters: zero() };
   if (!writes && isDeclaredTypesRead(bare)) return { rows: readDeclared(s, q, params), counters: zero() };
   if (!writes && (isOneHopFromKey(bare) || isStepFromKeys(bare))) return { rows: runPathQuery(s, q, params, { types: null }), counters: zero() };
   if (!writes) return { rows: runPathQuery(s, q, params, { types: PATH_READ_TYPES }), counters: zero() };
@@ -685,8 +727,18 @@ function fakeGraph(stateFile) {
         for (const st of [committed, s]) Object.assign(st, copy(graphPart(m.graph)));
         log.splice(log.length - 1, 0, { call: 'meanwhile', at: m.at });
       };
+      // failures.beforeRelDelete (story graph-operations-first-slice #23): another write that doesn't lock the node
+      // commits just before this transaction's first relationship DELETE.
+      const beforeRelDelete = (e) => {
+        const f = committed.failures && committed.failures.beforeRelDelete;
+        if (!f || e.kind !== 'delete') return;
+        delete committed.failures.beforeRelDelete;
+        if (s.failures) delete s.failures.beforeRelDelete;
+        otherWrite([committed, s], f);
+        log.splice(log.length - 1, 0, { call: 'beforeRelDelete' });
+      };
       const tx = {
-        async run(cypher, params) { const e = entryOf('tx.run', cypher, params); log.push(e); first(); meanwhile(e); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
+        async run(cypher, params) { const e = entryOf('tx.run', cypher, params); log.push(e); first(); meanwhile(e); beforeRelDelete(e); if (KIND(cypher) === 'detach') shrink(); return exec(s, cypher, params, { write: true }); },
         async read(cypher, params) { log.push({ call: 'tx.read', kind: KIND(cypher), query: oneLine(cypher).slice(0, 200) }); first(); return exec(s, cypher, params).rows; },
       };
       try {

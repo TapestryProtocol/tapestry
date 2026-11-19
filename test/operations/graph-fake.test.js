@@ -70,6 +70,14 @@
  *   F29 SHOW FULLTEXT INDEXES answers the state's indexes, with YIELD, WHERE and RETURN; a state with none answers none
  *   F30 the speedups change no answer: a path matched from its bound end, and a node found by its label and a
  *       property, give the rows a full scan gives
+ *
+ * Story graph-operations-first-slice #19 (ADR graph-operations-first-slice/0019, Decisions 1, 5 and 7; its test plan):
+ *   F31 reads over ENUMERATES run: the links into a property with each start's concept, and a concept's enumerated
+ *       properties through IS_A_PROPERTY_OF, where an edge to a JSON schema node isn't one; MERGE makes the link once
+ *       and DELETE takes it out, between two keyed nodes
+ *   F32 a read may UNWIND: one row per item of a list of maps, joined to a class thread and the trust fragment; none
+ *       for [] or null, one for a value that isn't a list, after a WITH too; a statement that writes after an UNWIND is
+ *       still a write a read refuses
  */
 
 const fs = require('fs');
@@ -700,6 +708,93 @@ test('F30: the speedups change no answer: a path matched from its bound end, and
   assert(show(users) === show([{ n: k.povHi, influence: 0.2 }]), `a NostrUser found by its label and pubkey; got ${show(users)}`);
   const nobody = await read('MATCH (n:TapestryNode {tapestryKey: $key}) OPTIONAL MATCH (u:NostrUser {pubkey: $pk}) RETURN u.influence AS influence', { key: k.povHi, pk: SG.PEERS.nouser });
   assert(show(nobody) === show([{ influence: null }]), `none for a pubkey with no NostrUser; got ${show(nobody)}`);
+});
+
+// ── story graph-operations-first-slice #19: graph enumerate's, unenumerate's and rule 10's statements ──
+
+/** A small graph with one link: a project concept's superset ENUMERATES a bot's field; and firmware's shape beside it. */
+function enumerationState() {
+  const s = G.emptyState();
+  let n = 0;
+  const key = () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`;
+  const add = (labels, props) => { const x = { eid: s.nextEid++, labels, props: { tapestryKey: key(), ...props } }; s.nodes.push(x); return x; };
+  const link = (a, type, b, props = {}) => { s.rels.push({ eid: s.nextEid++, type, from: a.eid, to: b.eid, props }); };
+  const k = {};
+  const h = add(['ListHeader', 'ConceptHeader', 'TapestryNode'], { name: 'project', uuid: `39998:${TA}:project` });
+  const sup = add(['ListItem', 'Superset', 'TapestryNode'], { name: 'projects', uuid: `39999:${TA}:project-superset` });
+  link(h, 'IS_THE_CONCEPT_FOR', sup);
+  const flagship = add(['ListItem', 'Set', 'TapestryNode'], { name: 'flagship projects', uuid: `39999:${TA}:flagship-projects` });
+  link(sup, 'IS_A_SUPERSET_OF', flagship);
+  const loom = add(['ListItem', 'TapestryNode'], { name: 'Loom', pubkey: TA });
+  const deep = add(['ListItem', 'TapestryNode'], { name: 'Deep', pubkey: TA });
+  const lo = add(['ListItem', 'TapestryNode'], { name: 'Lo', pubkey: '22'.repeat(32) });
+  link(sup, 'HAS_ELEMENT', loom); link(flagship, 'HAS_ELEMENT', deep); link(sup, 'HAS_ELEMENT', lo);
+  add(['NostrUser', 'TapestryNode'], { pubkey: '22'.repeat(32), influence: 0.01 });
+  const bot = add(['ListHeader', 'ConceptHeader', 'TapestryNode'], { name: 'bot', uuid: `39998:${TA}:bot` });
+  const schema = add(['ListItem', 'JSONSchema', 'TapestryNode'], { name: 'schema for bots' });
+  const pp = add(['ListItem', 'Property', 'TapestryNode'], { name: 'bot' });
+  link(pp, 'IS_THE_PRIMARY_PROPERTY_FOR', bot); link(pp, 'IS_A_PROPERTY_OF', schema); link(schema, 'IS_THE_JSON_SCHEMA_FOR', bot);
+  const team = add(['ListItem', 'Property', 'TapestryNode'], { name: 'team' });
+  const lead = add(['ListItem', 'Property', 'TapestryNode'], { name: 'lead' });
+  const project = add(['ListItem', 'Property', 'TapestryNode'], { name: 'project' });
+  link(team, 'IS_A_PROPERTY_OF', pp); link(lead, 'IS_A_PROPERTY_OF', team); link(project, 'IS_A_PROPERTY_OF', pp);
+  link(sup, 'ENUMERATES', lead);
+  link(sup, 'ENUMERATES', schema, { destinationPath: 'bot.code', sourcePath: 'slug' });
+  for (const [name, x] of Object.entries({ h, sup, flagship, loom, deep, lo, bot, schema, pp, team, lead, project })) k[name] = x.props.tapestryKey;
+  const file = path.join(tmp('graph-fake-enumerates-'), 'graph.json');
+  G.writeState(file, s);
+  return { file, k };
+}
+
+test('F31: reads over ENUMERATES run: the links into a property with each start\'s concept, a concept\'s enumerated properties; MERGE and DELETE make and take one', async () => {
+  const { file, k } = enumerationState();
+  const fake = G.fakeGraph(file);
+  const into = await fake.read(`MATCH (p:Property {tapestryKey: $p})<-[:ENUMERATES]-(s)
+    OPTIONAL MATCH (s)<-[:IS_THE_CONCEPT_FOR]-(h)
+    RETURN s.tapestryKey AS start, labels(s) AS labels, h.tapestryKey AS concept`, { p: k.lead });
+  assert(into.length === 1 && into[0].start === k.sup && into[0].concept === k.h && into[0].labels.includes('Superset'), `the one link into lead, from project's superset, with its concept; got ${show(into)}`);
+  const fields = await fake.read(`MATCH (h:TapestryNode {tapestryKey: $concept})<-[:IS_THE_PRIMARY_PROPERTY_FOR]-(pp:Property)
+    MATCH (sup:Superset)-[:ENUMERATES]->(p:Property)-[:IS_A_PROPERTY_OF*1..33]->(pp)
+    MATCH (p)-[:IS_A_PROPERTY_OF*0..32]->(a:Property)-[:IS_A_PROPERTY_OF]->(up)
+    WHERE a <> pp
+    RETURN p.tapestryKey AS p, sup.tapestryKey AS sup, a.name AS name, up.tapestryKey AS up`, { concept: k.bot });
+  const chain = fields.map((r) => `${r.name}>${r.up === k.pp ? 'pp' : r.up === k.team ? 'team' : r.up}`).sort();
+  assert(fields.every((r) => r.p === k.lead && r.sup === k.sup) && show(chain) === show(['lead>team', 'team>pp']),
+    `bot's one enumerated property, lead, found by its chain through team to the primary property, each link of the chain with its parent; the edge to the schema node is no property's; got ${show(fields)}`);
+  const none = await fake.read('MATCH (sup:Superset)-[:ENUMERATES]->(p:Property {tapestryKey: $p}) RETURN count(sup) AS n', { p: k.project });
+  assert(show(none) === show([{ n: 0 }]), `project has no link; got ${show(none)}`);
+  const merge = `MATCH (a:Superset {tapestryKey: $from}) MATCH (b:Property {tapestryKey: $to}) MERGE (a)-[r:ENUMERATES]->(b) RETURN count(r) AS n`;
+  await fake.writeTransaction(async (tx) => { await tx.run(merge, { from: k.sup, to: k.project }); await tx.run(merge, { from: k.sup, to: k.project }); });
+  const made = G.readState(file).rels.filter((r) => r.type === 'ENUMERATES');
+  assert(made.length === 3 && made.filter((r) => show(r.props) === '{}').length === 2, `MERGE made one link into project, twice asked, with no properties; got ${show(made)}`);
+  const del = 'MATCH (a:TapestryNode {tapestryKey: $from})-[r:ENUMERATES]->(b:TapestryNode {tapestryKey: $to}) DELETE r RETURN count(r) AS n';
+  const gone = await fake.writeTransaction(async (tx) => (await tx.run(del, { from: k.sup, to: k.lead })).rows);
+  assert(show(gone) === show([{ n: 1 }]), `DELETE takes the link into lead out and counts it; got ${show(gone)}`);
+  const left = G.readState(file).rels.filter((r) => r.type === 'ENUMERATES').map((r) => r.props.destinationPath || 'plain');
+  assert(show(left.sort()) === show(['bot.code', 'plain']), `the link into project and firmware's edge to the schema node stay; got ${show(left)}`);
+});
+
+test('F32: a read may UNWIND: one row per item, joined to a class thread and the trust fragment; none for [] or null; a write after an UNWIND is still refused by a read', async () => {
+  const R = require(path.join(ROOT, 'src/operations/reads.js'));
+  const { file, k } = enumerationState();
+  const fake = G.fakeGraph(file);
+  const nobody = '00000000-0000-4000-8000-0000000000ff';
+  const pairs = [{ source: k.sup, key: k.loom }, { source: k.sup, key: k.deep }, { source: k.sup, key: k.lo }, { source: k.sup, key: nobody }, { source: k.flagship, key: k.loom }];
+  const rows = await fake.read(`UNWIND $pairs AS pr
+    MATCH (sup:Superset {tapestryKey: pr.source})-[:IS_A_SUPERSET_OF*0..]->()-[:HAS_ELEMENT]->(e:TapestryNode {tapestryKey: pr.key})
+    ${R.trust('e', ['pr'])}
+    RETURN pr.key AS key, counts`, { pairs, everyone: false, own: [TA], cutoff: 0.05 });
+  const got = rows.map((r) => `${r.key === k.loom ? 'loom' : r.key === k.deep ? 'deep' : r.key === k.lo ? 'lo' : r.key}:${r.counts}`).sort();
+  assert(show(got) === show(['deep:true', 'lo:false', 'loom:true']),
+    `loom and deep (through the flagship set) are held and count; lo is held, below the cutoff; nobody's key and a pair whose start isn't a superset give no row; got ${show(rows)}`);
+  for (const [xs, want] of [[null, []], [[], []], ['a', [{ x: 'a' }]], [[1, 2], [{ x: 1 }, { x: 2 }]]]) {
+    const r = await fake.read('UNWIND $xs AS x RETURN x AS x', { xs });
+    assert(show(r) === show(want), `UNWIND ${show(xs)} gives ${show(want)}; got ${show(r)}`);
+  }
+  const after = await fake.read('MATCH (n:TapestryNode {tapestryKey: $k}) WITH n UNWIND $xs AS x RETURN n.name AS n, x AS x', { k: k.loom, xs: ['p', 'q'] });
+  assert(show(after) === show([{ n: 'Loom', x: 'p' }, { n: 'Loom', x: 'q' }]), `an UNWIND after a WITH, one row per item; got ${show(after)}`);
+  const err = await refusedWith(fake.read('UNWIND $rows AS row MATCH (n:TapestryNode {tapestryKey: row.key}) SET n += row.props', { rows: [] }));
+  assert(err && /a read must write nothing/.test(err.message), `a statement that writes after an UNWIND is still a write, which a read refuses; got ${err && err.message}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
