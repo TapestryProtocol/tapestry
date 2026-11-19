@@ -12,6 +12,8 @@
 
 **Rule 10 too.** Story graph-operations-first-slice #19 (Loom A10.19) adds rule 10, `enumerated-value-allowed`, to `docs/GRAPH_RULES.md`, with status enforced, and `node src/firmware/graph-rules.js` made it the tenth element file (`firmware/versions/v1.0.0/concepts/graph-rule/elements/enumerated-value-allowed.json`). ADR graph-operations-first-slice/0019's Consequences say its item can wait for the next reinstall, as rule 9's does. `graph enumerate`, `graph unenumerate` and the rule work regardless: they are code. So rule 10's item waits on this row's reinstall too, once the story reaches an instance.
 
+**Where it stands (2026-11-19).** Both element files reached staging's and production's code with TapestryProtocol/tapestry#158 and #159. Neither deploy installs firmware, and no reinstall ran with either.
+
 **What closes it.** A firmware reinstall on staging, once the entry reaches it, and on production, after its promotion, each the owner's call there. On each, `tapestry graph list-elements` for `39998:<TA>:graph-rule` should give nine items, `tapestry-link-names-a-node` among them, and that item's JSON (its json tag) should say status proposed; and ten, `enumerated-value-allowed` among them with status enforced, once story 19 has reached that instance before its reinstall. The agent-memory instance on the Mac Studio takes it only at David's word.
 
 **Pointer:** `docs/GRAPH_RULES.md`, entries 9 and 10; ADR graph-rules/0002 (Decision 5); ADR graph-operations-first-slice/0019 (Decision 13, Consequences).
