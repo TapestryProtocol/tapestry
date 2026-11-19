@@ -1,6 +1,6 @@
 # Story 19: `graph enumerate` — make a property's allowed values the elements of another concept, and take it back
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-18
 **Type:** Feature
 **Loom:** A10.19 — https://loom.brainstorm.world/t/A10.19
@@ -184,4 +184,4 @@ It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared o
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md](../../decisions/graph-operations-first-slice/0019-enumerate-and-unenumerate.md)
 - Test plan: [19-enumerate.test-plan.md](./19-enumerate.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [reviews/graph-operations-first-slice/19-enumerate.md](../../reviews/graph-operations-first-slice/19-enumerate.md)
