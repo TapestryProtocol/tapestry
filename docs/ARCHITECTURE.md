@@ -64,11 +64,11 @@ Neo4j turns flat nostr events into a navigable knowledge graph. A DList header b
 | Relationship | Meaning |
 |-------------|---------|
 | `IS_THE_CONCEPT_FOR` | ListHeader → Superset (class thread initiation) |
-| `IS_A_SUPERSET_OF` | Superset → Superset/Set (class thread propagation) |
+| `IS_A_SUPERSET_OF` | Superset/Set → Superset/Set (class thread propagation) |
 | `HAS_ELEMENT` | Set/Superset → ListItem (class thread termination) |
-| `IS_A_PROPERTY_OF` | Property → JSONSchema |
+| `IS_A_PROPERTY_OF` | Property → Primary Property (top-level) or Property → Property (nested); the Primary Property's own edge goes to the JSONSchema |
 | `IS_THE_JSON_SCHEMA_FOR` | JSONSchema → ListHeader |
-| `ENUMERATES` | Concept → Property (horizontal integration) |
+| `ENUMERATES` | Superset → Property (horizontal integration) |
 | `HAS_TAG` | NostrEvent → NostrEventTag |
 | `AUTHORED` | NostrUser → NostrEvent |
 

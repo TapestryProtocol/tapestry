@@ -136,11 +136,11 @@ These identify the canonical DList items that define relationship types. Changes
 | Key | Description |
 |-----|-------------|
 | `CLASS_THREAD_INITIATION` | ListHeader → Superset |
-| `CLASS_THREAD_PROPAGATION` | Superset → Superset |
-| `CLASS_THREAD_TERMINATION` | Superset → Element |
-| `IS_A_PROPERTY_OF` | Property → JSONSchema |
+| `CLASS_THREAD_PROPAGATION` | Superset/Set → Superset/Set |
+| `CLASS_THREAD_TERMINATION` | Superset/Set → Element |
+| `IS_A_PROPERTY_OF` | Property → Primary Property (top-level) or Property → Property (nested); the Primary Property's own edge goes to the JSONSchema |
 | `IS_THE_JSON_SCHEMA_FOR` | JSONSchema → ListHeader |
-| `ENUMERATES` | Concept → Property |
+| `ENUMERATES` | Superset → Property (horizontal integration) |
 
 ## graperank.conf
 
