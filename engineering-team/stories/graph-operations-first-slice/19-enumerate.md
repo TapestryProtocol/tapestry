@@ -110,7 +110,7 @@ Settled by CLAUDE.md's principles, the owner's rules and the design, and approve
 
 **Changed at Test Design** (ADR 0019 Amendment 1, 2026-11-18): AC6 no longer lists a `format` among what refuses a `tapestry:` value. Rule 4's ajv options load no formats, so a format never refuses one.
 
-**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-19, with ADR 0019 Amendment 2): AC6's third bullet names every keyword that leaves no `tapestry:` value, read from the check itself, not only an `enum`, a `const`, a `pattern` or a length: a list's `maxItems` of 0 and a `not` are refused too, each named, as they already were in words that named nothing. A list whose `minItems` asks for two references or more is linked, where it was refused. AC2's list of strings may also hold a `null`, which isn't judged.
+**Changed at review round 1** (the owner's choice, "Fix findings first", 2026-11-19, with ADR 0019 Amendment 2): AC6's third bullet names every keyword that leaves no `tapestry:` value, read from the check itself, not only an `enum`, a `const`, a `pattern` or a length: a list's `maxItems` of 0 and a `not` are refused too, each named, as they already were in words that named nothing. A list whose `minItems` asks for two references or more, up to 10,000, is linked, where it was refused; one that asks for more is still refused, in words that say so. AC2's list of strings may also hold a `null`, which isn't judged.
 
 For Architecture, not this gate (answered by ADR 0019):
 
@@ -146,7 +146,7 @@ Judgment calls made in review round 1's fixes (2026-11-19, ADR 0019 Amendment 2)
 
 - **`validatorOf`'s check also gives ajv's errors,** as `errors`, each `{ keyword, schemaPath }`; `fits` and `problems` are as they were, and the property writes' report reads only those. `say.refusesReferences` tries the piece again to name what refuses, so enumerate's call is unchanged and a refused piece is compiled twice.
 - **The refusal's other words.** A piece that doesn't compile alone is refused with `validatorOf`'s reason, and told to change it with `graph update-property` so that it compiles alone. A `minItems` above 10,000 is given `'{"minItems": null}'`, or a `minItems` of 10,000 or less, as its way on. A list's refusal says how many references were tried. The keywords are named in ajv's order, the piece's own before the items'.
-- **A keyword reached through a `$ref` into the piece's own `definitions`** is named by its path's first keyword, `its definitions`: neither Amendment 2 nor a test settles it.
+- **A keyword reached through a `$ref` into the piece's own `definitions`** is named by its path's first keyword, `its definitions`: neither Amendment 2 nor a test settles it. Review round 2 found its way out can't free the field, and a `$ref` that refers to itself makes enumerate answer 500; ledger row `2026-11-19-enumerate-misreads-a-ref` records both (non-blocking 2 and 3).
 - **enumerate's description,** which `/docs` and the CLI's help show beside the refusal's declaration, lists the same causes of `refuses-references` as the catalog's row.
 
 ## Evidence
