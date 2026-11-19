@@ -121,6 +121,56 @@ For Architecture, not this gate (answered by ADR 0019):
 - **A large source:** how many elements an answer lists, and what a check costs.
 - **The answers' and the change entries' shapes,** and the refusals' codes and statuses.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-19), each too small for an ADR amendment:
+
+- **`enumerated-elsewhere` wins over a repeat.** A property linked from the source's superset and from another start too is refused, naming the other start, rather than answered `already-enumerated`: Decision 2 runs step 9 after step 8, and a property has one source (Decision 1). The plan leaves this case unpinned.
+- **`check` is shared.** Beside rule 10's two reads, `_enumerations.js` exports `check(read, items, { fields, pov })`, the rest of the rule: the values each item holds, the second read, and the findings. The rule calls it, and so does `valuesReport`, so the report is judged by rule 10's check (Decision 9) with the point of view enumerate resolved once.
+- **The report judges every enumerated field of the concept,** not only the one just linked, as rule 10 judges a write: one entry for each element and field, which is what a later write to that element is refused for.
+- **Rule 10 reads twice more than Decision 7 counts:** once for the items' concepts' keys and the sources' names (`K.headersByKey`), and once for the owner's point of view (`R.resolvePov`, which reads whether any score exists). Both are made once a concept has an enumerated field, so a concept with none still costs one read, and the count still doesn't grow with the items.
+- **The second read tests the class thread's reach with `EXISTS { MATCH … }`,** the pattern Decision 6 gives, rather than counting its paths, so Neo4j can stop at the first. The fake graph runs it; Neo4j is first met at the live check.
+- **A list piece is tested with a list holding one reference** (Decision 4, "or a list holding it"), so a list with `minItems` above 1 is refused `refuses-references` though two references would fit. And a list is `type: "array"` alone, as Decision 4 writes it: only a string takes the nullable form `["string", "null"]`.
+- **A key naming a tag or a change entry** is answered as one that names no node (Decision 6), the message saying neither is one.
+- **unenumerate's `source`** is the link's source only when every link it took out ran from one concept's superset; it is null when none went, when they ran from more than one start, or from a set. The change entry names each start. The plan leaves both cases unpinned.
+- **`enumeration-removed` is one change per start,** each with its `count`, and `concept` only when the start is a concept's superset: a set names no source concept (the plan leaves this unpinned).
+- **`letters.searched` is a sentence** (the plan's raised point 3): what the search covered, or that none ran when no link was taken out.
+- **`allowed.count` counts to 10,001** (Decision 9), from one read of at most 10,001 rows: 10,001 means more than 10,000.
+- **Rule 10's message ends with "Nothing changed."** and the way on, as the operations' refusals do. update-node joins every finding's message, so with more than one finding it says so once for each.
+- **The link's `MERGE` checks it joined one pair,** as the property writes' `edge` does: the source's superset isn't locked (Decision 12), so one deleted by another write at that moment fails the call, which asks to try again.
+- **The new ledger row** on the property writes that drop or retype an enumerated property is `2026-11-19-property-writes-drop-enumerations`, typed `bug`; rule 10's graph rule item joins rule 9's pending reinstall, ledger row `2026-11-18-rule-nine-awaits-firmware-reinstall`.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-19, on `3a3b3882` with the implementation uncommitted)
+
+Each ran alone on this Mac with every service endpoint dead and stub `curl` and `docker` first on `PATH` (the Tester's `tmp/a10-19-test-design/env.sh`). None failed:
+- **This story's:** enumerate 29 passed, unenumerate 17, enumerate-agent-through-cli 1, enumerated-value-allowed 16.
+- **The changed ones:** create-element 38, update-node 46, add-to-concept 60, mark-field 16, relationship-type-allowed 10, graph-fake 33.
+- **Rule 10's item:** graph-rule-firmware 13 passed, 4 skipped (its live tests), firmware-element-sync 21, graph-rules-builder 26. element-fits-schema 11.
+- **The scoped gate:** record `20261119T051821Z-40550-80a1`, PASS, 1,263 passed, 0 failed, 6 skipped (live tests), over CI's five entries for an operations change. An earlier run, `20261119T051302Z-33202-eef3`, failed 13 tests, each only because the worktree has no `node_modules` of its own; the rerun linked the main checkout's, and the link was taken out after it.
+- **harness-lint:** clean.
+
+### The live check (Implementation, 2026-11-19, on `3a3b3882` with the implementation uncommitted)
+
+It ran on a throwaway instance from `scripts/scratch-stack.sh`, never a shared or private one. Every call went through `test/helpers/scratchLoopback.js`, which refuses any container not named `tapestry-scratch…`. The scripts (`keys.js`, `setup.sh`, `live.js`, `restore.sh`), every call's request and answer, and `hand-calls.md`, the commands run by hand with their output, are in this worktree's `tmp/live-check-19/` (ignored by git).
+- **The instance.** It booted from image `agent-memory-tapestry:latest`, with this worktree's `src/` mounted, from 05:41:46 to 05:51:34 UTC. The image's firmware (`c4c302955e90`) lacked the branch's graph rule concept and had no file the branch lacks, so the branch's was copied over it in place (`d6d3385ebecb`). The control panel restarted at 05:43:29 and the firmware installed. The branch's `bin/tapestry.js` and `clients/cli` were copied in. The four new files' digests matched inside and out (`setup.log`).
+- **Keys.** Throwaway keys for the owner, an admin for the agent, a stranger and two peers, scored 0.2 and 0.01 (`keys.json`, mode 600).
+- **Afterwards** it was removed, after a second, fresh boot for the restore. `docker ps -a` then listed the same containers as before the boot, `tapestry` up 3 days. No code changed during the check.
+
+**All of the script's 34 checks passed** (`main.log`, `reinstall.log`, `restored.log`; each check's detail in `report-*.json`):
+- **S0–S8, the seed and the local caller's calls:** the instance listed both operations and rule 10 as a guard of the three element writes. Linking bot's `project` to project made one `ENUMERATES` from project's superset, carrying nothing, the property still under the primary property alone. `allowed` held the instance's own two elements and the peer scored above the cutoff, not the one below it. `values` named the one element written before the link with a name. The repeat answered `already-enumerated`, and `tapestry graph enumerate` inside the instance was recorded as `local`. create-element, update-node and add-to-concept refused a name, a peer's element below the cutoff, a list holding a name, a key naming no node and the source's own header, each saying why, and took references.
+- **L1:** the admin agent, through nginx and the unchanged external CLI, ran XN1's sequence: it linked robot's field to venture, was told `already-enumerated`, named Moonshot by key, was refused it by name (naming `graph resolve`), named a venture added after the link, took the link back (`removed: 1`) and was refused a firmware concept's property (`firmware-concept`). No firmware concept had a field under its primary property, so one was made by hand under class thread's, as the suites' seed does. The field's history was the agent's three entries (`main.log`, L1a–L1g).
+- **L2:** two enumerates of one property, fired from one node process in the container, 13 times at 0–400 ms (9 overlapping): always one `enumerated` and one `already-enumerated`, one link, one entry. Beside the plan, an enumerate and a create-element of a name in that field, 5 times: the element was made before the link once (at 0 ms) and refused after it four times, never half of each (`main.log`, L2a and L2b).
+- **L3:** after a firmware reinstall (82 s), all 17 links were there, carrying nothing; create-element refused a name and took a reference in three linked concepts, the route's included; firmware's own five edges to JSON schema nodes were as they were; and the graph rule concept held 10 items, `enumerated-value-allowed` among them (`reinstall.log`). `graph-rule-firmware.test.js` passed GL1–GL3 live (`graph-rule-firmware.log`).
+- **L4:** backup `20261119T054611Z-d43433ca` (3.79 MB: 5,554 nodes, 6,116 relationships), taken before the reinstall, was restored on a fresh instance, its transaction and counts exact. The 17 links, the checks on values and firmware's edges were as before (`restore.log`, `restored.log`).
+- **L5:** today's `POST /api/normalize/enumerate` on a property graph add-property made linked project's superset to it, hung it on grok bot's JSON schema node too, and signed two letters. Both new operations refused it `tangled-tree`, its link kept, and create-element in grok bot was checked against the link through the property's chain. After the reinstall, with the extra edge taken out by hand as `rules repair` will, unenumerate took the link out and named the route's letter, which the reinstall had wired into the relationship concept (`main.log`, L5a–L5c; `reinstall.log`, L5d).
+- **L6:** through nginx, a visitor got 401 from both routes, and the stranger, signed in by the CLI, 403 with its cookie (`main.log`).
+- **L7:** with a source of 1,000 elements, enumerate answered 1,000, the first 50 named, in 0.132 s, and 0.062–0.069 s on repeats. create-element naming one took 0.124 s median with the check, against 0.121 s in a concept with no link (`main.log`, L7a and L7b).
+- **L8:** the relay held 468 events before L1 and after L1, L2, L6 and L7. Only today's route, in L5, added its two letters (470), and the reinstall and L5d added none (`main.log`, `reinstall.log`).
+
+**Surprising, but within the ADR:** the refusals `P.load` gives (`firmware-concept`, `not-own-concept`, `tangled-tree`) say `input: concept`, an input these operations don't have. The property writes answer the same, and the plan leaves it unpinned.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)

@@ -75,6 +75,9 @@ function rel() {
     CORE: relAlias('CORE_NODE_CORE_GRAPH'),
     GRAPH: relAlias('CORE_NODE_CONCEPT_GRAPH'),
     MEMBER: relAlias('PROPERTY_MEMBERSHIP'),
+    // A source concept's superset to a property (story graph-operations-first-slice #19, ADR
+    // graph-operations-first-slice/0019 Decision 1).
+    ENUM: relAlias('PROPERTY_ENUMERATION'),
   };
 }
 /** The assistant's pubkey, the would-be author of every node a concept write makes; null when there is none. */

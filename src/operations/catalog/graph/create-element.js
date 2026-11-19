@@ -6,9 +6,12 @@
  *
  * A write through the write path (src/operations/write.js). Its guard is the rule element-fits-schema, BIBLE §10's rule
  * 4, run in apply once the write has taken the lock on the concept's header and built the element's JSON, since that
- * JSON comes from the graph (Option A). It is safe to repeat by name within the concept: this instance's own element
- * with the slug the name gives is answered untouched. It records a change entry when it makes an element, and signs
- * nothing: the element is the node the nostr import would make of the letter the write would sign (_eventless.js).
+ * JSON comes from the graph (Option A). Right after it, the rule enumerated-value-allowed (the rulebook's rule 10) judges
+ * the same JSON: each value of a field an ENUMERATES ends at must name an element of the link's source (story
+ * graph-operations-first-slice #19, ADR graph-operations-first-slice/0019 Decision 8). It is safe to repeat by name
+ * within the concept: this instance's own element with the slug the name gives is answered untouched. It records a
+ * change entry when it makes an element, and signs nothing: the element is the node the nostr import would make of the
+ * letter the write would sign (_eventless.js).
  */
 
 const dtag = require('../../../lib/dtag');
@@ -85,9 +88,10 @@ module.exports = {
     },
   },
   refusals: [X.BAD_NAME, X.BAD_FIELDS, X.NOT_INSTALLED, F.UNKNOWN_CONCEPT, X.MADE_ELSEWHERE_REFUSAL, X.RESERVED_KEY, X.NO_SUPERSET, X.UNKNOWN_SET, X.NOT_A_SET, X.NOT_IN_CLASS_THREAD, X.NO_FREE_ADDRESS],
-  // The rule's refusals are listed through the guard, but its items are empty: the JSON it judges is built from the
-  // graph, inside the write, so apply runs the rule on it after the lock (ADR 0020 Decision 12, Option A).
-  guards: [{ rule: 'element-fits-schema', items: () => [] }],
+  // The rules' refusals are listed through the guards, but their items are empty: the JSON they judge is built from the
+  // graph, inside the write, so apply runs each on it after the lock (ADR 0020 Decision 12, Option A; ADR 0019
+  // Decision 8 for enumerated-value-allowed).
+  guards: [{ rule: 'element-fits-schema', items: () => [] }, { rule: 'enumerated-value-allowed', items: () => [] }],
   repeatKey: ['concept', 'name'],
 
   async apply(inputs, ctx) {
@@ -154,9 +158,11 @@ module.exports = {
     const text = JSON.stringify(json);
     if (text.length > X.MAX_JSON) throw refusal(X.BAD_FIELDS.code, X.say.tooLong(text.length), { input: 'fields' });
 
-    // 8. Rule 4, on the JSON the write built: invalid-fields or no-schema, with the rule named (Decision 12).
+    // 8. Rule 4, on the JSON the write built: invalid-fields or no-schema, with the rule named (Decision 12). Then rule
+    // 10 on the same JSON: value-not-allowed (ADR 0019 Decision 8).
     const Sch = require('./_schemas');
     await Sch.checkElements(read, [{ concept: concept.key, json }]);
+    await Sch.checkRule(read, 'enumerated-value-allowed', [{ concept: concept.key, json }]);
 
     // 9. The node, its tags and its one link (Decisions 9 and 10).
     const set = where.setNode ? where.setNode.uuid : null;

@@ -36,6 +36,10 @@
  *                                 With { every: true }, one refusal names every finding: its code the first's (graph
  *                                 update-node, whose change can break more than one concept's section; ADR
  *                                 graph-operations-first-slice/0021 Decision 11)
+ *   checkRule(read, name, items, { every })  the same for the rule named `name`: the element writes run
+ *                                 enumerated-value-allowed with it, right after checkElements, over the same items
+ *                                 (story graph-operations-first-slice #19, ADR graph-operations-first-slice/0019
+ *                                 Decision 8)
  *   listProblems(problems)        the problems in words, at most 20 and then how many more
  *
  * It opens nothing when it loads (ADR graph-operations-foundation/0001 Decision 10): ajv, firmware's relationship names
@@ -274,4 +278,21 @@ async function checkElements(read, items, { every = false } = {}) {
   throw refusal(found[0].code, message, { rule: rule.name });
 }
 
-module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements };
+/**
+ * Run the rule named `name` over `items` and throw its first finding, or with `every` one refusal joining every
+ * finding's message, its code the first's, as checkElements does for element-fits-schema (ADR
+ * graph-operations-first-slice/0019 Decision 8). Each element write calls it for enumerated-value-allowed right after
+ * checkElements, over the same items.
+ */
+async function checkRule(read, name, items, { every = false } = {}) {
+  const { findRule } = require('../../rules');
+  const { refusal } = require('../../refusal');
+  const rule = findRule(name);
+  if (!rule) throw new Error(`the rule ${name} isn't loaded`);
+  const found = await rule.violations(items, read);
+  if (!found || !found.length) return;
+  const message = every ? found.map((x) => x.message).join(' ') : found[0].message;
+  throw refusal(found[0].code, message, { rule: rule.name });
+}
+
+module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements, checkRule };

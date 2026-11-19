@@ -41,7 +41,9 @@ const FIRMWARE_MADE = Object.freeze({
   // Decision 16; story #23, ADR graph-operations-first-slice/0023 Decision 15).
   HAS_ELEMENT: 'graph add-to-concept, remove-from-concept, move-element and create-element',
   IS_A_PROPERTY_OF: 'graph add-property',
-  ENUMERATES: 'graph enumerate',
+  // Made and taken out by these two (story graph-operations-first-slice #19, ADR graph-operations-first-slice/0019
+  // Decisions 2 and 5).
+  ENUMERATES: 'graph enumerate and unenumerate',
 });
 const BY_CATEGORY = Object.freeze({
   coreNodeWiring: 'graph create-concept',
