@@ -46,6 +46,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     or make them match a whole JSON Schema, with no event, the concept's schema following from its properties; the
     first write on a concept gives the fields its schema already lists their property nodes, and each write reports
     the elements that stop fitting (Loom A10.18).
+19. `stories/graph-operations-first-slice/19-enumerate.md` — make a property's allowed values the elements of another
+    concept, with one `ENUMERATES` from its superset to the property that carries only its type; each value is the
+    `tapestry:<tapestryKey>` of one of its elements, checked by the element writes as the concept grows and shrinks;
+    and take the link back with `graph unenumerate` (Loom A10.19).
 20. `stories/graph-operations-first-slice/20-create-element.md` — make an element of a concept, or of a set in its class
     thread, with no event, its fields checked against the concept's schema; brings BIBLE §10's rule 4 into the
     rulebook as one check the later element writes reuse (Loom A10.20).
