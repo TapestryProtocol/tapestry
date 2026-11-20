@@ -170,9 +170,53 @@ Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER
 - **The scoped gate,** CI's five entries for an operations change through `test/helpers/gateRunner.js` (`tmp/a10-32/gate.sh`): record `20261120T140500Z-7070-17fd`, PASS, 1,351 passed, 0 failed, 12 skipped (live tests among them, `nostr-live`'s six), the `operations` entry in 240 s. An earlier run, `20261120T135720Z-98640-7208`, failed one test of 1,363: external-cli's SK3, since the skill's new line showed `tapestry import nostr`, which the CLI's tables don't hold as a command of their own. The line now names the operation as `import nostr`. The code changed after that run too: the recorder reads a node's integers as numbers (Neo4j hands them back as the driver's `Integer`), and a placeholder's merge counts rows.
 - **harness-lint:** clean.
 
-### The live check
+### The live check (Implementation, 2026-11-20, on `6525d2d2`)
 
-(To be recorded by the session that runs it on a scratch stack from `scripts/scratch-stack.sh`: LV1–LV6 in `test/operations/import/nostr-live.test.js`, and LH1–LH3 by hand, as the test plan's "The live check" lists them.)
+**Where it ran:**
+- On throwaway instances from `scripts/scratch-stack.sh`, booted from image `agent-memory-tapestry:latest` with this worktree's `src/` mounted. Never on a shared or private instance: every call went to a container named `tapestry-scratch`.
+- The scripts, each call's answer and the logs are in the main checkout's `tmp/live-check-32/`; `hand-calls.md` holds the calls made by hand, with their output.
+
+**How each was set up:**
+- The branch's firmware (`36600339b3b2`, 332 files) was copied over the image's (`c4c302955e90`, 319 files, none the branch lacks) and installed.
+- The branch's `bin/tapestry.js` and `clients/cli` were copied in.
+- The owner, the admin agent, a stranger and a publisher were throwaway keys (`keys.json`, mode 600).
+- The three new files' digests matched inside the container and out.
+
+**Afterwards,** `docker ps -a` listed the same containers as before the first boot, with `tapestry` up 4 days.
+
+**What it found:**
+- **Run 1: a scratch stack has none of the uniqueness rules the import relies on** (ADR 0032, Context 3).
+  - Booted 14:11:52–14:13:23 UTC, its Neo4j held one constraint, `tags_address`, which the control panel creates at boot.
+  - `nostrEvent_id`, `nostrEvent_uuid`, `nostrEventTag_uuid`, `nostrUser_pubkey` and `tapestry_key` were missing. Neither the Dashboard's fix (`POST /api/neo4j-setup-constraints-and-indexes`, which runs `setup/neo4jConstraintsAndIndexes.sh`) nor `lifecycle migrate --migration tapestry-keys` ever ran there. The scratch boot installs firmware through the API, past the Dashboard's wait for those rules.
+  - LV1, LV2, LV4, LV5 and LV6 passed. LV3 failed: two imports of one new event at once both answered 200 (`recorded`, `unchanged`) and left two nodes with the same address and id. No other address or id was held twice (`run1-lv3-evidence.txt`).
+  - Ledger row `2026-11-20-scratch-stack-lacks-uniqueness-rules`.
+- **Run 2, with the rules a set-up instance has, passed all six live tests** (`live-suite.log`).
+  - Booted again at 14:20:06. The Dashboard's fix and `tapestry-keys` ran before the branch's firmware install; `setup.log` lists the nine rules then present.
+  - LV1: memo #130's referrer by `e` before its target gave one node.
+  - LV2: the `e`-plus-`a` referrer gave one node with both references.
+  - LV3: two imports at once gave one node.
+  - LV4: a two-call filter.
+  - LV5: a private relay refused for the direct-local caller.
+  - LV6: 300 letters with three tags each recorded in 2.25 s (133 a second), `next` null.
+- **The race, ten more times** (`race.log`, `race.json`). Two imports of one new letter were fired from one node process in the container, the second 0 to 400 ms after the first. Every run left one node, with one `recorded` answer (one change entry) and one `unchanged` (none).
+- **LH1, the agent's sequence through the external CLI** (`hand-calls.md`, calls 01–10). The agent was the admin with its own key, going through the container's nginx, with no change to the CLI. It:
+  - signed in (`role: admin`);
+  - ran `import nostr --graph 39999:<david.tapestry.ninja's assistant>:dog-concept-graph --relay wss://david.tapestry.ninja/relay`. That recorded 8 letters at that instance's addresses in 1.6 s, with 8 change entries: the graph element, the header, the superset, the property tree graph, the core nodes graph, the JSON schema, the primary property and the properties set. All three graphs were followed (depths 0, 1, 1);
+  - found it wired as the graphs list (`graph list-relationships`, `pov everyone`): the header's `IS_THE_CONCEPT_FOR` to the superset, the six core-wiring relationships into the header, and the primary property's `IS_A_PROPERTY_OF` to the JSON schema, each node authored by that instance's person node;
+  - ran the same call again: all 8 `unchanged`, no change entry;
+  - imported a referrer by id (its `e` naming an addressable target not yet held), then the target by address, both from the scratch relay. Each was `recorded`. One node stands at the target's address holding its id, and the referrer's `e` tag node (`<referrer id>_0`) `REFERENCES` it;
+  - imported a filter in two calls from david.tapestry.ninja's relay, `limit` 5: 5 recorded with `next.until` 1794813851, then 6 more from there (it finished its last second), none twice;
+  - was refused `--relay ws://10.0.0.1` with `private-relay`, nothing changed.
+- **LH2, a call through nginx at the caps.**
+  - The agent's filter for every kind-39999 letter of david.tapestry.ninja's assistant read 552 letters in 37.4 s, inside nginx's 60 s: 534 recorded, 18 unchanged, nothing crowded, `next` null.
+  - A page of 500 of those letters (1.1 MB, 6.1 tags each) took 0.9 s from this Mac, so nearly all the time was recording: about 15 real letters a second, against LV6's 133.
+  - That is below the 25 a second that Decision 12's 1,000 letters in 40 s would need. For letters like these, the 40 s budget ends a call before the 1,000 cap, with `next.until`, so no cap needed lowering.
+- **LH3:** after the run, the scratch relay held no letter by david.tapestry.ninja's assistant and none of the stream consumer's kinds, and strfry-router was stopped (`lh3.log`). The 12 letters the throwaway publisher sent there on purpose were counted, which shows the count works.
+- **Plans (`EXPLAIN`):**
+  - The lookup at an address seeks both `NostrEvent(uuid)`'s unique index and `TapestryNode(uuid)`'s.
+  - The `z` wiring scans every `NostrEventTag` (7,685 on the scratch), since tag values have no index; `wire-implicit-elements` has the same match.
+  - Ledger row `2026-11-20-z-wiring-scans-every-tag-node`.
+- **The control panel's error log** held only two lines, both from the boot before Neo4j listened (`brainstorm-error.log`).
 
 ## Linked artifacts
 
@@ -180,7 +224,7 @@ Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER
 - Epic: [engineering-team/epics/graph-operations-first-slice.md](../../epics/graph-operations-first-slice.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D4, D5, D7, D12, D15); catalog §5, Import, and §9
 - Loom memos on A10.32: #129 (50,000 results as a graph) and #130 (the import-order problem confirmed); on A10.34: #133 (own letters)
-- Ledger rows: [2026-09-27-bible-s6-relationship-name-drift](../../../ledger/2026-09-27-bible-s6-relationship-name-drift.md); [2026-11-20-todays-importers-keep-their-faults](../../../ledger/2026-11-20-todays-importers-keep-their-faults.md) (written in Implementation); OPEN.md rows 136 and 142
+- Ledger rows: [2026-09-27-bible-s6-relationship-name-drift](../../../ledger/2026-09-27-bible-s6-relationship-name-drift.md); [2026-11-20-todays-importers-keep-their-faults](../../../ledger/2026-11-20-todays-importers-keep-their-faults.md) (written in Implementation); from the live check, [2026-11-20-scratch-stack-lacks-uniqueness-rules](../../../ledger/2026-11-20-scratch-stack-lacks-uniqueness-rules.md), [2026-11-20-z-wiring-scans-every-tag-node](../../../ledger/2026-11-20-z-wiring-scans-every-tag-node.md) and [2026-11-20-stack-free-ci-outgrows-its-limit](../../../ledger/2026-11-20-stack-free-ci-outgrows-its-limit.md); OPEN.md rows 136 and 142
 - The test of whose node it is: [26-delete-node.md](./26-delete-node.md), [21-update-node.md](./21-update-node.md); the point of view: [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
 - The write path: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
