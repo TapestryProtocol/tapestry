@@ -221,9 +221,10 @@ test('IL9 [review round 1, finding 2]: a connect that times out closes its socke
   const log = r.log();
   const end = r.req('after').at;
   const handshakes = log.filter((x) => x.at === 'live-handshake');
-  const firstClosed = log.find((x) => x.at === 'live-socket-closed' && x.n === 1);
+  // Closed is any of the three the server sees: the client's FIN (ended), its RST (error), or the socket's close.
+  const firstClosed = log.find((x) => ['live-socket-ended', 'live-socket-error', 'live-socket-closed'].includes(x.at) && x.n === 1);
   assert(handshakes.length === 2, `two handshakes, the one that timed out and the retry; got ${show(handshakes)}`);
-  assert(firstClosed && firstClosed.t <= end, `the connection that timed out had its socket closed, not left open for nothing to read; ${firstClosed ? `closed at ${firstClosed.t}, after the window's end, ${end}` : `it was still open a second after the call: ${show(log.filter((x) => x.n === 1 && /^live-(handshake|open|refused|socket)/.test(x.at)).map((x) => x.at))}`}`);
+  assert(firstClosed && firstClosed.t <= end, `the connection that timed out had its socket closed, not left open for nothing to read; ${firstClosed ? `${firstClosed.at} at ${firstClosed.t}, after the window's end, ${end}` : `it was still open a second after the call: ${show(log.filter((x) => x.n === 1 && /^live-(handshake|open|refused|socket)/.test(x.at)).map((x) => x.at))}`}`);
   const ms = r.req('slow').ms;
   assert(ms < 2500, `the connect gave up at reader.CONNECT_MS, the 300 ms the suite set, read through _relay.js's exported object; the call took ${ms} ms`);
 });

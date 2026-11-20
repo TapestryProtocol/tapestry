@@ -41,8 +41,9 @@
  * The log, <file>.log.jsonl, one JSON line for each: { at: 'connect', url, attempt, ok }, { at: 'req', url, n, filters,
  * overlap } (overlap: another request on the connection hadn't finished), { at: 'eose', url, n, sent },
  * { at: 'closed-by-relay', url, n, sent }, { at: 'unsub', url, n }, { at: 'close', url }, { at: 'publish', url, id },
- * { at: 'dns', name, type }; and for a live server { at: 'live-handshake' | 'live-open' | 'live-socket-closed' |
- * 'live-handshake-abandoned' | 'live-refused', url, n, t }, n the connection's number, and { at: 'live-req' | 'live-drop',
+ * { at: 'dns', name, type }; and for a live server { at: 'live-handshake' | 'live-open' | 'live-socket-ended' (the
+ * client's FIN) | 'live-socket-error' (its RST, with code) | 'live-socket-closed' | 'live-handshake-abandoned' |
+ * 'live-refused', url, n, t }, n the connection's number, and { at: 'live-req' | 'live-drop',
  * url, conn, req, filters, t }, req the REQ's number over the server's life; t is Date.now(). readLog(file) reads it back.
  *
  * Nothing here opens a socket or asks a real DNS server.
@@ -205,6 +206,11 @@ function startLive(file, url, spec) {
     handshakes += 1;
     const n = handshakes;
     log(file, { at: 'live-handshake', url, n, t: Date.now() });
+    // The held socket is read while it waits, so a client that gives up is seen: its FIN as end, its RST as an error,
+    // which ends the hold and never takes this process down (IL9; tmp/a10-32/il9-probes/).
+    socket.on('data', () => {});
+    socket.on('end', () => { log(file, { at: 'live-socket-ended', url, n, t: Date.now() }); socket.destroy(); });
+    socket.on('error', (e) => { log(file, { at: 'live-socket-error', url, n, code: (e && e.code) || null, t: Date.now() }); socket.destroy(); });
     socket.on('close', () => log(file, { at: 'live-socket-closed', url, n, t: Date.now() }));
     const delay = (Array.isArray(spec.handshakeDelays) && spec.handshakeDelays[n - 1]) || 0;
     setTimeout(() => {
