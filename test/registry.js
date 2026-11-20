@@ -413,6 +413,10 @@ const suites = [
   // as graph create-concept makes one, and its row offers no Disposition… until it has one. Stack-free in every run;
   // its live checks run only against a scratch container (tapestry-scratch…).
   { file: 'concepts-list-shows-concepts-with-no-event.test.js' },
+  // graph-operations-first-slice #46: an element of `word` fits the `word` schema an install leaves, since install no
+  // longer writes the wordType pair that compares `word.wordTypes` with itself (Loom P-156). Stack-free in every run:
+  // the install's enumeration step and Pass 2 run in a child over a fake graph (test/helpers/saveSchemaChild.js).
+  { file: 'word-elements-fit-the-installed-word-schema.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

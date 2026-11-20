@@ -83,5 +83,5 @@ As the owner, or an agent working the graph, I want the `word` schema an install
 
 ## Linked artifacts
 - ADR: none. Architecture was skipped as obvious, the owner's choice when approving the story (2026-11-20): what is left, turning off the manifest's switch or leaving the pair out in code, gives the same result.
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.test-plan.md`
 - Review: (filled in after Review phase)
