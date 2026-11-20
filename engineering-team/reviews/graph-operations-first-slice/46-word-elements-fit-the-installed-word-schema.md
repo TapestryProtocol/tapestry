@@ -303,3 +303,21 @@ Round 1 was committed as `f01a09d6`, with the story's Review link. Two commits c
 - Of round 1's six non-blocking findings, five are fixed and one is fixed in part. Both harness-friction items are on file.
 - Two new non-blocking slips, both in ledger-row prose, send no one to the wrong code or the wrong fix.
 - The scoped gate passes at `e5494dfe`, and the tests still fail without the fix.
+
+## Check of `2dc82c9c` — 2026-11-20 (not a round)
+
+The coordinator asked for a check of one commit, `2dc82c9c`, which fixes round 2's two non-blocking ledger slips. It changes two ledger rows and nothing else (2 files, +3 −3). I re-derived each changed sentence from the sources (rule 10). At `2dc82c9c`, `bash scripts/harness-lint.sh` gives `harness-lint: clean (0 violations)`. I ran no gate, since the commit is prose only.
+
+- **Round 2's non-blocking 1 — fixed.** The closed row's `:10` now keeps only `src/api/normalize/index.js:6048–6143`, which is where `generateWordTypeConditionals` runs at HEAD.
+- **Round 2's non-blocking 2 — fixed.**
+  - `:9` now cites `test/helpers/gateRunner.js:157–164`, the `suites.map` that loads every suite. The run loop starts at `:166`.
+  - The coordinator also reworded `:9`, unasked, to "were in place when every suite ran". It holds: the values were set during the load, before the run loop, and nothing undid them before the run ended.
+  - `:12` now says which checks got the dead values. It adds that a suite reading its endpoint at load kept the real one, naming `test/tag-detail.test.js:16`. That suite reads its base at load and is registered at `test/registry.js:37`, ahead of the leaking suite at `:419`. Both claims hold.
+  - **One limit on `:12`'s "skips".** What the sources show is that such a check gets the dead values. Whether it then skips depends on its own guard. The six `scratchLoopback` users do skip; I didn't trace every other reader.
+- **Still wrong, from my own round 1: `stackHttp`.** The row's `:13`, which this commit didn't change, says a scratch run would point at `no-such-container` "through `test/helpers/stackHttp.js` and `test/helpers/scratchLoopback.js`". That came from round 1's Blocking 1, "What else", which said the same of `stackHttp`'s 14 users. It holds only for `scratchLoopback`.
+  - `stackHttp.js:19` reads the container when called, but only as a default.
+  - All 14 of its users pass a container they read at load, so they kept the real one. Examples: `tl-publication-from-pins.test.js:30` and `:36`; `event-less-create-set.test.js:70` and `:285`.
+  - The six `scratchLoopback` users read the container at run time and skip on refusal (for example `graph-rule-firmware.test.js:230-231`). So that half of the sentence holds.
+  - Neither the fix nor the row's fix shapes rest on the `stackHttp` part. Optional: drop "`test/helpers/stackHttp.js` and" from `:13`.
+
+**PASS** — round 2's verdict stands.
