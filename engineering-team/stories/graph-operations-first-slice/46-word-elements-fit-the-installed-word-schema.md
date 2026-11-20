@@ -1,6 +1,6 @@
 # Story 46: An element of `word` fits the `word` schema an install leaves
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Bug
 **Loom:** P-156, an open proposal no one has accepted yet, so there is no task — https://loom.brainstorm.world/proposals?ids=P-156. It is recorded on Loom once the owner accepts it.

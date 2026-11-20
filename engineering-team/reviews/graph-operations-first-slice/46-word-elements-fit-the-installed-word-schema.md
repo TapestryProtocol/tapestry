@@ -208,3 +208,98 @@ Not applicable: the story traces to no PRD.
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+## Round 2 — 2026-11-20 (HEAD `e5494dfe`)
+
+Round 1 was committed as `f01a09d6`, with the story's Review link. Two commits came after it:
+- `31e3c327`, in the Tester's lane, for Blocking 1:
+  - the suite no longer sets `process.env`, and its dead values go to its child alone;
+  - its comment and test plan `:48` say why;
+  - the test plan's Verification and edge cases take non-blocking 1 and 2;
+  - a new "Amendment after review round 1" section.
+- `e5494dfe`, in the Implementer's lane, for the rest:
+  - non-blocking 1 in the story;
+  - non-blocking 3 to 6 in the reinstall row, BIBLE §6, the story and the closed row;
+  - the story's Deviations, which list round 2;
+  - harness friction 1 as ledger row `2026-11-20-suite-env-changes-reach-every-suite`.
+
+`git diff f01a09d6..HEAD`: 7 files, +52 −17. No file under `src/` or `firmware/` changed. The test bodies are as they were: the suite's diff is its comment block and one removed line. I checked each fix as a fresh claim, my own suggested wording included (reviewer.md rule 10). I checked them against the code, the history, Loom and my own probes, not against the commit messages.
+
+### Gates (run by the reviewer at `e5494dfe`)
+
+- [x] **The scoped gate:** the same six suites and dead endpoints as round 1, plus `BRAINSTORM_CONF_PATH` at a dead conf of my own.
+  - **Why the extra variable.** `NEO4J_URI` alone moves nothing: the driver reads its address only from the conf file, and with none it falls back to `bolt://localhost:7687` (`src/utils/config.js:19`, `src/lib/neo4j-driver.js:33`). In round 1 the suite's parent set that variable for the whole run; now it doesn't.
+  - **The run.** `npm run gate:status -- --label review-46-r2` reads:
+  `20261120T224734Z-1757-8851 [review-46-r2] started 2026-11-20T22:47:34.497Z on e5494dfe — PASS, exit 0, 160 passed, 0 failed, 6 skipped, 6/6 suites` (record `tmp/gate-runs/20261120T224734Z-1757-8851.json`)
+  - **The counts.** There is no `+dirty`. Each suite's count is round 1's: 9/0/0, 26/0/2, 13/0/4, 21/0/0, 6/0/0 and 85/0/0. The skips are the same six scratch-container live checks.
+  - **Against the coordinator's run.** It matches `20261120T224144Z-59257-74fe` (PASS, 160/0/6 over the same suites). That record is on `31e3c327+dirty`, with 5 dirty paths: the five files `e5494dfe` then committed.
+- [x] **On Node 22.23.1,** the suite alone: `20261120T224959Z-42109-4f42 [review-46-r2-node22] … on e5494dfe — PASS, exit 0, 9 passed, 0 failed, 0 skipped, 1/1 suites`.
+- [x] **harness-lint** at `e5494dfe`, before this round was written: `harness-lint: clean (0 violations)`. What it says with this round on disk is under "On PASS".
+
+### Probes
+
+- **The environment, around the suite.** I ran the suite through the gate engine between two probe entries, in one run. It started from dead values of my own: port 8, `TAPESTRY_CONTAINER=review-46-r2-canary` and my dead conf.
+  - All seven variables the suite once set read the same three times: before the load, at the probe listed first, and at the probe listed last.
+  - The run was `20261120T224927Z-41790-b033`, with 11 passed: the suite's 9 and the two probes.
+  - In round 1, the same kind of probe read port 9 and `no-such-container` (`20261120T222242Z-87439-52e3`).
+- **The parent reaches nothing.** In that same run, the parent refused and recorded every `net.Socket` connect, every `fetch` and every `http`/`https` request. It also recorded every load of `src/lib/neo4j-driver.js`, `src/lib/tapestry-store.js` or a network client in `node_modules`.
+  - It saw none of any, and the suite passed 9 of 9.
+  - So the comment's "It needs none" (`test/word-elements-fit-the-installed-word-schema.test.js:50-52`) holds.
+  - The modules the parent loads say they open nothing (`_schemas.js:47-48`, `_sets.js:13`, `_elements.js:37`, `schema-verdicts.js:21`). `src/api/normalize/firmware.js` requires only `fs` and `path`. Each read they make is the fake graph's.
+- **The tests still tell the fix apart.** I exported HEAD with `git archive` and set only `manifest.json:408` back to `true`; the copy's suite is identical to HEAD's. The run, `20261120T224943Z-42002-5e41`, is FAIL with 5 passed and 4 failed: W1, W2a, W2b and W4, as in round 1.
+
+### Round-1 findings, re-checked
+
+1. **Blocking 1 — fixed.**
+   - **The fix.** `Object.assign(process.env, DEAD)` is gone. The only `process.env` left in the suite is the child's spawn environment, `{ ...process.env, ...DEAD }` (`:202`), so the child's dead values are as before.
+   - **The probes above** show that loading and running the suite leave the gate's environment unchanged. They also show the parent opens nothing without the dead values.
+   - **The comment** (`:43-52`) is accurate on each point: what the child needs, the driver's fallback (`src/utils/config.js:19`, `src/lib/neo4j-driver.js:33`), why the parent sets nothing, and why it needs nothing.
+   - **Test plan `:48` and its amendment (`:88-90`)** say the same. The amendment matches what I re-derived: the seven variables, the snapshot around `require` and `run()`, 9 of 9, and no test's check changed.
+   - **Not pinned by a test.** My round-1 "a check would pin it" wasn't taken up as a test. The new ledger row's guard would pin it for every suite, which is the better place.
+2. **Non-blocking 1 — fixed.**
+   - Story `:108` now reads "82 self-comparing ones, a pair for each of 41 keys". That agrees with `report.json`'s LB1: 83 entries, 82 tying, 41 allowed keys.
+   - Test plan `:84` now reads "the 20 conditionals …, a pair for each of the fixture's ten keys". That agrees with the ten entries of `KEYS` (`test/word-elements-fit-the-installed-word-schema.test.js:79`) and W4's "20 do".
+3. **Non-blocking 2 — fixed.** Test plan `:36` now names the Properties Set nodes' set fields, which the derive step builds as words. That matches:
+   - story 42's LC7c (`42-both-readers-judge-tapestryjson.md:160`: 132 set-field errors on 44 nodes);
+   - P-157, which says the word deriver builds no `elements`, `childSets` or `parentSets` for those nodes.
+4. **Non-blocking 3 — fixed.** The reinstall row (`:11`) now makes two claims, and both hold:
+   - each instance must run code with this manifest before its reinstall: the step reads the manifest of the build it runs (`src/api/normalize/firmware.js:30-39`);
+   - a reinstall over the old manifest writes the pairs again: with the switch on, the step writes them (`src/api/normalize/index.js:6254-6289`), as the live check's first install did (LB1: 82).
+5. **Non-blocking 4 — fixed.** `BIBLE.md:262` now says "a pair of conditionals for each value". That is my round-1 wording, so I re-derived it rather than recognising it:
+   - `generateWordTypeConditionals` pushes a Forward and a Reverse for each allowed value (`src/api/normalize/index.js:6052-6140`);
+   - david.tapestry.ninja's schemas hold 8 such entries for `graph`'s 4 types, and 4 for `dog`'s 2 breeds.
+6. **Non-blocking 5 — fixed.**
+   - Story `:37` now names "P-156's array-aware form", which is P-156's own name for its second shape.
+   - The closed row's Done line (`:7`) now names "the one that sets `enforce-wordType-conditionals` false", the row's own third bullet (`:25`).
+7. **Non-blocking 6 — fixed in part.** The closed row's current range (`:10`), `:6048–6143`, is right. The clause added beside it isn't; see new non-blocking 1.
+8. **Harness friction 1 — filed,** as ledger row `2026-11-20-suite-env-changes-reach-every-suite`. Its header fields pass L15. Its account of the leak is right, as are the two runs it cites, CI's blind spot and its two fix shapes. It has two slips; see new non-blocking 2.
+9. **Harness friction 2 — already on file,** as round 1 said. Nothing was added, which is right.
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **`ledger/2026-11-17-word-wordtypes-conditionals-contradict-themselves.md:10` says the function was at "`:6029–6125` when the row was opened".**
+     - At the commit that opened the row, `4b3632a5` (2026-11-17), `generateWordTypeConditionals` ran `:6036–6131`. Line `:6029` was the blank line above its docblock.
+     - No commit since 2026-11-01 has the function at `:6029–6125`. So the range was already off when the row was written, and the new clause says it was right.
+     - Optional fix: drop the clause, or say "the row first said `:6029–6125`; at `4b3632a5` it was `:6036–6131`".
+     - The current range beside it is right, so nobody is sent to the wrong code.
+  2. **`ledger/2026-11-20-suite-env-changes-reach-every-suite.md` has two slips.**
+     - **`:12` says "the live suites skip".** Not all of them would. A suite that reads its base URL when it loads kept the real address, if it loaded before the leaking suite. `tag-detail.test.js:16` is one: it is registered at `test/registry.js:37`, so it would have run its live tests. What got the dead values was each check that reads an endpoint when it runs, and each child a suite starts, G2's child among them. Optional fix: say that.
+     - **`:9` cites `test/helpers/gateRunner.js:156`.** That line is the `try {` above the loading. The loading is `:157-164` and the run loop starts at `:166`. Optional fix.
+
+### Harness friction
+
+- None new.
+
+### On PASS (same commit)
+- [ ] Story `**Status:**` set to `Done`: left to the session that commits this review, since the brief keeps the Reviewer off the story file. harness-lint's L1 flags a PASS-final review whose story isn't Done, so the change belongs in this review's commit (workflow 5). With this round on disk and the story still `Approved`, harness-lint gives exactly that one violation (`VIOLATION L1 …46-word-elements-fit-the-installed-word-schema.md … PASS-final but story status is 'Approved'`, `harness-lint: 1 violation(s)`), and nothing else.
+- [ ] Completion detection: its result goes in the chat, not this file.
+
+### Verdict
+
+**PASS**
+- Blocking 1 is fixed. The suite leaves the gate's environment as it found it, and its parent reaches nothing without the dead values. Probes before and after the suite show the first, and a parent that refuses the network shows the second.
+- Of round 1's six non-blocking findings, five are fixed and one is fixed in part. Both harness-friction items are on file.
+- Two new non-blocking slips, both in ledger-row prose, send no one to the wrong code or the wrong fix.
+- The scoped gate passes at `e5494dfe`, and the tests still fail without the fix.
