@@ -199,6 +199,10 @@ Each suite alone, as above (`tmp/a10-32/env.sh`):
   - That's 92 passed, in about 29 s, against round 0's 37 s.
 - **Also:** `tapestry-key-paths` 20 passed, and harness-lint is clean.
 
+### After the staging merge (2026-11-20, on `f2ab1fec`)
+
+`origin/staging` (`07d4df28`) was merged into the branch with no conflicts. That merge brought in #162 as merged and the property-has-one-parent work. The scoped gate on the merged tree, with no uncommitted changes: record `20261120T161244Z-52625-01ed`, PASS, 1,407 passed, 0 failed, 12 skipped, 5/5 suites, the `operations` entry 1,306/0/10 in 252 s.
+
 ### The live check (Implementation, 2026-11-20, on `6525d2d2`)
 
 **Where it ran:**
