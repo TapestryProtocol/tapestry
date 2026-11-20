@@ -1,0 +1,312 @@
+# ADR 0037: Seed-firmware builds the firmware's nodes from its source, then writes only what changed and keeps what was edited
+
+**Status:** Accepted
+**Date:** 2026-11-20
+**Story:** `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.md`
+**Accepted:** by the owner, as drafted, 2026-11-20, with its three changes to the story: Decision 5's departure from pass 3b, and Decision 8's two rules for relationships (one the firmware no longer makes is taken out; on first contact a missing one is kept). The story's AC1 and AC4 say so.
+
+ADR graph-operations-first-slice/0043 binds this one: firmware ships as pinned Tapestry releases, each installed as nodes of the instance's own. Its Decisions 1, 4, 5 and 8 are cited by number below, as "ADR 0043, Decision n".
+
+## Context
+
+The story asks for `lifecycle seed-firmware`, with seven criteria:
+- **AC1:** an unsigned install of the firmware the instance carries, equal to today's install's nodes apart from `NostrEvent` and `id`.
+- **AC2:** an install record on each node, an installed-firmware graph, and `lifecycle status` reporting it.
+- **AC3:** safe to repeat.
+- **AC4:** updates that keep local edits, a re-pointed `b` included. A node today's install made is kept when it differs from the source, and a call can take the firmware's version of a kept node.
+- **AC5:** graph-rule's items always in line with the rulebook.
+- **AC6:** a report of each node's outcome, a change entry, and `rules check` over the result.
+- **AC7:** its refusals, owner and admins only, the CLI and `/docs`, and an agent's live use.
+
+What the code does today, read on staging `79c8a098`, beyond the story's twelve facts:
+
+1. **How each route builds what today's install signs.**
+   - **create-concept** (`handleCreateConcept`, `src/api/normalize/index.js:1217`). For firmware, install passes `dTag: slug`, `overwrite: true` and `conceptHeaderOverrides` (`src/firmware/install.js:196-203`). The overrides go into the header's `conceptHeader` block, all but description, `oNames`, `oSlugs`, `oKeys`, `oTitles` and `headerTags`. So a firmware file's `oLabels` and `x-tapestry` win. Its `headerTags` become literal tags after the description tag (`index.js:1274-1310`).
+   - **The graph operations' copy of create-concept.** `conceptNodes` (`src/operations/catalog/graph/_concepts.js:161`, ADR graph-operations-first-slice/0016) builds the same eight nodes, with two differences:
+     - it adds the spec's `o` tag to each core node, which today's route doesn't sign;
+     - it takes its `z` addresses and relationship aliases from the firmware module's cached manifest (`firmwareUuid`, `rel()`).
+   - **create-element** (`index.js:1798`). It signs `d` (`childDTag(name, header)`), `name`, `z` and the file's JSON as `json`. It adds a `z` for each target of the header's pointer `b` (`index.js:1894-1902`). Pass 1b runs before the community-reference seed, so a firmware element gets the concept's `z` alone. It sets `ListItem` and a `slug` property (`:1912-1919`), and a `HAS_ELEMENT` from the superset. It refuses a name that the concept's class thread already holds, whoever its author is (`:1827-1838`).
+   - **create-set** (`index.js:4345`). It signs `d`, `name`, `z` (the set concept), `s` (the parent) and `description` when there is one, but no `json`, and sets `Set`. Then it signs a relationship letter at a random d-tag, with `name` ("<parent name> IS_A_SUPERSET_OF <set name>"), `z` (the relationship concept), `nodeFrom`, `nodeTo` and `relationshipType`. Then it makes the `IS_A_SUPERSET_OF`. A set already there returns early, so each set has one such letter.
+   - **save-schema** (pass 2, `index.js:2006`). It keeps the schema node's word block and sets `jsonSchema` to `{ $schema, type: 'object', ...the file's jsonSchema }`. It re-signs through `regenerateJson` (`src/api/normalize/helpers.js:124`), which rebuilds the tags in the order of their tag nodes' uuids (`ORDER BY t.uuid`), which are hashes. So a re-signed node's tags come in a hash order.
+   - **apply-enumerations** (pass 3b, `index.js:5983`). It copies the enumerating concept's elements, as the graph holds them, into five firmware schemas: `word`, `graph`, `property`, `relationship` and `dog`. Every concept header's key goes into `word.wordTypes`, user concepts' included. Where the manifest says so, it adds a pair of `allOf` conditionals for each value, and it re-signs through save-schema. Proposal P-156 (open) found that `word`'s conditionals can't be met by any element of `word`. ADR 0019 sends this route to rule 10, under which "nothing copies them into a schema" (catalog §9).
+   - **wire-implicit-elements** (pass 3c, `index.js:5844`). For every concept, `word` included, it gives each node whose `z` names the concept and that has no class-thread path a `HAS_ELEMENT` from the superset, then prunes.
+2. **Firmware's definition is already read in three places:**
+   - the address of each element file, `firmwareElements` (`_elements.js:436`, its `installName` at `:417` not exported);
+   - the links firmware makes and the supersets its prune covers, `firmwareLinks` (`_sets.js:294`);
+   - the memberships behind `firmware-membership` (`_memberships.js:62`).
+
+   Each reads the firmware module's cached folder, `firmware/active`, which is fixed in `src/api/normalize/firmware.js:18` with no override. So no suite can point an install at another firmware.
+3. **The cache.**
+   - The derive step builds a node's tapestryJSON from its cached copy when that copy has a word block, and from its `json` tag only otherwise (`src/lib/derivers/word.js:52-77`; `set.js:31-33`). A rewritten `json` tag therefore needs its entry removed first, as `src/api/strfry/tapestryBrainWrite.js:96-104` does.
+   - It reads only some node properties (`src/lib/tapestry-derive.js:89-92`), so no install record would reach tapestryJSON.
+   - `GET /api/tapestry-key/:key` never rebuilds a stale entry.
+   - An offloaded `json` tag (`lmdb:<tapestryKey>`) shares one entry with the node's tapestryJSON.
+   - The graph writes never derive, and say `cacheOutOfDate` instead (ADR 0021, Decision 16).
+4. **A graph write on a node that has a letter** keeps "its `id`, `pubkey`, `created_at`, labels and links", and answers `letterOutOfDate` until export nostr sends a new letter (ADR 0021, Decisions 9 and 13). An old route that imports the old letter again, `POST /api/neo4j/event-update`, can then undo the write (ADR 0021, Consequences).
+5. **Lifecycle.**
+   - **The lock.** `C.begin` takes the lifecycle lock, refusing `busy` while another lifecycle job runs. It refuses `graph-unavailable` when Neo4j doesn't answer within 5 s (`src/operations/catalog/lifecycle/_common.js:73-87`).
+   - **Jobs.** A job runs in a worker process (`_jobs.js:466`, `_worker.js`), and `runJob` sends any op that isn't restore or migrate to the backup job (`_jobs.js:449`). The caller's role never reaches the worker.
+   - **Time.** nginx allows 900 s on `/api/tapestry/lifecycle/` (`docker/nginx.conf:43-49`).
+6. **Change entries.** An entry is one `GraphChange` node naming every tapestryKey its changes give, with no cap (`src/operations/changes.js:101-136`). `graph history` finds an entry by node by reading every entry. Import nostr records one entry per event.
+7. **The graph concept.** Its schema requires `graph.nodes` (`slug`, `uuid`, `name`), `graph.relationshipTypes` (`slug`) and `graph.relationships` (`nodeFrom`, `relationshipType` and `nodeTo`, each `{ slug }`), and allows other sections (`firmware/active/concepts/graph/json-schema.json:24-38`). Every reader matches a relationship's ends by slug through `graph.nodes`: the Tapestries UI's `composeGraph`, `src/api/io.js:556-600`, and import nostr's `claimsOf` (`_letters.js:246-257`).
+8. **The concept lock.** Every concept write first locks the concept-header concept's header (`_concepts.js:621`), which on an empty graph isn't there. There, every concept write refuses `not-installed`.
+9. **A `b` tag's claim.** The import makes `REFERENCES {source: 'b-tag'}` from the letter's own node to the node at the `b` address, or to a placeholder it makes there (`placeholderUnlessHeld`, `src/api/neo4j/eventSync.js:289-313`). So today's install leaves that edge on each of the six headers, whether or not the curator's header was fetched.
+10. **Test tooling.**
+    - **Fakes.** `test/helpers/cypherEngine.js` runs general Cypher with the uniqueness rules, and `cypherGraphFake.js` adds transactions. The import suites use them through `operationsHarness.js` (`engine: 'cypher'`).
+    - **An oracle.** `test/helpers/todaysCreateConcept.js` runs today's route from its source in `node:vm`, with signing, the relay and Neo4j recorded, so it can't drift from the route.
+    - **Rules on Cypher.** `tapestry-key-paths.test.js` holds rules on any new Cypher: G4 (every node made gets `keyNode`), G11 and G18 (a lookup by address names `NostrEvent|TapestryNode`), and G19.
+11. **`rules check` in process.** `X.findingsIn(read, scope, rules)` (`src/operations/catalog/rules/_rules.js`) gives a scope's findings, and `check.js` pages them.
+
+## Options considered
+
+### Option A — Build the target from the source, then plan and write what changed
+
+A builder makes the firmware's **target** from the source: every node today's install would leave, with its address, kind, labels, name, tags, JSON and where it came from, and every relationship between them. It is a pure function of the files and the assistant's pubkey, with no Neo4j, relay or key.
+
+An installer then reads the graph at the target's addresses and plans each node and relationship against its install record: `added`, `changed`, `unchanged`, `kept` and so on. It writes the plan in one transaction, unsigned.
+
+A release, later, is a second source that produces the same target.
+
+**Pros:**
+- AC1's equivalence and AC4's keeping of edits are both pure functions, testable without a stack.
+- The release story adds a source, and the installer stays as it is.
+- Today's install isn't touched.
+
+**Cons:**
+- It is a second copy of today's install's logic, which can drift from it until today's install retires (D15). Oracles pin it.
+- The builder is the larger half of the work.
+
+### Option B — Run today's install with its signing turned off
+
+A switch for the duration of a call (for example AsyncLocalStorage) makes `signAndFinalize`, `publishToStrfry` and `importEventDirect` write unsigned nodes. The edit-keeping checks wrap each route call and each edge statement in `install.js`.
+
+**Pros:** one copy of the logic, equal to today's install by construction.
+
+**Cons:**
+- It changes the old routes, which D15 leaves as they are.
+- The run's context still carries the signer, where catalog Conventions say a write's carries nothing that signs (D1).
+- Several routes overwrite before any check could run: create-concept's `overwrite`, and `regenerateJson`. So keeping edits would mean rewriting them, not wrapping them.
+- A release's letters don't come from routes, so the release story would need a path of its own.
+
+### Option C — Install from a recorded snapshot
+
+A script runs today's install on a scratch stack and records its nodes and relationships in a file in the repo. Seed-firmware installs the file.
+
+**Pros:** exact for the instance it was recorded on, and the installer is simple.
+
+**Cons:**
+- Every firmware change needs a scratch-stack run to re-record, and the firmware changed in a dozen commits this month.
+- It adds a second copy of the firmware to the repo, against P-160's direction.
+- The snapshot holds the recording instance's addresses, so every other instance must translate them. That is Option A's builder's work anyway.
+
+## Decision
+
+We chose **Option A**. It is the one option where keeping local edits is a function that can be tested on its own, and where the release story adds a source rather than a second installer. Its cost, a builder that copies today's install's logic, is paid down by oracles that run today's routes from their source (Implementation notes) and by the live check's first contact (Decision 13).
+
+**1. The operation.** `src/operations/catalog/lifecycle/seed-firmware.js` declares a write (`group: 'lifecycle'`, `name: 'seed-firmware'`), with `access: 'owner-and-admins'` (story, open question 1).
+- **It has `run`,** as lifecycle's writes do (write-path W1 holds `apply` to the graph group only).
+- **Its inputs:**
+  - `version`, optional, a string;
+  - `take`, optional: up to 500 tapestryKeys or addresses of firmware nodes;
+  - `takeAll`, optional, a boolean (story, open question 3; AC4).
+- **Its own refusals:**
+  - `unknown-version` (409), naming the version carried;
+  - `firmware-unreadable` (409), naming each file and its problem (Decision 3);
+  - `not-firmware` (400), naming each `take` ref that is no node of the source;
+  - `no-assistant` (409), when the instance has no assistant key;
+  - lifecycle's `busy` and `graph-unavailable` (`_common.js`, whose message gains "installed").
+- **It runs inline, not as a job.** It holds the lifecycle lock (`C.begin('seed-firmware')`) for its whole run, so it never runs beside a backup, restore or migrate, and two calls at once install once (AC3).
+  - Its work is bounded: 459 nodes, their tags and their relationships. It finishes well inside nginx's 900 s.
+  - Its one transaction either commits or leaves the graph as it was, even when the control panel stops mid-run. A stale lock is recovered by the next `C.begin`.
+  - Running inline also keeps the caller's role for the change entry, which a job's worker never sees (Context 5).
+
+**2. Two parts: a source and an installer.**
+- **The source.** `src/firmware/target.js`, new: `buildTarget({ dir, ta })` → `{ version, source, nodes, relationships, problems }`. It reads, and touches nothing.
+- **The installer.** `src/operations/catalog/lifecycle/_seed.js`, new: `readState`, `plan` (pure) and `apply`.
+- **The release later.** A release source (ADR 0043, Decision 8) returns the same shape, with each member's `cameFrom` naming its letter.
+
+**3. The source: today's files, read once, all checked before anything is written** (AC7).
+- **The folder** is `firmware.firmwareDir()`. The firmware module gains one override, `TAPESTRY_FIRMWARE_DIR`, which no deployment sets. A suite sets it, so that the whole control panel reads the firmware it is given.
+- **Read once, fresh.** The builder reads every file it needs once, fresh, not through the module's cached manifest, so one run sees one snapshot.
+- **What refuses `firmware-unreadable`,** naming each problem:
+  - a manifest that doesn't parse;
+  - a file a manifest names that isn't there, or isn't JSON;
+  - a concept a manifest or an enumeration names that the manifest doesn't define;
+  - a relationship type a concept manifest uses that `relationshipTypes` lacks.
+- **`version`.** It must be the manifest's version, `1.0.0`, or the folder's name for it, `v1.0.0`. Anything else refuses `unknown-version`.
+- **`source.digest`** is the sha256 of every file the builder read, by path and by content. So two runs of the same files are known to be the same, though the version number doesn't change (story, fact 5).
+
+**4. The target: what today's install leaves, rebuilt.** Each node of the target has:
+- its address, kind and role labels (`ListHeader`, `ConceptHeader`, `ListItem`, `Superset`, `Set`, `JSONSchema`, `Property`);
+- its name, its tags as today's route first signs them, and its JSON (`null` for a set and a relationship letter);
+- an element's `slug` property;
+- `cameFrom` (Decision 6).
+
+Pass by pass, in today's order:
+- **1a, the concepts.** For each, `conceptNodes` with the header file's names, `d` set to its slug, its description, and the instance's assistant.
+  - The overrides go into the header's `conceptHeader` as `handleCreateConcept` merges them, and its `headerTags` after its description tag.
+  - It has no `o` tags.
+  - `conceptNodes` gains parameters for its `z` resolver and its relationship aliases. They default to today's, so that the builder resolves both from the folder it read.
+- **1b, the elements.** For each element file:
+  - **Its address:** `39999:<ta>:<childDTag(installName(file), 39998:<ta>:<slug>)>`, as `firmwareElements` computes it. `installName` is exported.
+  - **Its node:** tags `d`, `name`, `z` and `json` (the file as it is), `ListItem`, the `slug` property, and a `HAS_ELEMENT` from the concept's superset.
+  - **Blocked:** an element with no node at its address, when another element with its name is in the concept's class thread. It isn't made, and the report says so: create-element's own check, which ADR 0041's Consequences note for every firmware concept.
+- **1c, existing nodes.** A `HAS_ELEMENT` from the parent concept's superset to each core node the manifest's existing nodes name.
+- **1c½, the sets.** Each set file at `39999:<ta>:<its word.slug, else its file name>`, with tags as create-set signs them and `ListItem` and `Set`.
+  - **Its relationship letter:** the same as create-set's, at a random d-tag the first time.
+  - **Its link:** an `IS_A_SUPERSET_OF` from the parent.
+  - A relationship letter is matched to a node in the graph by its `nodeFrom`, `nodeTo` and `relationshipType`, never by its address, so a later run finds the one an earlier install made.
+- **Existing sets.** An `IS_A_SUPERSET_OF` from the parent's superset to the child's.
+- **1c¾.** Each concept manifest's `HAS_ELEMENT` and `IS_A_SUPERSET_OF`. They are resolved as install resolves them: the concept's own files first, then a node of the target whose slug, or whose name with dashes for spaces, is the one named.
+- **1d.** A `HAS_ELEMENT` from each concept's superset, `word`'s excepted, to each node of the target whose `z` names the concept.
+- **1d½.** A `HAS_ELEMENT` from concept-header's superset to every header of the target.
+- **1d¾.** Each `ENUMERATES {sourcePath, destinationPath}`.
+- **1e.** The prune, as install prunes, for the concepts that have a concept manifest.
+- **Pass 2.** Each schema's JSON: its 1a word block, with `jsonSchema` set to `{ $schema, type: 'object', ...the file's jsonSchema }`.
+- **The community references.** Each of the six headers' tags end with `['b', headerATag, 'pointer']`. Its claim, `REFERENCES {source: 'b-tag'}`, runs from the header to the node at that address, or to a placeholder made there, as the import makes it (Context 9). The curator's letters aren't fetched: today's pass and import nostr do that, and the pass stays as it is.
+- **Pass 3c.** Wire-implicit-elements over the target, with its prune.
+- **Pass 3b** isn't rebuilt (Decision 5).
+
+**Tag order.** Each node's tag order is today's route's first signature. Where today's install re-signs through `regenerateJson`, today's order is a hash order (Context 1). The comparison (Decision 6) reads tags as a set, so order is never a difference. AC1's "the tags today's install's node carries" holds as a set.
+
+**5. One departure from today's install: pass 3b, ratified by the owner.** Each schema is installed as its file says (pass 2), and nothing is copied into it from the graph.
+- **Why.**
+  - ADR 0019 sends apply-enumerations to rule 10, under which the allowed values are the source concept's elements, checked at write time, and "nothing copies them into a schema".
+  - Pass 3b's values come from the graph (every concept's key goes into `word`'s), so they are no firmware's to install.
+  - Its `word` conditionals fail every element of `word` (P-156).
+- **What stays.** The `ENUMERATES` edges (1d¾), which rule 10 reads.
+- **The cost.**
+  - The five enumerated schemas (`word`, `graph`, `property`, `relationship`, `dog`) differ from today's install's, which is an exception to AC1.
+  - On an instance today's install installed, those five differ from the source. So by the story's open question 2 they are `kept`, until taken.
+
+**6. The install record, and what counts as an edit.** Each node that seed-firmware writes, brings in line or adopts gets two properties:
+- **`cameFrom`.** JSON text `{ "kind": "file", "address": "<the file's path in the folder>", "id": "<the file's sha256>" }`. A release member's, later, is `{ "kind": "nostr", "address": "<its address>", "id": "<its event id>" }`.
+  - This is the form copy-node shares: its original's address and the id of the version it copied (D8; ADR 0043, Decision 1).
+  - For firmware it moves forward with each update; copy-node sets it once.
+- **`installed`.** JSON text `{ "version", "source": "<source digest>", "digest": "<content digest>", "parts": { "name", "json", "tags": { "<tag type>": "<digest>" } }, "at" }`.
+- **A node's content** is three things:
+  - its name;
+  - its tags other than `json`, as a sorted set;
+  - its `json` by value, read with the derive's reader (`lmdb:` references resolved, `graphContext` and the two record sections set aside).
+
+  Labels, tapestryKey, `id`, `created_at` and the other properties aren't content.
+- **A node is edited** when its content's digest isn't `installed.digest`. The parts say what differs: its name, its JSON, or a tag type, such as `b`.
+- **`cache get` answers it** (AC2). The derive puts both properties into the node's tapestryJSON, as top-level `cameFrom` and `installed` sections.
+  - That is a change to `tapestry-derive.js`'s property list and to the `word` and `set` derivers.
+  - Wherever tapestryJSON is judged against a schema (story 42's judge), the two sections are set aside, as `graphContext` is.
+
+**7. Each node's outcome** (`plan`, a pure function of the target, the graph's state and `take`):
+- **No node at its address:** `added`, or `blocked` (Decision 4, 1b).
+- **A node with a record:**
+  - unedited: `unchanged` when the target's content is what was installed, `changed` otherwise;
+  - edited: `kept`, naming the parts that differ from what was installed and from the source;
+  - taken: `changed`.
+- **A node without a record** (today's install made it, or a run kept it):
+  - its content is the target's: `unchanged`, and its record is written, adopting it;
+  - otherwise `kept`, with `noRecord: true`;
+  - taken: `changed` (story, open question 2).
+- **Graph-rule's items** (the concept whose manifest entry sets `updateElements`) are always brought in line (AC5): `put-back` when edited, `changed` when its file changed, `unchanged` otherwise. Another author's item with the name, where none is at firmware's address, makes `blocked` (ADR 0041, Decision 6).
+- **A node the last installed-firmware graph lists, which the target lacks:** `not-in-source`. It is left as it is.
+- **`take` and `takeAll`.** `take` names nodes by tapestryKey or address, and a ref no node of the target answers refuses `not-firmware`. `takeAll` takes every kept node, and every kept relationship (Decision 8).
+
+**8. Relationships.**
+- **The target's relationships** are firmware's relationship types, by type and by the addresses at their two ends, with `ENUMERATES`' two properties.
+- **The last install's** are the ones the last installed-firmware graph lists (Decision 9).
+- **A target relationship** is:
+  - `unchanged` when it is there with its properties;
+  - `changed` when its properties differ from the target and are what was installed, and `kept` when they differ from what was installed;
+  - `added` when it is missing and the last install didn't list it;
+  - `kept` when it is missing but the last install listed it, since it was removed since. On first contact, with no installed-firmware graph yet, a missing relationship is `kept` with `noRecord`, by the same rule as a node (story, open question 2), unless `takeAll`.
+- **A relationship the last install listed that the target lacks** is taken out (`removed`): firmware no longer makes it. Nothing else is ever taken out.
+- **A relationship between two firmware nodes that is in neither list** is the instance's own and stays as it is, counted as `others`. A direct link the owner made under a firmware superset is one (story, fact 2).
+- **The `b` claim** goes with its tag, as the import's claims do. When seed-firmware writes a header's tags, the node's `REFERENCES {source: 'b-tag'}` is replaced by the one its `b` names.
+
+**9. The installed-firmware graph.** One element of the graph concept:
+- **Where:** at `39999:<ta>:<childDTag('installed firmware', 39998:<ta>:graph)>`, with no letter, `ListItem`, tags `d`, `name`, `z` and `json`, and a `HAS_ELEMENT` from graph's superset.
+- **Its JSON**, in `elementJson`'s form:
+  - `word`: `{ slug: 'graph--installed-firmware', name: 'graph: installed firmware', title: 'Graph: Installed Firmware', wordTypes: ['word', 'graph'] }`;
+  - `graph`:
+    - `nodes`: one entry for each node the install made, brought in line or adopted, each `{ slug: <its address>, uuid: <its address>, name }`. A curator's header the `b` claims is listed too, so its slug resolves;
+    - `relationshipTypes`: each alias used;
+    - `relationships`: `{ nodeFrom: { slug }, relationshipType: { slug }, nodeTo: { slug } }`, with `properties` for `ENUMERATES`;
+    - `imports`: `[]`;
+  - `installedFirmware`: `{ version, source: { kind: 'files', digest, files }, at, by: { role, pubkey }, nodes, relationships }`.
+- **Why addresses as slugs.** Every reader matches a relationship's ends by slug (Context 7), and only an address is unique across the firmware's 459 nodes and the curators' headers.
+- **When it's written.** Every run that changes anything rewrites it, in the same transaction as the nodes.
+
+**10. Writing: one transaction, unsigned, by the bootstrap path.** When the plan changes anything, `graph.writeTransaction` runs it in today's order.
+- **The lock.** It locks the concept-header concept's header first, when it is there, as every concept write does (Context 8).
+- **The nodes.**
+  - An `added` node is made with `_eventless.makeNode`.
+  - A `changed` node gets its name, tapestryValue, tags (its old tag nodes taken out, its new ones made by `addTags` with `tagRows`), role labels and `slug`.
+  - It keeps its tapestryKey, `id`, `NostrEvent`, `created_at` and links, as ADR 0021's Decision 13 has a graph write keep them.
+- **Then the rest:** the records, the relationships, the installed-firmware graph, and one change entry. The entry is `recordChange`, with operation `lifecycle seed-firmware` and one change per outcome naming its nodes.
+- **No guard runs** (catalog §8; D4's bootstrap path). The statements meet `tapestry-key-paths`' G4, G11, G18 and G19.
+- **After the commit, the cache.** For each node whose `json` it wrote, the cached entry is removed, then derived again. Each node whose record it wrote is derived again, so `cache get` answers the record (Context 3).
+- **A failed derive** doesn't undo the commit. The answer counts it (`cacheOutOfDate`).
+- **Then `rules check`.** `X.findingsIn` runs over each firmware concept's scope. The answer gives the rules run, how many findings there are, and the first 20. It reports what it finds and undoes nothing (AC6).
+
+**11. The answer.**
+- `version` and `source`;
+- `nodes`: each node whose outcome isn't `unchanged`, with its outcome, tapestryKey, address, role and file, and for `kept`, what differs and `noRecord`;
+- the counts of each outcome;
+- `relationships`: lists of the added, removed, changed and kept ones, and counts of the unchanged and `others`;
+- `letterOutOfDate`: the written nodes a letter backs, which keep their old letter until export nostr sends a new one (Context 4);
+- `cacheOutOfDate`, `rulesCheck`, `change` and `note`.
+
+A run that changes nothing writes nothing, records no entry, and answers every node `unchanged` (AC3).
+
+**12. `lifecycle status`.**
+- **Its firmware part gains `seeded`,** read from the installed-firmware graph: `{ version, at, by, source, nodes, relationships, changedSince }`. `changedSince` is how many of its nodes are edited (Decision 6). With no such graph, `seeded` is null, and the part's words say that nothing has been installed by seed-firmware yet.
+- **What stays.** The version carried, and the all, some or none of today's reader (`readInstallState`).
+
+**13. The live check, and what it proves.** On scratch stacks, with Neo4j's uniqueness rules and `tapestry-keys` applied first (story, fact 12), an admin agent runs it through the external CLI:
+- **L1, first contact.** On an instance today's install installed, every firmware node answers `unchanged` and every target relationship is there, apart from Decision 5's five schemas, which answer `kept`. This is AC1's equivalence as far as one instance shows it. Decision 7 of ADR 0043, with two instances and one key, is its own story.
+- **L2, an empty instance.** On an instance with no firmware, it installs everything, and a second run changes nothing.
+- **L3, an update.** After a header's `b` is re-pointed (`b-defer` or a raw query) and a firmware file is changed (copied in, then the control panel restarted, ledger row `2026-11-17-scratch-firmware-copy-needs-restart`), it answers the header `kept`, naming its `b`, and the changed file's node `changed`.
+- **L4, taking.** `take` brings a kept node in line.
+
+## Consequences
+
+- **Enables:**
+  - an update that keeps local edits, with each outcome reported;
+  - `lifecycle status` naming what was installed and what has changed since;
+  - the release story adding a source, not an installer.
+- **An instance installed by seed-firmware alone isn't ready by today's readers.** `readInstallState` and `GET /api/ready` count `NostrEvent` headers, and the old routes read letters. The graph operations work on it (`supersetsOf` matches `TapestryNode`). The story's "reading the installed firmware from the graph", and the signing step, close this.
+- **Stale letters.** A changed node that a letter backs keeps the old letter until export nostr signs a new one. `event-update` could import the old letter over the change, ADR 0021's caveat.
+- **A second copy of today's install's logic.** It is pinned by oracles that run today's routes from their source, so a change to today's install fails a test until the builder follows. The copy retires with today's install.
+- **Five schemas differ from today's install's** (Decision 5). P-156 then shows only on instances today's install installed.
+- **The firmware module gains `TAPESTRY_FIRMWARE_DIR`,** and the derive gains the two record sections.
+- **One transaction for a fresh install:** 459 nodes, their tag nodes and their relationships. If that ever outgrows Neo4j's transaction memory (story graph-operations-foundation #9's limit), it batches by concept, with the installed-firmware graph last.
+- **No index on a change entry's keys,** so `graph history` by node reads every entry. A fresh install's entry names about 460 keys.
+- **The thirteen graph writes' firmware refusals stay** while today's install is the install (story, Out of scope).
+- **Firmware reinstall required?** No. No firmware file changes.
+
+## Implementation notes
+
+- **New:**
+  - `src/firmware/target.js` (Decisions 3 and 4);
+  - `src/operations/catalog/lifecycle/_seed.js` (Decisions 6 to 10);
+  - `src/operations/catalog/lifecycle/seed-firmware.js` (Decisions 1 and 11).
+- **Changed:**
+  - `src/api/normalize/firmware.js`: `TAPESTRY_FIRMWARE_DIR`, read when the module loads, default `firmware/active`.
+  - `src/operations/catalog/graph/_concepts.js`: `conceptNodes` takes an optional `z` resolver, relationship aliases, and leaves out the `o` tags when asked.
+  - `src/operations/catalog/graph/_elements.js`: exports `installName`.
+  - `src/operations/catalog/lifecycle/_common.js`: the graph-unavailable words.
+  - `src/operations/catalog/lifecycle/status.js`: `seeded` (Decision 12).
+  - `src/lib/tapestry-derive.js`, `src/lib/derivers/word.js` and `set.js`, and story 42's judge: the two record sections (Decision 6).
+  - The docs: `docs/GRAPH_OPERATIONS_CATALOG.md` §8's row, BIBLE §7 (seed-firmware beside today's install) and §11 (the route).
+- **For the Tester.** AC1's oracles are today's routes run from their source in `node:vm`, as `todaysCreateConcept.js` runs create-concept:
+  - that helper, extended with `dTag`, `overwrite` and `conceptHeaderOverrides`;
+  - new ones, in the same way, for create-element, create-set and save-schema.
+
+  The edge passes are pinned against expectations worked out from the real `firmware/active`. The plan is pinned as a pure function, and the writes through `cypherGraphFake` with the cypher engine. A temporary firmware folder, through `TAPESTRY_FIRMWARE_DIR`, carries AC4's changed files. Each refusal has a test.
+
+## Out of scope
+
+- **The release source:** fetching, checking the pin, and translating a release's addresses (ADR 0043, Decision 8's new stories).
+- **The signing step and the move off today's install:** export nostr (A10.34), and retiring `POST /api/firmware/install`, the Dashboard's button and the install at first start.
+- **Fixing P-156 in today's install.**
+- **`cache rebuild` and `cache check`** (A10.36): this derives only the nodes it writes.
+- **Copy-node (A10.24),** beyond the `cameFrom` form.
+- **A dry run.** Every run reports what it did, and a run with nothing to change writes nothing.
