@@ -1,6 +1,6 @@
 # Story 32: `import nostr` — record nostr events as nodes, with the claims they make as relationships
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 **Loom:** A10.32 — https://loom.brainstorm.world/t/A10.32
@@ -280,4 +280,4 @@ Each suite alone, as above (`tmp/a10-32/env.sh`):
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md](../../decisions/graph-operations-first-slice/0032-import-nostr.md)
 - Test plan: [32-import-nostr.test-plan.md](./32-import-nostr.test-plan.md)
-- Review: (filled in after Review)
+- Review: [reviews/graph-operations-first-slice/32-import-nostr.md](../../reviews/graph-operations-first-slice/32-import-nostr.md)

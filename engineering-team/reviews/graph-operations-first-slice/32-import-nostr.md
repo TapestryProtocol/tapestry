@@ -25,6 +25,8 @@
 
 **Verdict:** CHANGES_REQUESTED: one blocking finding and nine non-blocking.
 
+**Round 2** (2026-11-20, at `42eaaeca`): PASS. See the end of this file.
+
 ## Quality gates (run by reviewer, not trusted)
 
 - [ ] **The full gate** (`npm test`) was not run. On this Mac the local stack is the owner's live agent-memory instance, and the full suite writes to it. CI's stack-free job runs it on the pull request.
@@ -245,3 +247,142 @@ Not applicable: the story's status stays `Approved`, and completion detection wa
 ## Verdict
 
 **CHANGES_REQUESTED**
+
+## Round 2 — 2026-11-20 (HEAD `42eaaeca`)
+
+The owner chose to fix every round-1 finding before the pull request, tests first. Round 1 was committed as `542b64d6`. The round added seven commits after it, each kept to its role's files:
+- `c2925e77`, the session's:
+  - the owner's answer on non-blocking 3, as a note under ADR 0032 Decision 13;
+  - non-blocking 7's and 8's corrections;
+  - non-blocking 4's ledger row, `2026-11-20-strangers-tag-nodes-count-as-own`;
+- `e90d94e1`, the Tester's: IL8, IL9, IN15, IF9, IF10, IG11, IG12 and CE12. With them came the relay fake's live relays, the graph fake's `slow` and `failWrite`'s `after`, and the seams the tests pin: `reader.CONNECT_MS`, `reader.REQUEST_MS` and the declaration's `BUDGET_MS`;
+- `0c083d16`, the Implementer's fix, in `_relay.js` and `nostr.js` only;
+- `763d9506`, `31899132` and `42eaaeca`, docs: BIBLE §6, Decision 13's note, and the story's Deviations and Evidence, the second live check among them;
+- `88e321bf`, the Tester's: IL9's live server reads the handshake socket it holds.
+
+**How it was made.**
+- **The same limits as round 1.** No `npm test`, no docker, and no call to the local stack, GitHub or Loom.
+- **The suites and the gate** ran on the shell's Node v24.18.0, as in round 1, after `. tmp/a10-32/env.sh`.
+- **On Node 22.23.1,** CI's and the container's major version, two more checks ran:
+  - IL8's and IL9's red-before-green, on a `git archive` copy of `42eaaeca` under the ignored `tmp/review-32-r2/`. It ran with round 1's `_relay.js` and `nostr.js` put back, then with HEAD's (`red-check.sh`);
+  - round 1's three probes, against HEAD.
+  
+  The runners, the probes and every log are in that folder.
+- **Fresh claims.** Each fix was checked against the code, the commands and the probes, not against the commit messages.
+- **The worktree.** `git status` was clean after each step.
+- **The independent check** before the commit (P13) wasn't applied.
+
+### Gates (run by the reviewer at `42eaaeca`)
+
+- [x] **The scoped gate:** `zsh tmp/a10-32/gate.sh a10-32-review-2`, on a clean tree. Its `npm run gate:status -- --label a10-32-review-2` line, with the path shortened:
+
+  ```
+  20261120T155739Z-22666-6673 [a10-32-review-2] started 2026-11-20T15:57:39.833Z on 42eaaeca — PASS, exit 0, 1359 passed, 0 failed, 12 skipped, 5/5 suites · …/tmp/gate-runs/20261120T155739Z-22666-6673.json
+  ```
+
+  By entry:
+  - `operations` 1,258/0/10 (238 s);
+  - `external-cli` 53/0/0 (12 s);
+  - `openapi-coverage` 13/0/0 (2 s);
+  - `admin-action-sweep` 9/0/0 (0.5 s);
+  - `schema-save-finds-the-right-header` 26/0/2 (20 s).
+  
+  That's eight more than round 1: the seven new tests and CE12.
+- [x] **Each suite of `test/operations/import/` alone** (`tmp/review-32-r2/suites.out`):
+  - `nostr` 15, `nostr-record` 15, `nostr-order` 11, `nostr-own` 7, `nostr-graph` 12, `nostr-filter` 10;
+  - `nostr-relay` 9, in 10 s, down from 23 s, since IL5 and IL6 now wait the 1.5 s their `REQUEST_MS` sets;
+  - `nostr-agent-through-cli` 1, `nostr-live` 6 skipped, `cypher-engine` 12.
+  
+  None failed. That's 92 passed, as the Evidence says.
+- [x] **`tapestry-key-paths` alone:** 20 passed, 0 failed.
+- [x] **harness-lint:** clean, before this commit and with it.
+- [x] **Red before green, on Node 22.23.1** (`red-check.out`):
+
+  | `_relay.js` and `nostr.js` | IL1–IL7 | IL8 | IL9 |
+  |---|---|---|---|
+  | round 1's (`542b64d6`) | pass | **fails**: the child exited 1, `Error: sending on closed connection`, from `importRefs` | **fails**: the timed-out connection was still open after the call (`live-handshake`, `live-open`) |
+  | HEAD's | pass | passes | passes |
+
+- [x] **Round 1's probes against HEAD, on Node 22.23.1:**
+  - `run-crash-head.out`: three addresses, with the connection dropped during request 2. `run` answers `not-found`, `unread`, `unread` at once, and the process exits 0 (exit 1 in round 1);
+  - `relay-close-head.out`: a request on the closed connection answers `{ ok: false, error: 'the relay closed the connection' }` at once;
+  - `relay-stray-head.out`: the handshake that finished late never opened, and the server held 0 open connections 12 s later (1 in round 1).
+
+### Round-1 findings, re-checked
+
+1. **Blocking 1: fixed.**
+   - **What it does now:**
+     - `request()` answers at once, without subscribing, when `relay.connected === false` (`_relay.js:35`);
+     - `connect` replaces the instance's `send` with one whose rejection is caught and ends that relay's open requests (`:81-87`).
+   - **The race.** In nostr-tools 2.10.4 the check alone closes the path.
+     - `send` throws only when `connectionPromise` is unset.
+     - Once connected, only the error and close handlers unset it, and they clear `_connected` with it (`abstract-relay.js:250-251, 258-259`).
+     - The connect timeout unsets it before `_connected` was ever set (`:232`), and our `close()` clears `_connected` but leaves the promise (`:412-414`). `request()` runs only after `open()` resolved, so while `_connected` is true the promise is set.
+     - The check, `subscribe`, `fire` and `send`'s own check run in one synchronous turn, so no close event can land between them.
+     - A close that lands after the REQ is queued ends the request through `closeAllSubscriptions`, so `onclose` answers `ok: false`. `ws.send` on a closing socket throws in neither Node's WebSocket nor `ws`.
+     
+     So the wrap is defence in depth, as the Deviation says: it covers another version's timing, or another unawaited `send`. (`Subscription.close()` sends only while connected, `:464-465`.)
+   - **The wrap itself is sound:**
+     - it can't recurse: its `closeAllSubscriptions` runs on a later microtask, with the map already cleared, and `Subscription.close` marks itself closed in the same turn it sends;
+     - it hides no rejection anyone awaits, since nothing in nostr-tools awaits `send`.
+     
+     Not adding a process-wide `unhandledRejection` handler was the right call.
+   - **Tests and evidence:**
+     - IL8: red on round 1's code, green now, on Node 22.
+     - The second live check restarted strfry during an import from the own relay. The call answered 200 with 499 recorded and `next.until`, and the control panel kept pid 4349. Going on recorded the other 101 (`rerun/drop.json`, `drop-continue.json` in the main checkout's `tmp/live-check-32/`).
+2. **Non-blocking 2: fixed.**
+   - `connect` closes the relay when its connect fails (`_relay.js:92`). That is the path nostr-tools' timeout takes, since its timer is set before `within`'s and fires first.
+   - `open` closes a connect that resolves after `within` gave up (`:109`).
+   - IL9 is red then green, and my probe shows the late handshake never opens.
+3. **Non-blocking 3: settled by the owner, as round 1's option (a).**
+   - The rules are a precondition, never checked as the import runs (Decision 13's note, and BIBLE §6). Both name the five rules.
+   - Both say Install Firmware waits for the first four, which are `expectedNeo4jSchema.js`'s, and that `tapestry_key` comes from the migration. G12 pins that install doesn't wait for it, and the ADR's note has said so since `31899132`.
+4. **Non-blocking 4: recorded.** Ledger row `2026-11-20-strangers-tag-nodes-count-as-own` (`bug`) is accurate: its lines, the live check's `07b-target-refs.out`, and its fix shape.
+5. **Non-blocking 5: fixed, with two residuals.**
+   - **The time now holds** in four places, under IG11 and IF9:
+     - in `readRefs` (`nostr.js:350`);
+     - in `settle` (`:391-395`), where what isn't recorded in time answers `unread`;
+     - after a graph's nodes (`:468`), with the graph also under `next.graphs`;
+     - in `judge`'s parts (`:545`), with the second left to `next.until`.
+   - **A request keeps at most its filter's `limit`** (`_relay.js:37`; IF10).
+   - **A `filter` object's JSON is capped at 10,000 characters** (`nostr.js:223`; IN15).
+   - **Residual (a), recorded in the Deviations:** requests for ids and addresses carry no `limit` (`nostr.js:321, 336`). So they keep what a relay sends before EOSE, and `readRefs` checks each matching event's signature in turn.
+   - **Residual (b):** not recorded; it is round 2's finding 13.
+6. **Non-blocking 6: fixed.** `BIBLE.md:368` now ends "but the instance's own".
+7. **Non-blocking 7: fixed.** The ledger row says once. `explain.txt` holds both plans: two index seeks for `AT_UUID`, and a `NodeByLabelScan` of 7,685 tag nodes (2,436 of them `z`) for `WIRE`.
+8. **Non-blocking 8: fixed.** The Evidence says only the two runs at 0 ms overlapped, and counts three overlapping trials.
+9. **Non-blocking 9: fixed.** `nostr.js:445` carries `failed` and its reason into the entry. IG12 tests it, which the fake's new `failWrite.after` (CE12) makes reachable.
+10. **Non-blocking 10: fixed.** `_relay.js`'s header now says what nostr-tools drops before `onevent`, and that a request keeps no more than its limit.
+
+### Findings (round 2)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+11. **`engineering-team/stories/graph-operations-first-slice/32-import-nostr.md:168` — a stale sentence.** The Deviation's last sentence says ADR 0032's Decision 13 note "says Install Firmware waits for all five; it is left as the session that wrote it left it". `31899132` corrected that note since. Optional: drop the sentence.
+12. **`test/helpers/relayFake.js:49` — a stale comment.** "Nothing here opens a socket or asks a real DNS server" no longer holds: a `live` entry starts a `ws` server on 127.0.0.1. Optional: say the live relays listen on loopback only.
+13. **`src/operations/catalog/import/nostr.js:521-528` — a second is still recorded whole, whatever the time** (finding 5's residual b).
+    - **What happens:** `judge`'s parts now stop at the budget. But once they're all read in time, `finish` records the whole second before it looks at the clock.
+    - **Why it matters:** a split second holds up to 500 events for each part it was split into. So a bulk publisher's second (memo #129 saw 6,717 events in one) read by a filter of many kinds can take minutes, past the 40 s and nginx's 60 s.
+    - **Whose rule it is:** Decision 5 says the call "always finishes the second it is in", so this is the ADR's rule, not a fault of the fix.
+    - **Optional:** a ledger row; or stop inside a second and answer `next.until` at that second, since a repeat over what was recorded answers `unchanged`.
+
+### Harness friction
+
+None new.
+
+### On PASS (same commit)
+
+- [x] The story's `**Status:**` is flipped to `Done` in place, and its "Review:" link is filled in.
+- [x] Completion detection was performed. Its result is in the chat, not in this file.
+
+### Verdict (round 2)
+
+**PASS**
+- **The blocking finding** is fixed, tested red then green on Node 22, and shown live.
+- **Each round-1 non-blocking finding** is fixed, recorded, or settled by the owner.
+- **Three non-blocking findings are new:** a stale sentence in the story, a stale comment in a test helper, and the ADR's rule that a second is always finished whole, which can still outrun the budget.
+- **For the owner to ratify:** nothing new. Decision 13's note records the owner's own answer.
