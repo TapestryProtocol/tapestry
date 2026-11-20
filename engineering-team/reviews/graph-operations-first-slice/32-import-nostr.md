@@ -140,7 +140,7 @@ Not applicable: the story traces to no PRD, and it has no UI.
 | Ledger `2026-11-20-todays-importers-keep-their-faults` | `eventSync.js:198, 200-202, 214-215, 248`; `normalize/index.js:139, 171`; `normalize/helpers.js:65, 97` | yes |
 | Ledger `2026-11-20-scratch-stack-lacks-uniqueness-rules` | `run1-lv3-evidence.txt` (one constraint, `tags_address`; two nodes at one address and id); `live-suite.log`; the paths it names exist | yes |
 | Ledger `2026-11-20-z-wiring-scans-every-tag-node` | `setup/neo4jConstraintsAndIndexes.sh:48` (only `nostrEventTag_uuid` covers `NostrEventTag`) | the scan, yes; "twice", no (non-blocking 7) |
-| Ledger `2026-11-20-stack-free-ci-outgrows-its-limit` | `.github/workflows/test.yml:27` (15 minutes); the suites' times (about 36 s here) | yes, as far as checked: the run ids and their times weren't re-derived, since no GitHub call was made |
+| Ledger `2026-11-20-ci-gate-outgrows-its-timeout` (this story's duplicate `2026-11-20-stack-free-ci-outgrows-its-limit` was dropped at the staging merge) | `.github/workflows/test.yml:27` (15 minutes); the suites' times (about 36 s here) | yes, as far as checked: the run ids and their times weren't re-derived, since no GitHub call was made |
 
 ## Findings
 
