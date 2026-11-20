@@ -3475,7 +3475,7 @@ async function handleCreateProperty(req, res) {
     const pType = propType || 'string';
     const pDesc = propDesc || '';
 
-    // Resolve target: JSON Schema node (for top-level) or parent property (for nested)
+    // Resolve target: the primary property (for top-level) or the parent property (for nested)
     let targetUuid;
     let targetName;
     if (parentUuid) {
@@ -3489,19 +3489,20 @@ async function handleCreateProperty(req, res) {
       targetUuid = rows[0].uuid;
       targetName = rows[0].name;
     } else {
-      // Top-level property — target is the concept's JSON Schema node
+      // Top-level property — it hangs under the concept's primary property, never its JSON schema node (BIBLE §6;
+      // story graph-operations-first-slice #45, ADR graph-operations-first-slice/0045 Decision 12)
       const rows = await runCypher(`
         MATCH (h:NostrEvent)
         WHERE (h:ListHeader OR h:ClassThreadHeader) AND h.kind IN [9998, 39998]
           AND h.name = $concept
-        OPTIONAL MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
-        RETURN js.uuid AS schemaUuid, js.name AS schemaName
+        OPTIONAL MATCH (pp:Property)-[:${REL.CORE_NODE_PRIMARY_PROPERTY}]->(h)
+        RETURN pp.uuid AS primaryUuid, pp.name AS primaryName
         LIMIT 1
       `, { concept });
       if (rows.length === 0) return res.json({ success: false, error: `Concept "${concept}" not found` });
-      if (!rows[0].schemaUuid) return res.json({ success: false, error: `Concept "${concept}" has no JSON Schema node` });
-      targetUuid = rows[0].schemaUuid;
-      targetName = rows[0].schemaName;
+      if (!rows[0].primaryUuid) return res.json({ success: false, error: `Concept "${concept}" has no primary property, which a top-level property hangs under (BIBLE §6). POST /api/normalize/skeleton makes a concept's missing core nodes.` });
+      targetUuid = rows[0].primaryUuid;
+      targetName = rows[0].primaryName;
     }
 
     // Check for duplicate property name under the same target
@@ -3528,8 +3529,9 @@ async function handleCreateProperty(req, res) {
       },
     };
 
-    // Create the property event
-    const dTag = dtag.childDTag(trimName, biosPropertyUuid);
+    // Create the property event. Its address comes from its parent, so one name under two parents is two nodes (BIBLE
+    // §6's address rule; ADR graph-operations-first-slice/0045 Decision 12).
+    const dTag = dtag.childDTag(trimName, targetUuid);
     const tags = [
       ['d', dTag],
       ['name', trimName],
@@ -4160,8 +4162,22 @@ async function handleEnumerate(req, res) {
       propUuid = propRows[0].uuid;
       propDisplayName = propRows[0].name;
     } else if (createProperty) {
+      // A new property hangs under the target concept's primary property, and its address comes from it (BIBLE §6;
+      // story graph-operations-first-slice #45, ADR graph-operations-first-slice/0045 Decision 11). Found before
+      // anything is signed.
+      const ppRows = await runCypher(`
+        MATCH (h)-[:HAS_TAG]->(t:NostrEventTag)
+        WHERE (t.type = 'names' OR t.type = 'name') AND toLower(t.value) = toLower($name)
+        MATCH (pp:Property)-[:${REL.CORE_NODE_PRIMARY_PROPERTY}]->(h)
+        RETURN pp.uuid AS uuid
+        LIMIT 1
+      `, { name: targetConcept });
+      if (!ppRows.length || !ppRows[0].uuid) {
+        return res.json({ success: false, error: `Concept "${targetConcept}" was not found, or has no primary property, which a new property hangs under (BIBLE §6). POST /api/normalize/skeleton makes a concept's missing core nodes. Nothing was created.` });
+      }
+      const parentUuid = ppRows[0].uuid;
       const propertyConceptUuid = firmware.conceptUuid('property');
-      const dTag = dtag.childDTag(propName, propertyConceptUuid);
+      const dTag = dtag.childDTag(propName, parentUuid);
       const propEvent = signAndFinalize({
         kind: 39999, content: '',
         tags: [
@@ -4174,6 +4190,10 @@ async function handleEnumerate(req, res) {
       await publishToStrfry(propEvent);
       await importEventDirect(propEvent, propUuid);
       await writeCypher(`MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Property`, { uuid: propUuid });
+      await writeCypher(`
+        MATCH (prop:NostrEvent|TapestryNode {uuid: $propUuid}), (parent:NostrEvent|TapestryNode {uuid: $parentUuid})
+        MERGE (prop)-[:${REL.PROPERTY_MEMBERSHIP}]->(parent)
+      `, { propUuid, parentUuid });
     } else {
       return res.json({ success: false, error: `Property "${propName}" not found. Set createProperty: true to create it.` });
     }
@@ -4206,42 +4226,10 @@ async function handleEnumerate(req, res) {
       MERGE (a)-[:${REL.PROPERTY_ENUMERATION}]->(b)
     `, { from: enumer.supersetUuid, to: propUuid });
 
-    // Wire IS_A_PROPERTY_OF to target concept's schema if not already wired
-    let schemaWired = false;
-    const schemaRows = await runCypher(`
-      MATCH (h)-[:HAS_TAG]->(t:NostrEventTag)
-      WHERE (t.type = 'names' OR t.type = 'name') AND toLower(t.value) = toLower($name)
-      MATCH (js:JSONSchema)-[:${REL.CORE_NODE_JSON_SCHEMA}]->(h)
-      RETURN js.uuid AS schemaUuid, js.name AS schemaName
-      LIMIT 1
-    `, { name: targetConcept });
-
-    if (schemaRows.length > 0) {
-      const existingProp = await runCypher(`
-        MATCH (p:NostrEvent|TapestryNode {uuid: $from})-[:${REL.PROPERTY_MEMBERSHIP}]->(s:NostrEvent|TapestryNode {uuid: $to})
-        RETURN count(*) AS cnt
-      `, { from: propUuid, to: schemaRows[0].schemaUuid });
-      if (existingProp[0]?.cnt === 0) {
-        const propOfEvent = signAndFinalize({
-          kind: 39999, content: '',
-          tags: [
-            ['d', randomDTag()],
-            ['name', `${propDisplayName} ${REL.PROPERTY_MEMBERSHIP} ${schemaRows[0].schemaName}`],
-            ['z', firmware.conceptUuid('relationship')],
-            ['nodeFrom', propUuid],
-            ['nodeTo', schemaRows[0].schemaUuid],
-            ['relationshipType', REL.PROPERTY_MEMBERSHIP],
-          ],
-        });
-        await publishToStrfry(propOfEvent);
-        await importEventDirect(propOfEvent, `39999:${propOfEvent.pubkey}:${propOfEvent.tags.find(t=>t[0]==='d')[1]}`);
-        await writeCypher(`
-          MATCH (a:NostrEvent|TapestryNode {uuid: $from}), (b:NostrEvent|TapestryNode {uuid: $to})
-          MERGE (a)-[:${REL.PROPERTY_MEMBERSHIP}]->(b)
-        `, { from: propUuid, to: schemaRows[0].schemaUuid });
-        schemaWired = true;
-      }
-    }
+    // A property hangs under its concept's primary property or its parent property, never on a JSON schema node, so
+    // no IS_A_PROPERTY_OF to the target's schema is written or signed (BIBLE §6; story graph-operations-first-slice
+    // #45, ADR graph-operations-first-slice/0045 Decision 11). schemaWired stays in the answer, always false.
+    const schemaWired = false;
 
     return res.json({
       success: true,

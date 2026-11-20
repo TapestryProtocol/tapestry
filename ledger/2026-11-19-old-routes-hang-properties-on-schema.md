@@ -13,4 +13,11 @@
 
 **Fix shape.** `rules check` (Loom A10.31) reports a property node with more than one parent, and `rules repair` removes the extra edge to the JSON Schema, keeping the primary property's own. The readers count and label from the primary property instead, which is cheap. The old writers stay as they are (D15) unless the fix is cheap.
 
+**Partly done (story graph-operations-first-slice #45, Loom A10.31.a, 2026-11-20).**
+- The rule `property-has-one-parent` (rulebook entry 11), with `rules check` and `rules repair` for it. The repair takes off a property's extra link to its own concept's JSON schema, and changes firmware's concepts only with `firmwareOverride`.
+- `POST /api/normalize/enumerate` no longer hangs the property on the target's schema. A property it makes hangs under the target's primary property, with its address from it.
+- `POST /api/normalize/create-property` hangs a top-level property under the primary property, and takes every address from the parent.
+
+Still open: `generate-property-tree`'s fallback to the schema, the readers, and firmware's `property-membership.json`.
+
 **Pointer:** `BIBLE.md` §6 (relationship types and the property tree); `docs/CONFIGURATION.md` and `docs/ARCHITECTURE.md` (relationship tables, corrected 2026-11-19); `src/operations/catalog/graph/_properties.js` (`treeOf`, `TANGLED_TREE`); `src/api/normalize/index.js`; `src/api/audit/index.js`.
