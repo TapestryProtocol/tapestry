@@ -26,7 +26,7 @@ The assistant key is made at a deployment's first start and kept on its data vol
 - **Publishing from the server.** Assistant-profile ADR 0002 publishes from the server too (`publishToRelays` in `src/api/assistant/profilePublish.js`). It says that event-tagging ADR 0002's statement, "no server external publish exists", is out of date. ADR 0004's RE1 test (`test/publish-export-a-concept.test.js`) flags only a file in `src/api/` that uses both `SimplePool` and `.publish(`.
 - **The graph operations.**
   - Export nostr (A10.34) publishes a scope: a node, a graph or everything (D12).
-  - Import nostr (A10.32) records letters as nodes, by id, by address, by a graph's address or by a filter. Its ADR, graph-operations-first-slice 0032, is on TapestryProtocol/tapestry#162 and not yet merged. It reads relays and checks each letter's id and signature.
+  - Import nostr (A10.32) records letters as nodes, by id, by address, by a graph's address or by a filter. Its ADR is graph-operations-first-slice 0032. It reads relays and checks each letter's id and signature.
   - Copy-node (A10.24) copies someone else's node into a node of your own, linked to theirs (D8).
   - Seed-firmware (A10.37) is to install or update the built-in concepts "by the bootstrap path, without undoing local edits" (catalog §8). Today's install "can also undo local edits".
   - "Every write checks its guards (D3) unless its group says otherwise, is safe to repeat (keyed as its row says), and never signs (D1)" (catalog, Conventions). D2 has a caller combine operations: "the node first, the letter on purpose". An import skips the guards (D4).
@@ -161,7 +161,7 @@ A **release** is a release element and the letters it lists. The **release eleme
 
 ## Implementation notes
 
-- Import nostr's relay reading and letter checks (ADR 0032, on TapestryProtocol/tapestry#162) are the model for the fetch and the check. The community-reference pass is the precedent for pinning a letter by its id. Unlike either, a release stops the whole install on one missing or mismatched letter (Decision 4).
+- Import nostr's relay reading and letter checks (ADR 0032) are the model for the fetch and the check. The community-reference pass is the precedent for pinning a letter by its id. Unlike either, a release stops the whole install on one missing or mismatched letter (Decision 4).
 - The member list is an added top-level section, which the Tapestry republish builders pass through (BIBLE §6; `ui/src/pages/tapestries/tapestryDraft.mjs`).
 - To find the firmware module's readers: `git grep -l -E "normalize/firmware['\"]" -- src` together with `git grep -l -E "require\(['\"]\./firmware['\"]\)" -- src/api/normalize`.
 
