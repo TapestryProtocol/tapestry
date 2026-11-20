@@ -3,8 +3,8 @@
 **Id:** 2026-11-20-ci-gate-outgrows-its-timeout
 **Type:** meta (the CI test gate, OPERATIONS.md §15)
 **Opened:** 2026-11-20 (Loom A10.31.a, story graph-operations-first-slice #45, reading ADR PR #161's check)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-20 (`timeout-minutes` raised to 25 in `.github/workflows/test.yml`, W7 and OPERATIONS.md §15 with it; ADR test-hermeticity-ci/0001, Amendment 1)
 
 **What was seen.** `.github/workflows/test.yml` gives the `stack-free` job `timeout-minutes: 15`, and `test/ci-test-job.test.js` W7 pins that number ("a hang guard, not a budget", ADR 0001). The gate has grown to the edge of it. Its `npm test` step took:
 
@@ -20,3 +20,7 @@ Run 44681193649 printed `Overall: PASS — 8178 passed, 0 failed, 649 skipped ac
 **Fix shape.** Either raise `timeout-minutes` (amend ADR 0001, change W7 and the sentence in OPERATIONS.md §15 that names the 15 minutes), or make the gate faster. The no-retry rule in §15 still holds: a cancelled run is not run again by hand.
 
 **Pointer:** `.github/workflows/test.yml`; `test/ci-test-job.test.js` W7; OPERATIONS.md §15; `engineering-team/decisions/done/test-hermeticity-ci/0001-ci-test-job.md`.
+
+**How it closed (2026-11-20).**
+- **The run that forced it:** promotion PR TapestryProtocol/tapestry#167's required `stack-free` run (44779388446) was cancelled at 15 m 18 s. It had passed 338 of 347 suites; `npm test` started at 17:02:57 and `operations` at 17:08:49, and `operations` was still running 9 minutes later.
+- **The fix:** the owner chose to raise the limit to 25 minutes, ahead of making the gate faster. A faster gate is still worth having as the suite grows.
