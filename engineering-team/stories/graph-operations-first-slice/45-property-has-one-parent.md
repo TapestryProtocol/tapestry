@@ -1,6 +1,6 @@
 # Story 45: a property hangs under one parent — `rules check` finds a property hung twice, `rules repair` takes off the extra link to its JSON schema, and the old routes stop making them
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-19
 **Type:** Bug
 **Loom:** A10.31.a — https://loom.brainstorm.world/t/A10.31.a

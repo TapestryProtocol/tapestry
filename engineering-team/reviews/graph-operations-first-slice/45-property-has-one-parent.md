@@ -167,3 +167,98 @@ Both fixes are small. Blocking 1 needs an ADR amendment to Decisions 11 and 12 a
 ## On PASS (same commit)
 - [ ] Story `**Status:**` flipped to `Done` in place: not applicable (CHANGES_REQUESTED). The brief also left the status alone.
 - [ ] Completion detection: not applicable until a PASS.
+
+## Round 2 — 2026-11-20 (HEAD `44d5414f`)
+
+The owner chose "Fix findings first" for every round-1 finding. Round 1 was committed as `318c9a75`, and three commits came after it:
+- `6c6f88ea`, the tests: OR8 and OR9 in `test/operations/rules/old-routes-hang-properties-under-the-primary-property.test.js`, and a `first_name` node in that suite's graph, made as `graph add-property` makes one, with no event;
+- `642faddd`, ADR 0045 Amendment 2: the old routes refuse an address another node holds, and the versioning-nonce alternative is recorded;
+- `44d5414f`, the fixes:
+  - `heldAddress` and `heldMessage` in `src/api/normalize/index.js`, and their two calls;
+  - the repair's `ownConcept`, and its refusal of a violation whose concept it didn't lock;
+  - the rule's later reads narrowed to the findings;
+  - rulebook entry 11's Check and its regenerated firmware element;
+  - the story's Deviations and the test plan.
+
+`git diff 318c9a75..44d5414f`: 9 files, +104 −20. `src/` at `642faddd` is the same as at `81bdd746`, so the tests went in ahead of the fix. The Reviewer checked each fix as a fresh claim, against the code, its own probes and the scratch stack. It did not rely on the commit messages or the session's summary of them.
+
+### Gates (run by the reviewer at `44d5414f`)
+
+- [x] **The scoped gate:** the same seven suites and the same constraints as round 1:
+
+  ```
+  20261120T063716Z-55093-37bb [a10-31-a-review-2] started 2026-11-20T06:37:16.059Z on 44d5414f — PASS, exit 0, 1354 passed, 0 failed, 10 skipped, 7/7 suites · /Users/wds4/repos/TapestryProtocol/tapestry/tmp/gate-runs/20261120T063716Z-55093-37bb.json
+  ```
+
+  - There is no `+dirty`.
+  - The total is round 1's 1352 plus OR8 and OR9.
+  - By suite: the old routes 9 passed; the rule 11; rules check 11; rules repair 16; XR1 1. Outside operations, the counts are round 1's.
+  - It matches the Implementer's run, `20261120T063110Z-52373-4829` (PASS, 1354 passed, 0 failed, 10 skipped).
+  - The log is in `tmp/review-45/gate-review-2.log`.
+- [x] **harness-lint:** `harness-lint: clean (0 violations)`, run before this round was written. See "On PASS" for what it checks once this round is on disk.
+
+### Breaks and probes
+
+Each probe ran against `44d5414f`, and against a `git archive` copy of `642faddd` in the ignored `tmp/review-45/r2-642faddd/`: the new tests with the old code. The working tree was clean after each.
+
+| Probe | `642faddd` (no fix) | `44d5414f` |
+|---|---|---|
+| The old-routes suite | 7 passed, 2 failed: OR8, OR9 | 9 passed |
+| `tmp/review-45/slug-collision.js`: create-property `First Name`, then enumerate `first-name`, beside an event-less `first_name` holding an `enum` | 12 and 11 writes on `first_name`'s address, its tags deleted, and an event published (round 1, same `src/`) | Both refused, naming `first_name` and its address; no write names it |
+| `tmp/review-45/repair-guard.js`, scope: a stub rule plans a fix in an own concept and in another author's | Both links deleted, both headers locked | The own one fixed; the other in `left`, "isn't this instance's own … its author's claim"; only the own header locked |
+| `repair-guard.js`, the other author's violation alone | Repaired: its header locked, its link deleted | `left`, with no lock and no delete |
+| `tmp/review-45/repair-unlocked.js`: a violation whose concept changes between the two judgments, with the same id | The link deleted under an unlocked concept | Refused `changed-since-check`, with no delete |
+
+The two repair probes load the real `repair.js` and `_rules.js`, with a stub rule in place of the loaded rules. A fake transaction records each statement and applies none.
+
+**The scratch stack, read only.** The two `wick` properties that L4 made are still under their own concepts' primary properties, each with its six tags (`d`, `name`, `description`, `type`, `z`, `json`) and a lowercase name. No `Wick` exists. That matches `tmp/live-check-45/out/L5-slug-alike.json`, the refusal of `Wick`.
+
+### Round-1 findings, re-checked
+
+1. **Blocking 1 — fixed.**
+   - **The check.** `heldAddress(dTag)` (`src/api/normalize/index.js:145-156`) reads whether any `NostrEvent` or `TapestryNode` holds `39999:<assistant>:<dTag>`. Each route calls it after the address is computed and before `signAndFinalize`: create-property at `:3555-3556`, after its exact-name duplicate check; enumerate at `:4203-4204`, in the `createProperty` branch. Nothing before it in either route writes.
+   - **The refusal.** It is `{ success: false, error }` at status 200, the routes' style (D15). It names the node, its address and name, and the way on (`:157`).
+   - **The tests.** OR8 and OR9 assert the refusal names `first_name`'s address, with no write and nothing published. They fail on the old code and pass on the new.
+   - **Amendment 2** (`0045-property-has-one-parent.md:218-228`) states the problem as round 1 found it, the refusal, and why the versioning nonce wasn't chosen. Its account is accurate.
+   - **Not verifiable here.** The owner's ratification of Amendment 2 is for this gate. The Reviewer can't confirm it.
+   - One new non-blocking point is below.
+2. **Blocking 2 — fixed.**
+   - **The guard.** `ownConcept(f)` (`src/operations/catalog/rules/repair.js:113`) is now part of `allowed` (`:114`). In a scope repair, a fix outside the instance's own concepts is left with the author's-claim why (`:126-128`), and no lock is taken for it. In a single-violation repair it is left before the firmware refusal (`:147`).
+   - **Where `own` comes from.** It is the re-judged finding's `concepts[].own`. That is read through the transaction's own read, after the locks, so it reflects the graph as the write sees it.
+   - **Fail-closed.** A future rule whose findings carry no `concepts` gets nothing fixed.
+   - **True now.** The header comment (`:10-11`) and the `/docs` text (`:60`) describe what the code does.
+   - **Tests.** The test plan records the guard as one the Reviewer reads (`45-property-has-one-parent.test-plan.md:50`), the second option round 1 offered. The probe above drives it both ways.
+3. **Non-blocking 1 — fixed.**
+   - **The reads.** The rule judges shape from NODES, PRIMARY_OF and PARENTS. It adds one SCHEMA_OF over the primary properties' parents, only when a primary property is judged (`property-has-one-parent.js:121-122`). It runs PRIMARY_OF, SCHEMA_OF, TREES_OF and HEADERS only for the findings (`:138-147`).
+   - **No change in findings.** TREES_OF now covers the non-primary findings and their property parents (`:142`). A primary finding still takes its concepts from `primaryFor` (`:143`), and a property parent's trees are still read. So the findings are as before, and PH1–PH11 and CK1–CK11 pass unchanged.
+   - **The words.** Entry 11's Check (`docs/GRAPH_RULES.md:174`) now describes these reads accurately. The firmware element was regenerated: PH10's `--check`, GB2–GB6 and GF9 pass.
+4. **Non-blocking 2 — fixed.** A single violation whose fix's concept isn't among the locked headers is refused `changed-since-check` before any delete (`repair.js:152-155`). The firmware refusal still comes first, so an unlocked firmware concept without the override gets `firmware-concept`, as before.
+5. **Non-blocking 3 — accepted as a known limit.** The story's Deviations record it (`45-property-has-one-parent.md:105-110`). It is what Decision 6 says, and it writes nothing.
+6. **Non-blocking 4 — accepted as a known limit.** The same Deviations record the uncapped `left`. Paging for it is left to A10.31, on `rules check`'s model, and it writes nothing.
+7. **Non-blocking 5 — fixed in the record.** The Deviations (`:104`) now describe the first run's stop at L3's last step, the resume, and AC8's two halves for the owner to ratify.
+   - **The cause given:** a query by an address without the install's suffix. That fits how install addresses an element, `childDTag(name, <graph-rule header>)` (`src/operations/catalog/graph/_elements.js:456`), and the item's address in `out/L3-3-graph-rule-item.txt`, `…:property-has-one-parent-e58d7c7f`.
+   - **What can't be checked.** The first query's own text isn't in the record, since the resumed run overwrote that step's file. So the cause is the Implementer's account.
+   - **For the owner:** AC8's "external CLI on a scratch stack" and "backup restored on a fresh instance", met in two halves and on the same instance, are for the owner to ratify at this gate.
+8. **Non-blocking 6 — fixed.** The test plan's run list now names `graph-rules-builder` and `graph-rule-firmware`. Its coverage map gains OR8 and OR9, and its edge cases the guard and the slug-alike name.
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **`src/api/normalize/index.js:145-150` — the held check reads the assistant pubkey from a different source than the signer.** `heldAddress` builds the address from `getOwnerAssistantPubkey()`, which tries the environment, then `brainstorm.conf`, then the key file. The event is signed with the key `loadTAKey()` reads from secure storage (`:94-101`), and the route imports it at `39999:${evt.pubkey}:${dTag}` (`:3567`, `:4212`). On a working instance these are the same key, and `firmware.conceptUuid` and the routes' `z` tags already rely on that, so nothing needs to change now. Optionally, the check could build the address from the signing key itself, by signing in memory first and checking `39999:${evt.pubkey}:${dTag}` before `publishToStrfry`. Then the check would always read the exact address the import writes.
+
+### Harness friction
+
+- None new.
+
+### Verdict
+
+**PASS**
+- Both blocking findings are fixed. Each fix was checked against the code, with tests that fail on the old code and pass on the new, and with probes that drive the paths the tests don't reach.
+- Of the six non-blocking findings, four are fixed and two are recorded as known limits that write nothing.
+- The scoped gate and harness-lint pass at `44d5414f`.
+- For the owner to ratify at this gate: ADR 0045 Amendment 2 (a refusal, not a nonce), and AC8's two halves as the Deviations describe them.
+
+### On PASS (same commit)
+- [ ] Story `**Status:**` set to `Done`: left to the session that commits this review, since the brief kept the Reviewer off the story file. harness-lint's L1 flags a PASS-final review whose story isn't Done, so the change belongs in this review's commit (workflow 5).
+- [ ] Completion detection: its result goes in the chat, not this file.
