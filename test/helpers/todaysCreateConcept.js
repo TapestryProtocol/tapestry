@@ -8,9 +8,13 @@
  * recorders. So the oracle can't drift from the route: when the route changes, this changes with it, and when the route
  * moves, this fails, saying where it looked.
  *
- *   todaysConcept({ name, plural?, description?, ta })
+ *   todaysConcept({ name, plural?, description?, ta, dTag?, overwrite?, conceptHeaderOverrides?, supersetOf? })
  *     → { answer, events: [{ uuid, kind, tags }], labels: { [uuid]: [label…] }, wiring: [{ from, to, type }],
  *         memberships: [{ superset, node }], names }
+ *   dTag, overwrite and conceptHeaderOverrides are passed in the body as the firmware install passes them
+ *   (src/firmware/install.js, pass 1a; story graph-operations-first-slice #37, ADR 0037 Implementation notes).
+ *   supersetOf(fwConceptUuid) answers the route's read of a firmware concept's superset (its address, or null when
+ *   the graph holds none yet); left out, every firmware concept has one at 39999:<ta>:<slug>-superset.
  *   events are the last version of each node the route signs (the core nodes graph and the concept graph are signed
  *   twice); labels are the role labels its SETs add, beside NostrEvent and the import's ListHeader or ListItem;
  *   wiring is each MERGE between two nodes by address; memberships each HAS_ELEMENT from a firmware concept's superset,
@@ -55,14 +59,18 @@ function rel() {
 }
 
 /** A sandbox with the route's code loaded and recorders in place of what it signs, stores and writes. */
-function sandbox(ta) {
+function sandbox(ta, supersetOf = null) {
   const rec = { imports: new Map(), order: [], writes: [] };
+  const superset = (fw) => {
+    if (typeof supersetOf === 'function') { const s = supersetOf(fw); return s ? [{ supersetUuid: s }] : []; }
+    return [{ supersetUuid: `39999:${ta}:${fw.split(':')[2]}-superset` }];
+  };
   const ctx = {
     console: { log() {}, warn() {}, error() {} },
     JSON, Object, Set, Map, Math, Date, Array, String, Number, Promise,
     getPrivkey: () => new Uint8Array(32),
     nt: () => ({ getPublicKey: () => ta }),
-    runCypher: async (q, p) => (/IS_THE_CONCEPT_FOR\]->\(sup:Superset\)/.test(q) && p && p.fwConceptUuid ? [{ supersetUuid: `39999:${ta}:${p.fwConceptUuid.split(':')[2]}-superset` }] : []),
+    runCypher: async (q, p) => (/IS_THE_CONCEPT_FOR\]->\(sup:Superset\)/.test(q) && p && p.fwConceptUuid ? superset(p.fwConceptUuid) : []),
     writeCypher: async (q, p) => { rec.writes.push({ q: String(q).replace(/\s+/g, ' ').trim(), p: p || {} }); return []; },
     randomDTag: () => 'random',
     dtag: require(path.join(ROOT, 'src/lib/dtag.js')),
@@ -79,14 +87,18 @@ function sandbox(ta) {
 }
 
 /** What today's route makes for one name; see the file's header. */
-async function todaysConcept({ name, plural, description, ta }) {
+async function todaysConcept({ name, plural, description, ta, dTag, overwrite, conceptHeaderOverrides, supersetOf }) {
   if (typeof ta !== 'string' || !/^[0-9a-f]{64}$/.test(ta)) throw new Error('todaysConcept needs the assistant pubkey, ta');
-  const { ctx, rec } = sandbox(ta);
+  const { ctx, rec } = sandbox(ta, supersetOf);
   let answer = null;
   const res = { json(x) { answer = x; return res; }, status() { return res; } };
   const body = { name };
   if (plural !== undefined) body.plural = plural;
   if (description !== undefined) body.description = description;
+  // Story graph-operations-first-slice #37: what the firmware install passes (src/firmware/install.js, pass 1a).
+  if (dTag !== undefined) body.dTag = dTag;
+  if (overwrite !== undefined) body.overwrite = overwrite;
+  if (conceptHeaderOverrides !== undefined) body.conceptHeaderOverrides = JSON.parse(JSON.stringify(conceptHeaderOverrides));
   await ctx.handleCreateConcept({ body }, res);
   if (!answer || answer.success !== true) throw new Error(`today's create-concept didn't create ${JSON.stringify(name)} in the sandbox: ${JSON.stringify(answer)}`);
   const events = rec.order.map((uuid) => ({ uuid, kind: rec.imports.get(uuid).kind, tags: rec.imports.get(uuid).tags.map((t) => [...t]) }));
@@ -113,4 +125,4 @@ function names(singular, plural) {
   return JSON.parse(JSON.stringify(ctx.deriveAllNames(singular, plural)));
 }
 
-module.exports = { todaysConcept, names };
+module.exports = { todaysConcept, names, source };

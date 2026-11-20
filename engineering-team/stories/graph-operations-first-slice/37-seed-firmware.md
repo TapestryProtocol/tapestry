@@ -200,5 +200,5 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.test-plan.md`
 - Review: (filled in after Review phase)
