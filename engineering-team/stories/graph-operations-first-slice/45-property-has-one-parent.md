@@ -112,4 +112,4 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 - The enumerate operation and the case's first record: [19-enumerate.md](./19-enumerate.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0045-property-has-one-parent.md](../../decisions/graph-operations-first-slice/0045-property-has-one-parent.md)
 - Test plan: [45-property-has-one-parent.test-plan.md](./45-property-has-one-parent.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: [reviews/graph-operations-first-slice/45-property-has-one-parent.md](../../reviews/graph-operations-first-slice/45-property-has-one-parent.md)
