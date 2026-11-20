@@ -127,6 +127,10 @@ Settled by CLAUDE.md's principles and the design, and approved with the story (2
 - AC1: two more outcomes, `unread` and `failed`.
 - AC6: an own letter is reported (`own`), and nothing about it is kept on the node; a "sent as" record is export nostr's (A10.34).
 
+**Changed at Test Design** (the owner's answer, 2026-11-20, "Only on evidence"; ADR 0032 Decision 5 as amended):
+
+- AC5: a second is listed as crowded only when the call has evidence that the relay stopped short, so a filter matching one event, or letters published in one second, raises no false alarm. "None is skipped" then holds for a relay that answers the 500 a request asks for, as strfry and search.brainstorm.world do, and for any other relay once the call sees it stop short. A relay that quietly answers fewer than 500, for a filter whose every match is in one second, can leave the rest of that second unreported.
+
 For Architecture, not this gate (answered by ADR 0032):
 
 - **One builder.** A new one, or `buildImportCypher` fixed; whether its callers (fact 2) move onto it under D15's caveat, which would end memo #130's failure for them too; and a ledger row for the `importEventDirect` copies' missing claims.

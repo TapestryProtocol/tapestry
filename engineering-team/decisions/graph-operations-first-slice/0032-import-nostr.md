@@ -58,8 +58,8 @@ We chose **Option A**: it gives the new stack the importer the story describes, 
   - `no-source` (400): none of `ids`, `addresses`, `graph` and `filter`.
   - `two-sources` (400): more than one of `ids`/`addresses` (which go together), `graph` and `filter`.
   - `too-many` (400): more than 200 ids and addresses together.
-  - `bad-id` (400): an id that isn't 64 hex, or a `note` or `nevent` that doesn't decode; it names the value.
-  - `bad-address` (400): an address that isn't a kind (an integer 0–65535), a 64-hex pubkey and a d-tag, or an `naddr` that doesn't decode; for `graph`, also an id.
+  - `bad-id` (400): an id that isn't 64 lowercase hex, or a `note` or `nevent` that doesn't decode; it names the value.
+  - `bad-address` (400): an address that isn't a kind (an integer 0–65535), a 64-lowercase-hex pubkey and a d-tag, or an `naddr` that doesn't decode; for `graph`, also an id. (Lowercase, as NIP-01 writes ids and keys: an uppercase one is refused, never lowered; settled at Test Design, 2026-11-20.)
   - `bad-filter` (400): JSON text that doesn't parse, or a filter with a field other than `ids`, `authors`, `kinds`, `#<letter>`, `since`, `until`, `limit` and `search`, or one of the wrong type.
   - `bad-relay` (400): not a `ws://` or `wss://` URL with a host and no user name.
   - `private-relay` (403): a relay whose host doesn't resolve to public addresses only (`isPublicRelayHostWithin`), whoever calls; the instance's own relay is read by leaving `relay` out.
@@ -78,7 +78,9 @@ We chose **Option A**: it gives the new stack the importer the story describes, 
 
 **5. A filter, paged** (AC5). The relay is read newest first, by `until`, in pages of 500.
 - Each page is followed by a sweep of its oldest second, `{ …filter, since: T, until: T }`, since a page can stop inside a second, and events seen twice are counted once. The next page is read to `until: T − 1`.
-- A sweep that comes back with as many events as the most any request answered in this call may have missed some. It is split by the filter's kinds, then by its authors, when it lists more than one of either. If a part still comes back full, the second is listed under `crowded`, with how many were read, and the answer says that a narrower filter (fewer kinds or authors, or a tag) reads the rest.
+- **When an answer is full** (amended at Test Design, 2026-11-20, the owner's answer "Only on evidence"). A request is full when it is answered with as many events as it asked for, or, once this call has seen the relay stop short, with as many as the relay stopped at. The call sees it stop short when a request is answered with fewer events than it asked for and another request then finds one the first should have held: more in the page's oldest second, found by its sweep, or older ones, found by the next page. A sweep is judged once the next page, if any, has been read, so that page's evidence counts. (The rule before, that a sweep as large as the most any request answered may have missed some, raised that alarm for a filter matching one event, and for letters published in one second, as firmware's are.)
+- A full sweep may have missed some. It is split by the filter's kinds, then by its authors, when it lists more than one of either. If a part still comes back full, the second is listed under `crowded`, with how many were read, and the answer says that a narrower filter (fewer kinds or authors, or a tag) may read the rest.
+- **What it can miss.** A relay that quietly answers fewer than 500 a request, for a filter whose every match is in one second, never shows that it stops short, so the rest of that second can go unreported. strfry (500 a request) and search.brainstorm.world (5,000) answer the 500 asked, so neither is affected.
 - It stops when a page is empty, when `since` is passed, at 1,000 events read (or the filter's `limit`, if lower), or after 40 s. It always finishes the second it is in. On a cap or the time it answers `next: { until }`, the second before the last one finished. A call given that `until` goes on there, and a repeat over the same seconds records nothing new.
 - `search` is passed as given (NIP-50), so a relay's own words, such as search.brainstorm.world's `include:spam`, work when the caller gives them.
 
