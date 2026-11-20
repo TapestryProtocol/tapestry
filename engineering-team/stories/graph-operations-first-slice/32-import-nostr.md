@@ -160,6 +160,13 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 - **A newer replaceable version blocked by today's per-version node.** When a node today's builder keyed by the newer version's id holds it, and an older version holds the address, recording the newer one breaks `nostrEvent_id` and answers `failed` after the second run. Decision 7.4 leaves such a node where it is; the ledger row below lists it.
 - **The ledger row** for today's builders' faults (ADR 0032, Consequences) is `2026-11-20-todays-importers-keep-their-faults`, typed `bug`; catalog §5 cites it.
 
+Judgment calls made in review round 1's fixes (2026-11-20), each too small for an amendment:
+
+- **The dropped connection (blocking 1) is closed two ways.** `request()` sends nothing on a connection nostr-tools no longer holds open (`relay.connected === false`), so the rest of the call's requests answer `unread` at once. And `connect` replaces the relay instance's `send` with one whose rejection is caught and ends that relay's open requests (`closeAllSubscriptions`), so the rejection that `Subscription.fire()` and `close()` leave unawaited can't reach the process. In nostr-tools 2.10.4 the check and `send`'s own check of `connectionPromise` run in the same synchronous turn, and the two are set and cleared together, so the guard covers what that relies on: another version's timing, or any other path to an unawaited `send`. A process-wide `unhandledRejection` handler was not used: it would also swallow every other module's failures in the control panel.
+- **A request keeps at most its filter's `limit`:** pages and sweeps, which ask 500. A request for ids or addresses carries no `limit` (Decision 2's shapes) and keeps what the relay sends before its end, as before.
+- **A graph cut short by the time** answers its nodes not recorded `unread` and is also named under `next.graphs`, so a later call can finish it; such a graph is both `followed` and named under `next`.
+- **The rules' precondition in BIBLE §6** names all five, and says that Install Firmware waits for the first four, while `tapestry_key` comes from `lifecycle migrate --migration tapestry-keys`: `expectedNeo4jSchema.js` lists only the four, and `tapestry-key-paths.test.js` G12 pins that install doesn't wait for `tapestry_key`. ADR 0032's Decision 13 note says Install Firmware waits for all five; it is left as the session that wrote it left it.
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-20, on `3af64502` with the implementation uncommitted)
@@ -168,6 +175,19 @@ Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER
 - **This story's,** with each one's time: `nostr` 14 passed (1.1 s), `nostr-record` 15 (1.1 s), `nostr-order` 11 (5.0 s), `nostr-own` 7 (2.0 s), `nostr-graph` 10 (0.8 s), `nostr-filter` 8 (1.3 s), `nostr-relay` 7 (23.8 s: two of its cases wait out Decision 2's 10 s), `nostr-agent-through-cli` 1 (1.5 s), `nostr-live` 0 passed and 6 skipped (its live checks: the variable names no scratch container), and `cypher-engine` 11 (0.1 s). About 37 s in all, which CI's stack-free job gains in its `operations` entry.
 - **`tapestry-key-paths`** 20 passed (0.7 s), with this story's four lines that name `NostrEvent` alone listed in `nostr-event-lookups-kept.json` (Deviations).
 - **The scoped gate,** CI's five entries for an operations change through `test/helpers/gateRunner.js` (`tmp/a10-32/gate.sh`): record `20261120T140500Z-7070-17fd`, PASS, 1,351 passed, 0 failed, 12 skipped (live tests among them, `nostr-live`'s six), the `operations` entry in 240 s. An earlier run, `20261120T135720Z-98640-7208`, failed one test of 1,363: external-cli's SK3, since the skill's new line showed `tapestry import nostr`, which the CLI's tables don't hold as a command of their own. The line now names the operation as `import nostr`. The code changed after that run too: the recorder reads a node's integers as numbers (Neo4j hands them back as the driver's `Integer`), and a placeholder's merge counts rows.
+- **harness-lint:** clean.
+
+### Review round 1's fixes (2026-11-20, on `e90d94e1` with the fixes uncommitted)
+
+Each suite alone, as above (`tmp/a10-32/env.sh`):
+- **This story's,** with each one's time: `nostr` 15 passed (1.4 s), `nostr-record` 15 (1.1 s), `nostr-order` 11 (5.0 s), `nostr-own` 7 (2.0 s), `nostr-graph` 12 (2.0 s), `nostr-filter` 10 (2.8 s), `nostr-relay` 8 passed and 1 failed (9.7 s, IL5 and IL6 now waiting the 1.5 s their `REQUEST_MS` sets), `nostr-agent-through-cli` 1 (1.5 s), `nostr-live` 6 skipped, `cypher-engine` 12 (0.4 s). Of round 1's seven tests, IL8, IN15, IF9, IF10, IG11 and IG12 pass.
+- **IL9 fails on the test's side, and is back with the Tester.** Its first two assertions pass (read on the retry, two handshakes) and so does its time (the connect gives up at the 300 ms set in `reader.CONNECT_MS`). Its third asks the suite's live server to log the timed-out handshake's socket closed, which that server can't see:
+  - it holds the `upgrade` socket without reading it, and Node then never reads a client's FIN;
+  - a client RST would be seen, but it kills the server's process (`UNCAUGHT ECONNRESET`), since that socket has no `error` listener.
+  
+  Against a raw TCP server that reads its sockets, `_relay.js`'s `open()` ends each timed-out handshake's socket with a FIN at about 320 ms, and the retry's at about 630 ms, with Node's WebSocket and with `ws` alike. The probes are in the worktree's `tmp/a10-32/il9-probes/`, with a README.
+- **`tapestry-key-paths`** 20 passed (0.8 s).
+- **The scoped gate** (`tmp/a10-32/gate.sh`): record `20261120T154152Z-96903-3644`, FAIL, 1,358 passed, 1 failed (IL9), 12 skipped, the `operations` entry in 229 s.
 - **harness-lint:** clean.
 
 ### The live check (Implementation, 2026-11-20, on `6525d2d2`)
