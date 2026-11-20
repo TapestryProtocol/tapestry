@@ -4,7 +4,7 @@
     "name": "JSON Schema for the concept of nostr events",
     "title": "JSON Schema for the Concept of Nostr Events",
     "description": "This is the JSON Schema for elements of the concept of nostr events. Every element of this concept must validate against this JSON schema.",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-nostr-events",

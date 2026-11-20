@@ -199,6 +199,9 @@ async function pass1_bootstrap(opts = {}) {
         description: ch.description,
         dTag: slug,  // deterministic d-tag for firmware concepts
         conceptHeaderOverrides: ch,  // pass full firmware conceptHeader for extra fields (e.g., x-tapestry)
+        // The header's word types, as its file says them: a header the manifest makes an element of another concept holds
+        // that concept's key (graph-operations-first-slice #47, ADR graph-operations-first-slice/0047 Decision 9).
+        ...(header.word && Array.isArray(header.word.wordTypes) ? { wordTypes: header.word.wordTypes } : {}),
         overwrite: true,  // a reinstall rebuilds the header from the built-in definition
       });
 

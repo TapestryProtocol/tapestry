@@ -4,7 +4,7 @@
     "name": "JSON Schema for the concept of graperank",
     "title": "JSON Schema for the Concept of GrapeRank",
     "description": "This is the JSON Schema for elements of the concept of graperank. Every element of this concept must validate against this JSON schema.",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-graperank",

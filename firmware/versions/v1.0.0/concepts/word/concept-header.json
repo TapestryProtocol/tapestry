@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-words",
     "name": "concept header for the concept of words",
     "title": "Concept Header for the Concept of Words",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "nodeType"]
   },
   "conceptHeader": {
     "description": "A node whose content is structured JSON data.",

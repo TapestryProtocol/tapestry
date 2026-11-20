@@ -4,7 +4,7 @@
     "name": "JSON schema for the concept of nostr user tags",
     "title": "JSON Schema for the Concept of Nostr User Tags",
     "description": "the json schema for the concept of nostr user tags",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-nostr-user-tags",

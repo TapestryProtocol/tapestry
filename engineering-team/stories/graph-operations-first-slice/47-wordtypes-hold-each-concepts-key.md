@@ -149,6 +149,13 @@ For Architecture, not this gate:
 - **How firmware's nodes get their keys:** in firmware's files, or by install computing `wordTypes` from the edges as D10 says. Also, which of today's routes make a concept's JSON schema (AC4).
 - **What `rules repair` says for this rule's findings.**
 
+## Deviations
+
+- **Eight firmware files are reordered, not just given a key.** Eight `json-schema.json` files already held `validationTool`, as `["word", "jsonSchema", "validationTool"]`: dog, graph rule, image, image type, image validation script, relationship type, tapestry and word. The install never wrote a file's word block, so on every instance their schemas lacked the key too. Like the other 38, they now hold the constant's order, coarse to fine, which the owner kept at the Test Design gate (2026-11-20).
+- **One test's input was wrong, and was amended apart.** XW1's `graph create-element` gave no `description`, which `graph create-concept`'s starter schema requires, so it was refused before the checks it sets up. It now gives one; no assertion changed. That is the test plan's Amendment 1, committed by itself before the implementation.
+- **The catalog's repair row says what repair does with this rule's findings too.** The ADR named only the check row.
+- **A ledger row tracks the reinstalls.** `ledger/2026-11-20-word-types-keys-await-firmware-reinstall.md` records that each instance's firmware nodes gain their keys, and its graph rule concept its twelfth item, only at a firmware reinstall there, each on the owner's yes.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0047-wordtypes-hold-each-concepts-key.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.test-plan.md`

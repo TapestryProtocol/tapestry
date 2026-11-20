@@ -7,8 +7,9 @@
  *   scopeOf(read, scope)            the parsed scope, { kind, key?, name? } (Decision 4), or unknown-node
  *   rulesNamed(names)               the rules to run, each with a scan: every such rule when names is left out, else
  *                                   unknown-rule or not-checkable (Decision 5)
- *   findingsIn(read, scope, rules)  each rule's scan, then its violations → { judged, findings: [{ rule, finding }] },
- *                                   by the node's tapestryKey, then by rule
+ *   findingsIn(read, scope, rules)  each rule's scan, then its violations → { judged, findings: [{ rule, finding }],
+ *                                   notJudged }, by the node's tapestryKey, then by rule, then by id; an entry marked
+ *                                   unjudged is counted in notJudged, not found (ADR 0047 Decision 5)
  *   idOf(rule, finding)             a finding's id, `<rule>:<node>:<12 hex>` (Decision 3)
  *   parseId(text)                   { rule, node, digest }, or unknown-violation
  *   answerOf(rule, finding)         a finding as check answers it
@@ -79,25 +80,50 @@ function rulesNamed(names, input = 'rules') {
   return out;
 }
 
-/** Each rule's scan, then its violations, over `read` → { judged, findings: [{ rule, finding }] }. */
+/**
+ * Each rule's scan, then its violations, over `read` → { judged, findings: [{ rule, finding }], notJudged: [{ rule, why,
+ * count }] }. An entry a rule marks `unjudged: true` is a node it couldn't judge, not a finding: it is counted in
+ * notJudged, by its code, and left out of judged (ADR graph-operations-first-slice/0047 Decision 5).
+ */
 async function findingsIn(read, scope, rules) {
   let judged = 0;
   const findings = [];
+  const tally = new Map();
   for (const rule of rules) {
     const items = await rule.scan(read, scope);
-    judged += items.length;
-    for (const finding of await rule.violations(items, read)) findings.push({ rule: rule.name, finding });
+    let unjudged = 0;
+    for (const finding of await rule.violations(items, read)) {
+      if (finding && finding.unjudged === true) {
+        unjudged++;
+        const at = `${rule.name}|${finding.code}`;
+        const t = tally.get(at) || { rule: rule.name, why: String(finding.code), count: 0 };
+        t.count++;
+        tally.set(at, t);
+        continue;
+      }
+      findings.push({ rule: rule.name, finding });
+    }
+    judged += items.length - unjudged;
   }
-  findings.sort((a, b) => byKey(nodeKeyOf(a.finding), nodeKeyOf(b.finding)) || byKey(a.rule, b.rule));
-  return { judged, findings };
+  findings.sort((a, b) => byKey(nodeKeyOf(a.finding), nodeKeyOf(b.finding)) || byKey(a.rule, b.rule) || byKey(idOf(a.rule, a.finding), idOf(b.rule, b.finding)));
+  const notJudged = [...tally.values()].sort((a, b) => byKey(a.rule, b.rule) || byKey(a.why, b.why));
+  return { judged, findings, notJudged };
 }
 const nodeKeyOf = (f) => (f && f.node && typeof f.node.tapestryKey === 'string' ? f.node.tapestryKey : (f && f.item && f.item.node) || '');
 
-/** A finding's id (Decision 3): the same for the same finding on the same graph, and new when the node's parents change. */
+/**
+ * A finding's id (Decision 3): the same for the same finding on the same graph, and new when the node's parents change.
+ * A finding that carries a `key` (word-types-hold-concept-keys) is also told apart by that key and its concepts, so a
+ * node's findings for two concepts have two ids; a finding with no `key`, as rule 11's, has the id it always had (ADR
+ * graph-operations-first-slice/0047 Decision 5).
+ */
 function idOf(rule, finding) {
   const node = nodeKeyOf(finding);
   const parents = (finding.parents || []).map((p) => p.tapestryKey).sort(byKey);
-  const digest = crypto.createHash('sha256').update(JSON.stringify({ code: finding.code, node, parents })).digest('hex').slice(0, 12);
+  const about = typeof finding.key === 'string'
+    ? { key: finding.key, concepts: (finding.concepts || []).map((c) => c && c.tapestryKey).filter((k) => typeof k === 'string').sort(byKey) }
+    : {};
+  const digest = crypto.createHash('sha256').update(JSON.stringify({ code: finding.code, node, parents, ...about })).digest('hex').slice(0, 12);
   return `${rule}:${node}:${digest}`;
 }
 
@@ -113,6 +139,7 @@ function answerOf(rule, f) {
   return {
     id: idOf(rule, f), rule, code: f.code, message: f.message,
     node: f.node, primary: f.primary === true, concepts: f.concepts || [], parents: f.parents || [],
+    key: typeof f.key === 'string' ? f.key : null,
     fix: f.fix || null, choice: f.choice || null,
   };
 }
@@ -138,13 +165,24 @@ const FINDING = Object.freeze({
     primary: { type: 'boolean', description: "Whether the node is a concept's primary property" },
     concepts: { type: 'array', items: { type: 'object' }, description: 'The concepts whose trees hold it ({ tapestryKey, name, address, own, firmware }); for a primary property, its concept' },
     parents: { type: 'array', items: PARENT },
+    key: { type: 'string', nullable: true, description: "word-types-hold-concept-keys: the key of the concept, in concepts, that the node's wordTypes lack; null for a rule whose findings aren't about a key" },
     fix: { type: 'object', nullable: true, description: 'What rules repair would do: { concept, removes: [{ type, from, to }], firmware }; null when it does nothing' },
     choice: { type: 'object', nullable: true, description: 'Why nothing is planned, and how to go on: { why, wayOn }; null when there is a fix' },
   },
 });
+/** One count of what a rule couldn't judge (ADR graph-operations-first-slice/0047 Decision 5). */
+const NOT_JUDGED = Object.freeze({
+  type: 'object',
+  required: ['rule', 'why', 'count'],
+  properties: {
+    rule: { type: 'string' },
+    why: { type: 'string', description: 'Why the rule couldn\'t judge them: for word-types-hold-concept-keys, no-json (no json tag, and no sections kept beside it) or unreadable-json' },
+    count: { type: 'integer', minimum: 1, description: 'How many items, across all pages' },
+  },
+});
 
 module.exports = {
-  SCOPE_INPUT, RULES_INPUT, FINDING,
+  SCOPE_INPUT, RULES_INPUT, FINDING, NOT_JUDGED,
   UNKNOWN_SCOPE, UNKNOWN_RULE, NOT_CHECKABLE, UNKNOWN_VIOLATION, CHANGED_SINCE_CHECK, BAD_TARGET, FIRMWARE_CONCEPT,
   scopeOf, rulesNamed, findingsIn, idOf, parseId, answerOf, nodeKeyOf,
 };
