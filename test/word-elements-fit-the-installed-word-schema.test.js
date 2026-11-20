@@ -40,18 +40,20 @@ const LEDGER_ROW = path.join(ROOT, 'ledger/2026-11-17-word-wordtypes-conditional
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 const short = (x, n = 600) => { const s = typeof x === 'string' ? x : JSON.stringify(x); return s && s.length > n ? `${s.slice(0, n)}…` : s; };
 
-/* ───────────── what the parent loads: nothing here may reach a real service ───────────── */
+/* ───────────── nothing here may reach a real service ───────────── */
 
-// The check and the builders open nothing when they load (their headers say so); the database driver is required only
-// by a read made without one, and every read here is the fake graph's. Were that ever bypassed, the driver reads its
-// address only from the conf file, and with none falls back to bolt://localhost:7687, which on the owner's Mac is the
-// agent-memory instance. So this process, and the child, get a conf whose Neo4j is a closed port, and every other
-// endpoint is a closed port too, as test/schema-save-finds-the-right-header.test.js gives its child.
+// The child runs the install's code, which reaches the database and the control panel, so it gets a conf whose Neo4j is
+// a closed port, and every other endpoint a closed port too, as test/schema-save-finds-the-right-header.test.js gives
+// its child. Were the child's stub of the driver ever bypassed, the driver reads its address only from the conf file,
+// and with none falls back to bolt://localhost:7687, which on the owner's Mac is the agent-memory instance.
+// This process sets nothing in process.env. The gate loads every suite into one process before running any
+// (test/helpers/gateRunner.js), so a value set here would reach every other suite (review round 1, blocking 1). It needs
+// none: the check and the builders open nothing when they load (their headers say so), and every read they make here is
+// given to them, over the fake graph; the derive step's schemaVerdicts is given its read and its judge.
 const DEAD_CONF = path.join(os.tmpdir(), `word-schema-dead-${process.pid}.conf`);
 fs.writeFileSync(DEAD_CONF, 'NEO4J_URI="bolt://127.0.0.1:9"\nNEO4J_USER="none"\nNEO4J_PASSWORD="none"\n');
 process.on('exit', () => { try { fs.unlinkSync(DEAD_CONF); } catch { /* already gone */ } });
 const DEAD = { BRAINSTORM_CONF_PATH: DEAD_CONF, NEO4J_URI: 'bolt://127.0.0.1:9', TAPESTRY_API_BASE: 'http://127.0.0.1:9', BRAINSTORM_BASE_URL: 'http://127.0.0.1:9', TAPESTRY_PORT: '9', MEILI_URL_HOST: 'http://127.0.0.1:9', TAPESTRY_CONTAINER: 'no-such-container' };
-Object.assign(process.env, DEAD);
 
 const { runPathQuery } = require('./helpers/pathCypherFake');
 const X = require(path.join(ROOT, 'src/operations/catalog/graph/_schemas'));

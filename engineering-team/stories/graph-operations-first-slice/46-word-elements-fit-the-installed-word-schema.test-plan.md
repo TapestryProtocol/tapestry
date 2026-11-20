@@ -33,7 +33,7 @@ The sentinels pass today and must still pass after the fix. They guard against a
 - [ ] **Running the enumeration step alone over a schema that already holds the pairs.** This step is `POST /api/normalize/apply-enumerations` without a reinstall. If the fix only turns the switch off, the old pairs stay until a reinstall's Pass 2 rewrites the schema from firmware's file, since the step strips old pairs only while the switch is on. AC4 asks for a reinstall, so no test pins this case. The Reviewer checks that the story's evidence and the ledger row say a reinstall is what clears an instance.
 - [ ] **A fix that leaves the pair out in code but keeps the switch on.** W5b fails it: the Firmware Explorer page would still say "Yes — biconditional if/then blocks" for `word.wordTypes`. So the switch goes off, with or without a guard in the code.
 - [ ] **`graph.graphType`'s pair** is out of scope and unchanged. No test reads it; the diff must not touch it.
-- [x] **The derive step's real `graphContext`.** The tests use a `graphContext` in the schema's own shape. Story 42's live check found nothing `word` reported about the `graphContext` the derive step built, apart from the pairs (its LC2 and LC7c).
+- [x] **The derive step's real `graphContext`.** The tests use a `graphContext` in the schema's own shape. Story 42's live check found nothing `word` reported about the `graphContext` the derive step built, apart from the pairs and the set fields of the Properties Set nodes, which the derive step builds as words (its LC2 and LC7c; Loom P-157).
 
 ## Test infrastructure
 
@@ -45,7 +45,7 @@ The sentinels pass today and must still pass after the fix. They guard against a
   - Word's class thread.
   - The two enumerations as install wires them: a superset whose elements hold their keys at the manifest's source path, ENUMERATES the target schema at both paths.
   - For W4, word's schema as an affected instance holds it: firmware's file, the allowed list, and a Forward and a Reverse for each key.
-- **Nothing reaches a real service.** The parent and the child get a conf whose Neo4j is a closed port, and every other endpoint is closed too, as in `test/schema-save-finds-the-right-header.test.js`. Never run the full `npm test` on the owner's Mac: the container `tapestry` there is the agent-memory instance.
+- **Nothing reaches a real service.** The child gets a conf whose Neo4j is a closed port, and every other endpoint closed too, as in `test/schema-save-finds-the-right-header.test.js`. The parent sets nothing in `process.env`: the gate loads every suite into one process before running any (`test/helpers/gateRunner.js`), so a value set there would reach every other suite. It needs none, since every read it makes is given, over the fake graph. Never run the full `npm test` on the owner's Mac: the container `tapestry` there is the agent-memory instance.
 
 ## How to run
 
@@ -81,6 +81,10 @@ The new tests fail with the current code. Confirmed on 2026-11-20, on the tree o
 word-elements-fit-the-installed-word-schema: 4 passed, 5 failed, 0 skipped
 ```
 
-Each failure is the defect itself, not a load or fixture error: W1, W2a and W2b on the self-comparing pair's problems; W4 on the 20 pairs the reinstall writes again for the fixture's ten keys; W5a on the ledger row still open.
+Each failure is the defect itself, not a load or fixture error: W1, W2a and W2b on the self-comparing pair's problems; W4 on the 20 conditionals the reinstall writes again, a pair for each of the fixture's ten keys; W5a on the ledger row still open.
 
 **The tests can be met.** As a check of the tests alone, the manifest's switch for `concept-headers` was turned off by hand, the suite run, and the manifest restored with `git checkout`. Eight passed; W5a still failed, as the ledger row was still open.
+
+## Amendment after review round 1
+
+Review round 1 (blocking 1) found that the suite set the dead endpoints on `process.env` when it loaded, so in a full run they reached every suite. Its fix, in the Tester's lane and a commit of its own: the dead values go to the child alone, in its spawn environment, and the parent sets nothing. Loading the suite and running it now leave `TAPESTRY_CONTAINER`, `BRAINSTORM_BASE_URL`, `TAPESTRY_API_BASE`, `TAPESTRY_PORT`, `MEILI_URL_HOST`, `NEO4J_URI` and `BRAINSTORM_CONF_PATH` as they were (checked 2026-11-20 by snapshotting them around `require` and `run()`), and the suite still passes 9 of 9. What each test checks didn't change.
