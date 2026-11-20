@@ -88,6 +88,26 @@ As the owner, or an agent working the graph, I want the `word` schema an install
 - **BIBLE §6 says what install puts in each enumerated schema** (AC5). For `word.wordTypes` that is the allowed list alone; for `dog.breed` and `graph.graphType`, also their pairs. Before, it said only that install copies the bare values.
 - **The Firmware Explorer page needed no change.** It shows each enumeration's switch from the manifest, so for `concept-headers` it now says "No — enum values only".
 
+## Evidence
+
+**The scoped gate, stack-free (2026-11-20).** It ran on `f288493e` with the implementation, before its commit `b9db0e84`, over `word-elements-fit-the-installed-word-schema`, `schema-save-finds-the-right-header`, `graph-rule-firmware` and `ledger-row-ids`.
+- **Result:** 54 passed, 0 failed, 6 skipped across 4 suites (record `tmp/gate-runs/20261120T212447Z-63609-283c.json`, which git ignores). The skips are the live checks that need a scratch container.
+- **Not run here: `stack-free-npm-test`.** Its G2 runs against a live control panel when one answers, and the one on this Mac is the agent-memory instance. The registry's completeness, which its G5 checks, was checked by hand.
+- **The full gate is CI's,** on the pull request.
+
+**The live check on a scratch stack (2026-11-20, 21:28–21:31 UTC).** It ran as `scripts/scratch-stack.sh up`, then `TAPESTRY_CONTAINER=tapestry-scratch node tmp/live-check-46/live.js` (report `tmp/live-check-46/report.json`, which git ignores). The stack mounted this worktree's `src/`. 9 of 9 checks passed.
+- **Setup:** an instance as staging's code leaves one. The branch's firmware was copied over the image's, but with staging's manifest (the switch on). The uniqueness rules were added and firmware installed (65.8 s; Pass 2 logged no errors; 4 enumerations applied).
+- **Before (LB1–LB3).**
+  - `word`'s schema held 83 conditionals: the set's, and 82 self-comparing pairs for 41 keys. `dog`'s held its 4.
+  - `graph create-element` of a relationship type reported `word` not fitting, `waiting: true`, with the four problems the owner's run saw.
+- **The fix.** The branch's manifest (the switch off) was copied in, the control panel restarted, and firmware reinstalled (57.4 s; Pass 2 logged no errors).
+- **After (LA1–LA6).**
+  - `word`'s schema held one conditional, the set's, and the allowed list of 41 keys. `dog`'s kept its 4.
+  - A new relationship type reported `word` with `fits: null`, `waiting: true` and no problems.
+  - Once derived (`POST /api/tapestry-key/derive/:key`), the relationship types made before and after the reinstall each had a cached verdict for `word`: valid, with no errors.
+  - The rule `element-fits-schema`'s check found nothing on either for `word`.
+- **The tree it ran on:** `f288493e`, with the implementation's manifest change in the working tree. That change was committed as `b9db0e84` during the run, and `src/` didn't change.
+
 ## Linked artifacts
 - ADR: none. Architecture was skipped as obvious, the owner's choice when approving the story (2026-11-20): what is left, turning off the manifest's switch or leaving the pair out in code, gives the same result.
 - Test plan: `engineering-team/stories/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.test-plan.md`
