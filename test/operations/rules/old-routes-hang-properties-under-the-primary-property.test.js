@@ -28,6 +28,11 @@
  *   OR6 [AC7] the same name made on two concepts is two nodes, each under its own primary property
  *   OR7 [AC7] create-property on a concept with no primary property: refused, naming POST /api/normalize/skeleton,
  *       before anything is signed
+ *   Review round 1, blocking 1 (ADR 0045 Amendment 2):
+ *   OR8 [AC7] create-property of a name that slugs like a property already under the parent (first-name beside
+ *       first_name, which graph add-property made with no event): refused, naming the node that holds the address,
+ *       before anything is signed or written, so that node's tags and JSON stay as they are
+ *   OR9 [AC6] enumerate with createProperty of the same name: refused the same way
  */
 
 const fs = require('fs');
@@ -62,6 +67,8 @@ const U = {
   property: `39998:${TA}:property`, propertySuperset: `39999:${TA}:property-superset`,
 };
 U.project = `39999:${TA}:${childD('project', U.grokPP)}`;
+// grok bot's first_name, as graph add-property makes one: no event, its address from its parent (review round 1).
+U.firstName = `39999:${TA}:${childD('first_name', U.grokPP)}`;
 
 /** The graph, as { nodes, rels } for the fake (test/helpers/pathCypherFake.js). */
 function makeGraph() {
@@ -91,6 +98,8 @@ function makeGraph() {
   const grokPP = ppOf(U.grokPP, 'grok bots', grok, grokSchema);
   const project = node(['ListItem', 'Property'], { uuid: U.project, kind: 39999, pubkey: TA, name: 'project' }, [['d', U.project.split(':')[2]], ['name', 'project']]);
   rel(MEMBER, project, grokPP);
+  const firstName = node(['ListItem', 'Property'], { uuid: U.firstName, kind: 39999, pubkey: TA, name: 'first_name' }, [['d', U.firstName.split(':')[2]], ['name', 'first_name'], ['json', JSON.stringify({ property: { key: 'first_name', type: 'string', schema: { type: 'string' } } })]]);
+  rel(MEMBER, firstName, grokPP);
   const robot = header(U.robot, 'robot', 'robots');
   ppOf(U.robotPP, 'robots', robot, schemaOf(U.robotSchema, 'robots', robot));
   const pc = header(U.projectConcept, 'project', 'projects');
@@ -189,6 +198,21 @@ test('OR7 [AC7, Decision 12]: create-property on a concept with no primary prope
   const res = out.results[0];
   assert(res.body && res.body.success === false && /kiosk/.test(res.body.error) && /normalize\/skeleton/.test(res.body.error), `refused, naming kiosk and POST /api/normalize/skeleton; got ${said(res)}`);
   assert(out.published.length === 0 && out.writes.length === 0, `nothing signed, nothing written; got ${said({ published: out.published.length, writes: out.writes.length })}`);
+});
+
+test('OR8 [AC7, Amendment 2]: create-property of a name that slugs like a property already under the parent is refused, naming that node, before anything is signed', () => {
+  assert(childD('first-name', U.grokPP) === U.firstName.split(':')[2], 'first-name and first_name slug alike, so they share an address under grok bot');
+  const out = child([{ route: CREATE, body: { name: 'first-name', concept: 'grok bot' } }]);
+  const res = out.results[0];
+  assert(res.body && res.body.success === false && res.body.error.includes(U.firstName) && /first_name/.test(res.body.error), `refused, naming the node that holds the address; got ${said(res)}`);
+  assert(out.published.length === 0 && out.writes.length === 0, `nothing signed, nothing written, so first_name's tags and JSON stay as they are; got ${said({ published: out.published.length, writes: out.writes.map((w) => w.cypher.slice(0, 80)) })}`);
+});
+
+test('OR9 [AC6, Amendment 2]: enumerate with createProperty of that name is refused the same way, before anything is signed', () => {
+  const out = child([{ route: ENUMERATE, body: { enumeratingConcept: 'project', property: 'first-name', targetConcept: 'grok bot', createProperty: true } }]);
+  const res = out.results[0];
+  assert(res.body && res.body.success === false && res.body.error.includes(U.firstName) && /first_name/.test(res.body.error), `refused, naming the node that holds the address; got ${said(res)}`);
+  assert(out.published.length === 0 && out.writes.length === 0, `nothing signed, nothing written; got ${said({ published: out.published.length, writes: out.writes.map((w) => w.cypher.slice(0, 80)) })}`);
 });
 
 module.exports = { run };
