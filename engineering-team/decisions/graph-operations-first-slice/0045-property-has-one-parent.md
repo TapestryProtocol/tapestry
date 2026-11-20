@@ -215,7 +215,7 @@ Mapping AC2 to tests found a gap. As Decision 1 was written, a finding's `fix` d
 
 So a finding in a concept that isn't the instance's own (its header's author isn't the instance's assistant), firmware's aside, carries `fix: null` and a `choice` saying the tree is that author's claim (D4). This covers another author's concept and one under the owner's own key. Decision 1's fix rule gains that condition. Decision 7's other-author case stays in the repair as a guard, and is never reached through check's findings. Firmware's findings keep their `fix`, marked `firmware: true`, as Decision 3 says.
 
-## Amendment 2 — the old routes refuse an address another node holds (review round 1, 2026-11-20)
+## Amendment 2 — the old routes refuse an address another node holds (review round 1, 2026-11-20; ratified by the owner at review round 2: a refusal, not the nonce)
 
 Decisions 11 and 12 give a property the old routes make its parent's address: `childDTag(name, parent's address)`, BIBLE §6's rule. That rule slugs the name, so names that slug alike, such as `first_name` and `first-name`, share an address under one parent. Neither route's duplicate check sees it: create-property compares names exactly, and enumerate ignores only case.
 
