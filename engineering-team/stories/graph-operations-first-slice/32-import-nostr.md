@@ -199,6 +199,8 @@ Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER
   - LV5: a private relay refused for the direct-local caller.
   - LV6: 300 letters with three tags each recorded in 2.25 s (133 a second), `next` null.
 - **The race, ten more times** (`race.log`, `race.json`). Two imports of one new letter were fired from one node process in the container, the second 0 to 400 ms after the first. Every run left one node, with one `recorded` answer (one change entry) and one `unchanged` (none).
+  - The first import finished in 11–38 ms, so only the two runs at 0 ms overlapped. The other eight, at 25 ms and up, were repeats rather than races (review round 1, non-blocking 8).
+  - So three overlapping trials passed with the rules (runs 0 and 1, and LV3). Run 1's two nodes show that LV3's pair does overlap.
 - **LH1, the agent's sequence through the external CLI** (`hand-calls.md`, calls 01–10). The agent was the admin with its own key, going through the container's nginx, with no change to the CLI. It:
   - signed in (`role: admin`);
   - ran `import nostr --graph 39999:<david.tapestry.ninja's assistant>:dog-concept-graph --relay wss://david.tapestry.ninja/relay`. That recorded 8 letters at that instance's addresses in 1.6 s, with 8 change entries: the graph element, the header, the superset, the property tree graph, the core nodes graph, the JSON schema, the primary property and the properties set. All three graphs were followed (depths 0, 1, 1);
@@ -212,7 +214,7 @@ Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER
   - A page of 500 of those letters (1.1 MB, 6.1 tags each) took 0.9 s from this Mac, so nearly all the time was recording: about 15 real letters a second, against LV6's 133.
   - That is below the 25 a second that Decision 12's 1,000 letters in 40 s would need. For letters like these, the 40 s budget ends a call before the 1,000 cap, with `next.until`, so no cap needed lowering.
 - **LH3:** after the run, the scratch relay held no letter by david.tapestry.ninja's assistant and none of the stream consumer's kinds, and strfry-router was stopped (`lh3.log`). The 12 letters the throwaway publisher sent there on purpose were counted, which shows the count works.
-- **Plans (`EXPLAIN`):**
+- **Plans (`EXPLAIN`, kept in `explain.txt`):**
   - The lookup at an address seeks both `NostrEvent(uuid)`'s unique index and `TapestryNode(uuid)`'s.
   - The `z` wiring scans every `NostrEventTag` (7,685 on the scratch), since tag values have no index; `wire-implicit-elements` has the same match.
   - Ledger row `2026-11-20-z-wiring-scans-every-tag-node`.
