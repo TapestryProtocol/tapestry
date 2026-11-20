@@ -46,7 +46,7 @@
  * 'live-refused', url, n, t }, n the connection's number, and { at: 'live-req' | 'live-drop',
  * url, conn, req, filters, t }, req the REQ's number over the server's life; t is Date.now(). readLog(file) reads it back.
  *
- * Nothing here opens a socket or asks a real DNS server.
+ * Nothing here asks a real DNS server, and only the live relays open sockets, on loopback.
  */
 
 const fs = require('fs');
