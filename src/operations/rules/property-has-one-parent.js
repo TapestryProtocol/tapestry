@@ -117,26 +117,30 @@ async function violations(items, read) {
   }
   if (!judged.length) return [];
 
-  // V2, for nodes that may break it: what each parent is, and whose trees hold the node and its property parents.
-  const parentKeys = uniq(judged.flatMap((j) => j.ups.map((u) => u.tapestryKey)));
-  const parentPrimary = grouped(await read(PRIMARY_OF(PRIMARY), { keys: parentKeys }), 'header');
-  const parentSchema = grouped(await read(SCHEMA_OF(SCHEMA), { keys: parentKeys }), 'header');
-  const propertyParents = parentKeys.filter((k) => judged.some((j) => j.ups.some((u) => u.tapestryKey === k && u.labels.includes('Property'))));
-  const trees = grouped(await read(TREES_OF(MEMBER, PRIMARY), { keys: uniq([...judged.map((j) => j.key), ...propertyParents]) }), 'header');
-
-  const findings0 = [];
+  // The shape, from V1 alone, with one more read for what the primary properties hang under.
+  const primaryParents = uniq(judged.filter((j) => j.primaryFor.length).flatMap((j) => j.ups.map((u) => u.tapestryKey)));
+  const schemaOfPrimaryParents = primaryParents.length ? grouped(await read(SCHEMA_OF(SCHEMA), { keys: primaryParents }), 'header') : new Map();
+  const shaped = [];
   for (const j of judged) {
-    const { key, ups, primaryFor } = j;
+    const { ups, primaryFor } = j;
     const primary = primaryFor.length > 0;
     let code = null;
     if (primary) {
-      const ownSchema = ups.length === 1 && ups[0].labels.includes('JSONSchema') && (parentSchema.get(ups[0].tapestryKey) || []).some((h) => primaryFor.includes(h));
+      const ownSchema = ups.length === 1 && ups[0].labels.includes('JSONSchema') && (schemaOfPrimaryParents.get(ups[0].tapestryKey) || []).some((h) => primaryFor.includes(h));
       if (!ownSchema) code = 'primary-property-misplaced';
     } else if (ups.length > 1) code = 'more-than-one-parent';
     else if (!ups[0].labels.includes('Property')) code = 'parent-not-a-property';
-    if (code) findings0.push({ ...j, primary, code, concepts: primary ? primaryFor : (trees.get(key) || []) });
+    if (code) shaped.push({ ...j, primary, code });
   }
-  if (!findings0.length) return [];
+  if (!shaped.length) return [];
+
+  // V2, for the findings alone: what each parent is, and whose trees hold the node and its property parents.
+  const parentKeys = uniq(shaped.flatMap((f) => f.ups.map((u) => u.tapestryKey)));
+  const parentPrimary = grouped(await read(PRIMARY_OF(PRIMARY), { keys: parentKeys }), 'header');
+  const parentSchema = grouped(await read(SCHEMA_OF(SCHEMA), { keys: parentKeys }), 'header');
+  const propertyParents = parentKeys.filter((k) => shaped.some((f) => f.ups.some((u) => u.tapestryKey === k && u.labels.includes('Property'))));
+  const trees = grouped(await read(TREES_OF(MEMBER, PRIMARY), { keys: uniq([...shaped.filter((f) => !f.primary).map((f) => f.key), ...propertyParents]) }), 'header');
+  const findings0 = shaped.map((f) => ({ ...f, concepts: f.primary ? f.primaryFor : (trees.get(f.key) || []) }));
 
   // The headers the findings name, read once.
   const headerKeys = uniq(findings0.flatMap((f) => [...f.concepts, ...f.ups.flatMap((u) => [...(parentPrimary.get(u.tapestryKey) || []), ...(parentSchema.get(u.tapestryKey) || []), ...(trees.get(u.tapestryKey) || [])])]));

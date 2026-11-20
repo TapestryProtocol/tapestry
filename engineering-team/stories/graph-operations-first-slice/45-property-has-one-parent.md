@@ -101,6 +101,13 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 
   A fresh install's whole graph judged 40 properties and found nothing, so firmware itself breaks no part of the rule.
 
+  The first run stopped at L3's last step: its query looked for the graph rule item by an address that lacks the install's suffix (`property-has-one-parent-e58d7c7f`). The query was fixed to look by name, and the run resumed at that step (`live-resume.log`); L1, L2 and L3's first two steps weren't run again. So AC8's "external CLI on a scratch stack" is met in two halves: XR1 drives the external CLI, stack-free, and L1 runs the same steps on real Neo4j, inside the container. Its "backup restored on a fresh instance" is met on the same instance (L2). The owner ratifies both at review round 2.
+- **Review round 1's non-blocking 3 and 4 stay as known limits.**
+  - A violation whose node no longer exists, or one written with a key's letters in upper case, answers `nothing-to-repair`, as Decision 6 says of a node with no finding.
+  - A scope repair's `left` lists every finding it leaves, with no cap: on a graph where old routes left many, the answer is long.
+
+  Neither changes what is written. A cap and paging for `left` would be A10.31's, with `rules check`'s paging as its model.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and Ledger bullets)

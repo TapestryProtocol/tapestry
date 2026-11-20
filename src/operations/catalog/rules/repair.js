@@ -107,7 +107,11 @@ module.exports = {
       [rule] = X.rulesNamed([inputs.rule], 'rule');
       scope = await X.scopeOf(read, inputs.scope);
     }
-    const allowed = (f) => !!f.fix && (!f.fix.firmware || override);
+    // Decision 7 and Amendment 1: a fix is made only in a concept that is the instance's own (its header's author is
+    // the instance's assistant), and in firmware's only with the override. The rule plans no fix for another author's
+    // concept; this keeps that true here too, whatever a rule plans.
+    const ownConcept = (f) => !!f.fix && (f.concepts || []).some((c) => c.tapestryKey === f.fix.concept && c.own === true);
+    const allowed = (f) => ownConcept(f) && (!f.fix.firmware || override);
 
     // 2 and 3. The candidates, judged once; 4. the locks on the concepts the allowed fixes change.
     const items = await rule.scan(read, scope);
@@ -119,6 +123,9 @@ module.exports = {
     const now = await rule.violations(items, read);
     const idOf = (f) => X.idOf(rule.name, f);
     const leftOf = (f) => {
+      if (f.fix && !ownConcept(f)) {
+        return { id: idOf(f), node: f.node, why: `the concept ${f.fix.concept} isn't this instance's own: its property tree is its author's claim (design D4)`, wayOn: "rules repair changes only the instance's own concepts, and firmware's with firmwareOverride. The concept's author changes it, in their own letters." };
+      }
       if (f.fix && f.fix.firmware && !override) {
         const name = (f.concepts[0] && f.concepts[0].name) || f.fix.concept;
         return { id: idOf(f), node: f.node, why: `"${name}" is a firmware concept, whose tree rules repair changes only with firmwareOverride: true`, wayOn: 'Call again with firmwareOverride: true to repair it.' };
@@ -137,11 +144,15 @@ module.exports = {
       if (id !== inputs.violation) {
         throw refusal(X.CHANGED_SINCE_CHECK.code, `${f.message}. That isn't what the violation ${inputs.violation} found: the node's parents have changed since it was checked. As it is now, the finding is ${id}. Check again, then repair that. Nothing changed.`, { input: 'violation' });
       }
-      if (f.fix && f.fix.firmware && !override) {
+      if (!f.fix || !ownConcept(f)) return { data: { outcome: 'left', fixed: [], left: [leftOf(f)], remaining: 0 }, changes: [] };
+      if (f.fix.firmware && !override) {
         const name = (f.concepts[0] && f.concepts[0].name) || f.fix.concept;
         throw refusal(X.FIRMWARE_CONCEPT.code, `"${name}" (${f.fix.concept}) is a firmware concept, whose tree a firmware install builds from its definition: rules repair changes it only with firmwareOverride: true. Nothing changed.`, { input: 'firmwareOverride' });
       }
-      if (!f.fix) return { data: { outcome: 'left', fixed: [], left: [leftOf(f)], remaining: 0 }, changes: [] };
+      if (!locked.includes(f.fix.concept)) {
+        // Its concept wasn't one this write locked: the graph moved between the two judgments.
+        throw refusal(X.CHANGED_SINCE_CHECK.code, `${f.message}. The graph changed while the violation ${inputs.violation} was being repaired: its concept is now ${f.fix.concept}. Check again, then repair it. Nothing changed.`, { input: 'violation' });
+      }
       todo = [f];
       left = [];
     } else {

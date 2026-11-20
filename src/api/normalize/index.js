@@ -136,6 +136,26 @@ async function importEventToNeo4j(event, apiBase = '') {
   await importEventDirect(event, uuid);
 }
 
+/**
+ * The node that already holds a new property's address, `39999:<assistant>:<dTag>`, as { name, uuid }, or null.
+ * The old routes give a property its parent's address, and names that slug alike share one, so they check before
+ * signing: importing an event at a held address would take that node over and delete its tags (ADR
+ * graph-operations-first-slice/0045 Amendment 2; BIBLE §30).
+ */
+async function heldAddress(dTag) {
+  const { getOwnerAssistantPubkey } = require('../../utils/assistantKeys');
+  const ta = getOwnerAssistantPubkey();
+  if (!ta) return null;
+  const uuid = `39999:${ta}:${dTag}`;
+  const rows = await runCypher(`
+    MATCH (n:NostrEvent|TapestryNode {uuid: $uuid})
+    RETURN coalesce(n.tapestryValue, n.name) AS name, n.uuid AS uuid
+    LIMIT 1
+  `, { uuid });
+  return rows.length ? { name: rows[0].name || null, uuid } : null;
+}
+const heldMessage = (name, held) => `A node already holds the address the property "${name}" would take, ${held.uuid}${held.name ? ` ("${held.name}")` : ''}: names that slug alike share an address under one parent (BIBLE §6). Use that property, or choose a name that slugs differently. Nothing was created.`;
+
 async function importEventDirect(event, uuid) {
   const dTag = (event.tags.find(t => t[0] === 'd') || [])[1] || '';
   const nameTag = event.tags.find(t => t[0] === 'name');
@@ -3532,6 +3552,8 @@ async function handleCreateProperty(req, res) {
     // Create the property event. Its address comes from its parent, so one name under two parents is two nodes (BIBLE
     // §6's address rule; ADR graph-operations-first-slice/0045 Decision 12).
     const dTag = dtag.childDTag(trimName, targetUuid);
+    const held = await heldAddress(dTag);
+    if (held) return res.json({ success: false, error: heldMessage(trimName, held) });
     const tags = [
       ['d', dTag],
       ['name', trimName],
@@ -4178,6 +4200,8 @@ async function handleEnumerate(req, res) {
       const parentUuid = ppRows[0].uuid;
       const propertyConceptUuid = firmware.conceptUuid('property');
       const dTag = dtag.childDTag(propName, parentUuid);
+      const held = await heldAddress(dTag);
+      if (held) return res.json({ success: false, error: heldMessage(propName, held) });
       const propEvent = signAndFinalize({
         kind: 39999, content: '',
         tags: [

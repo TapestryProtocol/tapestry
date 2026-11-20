@@ -15,8 +15,8 @@ Five suites, all stack-free, all under `test/operations/rules/`, so `test/operat
 | AC3 — `rules repair` takes off the extra link | PH4 (the fix plans); RP1 (the graph after is the graph before less one relationship, plus one entry), RP2 (the answer and the change entry), RP3 (history by property, schema, concept), RP4 (tangled-tree before, update-property after), RP5 (the repeat), RP6 (the lock first) | `property-has-one-parent.test.js`, `repair.test.js` | operation |
 | AC4 — the choices left | PH6 (every other finding: no fix, a choice, the way on); RP9 (left, changing nothing), RP10 (a scope repair fixes the own, leaves the rest, in one answer) | `property-has-one-parent.test.js`, `repair.test.js` | unit; operation |
 | AC5 — the refusals | CK5 (`unknown-rule`, `not-checkable`), CK6 (`unknown-node`, `missing-input`); RP7 (`changed-since-check`), RP8 (`firmware-concept` without the override; repaired with it), RP13 (`bad-target`, `unknown-violation`, `unknown-rule`, `not-checkable`, `unknown-node`, each changing nothing) | `check.test.js`, `repair.test.js` | operation |
-| AC6 — the old enumerate route | OR1 (no link to a schema, written or signed; `schemaWired` false), OR2 (a created property hangs under the primary property, its address from it), OR3 (no primary property: refused before anything is signed) | `old-routes-hang-properties-under-the-primary-property.test.js` | the real handler, in a child over the fake |
-| AC7 — the old create-property route | OR4 (no parent: under the primary property), OR5 (a parent: its address from it), OR6 (one name on two concepts is two nodes), OR7 (no primary property: refused) | same | the real handler, in a child over the fake |
+| AC6 — the old enumerate route | OR1 (no link to a schema, written or signed; `schemaWired` false), OR2 (a created property hangs under the primary property, its address from it), OR3 (no primary property: refused before anything is signed), OR9 (an address another node holds: refused before anything is signed; Amendment 2) | `old-routes-hang-properties-under-the-primary-property.test.js` | the real handler, in a child over the fake |
+| AC7 — the old create-property route | OR4 (no parent: under the primary property), OR5 (a parent: its address from it), OR6 (one name on two concepts is two nodes), OR7 (no primary property: refused), OR8 (an address another node holds: refused, naming it; Amendment 2) | same | the real handler, in a child over the fake |
 | AC8 — it lasts, and reaches agents | CK9 and RP14 (401, 403, 415; an admin's repair is the admin's; nothing signed), CK10 and RP16 (listed, /docs), CK11 and RP15 (the internal command), RP11 and RP12 (scope repairs, the lock order, the cap of 100), XR1 (an admin agent through the external CLI); the live checks L1–L4 below (restore, reinstall, real Neo4j) | `check.test.js`, `repair.test.js`, `rules-agent-through-cli.test.js` | operation; external CLI; live |
 
 ADR decisions without their own criterion: Decision 2 (`scan`) is PH2 and PH7; Decision 3 (a finding's id) is CK3 and RP7; Decision 7 (the policy) is RP8, RP9 and RP10; Decision 8 (the cap) is RP12; Decision 10 (what a repair leaves) is RP1; Decision 13 (the docs) is PH9 to PH11; Amendment 1 is PH6, CK2 and RP9.
@@ -47,6 +47,8 @@ The seed checks itself. `oddProperties(state)` restates the rule in plain JavaSc
 - [x] A cursor from another scope (CK7).
 - [ ] The re-judge after the writes (Decision 6, step 9) rolling a repair back: no input reaches it once steps 5 to 8 are right, so no test drives it. The Reviewer reads it.
 - [ ] Two repairs of one concept at once: the lock is pinned by RP6 and RP11, as EN14 pins enumerate's. The live check doesn't race them.
+- [ ] The repair's own guard against another author's concept (Decision 7, Amendment 1): the rule plans no fix there, so no input reaches the guard, and RP9 passes through the rule. The Reviewer reads it.
+- [x] A name that slugs like a property already under the parent, on each old route (OR8, OR9; review round 1, Amendment 2).
 
 ## Test infrastructure
 
@@ -72,7 +74,7 @@ node test/operations/rules/old-routes-hang-properties-under-the-primary-property
 node test/operations/rules/rules-agent-through-cli.test.js
 ```
 
-For the review's gate record, run CI's own entries for an operations change through the gate engine with an explicit list: `operations.test.js` (which runs every suite under `test/operations/`), `external-cli.test.js`, `openapi-coverage.test.js`, `admin-action-sweep.test.js` and `schema-save-finds-the-right-header.test.js`. List `operations.test.js` or its suites, never both. Never run the full `npm test` on this Mac. CI runs it on the pull request.
+For the review's gate record, run these through the gate engine with an explicit list: CI's own entries for an operations change, `operations.test.js` (which runs every suite under `test/operations/`), `external-cli.test.js`, `openapi-coverage.test.js`, `admin-action-sweep.test.js` and `schema-save-finds-the-right-header.test.js`; and the two rulebook suites the Test Design amendment changed, `graph-rules-builder.test.js` and `graph-rule-firmware.test.js`. List `operations.test.js` or its suites, never both. Never run the full `npm test` on this Mac. CI runs it on the pull request.
 
 ## Live checks (Implementation and Review, on a scratch stack)
 
