@@ -190,6 +190,15 @@ Each suite alone, as above (`tmp/a10-32/env.sh`):
 - **The scoped gate** (`tmp/a10-32/gate.sh`): record `20261120T154152Z-96903-3644`, FAIL, 1,358 passed, 1 failed (IL9), 12 skipped, the `operations` entry in 229 s.
 - **harness-lint:** clean.
 
+### IL9's server fixed (2026-11-20, on `88e321bf`)
+
+- **The change:** the Tester's `88e321bf` makes the suite's live relay server read the handshake socket it holds, and log the client's close of it. An RST no longer crashes that server.
+- **IL9:** it now passes, and it fails against `e90d94e1`'s `_relay.js`, which shows it catches the stray socket.
+- **Each suite alone:**
+  - `nostr` 15 passed (1.6 s), `nostr-record` 15 (1.3 s), `nostr-order` 11 (5.7 s), `nostr-own` 7 (2.3 s), `nostr-graph` 12 (2.3 s), `nostr-filter` 10 (2.9 s), `nostr-relay` 9 (10.3 s), `nostr-agent-through-cli` 1 (1.7 s), `nostr-live` 6 skipped, `cypher-engine` 12 (0.5 s).
+  - That's 92 passed, in about 29 s, against round 0's 37 s.
+- **Also:** `tapestry-key-paths` 20 passed, and harness-lint is clean.
+
 ### The live check (Implementation, 2026-11-20, on `6525d2d2`)
 
 **Where it ran:**
@@ -239,6 +248,25 @@ Each suite alone, as above (`tmp/a10-32/env.sh`):
   - The `z` wiring scans every `NostrEventTag` (7,685 on the scratch), since tag values have no index; `wire-implicit-elements` has the same match.
   - Ledger row `2026-11-20-z-wiring-scans-every-tag-node`.
 - **The control panel's error log** held only two lines, both from the boot before Neo4j listened (`brainstorm-error.log`).
+
+### The live check again, on the fixed code (2026-11-20, on `88e321bf`)
+
+**Where it ran:** a fresh scratch stack, booted 15:52:39 UTC, with the rules applied before the branch's firmware, as on run 2. The new `nostr.js` and `_relay.js` matched inside the container and out. Its records are in the main checkout's `tmp/live-check-32/rerun/` and `hand-calls.md`.
+
+**What it showed:**
+- **The live suite:** LV1–LV6 all passed (`rerun/live-suite.log`). LV6 recorded 300 letters in 1.9 s, 157 a second.
+- **The agent's calls through the external CLI:**
+  - dog's concept graph from david.tapestry.ninja's relay: 8 recorded in 1.7 s;
+  - the same call again: 8 `unchanged`;
+  - `--relay ws://10.0.0.1`: refused, `private-relay`;
+  - the filter for every kind-39999 letter of that instance's assistant: 552 letters (545 recorded, 7 unchanged) in 37.4 s, `next` null.
+- **Review round 1's blocking case, live** (`rerun/drop.js`, `drop.json`, `drop-continue.json`):
+  - 600 letters by the throwaway publisher were published to the scratch relay.
+  - One node process in the container imported them by filter from the instance's own relay and restarted strfry 1.5 s in. `supervisorctl` finished the restart at 2.6 s.
+  - The import answered 200 at the drop, with 499 recorded and `next.until`.
+  - The control panel kept its pid (4349 before and after).
+  - Going on from `next.until` recorded the other 101, with `next` null. All 600 are in the graph.
+- **Afterwards,** `docker ps -a` listed the same containers as before the first boot.
 
 ## Linked artifacts
 
