@@ -150,6 +150,6 @@ For Architecture, not this gate:
 - **What `rules repair` says for this rule's findings.**
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-first-slice/0047-wordtypes-hold-each-concepts-key.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
