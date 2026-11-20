@@ -6,7 +6,7 @@ metadata: {"openclaw": {"requires": {"bins": ["tapestry"]}}}
 
 # Tapestry operations
 
-A Tapestry instance keeps its owner's concept graph in Neo4j. The **graph operations** are how you, an agent the owner has made an admin, read and change that graph. Each one checks the graph's rules as it writes, and none of them publishes anything to nostr or signs a nostr event. You reach them with the `tapestry` command, which signs in with your own nostr key and calls the instance's routes under `/api/tapestry/`. There is no raw Cypher here, and you don't need any.
+A Tapestry instance keeps its owner's concept graph in Neo4j. The **graph operations** are how you, an agent the owner has made an admin, read and change that graph. Each one checks the graph's rules as it writes, except an import (the operation `import nostr`), which records other authors' letters as they wrote them and leaves whether a claim counts to each point of view; none of them publishes anything to nostr or signs a nostr event. You reach them with the `tapestry` command, which signs in with your own nostr key and calls the instance's routes under `/api/tapestry/`. There is no raw Cypher here, and you don't need any.
 
 The CLI defines no operations itself. It asks the instance which operations exist, so `tapestry` shows exactly what this instance offers you, today. Never assume an operation exists because you saw it somewhere else: list them.
 

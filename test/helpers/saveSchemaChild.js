@@ -10,6 +10,8 @@
  *   kind 'pass2'              — the firmware install's Pass 2 (pass2_enrich in src/firmware/install.js). Its calls to the
  *                               control panel are answered in-process: POST /api/neo4j/query by the fake graph, and
  *                               POST /api/normalize/save-schema by the real handler
+ *   kind 'route'              — each of `calls`, [{ route, body }], in order: any route registerNormalizeRoutes
+ *                               registers, such as 'POST /api/normalize/enumerate' (graph-operations-first-slice #45)
  * stdout: one line `@@RESULT@@<json>` with { results, writes, published, unread, log }.
  *
  * The stubs:
@@ -34,9 +36,10 @@ const { EventEmitter } = require('events');
 const ROOT = path.resolve(__dirname, '../..');
 const { runPathQuery } = require('./pathCypherFake');
 
-// The relationship types the schema-save code reads over (the firmware's aliases).
+// The relationship types the schema-save code reads over (the firmware's aliases), and create-property's read of a
+// concept's property tree graph (graph-operations-first-slice #45).
 const TYPES = ['HAS_TAG', 'IS_THE_JSON_SCHEMA_FOR', 'IS_THE_PRIMARY_PROPERTY_FOR', 'IS_THE_CONCEPT_FOR', 'IS_A_SUPERSET_OF',
-  'HAS_ELEMENT', 'ENUMERATES', 'IS_A_PROPERTY_OF'];
+  'HAS_ELEMENT', 'ENUMERATES', 'IS_A_PROPERTY_OF', 'IS_THE_PROPERTY_TREE_GRAPH_FOR'];
 
 const PREFIX = '/usr/local/lib/node_modules/brainstorm/';
 const resolve0 = Module._resolveFilename;
@@ -174,6 +177,8 @@ async function main() {
     results.push(await call('POST /api/normalize/save-schema', scenario.body));
   } else if (scenario.kind === 'applyEnumerations') {
     results.push(await call('POST /api/normalize/apply-enumerations', scenario.body));
+  } else if (scenario.kind === 'route') {
+    for (const c of scenario.calls || []) results.push(await call(c.route, c.body));
   } else if (scenario.kind === 'pass2') {
     globalThis.fetch = async (url, init = {}) => {
       const route = `${(init.method || 'GET').toUpperCase()} ${new URL(url).pathname}`;

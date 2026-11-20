@@ -71,6 +71,11 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
 28. `stories/graph-operations-first-slice/28-link-set-and-unlink-set.md` — put an existing set, or a concept's
     superset, under another parent, refusing a cycle, and take a set out from under one of its parents, refusing its
     last parent (Loom A10.28).
+32. `stories/graph-operations-first-slice/32-import-nostr.md` — record nostr events as nodes, by id, by address, by
+    a graph's address with what its graphs list, or by a filter, each event one node with its claims as relationships,
+    the same in any order and on repeat; never changes the instance's own nodes, and gives another author's claim on
+    them only its membership; the first import operation, and the piece a firmware Tapestry's install waits on (Loom
+    A10.32).
 41. `stories/graph-operations-first-slice/41-graph-rule-concept.md` — the graph rules as a firmware concept on every
     instance, one item per rulebook entry, made from the rulebook and the rules' code; the items `rules list-rules`
     (A10.31) will read (Loom A10.41).
@@ -85,6 +90,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     the Dashboard's Concepts tile show a concept made with no event, as they show any other, and its row offers no
     Disposition… until it has an event; a bug left by story 16, with no Loom task of its own, so it takes the next
     number free.
+45. `stories/graph-operations-first-slice/45-property-has-one-parent.md` — the rule `property-has-one-parent`, with
+    `rules check` to find a property hung under more than one parent and `rules repair` to take off its extra link to
+    its concept's JSON schema (firmware's only with an override); the old enumerate and create-property routes stop
+    hanging properties on the schema (Loom A10.31.a, a subtask, so it takes the next number free).
 
 ## Key facts / guardrails
 

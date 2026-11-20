@@ -11,7 +11,10 @@
  *   - the REAL central auth middleware (src/middleware/auth.js);
  *   - the REAL sign-in handlers: POST /api/auth/verify-user, /api/auth/login-user and /api/auth/logout;
  *   - registerOperationRoutes over the fixture catalog at spec.catalogDir (or the real one), over the graph kept in
- *     spec.graphFakeState when it is given (story graph-operations-foundation #4).
+ *     spec.graphFakeState when it is given (story graph-operations-foundation #4), through test/helpers/
+ *     cypherGraphFake.js when spec.graphFakeEngine is 'cypher', and with the fake relays and DNS of
+ *     test/helpers/relayFake.js over the fixture spec.relayFake names, when it is given (story
+ *     graph-operations-first-slice #32, ADR graph-operations-first-slice/0032).
  * Every request carries X-Forwarded-For before the central check sees it, as nginx traffic does, so no request is
  * trusted as a direct-local caller: the CLI has to sign in, as it does on a real instance.
  *
@@ -89,9 +92,12 @@ async function main() {
       const seamFile = path.join(ROOT, 'src/operations/graph.js');
       if (!fs.existsSync(seamFile)) throw new Error('src/operations/graph.js does not exist yet (ADR graph-operations-foundation/0004 Decision 9)');
       const seam = require(seamFile);
-      const fake = require(path.join(__dirname, 'graphFake.js')).fakeGraph(spec.graphFakeState);
+      const fakeFile = spec.graphFakeEngine === 'cypher' ? 'cypherGraphFake.js' : 'graphFake.js';
+      const fake = require(path.join(__dirname, fakeFile)).fakeGraph(spec.graphFakeState);
       for (const k of ['writeTransaction', 'read']) seam[k] = fake[k];
     }
+    // Story graph-operations-first-slice #32: the fake relays and DNS, before the catalog loads.
+    if (spec.relayFake) require(path.join(__dirname, 'relayFake.js')).install({ root: ROOT, file: spec.relayFake });
     registerOperationRoutes(app, { dir: spec.catalogDir });
   }
 

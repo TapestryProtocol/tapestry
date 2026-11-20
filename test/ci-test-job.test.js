@@ -147,8 +147,8 @@ test('W6 (AC-1): scarf phone-home suppressed and install scripts NOT globally di
 test('W7 (AC-3): bounded by a hard timeout and superseded-run concurrency cancel', () => {
   const src = workflow();
   const f = flat(src);
-  assert(/timeout-minutes:\s*15\b/.test(f),
-    'the job must set timeout-minutes: 15 (a hang guard, not a budget) — ADR 0001 Decision table / AC-3.');
+  assert(/timeout-minutes:\s*25\b/.test(f),
+    'the job must set timeout-minutes: 25 (a hang guard, not a budget) — ADR 0001 Decision table, Amendment 1 / AC-3.');
   assert(/concurrency:/.test(f),
     'the workflow must declare a concurrency: group so runs don\'t pile up (AC-3).');
   assert(/cancel-in-progress:\s*true/.test(f),
