@@ -54,6 +54,11 @@ function rel() {
   return Object.fromEntries(REL_NAMES.map((k) => [k, firmware.relAlias(k)]));
 }
 
+/** src/api/normalize/firmware.js's JSON_SCHEMA_WORD_TYPES (ADR graph-operations-first-slice/0047 Decision 8), or undefined before it exists. */
+function jsonSchemaWordTypes() {
+  return require(path.join(ROOT, 'src/api/normalize/firmware.js')).JSON_SCHEMA_WORD_TYPES;
+}
+
 /** A sandbox with the route's code loaded and recorders in place of what it signs, stores and writes. */
 function sandbox(ta) {
   const rec = { imports: new Map(), order: [], writes: [] };
@@ -69,7 +74,10 @@ function sandbox(ta) {
     signAndFinalize: (t) => ({ ...t, id: null, pubkey: ta, sig: null, created_at: 0 }),
     publishToStrfry: async () => {},
     importEventDirect: async (event, uuid) => { if (!rec.imports.has(uuid)) rec.order.push(uuid); rec.imports.set(uuid, event); },
-    firmware: { conceptUuid: (slug) => `39998:${ta}:${slug}` },
+    // A JSON schema's word types (ADR graph-operations-first-slice/0047 Decision 8), as src/api/normalize/firmware.js
+    // exports them: the route reaches them through `firmware`, or by the bare name.
+    firmware: { conceptUuid: (slug) => `39998:${ta}:${slug}`, JSON_SCHEMA_WORD_TYPES: jsonSchemaWordTypes() },
+    JSON_SCHEMA_WORD_TYPES: jsonSchemaWordTypes(),
     REL: rel(),
   };
   vm.createContext(ctx);
@@ -81,14 +89,27 @@ function sandbox(ta) {
 /** What today's route makes for one name; see the file's header. */
 async function todaysConcept({ name, plural, description, ta }) {
   if (typeof ta !== 'string' || !/^[0-9a-f]{64}$/.test(ta)) throw new Error('todaysConcept needs the assistant pubkey, ta');
-  const { ctx, rec } = sandbox(ta);
-  let answer = null;
-  const res = { json(x) { answer = x; return res; }, status() { return res; } };
   const body = { name };
   if (plural !== undefined) body.plural = plural;
   if (description !== undefined) body.description = description;
-  await ctx.handleCreateConcept({ body }, res);
-  if (!answer || answer.success !== true) throw new Error(`today's create-concept didn't create ${JSON.stringify(name)} in the sandbox: ${JSON.stringify(answer)}`);
+  const out = await runCreateConcept({ body, ta });
+  if (!out.answer || out.answer.success !== true) throw new Error(`today's create-concept didn't create ${JSON.stringify(name)} in the sandbox: ${JSON.stringify(out.answer)}`);
+  const { answer, events, labels, wiring, memberships } = out;
+  return { answer, events, labels, wiring, memberships };
+}
+
+/**
+ * The route run once with `body` as given (story graph-operations-first-slice #47: its wordTypes and overwrite) →
+ * { status, answer, events, labels, wiring, memberships }, whether or not it made the concept. status is what the route
+ * set with res.status(), or 200.
+ */
+async function runCreateConcept({ body, ta }) {
+  if (typeof ta !== 'string' || !/^[0-9a-f]{64}$/.test(ta)) throw new Error('runCreateConcept needs the assistant pubkey, ta');
+  const { ctx, rec } = sandbox(ta);
+  let answer = null;
+  let status = 200;
+  const res = { json(x) { answer = x; return res; }, status(code) { status = code; return res; } };
+  await ctx.handleCreateConcept({ body: { ...body } }, res);
   const events = rec.order.map((uuid) => ({ uuid, kind: rec.imports.get(uuid).kind, tags: rec.imports.get(uuid).tags.map((t) => [...t]) }));
   const labels = {};
   const wiring = [];
@@ -104,7 +125,7 @@ async function todaysConcept({ name, plural, description, ta }) {
     if (/MERGE \(sup\)-\[:\w+\]->\(node\)/.test(w.q)) { memberships.push({ superset: w.p.supersetUuid, node: w.p.nodeUuid }); continue; }
     throw new Error(`test/helpers/todaysCreateConcept.js doesn't know a write today's route made: ${w.q}`);
   }
-  return { answer, events, labels, wiring, memberships };
+  return { status, answer, events, labels, wiring, memberships };
 }
 
 /** Today's route's own deriveAllNames(singular, plural). */
@@ -113,4 +134,4 @@ function names(singular, plural) {
   return JSON.parse(JSON.stringify(ctx.deriveAllNames(singular, plural)));
 }
 
-module.exports = { todaysConcept, names };
+module.exports = { todaysConcept, runCreateConcept, names };
