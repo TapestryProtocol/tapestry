@@ -44,6 +44,9 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * copy went, and membership-added for the link into to, unless it was there, each naming the move's concept; and
  * tag-removed and tag-added for its n tags (story graph-operations-first-slice #23, ADR
  * graph-operations-first-slice/0023 Decision 13).
+ * A repair's are relationship-removed, one for each link it took off, adding node (the property), concept, the rule it
+ * repaired, and firmwareOverride: true when it changed a firmware concept with the override (story
+ * graph-operations-first-slice #45, ADR graph-operations-first-slice/0045 Decision 9).
  */
 const CHANGE = Object.freeze({
   type: 'object',
@@ -59,6 +62,8 @@ const CHANGE = Object.freeze({
     field: { type: 'string', description: "The field the change is about: the field a mark is for, a concept's name, plural, slug or description, an element's field, or a property's key" },
     path: { type: 'array', items: { type: 'string' }, description: "For a property, the keys from its concept's section down to it, such as ['address', 'city']" },
     catchUp: { type: 'boolean', description: "For a property, true when the change was made while the write brought the concept's property nodes in line with its schema, before its own change; absent otherwise" },
+    rule: { type: 'string', description: 'For a repair, the rule whose violation the change fixed, such as property-has-one-parent' },
+    firmwareOverride: { type: 'boolean', description: 'For a repair, true when it changed a firmware concept with firmwareOverride; absent otherwise' },
     property: { type: 'string', description: 'The node property a mark carries, <concept key>_<field>, such as dog_breed' },
     nodes: { type: 'array', items: { type: 'string' }, description: "The tapestryKeys of the nodes the change touched: those whose copy it set or removed, a concept's nodes it made or renamed, or, for a deleted node, the nodes at the other end of its relationships and its tags'" },
     name: { type: 'string', description: "A concept's singular name, an element's name, or a set's, when the change made it" },

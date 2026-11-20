@@ -90,6 +90,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     the Dashboard's Concepts tile show a concept made with no event, as they show any other, and its row offers no
     Disposition… until it has an event; a bug left by story 16, with no Loom task of its own, so it takes the next
     number free.
+45. `stories/graph-operations-first-slice/45-property-has-one-parent.md` — the rule `property-has-one-parent`, with
+    `rules check` to find a property hung under more than one parent and `rules repair` to take off its extra link to
+    its concept's JSON schema (firmware's only with an override); the old enumerate and create-property routes stop
+    hanging properties on the schema (Loom A10.31.a, a subtask, so it takes the next number free).
 
 ## Key facts / guardrails
 
