@@ -34,7 +34,7 @@ It is recorded in ledger row `2026-11-17-word-wordtypes-conditionals-contradict-
 
 **The owner's ruling (2026-11-20).** Rewritten with "contains", the pair would read "if the list contains X, then the list contains X". That is true of every node, so it would check nothing. Against the live schema it gave the same verdict as leaving the pair out, for each of six nodes tried. The owner chose to drop it: "let's just get rid of the worthless test and leave it at that." So install stops writing the pair for `word.wordTypes`, and nothing else changes.
 - Two of P-156's three ways do that: leave the pair out when the field is `word.wordTypes` itself, or turn off the manifest's switch for that enumeration. Which one is for whoever builds it.
-- The third, a form that ties each word type to a section of the node, would be a new check, so it is out of scope.
+- P-156's array-aware form, which ties each word type to a section of the node, would be a new check, so it is out of scope.
 
 ## User-facing description
 
@@ -87,6 +87,13 @@ As the owner, or an agent working the graph, I want the `word` schema an install
 - **A reinstall, not the enumeration step alone, clears an instance.** Pass 2 rewrites `word`'s schema from firmware's file before the enumeration step runs. `apply-enumerations` run by itself takes old pairs out only while the switch is on, so with it off it leaves them. The reinstalls are ledger row `2026-11-20-word-wordtypes-switch-awaits-firmware-reinstall`.
 - **BIBLE §6 says what install puts in each enumerated schema** (AC5). For `word.wordTypes` that is the allowed list alone; for `dog.breed` and `graph.graphType`, also their pairs. Before, it said only that install copies the bare values.
 - **The Firmware Explorer page needed no change.** It shows each enumeration's switch from the manifest, so for `concept-headers` it now says "No — enum values only".
+- **Round 2, from review round 1:**
+  - the suite gives its dead endpoints to its child alone and sets nothing on the gate's `process.env` (blocking 1; the Tester's lane, commit `31e3c327`);
+  - the counts say conditionals, a pair for each key, here and in the test plan;
+  - the reinstall row says each instance needs code with this manifest before its reinstall;
+  - BIBLE §6 says a pair for each value;
+  - the story and the closed row name the fix shape rather than its place in a list, and the closed row's line references are current;
+  - the harness gap the review found is ledger row `2026-11-20-suite-env-changes-reach-every-suite`.
 
 ## Evidence
 
@@ -98,7 +105,7 @@ As the owner, or an agent working the graph, I want the `word` schema an install
 **The live check on a scratch stack (2026-11-20, 21:28–21:31 UTC).** It ran as `scripts/scratch-stack.sh up`, then `TAPESTRY_CONTAINER=tapestry-scratch node tmp/live-check-46/live.js` (report `tmp/live-check-46/report.json`, which git ignores). The stack mounted this worktree's `src/`. 9 of 9 checks passed.
 - **Setup:** an instance as staging's code leaves one. The branch's firmware was copied over the image's, but with staging's manifest (the switch on). The uniqueness rules were added and firmware installed (65.8 s; Pass 2 logged no errors; 4 enumerations applied).
 - **Before (LB1–LB3).**
-  - `word`'s schema held 83 conditionals: the set's, and 82 self-comparing pairs for 41 keys. `dog`'s held its 4.
+  - `word`'s schema held 83 conditionals: the set's, and 82 self-comparing ones, a pair for each of 41 keys. `dog`'s held its 4.
   - `graph create-element` of a relationship type reported `word` not fitting, `waiting: true`, with the four problems the owner's run saw.
 - **The fix.** The branch's manifest (the switch off) was copied in, the control panel restarted, and firmware reinstalled (57.4 s; Pass 2 logged no errors).
 - **After (LA1–LA6).**
