@@ -21,6 +21,14 @@ Five suites, all stack-free, all under `test/operations/rules/`, so `test/operat
 
 ADR decisions without their own criterion: Decision 2 (`scan`) is PH2 and PH7; Decision 3 (a finding's id) is CK3 and RP7; Decision 7 (the policy) is RP8, RP9 and RP10; Decision 8 (the cap) is RP12; Decision 10 (what a repair leaves) is RP1; Decision 13 (the docs) is PH9 to PH11; Amendment 1 is PH6, CK2 and RP9.
 
+## Test Design amendment (found in Implementation, 2026-11-20)
+
+Two existing suites pin the rulebook's list of rules, so a new rule has to be added to them, as story 19's test commit did for rule 10:
+- `test/graph-rules-builder.test.js`: GB2's ten entries, and the `REAL` list behind GB2 to GB6;
+- `test/graph-rule-firmware.test.js`: GF9's `RULES`.
+
+This plan missed them. The scoped gate caught them, failing GB2, GB6 and GF9 once rule 11 was in the rulebook. Each now lists `property-has-one-parent` as rule 11, with ADR 0045 as its source. The change is its own test commit, ahead of the implementation's. Both suites then pass: 26, and 13 with 4 live skips.
+
 ## The seed
 
 `test/helpers/propertyParentsGraph.js` (new) builds on `test/helpers/enumerationGraph.js`'s `prepareEnumeration`, which already holds grok bot's project hung on its schema too (the live case) and hut's door under two properties. It adds one case for each kind of finding: two fixable in the instance's own concepts (grok bot's project; bot's team.lead, nested), one in firmware's (word's spelling), two in concepts that aren't the instance's own (nostr relay's motto, another author's; recipe's dish, the owner's own key's), a node two concepts' trees share, a property hung only on a schema, one hung on an element, one under its tree and another concept's schema, a misplaced primary property, and an unhooked property (never judged). It also adds the relationship element today's enumerate route signs for grok bot's link.
