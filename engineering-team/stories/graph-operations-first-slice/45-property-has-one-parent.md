@@ -94,5 +94,5 @@ For Architecture, not this gate:
 - The property writes it unblocks: [engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md](../../decisions/graph-operations-first-slice/0018-property-operations.md)
 - The enumerate operation and the case's first record: [19-enumerate.md](./19-enumerate.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0045-property-has-one-parent.md](../../decisions/graph-operations-first-slice/0045-property-has-one-parent.md)
-- Test plan: (filled in after Test Design phase)
+- Test plan: [45-property-has-one-parent.test-plan.md](./45-property-has-one-parent.test-plan.md)
 - Review: (filled in after Review phase)
