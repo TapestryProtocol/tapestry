@@ -143,6 +143,8 @@ module.exports = {
     },
   },
   refusals: [NO_SOURCE, TWO_SOURCES, TOO_MANY, BAD_ID, BAD_ADDRESS, BAD_FILTER, BAD_RELAY, PRIVATE_RELAY, UNREACHABLE],
+  // A call's time, read through the declaration at each call, so a suite can shorten it (review round 1).
+  BUDGET_MS,
 
   async run(inputs, ctx) {
     const source = sourceOf(inputs);
@@ -153,7 +155,7 @@ module.exports = {
     const conn = await require('./_relay').open(relay.url);
     if (conn.error) throw unreachable(relay, conn.error);
     const call = {
-      conn, relay, read: false, changes: 0, best: new Map(), deadline: Date.now() + BUDGET_MS,
+      conn, relay, read: false, changes: 0, best: new Map(), deadline: Date.now() + module.exports.BUDGET_MS, cut: false,
       own: require('../../reads').ownKeys(), caller: ctx.caller,
     };
     try {
@@ -217,6 +219,9 @@ function filterOf(raw) {
     try { f = JSON.parse(raw); } catch (e) { throw bad(`The filter isn't JSON that parses (${e.message})`); }
   }
   if (!isObject(f)) throw bad('The filter must be a JSON object, such as {"kinds": [1], "authors": ["<64 hex characters>"]}');
+  // As its text is capped by the input's schema, so is an object's JSON, which JSON Schema can't bound (review round 1).
+  const size = JSON.stringify(f).length;
+  if (size > MAX_FILTER_TEXT) throw bad(`The filter's JSON is ${size} characters; import nostr takes a filter of ${MAX_FILTER_TEXT} characters at most, as an object or as its text`);
   const strings = (v) => Array.isArray(v) && v.every((x) => typeof x === 'string');
   for (const [k, v] of Object.entries(f)) {
     if (k === 'ids' || k === 'authors' || /^#[A-Za-z]$/.test(k)) {
@@ -342,7 +347,8 @@ function requestsFor(refs) {
 async function readRefs(call, refs) {
   const out = new Map();
   for (const q of requestsFor(refs)) {
-    const answer = Date.now() > call.deadline ? { ok: false } : await ask(call, q.filter);
+    if (Date.now() > call.deadline) call.cut = true;
+    const answer = call.cut ? { ok: false } : await ask(call, q.filter);
     for (const r of q.refs) {
       if (!answer.ok) { out.set(r.ref, { status: 'unread' }); continue; }
       const mine = answer.events.filter((e) => (r.id ? isObject(e) && e.id === r.id : addressOfAny(e) === r.address));
@@ -381,6 +387,12 @@ async function settle(call, refs, got, slugs) {
     const g = got.get(r.ref);
     if (g.status !== 'found') { out.push({ r, entry: missEntry(r, g), event: null }); continue; }
     const w = winners.get(L().keyOf(g.event).uuid);
+    // The call's time holds here too (review round 1, finding 5): an event not recorded in time is unread.
+    if (!results.has(w.id) && Date.now() > call.deadline) {
+      call.cut = true;
+      out.push({ r, entry: entry(r.ref, g.event.id, L().keyOf(g.event).address, 'unread'), event: null });
+      continue;
+    }
     if (!results.has(w.id)) results.set(w.id, await recordEvent(call, w, { slugs }));
     const result = w.id === g.event.id ? results.get(w.id) : { outcome: 'older', node: results.get(w.id).node };
     out.push({ r, entry: entryOf(r.ref, g.event, result), event: g.event, winner: w.id === g.event.id });
@@ -430,7 +442,8 @@ async function importGraph(call, start) {
       // Read earlier in the call as another graph's node: its relationships are made again with every graph followed
       // since, as if read now.
       const again = await recordEvent(call, before.event, { slugs, again: true });
-      if (before.entry.outcome === 'unchanged' && again.outcome === 'updated') before.entry.outcome = 'updated';
+      if (again.outcome === 'failed') Object.assign(before.entry, { outcome: 'failed', reason: again.reason || null });
+      else if (before.entry.outcome === 'unchanged' && again.outcome === 'updated') before.entry.outcome = 'updated';
     } else {
       await read([r]);
     }
@@ -451,6 +464,8 @@ async function importGraph(call, start) {
     // 1. The letters its graph.nodes names, by address, or by id when a node's uuid is one.
     await read(nodes.map((n) => L().parseRef(n.uuid, 'address') || L().parseRef(n.uuid, 'id')).filter(Boolean)
       .filter((x) => !letters.has(x.address || x.id)));
+    // The time ran out among them: the graph is named under next.graphs, for a later call to finish.
+    if (call.cut && !later.includes(r.address)) later.push(r.address);
     // 2. Its relationships were made with its letter (Decision 8). 3. Each graph its graph.imports names, a level deeper.
     for (const imp of Array.isArray(g.imports) ? g.imports : []) {
       const a = isObject(imp) ? L().parseRef(imp.uuid, 'address') : null;
@@ -519,13 +534,15 @@ async function importFilter(call, filter) {
     return { n: got.length, events: timed(fresh(got)).filter((e) => e.created_at === second) };
   };
   // A full sweep may have missed some: split by kinds, then by authors; a part still full is crowded. → false when a
-  // request didn't finish.
+  // request didn't finish, or the call's time ran out first.
   const judge = async (p) => {
     if (!full(p.n)) return true;
     const several = (list) => (Array.isArray(list) && list.length > 1 ? list : null);
     const kinds = several(base.kinds);
     const authors = several(base.authors);
     const part = async (extra) => {
+      // The call's time holds here too (review round 1, finding 5): the second stays unfinished, for next.until.
+      if (Date.now() > call.deadline) return null;
       const s = await sweep(p.second, extra);
       if (!s) return null;
       p.events.push(...s.events);
