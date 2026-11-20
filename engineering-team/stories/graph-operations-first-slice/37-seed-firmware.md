@@ -82,7 +82,9 @@ As the owner, I want my instance to say which firmware it has installed, and whe
 ## Acceptance criteria
 
 - [ ] **AC1 — Install the firmware the instance carries, unsigned.** Given an instance whose graph holds no firmware, with Neo4j's uniqueness rules in place (fact 12), when the caller calls `POST /api/tapestry/lifecycle/seed-firmware`:
-  - **The nodes.** The graph holds what today's install makes from the same files (fact 1). Each node is at the address today's install gives it, under the instance's assistant's pubkey (ADR 0043, Decision 1). It carries the labels, tags and JSON that today's install's node carries, apart from `NostrEvent` and `id` (fact 7). The one exception is five schemas (`word`, `graph`, `property`, `relationship` and `dog`): each is installed as its file says, without the values today's pass 3b copies into it from the graph (ADR 0037, Decision 5).
+  - **The nodes.** The graph holds what today's install makes from the same files (fact 1). Each node is at the address today's install gives it, under the instance's assistant's pubkey (ADR 0043, Decision 1). It carries the labels, tags and JSON that today's install's node carries, apart from `NostrEvent` and `id` (fact 7). There are two exceptions:
+    - five schemas (`word`, `graph`, `property`, `relationship` and `dog`), each installed as its file says, without the values today's pass 3b copies into it from the graph (ADR 0037, Decision 5);
+    - three concept graphs (`node-type`'s, `graph-type`'s and `validation-tool-type`'s), which keep the form create-concept gives them, not the one today's pass 1c flattens them to (ADR 0037, Amendment 1).
   - **The relationships** between those nodes are today's install's, made in today's install's order.
   - **The six community-reference headers** each carry the firmware's `pointer` b.
   - **Nothing is signed.** Nothing is written to any relay, the instance's own included, and no guard runs (the bootstrap path).
@@ -115,7 +117,7 @@ As the owner, I want my instance to say which firmware it has installed, and whe
 - [ ] **AC7 — What it refuses, and how it reaches agents.**
   - **It refuses,** changes nothing, and says in words what was wrong, naming the input or the file:
     - a `version` the instance doesn't carry (it names the one it carries);
-    - firmware files it can't read, or that don't hold together: a file missing, a file that isn't JSON, or a concept named that the firmware doesn't define. Nothing is written until every file has been read and checked, as nothing is written until every letter of a release has been (ADR 0043, Decision 4). So the instance keeps the firmware it had;
+    - firmware files it can't read, or that don't hold together: a file missing, a file that isn't JSON, or a concept an enumeration names that the firmware doesn't define. An existing node or set naming one is skipped, as today (ADR 0037, Amendment 1). Nothing is written until every file has been read and checked, as nothing is written until every letter of a release has been (ADR 0043, Decision 4). So the instance keeps the firmware it had;
     - while another lifecycle job runs, and when the graph can't be reached.
   - **Who it's for.** It is for the owner and admins (open question 1). A caller who isn't signed in is refused with 401, and a signed-in person who is neither with 403.
   - **How it's reached.** It is listed for agents and has its `/docs` entry, both made from its declaration. Someone with a shell inside the instance runs `tapestry lifecycle seed-firmware` with the same inputs, with no sign-in, and gets the route's answers.
@@ -179,6 +181,11 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 
 - **AC1:** the five schemas pass 3b fills are installed as their files say (Decision 5). ADR 0019 sends that pass to rule 10, its values come from the graph, and its `word` conditionals are P-156's.
 - **AC4:** a relationship the last seed-firmware install made, which the firmware no longer makes, is taken out, and on first contact a missing one is `kept` until taken (Decision 8).
+
+**Changed at Test Design** (the owner's rulings on the Tester's five findings, as proposed, 2026-11-20; ADR 0037, Amendment 1):
+
+- **AC1:** a second exception, three concept graphs that today's pass 1c flattens. The target also matches today's install in two places the ADR hadn't named: pass 2's primary-property fold, and `nostr-event-tag`'s core nodes at its name's slug. And it prunes in one fixed order, by address, where today's install's order depends on Neo4j's.
+- **AC7:** a concept the firmware doesn't define refuses only when an enumeration names it. The manifest's dog-breeds existing nodes name two such example concepts, which are skipped, as today.
 
 **For Architecture, not this gate** (answered by ADR 0037):
 
