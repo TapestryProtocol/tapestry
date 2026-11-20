@@ -3,8 +3,8 @@
 **Id:** 2026-11-17-word-wordtypes-conditionals-contradict-themselves
 **Type:** bug
 **Opened:** 2026-11-17 (story graph-operations-first-slice #42's live check, on a scratch stack, LC1b and LC7c)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-20 — story graph-operations-first-slice #46. The manifest's `concept-headers` enumeration turns `enforce-wordType-conditionals` off (`firmware/versions/v1.0.0/manifest.json:408`), so install's enumeration step no longer writes the pair for `word.wordTypes`. The allowed list and the set conditional stay. Of the fix shapes below, the third; the owner chose to drop the pair, since corrected it would read "if the list contains X, the list contains X" and check nothing. An instance's `word` schema changes at its next firmware reinstall, whose Pass 2 rewrites the schema from firmware's file before the enumeration step; `apply-enumerations` run alone leaves pairs already written. Those reinstalls are ledger row `2026-11-20-word-wordtypes-switch-awaits-firmware-reinstall`.
 
 **What was seen.** Firmware's `word` schema file has one `allOf` entry (the set conditional). The schema a firmware install leaves in the graph has 83. Install adds a Forward and a Reverse conditional for each concept key that the manifest's `concept-headers` enumeration sends to `word.wordTypes` (`firmware/versions/v1.0.0/manifest.json`: `concept: "word"`, `source-path: "conceptHeader.oKeys.singular"`, `destination-path: "word.wordTypes"`, `enforce-wordType-conditionals: true`).
 - **Where they come from.** `generateWordTypeConditionals` (`src/api/normalize/index.js:6029–6125`) was written for a concept's own scalar field, such as `dog.breed`:

@@ -405,7 +405,7 @@
                     "concept": "word",
                     "source-path": "conceptHeader.oKeys.singular",
                     "destination-path": "word.wordTypes",
-                    "enforce-wordType-conditionals": true
+                    "enforce-wordType-conditionals": false
                 }
             ]
         },

@@ -81,6 +81,13 @@ As the owner, or an agent working the graph, I want the `word` schema an install
 - **Where done stops.** Settled at approval: done is the fix proven on a scratch stack and merged to staging. Each instance's reinstall is a later step, on the owner's yes.
 - **Which of the two ways that drop the pair.** For whoever builds it.
 
+## Deviations
+
+- **The fix is the manifest's switch alone, with no guard in the code.** That follows the owner's ruling ("leave it at that") and the test plan's W5b, which keeps the Firmware Explorer page, showing the switch, true to what install writes. A later manifest entry that aimed an enumeration at `word.wordTypes` with the switch on would write the pair again.
+- **A reinstall, not the enumeration step alone, clears an instance.** Pass 2 rewrites `word`'s schema from firmware's file before the enumeration step runs. `apply-enumerations` run by itself takes old pairs out only while the switch is on, so with it off it leaves them. The reinstalls are ledger row `2026-11-20-word-wordtypes-switch-awaits-firmware-reinstall`.
+- **BIBLE §6 says what install puts in each enumerated schema** (AC5). For `word.wordTypes` that is the allowed list alone; for `dog.breed` and `graph.graphType`, also their pairs. Before, it said only that install copies the bare values.
+- **The Firmware Explorer page needed no change.** It shows each enumeration's switch from the manifest, so for `concept-headers` it now says "No — enum values only".
+
 ## Linked artifacts
 - ADR: none. Architecture was skipped as obvious, the owner's choice when approving the story (2026-11-20): what is left, turning off the manifest's switch or leaving the pair out in code, gives the same result.
 - Test plan: `engineering-team/stories/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.test-plan.md`
