@@ -1,6 +1,6 @@
 # Story 45: a property hangs under one parent — `rules check` finds a property hung twice, `rules repair` takes off the extra link to its JSON schema, and the old routes stop making them
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-19
 **Type:** Bug
 **Loom:** A10.31.a — https://loom.brainstorm.world/t/A10.31.a
@@ -84,6 +84,30 @@ For Architecture, not this gate:
 - **The two old routes:** how create-property finds the primary property, and what its new address means for a name it made before under the old address.
 - **The answers' and the change entry's shapes,** and the refusals' codes and statuses.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-20), each too small for an ADR amendment:
+
+- **`changed-since-check` names the finding as it is now by its id, in its message.** A refusal's answer carries only `error`, `code` and a few named extras (`rule`, `input`, `candidates`, `more`; `src/operations/refusal.js`), so ADR 0045 Decision 6's "giving the finding as it is now" is the current id and the rule's own message, in words.
+- **`firmware-concept` names `firmwareOverride` as its input.** That is the input to change. A scope repair lists such a finding in `left`, with "call again with firmwareOverride: true" as the way on.
+- **`fixed[].node` and `left[].node` are the node as reads answer one** (`tapestryKey`, `name`, `address`, `author`, `own`), as check's findings are. Decision 6 left the shape open.
+- **A parent's `concept`, when it belongs to several, is the node's own concept first,** else the first by tapestryKey; `ofItsConcept` is true when any of them is the node's own.
+- **The graph scope lists properties by `(p:Property)-[:IS_A_PROPERTY_OF]->(x:TapestryNode)`.** Every node carries the shared label once `tapestry-keys` has run, which every instance's operations need.
+- **The old enumerate route hangs a property it makes under the primary property with no relationship event,** as `create-property` and `generate-property-tree` hang theirs. Its refusal of a concept with no primary property is the route's own style, `{ success: false, error }` at status 200, and so is create-property's (D15).
+- **The old create-property route's answer keeps its shape:** `property.targetUuid` and `targetName` now name the primary property for a top-level property, and its message says "wired to" that.
+- **The live checks (test plan L1–L4) ran on a scratch stack** (`scripts/scratch-stack.sh` from `agent-memory-tapestry:latest`, this checkout's `src/` mounted, the branch's firmware copied in) on 2026-11-20, and all passed. The record is in the main checkout's `tmp/live-check-45/`. They differed from the plan in two ways:
+  - **L1 ran through the internal command** (`tapestry rules check`, and the rest, inside the container), since the scratch container publishes no ports. The external CLI's run is XR1's, stack-free.
+  - **L2 restored onto the same scratch instance.** It took the backup after the repair, put the tangle back, restored, and found nothing; it didn't use a second, fresh instance.
+
+  A fresh install's whole graph judged 40 properties and found nothing, so firmware itself breaks no part of the rule.
+
+  The first run stopped at L3's last step: its query looked for the graph rule item by an address that lacks the install's suffix (`property-has-one-parent-e58d7c7f`). The query was fixed to look by name, and the run resumed at that step (`live-resume.log`); L1, L2 and L3's first two steps weren't run again. So AC8's "external CLI on a scratch stack" is met in two halves: XR1 drives the external CLI, stack-free, and L1 runs the same steps on real Neo4j, inside the container. Its "backup restored on a fresh instance" is met on the same instance (L2). The owner ratified both at review round 2 (2026-11-20).
+- **Review round 1's non-blocking 3 and 4 stay as known limits.**
+  - A violation whose node no longer exists, or one written with a key's letters in upper case, answers `nothing-to-repair`, as Decision 6 says of a node with no finding.
+  - A scope repair's `left` lists every finding it leaves, with no cap: on a graph where old routes left many, the answer is long.
+
+  Neither changes what is written. A cap and paging for `left` would be A10.31's, with `rules check`'s paging as its model.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and Ledger bullets)
@@ -94,5 +118,5 @@ For Architecture, not this gate:
 - The property writes it unblocks: [engineering-team/decisions/graph-operations-first-slice/0018-property-operations.md](../../decisions/graph-operations-first-slice/0018-property-operations.md)
 - The enumerate operation and the case's first record: [19-enumerate.md](./19-enumerate.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0045-property-has-one-parent.md](../../decisions/graph-operations-first-slice/0045-property-has-one-parent.md)
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [45-property-has-one-parent.test-plan.md](./45-property-has-one-parent.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/45-property-has-one-parent.md](../../reviews/graph-operations-first-slice/45-property-has-one-parent.md)

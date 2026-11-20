@@ -10,8 +10,12 @@
  *   refuses     true for a guard that refuses a write; false for one that only reports (design §5, question 3)
  *   refusals    [{ code, status (4xx), when }]: what a write that breaks it is refused with
  *   violations  async (items, read) => [{ item, code, message }] — the rule's one definition. The write path calls it
- *               as a guard, with the write's items and its transaction's read; rules check (A10.31) will call it as a
- *               check, with a read session and the items it scans.
+ *               as a guard, with the write's items and its transaction's read; rules check (A10.31) calls it as a
+ *               check, with a read session and the items its scan lists. A finding may carry more than these three.
+ * and, optionally (story graph-operations-first-slice #45, ADR graph-operations-first-slice/0045 Decision 2):
+ *   scan        async (read, scope) => items — the items a check over `scope` judges: { kind: 'graph' },
+ *               { kind: 'concept', key } or { kind: 'node', key }. It lists; it never judges. rules check runs only a
+ *               rule that has one.
  *
  * The loader reads the folder once. A rule that breaks a rule above is left out and reported, and a guard that names
  * it makes its declaration invalid. Loading opens nothing (ADR graph-operations-foundation/0001 Decision 10): a rule
@@ -43,6 +47,7 @@ function problemsOf(rule, name) {
     }
   }
   if (typeof rule.violations !== 'function') problems.push('it has no violations(items, read)');
+  if (rule.scan !== undefined && typeof rule.scan !== 'function') problems.push('its scan, when it has one, must be a function scan(read, scope)');
   return problems;
 }
 

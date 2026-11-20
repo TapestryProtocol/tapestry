@@ -209,6 +209,24 @@ In `handleCreateProperty` (`src/api/normalize/index.js:3468`):
 - **On david.tapestry.ninja,** once the change reaches it and on the owner's yes: `tapestry-zeus rules check --scope graph`, then `tapestry-zeus rules repair --violation <id>` for grok bot's `project`, then `tapestry-zeus graph delete-node --node 55641f3d-db36-4359-98d3-cd7528cec4d8`, then a check again.
 - **Branches:** staging only. The change reaches the hosted instances from staging, and production waits for the owner's OK (the book's frame).
 
+## Amendment 1 — check says what repair will do with another author's concept (Test Design, 2026-11-20; accepted by the owner)
+
+Mapping AC2 to tests found a gap. As Decision 1 was written, a finding's `fix` depended on the tree's shape alone, so `rules check` would offer a fix for a property in another author's concept that `rules repair` then leaves (Decision 7). AC2 asks check for "the repair that fixes it, or that none does and why".
+
+So a finding in a concept that isn't the instance's own (its header's author isn't the instance's assistant), firmware's aside, carries `fix: null` and a `choice` saying the tree is that author's claim (D4). This covers another author's concept and one under the owner's own key. Decision 1's fix rule gains that condition. Decision 7's other-author case stays in the repair as a guard, and is never reached through check's findings. Firmware's findings keep their `fix`, marked `firmware: true`, as Decision 3 says.
+
+## Amendment 2 — the old routes refuse an address another node holds (review round 1, 2026-11-20; ratified by the owner at review round 2: a refusal, not the nonce)
+
+Decisions 11 and 12 give a property the old routes make its parent's address: `childDTag(name, parent's address)`, BIBLE §6's rule. That rule slugs the name, so names that slug alike, such as `first_name` and `first-name`, share an address under one parent. Neither route's duplicate check sees it: create-property compares names exactly, and enumerate ignores only case.
+
+The routes then sign an event at an address another node already holds, and `importEventDirect` takes that node over. It deletes every tag the node has, its `json` included, and the route answers that it created the property. Review round 1 reproduced this on a node `graph add-property` made with no event. That loses graph state the instance made, which BIBLE §30 forbids.
+
+Before Decisions 11 and 12, the old routes took every address from the `property` concept. Only their own nodes used those addresses, so the risk was new with them.
+
+So both routes, before they sign anything, read whether a node holds the new property's address. If one does, they refuse, `{ success: false, error }` at status 200 in the routes' style (D15), naming that node and its address, and nothing is signed or written. The way on is to use that property, or to choose a name that slugs differently.
+
+The other choice was the property writes' versioning nonce (`~1` to `~99`, ADR 0018 Decision 5), so a slug-alike name becomes a second node. That keeps the call working, but it leaves two near-namesakes under one parent. A refusal is the cheap fix D15 allows, and it changes nothing that exists. Tests OR8 and OR9.
+
 ## Out of scope
 
 - `rules list-rules`, and `scan` for the other rules (A10.31).
