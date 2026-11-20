@@ -144,13 +144,43 @@ For Architecture, not this gate (answered by ADR 0032):
 - **Reading:** one relay at a time, timeouts, the per-request cap and a crowded second, and many ids in one request.
 - **Role labels** from word types (AC2), and a foreign header as `ListHeader` beside BIBLE §22's `ConceptHeader`.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-20), each too small for an ADR amendment:
+
+- **The event's node is made with `CREATE`, not `MERGE`** (Decision 7.5), once the same transaction found no node at its key or with its id. Two imports of one event still make one node: the second's `CREATE` fails `nostrEvent_uuid` once the first commits, and Decision 7.9's second run then finds the node and answers `unchanged`. A `MERGE` there would match the first's node after the second had already read the graph as empty, and write it as a new event over a version it never compared.
+- **An address placeholder is a `CREATE` too**, made only when the transaction's lookup by `NostrEvent|TapestryNode` found no node at the address (Decision 8's "only when no node holds it"). A `MERGE (p:NostrEvent {uuid: …})` would need the adoption `tapestry-key-paths.test.js` G9 asks of every such `MERGE`, which can't apply when nothing is there; one another import made meanwhile fails the uniqueness rule, and the event runs again. A placeholder by id stays a `MERGE` on `id`.
+- **Four lines name `NostrEvent` alone,** each "about the event": the lookup by id, the event's `CREATE`, and the two placeholders. Each is listed, with why, in `test/operations/lifecycle/nostr-event-lookups-kept.json`, the registry G11 and G18 read, as earlier implementations added theirs; no test changed. Every lookup by address names `NostrEvent|TapestryNode`.
+- **The `z` wiring leaves out the instance's own nodes** (`WHERE m.pubkey IS NOT NULL AND NOT m.pubkey IN $own`). Decision 8's wiring reaches "every node whose z tag names the header"; AC6 and Decision 7.2 leave an own node as the owner made it, and IW6 counts no new `HAS_ELEMENT` into one, so an import's `IS_THE_CONCEPT_FOR` doesn't hang one of the instance's own nodes under a foreign concept. An own letter recorded with no node there (IW5) still makes its own `z` claim.
+- **A graph's `graphs` entry can also be `invalid`** (its letter doesn't verify) **or `unread`** (its request didn't finish; it is named under `next.graphs` too), beside Decision 6's `followed`, `not-found` and `unreadable`.
+- **`ref` for a graph's letters** is the address or id the graph listed (the graph's own for its element), since that is what the call asked the relay for; a filter's events have `ref: null` (Decision 11 gives `ref` for ids and addresses).
+- **A graph letter read first as another graph's node, then followed,** is recorded again when followed, so its `graph.relationships` resolve through every graph followed by then (Decision 6, step 2); its one entry takes the later outcome when the first was `unchanged`. No suite meets this order.
+- **The 40 s budget covers ids and addresses too:** a request not sent in time leaves its refs `unread`.
+- **A filter's pages and sweeps each ask `limit: 500`;** the filter's own `limit` is the call's cap (the plan leaves this unpinned). An event with no whole-number `created_at` is answered `invalid` at once, since it has no second to page by.
+- **A newer replaceable version blocked by today's per-version node.** When a node today's builder keyed by the newer version's id holds it, and an older version holds the address, recording the newer one breaks `nostrEvent_id` and answers `failed` after the second run. Decision 7.4 leaves such a node where it is; the ledger row below lists it.
+- **The ledger row** for today's builders' faults (ADR 0032, Consequences) is `2026-11-20-todays-importers-keep-their-faults`, typed `bug`; catalog §5 cites it.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-20, on `3af64502` with the implementation uncommitted)
+
+Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER_PORT` unset, `TAPESTRY_CONTAINER=no-such-container`, and stub `curl` and `docker` first on `PATH` (`tmp/a10-32/env.sh`). None failed:
+- **This story's,** with each one's time: `nostr` 14 passed (1.1 s), `nostr-record` 15 (1.1 s), `nostr-order` 11 (5.0 s), `nostr-own` 7 (2.0 s), `nostr-graph` 10 (0.8 s), `nostr-filter` 8 (1.3 s), `nostr-relay` 7 (23.8 s: two of its cases wait out Decision 2's 10 s), `nostr-agent-through-cli` 1 (1.5 s), `nostr-live` 0 passed and 6 skipped (its live checks: the variable names no scratch container), and `cypher-engine` 11 (0.1 s). About 37 s in all, which CI's stack-free job gains in its `operations` entry.
+- **`tapestry-key-paths`** 20 passed (0.7 s), with this story's four lines that name `NostrEvent` alone listed in `nostr-event-lookups-kept.json` (Deviations).
+- **The scoped gate,** CI's five entries for an operations change through `test/helpers/gateRunner.js` (`tmp/a10-32/gate.sh`): record `20261120T140500Z-7070-17fd`, PASS, 1,351 passed, 0 failed, 12 skipped (live tests among them, `nostr-live`'s six), the `operations` entry in 240 s. An earlier run, `20261120T135720Z-98640-7208`, failed one test of 1,363: external-cli's SK3, since the skill's new line showed `tapestry import nostr`, which the CLI's tables don't hold as a command of their own. The line now names the operation as `import nostr`. The code changed after that run too: the recorder reads a node's integers as numbers (Neo4j hands them back as the driver's `Integer`), and a placeholder's merge counts rows.
+- **harness-lint:** clean.
+
+### The live check
+
+(To be recorded by the session that runs it on a scratch stack from `scripts/scratch-stack.sh`: LV1–LV6 in `test/operations/import/nostr-live.test.js`, and LH1–LH3 by hand, as the test plan's "The live check" lists them.)
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
 - Epic: [engineering-team/epics/graph-operations-first-slice.md](../../epics/graph-operations-first-slice.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D4, D5, D7, D12, D15); catalog §5, Import, and §9
 - Loom memos on A10.32: #129 (50,000 results as a graph) and #130 (the import-order problem confirmed); on A10.34: #133 (own letters)
-- Ledger rows: [2026-09-27-bible-s6-relationship-name-drift](../../../ledger/2026-09-27-bible-s6-relationship-name-drift.md); OPEN.md rows 136 and 142
+- Ledger rows: [2026-09-27-bible-s6-relationship-name-drift](../../../ledger/2026-09-27-bible-s6-relationship-name-drift.md); [2026-11-20-todays-importers-keep-their-faults](../../../ledger/2026-11-20-todays-importers-keep-their-faults.md) (written in Implementation); OPEN.md rows 136 and 142
 - The test of whose node it is: [26-delete-node.md](./26-delete-node.md), [21-update-node.md](./21-update-node.md); the point of view: [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
 - The write path: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
