@@ -82,7 +82,7 @@ As the owner, I want my instance to say which firmware it has installed, and whe
 ## Acceptance criteria
 
 - [ ] **AC1 — Install the firmware the instance carries, unsigned.** Given an instance whose graph holds no firmware, with Neo4j's uniqueness rules in place (fact 12), when the caller calls `POST /api/tapestry/lifecycle/seed-firmware`:
-  - **The nodes.** The graph holds what today's install makes from the same files (fact 1). Each node is at the address today's install gives it, under the instance's assistant's pubkey (ADR 0043, Decision 1). It carries the labels, tags and JSON that today's install's node carries, apart from `NostrEvent` and `id` (fact 7).
+  - **The nodes.** The graph holds what today's install makes from the same files (fact 1). Each node is at the address today's install gives it, under the instance's assistant's pubkey (ADR 0043, Decision 1). It carries the labels, tags and JSON that today's install's node carries, apart from `NostrEvent` and `id` (fact 7). The one exception is five schemas (`word`, `graph`, `property`, `relationship` and `dog`): each is installed as its file says, without the values today's pass 3b copies into it from the graph (ADR 0037, Decision 5).
   - **The relationships** between those nodes are today's install's, made in today's install's order.
   - **The six community-reference headers** each carry the firmware's `pointer` b.
   - **Nothing is signed.** Nothing is written to any relay, the instance's own included, and no guard runs (the bootstrap path).
@@ -99,7 +99,8 @@ As the owner, I want my instance to say which firmware it has installed, and whe
   - one the source no longer has is left as it is, and reported `not-in-source`. Nothing is deleted;
   - what the instance added stays as it is: its own elements and sets under firmware concepts, and its links to and from firmware nodes, a direct link from a firmware superset that today's install prunes included (fact 2);
   - **a node today's install made** has no install record yet. When it matches the source, it gets its record and is `unchanged`. When it differs, it is `kept`, reported as having no record of what was installed (open question 2);
-  - **the caller can take the firmware's version on purpose:** a call can name kept nodes, or ask for all of them, to bring in line anyway. Each is then reported `changed`, and its record moves forward (open question 3).
+  - **the caller can take the firmware's version on purpose:** a call can name kept nodes, or ask for all of them, to bring in line anyway. Each is then reported `changed`, and its record moves forward (open question 3);
+  - **relationships:** one the last seed-firmware install made that the firmware no longer makes is taken out, and nothing else is. On first contact, a relationship the firmware makes that is missing is `kept`, until the caller takes all (ADR 0037, Decision 8).
 - [ ] **AC5 — The graph rules follow the rulebook** (ADR 0041, Decisions 6 and 7; ADR 0043, Decision 5). Graph-rule's items are the exception to AC4:
   - each install brings every one of the assistant's items in line with its file, an edit included, and reports it `put-back`;
   - an item already in line is `unchanged`;
@@ -174,7 +175,12 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - A header with no `b` gets the firmware's `pointer` b on its node, unsigned. A `b` already there, seeded or set by an admin, is kept: ADR 0030's never-clobber rule, and ADR 0043's Decision 5.
 - Graph-rule's items follow the rulebook (ADR 0041).
 
-**For Architecture, not this gate:**
+**Changed at Architecture** (the owner's approval of ADR 0037, Option A, as drafted, 2026-11-20):
+
+- **AC1:** the five schemas pass 3b fills are installed as their files say (Decision 5). ADR 0019 sends that pass to rule 10, its values come from the graph, and its `word` conditionals are P-156's.
+- **AC4:** a relationship the last seed-firmware install made, which the firmware no longer makes, is taken out, and on first contact a missing one is `kept` until taken (Decision 8).
+
+**For Architecture, not this gate** (answered by ADR 0037):
 
 - **The install record's form** (fact 9): it is shared with copy-node. For a file, it says which file and what was installed.
 - **How an update tells an edited node,** and which parts count: JSON, name, tags, labels, and the relationships firmware makes.
@@ -186,6 +192,6 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - **Status:** where it reads the installed firmware, and its words for an instance that today's install installed.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
