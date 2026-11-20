@@ -1,6 +1,6 @@
 # Story 32: `import nostr` — record nostr events as nodes, with the claims they make as relationships
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 **Loom:** A10.32 — https://loom.brainstorm.world/t/A10.32
@@ -144,16 +144,144 @@ For Architecture, not this gate (answered by ADR 0032):
 - **Reading:** one relay at a time, timeouts, the per-request cap and a crowded second, and many ids in one request.
 - **Role labels** from word types (AC2), and a foreign header as `ListHeader` beside BIBLE §22's `ConceptHeader`.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-20), each too small for an ADR amendment:
+
+- **The event's node is made with `CREATE`, not `MERGE`** (Decision 7.5), once the same transaction found no node at its key or with its id. Two imports of one event still make one node: the second's `CREATE` fails `nostrEvent_uuid` once the first commits, and Decision 7.9's second run then finds the node and answers `unchanged`. A `MERGE` there would match the first's node after the second had already read the graph as empty, and write it as a new event over a version it never compared.
+- **An address placeholder is a `CREATE` too**, made only when the transaction's lookup by `NostrEvent|TapestryNode` found no node at the address (Decision 8's "only when no node holds it"). A `MERGE (p:NostrEvent {uuid: …})` would need the adoption `tapestry-key-paths.test.js` G9 asks of every such `MERGE`, which can't apply when nothing is there; one another import made meanwhile fails the uniqueness rule, and the event runs again. A placeholder by id stays a `MERGE` on `id`.
+- **Four lines name `NostrEvent` alone,** each "about the event": the lookup by id, the event's `CREATE`, and the two placeholders. Each is listed, with why, in `test/operations/lifecycle/nostr-event-lookups-kept.json`, the registry G11 and G18 read, as earlier implementations added theirs; no test changed. Every lookup by address names `NostrEvent|TapestryNode`.
+- **The `z` wiring leaves out the instance's own nodes** (`WHERE m.pubkey IS NOT NULL AND NOT m.pubkey IN $own`). Decision 8's wiring reaches "every node whose z tag names the header"; AC6 and Decision 7.2 leave an own node as the owner made it, and IW6 counts no new `HAS_ELEMENT` into one, so an import's `IS_THE_CONCEPT_FOR` doesn't hang one of the instance's own nodes under a foreign concept. An own letter recorded with no node there (IW5) still makes its own `z` claim.
+- **A graph's `graphs` entry can also be `invalid`** (its letter doesn't verify) **or `unread`** (its request didn't finish; it is named under `next.graphs` too), beside Decision 6's `followed`, `not-found` and `unreadable`.
+- **`ref` for a graph's letters** is the address or id the graph listed (the graph's own for its element), since that is what the call asked the relay for; a filter's events have `ref: null` (Decision 11 gives `ref` for ids and addresses).
+- **A graph letter read first as another graph's node, then followed,** is recorded again when followed, so its `graph.relationships` resolve through every graph followed by then (Decision 6, step 2); its one entry takes the later outcome when the first was `unchanged`. No suite meets this order.
+- **The 40 s budget covers ids and addresses too:** a request not sent in time leaves its refs `unread`.
+- **A filter's pages and sweeps each ask `limit: 500`;** the filter's own `limit` is the call's cap (the plan leaves this unpinned). An event with no whole-number `created_at` is answered `invalid` at once, since it has no second to page by.
+- **A newer replaceable version blocked by today's per-version node.** When a node today's builder keyed by the newer version's id holds it, and an older version holds the address, recording the newer one breaks `nostrEvent_id` and answers `failed` after the second run. Decision 7.4 leaves such a node where it is; the ledger row below lists it.
+- **The ledger row** for today's builders' faults (ADR 0032, Consequences) is `2026-11-20-todays-importers-keep-their-faults`, typed `bug`; catalog §5 cites it.
+
+Judgment calls made in review round 1's fixes (2026-11-20), each too small for an amendment:
+
+- **The dropped connection (blocking 1) is closed two ways.** `request()` sends nothing on a connection nostr-tools no longer holds open (`relay.connected === false`), so the rest of the call's requests answer `unread` at once. And `connect` replaces the relay instance's `send` with one whose rejection is caught and ends that relay's open requests (`closeAllSubscriptions`), so the rejection that `Subscription.fire()` and `close()` leave unawaited can't reach the process. In nostr-tools 2.10.4 the check and `send`'s own check of `connectionPromise` run in the same synchronous turn, and the two are set and cleared together, so the guard covers what that relies on: another version's timing, or any other path to an unawaited `send`. A process-wide `unhandledRejection` handler was not used: it would also swallow every other module's failures in the control panel.
+- **A request keeps at most its filter's `limit`:** pages and sweeps, which ask 500. A request for ids or addresses carries no `limit` (Decision 2's shapes) and keeps what the relay sends before its end, as before.
+- **A graph cut short by the time** answers its nodes not recorded `unread` and is also named under `next.graphs`, so a later call can finish it; such a graph is both `followed` and named under `next`.
+- **The rules' precondition in BIBLE §6** names all five, and says that Install Firmware waits for the first four, while `tapestry_key` comes from `lifecycle migrate --migration tapestry-keys`: `expectedNeo4jSchema.js` lists only the four, and `tapestry-key-paths.test.js` G12 pins that install doesn't wait for `tapestry_key`. ADR 0032's Decision 13 note says the same since `31899132`.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-20, on `3af64502` with the implementation uncommitted)
+
+Each ran alone on this Mac with every service endpoint dead, `TAPESTRY_CONTAINER_PORT` unset, `TAPESTRY_CONTAINER=no-such-container`, and stub `curl` and `docker` first on `PATH` (`tmp/a10-32/env.sh`). None failed:
+- **This story's,** with each one's time: `nostr` 14 passed (1.1 s), `nostr-record` 15 (1.1 s), `nostr-order` 11 (5.0 s), `nostr-own` 7 (2.0 s), `nostr-graph` 10 (0.8 s), `nostr-filter` 8 (1.3 s), `nostr-relay` 7 (23.8 s: two of its cases wait out Decision 2's 10 s), `nostr-agent-through-cli` 1 (1.5 s), `nostr-live` 0 passed and 6 skipped (its live checks: the variable names no scratch container), and `cypher-engine` 11 (0.1 s). About 37 s in all, which CI's stack-free job gains in its `operations` entry.
+- **`tapestry-key-paths`** 20 passed (0.7 s), with this story's four lines that name `NostrEvent` alone listed in `nostr-event-lookups-kept.json` (Deviations).
+- **The scoped gate,** CI's five entries for an operations change through `test/helpers/gateRunner.js` (`tmp/a10-32/gate.sh`): record `20261120T140500Z-7070-17fd`, PASS, 1,351 passed, 0 failed, 12 skipped (live tests among them, `nostr-live`'s six), the `operations` entry in 240 s. An earlier run, `20261120T135720Z-98640-7208`, failed one test of 1,363: external-cli's SK3, since the skill's new line showed `tapestry import nostr`, which the CLI's tables don't hold as a command of their own. The line now names the operation as `import nostr`. The code changed after that run too: the recorder reads a node's integers as numbers (Neo4j hands them back as the driver's `Integer`), and a placeholder's merge counts rows.
+- **harness-lint:** clean.
+
+### Review round 1's fixes (2026-11-20, on `e90d94e1` with the fixes uncommitted)
+
+Each suite alone, as above (`tmp/a10-32/env.sh`):
+- **This story's,** with each one's time: `nostr` 15 passed (1.4 s), `nostr-record` 15 (1.1 s), `nostr-order` 11 (5.0 s), `nostr-own` 7 (2.0 s), `nostr-graph` 12 (2.0 s), `nostr-filter` 10 (2.8 s), `nostr-relay` 8 passed and 1 failed (9.7 s, IL5 and IL6 now waiting the 1.5 s their `REQUEST_MS` sets), `nostr-agent-through-cli` 1 (1.5 s), `nostr-live` 6 skipped, `cypher-engine` 12 (0.4 s). Of round 1's seven tests, IL8, IN15, IF9, IF10, IG11 and IG12 pass.
+- **IL9 fails on the test's side, and is back with the Tester.** Its first two assertions pass (read on the retry, two handshakes) and so does its time (the connect gives up at the 300 ms set in `reader.CONNECT_MS`). Its third asks the suite's live server to log the timed-out handshake's socket closed, which that server can't see:
+  - it holds the `upgrade` socket without reading it, and Node then never reads a client's FIN;
+  - a client RST would be seen, but it kills the server's process (`UNCAUGHT ECONNRESET`), since that socket has no `error` listener.
+  
+  Against a raw TCP server that reads its sockets, `_relay.js`'s `open()` ends each timed-out handshake's socket with a FIN at about 320 ms, and the retry's at about 630 ms, with Node's WebSocket and with `ws` alike. The probes are in the worktree's `tmp/a10-32/il9-probes/`, with a README.
+- **`tapestry-key-paths`** 20 passed (0.8 s).
+- **The scoped gate** (`tmp/a10-32/gate.sh`): record `20261120T154152Z-96903-3644`, FAIL, 1,358 passed, 1 failed (IL9), 12 skipped, the `operations` entry in 229 s.
+- **harness-lint:** clean.
+
+### IL9's server fixed (2026-11-20, on `88e321bf`)
+
+- **The change:** the Tester's `88e321bf` makes the suite's live relay server read the handshake socket it holds, and log the client's close of it. An RST no longer crashes that server.
+- **IL9:** it now passes, and it fails against `e90d94e1`'s `_relay.js`, which shows it catches the stray socket.
+- **Each suite alone:**
+  - `nostr` 15 passed (1.6 s), `nostr-record` 15 (1.3 s), `nostr-order` 11 (5.7 s), `nostr-own` 7 (2.3 s), `nostr-graph` 12 (2.3 s), `nostr-filter` 10 (2.9 s), `nostr-relay` 9 (10.3 s), `nostr-agent-through-cli` 1 (1.7 s), `nostr-live` 6 skipped, `cypher-engine` 12 (0.5 s).
+  - That's 92 passed, in about 29 s, against round 0's 37 s.
+- **Also:** `tapestry-key-paths` 20 passed, and harness-lint is clean.
+
+### After the staging merge (2026-11-20, on `f2ab1fec`)
+
+`origin/staging` (`07d4df28`) was merged into the branch with no conflicts. That merge brought in #162 as merged and the property-has-one-parent work. The scoped gate on the merged tree, with no uncommitted changes: record `20261120T161244Z-52625-01ed`, PASS, 1,407 passed, 0 failed, 12 skipped, 5/5 suites, the `operations` entry 1,306/0/10 in 252 s.
+
+### The live check (Implementation, 2026-11-20, on `6525d2d2`)
+
+**Where it ran:**
+- On throwaway instances from `scripts/scratch-stack.sh`, booted from image `agent-memory-tapestry:latest` with this worktree's `src/` mounted. Never on a shared or private instance: every call went to a container named `tapestry-scratch`.
+- The scripts, each call's answer and the logs are in the main checkout's `tmp/live-check-32/`; `hand-calls.md` holds the calls made by hand, with their output.
+
+**How each was set up:**
+- The branch's firmware (`36600339b3b2`, 332 files) was copied over the image's (`c4c302955e90`, 319 files, none the branch lacks) and installed.
+- The branch's `bin/tapestry.js` and `clients/cli` were copied in.
+- The owner, the admin agent, a stranger and a publisher were throwaway keys (`keys.json`, mode 600).
+- The three new files' digests matched inside the container and out.
+
+**Afterwards,** `docker ps -a` listed the same containers as before the first boot, with `tapestry` up 4 days.
+
+**What it found:**
+- **Run 1: a scratch stack has none of the uniqueness rules the import relies on** (ADR 0032, Context 3).
+  - Booted 14:11:52–14:13:23 UTC, its Neo4j held one constraint, `tags_address`, which the control panel creates at boot.
+  - `nostrEvent_id`, `nostrEvent_uuid`, `nostrEventTag_uuid`, `nostrUser_pubkey` and `tapestry_key` were missing. Neither the Dashboard's fix (`POST /api/neo4j-setup-constraints-and-indexes`, which runs `setup/neo4jConstraintsAndIndexes.sh`) nor `lifecycle migrate --migration tapestry-keys` ever ran there. The scratch boot installs firmware through the API, past the Dashboard's wait for those rules.
+  - LV1, LV2, LV4, LV5 and LV6 passed. LV3 failed: two imports of one new event at once both answered 200 (`recorded`, `unchanged`) and left two nodes with the same address and id. No other address or id was held twice (`run1-lv3-evidence.txt`).
+  - Ledger row `2026-11-20-scratch-stack-lacks-uniqueness-rules`.
+- **Run 2, with the rules a set-up instance has, passed all six live tests** (`live-suite.log`).
+  - Booted again at 14:20:06. The Dashboard's fix and `tapestry-keys` ran before the branch's firmware install; `setup.log` lists the nine rules then present.
+  - LV1: memo #130's referrer by `e` before its target gave one node.
+  - LV2: the `e`-plus-`a` referrer gave one node with both references.
+  - LV3: two imports at once gave one node.
+  - LV4: a two-call filter.
+  - LV5: a private relay refused for the direct-local caller.
+  - LV6: 300 letters with three tags each recorded in 2.25 s (133 a second), `next` null.
+- **The race, ten more times** (`race.log`, `race.json`). Two imports of one new letter were fired from one node process in the container, the second 0 to 400 ms after the first. Every run left one node, with one `recorded` answer (one change entry) and one `unchanged` (none).
+  - The first import finished in 11–38 ms, so only the two runs at 0 ms overlapped. The other eight, at 25 ms and up, were repeats rather than races (review round 1, non-blocking 8).
+  - So three overlapping trials passed with the rules (runs 0 and 1, and LV3). Run 1's two nodes show that LV3's pair does overlap.
+- **LH1, the agent's sequence through the external CLI** (`hand-calls.md`, calls 01–10). The agent was the admin with its own key, going through the container's nginx, with no change to the CLI. It:
+  - signed in (`role: admin`);
+  - ran `import nostr --graph 39999:<david.tapestry.ninja's assistant>:dog-concept-graph --relay wss://david.tapestry.ninja/relay`. That recorded 8 letters at that instance's addresses in 1.6 s, with 8 change entries: the graph element, the header, the superset, the property tree graph, the core nodes graph, the JSON schema, the primary property and the properties set. All three graphs were followed (depths 0, 1, 1);
+  - found it wired as the graphs list (`graph list-relationships`, `pov everyone`): the header's `IS_THE_CONCEPT_FOR` to the superset, the six core-wiring relationships into the header, and the primary property's `IS_A_PROPERTY_OF` to the JSON schema, each node authored by that instance's person node;
+  - ran the same call again: all 8 `unchanged`, no change entry;
+  - imported a referrer by id (its `e` naming an addressable target not yet held), then the target by address, both from the scratch relay. Each was `recorded`. One node stands at the target's address holding its id, and the referrer's `e` tag node (`<referrer id>_0`) `REFERENCES` it;
+  - imported a filter in two calls from david.tapestry.ninja's relay, `limit` 5: 5 recorded with `next.until` 1794813851, then 6 more from there (it finished its last second), none twice;
+  - was refused `--relay ws://10.0.0.1` with `private-relay`, nothing changed.
+- **LH2, a call through nginx at the caps.**
+  - The agent's filter for every kind-39999 letter of david.tapestry.ninja's assistant read 552 letters in 37.4 s, inside nginx's 60 s: 534 recorded, 18 unchanged, nothing crowded, `next` null.
+  - A page of 500 of those letters (1.1 MB, 6.1 tags each) took 0.9 s from this Mac, so nearly all the time was recording: about 15 real letters a second, against LV6's 133.
+  - That is below the 25 a second that Decision 12's 1,000 letters in 40 s would need. For letters like these, the 40 s budget ends a call before the 1,000 cap, with `next.until`, so no cap needed lowering.
+- **LH3:** after the run, the scratch relay held no letter by david.tapestry.ninja's assistant and none of the stream consumer's kinds, and strfry-router was stopped (`lh3.log`). The 12 letters the throwaway publisher sent there on purpose were counted, which shows the count works.
+- **Plans (`EXPLAIN`, kept in `explain.txt`):**
+  - The lookup at an address seeks both `NostrEvent(uuid)`'s unique index and `TapestryNode(uuid)`'s.
+  - The `z` wiring scans every `NostrEventTag` (7,685 on the scratch), since tag values have no index; `wire-implicit-elements` has the same match.
+  - Ledger row `2026-11-20-z-wiring-scans-every-tag-node`.
+- **The control panel's error log** held only two lines, both from the boot before Neo4j listened (`brainstorm-error.log`).
+
+### The live check again, on the fixed code (2026-11-20, on `88e321bf`)
+
+**Where it ran:** a fresh scratch stack, booted 15:52:39 UTC, with the rules applied before the branch's firmware, as on run 2. The new `nostr.js` and `_relay.js` matched inside the container and out. Its records are in the main checkout's `tmp/live-check-32/rerun/` and `hand-calls.md`.
+
+**What it showed:**
+- **The live suite:** LV1–LV6 all passed (`rerun/live-suite.log`). LV6 recorded 300 letters in 1.9 s, 157 a second.
+- **The agent's calls through the external CLI:**
+  - dog's concept graph from david.tapestry.ninja's relay: 8 recorded in 1.7 s;
+  - the same call again: 8 `unchanged`;
+  - `--relay ws://10.0.0.1`: refused, `private-relay`;
+  - the filter for every kind-39999 letter of that instance's assistant: 552 letters (545 recorded, 7 unchanged) in 37.4 s, `next` null.
+- **Review round 1's blocking case, live** (`rerun/drop.js`, `drop.json`, `drop-continue.json`):
+  - 600 letters by the throwaway publisher were published to the scratch relay.
+  - One node process in the container imported them by filter from the instance's own relay and restarted strfry 1.5 s in. `supervisorctl` finished the restart at 2.6 s.
+  - The import answered 200 at the drop, with 499 recorded and `next.until`.
+  - The control panel kept its pid (4349 before and after).
+  - Going on from `next.until` recorded the other 101, with `next` null. All 600 are in the graph.
+- **Afterwards,** `docker ps -a` listed the same containers as before the first boot.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
 - Epic: [engineering-team/epics/graph-operations-first-slice.md](../../epics/graph-operations-first-slice.md)
 - Design: [docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md](../../../docs/GRAPH_OPERATIONS_DESIGN_HANDOFF.md) (D4, D5, D7, D12, D15); catalog §5, Import, and §9
 - Loom memos on A10.32: #129 (50,000 results as a graph) and #130 (the import-order problem confirmed); on A10.34: #133 (own letters)
-- Ledger rows: [2026-09-27-bible-s6-relationship-name-drift](../../../ledger/2026-09-27-bible-s6-relationship-name-drift.md); OPEN.md rows 136 and 142
+- Ledger rows: [2026-09-27-bible-s6-relationship-name-drift](../../../ledger/2026-09-27-bible-s6-relationship-name-drift.md); [2026-11-20-todays-importers-keep-their-faults](../../../ledger/2026-11-20-todays-importers-keep-their-faults.md) (written in Implementation); from the live check, [2026-11-20-scratch-stack-lacks-uniqueness-rules](../../../ledger/2026-11-20-scratch-stack-lacks-uniqueness-rules.md), [2026-11-20-z-wiring-scans-every-tag-node](../../../ledger/2026-11-20-z-wiring-scans-every-tag-node.md) and [2026-11-20-ci-gate-outgrows-its-timeout](../../../ledger/2026-11-20-ci-gate-outgrows-its-timeout.md) (filed by A10.31.a's session; this story's own row for it was dropped as a duplicate); from the review, [2026-11-20-strangers-tag-nodes-count-as-own](../../../ledger/2026-11-20-strangers-tag-nodes-count-as-own.md) and [2026-11-20-crowded-second-can-overrun-the-budget](../../../ledger/2026-11-20-crowded-second-can-overrun-the-budget.md); OPEN.md rows 136 and 142
 - The test of whose node it is: [26-delete-node.md](./26-delete-node.md), [21-update-node.md](./21-update-node.md); the point of view: [ADR 0011](../../decisions/graph-operations-first-slice/0011-list-elements-and-the-read-conventions.md)
 - The write path: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md](../../decisions/graph-operations-first-slice/0032-import-nostr.md)
-- Test plan: (filled in after Test Design)
-- Review: (filled in after Review)
+- Test plan: [32-import-nostr.test-plan.md](./32-import-nostr.test-plan.md)
+- Review: [reviews/graph-operations-first-slice/32-import-nostr.md](../../reviews/graph-operations-first-slice/32-import-nostr.md)

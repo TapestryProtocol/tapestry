@@ -185,6 +185,26 @@
       "file": "ui/src/pages/reading/writeVerbs.js",
       "text": "const same = await R('MATCH (h:NostrEvent) WHERE h.kind IN [9998, 39998] AND h.name = $n RETURN h.uuid AS u', { n: kn || '' });",
       "reason": "Concept headers by name (kind 9998 or 39998): a header is always an event."
+    },
+    {
+      "file": "src/operations/catalog/import/_letters.js",
+      "text": "MATCH (n:NostrEvent {id: i})",
+      "reason": "import nostr's lookup of a node by an event's id (ADR graph-operations-first-slice/0032 Decision 7.1): only an event's node or a placeholder holds an id, and nostrEvent_id's index serves it. Its lookups by address name NostrEvent|TapestryNode."
+    },
+    {
+      "file": "src/operations/catalog/import/_letters.js",
+      "text": "CREATE (n:NostrEvent {uuid: $uuid})",
+      "reason": "A CREATE, which can't take a label disjunction: the imported event's own node, made only when the same transaction found no node at its key or with its id, of any label (Decision 7.5); a node another import made meanwhile fails nostrEvent_uuid, and the event runs again."
+    },
+    {
+      "file": "src/operations/catalog/import/_letters.js",
+      "text": "CREATE (p:NostrEvent {uuid: a.uuid})",
+      "reason": "A CREATE, which can't take a label disjunction: the placeholder for a claim's end at an address, made only when the same transaction's lookup by NostrEvent|TapestryNode found no node there (Decision 8). It stands for an event, so it is a NostrEvent."
+    },
+    {
+      "file": "src/operations/catalog/import/_letters.js",
+      "text": "MERGE (p:NostrEvent {id: i})",
+      "reason": "A MERGE by id, which can't take a label disjunction: the placeholder for an e or b tag's event named by id, made only when no node holds that id or a uuid that is it (Decision 8). An event by definition."
     }
   ]
 }
