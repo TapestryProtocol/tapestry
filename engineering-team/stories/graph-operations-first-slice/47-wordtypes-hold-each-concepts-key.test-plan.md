@@ -166,3 +166,7 @@ firmware-nodes-hold-their-concepts-keys: 0 passed, 10 failed, 0 skipped
 GF9's four skips are its live checks, which need a scratch container.
 
 **Found while writing the tests:** eight of firmware's 46 `json-schema.json` files already hold `validationTool`, as `["word", "jsonSchema", "validationTool"]`: dog, graph rule, image, image type, image validation script, relationship type, tapestry and word. The install never writes a file's word block, so on every instance those schemas lack the key too, as the measurement found. FN2 holds all 46 to the ADR's coarse-to-fine order, `["word", "validationTool", "jsonSchema"]`, so the eight are reordered. Keeping the files' order instead is a one-word change to the ADR and this plan, the owner's call at this gate.
+
+## Amendments
+
+1. **XW1 gives Brown Betty a description (Implementation, 2026-11-20).** `graph create-concept`'s starter schema requires `description` on its elements, so XW1's `graph create-element --fields '{}'` was refused `invalid-fields` ("`teapot.description` is required") before any check ran. The test now passes `{"description":"A round brown teapot."}`, as the other agent-through-CLI suites do. It was a fixture's input: no assertion changed, and the step it fixes comes after the check of the new concept (AC4), which had already passed.

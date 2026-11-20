@@ -152,7 +152,8 @@ test('XW1 [AC4, AC6]: the agent checks a new concept and finds nothing; finds an
   const params = sent ? new URL(sent.url, 'http://x').searchParams : null;
   assert(params && params.get('scope') === teapot && show(params.getAll('rules')) === show([RULE]), `the CLI sent the scope and the rule as they were given: no change to the CLI; got ${show(sent && sent.url)}`);
 
-  const betty = (await step('create-element of Brown Betty', ['graph', 'create-element', '--concept', teapot, '--name', 'Brown Betty', '--fields', '{}'])).element.tapestryKey;
+  // graph create-concept's starter schema requires a description (test plan, Amendment 1).
+  const betty = (await step('create-element of Brown Betty', ['graph', 'create-element', '--concept', teapot, '--name', 'Brown Betty', '--fields', '{"description":"A round brown teapot."}'])).element.tapestryKey;
 
   // As raw Cypher might leave it: teapot's key taken out of Brown Betty's wordTypes.
   editWordTypes(file, betty, (wt) => wt.filter((x) => x !== 'teapot'));
