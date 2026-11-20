@@ -91,16 +91,16 @@ As the same owner, I want to see before I send what would go out and what can't 
 
 - [ ] **AC1 — Publish a scope.** Given the owner or an admin is signed in, when they call `POST /api/tapestry/export/nostr` with `scope` and `relays`, then each node in the scope that the assistant signs (AC4) gets one letter, signed with the assistant's key and sent to the instance's own relay and to each relay named. The scope takes one of three forms:
   - **a node:** its tapestryKey, or a ref `graph resolve` reads;
-  - **a graph:** a graph element, an element of `39998:<TA>:graph`, named the same way. That is a concept graph, a Tapestry, or a selection saved with `graph create-element`, with what its lists name and the graphs it imports, each the same way. A concept graph also brings its concept's class thread and core nodes, as today's export-set gathers them (fact 7);
+  - **a graph:** a graph element, an element of `39998:<TA>:graph`, named the same way: one that concept's class thread reaches, or one whose stored JSON holds a `graph` object (as amended at Architecture). That is a concept graph, a Tapestry, or a selection saved with `graph create-element`, with what its lists name and the graphs it imports, each the same way. A concept graph also brings its concept's class thread and core nodes, as today's export-set gathers them (fact 7);
   - **everything:** every node of the instance's own.
 
   `relays` holds zero or more `wss://` or `ws://` relays. The instance's own relay is always sent to.
 
   The answer gives, for each node in the scope:
   - its tapestryKey and address;
-  - its outcome: `new` (the node has no letter yet), `changed` (the letter it would sign differs from the one the node has), `unchanged` (the same), `not-own` (another author's), or `owner-signed` (the owner's own letter, which the assistant can't sign);
+  - its outcome: `new` (the node has no letter yet), `changed` (the letter it would sign differs from the one the node has), `unchanged` (the same), `not-own` (another author's), `owner-signed` (the owner's own letter, which the assistant can't sign), `other-kind` (a kind other than 39998 and 39999), `no-address` (a node with no address), or `unbuildable` (its JSON points into the store at nothing). The last three were added at Architecture;
   - the letter's id and kind;
-  - for each relay, what that relay did with the letter: `accepted`, `refused` with the relay's words, `unreachable` or `timeout`, the four classes of honest-publish-reporting ADR 0001.
+  - for each relay, what that relay did with the letter: `accepted`, `refused` with the relay's words, `unreachable` or `timeout`, the four classes of honest-publish-reporting ADR 0001. Three more were added at Architecture: `held` (it has the letter already), `not-sent` (the instance's own relay didn't store it, or the instance publishes locally only) and `unread` (the instance's own relay couldn't be read back).
 
   It also gives the counts of each.
 
@@ -108,12 +108,12 @@ As the same owner, I want to see before I send what would go out and what can't 
 - [ ] **AC2 — A letter says what the graph says now** (D2, D10, memo #114, ADR 0020a, ADR 0043). The letter export signs for a node is made from the node as the graph holds it at the call, never from a letter or tag left behind:
   - its kind and its address, which never changes, so a node with no letter gets the address its write gave it;
   - its names, slug and description;
-  - its JSON, made from its tapestryJson without what is local to this instance (`graphContext` at least), with `wordTypes` computed from its relationships;
-  - the concepts and sets it belongs to (`z`, `n`), and a set's or superset's parents (`s`), all from its relationships now (fact 3);
+  - its JSON: its stored JSON, which its tapestryJson is derived from, without what is local to this instance (`graphContext` at least), and with `wordTypes` as the JSON holds it (as amended at Architecture);
+  - the concepts and sets it belongs to (`z`, `n`), as the writes that change a membership keep them on the node; and a set's or superset's parents (`s`), from its parent links now (fact 3; as amended at Architecture);
   - for a concept header with a community reference, its pointer `b` from the header node; for an element, a `z` stamp for each shared concept its concept's `b` pointers name (ADR 0020);
   - the other tags its node holds, as today's routes write them (fact 6), so that today's readers read it as they read a letter those routes signed.
 
-  So when import nostr records the letters of one call into an empty graph, it gets one node at each address, with the names the exporting graph gives it and its JSON less what is local. It also gets the same relationships between those nodes, for every relationship a letter carries: the class thread, the core-node wiring, the property tree and relationship letters. Exporting a concept made with the graph operations, then importing it, gives the concept back whole. A relationship among the nodes sent that no letter can carry is reported, with its type and its two nodes, and nothing is invented to carry it.
+  So when import nostr records the letters of one call into an empty graph, it gets one node at each address, with the names the exporting graph gives it and its JSON less what is local. It also gets every relationship between those nodes that a letter carries: the class thread, the core-node wiring, the property tree and relationship letters. It may hold one more: a superset's `HAS_ELEMENT` to an element the exporting graph reaches through a set, since import nostr's `z` wiring doesn't prune (as amended at Architecture). Exporting a concept made with the graph operations, then importing it, gives the concept back whole. A relationship among the nodes sent that no letter can carry is reported, with its type and its two nodes, and nothing is invented to carry it.
 - [ ] **AC3 — Links, whole values and references it can't name** (graph-rules/0002 Decision 3; memo #136; design §5, question 4). Before a letter is signed, each `tapestry:` link in any string it carries, in its tags and inside its JSON, is found with a CommonMark parser. Links in code spans and code blocks are left as they are, and reference definitions are found too. Each link becomes:
   - `nostr:naddr1…` for its target's address, with the same text, when the target has a letter, or gets one in this call;
   - `nostr:nevent1…` when the target's address is an event's id;
@@ -127,26 +127,28 @@ As the same owner, I want to see before I send what would go out and what can't 
   - A node the owner signed is `owner-signed`. It is treated the same way, since only the owner's own signer can sign its next version (fact 8).
   - Person nodes, tag nodes, placeholders and change entries are never letters, and no scope counts them.
 - [ ] **AC5 — In order, with a dry run, and safe to repeat.**
-  - Letters go out so that each comes after the letters it names, such as a concept's header before its core nodes and elements.
+  - Letters go out so that each comes after the call's letters it names, such as a concept's header before its core nodes and elements. Where a cycle makes that impossible, as a header and the concept graph that lists it do, a fixed order by kind of node breaks it (as amended at Architecture).
   - `dryRun: true` signs, sends and records nothing, and answers what the call would do:
     - each node's outcome;
     - for a `changed` one, the tags it would add and take out;
     - and first of all, the reports of AC2 and AC3.
   - The same call again, with nothing changed, signs nothing and sends nothing new. Each letter answers `unchanged`, so a reinstall's signing step signs nothing (ADR 0043 Decision 1).
   - An `unchanged` letter is sent, as it was signed, to a relay named in the call that hasn't accepted it yet.
-  - A scope with more letters than one call sends answers the ones it sent, and says where the next call goes on.
+  - A scope with more letters than one call sends answers the ones it sent, and gives a cursor, `next.after`, where the next call goes on (as amended at Architecture).
 - [ ] **AC6 — Its letters never come back over their nodes** (graph-rules/0002 Decision 3; memo #133). After export sends a letter for one of the instance's own nodes, the node stays as it was however that letter comes back in:
   - through import nostr (answered `own`, as story 32 has it);
-  - through `POST /api/neo4j/event-update`;
-  - through the I/O import.
+  - through `POST /api/neo4j/event-update` (answered `unchanged`);
+  - through the I/O import (that item answered `skipped`);
+  - through the client-publish route's brain-write hook, for a Tapestry letter posted again (added at Architecture).
 
-  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter.
+  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. A newer one, such as an edit in the Tapestries UI, is imported as today.
 - [ ] **AC7 — What it refuses, and how it reaches agents.** It refuses, signs, sends and records nothing, and says in words what was wrong, naming the input:
   - no scope, or more than one form of it;
   - a ref that names no node (`unknown-ref`) or more than one (`ambiguous-ref`, with the candidates), as `graph resolve` reads it;
   - a graph ref whose node isn't a graph element;
+  - more than 10 relays (`too-many-relays`), or a cursor this operation didn't give (`bad-cursor`), both added at Architecture;
   - a relay that isn't `ws://` or `wss://`, or whose host doesn't resolve to public addresses only (the relay host guard, as import nostr applies it);
-  - an instance whose assistant key can't be read.
+  - an instance whose assistant key can't be read (`no-assistant-key`).
 
   A relay that refuses a letter, can't be reached or doesn't answer in time isn't a refusal: it is reported for that letter, beside the others.
 
@@ -214,7 +216,17 @@ Settled by the design, and approved with the story (2026-11-20):
 - **Only what is new or changed is signed again** (ADR 0043 Decision 1; ADR 0041 Decision 7).
 - **Every relay's answer is reported as that relay gave it** (honest-publish-reporting ADR 0001): `strfry import`'s exit code is never taken as a relay's answer (fact 9).
 
-For Architecture, not this gate:
+**Changed at Architecture** (the owner's approval of ADR 0034, Option A, with its seven proposed amendments, 2026-11-20):
+
+- AC2: `z`, `n` and `wordTypes` come from the node as the writes keep them, and only `s` from the parent links. Measured on the local instance, the class thread reaches 209 of 535 own nodes through concepts their letters never named, and misses 10 whose `z` is a convention (ADR 0034, Context 3).
+- AC2: the round trip may add a superset's `HAS_ELEMENT` to an element reached through a set, since import nostr's `z` wiring doesn't prune.
+- AC2: the letter's `json` is the stored JSON, less `graphContext`, not the LMDB copy, which can lag it.
+- AC1 and AC4: the outcomes `other-kind`, `no-address` and `unbuildable`, and the relay classes `held`, `not-sent` and `unread`.
+- AC5: each letter goes after the call's letters it names, with rank breaking a cycle; a big scope goes on through `next.after`.
+- AC1 and AC7: a graph element is one the graph concept's class thread reaches, or one whose stored JSON holds a `graph` object; `too-many-relays`, `bad-cursor` and `no-assistant-key` are named.
+- AC6: event-update answers `unchanged` and the I/O import `skipped` for a letter the node holds or an older one, and the client-publish route's brain-write hook is guarded too.
+
+For Architecture, not this gate (answered by ADR 0034):
 - **The record of what was sent:** its form (a property, a node or a ledger; design §5, question 2), per letter and per relay, and how it serves status and retract, including a letter whose node `graph delete-node` took out (ADR 0026).
 - **How each kind of letter is built:** from the would-be tags, which lose their order and any fifth element (fact 2), from relationships (fact 3), from tapestryJson (ADR 0020a), and from `setJson` and `setTags` (ADR 0027). And how to tell the letter a node has, which only strfry keeps whole (fact 4), from the one the graph would sign now.
 - **Relationships no letter carries today** (enumerate's, mark-field's, add-relationship's; fact 3): a relationship letter for each, as today's enumerate route signs, or a report.
@@ -225,6 +237,6 @@ For Architecture, not this gate:
 - **Locks:** an export beside a graph write on the same node.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
