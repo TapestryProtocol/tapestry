@@ -155,5 +155,5 @@ For Architecture, not this gate (answered by ADR 0032):
 - The write path: [stories/graph-operations-foundation/4-the-write-path.md](../graph-operations-foundation/4-the-write-path.md)
 - The external CLI the agent uses: [stories/graph-operations-foundation/6-external-cli-and-agent-skill.md](../graph-operations-foundation/6-external-cli-and-agent-skill.md)
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md](../../decisions/graph-operations-first-slice/0032-import-nostr.md)
-- Test plan: (filled in after Test Design)
+- Test plan: [32-import-nostr.test-plan.md](./32-import-nostr.test-plan.md)
 - Review: (filled in after Review)

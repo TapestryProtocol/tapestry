@@ -27,6 +27,12 @@
  *   - (story graph-operations-foundation #4, ADR graph-operations-foundation/0004 Decision 9) install the graph fake:
  *     graphFake: { stateFile } replaces the methods of src/operations/graph.js with test/helpers/graphFake.js's
  *     fakeGraph(stateFile), so every graph operation reads and writes the graph kept in that file.
+ *     (Story graph-operations-first-slice #32, ADR graph-operations-first-slice/0032) graphFake: { stateFile, engine:
+ *     'cypher' } uses test/helpers/cypherGraphFake.js's instead, which runs every statement through
+ *     test/helpers/cypherEngine.js, writes and the uniqueness rules included;
+ *   - (story graph-operations-first-slice #32, ADR 0032 Decision 2 and Implementation notes) install the fake relays:
+ *     relayFake: { file } runs test/helpers/relayFake.js's install, before the catalog loads: the relay host guard's DNS
+ *     answers from the fixture in that file, and src/operations/catalog/import/_relay.js's connect reaches its relays.
  *
  * spec.spy (ADR 0004 Decision 10) records, in the result's `spy`, every call of what signs or reads a key: nostr-tools'
  * finalizeEvent (from 'nostr-tools' or 'nostr-tools/pure'), src/api/normalize/helpers.js's loadTAKey and
@@ -290,9 +296,22 @@ function installGraphFake(cfg) {
   }
   if (!fs.existsSync(path.join(ROOT, 'src/operations/graph.js'))) throw new Error('src/operations/graph.js does not exist yet (ADR graph-operations-foundation/0004 Decision 9)');
   const seam = need('src/operations/graph.js');
-  const fake = require(path.join(__dirname, 'graphFake.js')).fakeGraph(cfg.stateFile);
+  const fakeFile = cfg.engine === 'cypher' ? 'cypherGraphFake.js' : 'graphFake.js';
+  const fake = require(path.join(__dirname, fakeFile)).fakeGraph(cfg.stateFile);
   for (const k of ['writeTransaction', 'read']) seam[k] = fake[k];
   graphFakeInstalled = cfg.stateFile;
+}
+
+/** Story graph-operations-first-slice #32 (ADR 0032): the fake relays and DNS in, once a run, before the catalog loads. */
+let relayFakeInstalled = null;
+function installRelayFake(cfg) {
+  if (!cfg) return;
+  if (relayFakeInstalled) {
+    if (relayFakeInstalled !== cfg.file) throw new Error('one harness run installs one relay fake');
+    return;
+  }
+  require(path.join(__dirname, 'relayFake.js')).install({ root: ROOT, file: cfg.file });
+  relayFakeInstalled = cfg.file;
 }
 
 function applyStubs(stubs) {
@@ -322,6 +341,7 @@ for (const k of QUIETED) ORIGINAL_CONSOLE[k] = console[k];
       applyStubs(scenario.statusStubs);
       installLifecycleFake(scenario.lifecycleFake);
       installGraphFake(scenario.graphFake);
+      installRelayFake(scenario.relayFake);
       const out = { requests: [], cli: [] };
       for (const r of scenario.requests || []) {
         const which = r.app || 'real';
