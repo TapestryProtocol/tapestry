@@ -21,15 +21,29 @@
  *     noEose     request numbers (1-based, per connection) that send their events and then never EOSE
  *     close      [{ request, afterEvents }]: that request sends that many events, then the relay closes it
  *     extra      events sent at the start of every request, whatever it asked: events not asked for
+ *     ignoreLimit  true: a request's limit is ignored, so it can answer more than it asked for (review round 1, 5)
+ *     delayMs    each request is answered that long after it is sent
  *   } }
  *   dns: { '<name>': { v4: [...], v6: [...] } }
+ *   live: { '<url>': { events, cap, ignoreLimit, dropOn, refuseAfterDrop, handshakeDelays } }  (review round 1,
+ *     findings 1 and 2) a real relay: install starts a ws server on 127.0.0.1 in the child for each, and a connection to
+ *     its url goes through _relay.js's own connect, nostr-tools' AbstractRelay, to that server instead. The url's host
+ *     is still asked of the fake DNS, so the relay host guard sees a public name. The server answers each REQ from its
+ *     events, then EOSE; dropOn n terminates the connection when the n-th REQ it ever gets arrives, and after a drop
+ *     refuseAfterDrop terminates each new connection at once; handshakeDelays [ms…] holds the n-th handshake that long
+ *     before completing it, so a connect can time out while its socket is still alive
+ *   timing: { CONNECT_MS, REQUEST_MS, BUDGET_MS }  (review round 1, finding 2's seam) set before the catalog loads on
+ *     _relay.js's exported object (CONNECT_MS, REQUEST_MS) and on nostr.js's declaration (BUDGET_MS), which the code
+ *     reads through those objects at each call, so a suite needn't wait out the real 5 s, 10 s and 40 s
  * A relay's url is compared as new URL() gives it, without a trailing slash. A url the fixture doesn't list refuses
  * every connection.
  *
  * The log, <file>.log.jsonl, one JSON line for each: { at: 'connect', url, attempt, ok }, { at: 'req', url, n, filters,
  * overlap } (overlap: another request on the connection hadn't finished), { at: 'eose', url, n, sent },
  * { at: 'closed-by-relay', url, n, sent }, { at: 'unsub', url, n }, { at: 'close', url }, { at: 'publish', url, id },
- * { at: 'dns', name, type }. readLog(file) reads it back.
+ * { at: 'dns', name, type }; and for a live server { at: 'live-handshake' | 'live-open' | 'live-socket-closed' |
+ * 'live-handshake-abandoned' | 'live-refused', url, n, t }, n the connection's number, and { at: 'live-req' | 'live-drop',
+ * url, conn, req, filters, t }, req the REQ's number over the server's life; t is Date.now(). readLog(file) reads it back.
  *
  * Nothing here opens a socket or asks a real DNS server.
  */
@@ -39,8 +53,8 @@ const path = require('path');
 
 const DEFAULT_CAP = 500;
 
-function writeFixture(file, { relays = {}, dns = {} } = {}) {
-  fs.writeFileSync(file, JSON.stringify({ relays, dns }));
+function writeFixture(file, { relays = {}, dns = {}, live = {}, timing = {} } = {}) {
+  fs.writeFileSync(file, JSON.stringify({ relays, dns, live, timing }));
   fs.writeFileSync(`${file}.log.jsonl`, '');
   return file;
 }
@@ -85,7 +99,7 @@ function answer(relay, filters) {
   const out = [];
   const seen = new Set();
   for (const f of filters) {
-    const limit = Number.isInteger(f && f.limit) && f.limit >= 0 ? f.limit : Infinity;
+    const limit = !relay.ignoreLimit && Number.isInteger(f && f.limit) && f.limit >= 0 ? f.limit : Infinity;
     const hits = held.filter((e) => matches(f, e)).sort(newestFirst).slice(0, limit);
     for (const e of hits) { const k = String(e.id); if (!seen.has(k)) { seen.add(k); out.push(e); } }
   }
@@ -128,7 +142,8 @@ function fakeConnect(file) {
         const sub = {
           close() { if (!done) log(file, { at: 'unsub', url: key, n: me }); finish(); },
         };
-        later(() => {
+        const answerLater = relay.delayMs > 0 ? (fn) => setTimeout(fn, relay.delayMs) : later;
+        answerLater(() => {
           if (done) return;
           const extra = (relay.extra || []).map(clone);
           const events = [...extra, ...answer(relay, list).map(clone)];
@@ -177,15 +192,71 @@ function fakeResolver(file) {
   };
 }
 
+/** A live relay (review round 1): a ws server on 127.0.0.1 in this process, as the fixture's `live` entry describes. */
+function startLive(file, url, spec) {
+  const http = require('http');
+  const { WebSocketServer } = require('ws');
+  const wss = new WebSocketServer({ noServer: true });
+  let handshakes = 0;
+  let reqs = 0;
+  let dropped = false;
+  const server = http.createServer((req, res) => { res.writeHead(426); res.end(); });
+  server.on('upgrade', (req, socket, head) => {
+    handshakes += 1;
+    const n = handshakes;
+    log(file, { at: 'live-handshake', url, n, t: Date.now() });
+    socket.on('close', () => log(file, { at: 'live-socket-closed', url, n, t: Date.now() }));
+    const delay = (Array.isArray(spec.handshakeDelays) && spec.handshakeDelays[n - 1]) || 0;
+    setTimeout(() => {
+      if (socket.destroyed) { log(file, { at: 'live-handshake-abandoned', url, n, t: Date.now() }); return; }
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        log(file, { at: 'live-open', url, n, t: Date.now() });
+        if (dropped && spec.refuseAfterDrop) { log(file, { at: 'live-refused', url, n, t: Date.now() }); ws.terminate(); return; }
+        ws.on('message', (m) => {
+          let msg;
+          try { msg = JSON.parse(String(m)); } catch { return; }
+          if (!Array.isArray(msg) || msg[0] !== 'REQ') return;
+          reqs += 1;
+          const filters = msg.slice(2);
+          log(file, { at: 'live-req', url, conn: n, req: reqs, filters, t: Date.now() });
+          if (spec.dropOn && reqs === spec.dropOn) {
+            dropped = true;
+            log(file, { at: 'live-drop', url, conn: n, req: reqs, t: Date.now() });
+            ws.terminate();
+            return;
+          }
+          for (const e of answer(spec, filters)) ws.send(JSON.stringify(['EVENT', msg[1], e]));
+          ws.send(JSON.stringify(['EOSE', msg[1]]));
+        });
+      });
+    }, delay);
+  });
+  return { ready: new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port))) };
+}
+
 /** Put the fakes in, in the child process, before the catalog loads. */
 function install({ root, file }) {
   require('dns').promises.Resolver = fakeResolver(file);
+  const fixture = readFixture(file);
   const rel = 'src/operations/catalog/import/_relay.js';
   const abs = path.join(root, rel);
   if (!fs.existsSync(abs)) throw new Error(`${rel} does not exist yet (ADR graph-operations-first-slice/0032, Implementation notes: the reader, with its connect seam)`);
   const seam = require(abs);
   if (!seam || typeof seam.connect !== 'function') throw new Error(`${rel} exports no connect(url), the seam a suite replaces (ADR graph-operations-first-slice/0032 Decision 2)`);
-  seam.connect = fakeConnect(file);
+  const real = seam.connect;
+  const fake = fakeConnect(file);
+  const lives = new Map(Object.entries(fixture.live || {}).map(([url, spec]) => [normalize(url), startLive(file, normalize(url), spec)]));
+  seam.connect = async function connect(url) {
+    const l = lives.get(normalize(url));
+    if (!l) return fake(url);
+    const port = await l.ready;
+    log(file, { at: 'connect', url: normalize(url), live: true, t: Date.now() });
+    return real.call(seam, `ws://127.0.0.1:${port}`);
+  };
+  // Review round 1's seams: the code reads these through the objects at each call.
+  const timing = fixture.timing || {};
+  for (const k of ['CONNECT_MS', 'REQUEST_MS']) if (Number.isFinite(timing[k])) seam[k] = timing[k];
+  if (Number.isFinite(timing.BUDGET_MS)) require(path.join(root, 'src/operations/catalog/import/nostr.js')).BUDGET_MS = timing.BUDGET_MS;
 }
 
 module.exports = { writeFixture, readFixture, readLog, normalize, matches, newestFirst, answer, fakeConnect, fakeResolver, install, DEFAULT_CAP };

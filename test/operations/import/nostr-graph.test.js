@@ -27,10 +27,17 @@
  *   IG8  a graph address the relay doesn't hold: answered (200), the graph not-found
  *   IG9  the class thread isn't followed: cat's element and set, which no graph lists, aren't read
  *   IG10 an element that named cat before cat was in the graph is wired when the graph brings cat's IS_THE_CONCEPT_FOR
+ *   Review round 1:
+ *   IG11 the time budget holds inside a graph's nodes (finding 5): with each record taking 60 ms (the fake's slow) and
+ *        500 ms set through nostr.js's declaration (BUDGET_MS), a graph of 40 nodes stops partway; what it didn't record
+ *        is unread, or the graph is under next.graphs
+ *   IG12 a graph letter read first as another graph's node, whose record fails when it is followed (the fake's failWrite,
+ *        after its first record), answers failed with the reason (finding 9)
  */
 
 const S = require('../../helpers/graphOpsSuite');
 const F = require('../../helpers/importFixtures');
+const CG = require('../../helpers/cypherGraphFake');
 
 const { assert, show } = S;
 const { test, run } = S.makeSuite('operations: import nostr — a graph and what it lists');
@@ -194,6 +201,52 @@ test('IG10 [AC3, Decision 8]: an element that named cat before cat arrived is wi
   F.data(r, 'g-tom');
   const tom = one(after, F.addressOf(catElement), 'Tom');
   assert(F.relsOf(after, { type: 'HAS_ELEMENT', from: cat.addr.superset }).filter((x) => x.to === tom.eid).length === 1, 'cat\'s superset HAS_ELEMENT Tom, made in the graph import\'s transaction that made IS_THE_CONCEPT_FOR');
+});
+
+// ── review round 1 ──
+const settled = Array.from({ length: 40 }, (_, i) => letter(al, { kind: 39999, at: 1700201000 + i, tags: [['d', `settled-${i}`], ['name', `settled ${i}`]] }));
+const wideNodes = F.graphLetter(al, { d: 'wide-nodes', nodes: settled.map((e, i) => ({ slug: `settled-${i}`, uuid: F.addressOf(e) })), at: 1700201100 });
+const nineN1 = letter(al, { kind: 39999, at: 1700201200, tags: [['d', 'nine-n1'], ['name', 'N1']] });
+const nineN2 = letter(al, { kind: 39999, at: 1700201201, tags: [['d', 'nine-n2'], ['name', 'N2']] });
+const inner = F.graphLetter(al, { d: 'nine-inner', nodes: [{ slug: 'n2', uuid: F.addressOf(nineN2) }], relationships: [['n2', 'IMPORT', 'n1']], at: 1700201202 });
+const outer = F.graphLetter(al, { d: 'nine-outer', nodes: [{ slug: 'inner', uuid: F.addressOf(inner) }, { slug: 'n1', uuid: F.addressOf(nineN1) }], imports: [{ slug: 'inner', uuid: F.addressOf(inner) }], at: 1700201203 });
+
+test('IG11 [review round 1, finding 5]: the time budget holds inside a graph\'s nodes: what it can\'t record in time is unread, or left under next', async () => {
+  F.needDecl();
+  const state = F.emptyGraph();
+  state.failures = { slow: { ms: 60 } };
+  const r = F.runImport({
+    state, label: 'import-nostr-settle-budget', timing: { BUDGET_MS: 500 },
+    relays: { [F.OTHER_INSTANCE]: F.relay([wideNodes, ...settled]) },
+    requests: [at('g-settle', { graph: F.addressOf(wideNodes) })],
+  });
+  const d = F.data(r, 'g-settle');
+  const outcomeOf = (e) => ((d.events || []).find((x) => x.id === e.id || x.address === F.addressOf(e) || x.ref === F.addressOf(e)) || {}).outcome;
+  const recorded = settled.filter((e) => outcomeOf(e) === 'recorded');
+  const left = settled.filter((e) => outcomeOf(e) !== 'recorded');
+  const later = (d.next && d.next.graphs) || [];
+  assert(recorded.length < settled.length, `the budget ran out among the graph's ${settled.length} nodes, and the call stopped there; it recorded ${recorded.length}`);
+  assert(left.every((e) => outcomeOf(e) === 'unread') || later.includes(F.addressOf(wideNodes)), `what it didn't record is unread, or the graph is under next.graphs; got ${show([...new Set(left.map(outcomeOf))])}, next ${show(d.next)}`);
+  const ms = r.req('g-settle').ms;
+  assert(ms < 2000, `the call kept to the 500 ms the suite set through nostr.js's declaration (BUDGET_MS); it took ${ms} ms`);
+});
+
+test('IG12 [review round 1, finding 9]: a graph letter read as another graph\'s node, whose record fails when it is followed, answers failed with the reason', async () => {
+  F.needDecl();
+  const state = F.emptyGraph();
+  state.failures = { failWrite: [{ match: inner.id, after: 1, times: 1, code: 'Neo.ClientError.Statement.SyntaxError', message: 'Invalid input: the fake graph fails this letter\'s second record (failures.failWrite after 1)' }] };
+  const r = F.runImport({
+    state, label: 'import-nostr-refollow',
+    relays: { [F.OTHER_INSTANCE]: F.relay([outer, inner, nineN1, nineN2]) },
+    requests: [at('g-nine', { graph: F.addressOf(outer) })],
+  });
+  const d = F.data(r, 'g-nine');
+  const mine = (d.events || []).filter((e) => e.id === inner.id);
+  const followed = graphEntry(d, F.addressOf(inner));
+  assert(followed && followed.depth === 1 && mine.length === 1, `the inner graph was read as the outer's node, then followed, and answered once; got ${show(mine)} ${show(followed)}`);
+  const refused = CG.transactions(r.state().log).filter((t) => t.outcome === 'rollback' && /second record/.test(String(t.error)));
+  assert(refused.length === 1, 'its second record, on being followed, was refused, as the suite arranged');
+  assert(mine[0].outcome === 'failed' && /Invalid input/.test(String(mine[0].reason)) && d.counts.failed === 1, `its entry says failed, with the reason, not its first record's outcome; got ${show(mine[0])}, counts ${show(d.counts)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

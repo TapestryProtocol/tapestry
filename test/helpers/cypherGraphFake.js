@@ -23,9 +23,12 @@
  * The state's `failures`, each used up as it fires:
  *   unreachable: { after }  after `after` more commits, every writeTransaction and read rejects as neo4j-driver does
  *                           when the database can't be reached: an error whose code is ServiceUnavailable
- *   failWrite: [{ match, times = 1, code = 'Neo.ClientError.Schema.ConstraintValidationFailed', message }]  a
- *                           statement that writes, and whose parameters hold the string `match` anywhere (an event's id),
- *                           fails with that code, `times` times in all
+ *   failWrite: [{ match, times = 1, code = 'Neo.ClientError.Schema.ConstraintValidationFailed', message, after = 0 }]
+ *                           a statement that writes, and whose parameters hold the string `match` anywhere (an event's
+ *                           id), fails with that code, `times` times in all; with `after` (review round 1), the first
+ *                           `after` transactions holding it run as usual, so a later record of the same event fails
+ *   slow: { ms }            (review round 1) every writeTransaction takes at least `ms` longer, never used up, so a
+ *                           call's time budget runs out partway through a list of records
  *   meanwhile: [{ match, add: [{ labels, props }] }]  just before the first statement that writes and whose parameters
  *                           hold `match`, another transaction commits the nodes of `add` (each given a tapestryKey and the
  *                           shared label where it lacks them) to the saved graph and to this transaction's copy alike:
@@ -75,9 +78,11 @@ function fakeGraph(stateFile) {
       const committed = readState(stateFile);
       const f = committed.failures || {};
       if (f.unreachable && !(f.unreachable.after > 0)) throw unreachableError();
+      if (f.slow && f.slow.ms > 0) await new Promise((resolve) => setTimeout(resolve, f.slow.ms));
       const s = copy(committed);
       const log = [];
       let failed = null;
+      const passed = new Set(); // failWrite entries this transaction was let through under `after`
       const fire = (cypher, params) => {
         if (kindOf(cypher) !== 'write') return;
         const meanwhile = Array.isArray(f.meanwhile) ? f.meanwhile : [];
@@ -95,6 +100,8 @@ function fakeGraph(stateFile) {
         }
         const fw = Array.isArray(f.failWrite) ? f.failWrite : [];
         const w = fw.findIndex((x) => x && (x.times === undefined || x.times > 0) && holds(params || {}, x.match));
+        if (w >= 0 && passed.has(fw[w])) return;
+        if (w >= 0 && fw[w].after > 0) { fw[w].after -= 1; passed.add(fw[w]); return; }
         if (w >= 0) {
           const x = fw[w];
           x.times = (x.times === undefined ? 1 : x.times) - 1;

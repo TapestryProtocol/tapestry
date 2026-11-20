@@ -22,23 +22,24 @@ All live under `test/operations/import/`, where `test/operations.test.js` finds 
 | AC5: by filter | **IF1** thirteen events, five a request: all recorded, paged by `until`, one request at a time, one connection, pages of 500. **IF2** a cut second swept with `since = until`. **IF3** a crowded second, once the relay is seen to stop short (a newer second leaves the sweep two more to find; older letters found by the next page), split by kinds, then by authors, each part asked alone; one that can't be split under `crowded` with its second and count, judged once the next page is read, the answer saying a narrower filter may read the rest. **IF4** the filter's `limit` as the cap: the second finished, `next.until` the second before; three calls read it all; a repeat records nothing. **IF5** `since`. **IF6** JSON text; `search` as given on every request; `#z` passed. **IF7** the newest version of an address. **IF8** no false alarm on a relay that answers what it is asked: one event, and eight letters in one second, read whole, nothing crowded. **XI1**, **LV4** two calls | `nostr-filter.test.js`, `nostr-agent-through-cli.test.js`, `nostr-live.test.js` | integration (fake); live |
 | AC6: own nodes stay | **IW1** the assistant's letter for its own node: `own`, nothing changes, no entry. **IW2** a newer one, as export nostr sends: `own`, the node keeps the older letter, nothing holds the newer id. **IW3** a letter at a node made here with no letter: `own`, still event-less. **IW4** the owner's letter at the owner's node: `own`. **IW5** an own letter with no node is recorded: its `z` and `n` made, its `s` and relationship letter not; one at a placeholder fills it. **IW6** another author's claims on own nodes: `z` made, `n`, `s`, relationship letters and graph relationships not, `e`/`a`/`b` references made; every own node's labels, properties and relationships as they were but for those. **IW7** `graph set-schema` on beagle answers as before her claims were imported; `graph list-elements` from the owner's point of view leaves her element out, `pov=everyone` counts it | `nostr-own.test.js` | integration (fake) |
 | AC7: refusals, and agents | the refusals (table below), each with its status and in words naming the input; **IN10** the refusal run changed nothing and recorded no entry, each call refused. **IN11** visitor 401, stranger 403, 415, unknown input, sizes. **IN1** the declaration. **IN2** listed with every refusal; `/docs` has the POST. **IN13** the internal command, `local`; its refusal the route's. **IN14** catalog §5, BIBLE §6 and §11, the skill's line. **IL5** unreachable, told apart from a relay holding nothing. **XI1** the agent's whole sequence. **LV5** | `nostr.test.js`, `nostr-relay.test.js`, `nostr-agent-through-cli.test.js`, `nostr-live.test.js` | integration (fake); live |
+| Review round 1 (findings 1, 2, 5 and 9) | **IL8** a relay that drops the connection during the second of three requests: the process lives, the call answers 200, the two refs after the drop `unread`, at once. **IL9** a connect that times out closes its socket, and the retry connects, in the time set through `reader.CONNECT_MS`. **IN15** a `filter` object whose JSON is over 10,000 characters: `bad-filter`. **IF9** the budget holds inside a crowded second's sweeps. **IF10** a relay that ignores `limit`: no more kept than asked for. **IG11** the budget holds inside a graph's nodes. **IG12** a re-recorded graph letter's `failed` reaches its entry. Details below | `nostr-relay.test.js`, `nostr.test.js`, `nostr-filter.test.js`, `nostr-graph.test.js` | integration (fake); a real ws relay for IL8 and IL9 |
 
 ### The ADR's decisions
 
 | Decision | Tests |
 |---|---|
-| 1 the declaration and its refusals | IN1, IN3–IN11, IL5 |
-| 2 the reading | IL1–IL7, IR3 (hints), IF1 (one connection, one request at a time) |
+| 1 the declaration and its refusals | IN1, IN3–IN11, IN15, IL5 |
+| 2 the reading | IL1–IL9, IR3 (hints), IF1 (one connection, one request at a time), IF10 |
 | 3 checking each event | IR15, IF7 |
 | 4 keys and versions | IR1, IR2, IO8, IO9 |
 | 5 a filter, paged (as amended: full only on evidence) | IF1–IF6, IF8 |
-| 6 a graph, followed | IG1–IG10 |
+| 6 a graph, followed | IG1–IG12 |
 | 7 the recorder | IR1–IR7, IR14, IO2–IO4, IO7, IO9, IO11, IW1–IW5 |
 | 8 the claims | IR7–IR11, IR13, IO5, IO7, IG7, IG10, IW5, IW6 |
 | 9 role labels | IR12, IG1, IO7 (never taken out) |
 | 10 `run`, not the write path | IN1 |
 | 11 the answer | IR1, IG2, IF1, IF3, IF4 |
-| 12 caps and time | IN4 (200), IG4 (four levels), IG5 (50 graphs), IF4 (the filter's limit), LV6 (timing) |
+| 12 caps and time | IN4 (200), IG4 (four levels), IG5 (50 graphs), IF4 (the filter's limit), IG11 and IF9 (the 40 s, through the budget seam), IN15 (10,000), LV6 (timing) |
 | 13 two at once | IO11 (the fake), LV3 (Neo4j) |
 
 ### Keys and labels by kind (IR2)
@@ -67,7 +68,7 @@ v1 claims `z` dog (the assistant's), `z` cat (alice's), `n` and `s` naming her o
 | `too-many` (400) | IN4 | 150 ids and 51 addresses; names 200, ids and addresses. 201 ids alone and `ids: []`: 400 naming ids |
 | `bad-id` (400) | IN5 | not hex, 63 characters, uppercase hex (refused, never lowered), a `note` and an `nevent` that don't decode, an `npub`. Names the value |
 | `bad-address` (400) | IN6 | a kind that isn't one, kind 70000, a pubkey of three characters, an uppercase-hex pubkey, no d part, an `naddr` that doesn't decode (each named); an id as `graph` |
-| `bad-filter` (400) | IN7 | JSON that doesn't parse; `foo`; `kinds: "1"`; `#ab`; `since: "yesterday"`. Names what it couldn't take |
+| `bad-filter` (400) | IN7, IN15 | JSON that doesn't parse; `foo`; `kinds: "1"`; `#ab`; `since: "yesterday"`. Names what it couldn't take. An object whose JSON is over 10,000 characters (IN15: names filter and the 10,000) |
 | `bad-relay` (400) | IN8 | `https://`, `http://`, a user name, `wss://`, no scheme |
 | `private-relay` (403) | IN9, XI1, LV5 | the own relay named, `localhost`, `10.0.0.5`, `[::1]`, names resolving to private, to public and private, to nothing; the owner, an admin, a direct-local caller and the command. No connection made; the guard asked the DNS for each name |
 | `relay-unreachable` (409) | IL5 | refuses both tries (two connects); its first request never ends. A relay holding nothing: 200, `not-found` |
@@ -110,6 +111,8 @@ v1 claims `z` dog (the assistant's), `z` cat (alice's), `n` and `s` naming her o
 - **Keys.** The callers are `graphOpsSuite.js`'s fixed fake keys. The import verifies every signature and those keys have no secret, so letters are signed with throwaway keys from fixed seeds (`KEYS` in `test/helpers/importFixtures.js`): `ta` (the child's `TA_PUBKEY`, which the code still finds at run time through `getOwnerAssistantPubkey`), `alice`, `bob`, `carol`, and `ownerSigner` (IW4's owner, the only case that needs the owner's letter). IW7 keeps graphOpsSuite's TA, over `propertyGraph.js`'s seed.
 - **The harness hooks** (additive): `operationsHarness.js` takes `graphFake: { stateFile, engine: 'cypher' }` and `relayFake: { file }`; `externalCliServer.js` takes `graphFakeEngine: 'cypher'` and `relayFake`. A missing `_relay.js`, or one with no `connect`, stops the run with that reason.
 - **Fixtures** (`test/helpers/importFixtures.js`, new): a concept as an instance publishes it (eight letters, its graphs as today's create-concept writes them), relationship and graph letters, forged ones; the assistant's concept as today's routes leave it (its letters imported by today's builder, role labels and wiring added after, a set, an element and a node made here with no letter); a runner; readers; and `canonical`, which compares two graphs without keys or entries (IO1, IO10).
+- **Review round 1's additions,** all additive: `relayFake.js`'s `live` relays (a real `ws` server in the child, reached through `_relay.js`'s own `connect` with the URL rewritten, its handshakes and requests logged; `dropOn`, `refuseAfterDrop`, `handshakeDelays`), `ignoreLimit` and `delayMs` for fake relays, and `timing`, which sets the pinned seams before the catalog loads; `cypherGraphFake.js`'s `slow` and `failWrite`'s `after`; the harness's `ms` on each request; and `runImport`'s `check: false`, for a child that died.
+- **Seams pinned at review round 1:** `_relay.js`'s exported object carries `CONNECT_MS` and `REQUEST_MS`, and `nostr.js`'s declaration carries `BUDGET_MS`; the code reads each through that object at each call, as it calls `connect`, so a suite can shorten the 5 s, 10 s and 40 s. Today's code holds them in module constants, so a suite's values are ignored until the fix.
 - **What the Implementer also meets:** `tapestry-key-paths.test.js` scans every `CREATE`/`MERGE` node in `src/` for `keyNode`, and its G19 refuses a scan of `z` tags that ends on `:NostrEvent` alone.
 - **Firmware state:** none live. The allowed relationship types are firmware's files, read from disk.
 
@@ -147,6 +150,53 @@ Settled by the owner on 2026-11-20, with ADR 0032's Test Design amendment (`3c54
 6. **"Nothing read yet":** an unfinished request's events count as unread (Decision 2). *Settled: as the ADR says;* IL5 and IL6 pin it.
 7. **The 40 s budgets and the 1,000-event cap** can't be reached stack-free in reasonable time. *Settled: as the plan has it;* LV6 measures them on a scratch stack.
 8. **Catalog §5 says "the instance's own pipelines also call `import nostr`"**; none does yet. *Settled:* the Implementer corrects that line with the stream-consumer sentence. IN14 doesn't pin it.
+
+## Review round 1 (2026-11-20)
+
+The review (`engineering-team/reviews/graph-operations-first-slice/32-import-nostr.md`) asked for blocking 1 and non-blocking 2, 5 and 9 to be fixed; the owner chose to fix all findings first, tests before fixes. Each test below fails on the code at `c2925e77` for the reason named, in a harness run of its own, so no existing test's run changes.
+
+| Finding | Test | What it does | Fails now because |
+|---|---|---|---|
+| 1 (blocking): a relay that drops the connection kills the process | **IL8** (`nostr-relay.test.js`) | Three addresses of three kinds, so three requests on one connection, read from `wss://drop.example.com`, whose host the fake DNS answers with a public address. The connection goes through `_relay.js`'s own `connect` (nostr-tools' `AbstractRelay`) to a `ws` server in the child that answers the first request, drops the connection when the second arrives, and terminates any connection after. Asserts the child lives with no unhandled rejection, the call answers 200 with one ref recorded and the two after the drop `unread`, and it answers in under 4 s, so at once on the closed connection, not after the 10 s a request may take (that seam is left at its 10 s on purpose) | the child exits 1: `Error: sending on closed connection`, nostr-tools' unawaited `send` as the third request subscribes |
+| 2: a connect that times out leaves its socket open | **IL9** (`nostr-relay.test.js`) | The live server holds the first handshake 5.5 s, past the real 5 s and the 300 ms the suite sets in `reader.CONNECT_MS`, and completes the retry's at once. The run waits a second after the import. Asserts the letter is read on the retry, two handshakes, the first one's socket closed within the window, and the call done in under 2.5 s | the first connection completes its late handshake and stays open (`live-handshake`, `live-open`, never `live-socket-closed`); and the 300 ms isn't read, so the call takes 5 s |
+| 5: a filter object has no size cap | **IN15** (`nostr.test.js`) | `{ kinds, authors, search: 'x' × 10,001 }` as an object, and as its text. Pins `bad-filter`, naming `filter` and the 10,000, for the object; the text is refused 400 naming `filter` (the schema's `maxLength`, `invalid-input`). Neither reads a relay | 200: the object is read |
+| 5: `judge` has no deadline | **IF9** (`nostr-filter.test.js`) | A relay of five a request, each answered 80 ms late; two letters in a newer second (so it is seen to stop short), then 20 kinds of three letters in one second, so the full sweep splits into 20 sweeps. `BUDGET_MS` 700. Asserts fewer than 20 split sweeps sent, `next.until` at or after the unfinished second, and the call in under 2.5 s | all 20 sweeps are sent, and the call finishes the second (about 3 s), with `next` null |
+| 5: a request keeps all a relay sends | **IF10** (`nostr-filter.test.js`) | A relay that ignores `limit` answers each request with 600 letters in one second, whose signatures don't verify, so nothing is written and the run is quick. Asserts each request asked for a number, 500 at most, and the answer holds no more events than that, `crowded` included | the answer holds 600 |
+| 5: `settle` has no deadline | **IG11** (`nostr-graph.test.js`) | A graph of 40 nodes, each record 60 ms (the fake's `slow`), `BUDGET_MS` 500. Asserts fewer than 40 recorded, the rest `unread` (or the graph under `next.graphs`), and the call in under 2 s | all 40 are recorded (about 2.5 s) |
+| 9: a re-record's `failed` goes unreported | **IG12** (`nostr-graph.test.js`) | An outer graph lists the inner graph's letter among its nodes and imports it. `failWrite` lets the inner letter's first record through (`after: 1`) and refuses the next with a statement error, so its second record, on being followed, fails at once. Asserts its one entry says `failed` with the error's words, and `counts.failed` is 1 | its entry keeps its first record's `recorded`, with no reason |
+
+**Seams.** IL9 needs a connect timeout shorter than 5 s, IF9 and IG11 a budget shorter than 40 s; the relay suite's IL5 and IL6 now set `REQUEST_MS` to 1.5 s, which saves about 17 s once the code reads it (they pass either way). See Test infrastructure.
+
+**Why `bad-filter` for IN15:** JSON Schema has no keyword for an object's JSON length, so `filter`'s 10,000 characters can only be checked in `run`, where `filterOf` already refuses a filter it won't take with `bad-filter`; the text form meets the schema's `maxLength` before `run`, so its code stays the built-in `invalid-input`. Both are 400 and name `filter`.
+
+**Suite times,** each alone (`. tmp/a10-32/env.sh`):
+
+| Suite | Before (the 73, at `c2925e77`) | Now (new tests failing) | Expected once fixed |
+|---|---|---|---|
+| nostr | 1 s | 1 s | 1 s |
+| nostr-graph | 1 s | 4 s | about 2 s |
+| nostr-filter | 1 s | 5 s | about 2 s |
+| nostr-relay | 24 s | 31 s | about 10 s |
+| the other six | 11 s | 11 s | 11 s |
+
+**Counts now,** each alone: nostr 14/1 (IN15), nostr-record 15/0, nostr-order 11/0, nostr-own 7/0, nostr-graph 10/2 (IG11, IG12), nostr-filter 8/2 (IF9, IF10), nostr-relay 7/2 (IL8, IL9), nostr-agent-through-cli 1/0, nostr-live 0/0 with 6 skipped, cypher-engine 12/0. The 73 pass; the 7 new fail as the table says. **CE12** (`cypher-engine.test.js`), which pins the fake's two new failures (`failWrite`'s `after`, and `slow`) that IG11 and IG12 rest on, passes now: it tests the fake, not the feature.
+
+```
+  FAIL  IL8 [review round 1, finding 1]: a relay that drops the connection during a call: the call answers, the rest unread at once, and the process lives
+        the process lives through the dropped connection; the harness's child exited 1:       throw new Error("sending on closed connection"); | Error: sending on closed connection | …
+  FAIL  IL9 [review round 1, finding 2]: a connect that times out closes its socket, and the call connects on its retry
+        the connection that timed out had its socket closed, not left open for nothing to read; it was still open a second after the call: ["live-handshake","live-open"]
+  FAIL  IN15 [review round 1, finding 5; Decision 1]: a filter given as an object whose JSON is over 10,000 characters is refused bad-filter, as its text is refused
+        big-object is refused 400 bad-filter; got 200 {"success":true,"data":{"source":"filter","relay":"own",…}}
+  FAIL  IF9 [review round 1, finding 5]: the time budget holds inside a crowded second's sweeps: the split stops, and next.until goes back to that second
+        the split by kinds stopped when the budget ran out; it sent 20 of the 20 kinds' sweeps
+  FAIL  IF10 [review round 1, finding 5]: a relay that ignores limit and sends more than a request asked for: the import keeps no more than it asked for
+        the relay sent 600 to each request for 500: the import kept no more than it asked for; the answer holds 600 events
+  FAIL  IG11 [review round 1, finding 5]: the time budget holds inside a graph's nodes: what it can't record in time is unread, or left under next
+        the budget ran out among the graph's 40 nodes, and the call stopped there; it recorded 40
+  FAIL  IG12 [review round 1, finding 9]: a graph letter read as another graph's node, whose record fails when it is followed, answers failed with the reason
+        its entry says failed, with the reason, not its first record's outcome; got {…"outcome":"recorded",…"reason":null}, counts {…"failed":0}
+```
 
 ## Verification
 

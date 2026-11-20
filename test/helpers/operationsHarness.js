@@ -44,7 +44,7 @@
  * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
  * stdoutBase64 beside stdout. pauseMs waits after each request, for work a route does after it has answered.
  *
- * It writes { error, scenarios: [{ requests: [{ id, status, headers, body, bodyBase64 }], cli: [{ id, code, stdout,
+ * It writes { error, scenarios: [{ requests: [{ id, status, headers, body, bodyBase64, at, ms }], cli: [{ id, code, stdout,
  * stdoutBase64, stderr, leaked }] }], runs } to <out.json>. `runs` is globalThis.__opsRuns, which fixture operations
  * count their runs in. A missing module is reported as `error`, so the parent's assertions fail with the reason.
  *
@@ -180,7 +180,9 @@ function send(port, r) {
     else if (typeof r.rawBody === 'string') payload = r.rawBody;
     else if (r.body !== undefined) payload = JSON.stringify(r.body);
     let settled = false;
-    const done = (x) => { if (!settled) { settled = true; resolve(x); } };
+    // ms: how long the request took, sent to answered (story graph-operations-first-slice #32, review round 1).
+    const t0 = Date.now();
+    const done = (x) => { if (!settled) { settled = true; resolve({ ...x, ms: Date.now() - t0 }); } };
     // agent: false — a fresh connection each time, so a request that declares a body it never sends (declaredOnly)
     // can't leave a half-read socket for the next request to be parsed into.
     const req = http.request({ host: '127.0.0.1', port, path: r.url, method: r.method, headers, agent: false }, (res) => {

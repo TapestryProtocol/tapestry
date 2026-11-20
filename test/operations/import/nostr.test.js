@@ -36,6 +36,9 @@
  *   IN13 the internal command imports with the same inputs, its entry naming the command; its refusal is the route's
  *   IN14 the catalog, BIBLE §6 and §11 and the agent skill say what it does; the catalog stops saying the stream
  *        consumer imports continuously
+ *   Review round 1 (finding 5):
+ *   IN15 a filter given as an object whose JSON is over 10,000 characters is refused bad-filter, naming filter and the
+ *        10,000, as its text form is refused (by the schema's maxLength); neither reads a relay or records anything
  */
 
 const fs = require('fs');
@@ -333,6 +336,22 @@ test('IN14 [AC7, Consequences]: the catalog, BIBLE §6 and §11 and the agent sk
   const skill = fs.readFileSync(path.join(ROOT, 'clients/cli/skill/SKILL.md'), 'utf8');
   const line = skill.split('\n').find((l) => /checks the graph's rules as it writes/.test(l)) || '';
   assert(/\bimport/i.test(line), `the skill's line that every operation checks the graph's rules as it writes gains the exception for imports; got ${show(line)}`);
+});
+
+test('IN15 [review round 1, finding 5; Decision 1]: a filter given as an object whose JSON is over 10,000 characters is refused bad-filter, as its text is refused', async () => {
+  F.needDecl();
+  // The schema can't bound an object's size (JSON Schema has no keyword for its JSON's length), so the check is run's,
+  // whose refusal for a filter it won't take is bad-filter. The text form meets the schema's maxLength first.
+  const big = { kinds: [1], authors: [PK], search: 'x'.repeat(10001) };
+  const r = F.runImport({
+    state: F.emptyGraph(), relays: RELAYS, label: 'import-nostr-big-filter',
+    requests: [imp('big-object', 'owner', { filter: big }), imp('big-text', 'owner', { filter: JSON.stringify(big) })],
+  });
+  const b = F.refused(r, 'big-object', 400, 'bad-filter');
+  assert(names(b, 'filter') && /10,?000/.test(err(b)), `the refusal names filter and its 10,000 characters; got ${err(b)}`);
+  const t = r.req('big-text');
+  assert(t.status === 400 && names(t.body, 'filter'), `its text form is refused too, naming filter; got ${t.status} ${show(t.body).slice(0, 200)}`);
+  assert(!r.log().some((x) => x.at === 'connect') && F.entries(r.state()).length === 0, 'neither read a relay, and nothing was recorded');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

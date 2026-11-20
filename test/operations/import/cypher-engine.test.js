@@ -25,6 +25,8 @@
  *        unreachable, failWrite and meanwhile fire as cypherGraphFake.js says
  *   CE11 reads: OPTIONAL MATCH, aggregates, list and pattern comprehensions, EXISTS and COUNT subqueries, undirected and
  *        variable-length paths, ORDER BY and LIMIT
+ *   CE12 (review round 1) failWrite's after lets that many transactions through, then fails the next, once each; slow
+ *        makes every transaction take at least its ms
  */
 
 const path = require('path');
@@ -226,6 +228,27 @@ test('CE11: reads: OPTIONAL MATCH, aggregates, comprehensions, EXISTS and COUNT,
   const e = throws(() => E.run(s, 'MATCH (n) RETURN n LIMIT $l', { l: 2 }));
   assert(e && /float/.test(e.message), `a LIMIT given a JavaScript number is refused, as Neo4j refuses the driver's float; got ${e && e.message}`);
   assert(rows(s, 'MATCH (n:E) RETURN n.name AS name ORDER BY n.name DESC LIMIT 1', {})[0].name === 'e2', 'ORDER BY DESC with a literal LIMIT');
+});
+
+test('CE12 [review round 1]: failWrite\'s after lets that many transactions through, then fails the next; slow makes each transaction take its ms', async () => {
+  const dir = tmp('cypher-engine-after-');
+  const file = path.join(dir, 'graph.json');
+  const s = fresh();
+  s.failures = { failWrite: [{ match: 'evt-9', after: 1, times: 1, code: 'Neo.ClientError.Statement.SyntaxError', message: 'the second record fails' }], slow: { ms: 120 } };
+  CG.writeState(file, s);
+  const g = CG.fakeGraph(file);
+  const write = () => g.writeTransaction(async (tx) => {
+    await tx.run('MERGE (n:NostrEvent {id: $id}) ON CREATE SET n.uuid = $id', { id: 'evt-9' });
+    await tx.run('MATCH (n:NostrEvent {id: $id}) SET n.seen = coalesce(n.seen, 0) + 1', { id: 'evt-9' });
+  });
+  const t0 = Date.now();
+  const outcomes = [];
+  for (let i = 0; i < 3; i += 1) { try { await write(); outcomes.push('ok'); } catch (e) { outcomes.push(e.code); } }
+  const took = Date.now() - t0;
+  assert(show(outcomes) === show(['ok', 'Neo.ClientError.Statement.SyntaxError', 'ok']), `the first transaction holding evt-9 runs whole, both its statements; the second fails; the third runs; got ${show(outcomes)}`);
+  const n = CG.readState(file).nodes.find((x) => x.props.id === 'evt-9');
+  assert(n && n.props.seen === 2, `two transactions committed; got ${show(n && n.props)}`);
+  assert(took >= 3 * 120, `slow held each of the three transactions 120 ms; they took ${took} ms`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

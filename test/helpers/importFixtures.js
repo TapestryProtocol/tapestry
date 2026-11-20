@@ -26,8 +26,9 @@
  *   node it leaves; cy(state, cypher, params); label, wire, eventless; ownConcept(state, opts): the assistant's concept
  *   as today's signing routes leave it, letters imported by today's builder, then role labels and wiring.
  *
- * Runs: runImport({ state | file, relays, dns, requests, cli, signing, ownerKey, spy }) is one harness run with the
- * cypher engine and the fake relays; readWith(state, requests) one with graphFake.js, for other operations' reads.
+ * Runs: runImport({ state | file, relays, dns, live, timing, pauseMs, requests, cli, signing, ownerKey, spy }) is one
+ * harness run with the cypher engine and the fake relays (relayFake.js says what live and timing are); readWith(state,
+ * requests) one with graphFake.js, for other operations' reads.
  * Readers: nodesAt, withId, byKey, relsOf, tagsOf, personsOf, isPlaceholder, entries, canonical.
  */
 
@@ -241,16 +242,18 @@ function envFor(dir, { signing = true, ownerKey = null } = {}) {
  * `relays` and `dns` are relayFake's fixture; `signing` gives the child the throwaway assistant (KEYS.ta); ownerKey
  * makes that pubkey the owner.
  */
-function runImport({ state = null, file = null, relays = {}, dns = DNS, requests = [], cli = [], signing = true, ownerKey = null, spy = false, label: name = 'import-nostr' } = {}) {
+function runImport({ state = null, file = null, relays = {}, dns = DNS, live = {}, timing = {}, pauseMs = 0, requests = [], cli = [], signing = true, ownerKey = null, spy = false, label: name = 'import-nostr', check = true } = {}) {
   const dir = file ? path.dirname(file) : S.tmp(`${name}-`);
   const stateFile = file || path.join(dir, 'graph.json');
   if (state) CG.writeState(stateFile, state);
   else if (!fs.existsSync(stateFile)) CG.writeState(stateFile, emptyGraph());
-  const fixture = R.writeFixture(path.join(dir, `relays-${crypto.randomUUID()}.json`), { relays, dns });
-  const spec = { spy, scenarios: [{ graphFake: { stateFile, engine: 'cypher' }, relayFake: { file: fixture }, requests, cli }] };
+  const fixture = R.writeFixture(path.join(dir, `relays-${crypto.randomUUID()}.json`), { relays, dns, live, timing });
+  const spec = { spy, scenarios: [{ graphFake: { stateFile, engine: 'cypher' }, relayFake: { file: fixture }, requests, cli, ...(pauseMs ? { pauseMs } : {}) }] };
   if (ownerKey) spec.owner = ownerKey;
   const r = S.runHarness(spec, { dir, env: envFor(dir, { signing, ownerKey }) });
-  return { ...S.answered(r), file: stateFile, fixture, state: () => CG.readState(stateFile), log: () => R.readLog(fixture), raw: r };
+  // check false: the caller looks at the child itself first (review round 1: a child that died), then calls answered().
+  const rest = { file: stateFile, fixture, state: () => CG.readState(stateFile), log: () => R.readLog(fixture), raw: r };
+  return check ? { ...S.answered(r), ...rest } : { ...rest, answered: () => S.answered(r) };
 }
 
 /** One harness run with graphFake.js over a copy of `state`, for the reads and writes of other operations. */

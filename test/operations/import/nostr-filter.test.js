@@ -26,6 +26,10 @@
  *   IF7  the newest version of each address in the window is recorded, the other older
  *   IF8  no false alarm on a relay that answers what it is asked: one event, and eight letters in one second of one kind
  *        and one author, each read whole, nothing crowded
+ *   Review round 1 (finding 5, bounds that escape the caps):
+ *   IF9  the time budget holds inside a crowded second's sweeps: the split by kinds stops when it runs out, and next.until
+ *        sends a later call back to that second; the budget is 700 ms, set through nostr.js's declaration (BUDGET_MS)
+ *   IF10 a relay that ignores limit and answers more than a request asked for: the import keeps no more than it asked for
  */
 
 const S = require('../../helpers/graphOpsSuite');
@@ -38,7 +42,7 @@ const { KEYS, imp, letter } = F;
 const key = (name) => F.keyFrom(name);
 const people = { carol: KEYS.carol, dave: key('dave'), erin: key('erin'), frank: key('frank'), gil1: key('gil one'), gil2: key('gil two'), gina: key('gina'), hank: key('hank'), ivy: key('ivy'), jo: key('jo'), kai: key('kai') };
 const URL = (name) => `wss://${name}.example.com`;
-const RELAYS = ['pages', 'sweep', 'crowd', 'capped', 'since', 'search', 'versions', 'single', 'burst'];
+const RELAYS = ['pages', 'sweep', 'crowd', 'capped', 'since', 'search', 'versions', 'single', 'burst', 'budget', 'flood'];
 const DNS = { ...F.DNS, ...Object.fromEntries(RELAYS.map((n, i) => [`${n}.example.com`, { v4: [`1.0.0.${i + 2}`] }])) };
 const note = (who, when, i = 0, kind = 1) => letter(who, { kind, at: when, tags: [['t', `n${i}`]], content: `${who.label} at ${when} #${i}` });
 const at = (rid, relay, filter) => imp(rid, 'admin', { relay: URL(relay), filter });
@@ -217,6 +221,52 @@ test('IF8 [AC5, Decision 5 as amended]: no false alarm: on a relay that answers 
   assert(show(recordedIds(one)) === show([single.id]) && (!one.crowded || one.crowded.length === 0), `a filter matching one event: recorded, nothing crowded (its sweep is as large as its page, but no request answered fewer than it asked while more were held); got ${show({ ...one, events: one.events && one.events.map((e) => e.outcome) })}`);
   const b = F.data(r, 'f-burst');
   assert(show(recordedIds(b).sort()) === show(burst.map((e) => e.id).sort()) && (!b.crowded || b.crowded.length === 0), `eight letters in one second, one kind and one author, as firmware's are published: all recorded, nothing crowded; got ${show({ counts: b.counts, crowded: b.crowded })}`);
+});
+
+// ── review round 1 ──
+const hexOf = (x) => require('crypto').createHash('sha256').update(String(x)).digest('hex');
+// IF9: two letters in a newer second, so the relay (five a request) is seen to stop short, then twenty kinds of three
+// letters each in one second: a full sweep, split by kinds into twenty sweeps, each answered 80 ms late.
+const lee = key('lee');
+const BUDGET_T = 1700306000;
+const budgetKinds = [1, ...Array.from({ length: 19 }, (_, i) => 1000 + i)];
+const budgetNewer = [0, 1].map((i) => note(lee, BUDGET_T + 10, i, 1));
+const budgetCrowd = budgetKinds.flatMap((k, j) => [0, 1, 2].map((i) => note(lee, BUDGET_T, 10 + j * 3 + i, k)));
+// IF10: 600 letters in one second from a relay that ignores limit. Their signatures don't verify, so each is answered
+// invalid and nothing is written: the test is of what a request keeps, not of the graph.
+const max = key('max');
+const FLOOD_T = 1700307000;
+const flood = Array.from({ length: 600 }, (_, i) => ({ id: hexOf(`flood ${i}`), pubkey: max.pubkey, created_at: FLOOD_T, kind: 1, tags: [], content: `#${i}`, sig: '0'.repeat(128) }));
+
+test('IF9 [review round 1, finding 5]: the time budget holds inside a crowded second\'s sweeps: the split stops, and next.until goes back to that second', async () => {
+  F.needDecl();
+  const r = F.runImport({
+    state: F.emptyGraph(), dns: DNS, label: 'import-nostr-judge-budget',
+    relays: { [URL('budget')]: F.relay([...budgetNewer, ...budgetCrowd], { cap: 5, delayMs: 80 }) },
+    timing: { BUDGET_MS: 700 },
+    requests: [at('f-budget', 'budget', { kinds: budgetKinds, authors: [lee.pubkey] })],
+  });
+  const d = F.data(r, 'f-budget');
+  const parts = requestsTo(r.log(), 'budget').flatMap((q) => q.filters).filter((f) => isSweep(f) && f.since === BUDGET_T && Array.isArray(f.kinds) && f.kinds.length === 1);
+  assert(parts.length < budgetKinds.length, `the split by kinds stopped when the budget ran out; it sent ${parts.length} of the ${budgetKinds.length} kinds' sweeps`);
+  assert(d.next && Number.isInteger(d.next.until) && d.next.until >= BUDGET_T, `next.until lets a later call read the second it didn't finish (${BUDGET_T}); got ${show(d.next)}`);
+  const ms = r.req('f-budget').ms;
+  assert(ms < 2500, `the call kept to the 700 ms the suite set through nostr.js's declaration (BUDGET_MS); it took ${ms} ms`);
+});
+
+test('IF10 [review round 1, finding 5]: a relay that ignores limit and sends more than a request asked for: the import keeps no more than it asked for', async () => {
+  F.needDecl();
+  const r = F.runImport({
+    state: F.emptyGraph(), dns: DNS, label: 'import-nostr-flood',
+    relays: { [URL('flood')]: F.relay(flood, { ignoreLimit: true, cap: 5000 }) },
+    requests: [at('f-flood', 'flood', author(max))],
+  });
+  const d = F.data(r, 'f-flood');
+  const asked = requestsTo(r.log(), 'flood').flatMap((q) => q.filters).map((f) => f.limit);
+  const most = Math.max(...asked);
+  assert(asked.length > 0 && asked.every(Number.isInteger) && most <= 500, `each request asked for a number of events, 500 at most; got ${show(asked)}`);
+  assert(d.events.length > 0 && d.events.length <= most, `the relay sent ${flood.length} to each request for ${most}: the import kept no more than it asked for; the answer holds ${d.events.length} events`);
+  assert((d.crowded || []).every((c) => Object.values(c).every((v) => !Number.isInteger(v) || v === FLOOD_T || v <= most)), `and its crowded second counts no more than that; got ${show(d.crowded)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
