@@ -34,8 +34,8 @@
  *
  * skeleton, normalize/json and the property route's schema generator are held by FN6's reading of their source alone:
  * the fake graph can't run their reads (skeleton reads over IS_THE_CORE_GRAPH_FOR, which saveSchemaChild doesn't serve;
- * normalize/json sorts with ORDER BY … DESC; the property route isn't one saveSchemaChild registers). Test plan,
- * Amendment 3.
+ * normalize/json's header read names a variable `desc`, which the fake reads as the keyword DESC, and reads over
+ * IS_THE_CORE_GRAPH_FOR too; the property route isn't one saveSchemaChild registers). Test plan, Amendment 3.
  */
 
 const fs = require('fs');
