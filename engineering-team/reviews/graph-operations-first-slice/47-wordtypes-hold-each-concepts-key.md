@@ -665,3 +665,20 @@ I re-derived each changed statement (rule 10), my suggested wording included. Th
 - My gate and `external-cli` pass on `7aa3efa5`, and the session's run gives the same counts.
 
 **PASS**
+
+## Fix check, third pass — 2026-11-20 (HEAD `9f9341f3`, not a round)
+
+The coordinator asked for a check of the one commit after the second pass's commit (`391b9b2f`). That is `9f9341f3`, which fixes the second pass's two slips. It changes the story alone: 1 file, +6 −6.
+
+- **The Deviation's example — fixed** (story `:158`). Its only change is "a node" to "one of the instance's own nodes,", with a comma after "list". That is my suggested wording, so I re-checked it as a claim:
+  - the second pass's `setItem` (the assistant's own, kept in its json tag) and the fix check's Whiskers each gained the key they lacked from just such a call (`tmp/review-47/fixcheck2/beside.log`, `tmp/review-47/round2-fixcheck/why.log`);
+  - "one of the instance's own nodes" is add-to-concept's own term for a node kept in its json tag. It names firmware's elements apart, as kept beside (`src/operations/catalog/graph/add-to-concept.js:44`);
+  - it is an example of "can", not a promise. Such a call can still be refused, for instance when the new key brings in a schema the node doesn't fit (`test/operations/graph/add-to-concept.test.js:717`, AT54). That doesn't make the sentence untrue.
+- **The paragraph — fixed** (story `:185-203`).
+  - The check of round 2's fixes has its "Results:" under it again (`:195-198`). A blank line comes before it, so it isn't read into the bullet above.
+  - Its "What it missed" follows the results (`:199`), as `:183` does for the gate before.
+  - The check of the fix check's findings is its own paragraph (`:201-203`).
+  - The five lines were moved, not reworded, and they read as the second pass checked them.
+- **No gate is needed, as the coordinator says.** Only the story changed, and no registered suite reads it: the suites that name its file, or the epic's stories folder, do so only in comments. harness-lint at `9f9341f3`: `harness-lint: clean (0 violations)`.
+
+**PASS**
