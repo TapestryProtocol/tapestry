@@ -3037,3 +3037,34 @@ built. That story froze what the workflows run today and changed nothing else.
 
 **Classification:** bug (security hardening), Standard. The SSH change touches every deploy, so Architecture applies:
 an ADR, and a rehearsal on a sandbox before `main`.
+
+## 2026-11-20 — Nothing checks that a node's `wordTypes` hold the key of each concept it belongs to (feature)
+
+**Raw request:** none as such; raised by the owner at `graph-operations-first-slice` #46's planning (2026-11-20). That
+story drops the wordType pair install writes for `word.wordTypes`, which compares the list with itself and so checks
+nothing. The owner asked whether the check worth making is done anywhere: "I presume that at some point, somewhere, we
+do, in fact, want to check whether (the expected string) is in (the existing array)." Then, on its scope: "Adding new
+tests can be for another day and another session."
+
+**What was found.**
+
+- **The writes put the key in.** `graph create-element` writes `wordTypes` as "word" and the key of each concept whose
+  class thread reaches the element; `graph create-set` writes "word", "set" and the key of each other concept the set
+  is an element of; `graph add-to-concept` adds the concept's key, and `graph remove-from-concept` takes it out.
+- **Almost nothing checks it.** Only validation tool's own schema does: its elements' `wordTypes` must contain
+  "validationTool" (`firmware/versions/v1.0.0/concepts/validation-tool/json-schema.json`). No other firmware schema
+  checks it, nor any graph rule (`docs/GRAPH_RULES.md`), the derive step or the audit. So a node from an import, an
+  old route or raw Cypher can lack its concept's key, and nothing says so.
+- **The derive step rewrites a set's `wordTypes`** as `["word", "set"]`, or `["word", "superset", "set"]` for a
+  superset (`src/lib/derivers/set.js:98-105`), dropping any other concept key `graph create-set` wrote.
+
+**Likely shape.** Decisions, none settled:
+
+- where the expected key comes from: the concepts whose class threads reach the node, or the concept sections in the
+  node's own JSON;
+- where the check lives: in each concept's own schema, as validation tool's does, or as a graph rule beside
+  `element-fits-schema`, which `rules check` (Loom A10.31) would run;
+- what it would flag on today's instances, measured before anything is refused for it.
+
+**Classification:** feature, Standard; all phases. Not on Loom yet; a proposal there, related to A10.31, is the owner's
+call.
