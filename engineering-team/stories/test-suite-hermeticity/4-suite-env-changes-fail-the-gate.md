@@ -28,6 +28,7 @@ Its review (round 1, blocking 1) showed a suite listed first reading port 9 and 
 - `search-api-result-type-settings` leaves `TAPESTRY_SETTINGS_PATH` set on purpose (`test/search-api-result-type-settings.test.js:54–61`), reasoning that later suites don't read it. ADR `honest-test-gate/0001` left this to the assertion sweep (`test-suite-hermeticity` #2).
 - `strfry-router-saved-state` P3 restores `BRAINSTORM_ROUTER_PLUGINS_DIR` by assignment (`test/strfry-router-saved-state.test.js:173–178`). When the key was unset, that leaves it holding the string `"undefined"`. *Corrected at Test Design, 2026-11-21: this one doesn't leak. The suite's `run()` sets the key before any test runs and puts it back correctly, so P3 never meets an unset key (ADR `test-suite-hermeticity/0002`, Amendment 1).*
 - Four suites put a key back by deleting it: `tl-certainty-method`, `tl-membership-method-selector` and `tl-weighted-sum-method` (`TAPESTRY_SETTINGS_PATH`), and `trusted-list-pin-publish-blockers` (`SCHEDULED_TASKS_CONFIG_PATH`). That is a change whenever the key was already set before the suite ran, whether by the gate's starting environment or by an earlier suite's leak.
+- *Added at Review round 1, 2026-11-21:* `operations.test.js` runs every suite under `test/operations/` in its own process, and two of them, `graph/create-concept` CC3 and `graph/update-concept` UC2, set `TA_PUBKEY` and never put it back. The search above never reached `test/operations/` (ADR `test-suite-hermeticity/0002`, Amendment 2).
 
 **Who it hurts.** Everyone who reads a gate verdict, most of all anyone who runs the gate where a stack answers. There a leak can do either of two things:
 - turn live checks into skips while the run still says PASS;
@@ -56,7 +57,7 @@ As anyone who reads the test gate's verdict, I want the gate to fail any suite t
   - so the leak changes no other suite's result.
 - [ ] **AC5 — Today's suites pass, with no way round.**
   - With this in place, the gate passes when run with no stack, as CI runs it.
-  - Every registered suite that would trip the check is brought into line in this story, including the five in Background that leave a change behind. (The four that put a key back by deleting it trip the check only when the gate begins with that key set. `strfry-router-saved-state`, also listed there, turned out not to leak; see the correction there.)
+  - Every registered suite that would trip the check is brought into line in this story, including the seven in Background that leave a change behind: five suites, and the two operation suites that `operations.test.js` runs. (The four that put a key back by deleting it trip the check only when the gate begins with that key set. `strfry-router-saved-state`, also listed there, turned out not to leak; see the correction there.)
   - No suite can mark a change as allowed.
 
 ## Concepts touched

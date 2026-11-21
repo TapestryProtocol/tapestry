@@ -288,3 +288,20 @@ Writing the tests corrected one fact that the Context and Implementation notes �
    - Five suites leave a change behind, not six. Read "the six suites" in the Context and Implementation notes §1–§2 as these five.
    - Implementation notes §2's P3 item is withdrawn: the Implementer changes the other five suites and leaves `strfry-router-saved-state` alone. P3's pattern stays in place. It would bite only if P3 ran outside the suite's `run()`, so it is no leak today, and no test drives a change to it.
    - S2 stays, as a regression guard: it passes today and must keep passing.
+
+## Amendment 2 (2026-11-21, at Review round 1; for the owner's approval with the fix)
+
+Review round 1 found that the Context's audit didn't reach every suite the gate's process runs. The decision and every story criterion stand.
+
+1. **The audit's reach.**
+   - It searched `test/*.test.js`, `test/helpers/` and the product code. It never searched `test/operations/`.
+   - `test/operations.test.js` loads every suite under `test/operations/` and runs it inside its own run (`:1158–1183`). So those suites run in the gate's own process, and whatever they leave in `process.env` is left by `operations.test.js`.
+2. **Two of them leave a key behind.**
+   - `test/operations/graph/create-concept.test.js` CC3 (`:237`) and `test/operations/graph/update-concept.test.js` UC2 (`:174`) each set `TA_PUBKEY` to the suites' test TA (`'dd'.repeat(32)`, `test/helpers/graphOpsSuite.js:30`), and nothing puts it back.
+   - `getOwnerAssistantPubkey()` reads `TA_PUBKEY` first (`src/utils/assistantKeys.js:52–56`). So today the 14 suites after `operations.test.js` run with that test TA as the instance's.
+   - Run through this ADR's engine, `operations.test.js` fails the check: `left process.env changed after its run (1 key): added TA_PUBKEY` (run `20261121T053127Z-4424-ae68`).
+   - Every other write under `test/operations/` is put back (`lifecycle/backup-job.test.js`), or runs in a child (`graph/memberships-shared.test.js:503`, `lifecycle/status.test.js:105`, `:172`).
+3. **What changes.**
+   - Implementation notes §2 gains both suites. Each notes `TA_PUBKEY` before its test sets it, and puts it back in a `finally`, deleting it when it was unset.
+   - The guard gains S7 and S8 for them, written first, as S1–S6 were. Each runs its suite in a child, with `TA_PUBKEY` unset and preset to a key other than the suites' `TA`.
+   - So seven suites are brought into line: the five Amendment 1 left, and these two.
