@@ -107,7 +107,7 @@ function wordTypesOf(view) {
 }
 
 const WHY = "It only reports: no operation gives a node a key it lacks yet (ADR graph-operations-first-slice/0047).";
-const WAY_ON = "A firmware reinstall gives firmware's own nodes their keys. For any other node a repair for this rule is still to come; graph add-to-concept adds a concept's key only with the concept's section, to a node that holds none.";
+const WAY_ON = "A firmware reinstall gives firmware's own nodes their keys. For any other node a repair for this rule is still to come; graph add-to-concept adds a concept's key to one of the instance's own nodes when it gives the node the concept's section, or puts it in one of the concept's sets, and changes nothing for a node that already holds both.";
 
 module.exports = {
   name: NAME,

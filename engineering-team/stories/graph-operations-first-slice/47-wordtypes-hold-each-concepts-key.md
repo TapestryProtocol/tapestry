@@ -194,7 +194,7 @@ Results:
   5. repaired over teapot: the finding was left, with the way on, and nothing was recorded;
   6. with the key back, checked Brown Betty, which was judged and not named.
 - **Not covered.**
-  - A fresh install of this branch's firmware alone: the scratch script's boot always installs the image's firmware first. The reinstall rebuilds every firmware header and JSON schema from this branch's files, so for word types it ends where a fresh install would.
+  - A fresh install of this branch's firmware alone: the scratch script's boot always installs the image's firmware first. The reinstall rebuilds every firmware header and JSON schema with this branch's code and firmware: a JSON schema's word types come from the code's constant, and a header's from its firmware file. So for word types it ends where a fresh install would.
   - The hosted instances: each one's reinstall waits for the owner's yes (ledger row `2026-11-20-word-types-keys-await-firmware-reinstall`).
 - The stack was taken down after.
 
