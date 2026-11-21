@@ -112,13 +112,13 @@ test('SA1 [AC7]: the agent installs, finds a concept, is told a repeat changed n
 
   // 1. An instance with no firmware: the agent installs it, and finds a concept by its address.
   const first = await ok('install', ['lifecycle', 'seed-firmware']);
-  assert(F.countOf(first, 'added') === 459, `the install adds the firmware's 459 nodes; got ${show(first.counts)}`);
+  assert(F.countOf(first, 'added') === F.census().total, `the install adds the firmware's ${F.census().total} nodes; got ${show(first.counts)}`);
   const found = await ok('resolve', ['graph', 'resolve', '--ref', `39998:${TA}:dog`]);
   assert((found.candidates || []).some((c) => c.address === `39998:${TA}:dog`), `the agent finds dog's header by its address; got ${show(found).slice(0, 300)}`);
 
   // 2. Again: nothing changed.
   const again = await ok('repeat', ['lifecycle', 'seed-firmware']);
-  assert(F.countOf(again, 'unchanged') === 459 && again.change === null, `told nothing changed; got ${show({ counts: again.counts, change: again.change })}`);
+  assert(F.countOf(again, 'unchanged') === F.census().total && again.change === null, `told nothing changed; got ${show({ counts: again.counts, change: again.change })}`);
 
   // 3. A firmware node edited (dog's header, as a raw query edits it), and the firmware the instance carries changed.
   const s = CG.readState(stateFile);

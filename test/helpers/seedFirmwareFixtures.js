@@ -17,6 +17,11 @@
  *   keptOnFirstContact(o)        the nodes first contact keeps on today's install's graph: the schemas pass 3b fills
  *                                (four on firmware/active) and the three concept graphs pass 1c flattens
  *   buildTarget(dir, ta)         src/firmware/target.js's buildTarget({ dir, ta }), or a throw that it doesn't exist yet
+ *   census(dir)                  what the firmware holds, counted from its files as install walks them, neither from the
+ *                                oracle nor from the builder, so the suites' counts follow the firmware when it changes
+ *                                (story graph-operations-first-slice #47 added a twelfth graph-rule item): concepts,
+ *                                headers, coreNodes, coreEdges, elements, sets, relationshipLetters, nodes, total,
+ *                                graphRules, existingSets
  *
  * The graph, in test/helpers/cypherEngine.js's shape:
  *   emptyGraph()
@@ -62,15 +67,25 @@ const STATUS = '/api/tapestry/lifecycle/status';
 const DECL = path.join(ROOT, 'src/operations/catalog/lifecycle/seed-firmware.js');
 const SEED = path.join(ROOT, 'src/operations/catalog/lifecycle/_seed.js');
 const TARGET = path.join(ROOT, 'src/firmware/target.js');
-/** The five schemas pass 3b fills, installed as their files say (ADR 0037 Decision 5). */
-const FIVE = Object.freeze(['word', 'graph', 'property', 'relationship', 'dog']);
-/** The six concepts with a community reference (story fact 1). */
-const COMMUNITY = Object.freeze(['nostr-relay', 'tag', 'nostr-user-tag', 'tag-pinning', 'nostr-event-tag', 'tagging-with-specific-tag']);
+// Read from firmware/active's manifest, so each list follows the firmware when it changes.
+const MANIFEST = JSON.parse(fs.readFileSync(path.join(ACTIVE, 'manifest.json'), 'utf8'));
+const MANIFEST_SLUGS = new Set(MANIFEST.concepts.map((c) => c.slug));
 /**
- * The three concepts whose concept graph pass 1c flattens and the target keeps as create-concept made it: the second
- * departure (ADR 0037 Amendment 1, item 2; the owner, 2026-11-20).
+ * The schemas pass 3b fills, which seed-firmware installs as their files say (ADR 0037 Decision 5): each enumeration's
+ * concept, in the manifest's order (five on firmware 1.0.0: word, graph, property, relationship, dog).
  */
-const DEPARTED_GRAPHS = Object.freeze(['node-type', 'graph-type', 'validation-tool-type']);
+const FIVE = Object.freeze(Object.values(MANIFEST.enumerations || {}).flatMap((d) => ((d && d['existing-nodes']) || []).map((e) => e.concept)));
+/** The concepts with a community reference to a header (story fact 1): six on firmware 1.0.0. */
+const COMMUNITY = Object.freeze(MANIFEST.concepts.filter((c) => c.communityReference && String(c.communityReference.headerATag).split(':')[0] === '39998').map((c) => c.slug));
+/**
+ * The concepts whose concept graph pass 1c flattens, and the target keeps as create-concept made it: the second
+ * departure (ADR 0037 Amendment 1, item 2; the owner, 2026-11-20). Each is the concept of a category of the manifest's
+ * elements with an existing node 1c makes, one naming a concept the manifest defines (node-type, graph-type and
+ * validation-tool-type on firmware 1.0.0; dog-breed's name none).
+ */
+const DEPARTED_GRAPHS = Object.freeze(Object.entries(MANIFEST.elements || {})
+  .filter(([, d]) => d && !Array.isArray(d) && (d['existing-nodes'] || []).some((e) => MANIFEST_SLUGS.has(e.concept)))
+  .map(([category]) => O.categoryToSlug(category)));
 const ROLE_LABELS = O.ROLE_LABELS;
 const dtag = require(path.join(ROOT, 'src/lib/dtag.js'));
 
@@ -118,6 +133,51 @@ function applyChanges(dir, changes) {
   return dir;
 }
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
+
+/**
+ * What the firmware in `dir` holds, counted from its files as install walks them (src/firmware/install.js's passes 1a,
+ * 1b and 1c½, and the manifest's existing sets), neither from the oracle nor from the builder, so a count follows the
+ * firmware when it changes. Memoized by folder.
+ *   concepts, headers        the manifest's concepts, a header each
+ *   coreNodes                seven a concept: its superset, JSON schema, primary property, properties set, property tree
+ *                            graph, concept graph and core nodes graph, as create-concept makes them
+ *   coreEdges                eight a concept: IS_THE_CONCEPT_FOR, the six core links to the header, IS_A_PROPERTY_OF
+ *   elements                 every concept's elements/*.json; graphRules, graph-rule's alone
+ *   sets                     every concept's sets/*.json; relationshipLetters, one a set (create-set's)
+ *   nodes                    headers + core nodes + elements + sets: the letters today's install signs at firmware
+ *                            addresses but the relationship letters
+ *   total                    nodes + relationship letters: what seed-firmware installs
+ *   existingSets             the manifest's sets' existing-sets
+ */
+const CENSUS = new Map();
+function census(dir = ACTIVE) {
+  if (CENSUS.has(dir)) return CENSUS.get(dir);
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+  const concepts = Array.isArray(manifest.concepts) ? manifest.concepts : [];
+  const files = (entry, sub) => {
+    const at = path.join(dir, entry.dir, sub);
+    return fs.existsSync(at) ? fs.readdirSync(at).filter((f) => f.endsWith('.json')) : [];
+  };
+  const sum = (sub, keep = () => true) => concepts.filter(keep).reduce((n, c) => n + files(c, sub).length, 0);
+  const elements = sum('elements');
+  const sets = sum('sets');
+  const c = {
+    version: manifest.version,
+    concepts: concepts.length,
+    headers: concepts.length,
+    coreNodes: 7 * concepts.length,
+    coreEdges: 8 * concepts.length,
+    elements,
+    graphRules: sum('elements', (x) => x.slug === 'graph-rule'),
+    sets,
+    relationshipLetters: sets,
+    existingSets: Object.values(manifest.sets || {}).reduce((n, d) => n + ((d && Array.isArray(d['existing-sets'])) ? d['existing-sets'].length : 0), 0),
+  };
+  c.nodes = c.headers + c.coreNodes + c.elements + c.sets;
+  c.total = c.nodes + c.relationshipLetters;
+  CENSUS.set(dir, Object.freeze(c));
+  return CENSUS.get(dir);
+}
 const fileSha = (dir, rel) => sha256(fs.readFileSync(path.join(dir, rel)));
 const readFirmwareJson = (dir, rel) => JSON.parse(fs.readFileSync(path.join(dir, rel), 'utf8'));
 
@@ -518,7 +578,7 @@ function statusFirmware(state, { firmwareDir = null, lmdb = null } = {}) {
 }
 
 module.exports = {
-  ROOT, NL, TA, ACTIVE, ROUTE, STATUS, DECL, SEED, TARGET, FIVE, COMMUNITY, DEPARTED_GRAPHS, ROLE_LABELS, assert, show, tmp: S.tmp, dtag,
+  ROOT, NL, TA, ACTIVE, ROUTE, STATUS, DECL, SEED, TARGET, FIVE, COMMUNITY, DEPARTED_GRAPHS, ROLE_LABELS, assert, show, tmp: S.tmp, dtag, census,
   needDecl, needTarget, needSeed, copyFirmware, applyChanges, fileSha, sha256, readFirmwareJson, oracle, buildTarget, targetLetters, keptOnFirstContact,
   enumeratedOnTodaysInstall,
   nodesOf, relsOfTarget, isRelationshipLetter, tagValue, parsed, roleLabels, tagKey, tagSet, setDiff, sameSet, stable, sameJson, relEnds,

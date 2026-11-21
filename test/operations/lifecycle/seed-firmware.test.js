@@ -66,7 +66,7 @@
  *        otherwise
  * Review round 1 (engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md; ADR 0037 Amendment 3):
  *   SF33 Blocking 1, items 1–2: after the Dashboard's offload of the installed-firmware graph's json and a superset's,
- *        and a derive: status still reads seeded, and a repeat answers 459 unchanged, with no change entry
+ *        and a derive: status still reads seeded, and a repeat answers every node unchanged, with no change entry
  *   SF34 Blocking 2, item 3: an admin's own "installed firmware" element of graph, made by graph create-element before
  *        the first run, stays as it was, and what it lists isn't read as the last install's; seed-firmware writes its
  *        own at 39999:<ta>:installed-firmware, with its mark
@@ -273,7 +273,7 @@ test('SF3 [AC1, Amendment 1]: each node is at today\'s install\'s address, once,
     if (n.props.pubkey !== TA || n.props.kind !== l.kind) why.push('pubkey or kind');
     if (why.length) wrong.push({ address, role: l.role, why });
   }
-  assert(wrong.length === 0, `${wrong.length} of the 437 nodes aren't in the graph as the target holds them (today's install's, but NostrEvent and id, and the three concept graphs pass 1c flattens); the first: ${first(wrong)}`);
+  assert(wrong.length === 0, `${wrong.length} of the ${F.census().nodes} nodes aren't in the graph as the target holds them (today's install's, but NostrEvent and id, and the three concept graphs pass 1c flattens); the first: ${first(wrong)}`);
   for (const r of o.relationshipLetters) {
     const n = F.live(s).filter((x) => F.tagsOf(s, x).some((t) => t[0] === 'nodeTo' && t[1] === r.nodeTo) && F.tagsOf(s, x).some((t) => t[0] === 'relationshipType' && t[1] === r.relationshipType));
     assert(n.length === 1 && n[0].labels.includes('ListItem') && !n[0].labels.includes('NostrEvent'), `one relationship letter for ${r.nodeTo.split(':')[2]}, unsigned; got ${n.length}`);
@@ -286,7 +286,7 @@ test('SF4 [AC1, Decision 4]: the relationships: the core edges, the existing nod
   const has = (type, from, to) => F.relsOf(s, { type, from, to }).length === 1;
   const core = o.edges.filter((e) => !['HAS_ELEMENT', 'IS_A_SUPERSET_OF'].includes(e.type));
   const missing = core.filter((e) => !has(e.type, e.from, e.to));
-  assert(missing.length === 0, `each of the 328 core edges once; missing ${first(missing)}`);
+  assert(missing.length === 0, `each of the ${F.census().coreEdges} core edges once; missing ${first(missing)}`);
   for (const [p, c] of [['node-type', 'word'], ['graph-type', 'tapestry'], ['validation-tool-type', 'json-schema']]) assert(has('HAS_ELEMENT', o.supersetOf(p), o.headerOf(c)), `${p}'s superset HAS_ELEMENT ${c}'s header (1c)`);
   const cat = require('../../helpers/todaysFirmwareRoutes').categoryToSlug;
   for (const [c, d] of Object.entries(o.manifest.sets)) for (const e of d['existing-sets']) assert(has('IS_A_SUPERSET_OF', o.supersetOf(cat(c)), o.supersetOf(e.concept)), `${cat(c)} IS_A_SUPERSET_OF ${e.concept} (existing sets)`);
@@ -362,7 +362,7 @@ test('SF8 [AC2, Decision 9, Amendment 3 item 3]: the installed-firmware graph: a
   assert(missing.length === 0, `graph.nodes lists every node it wrote, by address; missing ${first(missing)}`);
   for (const slug of F.COMMUNITY) { const cr = o.manifest.concepts.find((c) => c.slug === slug).communityReference; assert(slugs.has(cr.headerATag), `the curator's header ${slug}'s b claims is listed, so its slug resolves`); }
   const rels = (j.graph && j.graph.relationships) || [];
-  assert(rels.length > 328 && rels.every((r) => slugs.has(r.nodeFrom.slug) && slugs.has(r.nodeTo.slug) && r.relationshipType && r.relationshipType.slug), `graph.relationships, each end a listed node; got ${rels.length}, the first ${first(rels)}`);
+  assert(rels.length > F.census().coreEdges && rels.every((r) => slugs.has(r.nodeFrom.slug) && slugs.has(r.nodeTo.slug) && r.relationshipType && r.relationshipType.slug), `graph.relationships, each end a listed node; got ${rels.length}, the first ${first(rels)}`);
   assert(rels.some((r) => r.relationshipType.slug === 'ENUMERATES' && r.properties && r.properties.destinationPath === 'dog.breed'), 'an ENUMERATES carries its properties');
   const types = new Set(((j.graph && j.graph.relationshipTypes) || []).map((x) => x.slug));
   assert(rels.every((r) => types.has(r.relationshipType.slug)) && Array.isArray(j.graph.imports) && j.graph.imports.length === 0, 'relationshipTypes lists each type used; imports is empty');
@@ -398,7 +398,7 @@ test('SF10 [AC3]: run again with the same source: every node unchanged, nothing 
   assert(installedId, 'the first install ran');
   for (const id of ['again', 'admin', 'v-plain', 'v-dir']) {
     const d = F.data(a, id);
-    assert(F.countOf(d, 'unchanged') === 459 && !F.countOf(d, 'added') && !F.countOf(d, 'changed') && !F.countOf(d, 'kept'), `${id}: every one of the 459 nodes unchanged; got ${show(d.counts)}`);
+    assert(F.countOf(d, 'unchanged') === F.census().total && !F.countOf(d, 'added') && !F.countOf(d, 'changed') && !F.countOf(d, 'kept'), `${id}: every one of the ${F.census().total} nodes unchanged; got ${show(d.counts)}`);
     assert(d.change === null && (d.nodes || []).filter((x) => x.outcome !== 'unchanged').length === 0, `${id}: no change entry, and no node listed but unchanged ones; got ${show({ change: d.change, nodes: (d.nodes || []).length })}`);
     const r = F.relsOfAnswer(d);
     assert(!r.added.length && !r.removed.length && !r.changed.length && !r.kept.length, `${id}: no relationship added, removed, changed or kept`);
@@ -410,7 +410,7 @@ test('SF11 [AC3, Decision 1]: two calls at once install once: one installs, the 
   const { a, s, installedId } = fresh();
   const o = await F.oracle(firmwareA());
   const other = a.req(installedId === 'a1' ? 'a2' : 'a1');
-  const fine = other.status === 409 ? other.body.code === 'busy' : other.status === 200 && F.countOf(other.body.data, 'unchanged') === 459;
+  const fine = other.status === 409 ? other.body.code === 'busy' : other.status === 200 && F.countOf(other.body.data, 'unchanged') === F.census().total;
   assert(installedId && fine, `one call installed, the other was busy or unchanged; got ${installedId}, ${other.status} ${show(other.body).slice(0, 300)}`);
   const twice = [...o.letters.keys()].filter((x) => F.nodesAt(s, x).length !== 1);
   assert(twice.length === 0, `each node once; ${twice.length} aren't`);
@@ -424,14 +424,14 @@ test('SF12 [AC6, Decision 11]: the answer: version and source (its files), each 
   assert(d, 'the install answered');
   assert(d.version === '1.0.0' && d.source && d.source.kind === 'files' && /[0-9a-f]{64}/.test(String(d.source.digest)) && d.source.files, `version and source; got ${show({ version: d.version, source: d.source }).slice(0, 300)}`);
   const listed = (d.nodes || []).filter((x) => x.address !== F.installedGraphAddress());
-  assert(F.countOf(d, 'added') === 459 && listed.length === 459 && listed.every((x) => x.outcome === 'added'), `459 added, each listed; got ${F.countOf(d, 'added')} and ${listed.length}`);
+  assert(F.countOf(d, 'added') === F.census().total && listed.length === F.census().total && listed.every((x) => x.outcome === 'added'), `${F.census().total} added, each listed; got ${F.countOf(d, 'added')} and ${listed.length}`);
   const e = d.nodes.find((x) => x.address === `39998:${TA}:dog`);
   assert(e && e.outcome === 'added' && e.tapestryKey === F.nodesAt(s, e.address)[0].props.tapestryKey && typeof e.role === 'string' && typeof e.file === 'string', `an entry: outcome, tapestryKey, address, role and file; got ${show(e)}`);
   const r = F.relsOfAnswer(d);
-  assert(r.added.length > 328 && !r.removed.length && r.others === 0, `the relationships it made are listed as added; got ${show({ added: r.added.length, removed: r.removed.length, others: r.others })}`);
+  assert(r.added.length > F.census().coreEdges && !r.removed.length && r.others === 0, `the relationships it made are listed as added; got ${show({ added: r.added.length, removed: r.removed.length, others: r.others })}`);
   assert(Array.isArray(d.letterOutOfDate) && d.letterOutOfDate.length === 0, `no node it wrote has a letter: letterOutOfDate is empty; got ${show(d.letterOutOfDate)}`);
   const stale = typeof d.cacheOutOfDate === 'number' ? d.cacheOutOfDate : Array.isArray(d.cacheOutOfDate) ? d.cacheOutOfDate.length : -1;
-  assert(stale >= 459, `cacheOutOfDate counts each node whose derive failed after the commit: here every one, since the derive's driver has no Neo4j to read (Decision 10); got ${show(d.cacheOutOfDate).slice(0, 200)}`);
+  assert(stale >= F.census().total, `cacheOutOfDate counts each node whose derive failed after the commit: here every one, since the derive's driver has no Neo4j to read (Decision 10); got ${show(d.cacheOutOfDate).slice(0, 200)}`);
   assert(d.rulesCheck && /property-has-one-parent/.test(show(d.rulesCheck)), `rulesCheck names the rules it ran; got ${show(d.rulesCheck).slice(0, 300)}`);
   assert(d.change && d.change.operation === 'lifecycle seed-firmware' && typeof d.note === 'string' && d.note.length > 0, 'its change entry, and a note in words');
 });
@@ -531,7 +531,7 @@ test('SF18 [AC4]: the instance\'s own element under a firmware concept, and its 
   }
 });
 
-test('SF19 [AC5]: graph-rule\'s items: one edited by hand is put back, one whose file changed is changed, the other nine unchanged', async () => {
+test('SF19 [AC5]: graph-rule\'s items: one edited by hand is put back, one whose file changed is changed, the others unchanged', async () => {
   const { b1, s1, o, fb } = await update();
   const by = F.entriesByAddress(F.data(b1, 'update'));
   const edited = o.elementOf(RULE_EDITED);
@@ -539,7 +539,7 @@ test('SF19 [AC5]: graph-rule\'s items: one edited by hand is put back, one whose
   assert(by.get(edited) && by.get(edited).outcome === 'put-back' && F.sameJson(F.jsonTagOf(s1, F.nodesAt(s1, edited)[0]), F.readFirmwareJson(fb, RULE_EDITED)), `the edited item is put back to its file; got ${show(by.get(edited))}`);
   assert(by.get(changed) && by.get(changed).outcome === 'changed' && F.sameJson(F.jsonTagOf(s1, F.nodesAt(s1, changed)[0]), F.readFirmwareJson(fb, RULE_CHANGED)), `the item whose file changed is changed; got ${show(by.get(changed))}`);
   const items = [...o.letters.values()].filter((l) => l.concept === 'graph-rule' && l.role === 'element' && ![edited, changed].includes(l.address));
-  assert(items.length === 9 && items.every((l) => !by.has(l.address)), 'the other nine are unchanged');
+  assert(items.length === F.census().graphRules - 2 && items.every((l) => !by.has(l.address)), `the other ${F.census().graphRules - 2} of graph-rule's ${F.census().graphRules} items are unchanged; got ${items.length}, ${items.filter((l) => by.has(l.address)).length} of them not unchanged`);
   assert(F.countOf(F.data(b1, 'update'), 'put-back') === 1, 'one put back');
 });
 
@@ -574,17 +574,18 @@ test('SF21 [AC4 open question 3]: take by tapestryKey and by address: that node 
   assert(F.relsOf(s2, { type: 'HAS_ELEMENT', from: numeric, to: o.elementOf('concepts/json-data-type/elements/number.json') }).length === 1, 'the relationship removed by hand is made again');
   assert(F.relsOf(s2, { type: 'ENUMERATES', from: o.supersetOf('dog-breed'), to: schemaOf('dog') })[0].props.sourcePath === 'dogBreed.oKeys.singular', 'the ENUMERATES is the firmware\'s again');
   const done = F.data(b2, 'after');
-  assert(F.countOf(done, 'unchanged') === 459 && done.change === null, `then nothing is left to change; got ${show(done.counts)}`);
+  assert(F.countOf(done, 'unchanged') === F.census().total && done.change === null, `then nothing is left to change; got ${show(done.counts)}`);
   assert(F.entries(s2).filter((e) => e.operation === 'lifecycle seed-firmware' && e.byRole === 'admin' && e.byPubkey === ADMIN).length === 1, 'takeAll\'s entry is the admin\'s');
 });
 
 // ── AC4: first contact with today's install ──
-test('SF22 [AC4 open question 2, Decision 5, Amendment 1]: first contact with today\'s install: equal nodes unchanged and adopted, keeping their letters; the four schemas pass 3b filled, the three flattened concept graphs and the edited nodes kept with noRecord; missing relationships kept', async () => {
+test('SF22 [AC4 open question 2, Decision 5, Amendment 1]: first contact with today\'s install: equal nodes unchanged and adopted, keeping their letters; the schemas pass 3b filled, the three flattened concept graphs and the edited nodes kept with noRecord; missing relationships kept', async () => {
   const { o, c } = await firstContact();
   const d = F.data(c, 'first');
   const want = keptFirst(o);
-  assert(want.length === 9, `the fixture: four schemas pass 3b filled (dog-breed has no element, so it skips dog's), three concept graphs and two edits; got ${want.length}`);
-  assert(F.countOf(d, 'kept') === 9 && F.countOf(d, 'unchanged') === 450, `450 unchanged, 9 kept (the schemas of word, graph, property and relationship, which pass 3b filled; the three concept graphs pass 1c flattened; dog's edited header; nostr-relay's re-pointed b); got ${show(d.counts)}`);
+  assert(new Set(want).size === want.length && want.length === F.keptOnFirstContact(o).length + 2 && want.length > 2, `the fixture: the schemas pass 3b filled (four on firmware 1.0.0: dog-breed has no element, so it skips dog's), the concept graphs pass 1c flattened (three) and two edits, each once; got ${want.length}`);
+  const kept = keptFirst(o).length;
+  assert(F.countOf(d, 'kept') === kept && F.countOf(d, 'unchanged') === F.census().total - kept, `${F.census().total - kept} unchanged, ${kept} kept (the schemas pass 3b filled: word's, graph's, property's and relationship's on firmware 1.0.0; the three concept graphs pass 1c flattened; dog's edited header; nostr-relay's re-pointed b); got ${show(d.counts)}`);
   const by = F.entriesByAddress(d);
   for (const address of want) assert(by.get(address) && by.get(address).outcome === 'kept' && by.get(address).noRecord === true, `${address.split(':')[2]} kept with noRecord; got ${show(by.get(address))}`);
   const dogSchema = [...o.letters.values()].find((l) => l.role === 'jsonSchema' && l.concept === 'dog').address;
@@ -596,12 +597,12 @@ test('SF22 [AC4 open question 2, Decision 5, Amendment 1]: first contact with to
 test('SF23 [AC4, Decision 10]: first contact again: still kept, nothing written; then takeAll: each kept node changed, keeping its tapestryKey, id, NostrEvent and created_at, its old tag nodes gone, and named in letterOutOfDate', async () => {
   const { o, before, c, after } = await firstContact();
   const again = F.data(c, 'first-again');
-  assert(F.countOf(again, 'kept') === 9 && again.change === null, `again: nine kept, nothing written; got ${show({ counts: again.counts, change: again.change })}`);
+  assert(F.countOf(again, 'kept') === keptFirst(o).length && again.change === null, `again: the ${keptFirst(o).length} still kept, nothing written; got ${show({ counts: again.counts, change: again.change })}`);
   const adopted = F.nodesAt(after, o.elementOf(ROVER))[0];
   const was = F.nodesAt(before, o.elementOf(ROVER))[0];
   assert(adopted.props.id === was.props.id && adopted.labels.includes('NostrEvent') && F.propJson(adopted, 'installed'), 'an adopted node keeps its letter (id, NostrEvent) and has a record');
   const all = F.data(c, 'first-all');
-  assert(F.countOf(all, 'changed') === 9 && !F.countOf(all, 'kept'), `takeAll: the nine changed; got ${show(all.counts)}`);
+  assert(F.countOf(all, 'changed') === keptFirst(o).length && !F.countOf(all, 'kept'), `takeAll: the ${keptFirst(o).length} changed; got ${show(all.counts)}`);
   const late = new Set((all.letterOutOfDate || []).map((x) => (typeof x === 'string' ? x : x.address || x.tapestryKey)));
   for (const address of keptFirst(o)) {
     const n = F.nodesAt(after, address)[0];
@@ -669,7 +670,7 @@ test('SF29 [AC7]: the internal command, with no sign-in, answers as the route do
   const { a } = fresh();
   const c = a.cmd('cli');
   const body = JSON.parse(c.stdout || '{}');
-  assert(c.code === 0 && body.success === true && F.countOf(body.data, 'unchanged') === 459, `the command answers: every node unchanged; got ${c.code} ${String(c.stdout).slice(0, 300)} ${String(c.stderr).slice(-200)}`);
+  assert(c.code === 0 && body.success === true && F.countOf(body.data, 'unchanged') === F.census().total, `the command answers: every node unchanged; got ${c.code} ${String(c.stdout).slice(0, 300)} ${String(c.stderr).slice(-200)}`);
   assert(c.leaked === '', `the command kept stdout to the answer; leaked ${show(c.leaked).slice(0, 200)}`);
   const rc = a.cmd('cli-refused');
   const rb = JSON.parse(rc.stdout || '{}');
@@ -755,7 +756,7 @@ async function adminGraph() {
   return ADMIN_GRAPH;
 }
 
-test('SF33 [AC2, AC3, Amendment 3 items 1–2; review round 1, Blocking 1]: after the Dashboard\'s offload of the installed-firmware graph\'s json and a superset\'s, and a derive, status still reads seeded, and a repeat answers 459 unchanged with no change entry', async () => {
+test('SF33 [AC2, AC3, Amendment 3 items 1–2; review round 1, Blocking 1]: after the Dashboard\'s offload of the installed-firmware graph\'s json and a superset\'s, and a derive, status still reads seeded, and a repeat answers every node unchanged with no change entry', async () => {
   const { s } = fresh();
   const o = await F.oracle(firmwareA());
   const ig = F.nodesAt(s, F.installedGraphAddress())[0] || F.nodesAt(s, F.oldInstalledGraphAddress())[0];
@@ -774,7 +775,7 @@ test('SF33 [AC2, AC3, Amendment 3 items 1–2; review round 1, Blocking 1]: afte
   assert(sd && sd.version === '1.0.0' && sd.changedSince === 0, `status reads the installed-firmware graph through the store: seeded 1.0.0, no node edited since; got ${String(show(sd)).slice(0, 300)}`);
   const r = F.runSeed({ state: off.state, firmwareDir: firmwareA(), lmdb, label: 'seed-firmware-offloaded-', requests: [F.seed('again', 'owner')] });
   const d = F.data(r, 'again');
-  assert(F.countOf(d, 'unchanged') === 459 && !F.countOf(d, 'kept') && d.change === null, `the repeat changes nothing: 459 unchanged, none kept, no change entry; got ${show({ counts: d.counts, change: d.change && d.change.id })}`);
+  assert(F.countOf(d, 'unchanged') === F.census().total && !F.countOf(d, 'kept') && d.change === null, `the repeat changes nothing: ${F.census().total} unchanged, none kept, no change entry; got ${show({ counts: d.counts, change: d.change && d.change.id })}`);
   assert(seedEntries(r.state()).length === seedEntries(off.state).length, 'and records no entry');
 });
 

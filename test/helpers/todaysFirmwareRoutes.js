@@ -245,6 +245,9 @@ function sandbox(ta, manifestSlugs) {
   const firmware = {
     conceptUuid: (slug) => (manifestSlugs.has(slug) ? `39998:${ta}:${slug}` : null),
     getTAPubkey: () => ta,
+    // A JSON schema's word types (story graph-operations-first-slice #47, ADR 0047 Decision 8), as
+    // src/api/normalize/firmware.js exports them: the routes write a copy into every JSON schema's word block.
+    JSON_SCHEMA_WORD_TYPES: require(path.join(ROOT, 'src/api/normalize/firmware.js')).JSON_SCHEMA_WORD_TYPES,
   };
   const ctx = {
     console: { log() {}, warn() {}, error() {}, info() {} },
@@ -303,11 +306,16 @@ async function todaysFirmware({ dir, ta }) {
   const refusedElements = [];
   const fail = (what, r) => { throw new Error(`today's ${what} didn't succeed in the sandbox: ${JSON.stringify(r.answer).slice(0, 300)}`); };
 
-  // ── 1a: every concept, with overwrite, its d-tag its slug, its file's conceptHeader as overrides.
+  // ── 1a: every concept, with overwrite, its d-tag its slug, its file's conceptHeader as overrides, and its file's
+  // word types when the file gives them (story graph-operations-first-slice #47, ADR 0047 Decision 9).
   for (const entry of manifest.concepts) {
     const headerFile = posix(entry.dir, entry.conceptHeader);
-    const ch = readJson(path.join(dir, headerFile)).conceptHeader;
-    const r = await sb.call('createConcept', { name: ch.oNames.singular, plural: ch.oNames.plural, description: ch.description, dTag: entry.slug, conceptHeaderOverrides: ch, overwrite: true });
+    const header = readJson(path.join(dir, headerFile));
+    const ch = header.conceptHeader;
+    const r = await sb.call('createConcept', {
+      name: ch.oNames.singular, plural: ch.oNames.plural, description: ch.description, dTag: entry.slug, conceptHeaderOverrides: ch, overwrite: true,
+      ...(header.word && Array.isArray(header.word.wordTypes) ? { wordTypes: header.word.wordTypes } : {}),
+    });
     if (!r.answer || r.answer.success !== true) fail(`create-concept of ${entry.slug}`, r);
     const c = r.answer.concept;
     mark(c.uuid, { role: 'conceptHeader', concept: entry.slug, file: headerFile });

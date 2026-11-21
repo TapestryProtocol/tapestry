@@ -27,7 +27,9 @@
  *      today's install prunes in Neo4j's (Amendment 1, item 5); L1 prints each such link. The installed-firmware graph
  *      is at its reserved address, 39999:<ta>:installed-firmware, and lists each relationship it kept apart, in
  *      installedFirmware.keptRelationships (Amendment 3, items 3 and 4)
- *   L2 an empty instance: seed-firmware installs all 459 nodes, unsigned (no node at a firmware address has an id), and
+ *   L2 an empty instance: seed-firmware installs every node its firmware gives (counted from the container's files,
+ *      totalOnTheInstance: 460 on firmware 1.0.0 since story graph-operations-first-slice #47), unsigned (no node at a
+ *      firmware address has an id), and
  *      a second run changes nothing and records no entry
  *   L3 an update: after nostr-relay's header's b is re-pointed by a raw query, and dcosl-brainstorm-world.json is changed
  *      in the container's firmware (then the control panel restarted), the header answers kept, naming its b, and the
@@ -80,6 +82,19 @@ function writeInContainer(rel, text) {
 }
 
 /**
+ * How many nodes the container's firmware gives, counted from its files as install walks them, as
+ * seedFirmwareFixtures' census counts firmware/active's: a header and seven core nodes a concept, one an element file
+ * and a set file, and a relationship letter a set. So L1 and L2 follow the firmware the instance carries.
+ */
+function totalOnTheInstance() {
+  const manifest = JSON.parse(L.sh(`cat '${IN_CONTAINER}/manifest.json'`));
+  const dirs = (manifest.concepts || []).map((c) => String(c.dir).replace(/^\.\//, '').replace(/'/g, ''));
+  const files = (sub) => Number(String(L.sh(`cd '${IN_CONTAINER}' && for d in ${dirs.map((d) => `'${d}'`).join(' ')}; do ls "$d/${sub}"/*.json 2>/dev/null; done | wc -l`)).trim());
+  const sets = files('sets');
+  return 8 * dirs.length + files('elements') + 2 * sets;
+}
+
+/**
  * Each enumeration of the container's firmware, the schema it targets on the instance, and how many elements its
  * enumerating concept's class thread holds, read as today's apply-enumerations reads them (src/api/normalize/index.js:
  * IS_A_SUPERSET_OF*0..10, then HAS_ELEMENT). The route skips one with none, so its schema is its file's.
@@ -106,13 +121,13 @@ function firstContact() {
   const status = L.http('GET', '/api/firmware/install-status', undefined, 60);
   if (!(status.json && status.json.installed === true)) okData(L.http('POST', '/api/firmware/install', {}, 900), "today's install (L1's precondition)");
   const enumerations = enumerationsOnTheInstance(ta);
-  L1 = { ta, enumerations, d: seed({}, 'first contact') };
+  L1 = { ta, enumerations, total: totalOnTheInstance(), d: seed({}, 'first contact') };
   return L1;
 }
 
 test('L1 [AC1, AC4, Decision 13, Amendments 1 and 3]: first contact: every firmware node unchanged but the schemas pass 3b filled (read from the instance) and the three flattened concept graphs (kept, noRecord); nothing added or removed; only the prune\'s direct links from a superset kept or the instance\'s own, each listed; the installed-firmware graph at 39999:<ta>:installed-firmware, listing the kept ones apart', () => {
   if (ready()) return 'skip';
-  const { ta, d, enumerations } = firstContact();
+  const { ta, d, enumerations, total } = firstContact();
   const filled = enumerations.filter((x) => x.elements > 0);
   console.log(`    L1: pass 3b filled ${filled.map((x) => `${x.concept}'s schema (${x.source}: ${x.elements} elements)`).join(', ') || 'no schema'}; skipped ${enumerations.filter((x) => !(x.elements > 0)).map((x) => `${x.concept}'s (${x.source}: no element)`).join(', ') || 'none'}`);
   assert(enumerations.length > 0 && filled.every((x) => x.schema), `the firmware's enumerations, each filled one's schema found on the instance; got ${show(enumerations)}`);
@@ -120,7 +135,7 @@ test('L1 [AC1, AC4, Decision 13, Amendments 1 and 3]: first contact: every firmw
   const want = [...new Set([...filled.map((x) => x.schema), ...DEPARTED.map((x) => `39999:${ta}:${x}-concept-graph`)])];
   assert(kept.length === want.length && kept.every((e) => want.includes(e.address) && e.noRecord === true),
     `kept with noRecord are exactly the ${filled.length} schemas pass 3b filled and the three concept graphs pass 1c flattened (${want.length}); got ${show(kept.map((e) => [e.address, e.parts]))}`);
-  assert(count(d, 'unchanged') === 459 - want.length && !count(d, 'added') && !count(d, 'changed'), `${459 - want.length} unchanged, everything else; got ${show(d.counts)}`);
+  assert(count(d, 'unchanged') === total - want.length && !count(d, 'added') && !count(d, 'changed'), `${total - want.length} unchanged, everything else of the ${total} the firmware's files give; got ${show(d.counts)}`);
   const r = d.relationships || {};
   assert((r.added || []).length === 0 && (r.removed || []).length === 0, `first contact adds and removes no relationship; got added ${show((r.added || []).slice(0, 10))}, removed ${show((r.removed || []).slice(0, 10))}`);
 
@@ -162,7 +177,7 @@ test('L1 [AC1, AC4, Decision 13, Amendments 1 and 3]: first contact: every firmw
   assert(badKept.length === 0 && badOthers.length === 0, `only a HAS_ELEMENT or IS_A_SUPERSET_OF from a superset may differ from today's install (the prune's order): ${badKept.length} kept and ${badOthers.length} others aren't, the first ${show([...badKept, ...badOthers].slice(0, 5))}`);
 });
 
-test('L2 [AC1, AC3, Decision 13]: an empty instance: it installs all 459 nodes, unsigned, and a second run changes nothing', () => {
+test('L2 [AC1, AC3, Decision 13]: an empty instance: it installs every node its firmware\'s files give, unsigned, and a second run changes nothing', () => {
   if (ready()) return 'skip';
   const empty = process.env.TAPESTRY_SEED_EMPTY_CONTAINER || '';
   if (!L.SCRATCH_NAME.test(empty)) { console.log('  (L2 skips: TAPESTRY_SEED_EMPTY_CONTAINER names no second scratch container with an empty graph)'); return 'skip'; }
@@ -171,11 +186,12 @@ test('L2 [AC1, AC3, Decision 13]: an empty instance: it installs all 459 nodes, 
     const before = L.cypher('MATCH (h:ConceptHeader) WHERE h.uuid STARTS WITH $p RETURN count(h) AS c', { p: `39998:${ta}:` })[0].c;
     assert(Number(before) === 0, `the second container's graph holds no firmware; it holds ${before} headers`);
     const d = seed({}, 'the install');
-    assert(count(d, 'added') === 459, `459 added; got ${show(d.counts)}`);
+    const total = totalOnTheInstance();
+    assert(count(d, 'added') === total, `${total} added, every node the firmware's files give; got ${show(d.counts)}`);
     const lettered = L.cypher('MATCH (n:TapestryNode) WHERE n.uuid STARTS WITH $p AND n.id IS NOT NULL RETURN count(n) AS c', { p: `39999:${ta}:` })[0].c;
     assert(Number(lettered) === 0, `no node it made has a letter's id; got ${lettered}`);
     const again = seed({}, 'the repeat');
-    assert(count(again, 'unchanged') === 459 && again.change === null, `the repeat changes nothing; got ${show({ counts: again.counts, change: again.change })}`);
+    assert(count(again, 'unchanged') === total && again.change === null, `the repeat changes nothing; got ${show({ counts: again.counts, change: again.change })}`);
   });
 });
 

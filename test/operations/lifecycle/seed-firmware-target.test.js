@@ -11,28 +11,30 @@
  * expectations worked out from firmware/active: only the edges whatever order today's install reads its nodes in
  * (its 1e and 3c over the generic concepts depend on that order; the plan says so, and L1 compares the rest live).
  *
- *   ST1  firmware/active: no problems, version 1.0.0, 459 nodes: 41 headers, 287 core nodes, 87 elements, 22 sets, 22
- *        relationship letters, at today's install's addresses (nostr-event-tag's core nodes at nostr-event-tagging-…)
+ *   ST1  firmware/active: no problems, its manifest's version, as many nodes as its files give (seedFirmwareFixtures.census:
+ *        460 on firmware 1.0.0 since story graph-operations-first-slice #47: 41 headers, 287 core nodes, 88 elements, 22
+ *        sets, 22 relationship letters), at today's install's addresses (nostr-event-tag's core nodes at
+ *        nostr-event-tagging-…)
  *   ST2  each node's tags, as a set, are the tags today's install signs last at its address
  *   ST3  each node's kind and role labels are today's
- *   ST4  each node's JSON, by value, is today's, the 38 primary properties pass 2's fold re-signs included; but the three
+ *   ST4  each node's JSON, by value, is today's, the primary properties pass 2's fold re-signs included; but the three
  *        concept graphs pass 1c flattens, which keep the form create-concept gave them (ADR 0037 Amendment 1, item 2)
  *   ST5  each node's name is today's, and an element's slug property create-element's
  *   ST6  no node has an `o` tag, which today's routes don't sign
  *   ST7  the headers: conceptHeader as handleCreateConcept merges its file's overrides; headerTags as literal tags after
  *        the description tag
- *   ST8  pass 2's schemas: each is its file's, under 1a's word block; the five pass 3b fills carry no copied value
- *   ST9  the six community-reference headers' tags end with the firmware's pointer b, and no other node has a b
+ *   ST8  pass 2's schemas: each is its file's, under 1a's word block; those pass 3b fills carry no copied value
+ *   ST9  the community-reference headers' tags end with the firmware's pointer b, and no other node has a b
  *   ST10 the relationship letters: one for each set, as create-set signs it, matched by nodeFrom, nodeTo and
  *        relationshipType
  *   ST11 relationships, 1a: each concept's eight core edges
  *   ST12 relationships, 1c: the manifest's existing nodes under their category's concept; nothing for a concept the
  *        manifest lacks
- *   ST13 relationships, the manifest's existing sets: the 26 IS_A_SUPERSET_OF between supersets
+ *   ST13 relationships, the manifest's existing sets: an IS_A_SUPERSET_OF between supersets for each
  *   ST14 relationships, 1c¾ and 1e: concept manifests' edges, and the prune of a direct link a longer path reaches
  *   ST15 relationships, 1d and 1d½: the relationship letters under relationship's superset; every header under
  *        concept-header's
- *   ST16 relationships, 1d¾: the five ENUMERATES with sourcePath and destinationPath
+ *   ST16 relationships, 1d¾: an ENUMERATES for each of the manifest's enumerations, with sourcePath and destinationPath
  *   ST17 version and source: the digest is the same for the same files and changes when one does; source names its
  *        files; and the same files give the same relationships, the prune running in one fixed order (Amendment 1, item 5)
  *   ST18 the builder reads the folder it's given, fresh: a copy's change is in its target, firmware/active's isn't
@@ -41,7 +43,7 @@
  *   ST21–ST27 firmware-unreadable: a manifest that doesn't parse; a file it names that isn't there; a file that isn't
  *        JSON; a concept an enumeration names that the manifest doesn't define (target, then enumerating); a relationship
  *        type a concept manifest uses that relationshipTypes lacks; several problems, each named
- *   ST28 graph-rule's elements: its eleven items as their files say, under the assistant
+ *   ST28 graph-rule's elements: an item for each of its element files, as the file says (twelve since story 47)
  *   ST29 installName is exported from _elements.js and gives install's name for an element file
  *   ST30 conceptNodes called as today still gives today's eight nodes with the spec's o tags (its defaults unchanged)
  *   ST31 an existing set naming a concept the manifest doesn't define is skipped: no problem, and nothing made of it
@@ -85,21 +87,22 @@ async function eachAgainstToday(bad) {
   return wrong;
 }
 
-test('ST1 [AC1, Decisions 2–4]: firmware/active builds with no problems: version 1.0.0, 459 nodes (41 headers, 287 core nodes, 87 elements, 22 sets, 22 relationship letters) at today\'s install\'s addresses', async () => {
+test('ST1 [AC1, Decisions 2–4]: firmware/active builds with no problems: its manifest\'s version, and as many nodes as its files give (headers, core nodes, elements, sets, relationship letters), at today\'s install\'s addresses', async () => {
   const T = await active();
   const t = T;
+  const c = F.census();
   assert(Array.isArray(t.problems) && t.problems.length === 0, `firmware/active is readable: no problems; got ${firstFew(t.problems || ['no problems list'])}`);
-  assert(t.version === '1.0.0', `the target's version is the manifest's, 1.0.0; got ${show(t.version)}`);
+  assert(t.version === c.version, `the target's version is the manifest's, ${c.version}; got ${show(t.version)}`);
   const nodes = F.nodesOf(t);
-  assert(nodes.length === 459, `459 nodes; got ${nodes.length}`);
+  assert(nodes.length === c.total, `${c.total} nodes (${c.headers} headers, ${c.coreNodes} core nodes, ${c.elements} elements, ${c.sets} sets, ${c.relationshipLetters} relationship letters); got ${nodes.length}`);
   const letters = nodes.filter(F.isRelationshipLetter);
-  assert(letters.length === 22, `22 relationship letters, one for each set; got ${letters.length}`);
-  assert(nodes.filter((n) => n.kind === 39998).length === 41, `41 headers of kind 39998; got ${nodes.filter((n) => n.kind === 39998).length}`);
+  assert(letters.length === c.relationshipLetters, `${c.relationshipLetters} relationship letters, one for each set; got ${letters.length}`);
+  assert(nodes.filter((n) => n.kind === 39998).length === c.headers, `${c.headers} headers of kind 39998; got ${nodes.filter((n) => n.kind === 39998).length}`);
   const o = await F.oracle();
   const mine = new Set([...byAddress(t).keys()]);
   const todays = new Set(o.letters.keys());
   const d = F.setDiff(mine, todays);
-  assert(d.onlyFirst.length === 0 && d.onlySecond.length === 0, `the 437 addresses are today's install's; only in the target ${firstFew(d.onlyFirst)}; only today's ${firstFew(d.onlySecond)}`);
+  assert(d.onlyFirst.length === 0 && d.onlySecond.length === 0, `the ${c.nodes} addresses are today's install's; only in the target ${firstFew(d.onlyFirst)}; only today's ${firstFew(d.onlySecond)}`);
   assert(mine.has(`39999:${TA}:nostr-event-tagging-superset`) && !mine.has(`39999:${TA}:nostr-event-tag-superset`),
     'nostr-event-tag ("nostr event tagging") has its header at its slug and its core nodes at its name\'s slug, as today\'s create-concept puts them');
   assert(nodes.every((n) => String(n.address).split(':')[1] === TA), 'every node is under the assistant\'s pubkey');
@@ -110,7 +113,7 @@ test('ST2 [AC1]: each node\'s tags, as a set, are the tags today\'s install sign
     const d = F.setDiff(F.tagSet(n.tags), F.tagSet(l.tags));
     return d.onlyFirst.length || d.onlySecond.length ? { onlyTarget: d.onlyFirst.map((x) => x.slice(0, 120)), onlyToday: d.onlySecond.map((x) => x.slice(0, 120)) } : null;
   });
-  assert(wrong.length === 0, `${wrong.length} of 437 nodes' tags differ from today's install's (tags compared as a set); the first: ${firstFew(wrong)}`);
+  assert(wrong.length === 0, `${wrong.length} of ${F.census().nodes} nodes' tags differ from today's install's (tags compared as a set); the first: ${firstFew(wrong)}`);
 });
 
 test('ST3 [AC1, Decision 4]: each node\'s kind and role labels are today\'s: ListHeader and ConceptHeader, ListItem, Superset, Set, JSONSchema, Property', async () => {
@@ -171,7 +174,7 @@ test('ST7 [Decision 4, 1a]: each header\'s conceptHeader is merged as handleCrea
   assert(types.indexOf('recommended') > types.indexOf('description') && types.indexOf('allowed') > types.indexOf('description'), `tagging-with-specific-tag's headerTags follow its description tag; got ${show(types)}`);
 });
 
-test('ST8 [AC1, Decisions 4 and 5]: each schema is its file\'s ({ $schema, type: object, …its jsonSchema }) under 1a\'s word block; the five pass 3b fills carry no value copied from the graph', async () => {
+test('ST8 [AC1, Decisions 4 and 5]: each schema is its file\'s ({ $schema, type: object, …its jsonSchema }) under 1a\'s word block; those pass 3b fills carry no value copied from the graph', async () => {
   const T = await active();
   const t = byAddress(T);
   const o = await F.oracle();
@@ -191,7 +194,7 @@ test('ST8 [AC1, Decisions 4 and 5]: each schema is its file\'s ({ $schema, type:
   }
 });
 
-test('ST9 [AC1, Decision 4]: the six community-reference headers\' tags end with [b, the headerATag, pointer]; no other node has a b', async () => {
+test('ST9 [AC1, Decision 4]: the community-reference headers\' tags end with [b, the headerATag, pointer]; no other node has a b', async () => {
   const T = await active();
   const t = byAddress(T);
   const o = await F.oracle();
@@ -222,9 +225,10 @@ test('ST11 [AC1, Decision 4, 1a]: each concept\'s eight core edges: IS_THE_CONCE
   const T = await active();
   const o = await F.oracle();
   const core = o.edges.filter((e) => !['HAS_ELEMENT', 'IS_A_SUPERSET_OF'].includes(e.type));
-  assert(core.length === 328, `the oracle has 328 core edges; got ${core.length}`);
+  const c = F.census();
+  assert(core.length === c.coreEdges, `the oracle has ${c.coreEdges} core edges, eight for each of the ${c.concepts} concepts; got ${core.length}`);
   const missing = core.filter((e) => !F.hasTargetRel(T, e.type, e.from, e.to));
-  assert(missing.length === 0, `${missing.length} of the 328 core edges are missing from the target's relationships; the first: ${firstFew(missing)}`);
+  assert(missing.length === 0, `${missing.length} of the ${c.coreEdges} core edges are missing from the target's relationships; the first: ${firstFew(missing)}`);
 });
 
 test('ST12 [AC1, Decision 4, 1c]: the manifest\'s existing nodes under their category\'s concept (node-type, graph-type, validation-tool-type); dog-breed\'s, which the manifest doesn\'t define, make nothing', async () => {
@@ -239,14 +243,14 @@ test('ST12 [AC1, Decision 4, 1c]: the manifest\'s existing nodes under their cat
   assert(ghosts.length === 0, `no relationship names irish-setter or golden-retriever, which the manifest's concepts don't hold; got ${firstFew(ghosts)}`);
 });
 
-test('ST13 [AC1, Decision 4, existing sets]: the manifest\'s 26 existing sets, each its parent\'s superset IS_A_SUPERSET_OF its concept\'s superset', async () => {
+test('ST13 [AC1, Decision 4, existing sets]: the manifest\'s existing sets, each its parent\'s superset IS_A_SUPERSET_OF its concept\'s superset', async () => {
   const T = await active();
   const t = T;
   const o = await F.oracle();
   const cat = require('../../helpers/todaysFirmwareRoutes').categoryToSlug;
   const want = [];
   for (const [c, d] of Object.entries(o.manifest.sets || {})) for (const e of d['existing-sets'] || []) want.push([cat(c), e.concept]);
-  assert(want.length === 26, `the manifest names 26; got ${want.length}`);
+  assert(want.length > 0 && want.length === F.census().existingSets, `the manifest names ${F.census().existingSets}; got ${want.length}`);
   const missing = want.filter(([p, c]) => !F.hasTargetRel(t, 'IS_A_SUPERSET_OF', o.supersetOf(p), o.supersetOf(c)));
   assert(missing.length === 0, `missing: ${show(missing)}`);
 });
@@ -271,26 +275,26 @@ test('ST14 [AC1, Decision 4, 1c¾ and 1e]: concept manifests\' edges, resolved b
   assert(F.hasTargetRel(t, 'HAS_ELEMENT', o.supersetOf('dog'), el(ROVER)), 'dog\'s superset HAS_ELEMENT rover (1b; nothing longer reaches it)');
 });
 
-test('ST15 [AC1, Decision 4, 1d and 1d½]: relationship\'s superset HAS_ELEMENT each of the 22 relationship letters (their z); concept-header\'s superset HAS_ELEMENT each of the 41 headers', async () => {
+test('ST15 [AC1, Decision 4, 1d and 1d½]: relationship\'s superset HAS_ELEMENT each relationship letter (their z); concept-header\'s superset HAS_ELEMENT each header', async () => {
   const T = await active();
   const t = T;
   const o = await F.oracle();
   const letters = F.nodesOf(t).filter(F.isRelationshipLetter);
   const missing = letters.filter((n) => !F.hasTargetRel(t, 'HAS_ELEMENT', o.supersetOf('relationship'), n.address));
-  assert(letters.length === 22 && missing.length === 0, `relationship's superset HAS_ELEMENT every relationship letter; missing ${missing.length}`);
+  assert(letters.length === F.census().relationshipLetters && missing.length === 0, `relationship's superset HAS_ELEMENT every relationship letter, ${F.census().relationshipLetters}; got ${letters.length}, missing ${missing.length}`);
   const headers = F.nodesOf(t).filter((n) => n.kind === 39998);
   const without = headers.filter((n) => !F.hasTargetRel(t, 'HAS_ELEMENT', o.supersetOf('concept-header'), n.address));
-  assert(headers.length === 41 && without.length === 0, `concept-header's superset HAS_ELEMENT every header; missing ${firstFew(without.map((n) => n.address))}`);
+  assert(headers.length === F.census().headers && without.length === 0, `concept-header's superset HAS_ELEMENT every header, ${F.census().headers}; got ${headers.length}, missing ${firstFew(without.map((n) => n.address))}`);
 });
 
-test('ST16 [AC1, Decision 4, 1d¾]: the five ENUMERATES, each from the enumerating concept\'s superset to the target\'s schema, with sourcePath and destinationPath', async () => {
+test('ST16 [AC1, Decision 4, 1d¾]: an ENUMERATES for each of the manifest\'s enumerations, from the enumerating concept\'s superset to the target\'s schema, with sourcePath and destinationPath', async () => {
   const T = await active();
   const t = T;
   const o = await F.oracle();
   const cat = require('../../helpers/todaysFirmwareRoutes').categoryToSlug;
   const schemaOf = (slug) => [...o.letters.values()].find((l) => l.role === 'jsonSchema' && l.concept === slug).address;
   const all = F.relsOfTarget(t).map(F.relEnds).filter((r) => r.type === 'ENUMERATES');
-  assert(all.length === 5, `five ENUMERATES; got ${all.length}`);
+  assert(F.FIVE.length > 0 && all.length === F.FIVE.length, `${F.FIVE.length} ENUMERATES, one for each enumeration; got ${all.length}`);
   for (const [plural, d] of Object.entries(o.manifest.enumerations)) {
     for (const e of d['existing-nodes']) {
       const r = F.targetRel(t, 'ENUMERATES', o.supersetOf(cat(plural)), schemaOf(e.concept));
@@ -358,7 +362,7 @@ test('ST20 [Decision 2]: the builder writes nothing to the folder and asks no gr
   seam.writeTransaction = async () => { asked.push('writeTransaction'); throw new Error('the builder wrote to the graph'); };
   let t;
   try { t = await F.buildTarget(dir, TA); } finally { Object.assign(seam, saved); }
-  assert(t && F.nodesOf(t).length === 459, 'the builder answered (so this isn\'t passing on a builder that returned early)');
+  assert(t && F.nodesOf(t).length === F.census(dir).total, `the builder answered, ${F.census(dir).total} nodes (so this isn't passing on a builder that returned early)`);
   assert(asked.length === 0, `it asked the graph nothing; got ${show(asked)}`);
   assert(show(snapshot()) === show(before), 'every file of the folder is as it was');
 });
@@ -408,12 +412,12 @@ test('ST27 [AC7, Decision 3]: several problems at once are each named, files and
   for (const what of [/concepts\/dog\/elements\/rover\.json/, /concepts\/graph\/json-schema\.json/, /\bchart\b/]) assert(what.test(text), `the problems name ${what}; got ${text.slice(0, 500)}`);
 });
 
-test('ST28 [AC5, Decision 7]: graph-rule\'s eleven items are elements of the target, each its file\'s JSON', async () => {
+test('ST28 [AC5, Decision 7]: graph-rule\'s items, one for each of its element files, are elements of the target, each its file\'s JSON', async () => {
   const T = await active();
   const o = await F.oracle();
   const t = byAddress(T);
   const items = [...o.letters.values()].filter((l) => l.concept === 'graph-rule' && l.role === 'element');
-  assert(items.length === 11, `the oracle has 11 graph-rule items; got ${items.length}`);
+  assert(items.length === F.census().graphRules, `the oracle has ${F.census().graphRules} graph-rule items, one for each file; got ${items.length}`);
   for (const l of items) {
     const n = t.get(l.address);
     assert(n && F.sameJson(n.json, F.readFirmwareJson(F.ACTIVE, l.file)), `${l.file} is an element of the target with its file's JSON`);
@@ -443,7 +447,7 @@ test('ST31 [AC7, Amendment 1, item 4]: an existing set naming a concept the mani
   const dir = F.copyFirmware({ 'manifest.json': (m) => { m.sets.words['existing-sets'].push({ concept: 'no-such-concept' }); return m; } });
   const t = await F.buildTarget(dir, TA);
   assert(Array.isArray(t.problems) && t.problems.length === 0, `no problem; got ${show(t.problems).slice(0, 300)}`);
-  assert(F.nodesOf(t).length === 459, `the same 459 nodes; got ${F.nodesOf(t).length}`);
+  assert(F.nodesOf(t).length === F.census().total, `the same ${F.census().total} nodes; got ${F.nodesOf(t).length}`);
   const named = F.relsOfTarget(t).map(F.relEnds).filter((r) => [r.from, r.to].some((x) => String(x).includes('no-such-concept')));
   assert(named.length === 0, `no relationship names it; got ${firstFew(named)}`);
   const rels = (x) => new Set(F.relsOfTarget(x).map(F.relEnds).map((r) => `${r.from}|${r.type}|${r.to}`));

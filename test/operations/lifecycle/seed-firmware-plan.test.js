@@ -135,7 +135,8 @@ test('SP3 [AC4 open question 2, Decisions 5 and 7, Amendment 1]: first contact: 
   const { p } = await planOver(s);
   const nodes = nodeOutcomes(p);
   const keptAddresses = new Set([...F.keptOnFirstContact(o), o.headerOf('dog'), o.headerOf('nostr-relay')]);
-  assert(keptAddresses.size === 9, `nine: the four schemas pass 3b filled (word's, graph's, property's, relationship's; dog-breed has no element, so it skips dog's), three concept graphs and the two edits; got ${keptAddresses.size}`);
+  const want = F.keptOnFirstContact(o).length + 2;
+  assert(keptAddresses.size === want, `${want}: the schemas pass 3b filled (an enumeration whose enumerating concept has an element: four on firmware 1.0.0, since dog-breed has none and dog's schema is its file's), the concept graphs pass 1c flattens (three) and the two edits; got ${keptAddresses.size}`);
   for (const address of keptAddresses) {
     const e = nodes.get(address);
     assert(e && e.outcome === 'kept' && e.noRecord === true, `${address.split(':')[2]} differs from the source and has no record: kept, noRecord; got ${show(e)}`);
@@ -170,7 +171,8 @@ test('SP5 [AC4 open question 3, Decision 7]: take by address and by tapestryKey,
   assert(outcomeAt(byKey.p, o.headerOf('dog')) === 'changed' && outcomeAt(byKey.p, o.headerOf('nostr-relay')) === 'kept', 'take by tapestryKey: that node changed');
   const all = await planOver(s, { takeAll: true });
   const c = tally(all.p);
-  assert(!c.kept && c.changed === 9, `takeAll: the nine kept nodes changed, none kept; got ${show(c)}`);
+  const kept = F.keptOnFirstContact(o).length + 2;
+  assert(!c.kept && c.changed === kept, `takeAll: the ${kept} kept nodes changed, none kept; got ${show(c)}`);
   const missing = relOutcome(all.p, 'HAS_ELEMENT', o.supersetOf('concept-header'), o.headerOf('word'));
   assert(missing === 'added' || missing === 'changed', `takeAll makes a missing relationship; got ${show(missing)}`);
 });
@@ -198,7 +200,7 @@ test('SP6 [AC5, Decision 7]: graph-rule\'s items: one that differs from its file
   assert(e === 'put-back' || e === 'changed', `an item that differs from its file is brought in line (put-back; changed is accepted with no record to tell an edit from a file change); got ${show(e)}`);
   assert(outcomeAt(p, theirs.address) === 'blocked', `the item another author's holds the name of is blocked, never made over theirs; got ${show(outcomeAt(p, theirs.address))}`);
   const others = items.slice(2).filter((l) => outcomeAt(p, l.address) !== 'unchanged');
-  assert(others.length === 0, `the other nine are unchanged; got ${first(others.map((l) => [l.file, outcomeAt(p, l.address)]))}`);
+  assert(items.length === F.census().graphRules && others.length === 0, `the other ${items.length - 2} of the ${F.census().graphRules} are unchanged; got ${first(others.map((l) => [l.file, outcomeAt(p, l.address)]))}`);
 });
 
 test('SP7 [Decision 4, 1b; Decision 7]: an element with no node at its address, while another element with its name is in its concept\'s class thread, is blocked', async () => {
@@ -227,7 +229,7 @@ test('SP8 [Decision 4, 1c½]: a relationship letter at the random address today\
   }
   const added = [...nodes.values()].filter((e) => e.outcome === 'added');
   assert(added.length === 0, `nothing is added on first contact with today's install: each relationship letter is matched by its nodeFrom, nodeTo and relationshipType, not made again at a new address; got ${first(added)}`);
-  assert(nodes.size === F.nodesOf(await target()).length, `one entry for each node of the target, the 22 letters included; got ${nodes.size}`);
+  assert(nodes.size === F.nodesOf(await target()).length, `one entry for each node of the target, the ${F.census().relationshipLetters} letters included; got ${nodes.size}`);
 });
 
 test('SP9 [AC4, Amendment 3, item 2]: word.wordTypes compares as a set: supersets whose wordTypes are only in the set deriver\'s order are unchanged, adopted; one whose wordTypes hold another type is kept', async () => {
