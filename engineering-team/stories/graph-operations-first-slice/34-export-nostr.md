@@ -298,4 +298,4 @@ The records are in the worktree's `tmp/live-check-34/`, to be copied to the main
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/graph-operations-first-slice/34-export-nostr.md`
