@@ -55,7 +55,7 @@
  *   EN27 firmware's edge to a JSON schema node is never read or changed
  *   EN28 add-relationship's refusal of ENUMERATES names graph enumerate and unenumerate
  *   EN29 the catalog: enumerate takes property and source, no concept; a row for unenumerate; the old routes' map sends
- *        apply-enumerations to rule 10; "At a glance" counts 62 and lists unenumerate
+ *        apply-enumerations to rule 10; "At a glance" counts 65 (62 until story #48) and lists unenumerate
  *   Review round 1 (ADR 0019 Amendment 2):
  *   EN30 a list is tried with as many references as it must hold: minItems 2, with uniqueItems too, and minItems 10,000
  *        are linked; a minItems above 10,000 is refused refuses-references, in words that say so (item 1)
@@ -602,7 +602,7 @@ test('EN28 [Implementation notes]: add-relationship\'s refusal of ENUMERATES nam
   assert(body.rule === 'relationship-type-allowed' && /enumerate and unenumerate/.test(err(body)), `ENUMERATES stays reserved, made and taken out by graph enumerate and unenumerate; got ${show(body)}`);
 });
 
-test('EN29 [Implementation notes]: the catalog: enumerate takes property and source; a row for unenumerate; apply-enumerations goes to rule 10; "At a glance" counts 62 and lists unenumerate', () => {
+test('EN29 [Implementation notes]: the catalog: enumerate takes property and source; a row for unenumerate; apply-enumerations goes to rule 10; "At a glance" counts 65 and lists unenumerate', () => {
   needDecl();
   const catalog = fs.readFileSync(path.join(ROOT, 'docs/GRAPH_OPERATIONS_CATALOG.md'), 'utf8');
   const s2 = catalog.slice(catalog.indexOf('## 2.'), catalog.indexOf('## 3.'));
@@ -612,7 +612,9 @@ test('EN29 [Implementation notes]: the catalog: enumerate takes property and sou
   assert(row('unenumerate'), 'a row for unenumerate');
   const old = catalog.split('\n').find((l) => l.startsWith('| `normalize/apply-enumerations`')) || '';
   assert(/enumerated-value-allowed|rule 10/.test(old), `the map of old routes sends apply-enumerations to rule 10; got ${show(old)}`);
-  assert(/At a glance \(62 operations\)/.test(catalog), '"At a glance" counts 62 operations');
+  // 65 since story graph-operations-first-slice #48 added declare-shared, wire-to-shared and defer-sharing (ADR
+  // graph-operations-first-slice/0048 Decision 10).
+  assert(/At a glance \(65 operations\)/.test(catalog), '"At a glance" counts 65 operations');
   const glance = catalog.slice(catalog.indexOf('## At a glance'), catalog.indexOf('## 1.'));
   const line = glance.split('\n').find((l) => /properties and schema/.test(l)) || '';
   assert(/\benumerate\b/.test(line) && /\bunenumerate\b/.test(line), `"properties and schema" lists enumerate and unenumerate; got ${show(line)}`);

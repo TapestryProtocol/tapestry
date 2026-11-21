@@ -132,5 +132,5 @@ The assistant's pubkey differs on every instance, so `<TA>` stands for it. The A
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.test-plan.md`
 - Review: (filled in after Review phase)
