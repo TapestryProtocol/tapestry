@@ -238,5 +238,5 @@ For Architecture, not this gate (answered by ADR 0034):
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
 - Review: (filled in after Review phase)

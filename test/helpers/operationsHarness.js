@@ -33,6 +33,14 @@
  *   - (story graph-operations-first-slice #32, ADR 0032 Decision 2 and Implementation notes) install the fake relays:
  *     relayFake: { file } runs test/helpers/relayFake.js's install, before the catalog loads: the relay host guard's DNS
  *     answers from the fixture in that file, and src/operations/catalog/import/_relay.js's connect reaches its relays.
+ *   - (story graph-operations-first-slice #34, ADR 0034 Decision 6 and Implementation notes) install export nostr's fake
+ *     strfry import: strfry: { file } runs relayFake.js's installStrfry over the relay fixture in that file, which
+ *     replaces src/operations/catalog/export/_send.js's strfryImport with one that puts the letters into that
+ *     fixture's instance's own relay, ws://127.0.0.1:7777, or fails as the fixture says, and sets its exportTiming.
+ *
+ * spec.assistantKeys (story graph-operations-first-slice #34, ADR 0034 Decision 1), when the spec has it: { privkey } (a
+ * 64-hex secret) or null. Before the catalog loads, src/utils/assistantKeys.js's getOwnerAssistantKeys answers that
+ * key's { privkey, pubkey, npub, nsec }, or null for none (test/helpers/assistantKeysFake.js).
  *
  * spec.spy (ADR 0004 Decision 10) records, in the result's `spy`, every call of what signs or reads a key: nostr-tools'
  * finalizeEvent (from 'nostr-tools' or 'nostr-tools/pure'), src/api/normalize/helpers.js's loadTAKey and
@@ -130,6 +138,8 @@ function installSpies() {
   }
 }
 if (spec.spy) installSpies();
+// Story graph-operations-first-slice #34: the assistant's key, before anything loads the module that answers it.
+if (Object.prototype.hasOwnProperty.call(spec, 'assistantKeys')) require(path.join(__dirname, 'assistantKeysFake.js')).install({ root: ROOT, keys: spec.assistantKeys });
 
 const timer = setTimeout(() => { result.error = `the harness timed out after ${spec.timeoutMs || 60000} ms`; finish(1); }, spec.timeoutMs || 60000);
 timer.unref();
@@ -316,6 +326,18 @@ function installRelayFake(cfg) {
   relayFakeInstalled = cfg.file;
 }
 
+/** Story graph-operations-first-slice #34 (ADR 0034): export nostr's fake strfry import in, once a run, before the catalog loads. */
+let strfryInstalled = null;
+function installStrfry(cfg) {
+  if (!cfg) return;
+  if (strfryInstalled) {
+    if (strfryInstalled !== cfg.file) throw new Error('one harness run installs one strfry fake');
+    return;
+  }
+  require(path.join(__dirname, 'relayFake.js')).installStrfry({ root: ROOT, file: cfg.file });
+  strfryInstalled = cfg.file;
+}
+
 function applyStubs(stubs) {
   if (!stubs) return;
   const status = need('src/operations/catalog/lifecycle/status.js');
@@ -344,6 +366,7 @@ for (const k of QUIETED) ORIGINAL_CONSOLE[k] = console[k];
       installLifecycleFake(scenario.lifecycleFake);
       installGraphFake(scenario.graphFake);
       installRelayFake(scenario.relayFake);
+      installStrfry(scenario.strfry);
       const out = { requests: [], cli: [] };
       for (const r of scenario.requests || []) {
         const which = r.app || 'real';
