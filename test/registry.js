@@ -427,6 +427,11 @@ const suites = [
   // docs, and runs each deploy script under bash with docker, git and sed stubbed. Its live checks (L1–L4) run the
   // refresh step in throwaway containers only with TAPESTRY_LIVE_DOCKER_CHECKS=1.
   { file: 'container-apt-refresh.test.js' },
+  // community-reference #39: a firmware install leaves each header's tags once (ADR community-reference/0035). Stack-free
+  // in every run: the prune builder over test/helpers/cypherEngine.js, and install's community references and their edge
+  // wiring in a child over the same engine (test/helpers/communityStepChild.js).
+  { file: 'community-references-prune-builder.test.js' },
+  { file: 'firmware-install-leaves-tags-once.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

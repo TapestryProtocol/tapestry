@@ -6,6 +6,7 @@
 **Builds on:** `community-reference` ADR 0030 (communityReference v2 — seed, not stub; fixed points 2/3/4 are the target install semantics this ADR wires), ADR 0029 (the `pointer`|`inherit` type registry; the derivation gate; pointer = zero consensus weight), ADR 0027 (the `b` write primitive), ADR 0005/0008 (the deployed stub + Phase-A superset link this ADR's emitter supersedes as the affiliation *expression*).
 **Wire spec:** `protocols/drafts/inherit-from.md` (normative `b` tag shape + the type-gated derivation contract).
 **Citation hygiene:** ADR ids are epic-scoped — an unrelated `0034` may exist on another epic/branch; cite this decision as **community-reference ADR 0034** with the epic-scoped path. `82b75e47…` appearing in this ADR is the ADR-0015 legacy *coordinate* (the dev-box TA pubkey, which is also the local instance's TA here), never a hardcoded signing key.
+**Amended by:** `community-reference` ADR 0035 (2026-11-21): Decision 1's "re-sign, republish, and import" now imports, then prunes the tags and `b`-derived relationships the import didn't make, and a reference the instance curates itself is skipped. OQ-2 assumed create-concept's header import goes through `buildImportCypher`; it goes through normalize's `importEventDirect`.
 
 ## Context
 

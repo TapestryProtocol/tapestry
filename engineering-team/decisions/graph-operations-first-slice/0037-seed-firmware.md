@@ -4,6 +4,7 @@
 **Date:** 2026-11-20
 **Story:** `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.md`
 **Accepted:** by the owner, as drafted, 2026-11-20, with its three changes to the story: Decision 5's departure from pass 3b, and Decision 8's two rules for relationships (one the firmware no longer makes is taken out; on first contact a missing one is kept). The story's AC1 and AC4 say so.
+**Amended by:** `community-reference` ADR 0035, Amendment 1 (2026-11-21): a community reference whose curator is the instance's own assistant gets no pointer `b` and no claim, so Decision 4's "each of the six headers" is each one the instance doesn't curate itself. `src/firmware/target.js` and its oracle (`test/helpers/todaysFirmwareRoutes.js`) skip it, as today's install does.
 
 ADR graph-operations-first-slice/0043 binds this one: firmware ships as pinned Tapestry releases, each installed as nodes of the instance's own. Its Decisions 1, 4, 5 and 8 are cited by number below, as "ADR 0043, Decision n".
 

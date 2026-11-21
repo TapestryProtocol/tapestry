@@ -481,6 +481,9 @@ function buildTarget({ dir, ta }) {
     const cr = isObject(c.entry.communityReference) ? c.entry.communityReference : null;
     const parts = cr && typeof cr.headerATag === 'string' ? cr.headerATag.split(':') : [];
     if (parts.length < 3 || parts[0] !== '39998') continue;
+    // A reference this instance's assistant curates names its own header: today's install skips it, with no b and no
+    // claim (ADR community-reference/0035 Decision 3, Amendment 1 item 1).
+    if (parts[1] === ta) continue;
     const h = g.byAddress.get(headerOf(c.slug));
     if (h.tags.some((t) => t[0] === 'b')) continue;
     h.tags.push(['b', cr.headerATag, 'pointer']);

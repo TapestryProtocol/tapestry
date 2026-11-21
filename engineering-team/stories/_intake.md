@@ -3070,3 +3070,21 @@ tests can be for another day and another session."
 
 **Classification:** feature, Standard; all phases. Not on Loom yet; a proposal there, related to A10.31, is the owner's
 call.
+
+## 2026-11-21 — A firmware reinstall drops a `b` the owner authored on a firmware header (bug)
+
+**Raw request:** none as such. It was found while diagnosing the doubled header tags (book `audits/header-tags-once/`), and the owner chose to queue it on its own (2026-11-21).
+
+**What was found** (read in the code, not seen on any instance):
+
+- **Pass 1 rewrites the header.** Firmware install's Pass 1 re-signs every firmware header from its built-in definition (`create-concept` with `overwrite: true`, explicit since 2026-11-04, `f3347d276`). The new letter carries only the definition's tags.
+- **The emitter can't see an owner's `b`.** Story 38's emitter (`community-reference` #38, ADR 0034) then reads the header back from strfry to decide whether to seed its `b`, but by then the letter is Pass 1's. So its never-clobber rule (Story 38 AC-6: an existing `b` of any type or target is left untouched) never sees a `b` the owner authored. Its no-republish rule (AC-5) doesn't hold either, since the header is re-published on every install.
+- **So a reinstall loses the owner's `b`.** A `b` the owner set with `set-b-tag` on a firmware header drops out of the letter at the next reinstall. By the code, the relationship derived from it stays in the graph.
+- **Not checked:** whether any owner has authored a `b` on a firmware header yet.
+
+**Likely shape.** Decisions, none settled:
+
+- what a reinstall must keep from a firmware header's current letter (an owner's `b`, other owner-authored tags), and how BIBLE §30 bears on it;
+- whether Story 38's AC-5 and AC-6 are restated or retired.
+
+**Classification:** bug, Standard; all phases. Not on Loom.

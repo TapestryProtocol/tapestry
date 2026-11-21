@@ -15,6 +15,16 @@
   round asked the remote and found it.
 - **What it would have cost.** A review that passed in round 1 would have been of a branch that could not merge.
 
+**2026-11-21: another instance, with no conflict at all** (community-reference #39, review round 1, Blocking 1).
+- **What moved.** The story's ADR was written at `staging` `98c14108e`. In the hours its cycle took, `staging` gained
+  `lifecycle seed-firmware`, whose `src/firmware/target.js` rebuilds the very function the story changes, and whose
+  ST33 pins that function by digest.
+- **How it was found.** `git merge-tree` showed no conflict. Only running the merged tree's suites found ST33's
+  failure.
+- **What it adds to the fix shape.** "Review the merged tree" means running its suites, not just merging it. The
+  suites that read the changed files are listed from the merged tree too (OPEN.md row
+  `2026-11-21-no-map-from-diff-to-suites`).
+
 **Fix shape.** Workflow 5 opens the way workflow 1 does: ask the remote for the target branch's tip, and if it has
 moved, say by how much and review the merged tree. One `git ls-remote` is enough to know.
 
