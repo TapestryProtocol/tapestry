@@ -387,3 +387,96 @@ All three are small.
 **PASS**
 
 The story stays `**Status:** Done`.
+
+---
+
+## Round 4
+
+**Date:** 2026-11-21 (UTC)
+**Diff:** `git diff 42e4060c HEAD -- src test engineering-team/stories/graph-operations-first-slice/37-seed-firmware*.md`, HEAD `7f25167a`: 35 files, +2070 −185. Most of it is staging's story 47 (`#177`, ADR 0047), merged in at `e8800cb2`. The commits that touch seed-firmware:
+- `e8800cb2`: the merge, with its one conflict, in `test/helpers/todaysCreateConcept.js`;
+- `0203b4f1`: the Tester's re-aims, deriving every count and giving the oracles' sandbox the new constant;
+- `da47c43c`: the builder follows ADR 0047 Decision 9, with two Deviation lines;
+- `7f25167a`: ST33's new digest for `pass1_bootstrap`.
+
+**Against:** ADR 0047 Decisions 8 and 9, ADR 0037 Decision 4 and AC1, and round 3's state.
+
+**How it was made.**
+- As before: stack-free after `source tmp/a10-37/env.sh`, with no `npm test`, no Docker and no network.
+- One more probe built the target over `firmware/active`, and compared each header's and each schema's `word.wordTypes` with what Decisions 8 and 9 make of the files.
+
+**Verdict:** PASS. A fresh live run is warranted before the pull request (below), but it doesn't block.
+
+### Quality gates (run by reviewer, not trusted)
+- [x] **The scoped gate: 19 entries.** Round 3's 18, plus `firmware-nodes-hold-their-concepts-keys`, which the merge registered.
+  - `npm run gate:status -- --label a10-37-review-r4`: `20261121T052128Z-28891-6da9 [a10-37-review-r4] started 2026-11-21T05:21:28.384Z on 7f25167a+dirty — PASS, exit 0, 1711 passed, 0 failed, 50 skipped, 19/19 suites`. "dirty" is the untracked `node_modules` link, the only entry in `git status`. The same totals as the coordinator's run.
+  - The record is `tmp/gate-runs/20261121T052128Z-28891-6da9.json`. Inside it:
+    - this story's suites: route 39, target 33, record 9, plan 9, oracles 8, agent 1, live 4 skipped;
+    - rule 12's own suites: the rule 10, check and repair 10, its agent 1;
+    - `firmware-nodes-hold-their-concepts-keys`: 11;
+    - `operations` as a whole passed 1426 with 14 skipped, in 311.0 s.
+- [x] `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`.
+- [ ] `npm test` was not run: it writes to this Mac's agent-memory instance.
+
+### The merge's conflict
+- **The two sides.** Staging's side of `todaysCreateConcept.js` added `runCreateConcept({ body, ta })` and `jsonSchemaWordTypes()`. Story 37's side had `sandbox(ta, supersetOf)` and `todaysConcept`'s `dTag`, `overwrite` and `conceptHeaderOverrides`.
+- **The resolution keeps both.**
+  - `runCreateConcept` takes `supersetOf` and passes it to `sandbox`.
+  - `todaysConcept` builds its body with story 37's fields and calls `runCreateConcept`.
+  - The sandbox gives the route `JSON_SCHEMA_WORD_TYPES` from the real module.
+- **Both sides' suites pass:** staging's word-types suites, and this story's oracles and target.
+
+### The builder, against ADR 0047 and AC1
+- **Decision 8, the schemas.** They take `JSON_SCHEMA_WORD_TYPES` through `conceptNodes` (`_concepts.js:222`), which story 47 changed for graph create-concept and which the builder shares. Pass 2 keeps the 1a word block, as save-schema does.
+- **Decision 9, the headers.**
+  - `readFirmware` reads each header file's `word.wordTypes` (`target.js:161`).
+  - 1a appends them after `['word', 'conceptHeader']`, once each, in the file's order (`:304`). `handleCreateConcept` does the same (`index.js:1226-1232`) with what pass 1a passes it (`install.js:205`).
+- **The probe:** 460 nodes and no problems.
+  - All 41 headers' word types equal create-concept's own plus their file's keys. Eight headers add keys, the eight Decision 9 names.
+  - All 41 schemas' word types equal the constant.
+- **The oracle runs today's code, not a copy.** Its pass 1a passes the header file's `wordTypes` exactly as `install.js` does (`todaysFirmwareRoutes.js:317`), and it runs today's create-concept from source. So ST2–ST5 and SF3 compare the target with today's routes.
+- **AC1 holds:**
+  - The new rule 12 runs in seed-firmware's own rules check. It finds nothing on a fresh install (SF20).
+  - Before the builder's fix it found eight `missing-concept-key` findings, by the test plan's record of the re-aim. Those were the eight headers.
+
+### The re-aims
+- **Every count is derived.**
+  - `census(dir)` in the fixtures counts from the files, apart from both the oracle and the builder: a header and seven core nodes a concept, eight core edges a concept (create-concept's), the element and set files, a relationship letter a set, graph-rule's element files, and the manifest's existing sets.
+  - `FIVE` and `COMMUNITY` are read from the manifest, and first contact's kept nodes from `keptOnFirstContact(o)`.
+  - The live suite counts the container's own files (`totalOnTheInstance`).
+- **Nothing is loosened.**
+  - Each literal count became a derived one with the same comparison: `=== 459` became `=== census().total`, and the `>` and `>=` bounds keep their form.
+  - SO5 is stricter. It now checks the set of folded primary properties, worked out from the schema files with the fold's own comparison, where it checked a count of 38.
+- **ST33's new `pass1_bootstrap` digest is justified.** Pass 1 of `install.js` changed only by the three-line `wordTypes` pass-through, which the builder follows (the probe). Its other four digests are unchanged, and pass.
+
+### The two new Deviation lines
+Both are small.
+1. **Each header gets its file's word types as pass 1a passes them.** That is Decision 9's rule.
+2. **A header file whose `word.wordTypes` isn't key-form refuses `firmware-unreadable`.** Today's create-concept answers that with a 400, and the install goes on without that concept. This joins round 1's list of files that don't hold together. It is untested: R4-N1.
+
+### Does the live check still stand?
+- **For what it covered, yes. For this code and firmware, not wholly.** It ran on `d90418c4`'s code over the pre-merge firmware, 459 nodes. Since then:
+  - the firmware gained a graph-rule item and changed eight headers' word types and every schema's;
+  - today's install, the side L1 compares against, now passes word types;
+  - seed-firmware's own rules check now runs rule 12's scan, which the live timing never included.
+- **I expect it to pass.** The stack-free oracle pins node content against today's routes, and nothing in story 47 touches the edge passes, which only L1 compares live.
+- **A fresh live run is warranted before the pull request:** L1–L4 and the agent's timed install, on a scratch stack, so the Evidence describes the merged code. It doesn't block.
+
+### Round 4's findings
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **R4-N1 — `target.js:161-164`: the new `firmware-unreadable` case has no test.** That case is a header file whose `word.wordTypes` isn't key-form. Add a target case beside ST21–ST27.
+  2. **R4-N2 — `_seed.js:737`, `rulesCheck`, now runs rule 12 too.**
+     - seed-firmware runs every rule that has a scan over each firmware concept's scope (Decision 10). Rule 12's concept scan (`word-types-hold-concept-keys.js:43-68`) takes every node the class thread reaches, the instance's own elements included.
+     - On an instance with data, seed-firmware's answer will now carry rule 12's findings on nodes it never wrote, though AC6 says "over the firmware's nodes".
+     - **Its cost grows with the instance.** On the target, `word`'s scope alone reaches 447 of the 460 nodes, and the 41 scopes total 1,193 judgments for the firmware alone (a probe over the target's relationships). On an instance with data, `word`'s scope comes close to every node any concept holds, and all of it is judged in one transaction.
+     - **Ask:** measure it in the live run. Then scope its items to the firmware's nodes, or say in the answer's words what it covers.
+
+### What I could not check
+- The merged code's live behaviour (above).
+- CI's time against its 25 minutes, and the full `npm test`.
+
+### Verdict
+**PASS**
+
+The story stays `**Status:** Done`.
