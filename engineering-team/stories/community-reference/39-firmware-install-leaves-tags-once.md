@@ -129,4 +129,4 @@ Two were left out:
   - `import nostr`'s ADR: `engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md`
 - ADR: `engineering-team/decisions/community-reference/0035-community-references-import-then-prune.md`
 - Test plan: `engineering-team/stories/community-reference/39-firmware-install-leaves-tags-once.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/community-reference/39-firmware-install-leaves-tags-once.md`
