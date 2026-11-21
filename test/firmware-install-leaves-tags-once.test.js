@@ -33,6 +33,16 @@
  *   E5        a REFERENCES on the instance's own header from a b its owner authored survives the install (ADR 0035
  *             Decision 4; passes before the fix too)
  *
+ * Review round 1's (ADR 0035 Amendment 1):
+ *   S11 AC-3  seed-firmware's target (src/firmware/target.js) gives the reference its assistant curates no pointer b,
+ *             no claim and no references entry, and each other reference's header its own (item 1)
+ *   S12 AC-3  seed-firmware's oracle, today's routes run from their source (test/helpers/todaysFirmwareRoutes.js), signs
+ *             no b on it either, and agrees with the target (item 1)
+ *   E6        a seeded header whose prune fails keeps its REFERENCES {source:'b-tag'}: the wiring makes no stub of it
+ *             (item 2)
+ *   E7        the same on the "already has a b" path (item 2)
+ *   E8        a seeded letter whose import fails after its publish gets no stub either (item 2)
+ *
  * The assistants: production's is read from the manifest (the curator nostr-relay's reference names), and staging's is
  * made up, so the decision of which reference is the instance's own is the code's, made at run time.
  *
@@ -128,7 +138,8 @@ const selfB = (v) => (v > 2 ? [['b', SELF.headerATag, 'pointer']] : []);
  * tags and the seeded letter's; the copies of the five legacy headers hold one version (pinned) or two, their supersets
  * two; the copy of production's nostr-relay header and its superset hold `prodVersions` versions each, the later headers
  * with production's b naming its own header, so the copy has a REFERENCES to itself. The relay has each curator's next
- * version, production's with no b (production heals first: ADR 0035's rollout order) unless `newestProdB` says otherwise.
+ * version, production's with no b unless `newestProdB` says otherwise: the graph once production has healed. Staging's
+ * own first install comes before production's, and keeps that loop until its next (ADR 0035 Amendment 1, item 5).
  */
 function stagingToday({ prodVersions = 9, oldProdB = selfB, newestProdB = [] } = {}) {
   const w = world(STAGING);
@@ -303,7 +314,8 @@ const tests = [];
 function test(name, fn) { tests.push([name, fn]); }
 
 test('S0: the manifest has the references the story names, nostr-relay\'s curated by an assistant of its own', () => {
-  assert(SELF && OTHERS.length >= 1, `the manifest's communityReference entries are ${CRS.map((c) => c.slug).join(', ') || 'none'}; the story names nostr-relay and the five event-tagging concepts`);
+  const named = ['nostr-event-tag', 'nostr-relay', 'nostr-user-tag', 'tag', 'tag-pinning', 'tagging-with-specific-tag'];
+  assert(sameList(CRS.map((c) => c.slug).sort(), named), `the manifest's communityReference entries are ${CRS.map((c) => c.slug).join(', ') || 'none'}; the story names these six: ${named.join(', ')}`);
   assert(OTHERS.every((c) => c.curator !== PROD), 'nostr-relay\'s curator curates no other reference, so production curates exactly one of its references (story #39, AC-3)');
 });
 
@@ -447,6 +459,94 @@ test('E5: a REFERENCES {source:\'b-tag\'} on the instance\'s own header, from a 
   const to = h ? C.relsOut(out.graph, h, 'REFERENCES').filter((r) => r.props && r.props.source === 'b-tag').map((r) => r.toNode && r.toNode.props.uuid).sort() : [];
   assert(to.includes(owners), `${C.short(ownHeader(out.ta, c))}'s REFERENCES to ${C.short(owners)}, from its owner's b, is gone: the step pruned an own header's b-derived relationships (it has [${to.map(C.short).join(', ')}])`);
   assert(to.filter((u) => u === c.headerATag).length === 1, `and the firmware's REFERENCES to ${C.short(c.headerATag)} is there once; it has [${to.map(C.short).join(', ')}]`);
+});
+
+/* ───────────── review round 1 (ADR 0035 Amendment 1) ───────────── */
+
+const FIRMWARE_DIR = path.join(C.ROOT, 'firmware/active');
+/** Seed-firmware's target under an assistant (src/firmware/target.js, a pure function of the files and `ta`). */
+function targetUnder(ta) {
+  const { buildTarget } = require(path.join(C.ROOT, 'src/firmware/target.js'));
+  const t = buildTarget({ dir: FIRMWARE_DIR, ta });
+  assert(!(t.problems || []).length, `buildTarget found problems with the firmware's files: ${brief(t.problems)}`);
+  return t;
+}
+/** What a target gives a reference's header on the instance: its b tags, its b claims, and whether references lists the curator's header. */
+function targetHeader(t, ta, c) {
+  const address = ownHeader(ta, c);
+  const n = t.nodes.find((x) => x.address === address);
+  return {
+    found: !!n,
+    bs: n ? n.tags.filter((x) => x[0] === 'b') : [],
+    claims: t.relationships.filter((r) => r.type === 'REFERENCES' && r.from === address && r.properties && r.properties.source === 'b-tag').map((r) => r.to),
+    listed: (t.references || []).includes(c.headerATag),
+  };
+}
+const keepsItsB = (h, c) => h.found && h.bs.length === 1 && h.bs[0][1] === c.headerATag && h.bs[0][2] === 'pointer' && sameList(h.claims, [c.headerATag]) && h.listed;
+
+test('S11 (AC-3, Amendment 1 item 1): seed-firmware\'s target gives the reference its assistant curates no pointer b, no claim and no references entry, and each other reference\'s header its own', () => {
+  const t = targetUnder(PROD);
+  const self = targetHeader(t, PROD, SELF);
+  assert(self.found, `seed-firmware's target has no node at ${C.short(ownHeader(PROD, SELF))}`);
+  const found = [];
+  if (self.bs.length) found.push(`its header carries ${C.short(brief(self.bs))}`);
+  if (self.claims.length) found.push(`it claims REFERENCES {source:'b-tag'} to ${self.claims.map(C.short).join(', ')}`);
+  if ((t.references || []).includes(SELF.headerATag)) found.push(`references lists ${C.short(SELF.headerATag)}, the instance's own header`);
+  for (const c of OTHERS) if (!keepsItsB(targetHeader(t, PROD, c), c)) found.push(`${c.slug} lost what it keeps: ${C.short(brief(targetHeader(t, PROD, c)))}`);
+  assert(!found.length, `seed-firmware's target under production's assistant (ADR 0035 Amendment 1 item 1):${list(found)}`);
+  const ts = targetUnder(STAGING);
+  const lost = CRS.filter((c) => !keepsItsB(targetHeader(ts, STAGING, c), c)).map((c) => c.slug);
+  assert(!lost.length, `under an assistant that curates none of them, each of the six keeps its pointer b and claim; ${lost.join(', ')} don't`);
+});
+
+test('S12 (AC-3, Amendment 1 item 1): seed-firmware\'s oracle, today\'s routes run from their source, signs no b on the reference its assistant curates, and agrees with the target', async () => {
+  const { todaysFirmware } = require(path.join(C.ROOT, 'test/helpers/todaysFirmwareRoutes.js'));
+  const o = await todaysFirmware({ dir: FIRMWARE_DIR, ta: PROD });
+  const t = targetUnder(PROD);
+  const found = [];
+  for (const c of CRS) {
+    const l = o.letters.get(ownHeader(PROD, c));
+    if (!l) { found.push(`${c.slug}: the oracle signs no letter at ${C.short(ownHeader(PROD, c))}`); continue; }
+    const signed = l.tags.filter((x) => x[0] === 'b');
+    const want = c === SELF ? [] : [['b', c.headerATag, 'pointer']];
+    if (JSON.stringify(signed) !== JSON.stringify(want)) found.push(`${c.slug}: the oracle signs ${C.short(brief(signed))}; it should sign ${C.short(brief(want))}`);
+    const given = targetHeader(t, PROD, c).bs;
+    if (JSON.stringify(given) !== JSON.stringify(signed)) found.push(`${c.slug}: the target gives ${C.short(brief(given))}, the oracle signs ${C.short(brief(signed))}`);
+  }
+  assert(!found.length, `seed-firmware's oracle under production's assistant (ADR 0035 Amendment 1 item 1):${list(found)}`);
+});
+
+/** Why the instance's header for c doesn't have exactly one REFERENCES, {source:'b-tag'}, to the community header, or null. */
+function keptItsClaim(out, c) {
+  const h = nodeAt(out, ownHeader(out.ta, c));
+  const refs = h ? C.relsOut(out.graph, h, 'REFERENCES').map((r) => ({ to: r.toNode && r.toNode.props.uuid, source: r.props && r.props.source })) : [];
+  if (refs.length === 1 && refs[0].to === c.headerATag && refs[0].source === 'b-tag') return null;
+  return `${C.short(ownHeader(out.ta, c))} has ${refs.length ? refs.map((r) => `REFERENCES {source:'${r.source}'} to ${C.short(r.to)}`).join(', ') : 'no REFERENCES'}; it should keep its one REFERENCES {source:'b-tag'}, to ${C.short(c.headerATag)}, and the wiring make no firmware-community stub of it (ADR 0035 Amendment 1 item 2)`;
+}
+
+test('E6 (Amendment 1 item 2): when a seeded header\'s prune fails, the header keeps its REFERENCES {source:\'b-tag\'}: the wiring makes no firmware-community stub of it', () => {
+  const c = OTHERS[0];
+  const { out } = once('seed-prune-fails', () => [stagingToday({ prodVersions: 3 }), { ...RESIGN, failPruneAt: ownHeader(STAGING, c) }]);
+  assert(out.calls.failedPrunes.includes(ownHeader(STAGING, c)), `the child never failed the prune at ${C.short(ownHeader(STAGING, c))}: the path under test didn't run`);
+  const why = keptItsClaim(out, c);
+  assert(!why, why);
+});
+
+test('E7 (Amendment 1 item 2): the same on the "already has a b" path, which signs no header again', () => {
+  const c = OTHERS[0];
+  const { out } = once('has-b-prune-fails', () => [neverResigned(), { installs: [{ resign: false }], failPruneAt: ownHeader(STAGING, c) }]);
+  assert(out.calls.failedPrunes.includes(ownHeader(STAGING, c)), `the child never failed the prune at ${C.short(ownHeader(STAGING, c))}: the path under test didn't run`);
+  const why = keptItsClaim(out, c);
+  assert(!why, why);
+});
+
+test('E8 (Amendment 1 item 2): when a seeded letter\'s import fails after its publish, the header gets no firmware-community stub either', () => {
+  const c = OTHERS[0];
+  const { out } = once('seed-import-fails', () => [stagingToday({ prodVersions: 3 }), { ...RESIGN, failImportAt: ownHeader(STAGING, c) }]);
+  assert(out.calls.failedImports.includes(ownHeader(STAGING, c)), `the child never failed the import at ${C.short(ownHeader(STAGING, c))}: the path under test didn't run`);
+  assert(out.calls.publishes.some((l) => C.addressOf(l) === ownHeader(STAGING, c) && l.tags.some((x) => x[0] === 'b' && x[1] === c.headerATag)), 'and the seeded letter, b included, was published first');
+  const why = keptItsClaim(out, c);
+  assert(!why, why);
 });
 
 /* ───────────── run ───────────── */

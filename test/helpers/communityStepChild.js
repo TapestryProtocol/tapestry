@@ -19,9 +19,12 @@
  *   direct        call pass_communityReferences() once, in place of the installs, and report the pending it returns
  *   failImportAt  an address: executeCypher refuses a batch that imports a letter there, before any of it runs, as
  *                 cypher-shell stops at a batch's first failing statement
+ *   failPruneAt   an address: executeCypher refuses a batch that imports nothing and deletes at that address, a prune
+ *                 (ADR 0035 Amendment 1 item 2's tests), before any of it runs
  * stdout: one line `@@RESULT@@<json>`: { ta, graph, strfry, pending, calls, log, threw }, calls being publishes (the
  *   letters sent to /api/strfry/publish), relay (each /api/relay/external filter), scans (each /api/strfry/scan filter),
- *   signs (each letter signAndFinalize made), failedImports, and unexpected (any other route or function asked for).
+ *   signs (each letter signAndFinalize made), failedImports, failedPrunes, and unexpected (any other route or function
+ *   asked for).
  *
  * The stubs:
  *   - src/api/neo4j/eventSync.js: the real module's builders (buildImportCypher, and buildPruneCypher once it exists),
@@ -67,7 +70,7 @@ async function main() {
   const state = { nodes: sc.graph.nodes, rels: sc.graph.rels, nextEid: sc.graph.nextEid };
   const strfry = new C.LetterStore(sc.strfry || []);
   const relay = new C.LetterStore(sc.relay || []);
-  const calls = { publishes: [], relay: [], scans: [], signs: [], failedImports: [], unexpected: [] };
+  const calls = { publishes: [], relay: [], scans: [], signs: [], failedImports: [], failedPrunes: [], unexpected: [] };
   const log = [];
   let clock = Math.max(1700000000, ...(sc.strfry || []).map((l) => l.created_at), ...(sc.relay || []).map((l) => l.created_at)) + 100;
 
@@ -77,12 +80,19 @@ async function main() {
 
   // The real builders, and an executeCypher on the engine.
   const real = C.eventSync();
-  const importMark = sc.failImportAt ? `MERGE (e:NostrEvent {uuid: '${String(sc.failImportAt).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'})` : null;
+  const escaped = (a) => String(a).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const importMark = sc.failImportAt ? `MERGE (e:NostrEvent {uuid: '${escaped(sc.failImportAt)}'})` : null;
+  const pruneMark = sc.failPruneAt ? `'${escaped(sc.failPruneAt)}'` : null;
+  const imports = (q) => /MERGE \(e:NostrEvent \{/.test(String(q));
   async function executeCypher(statements) {
     const list = Array.isArray(statements) ? statements : [statements];
     if (importMark && list.some((q) => String(q).includes(importMark))) {
       calls.failedImports.push(sc.failImportAt);
       throw new Error(`cypher-shell: the import of ${sc.failImportAt} failed at its first statement (communityStepChild's failImportAt)`);
+    }
+    if (pruneMark && !list.some(imports) && list.some((q) => String(q).includes(pruneMark) && /\bDELETE\b/.test(String(q)))) {
+      calls.failedPrunes.push(sc.failPruneAt);
+      throw new Error(`cypher-shell: the prune at ${sc.failPruneAt} failed at its first statement (communityStepChild's failPruneAt)`);
     }
     for (const q of list) C.run(state, q, {});
     return '';

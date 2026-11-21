@@ -227,3 +227,41 @@ Twelve deliberate mistakes were then applied to it one at a time. Each was caugh
 | Every `REFERENCES` pruned, not only `b-tag` | P8 |
 | The prune's address unescaped | P9 |
 | The curator compared with a literal pubkey | S1, S2, S3, S4, S5, S9, E2, E3 |
+
+## Amendment 1 (review round 1, 2026-11-21)
+
+ADR 0035's Amendment 1 answers review round 1, after the branch merged `staging`. Its tests are in `test/firmware-install-leaves-tags-once.test.js`:
+
+| Finding | Test | Level |
+|---|---|---|
+| Blocking 1 (item 1) | S11: seed-firmware's target under nostr-relay's curator gives that header no pointer `b`, no claim and no `references` entry, and each other reference's header its own. Under staging's made-up assistant, all six keep theirs | `src/firmware/target.js`, in-process |
+| Blocking 1 (item 1) | S12: the oracle, `test/helpers/todaysFirmwareRoutes.js`, under the same assistant signs no `b` on it, and agrees with the target | the oracle, in-process |
+| Blocking 2 (item 2) | E6: a seeded header whose prune fails keeps its `REFERENCES {source:'b-tag'}`, and the wiring makes no stub of it | install step in a child |
+| Blocking 2 (item 2) | E7: the same on the "already has a `b`" path | install step in a child |
+| Blocking 2 (item 2) | E8: a seeded letter whose import fails after its publish gets no stub either | install step in a child |
+| Non-blocking 4 (item 6) | S0 now checks the six references the story names | the manifest |
+
+**Other changes:**
+- **The child gains `failPruneAt`.** It refuses a batch that imports nothing and deletes at the address given.
+- **The fixture's comment** (Non-blocking 3, item 5) now says it models the graph once production has healed.
+- **ST33's digest** isn't one of this story's tests. It's updated once `target.js` follows item 1, as ST33's procedure says.
+- **The guards.** After the fix, a scratch edit taking out each guard must fail its test:
+
+  | Guard taken out | Its test |
+  |---|---|
+  | The target's skip | S11 |
+  | The oracle's skip | S12 |
+  | `seededB` set before the prune | E6, E7 |
+  | `seededB` set before the import | E8 |
+
+**The scoped gate for round 2** runs on the merged branch. Its list is derived from that diff, so it gains:
+- seed-firmware's lifecycle suites, which read `install.js` and `target.js`;
+- the suites that read `BIBLE.md`, for item 4.
+
+**Verification.** The new tests fail for want of items 1 and 2. Confirmed on 2026-11-21 at `30c0c6a7` (Amendment 1's commit), with these tests in the working tree: `firmware-install-leaves-tags-once: 16 passed, 5 failed`, the five being S11, S12, E6, E7 and E8.
+
+```
+S11: its header carries [["b","39998:919ba08a…:nostr-relay","pointer"]]; it claims REFERENCES {source:'b-tag'} to 39998:919ba08a…:nostr-relay; references lists 39998:919ba08a…:nostr-relay, the instance's own header
+S12: nostr-relay: the oracle signs [["b","39998:919ba08a…:nostr-relay","pointer"]]; it should sign []
+E6, E7, E8: 39998:580923c1…:tag has REFERENCES {source:'firmware-community'} to 39998:82b75e47…:tag; it should keep its one REFERENCES {source:'b-tag'}, to 39998:82b75e47…:tag, and the wiring make no firmware-community stub of it
+```
