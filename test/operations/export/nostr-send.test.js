@@ -34,8 +34,10 @@
  *   ES7  (AC5, Decision 6) an unchanged letter is sent as it was signed, the same id, to a relay named now that isn't in
  *        its sentTo; the own relay, which has it, answers held; sentTo gains the new relay; the same call again: held
  *        on both, nothing published
- *   ES8  (AC5, amendment 5) order: each letter goes out after the call's letters it names; a header and its concept
- *        graph, which name each other, go header first
+ *   ES8  (AC5 and Decision 2, as amended at Review: Amendment 2 item 2; changed at review round 1) order: by kind of
+ *        node first, concept headers, supersets, sets, the rest; within a kind, each after the letters of that kind it
+ *        names, and letters of one kind that name each other by tapestryKey; so pet's header goes before all its core
+ *        nodes and elements, and a graph after the nodes it lists
  *   ES9  (AC5, amendment 5) paging, with MAX_SCOPE and MAX_SEND shrunk: next.after, each call going on where the last
  *        stopped, and together each letter signed and accepted once
  *   ES10 (Decision 6) time, with SEND_CUTOFF_MS shrunk and a slow relay: letters not sent in time answer not-sent, with
@@ -43,14 +45,26 @@
  *   The sending classes (Decision 6; amendment 4):
  *   ES11 strfry import runs and the read-back finds the letter: own accepted, sent out, recorded
  *   ES12 the read-back answers without it: own refused, not-sent out, not recorded
- *   ES13 the read-back doesn't answer: own unread, not-sent out, not recorded
- *   ES14 strfry import can't run: every letter unreachable, not-sent out, not recorded
+ *   ES13 the read-back doesn't answer: own unread, not-sent out, not on its node; (changed at review round 1, Amendment
+ *        2 item 1) the call's change entry records each letter, with each relay's answer
+ *   ES14 strfry import can't run: every letter unreachable, not-sent out, not recorded; (review round 1, a pin) and no
+ *        change entry is written
  *   ES15 BRAINSTORM_PUBLISH_LOCAL_ONLY=true: own accepted, every outside relay not-sent saying why, sentTo ['own']
  *   ES16 a live relay (a ws server in the child, reached through _relay.js's own connect) drops the connection at the
  *        second letter: the rest unreachable or timeout, the first accepted, the own relay as answered, and the
  *        process lives on
+ *   Review round 1 (ADR 0034 Amendment 2):
+ *   ES17 (item 5, finding 7) a strfry import that never ends (the fake's hang), with BUDGET_MS at 3 s: the call answers
+ *        within 3 s and a 5 s margin, each letter unread, refused or unreachable as the read-back decides, none on its
+ *        node, none sent out
+ *   ES18 (item 1, a pin) two exports of a node race, and the other records first, with a newer letter (the graph fake's
+ *        meanwhile, just before this call's first write to the node): the node keeps the newer letter, and this call's
+ *        change says raced
+ *   ES19 (item 1, finding 3) the same with an older letter: the node keeps the newest letter export sent, this call's,
+ *        and its change isn't raced
  */
 
+const crypto = require('crypto');
 const S = require('../../helpers/graphOpsSuite');
 const X = require('../../helpers/exportFixtures');
 const F = require('../../helpers/importFixtures');
@@ -299,14 +313,25 @@ test('ES7 [AC5, Decision 6]: an unchanged letter is sent as it was signed to a r
   assert(!a6.mine.some((x) => x.at === 'publish' || x.at === 'strfry-import'), 'and nothing was sent');
 });
 
-test('ES8 [AC5, amendment 5]: each letter goes out after the call\'s letters it names; the header and its concept graph, which name each other, go header first', async () => {
+test('ES8 [AC5 and Decision 2, as amended at Review: Amendment 2 item 2] (round 1): letters go out by kind first, headers, supersets, sets, the rest; within a kind, after the letters of that kind they name, a cycle by tapestryKey; so a header goes before its core nodes and elements, and a graph after the nodes it lists', async () => {
   const { a1, k, w } = await chain();
   const order = a1.mine.filter((x) => x.at === 'strfry-import').flatMap((x) => x.ids);
   const held = a1.ended.store;
   const events = order.map((id) => held.find((e) => e.id === id)).filter(Boolean);
   assert(events.length === 20, `the twenty letters went out in one order; got ${events.length}`);
-  const pos = new Map(events.map((e, i) => [X.addressOf(e), i]));
-  const edges = new Map(events.map((e) => [X.addressOf(e), [...X.namesIn(e)].filter((a) => pos.has(a) && a !== X.addressOf(e))]));
+  const addresses = events.map((e) => X.addressOf(e));
+  const pos = new Map(addresses.map((a, i) => [a, i]));
+  const nodeAt = (a) => X.at(w.state, a);
+  // The kinds of node, as Decision 2 ranks them: concept headers, supersets, sets, everything else.
+  const KINDS = ['header', 'superset', 'set', 'rest'];
+  const kindOf = (a) => { const l = nodeAt(a).labels; return l.includes('ConceptHeader') || l.includes('ListHeader') ? 0 : l.includes('Superset') ? 1 : l.includes('Set') ? 2 : 3; };
+  const name = (a) => `${a.split(':').slice(2).join(':')} (${KINDS[kindOf(a)]})`;
+  // 1. By kind first.
+  const outOfKind = [];
+  for (let i = 1; i < addresses.length; i += 1) if (kindOf(addresses[i]) < kindOf(addresses[i - 1])) outOfKind.push(`${name(addresses[i])} went out after ${name(addresses[i - 1])}`);
+  assert(outOfKind.length === 0, `letters go out by kind of node first: concept headers, then supersets, then sets, then the rest; got ${show(outOfKind)} in the order ${show(addresses.map(name))}`);
+  // 2. Within a kind, each after the letters of its kind it names; letters of one kind that name each other go by tapestryKey.
+  const edges = new Map(events.map((e) => [X.addressOf(e), [...X.namesIn(e)].filter((a) => pos.has(a) && a !== X.addressOf(e) && kindOf(a) === kindOf(X.addressOf(e)))]));
   const reaches = (from, to, seen = new Set()) => {
     if (from === to) return true;
     if (seen.has(from)) return false;
@@ -314,9 +339,31 @@ test('ES8 [AC5, amendment 5]: each letter goes out after the call\'s letters it 
     return (edges.get(from) || []).some((x) => reaches(x, to, seen));
   };
   const late = [];
-  for (const [l, named] of edges) for (const m of named) if (!reaches(m, l) && pos.get(m) > pos.get(l)) late.push(`${l} went before ${m}, which it names`);
-  assert(late.length === 0, `each letter after the letters it names, wherever no cycle stops it; got ${show(late)}`);
-  assert(pos.get(w.addr.petHeader) < pos.get(w.addr.petConceptGraph), 'the header goes before the concept graph that lists it, which its concept-graph tag names: rank breaks the cycle, headers first');
+  const ties = [];
+  for (const [l, named] of edges) {
+    for (const m of named) {
+      if (!reaches(m, l)) { if (pos.get(m) > pos.get(l)) late.push(`${name(l)} went before ${name(m)}, of its kind, which it names`); continue; }
+      const [kl, km] = [nodeAt(l).props.tapestryKey, nodeAt(m).props.tapestryKey];
+      if ((kl < km) !== (pos.get(l) < pos.get(m))) ties.push(`${name(l)} and ${name(m)} name each other, and went out against their tapestryKeys' order`);
+    }
+  }
+  assert(late.length === 0, `within a kind, each letter goes after the letters of that kind it names; got ${show(late)}`);
+  assert(ties.length === 0, `letters of one kind that name each other go by tapestryKey; got ${show([...new Set(ties)])}`);
+  // 3. AC5's example: the concept's header before all its core nodes and elements.
+  const its = ['petSuperset', 'petJsonSchema', 'petPrimaryProperty', 'petProperties', 'petPropertyTreeGraph', 'petConceptGraph', 'petCoreNodesGraph', 'rex', 'tom', 'fido', 'spot', 'linker'];
+  const before = its.filter((n) => !(pos.get(w.addr.petHeader) < pos.get(w.addr[n])));
+  assert(before.length === 0, `pet's header goes before all its core nodes and elements; it went out at ${pos.get(w.addr.petHeader)}, after ${show(before.map((n) => `${n} at ${pos.get(w.addr[n])}`))}`);
+  // 4. A graph goes after the nodes it lists, but for one of its kind that names it back.
+  const early = [];
+  for (const e of events) {
+    const g = X.letterJson(e) && X.letterJson(e).graph;
+    for (const x of g && Array.isArray(g.nodes) ? g.nodes : []) {
+      const a = x && x.uuid;
+      if (!pos.has(a) || a === X.addressOf(e) || (kindOf(a) === kindOf(X.addressOf(e)) && reaches(a, X.addressOf(e)))) continue;
+      if (pos.get(a) > pos.get(X.addressOf(e))) early.push(`${name(X.addressOf(e))} went before ${name(a)}, which it lists`);
+    }
+  }
+  assert(early.length === 0, `a graph goes after the nodes it lists; got ${show(early)}`);
   void k;
 });
 
@@ -392,14 +439,24 @@ test('ES12 [Decision 6]: the read-back answers without one letter: refused by th
   for (const key of [w.keys.picks, w.keys.tom]) assert((X.relayOf(X.letterFor(d, key), ACCEPTS) || {}).status === 'accepted' && recorded(r.state(), key), `${key}: the others are sent and recorded`);
 });
 
-test('ES13 [Decision 6]: the read-back doesn\'t answer: each letter unread, not-sent out, not recorded', async () => {
+test('ES13 [Decision 6; Decision 8 as amended at Review: Amendment 2 item 1] (round 1): the read-back doesn\'t answer: each letter unread, not-sent out, recorded in the call\'s change entry with each relay\'s answer, and not on its node', async () => {
   X.needDecl();
   const w = await X.world();
   const r = classRun(w, { own: { silentAfterImport: true }, timing: { REQUEST_MS: 800 }, label: 'export-nostr-es13' });
   const d = X.data(r, 'send');
-  assert(X.lettersOf(d).length === 3 && X.lettersOf(d).every((l) => (X.relayOf(l, 'own') || {}).status === 'unread' && (X.relayOf(l, ACCEPTS) || {}).status === 'not-sent'), `own unread, accepts not-sent; got ${show(X.lettersOf(d).map((l) => l.relays))}`);
+  const letters = X.lettersOf(d);
+  assert(letters.length === 3 && letters.every((l) => (X.relayOf(l, 'own') || {}).status === 'unread' && (X.relayOf(l, ACCEPTS) || {}).status === 'not-sent'), `own unread, accepts not-sent; got ${show(letters.map((l) => l.relays))}`);
   assert(r.log().some((x) => x.at === 'strfry-import'), 'the letters went through the strfry import first');
-  assert([w.keys.picks, w.keys.rex, w.keys.tom].every((key) => !recorded(r.state(), key)), 'nothing is claimed, so nothing is recorded');
+  assert([w.keys.picks, w.keys.rex, w.keys.tom].every((key) => !recorded(r.state(), key)), 'nothing is claimed for them on their nodes: no node holds a letter or a sentTo');
+  // Each may be on the instance's own relay, so the call's entry records it, with each relay's answer (Amendment 2 item 1).
+  const entries = X.exportEntries(r.state());
+  assert(entries.length === 1 && d.change && d.change.id === entries[0].tapestryKey, `the call writes one change entry, export nostr, and answers it; got ${entries.length} entries and change ${show(d.change).slice(0, 200)}`);
+  for (const l of letters) {
+    const c = (entries[0].changes || []).find((x) => x && x.node === X.keyOf(l) && x.now && x.now.id === l.id);
+    const status = (relay) => ((c && Array.isArray(c.relays) ? c.relays : []).find((x) => (relay === 'own' ? X.isOwnRelay(x.relay) : R.normalize(x.relay) === R.normalize(relay))) || {}).status;
+    assert(c && c.address === X.nodeByKey(r.state(), X.keyOf(l)).props.uuid && status('own') === 'unread' && status(ACCEPTS) === 'not-sent',
+      `${X.keyOf(l)}: the entry records its unread letter, ${l.id}, with its address and each relay's answer (own unread, accepts not-sent); got ${show(c)}`);
+  }
 });
 
 test('ES14 [Decision 6]: strfry import can\'t run: every letter unreachable, not-sent out, not recorded', async () => {
@@ -410,6 +467,8 @@ test('ES14 [Decision 6]: strfry import can\'t run: every letter unreachable, not
   assert(X.lettersOf(d).length === 3 && X.lettersOf(d).every((l) => (X.relayOf(l, 'own') || {}).status === 'unreachable' && (X.relayOf(l, ACCEPTS) || {}).status === 'not-sent'), `own unreachable, accepts not-sent; got ${show(X.lettersOf(d).map((l) => l.relays))}`);
   assert(r.log().some((x) => x.at === 'strfry-import'), 'the strfry import was tried');
   assert([w.keys.picks, w.keys.rex, w.keys.tom].every((key) => !recorded(r.state(), key)) && !r.log().some((x) => x.at === 'publish'), 'nothing recorded, nothing sent out');
+  // (round 1, a pin) A call whose every letter was refused, unreachable or not sent writes no entry (Amendment 2 item 1).
+  assert(X.data(r, 'send').change === null && X.exportEntries(r.state()).length === 0, `no change entry: no letter reached anywhere; got ${show(X.data(r, 'send').change)}`);
 });
 
 test('ES15 [Decision 6]: BRAINSTORM_PUBLISH_LOCAL_ONLY=true: the own relay accepted, every outside relay not-sent saying why, sentTo own only', async () => {
@@ -440,6 +499,84 @@ test('ES16 [Decision 6; story 32\'s review, blocking 1]: a live relay drops the 
   assert(X.lettersOf(d).every((l) => (X.relayOf(l, 'own') || {}).status === 'accepted'), 'the own relay\'s answers stand');
   assert(r.log().some((x) => x.at === 'live-drop-event'), 'the live relay dropped the connection');
   assert(Date.now() - t0 < 15000, `and the call ends soon after the drop; took ${Date.now() - t0} ms`);
+});
+
+// ── Review round 1 ──
+
+test('ES17 [Decision 6 as amended at Review: Amendment 2 item 5; review round 1, finding 7] (round 1): a strfry import that never ends doesn\'t hold the call: it answers within BUDGET_MS and a margin, each letter as the read-back decides, none on its node and none sent out', async () => {
+  X.needDecl();
+  const w = await X.world();
+  const BUDGET = 3000;
+  const MARGIN = 5000;
+  const STOP = BUDGET + MARGIN + 7000;
+  const r = X.runExport({
+    state: X.copy(w.state), ownEvents: w.ownEvents, lmdb: w.lmdb, strfry: { mode: 'hang' }, relays: { [ACCEPTS]: F.relay([]) },
+    exportTiming: { BUDGET_MS: BUDGET }, timeoutMs: STOP, label: 'export-nostr-es17',
+    requests: [exp('hang', 'owner', { graph: w.keys.picks, relays: [ACCEPTS] })],
+  });
+  assert(!r.error && r.requests.hang, `the call answers while its strfry import never ends; it hadn't answered when the harness stopped at its own ${STOP} ms: ${r.error}`);
+  const ms = r.req('hang').ms;
+  assert(ms < BUDGET + MARGIN, `it answers within BUDGET_MS, ${BUDGET} ms here, and ${MARGIN} ms more, never the 60 s a strfry import may run; it took ${ms} ms`);
+  const d = X.data(r, 'hang');
+  const letters = X.lettersOf(d);
+  assert(r.log().some((x) => x.at === 'strfry-import'), 'the letters went to the strfry import, which never ended');
+  assert(letters.length === 3 && letters.every((l) => ['unread', 'refused', 'unreachable'].includes((X.relayOf(l, 'own') || {}).status) && (X.relayOf(l, ACCEPTS) || {}).status === 'not-sent'),
+    `each letter as the read-back decides (the import kept nothing, so never accepted), and not sent out; got ${show(letters.map((l) => l.relays))}`);
+  assert([w.keys.picks, w.keys.rex, w.keys.tom].every((key) => !recorded(r.state(), key)) && !r.log().some((x) => x.at === 'publish'), 'no node holds a letter, and nothing went to an outside relay');
+});
+
+/** Another export's letter, by a label and a created_at (its id stands in: the record keeps ids, and signs nothing). */
+const raceLetter = (label, at) => ({ id: crypto.createHash('sha256').update(`export-nostr-race: ${label}`).digest('hex'), created_at: at });
+let RACES = null;
+function races() {
+  if (RACES) return RACES;
+  RACES = (async () => {
+    X.needDecl();
+    const w = await X.world();
+    const k = w.keys;
+    const state = X.copy(w.state);
+    // Two exports of a node read it before either records. Here the other one records first: just before this call's
+    // first write to the node (its lock, or its record), another transaction gives the node the other export's letter
+    // and writes that export's entry, made by changes.js's recordChange (the graph fake's meanwhile, with set).
+    const newer = raceLetter('newer, for Rex', AHEAD + 60);
+    const older = raceLetter('older, for Tom', AHEAD - 60);
+    const meanwhile = [];
+    for (const [key, letter] of [[k.rex, newer], [k.tom, older]]) {
+      const { labels, props } = await X.exportEntry({ letters: [{ node: key, address: X.nodeByKey(state, key).props.uuid, kind: 39999, was: null, now: letter }] });
+      meanwhile.push({ match: key, set: [{ key, props: { id: letter.id, created_at: letter.created_at, sentTo: ['own'] } }], add: [{ labels, props }] });
+    }
+    state.failures = { ...(state.failures || {}), meanwhile };
+    const r = X.runExport({ state, ownEvents: w.ownEvents, lmdb: w.lmdb, exportTiming: { NOW: AHEAD }, label: 'export-nostr-races', requests: [exp('rex', 'owner', { node: k.rex }), exp('tom', 'owner', { node: k.tom })] });
+    return { w, k, r, newer, older, after: r.state() };
+  })();
+  return RACES;
+}
+const fired = (s, key) => (s.log || []).some((x) => x.call === 'meanwhile' && x.match === key);
+const changeFor = (d, key) => ((d.change && Array.isArray(d.change.changes) ? d.change.changes : []).find((c) => c && c.node === key)) || null;
+
+test('ES18 [Decision 8 as amended at Review: Amendment 2 item 1] (round 1, a pin): a record that finds the node already holding a newer letter another export sent leaves it, and its change says raced', async () => {
+  const { k, r, newer, after } = await races();
+  const d = X.data(r, 'rex');
+  const l = X.letterFor(d, k.rex);
+  assert(fired(after, k.rex), 'the other export recorded the node first, before this call\'s first write to it');
+  assert(l && l.outcome === 'new' && (X.relayOf(l, 'own') || {}).status === 'accepted' && AHEAD < newer.created_at, `this call's letter, dated ${AHEAD}, went into the own relay; got ${show(l)}`);
+  const n = X.nodeByKey(after, k.rex).props;
+  assert(n.id === newer.id && X.plain(n.created_at) === newer.created_at, `the node keeps the newer letter, ${newer.id} at ${newer.created_at}; got ${show({ id: n.id, created_at: n.created_at })}`);
+  const c = changeFor(d, k.rex);
+  assert(c && c.raced === true && c.now && c.now.id === l.id, `the call's change for it says raced; got ${show(c)}`);
+});
+
+test('ES19 [Decision 8 as amended at Review: Amendment 2 item 1; review round 1, finding 3] (round 1): of the letters export sent for a node, the node keeps the newest: a record that finds the node holding an older letter another export sent replaces it, not raced', async () => {
+  const { k, r, older, after } = await races();
+  const d = X.data(r, 'tom');
+  const l = X.letterFor(d, k.tom);
+  assert(fired(after, k.tom), 'the other export recorded the node first, before this call\'s first write to it');
+  assert(l && l.outcome === 'new' && (X.relayOf(l, 'own') || {}).status === 'accepted' && HEX64.test(String(l.id)), `this call's letter went into the own relay; got ${show(l)}`);
+  const n = X.nodeByKey(after, k.tom).props;
+  assert(n.id === l.id && X.plain(n.created_at) === AHEAD && Array.isArray(n.sentTo) && n.sentTo.includes('own'),
+    `the node holds this call's letter, ${l.id} at ${AHEAD}, the newer of the two, not the other export's, ${older.id} at ${older.created_at}; got ${show({ id: n.id, created_at: n.created_at, sentTo: n.sentTo })}`);
+  const c = changeFor(d, k.tom);
+  assert(c && c.raced !== true && c.now && c.now.id === l.id, `the call's change for it isn't raced; got ${show(c)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

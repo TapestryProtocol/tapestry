@@ -25,10 +25,19 @@
  *        doesn't hold is left out and reported pointer-unresolved; a json pointing at nothing makes its node unbuildable,
  *        reported, its letter not built (AC1's unbuildable, which no other test of the plan's list names)
  *   EK6  a graph that lists an address or an id no node holds reports not-found, and its other nodes are still sent
+ *   Review round 1 (ADR 0034 Amendment 2):
+ *   EK7  (item 3, finding 6) a graph past the fourth level of imports (g5 of a chain g0 → … → g5), and the 51st graph
+ *        (of w0 and its 50 imports), are each sent with their lists unfollowed, and each reported graph-not-followed,
+ *        once, naming it; the graphs before them are followed. The caps are _scope.js's module constants, which no
+ *        suite can reach, so the graphs are built to size
+ *   EK8  (finding 5) an element's field whose markdown starts with a byte-order mark, set by graph update-node: its
+ *        link to dog's header is its naddr in the letter, the mark kept, no tapestry: left
  */
 
+const path = require('path');
 const S = require('../../helpers/graphOpsSuite');
 const X = require('../../helpers/exportFixtures');
+const CG = require('../../helpers/cypherGraphFake');
 
 const { assert } = S;
 const show = (x) => String(S.show(x));
@@ -150,6 +159,89 @@ test('EK6 [Decision 9]: a graph that lists an address or an id no node holds rep
   const nf = X.reportsOf(d, 'not-found');
   for (const ref of [`39999:${X.TA}:nobody-here`, 'ee'.repeat(32)]) assert(nf.some((r) => X.mentions(r, ref)), `not-found names ${ref}; got ${show(nf)}`);
   assert(['new', 'unchanged', 'changed'].includes((X.letterFor(d, k.rex) || {}).outcome) && (X.relayOf(X.letterFor(d, k.missing), 'own') || {}).status === 'accepted', `the graph and Rex are still answered and sent; got ${show(X.lettersOf(d).map((l) => [X.keyOf(l), l.outcome]))}`);
+});
+
+// ── Review round 1 ──
+
+let FOLLOW = null;
+/**
+ * The follow caps (ADR 0034 Decision 2: four levels of imports, 50 graphs) are module constants in _scope.js, which no
+ * suite can reach, so the graphs are built to their size here, each made with makeNode (exportFixtures.js's graphNode):
+ *   deep  g0 imports g1, which imports g2, and so on to g5, five levels below g0; g4 lists Fido, g5 lists Spot and
+ *         imports g6
+ *   wide  w0 imports w1 … w50, 51 graphs in all; each w lists one address no node holds, so a graph whose list was
+ *         read reports not-found for it, and one whose list wasn't read doesn't
+ */
+function follow() {
+  if (FOLLOW) return FOLLOW;
+  FOLLOW = (async () => {
+    X.needDecl();
+    const w = await X.world();
+    const k = w.keys;
+    const state = X.copy(w.state);
+    const at = (slug) => `39999:${X.TA}:${slug}`;
+    const g = {};
+    g.g6 = await X.graphNode(state, { slug: 'deep-g6' });
+    g.g5 = await X.graphNode(state, { slug: 'deep-g5', nodes: [{ slug: 'spot', uuid: w.addr.spot }], imports: [{ slug: 'deep-g6', uuid: at('deep-g6') }] });
+    g.g4 = await X.graphNode(state, { slug: 'deep-g4', nodes: [{ slug: 'fido', uuid: w.addr.fido }], imports: [{ slug: 'deep-g5', uuid: at('deep-g5') }] });
+    for (let i = 3; i >= 0; i -= 1) g[`g${i}`] = await X.graphNode(state, { slug: `deep-g${i}`, imports: [{ slug: `deep-g${i + 1}`, uuid: at(`deep-g${i + 1}`) }] });
+    const wide = [];
+    for (let i = 1; i <= 50; i += 1) wide.push({ i, key: await X.graphNode(state, { slug: `wide-w${i}`, nodes: [{ slug: `missing-${i}`, uuid: at(`wide-missing-${i}`) }] }), missing: at(`wide-missing-${i}`) });
+    const w0 = await X.graphNode(state, { slug: 'wide-w0', imports: wide.map((x) => ({ slug: `wide-w${x.i}`, uuid: at(`wide-w${x.i}`) })) });
+    const r = X.runExport({ state, ownEvents: w.ownEvents, lmdb: w.lmdb, label: 'export-nostr-follow', requests: [exp('deep', 'owner', { graph: g.g0 }), exp('wide', 'owner', { graph: w0 })] });
+    return { w, k, g, wide, w0, r };
+  })();
+  return FOLLOW;
+}
+const notFollowed = (d) => X.reportsOf(d, 'graph-not-followed');
+
+test('EK7 [AC1 and Decision 9, as amended at Review: Amendment 2 item 3; review round 1, finding 6] (round 1): a graph past the fourth level of imports, and the 51st graph, are each sent with their lists unfollowed and reported graph-not-followed, naming it', async () => {
+  const { w, k, g, wide, w0, r } = await follow();
+  // The deep one: g5, five levels below g0.
+  const deep = X.data(r, 'deep');
+  const keys = X.lettersOf(deep).map(X.keyOf);
+  assert(['g0', 'g1', 'g2', 'g3', 'g4', 'g5'].every((n) => keys.includes(g[n])) && keys.includes(k.fido), `g0 to g5 are sent, and Fido, whom g4 four levels down lists; got ${show(keys)}`);
+  assert(!keys.includes(k.spot) && !keys.includes(g.g6), `g5's lists aren't followed: neither Spot, which it lists, nor g6, which it imports, is in the scope; got ${show(keys)}`);
+  assert((X.relayOf(X.letterFor(deep, g.g5), 'own') || {}).status === 'accepted', `g5 itself is sent; got ${show(X.letterFor(deep, g.g5))}`);
+  const named = (rep, key) => X.mentions(rep, key) || X.mentions(rep, X.nodeByKey(r.state(), key).props.uuid);
+  const deepReports = notFollowed(deep);
+  assert(deepReports.length === 1 && named(deepReports[0], g.g5), `one graph-not-followed report, naming g5, five levels below; got ${show(deepReports)}`);
+  // The wide one: the 51st graph of w0 and its 50 imports.
+  const wideAnswer = X.data(r, 'wide');
+  const sent = X.lettersOf(wideAnswer).map(X.keyOf);
+  assert([w0, ...wide.map((x) => x.key)].every((key) => sent.includes(key)), `w0 and its 50 imports are each sent; got ${sent.length} letters`);
+  const wideReports = notFollowed(wideAnswer);
+  const left = wide.filter((x) => wideReports.some((rep) => named(rep, x.key)));
+  assert(wideReports.length === 1 && left.length === 1, `one graph-not-followed report, naming the one graph past the 50th; got ${show(wideReports)}`);
+  const nf = X.reportsOf(wideAnswer, 'not-found');
+  assert(!nf.some((rep) => X.mentions(rep, left[0].missing)), `its list isn't followed: what it lists isn't looked for; got ${show(nf.filter((rep) => X.mentions(rep, left[0].missing)))}`);
+  const read = wide.filter((x) => x !== left[0]);
+  const unread = read.filter((x) => !nf.some((rep) => X.mentions(rep, x.missing)));
+  assert(unread.length === 0, `the other 49 graphs' lists are followed: each reports not-found for what it lists; not for ${show(unread.map((x) => x.i))}`);
+  void w;
+});
+
+test('EK8 [AC3, Decision 7; review round 1, finding 5] (round 1): an element field whose markdown starts with a byte-order mark has its tapestry: link rewritten in the letter, the mark kept', async () => {
+  X.needDecl();
+  const w = await X.world();
+  const k = w.keys;
+  const BOM = String.fromCharCode(0xfeff);
+  const text = `${BOM}see [the dog concept](tapestry:${k.dogHeader}) here`;
+  const file = path.join(S.tmp('export-nostr-bom-'), 'graph.json');
+  CG.writeState(file, X.copy(w.state));
+  X.data(X.runOps(file, [X.op('bom', 'update-node', { node: k.fido, concept: k.petHeader, fields: { description: text } })]), 'bom');
+  const stored = X.jsonOf(CG.readState(file), k.fido).pet.description;
+  assert(stored === text, `the setup's update-node keeps the mark in Fido's description (exportFixtures.js's, not the feature's); got ${show(stored)}`);
+  const r = X.runExport({ file, ownEvents: w.ownEvents, lmdb: w.lmdb, requests: [exp('fido', 'owner', { node: k.fido })] });
+  const l = X.letterFor(X.data(r, 'fido'), k.fido);
+  const e = l && r.store().find((x) => x.id === l.id);
+  assert(e, `Fido's letter was sent; got ${show(l)}`);
+  const sent = X.letterJson(e).pet.description;
+  const to = linkTo(sent, 'the dog concept');
+  const dog = X.decodeNip19(to);
+  assert(!X.strings(e).some((s) => s.includes('tapestry:')), `no tapestry: is left in the letter; got ${show(sent)}`);
+  assert(dog && dog.type === 'naddr' && dog.data.kind === 39998 && dog.data.pubkey === X.TA && dog.data.identifier === 'dog' && sent === text.replace(`tapestry:${k.dogHeader}`, to),
+    `the link is dog's header's nostr:naddr1…, every other character as it was, the mark first; got ${show(sent)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

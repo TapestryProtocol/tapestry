@@ -61,7 +61,9 @@
  *     { at: 'strfry-import', ids } and puts the events into the store at ws://127.0.0.1:7777, resolving as strfry import
  *     does once it ran: mode 'ok' (the default) stores them all; 'drop' stores all but those ids or addresses pick
  *     (all, when neither is given), as strfry import exits 0 when it refuses one; 'fail' rejects, as when strfry import
- *     can't run. A missing _send.js, or one with no strfryImport, stops the install with the reason
+ *     can't run; 'hang' (review round 1, finding 7) logs the import, stores nothing and never resolves or rejects,
+ *     whatever it is given, as a strfry import that never exits. A missing _send.js, or one with no strfryImport, stops
+ *     the install with the reason
  *   exportTiming: { BUDGET_MS, SEND_CUTOFF_MS, MAX_SCOPE, MAX_SEND, OK_MS, IN_FLIGHT, NOW }: set by installStrfry before
  *     the catalog loads, on export nostr's declaration (the first four) and on _send.js's object (OK_MS, IN_FLIGHT, and
  *     now(), answering NOW), which the code reads through those objects at each call
@@ -412,6 +414,8 @@ function installStrfry({ root, file }) {
     log(file, { at: 'strfry-import', ids: events.map((e) => (e && e.id) || null) });
     const cfg = readFixture(file).strfry || {};
     if (cfg.mode === 'fail') throw new Error('strfry import could not run (the fake strfry: mode fail)');
+    // A strfry import that never exits (story 34's review round 1, finding 7): nothing stored, and no answer, ever.
+    if (cfg.mode === 'hang') return new Promise(() => {});
     storeAdd(file, OWN_RELAY, cfg.mode === 'drop' ? events.filter((e) => !picks(cfg, e)) : events);
     return { code: 0, stdout: '', stderr: '' };
   };

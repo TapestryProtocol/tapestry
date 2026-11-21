@@ -36,6 +36,10 @@
  *   EL10 a tag past its fourth element: dog's note, changed by graph update-node, keeps its five-element e tag whole
  *   EL11 white space and key order in a json tag aren't a change: dog's Rex, its json tag rewritten so, is unchanged,
  *        while Polly, whose JSON changed, is changed
+ *   Review round 1 (ADR 0034 Amendment 2):
+ *   EL12 (item 4, finding 13; a pin, which today's code passes) a child whose b tag inherits from a parent, both sent:
+ *        its INHERITS_FROM, which import nostr wires from that tag, isn't reported uncarried-relationship, while the link
+ *        back, which no b tag carries, is
  */
 
 const path = require('path');
@@ -271,6 +275,26 @@ test('EL11 [AC5, Decision 5]: white space and key order in a json tag aren\'t a 
   assert((X.letterFor(X.data(r, 'rex'), k.dogRex) || {}).outcome === 'unchanged', `dog's Rex, whose json tag differs from his letter's only in white space and key order, is unchanged; got ${show(X.letterFor(X.data(r, 'rex'), k.dogRex))}`);
   assert((X.letterFor(X.data(r, 'polly'), k.polly) || {}).outcome === 'changed', `Polly, whose JSON changed, is changed; got ${show(X.letterFor(X.data(r, 'polly'), k.polly))}`);
   assert(X.signings(r.spy) === 1, `only Polly is signed; the spy saw ${show(r.spy)}`);
+});
+
+test('EL12 [AC2 and Decision 9, as amended at Review: Amendment 2 item 4; review round 1, finding 13] (round 1, a pin): an INHERITS_FROM carried by its node\'s b tag isn\'t reported uncarried-relationship; one no b tag carries is', async () => {
+  const m = await main();
+  const { w, base } = m;
+  const s = X.copy(w.state);
+  const at = (slug) => `39999:${X.TA}:${slug}`;
+  // A child whose b tag inherits from a parent, as import nostr wires INHERITS_FROM from it, and the link back with no
+  // b tag to carry it; both sent in one call, through a graph that lists them.
+  const parent = await X.eventlessNode(s, { uuid: at('inherit-parent'), name: 'Inherit Parent', tags: [['d', 'inherit-parent'], ['name', 'Inherit Parent']] });
+  const child = await X.eventlessNode(s, { uuid: at('inherit-child'), name: 'Inherit Child', tags: [['d', 'inherit-child'], ['name', 'Inherit Child'], ['b', at('inherit-parent'), 'inherit']] });
+  E.run(s, 'MATCH (c:TapestryNode {tapestryKey: $child}), (p:TapestryNode {tapestryKey: $parent}) CREATE (c)-[:INHERITS_FROM]->(p), (p)-[:INHERITS_FROM]->(c)', { child, parent });
+  const graph = await X.graphNode(s, { slug: 'inherit-pair', nodes: [{ slug: 'inherit-child', uuid: at('inherit-child') }, { slug: 'inherit-parent', uuid: at('inherit-parent') }] });
+  const r = X.runExport({ ...base, state: s, label: 'export-nostr-b-carries', requests: [exp('pair', 'owner', { graph, dryRun: true })] });
+  const d = X.data(r, 'pair');
+  assert(X.sameSet(X.lettersOf(d).map(X.keyOf), [graph, child, parent]), `the call has the graph and both nodes; got ${show(X.lettersOf(d).map(X.keyOf))}`);
+  const found = X.reportsOf(d, 'uncarried-relationship');
+  const reported = (from, to) => found.some((rep) => X.mentions(rep, 'INHERITS_FROM') && rep.from === from && rep.to === to);
+  assert(reported(parent, child), `the INHERITS_FROM no b tag carries, parent to child, is reported; got ${show(found)}`);
+  assert(!reported(child, parent), `the child's, which its b tag carries, isn't reported; got ${show(found)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

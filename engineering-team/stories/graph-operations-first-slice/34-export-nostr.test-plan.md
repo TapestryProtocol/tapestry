@@ -1,7 +1,7 @@
 # Test Plan: Story 34 — `export nostr`
 
 **Story:** `engineering-team/stories/graph-operations-first-slice/34-export-nostr.md` (as amended at Architecture)
-**ADR:** `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md` (accepted: Option A, with seven story amendments; its Amendment 1, at Test Design, approved by the owner with this plan, 2026-11-20)
+**ADR:** `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md` (accepted: Option A, with seven story amendments; its Amendment 1, at Test Design, approved by the owner with this plan, 2026-11-20; its Amendment 2, at Review, approved by the owner, 2026-11-21: see "Review round 1" below)
 **Date:** 2026-11-20
 
 Every suite but one is stack-free:
@@ -23,6 +23,15 @@ All live under `test/operations/export/`, where `test/operations.test.js` finds 
 | AC6: letters never come back | **EW1** import nostr of the letters export sent: `own`, every node as it was. **EW2** `POST /api/neo4j/event-update` at a node whose letter export sent (strfry answering that letter): `unchanged`, with no import statement run and the node's tags as they were; with an older letter at the address, the same; with a newer one, imported as today. **EW3** the I/O import of a file holding that letter: the item `skipped`, with the reason, no import statement run for it; a newer letter is imported. **EW4** the client-publish route's brain-write hook: export's Tapestry letter posted again isn't imported; a newer one is. **EW5** `holdsLetterOrNewer` itself, over today's own letters: yes for the letter the node holds, an older version, and a tie the node's lower id wins; no for a newer version, a tie the event's lower id wins, another author's node, an own node with no letter, and no node. Its answer is read as `true`/`false`, or `{ holds }` | `nostr-own.test.js` | operation, unit |
 | AC7: refusals, and agents | the refusals (table below), each with its status and in words naming the input. **EN1** the refusal run signed nothing, sent nothing and recorded nothing. **EN2** a visitor is refused 401 and a stranger 403; the owner and an admin are answered; the internal command `tapestry export nostr` answers as the route, with no sign-in, its entries naming the command. **EN3** the declaration (a write with `run`, six optional inputs, its eleven refusals, and the seams below), listed for agents, and its `/docs` entry, both from its declaration. **EN15** the catalog's export row, BIBLE §6 and §11 and the skill say what it does, and the skill stops saying no operation publishes or signs (AC7's docs clause, added at Test Design: the plan had no test for it). **EA1** the agent's sequence through the external CLI (below). **RE1** widened, still passing | `nostr.test.js`, `nostr-agent-through-cli.test.js`, `test/publish-export-a-concept.test.js` | operation, agent |
 
+| AC1 (round 1): a graph not followed | **EK7** a graph five levels of imports below the one named, and the 51st graph (one named and its 50 imports), are each sent, their lists unfollowed, and each reported `graph-not-followed` once, naming it; the graphs before them are followed | `nostr-links.test.js` | operation |
+| AC1 and Decision 8 (round 1): the record | **ES13** (changed) the letters whose read-back didn't answer are in the call's change entry, each with each relay's answer, and on no node. **ES14** (a pin added) a call whose every letter is unreachable writes no entry. **ES18** (a pin) a record that finds the node holding a newer letter another export sent leaves it, `raced`. **ES19** one that finds an older letter another export sent replaces it: the node keeps the newest | `nostr-send.test.js` | operation |
+| AC1 and Decision 6 (round 1): the call's time | **ES17** a `strfry import` that never ends: the call answers within `BUDGET_MS` and 5 s, each letter as the read-back decides, none on its node, none sent out | `nostr-send.test.js` | operation |
+| AC2 (round 1): what a `b` tag carries | **EL12** (a pin) a child's `INHERITS_FROM`, carried by its `b` tag, isn't reported `uncarried-relationship`; the link back, which no tag carries, is | `nostr-letters.test.js` | operation |
+| AC3 (round 1): a byte-order mark | **ML10** a text that starts with U+FEFF: its inline link, autolink, and definition with its reference found at their offsets and rewritten, every other character kept, the mark too. **EK8** an element's field that starts with the mark has its link rewritten in the letter | `markdown-links.test.js`, `nostr-links.test.js` | unit, operation |
+| AC5 (round 1): order by kind first | **ES8** (changed) headers, then supersets, then sets, then the rest; within a kind, after what of that kind it names, a cycle by tapestryKey; pet's header before all its core nodes and elements; a graph after the nodes it lists | `nostr-send.test.js` | operation |
+| AC6 (round 1): a letter an export recorded | **EW2** (changed) event-update turns away a newer letter an `export nostr` entry records for the node; on that graph, a newer one no entry records is imported. **EW5** (changed) `holdsLetterOrNewer` answers yes for the first, no for the second | `nostr-own.test.js` | operation, unit |
+| AC7 (round 1): the guard test | **RE1** (changed) flags a `.publish(` on a relay a file makes with a relay class or gets from import's `_relay.js`; checks first that it flags export's own `_send.js` by its text; passes on the tree | `test/publish-export-a-concept.test.js` | source sentinel |
+
 ### Sending and its classes (Decision 6)
 
 | Case | Instance's own relay | Outside relays | Recorded on the node |
@@ -33,6 +42,9 @@ All live under `test/operations/export/`, where `test/operations.test.js` finds 
 | **ES14** `strfry import` can't run | `unreachable`, every letter | `not-sent` | no |
 | **ES15** `BRAINSTORM_PUBLISH_LOCAL_ONLY=true` | `accepted` | `not-sent`, saying why | `own` only |
 | **ES16** a live relay drops the connection mid-publish | — | `unreachable` or `timeout`; the control panel's process lives on | the rest as answered |
+| **ES17** (round 1) `strfry import` never ends | `unread`, `refused` or `unreachable`, within `BUDGET_MS` | `not-sent` | no |
+
+(Round 1, Amendment 2 item 1) An `unread` letter, ES13's and any of ES17's, is recorded in the call's change entry, though on no node; a call whose every letter is refused, unreachable or not sent writes no entry (ES14).
 
 ### The refusals (each changes nothing, signs nothing, records no entry)
 
@@ -60,7 +72,10 @@ All live under `test/operations/export/`, where `test/operations.test.js` finds 
 - **Empty scope:** a graph with no nodes but itself answers its one letter. `everything` on a graph with no own nodes answers none, with no entry.
 
 **Not pinned on purpose:**
-- **How the record's write is batched,** and the `raced` case. Racing two exports needs a hook in the graph fake's transaction that nothing else needs. The Reviewer reads it in the code, and the live check fires two exports together.
+- **How the record's write is batched,** and the `raced` case. Racing two exports needs a hook in the graph fake's transaction that nothing else needs. The Reviewer reads it in the code, and the live check fires two exports together. *(Round 1: the `raced` case is now pinned, ES18 and ES19, through the graph fake's `meanwhile`; the lock is not, next.)*
+- **(Round 1) The record's write lock** (Amendment 2 item 1: each node's lock taken before its `id` is read). The graph fake runs one transaction at a time, so no two records interleave stack-free. ES18 and ES19 race a record against another that committed first, just before its first write to the node; the live check's LV5 fires two exports together, and the Reviewer reads the lock.
+- **(Round 1) The record's tie rule, and whose letter the node held.** ES18 and ES19 race letters a minute apart, each the other export's, recorded in its entry. Two letters of one second (the lower id kept), and a record that finds a letter no export sent, aren't raced.
+- **(Round 1) That the real `strfryImport` kills its child** when the call's time runs out. The suites replace the seam, and ES17's fake never resolves, whatever it is given, so the bound must hold where the call waits for the import. A stub executable that hangs would outlive a run whose code doesn't kill it. The Reviewer reads the kill.
 - **The exact cap values** (2,000, 500, 40 s, 30 s, 5 s, 8 in flight). Suites shrink them through the seams, and the live check measures the real ones.
 - **The words of each refusal and report,** beyond naming the input or node. A rewrite of the wording breaks no test.
 - **Which micromark events the helper walks.** ML1–ML9 pin what it finds and how it rewrites.
@@ -153,6 +168,84 @@ The points as raised:
 4. **A node that fits two classes.** Decision 3 doesn't say which comes first for another author's node of another kind. Its list order suggests `not-own`. EL8 uses an own kind 1 node, so it pins no order. Nor does it class a node with no author whose address carries another key; no test has one.
 5. **Answer field names** the ADR leaves open (above, "What the suites read from an answer"). The accessors take a few spellings. If the Architect names the fields, the accessors can narrow to them.
 6. **Not pinned, beyond the plan's list:** whether a re-send of unchanged letters (ES7), or a call in which nothing was accepted (ES13, ES14), writes a change entry; whether the own relay's strfry import counts as a send under `SEND_CUTOFF_MS` (ES10 times an outside relay); and the counts of relay classes (only outcomes are counted).
+
+## Review round 1 (2026-11-21)
+
+The review (`engineering-team/reviews/graph-operations-first-slice/34-export-nostr.md`) found two blocking and eleven non-blocking findings. The owner answered "Yes, as recommended", which became ADR 0034's Amendment 2 and the story's "Changed at Review" list. Tests come first, before the fixes. Each new or changed test below fails on the code at `0c1f2c4f` for the reason named, or is a pin that passes now and is labelled so. Blocking finding 2 (AC7's live run) is the owner's amendment, item 7, and takes no stack-free test. Findings 8, 10, 11 and 12 are the docs' and the story's Evidence, the Implementer's, and no test reads them.
+
+| Finding (Amendment 2 item) | Test | What it does | Fails now because |
+|---|---|---|---|
+| 1, blocking (item 6): RE1 misses a publisher built export's way | **RE1** (changed; `publish-export-a-concept.test.js`) | `relayPublisher(text)`, a function in the file, flags a file that calls `.publish(` and either names `SimplePool`, `AbstractRelay` or `Relay`, or requires a module named `_relay`, as export's `_send.js` gets its relay from import's `_relay.js`. RE1 first checks that this flags `_send.js`'s own text, and a `SimplePool` publisher, and then that no file outside the two excluded folders is flagged. Its comment now says "another server-side publisher" (finding 9) | a pin: it passes now, as RE1 must. Its bite was checked in throwaway copies of the tree (below) |
+| 3 (item 1): an `unread` letter is recorded nowhere | **ES13** (changed; `nostr-send.test.js`) | Its title and its node check said "not recorded", though they read only the node. The node check stays, reworded. It now also asserts one `export nostr` entry, answered as the call's `change`, with a change for each of the three letters: its node, address, the letter's id as `now`, and each relay's answer (`own` `unread`, the outside relay `not-sent`) | no entry: `change` is null |
+| 3 (item 1): the call writes no entry when nothing reached anywhere | **ES14** (a pin added) | `change` is null and the graph holds no `export nostr` entry when every letter is `unreachable` | a pin: passes now |
+| 3 (item 1): a record keeps the newest letter export sent | **ES18** (a pin), **ES19** (`nostr-send.test.js`) | Two exports through the operation, of pet's Rex and Tom, `now()` at 1,900,000,000. Just before each call's first write to its node, the graph fake's `meanwhile` commits another export's record: the node's `id`, `created_at` and `sentTo` set to that export's letter, and that export's entry, written by `changes.js`'s own `recordChange`. For Rex the other letter is a minute newer: the node keeps it, and the call's change says `raced`. For Tom it is a minute older: the node keeps the newest, the call's own letter, and its change isn't `raced`. Each asserts that `meanwhile` fired | ES18: a pin, passing now. ES19: today's record sets a node only while its `id` is the one the call read, so Tom keeps the older letter, `raced` |
+| 3 (item 1): the guard reads the export entries | **EW2**, **EW5** (changed; `nostr-own.test.js`) | The graph gains an `export nostr` entry (`recordChange`'s own) recording a letter 50 s newer than the node's, its own relay `unread`, as an unread letter is recorded. EW2: event-update turns it away, unchanged, writing nothing over the node; on the same graph a letter 60 s newer that no entry records is imported, `updated`. EW5: `holdsLetterOrNewer` answers yes for it, and still no for a newer one no entry records. Its other cases now run on the graph with the entry | event-update imports the recorded letter (`action: updated`); `holdsLetterOrNewer` answers no |
+| 4 (item 2): the header goes out 13th | **ES8** (changed; `nostr-send.test.js`) | Reads the order letters went into the instance's own relay. It asserts four things. The kinds never go back: headers, then supersets, then sets, then the rest, by the node's labels as Decision 2 ranks them. Within a kind, each letter goes after the letters of that kind it names, through the same tags and lists as before, and letters of one kind that name each other go by tapestryKey (the concept graph and the core nodes graph do). Pet's header goes before all twelve of its core nodes and elements. Each graph goes after the nodes its `graph.nodes` lists, unless a node of its own kind names it back. Today's check, each after the letters it names whatever their kind, is replaced, since a header now goes before the concept graph its `concept-graph` tag names | the header goes out after the property tree graph, with the superset and the three sets before it |
+| 5: a leading byte-order mark | **ML10** (`markdown-links.test.js`), **EK8** (`nostr-links.test.js`) | ML10: a text that starts with U+FEFF holds an inline link, an autolink, and a definition with its reference. Each is found with its destination as written at its offsets, and rewritten, every other character kept, the mark first. A dropped link there keeps its text. EK8: graph update-node gives Fido a description that starts with the mark and links to dog's header. The setup checks the node keeps it. The letter carries the header's `naddr`, every other character kept, and no `tapestry:`. The mark is made with `String.fromCharCode(0xfeff)`, so no escape or raw mark sits in a file | every offset is one short: destinations `(tapestry:…`, `<tapestry:…`, ` tapestry:…`, none rewritten, so the letter keeps `tapestry:` |
+| 6 (item 3): graphs not followed go unreported | **EK7** (`nostr-links.test.js`) | `_scope.js` holds the caps in module constants no suite can reach, so the graphs are built to size, each with makeNode (`exportFixtures.js`'s `graphNode`). Deep: g0 imports g1, and so on to g5; g4 lists Fido, g5 lists Spot and imports g6. Asserts g0 to g5 and Fido sent, Spot and g6 not, and one `graph-not-followed` report, naming g5. Wide: w0 imports w1 to w50, each listing an address no node holds. Asserts all 51 sent, one report naming one of the 50, no `not-found` for what that one lists, and a `not-found` for what each other one lists, so the other 49 were followed. The follow order isn't pinned | no report: `[]` |
+| 7 (item 5): a hung `strfry import` holds the call 60 s | **ES17** (`nostr-send.test.js`) | `relayFake.js`'s strfry fake gains `hang`: it logs the import, stores nothing, and never resolves. `BUDGET_MS` is 3 s, and the harness stops itself at 15 s. Asserts the call answers within 3 s and a 5 s margin. Each letter's own answer is `unread`, `refused` or `unreachable`, as the read-back decides: the import kept nothing, so never `accepted`. `refused` is allowed because a read-back that runs after the import is stopped answers without them. The outside relay is `not-sent`, no node holds a letter, and nothing is published | the call never answers: the harness stops at its 15 s |
+| 13 (item 4): `b` carries `INHERITS_FROM` | **EL12** (a pin; `nostr-letters.test.js`) | A child whose `b` tag inherits from a parent, both made with makeNode, an `INHERITS_FROM` each way, both sent through a graph listing them, dry run. Asserts the parent-to-child link, which no tag carries, is reported, so the report ran, and the child's, which its `b` tag carries, isn't | a pin: passes now |
+
+**Helpers, additively.**
+- `relayFake.js`: the strfry fixture's `mode: 'hang'`.
+- `cypherGraphFake.js`: a `meanwhile` entry's `set: [{ key, props }]`, given to that node in the saved graph and in the transaction's copy alike, just before the statement.
+- `exportFixtures.js`: `runExport`'s `timeoutMs`, the harness's own timeout. `exportEntry({ letters }, state?)`, an `export nostr` entry written by `src/operations/changes.js`'s own `recordChange` on the Cypher engine. `graphNode(state, { slug, nodes, imports })`, a graph element made with makeNode.
+
+None changes an existing path. Each suite that uses them was run again alone: import nostr-own 7/0, nostr-relay 9/0, cypher-engine 12/0 and nostr-order 11/0, which use the Cypher fake's `meanwhile`; export nostr 15/0, nostr-agent-through-cli 1/0, and nostr-live 6 skipped. The graph and lifecycle suites with a `meanwhile` use `graphFake.js`'s, which is unchanged.
+
+**The tests fail only for the missing behaviour.** A throwaway copy of the tree in the session's scratchpad, its `node_modules` linked, got a minimal stand-in for each item. The stand-ins:
+- the helper's offsets one on after a leading mark;
+- `sendOrder` run per kind, in kind order;
+- graphs left by the depth cap or the 50th reported;
+- `unread` letters put in the entry and not on their nodes;
+- the record setting a node whose letter is older;
+- the guard reading `export nostr` entries;
+- the `strfry import` raced against the call's remaining time.
+
+Every changed suite then passed: RE1's 3/0, markdown-links 10/0, nostr-letters 12/0, nostr-links 8/0, nostr-own 5/0, nostr-send 19/0. Then each pinned behaviour was broken in turn, and its pin failed. With the `b` carry taken out, EL12 failed: the child's link was reported. With the record's `WHERE` dropped, ES18 failed: the node took the older letter. With unreachable letters put in the entry, ES14 failed: an entry was written.
+
+**RE1's red check.** Two throwaway copies of `src/api`, `src/operations` and `ui/src`, each with a copy of `_send.js` outside the excluded folders, as the review's probe did. One copy is at `src/operations/catalog/graph/_third-publisher.js`. The other is at `src/api/third/sender.js`, its requires re-pointed. The RE1 at `0c1f2c4f` passes both, which is blocking finding 1 reproduced. The RE1 now fails both, naming the copy:
+
+```
+  ✗ RE1: … A server-side external-relay publisher (.publish() on a relay made with SimplePool, AbstractRelay or Relay, or got from import's _relay.js) was introduced in src/operations/catalog/graph/_third-publisher.js — …
+  ✗ RE1: … was introduced in src/api/third/sender.js — …
+```
+
+The tree as it is passes the new RE1.
+
+**Counts now,** each changed suite alone, every endpoint dead, the stubs first on `PATH`, at `0c1f2c4f` with these files uncommitted:
+
+| Suite | Before round 1 | Now | Failing now | Time now / expected once fixed |
+|---|---|---|---|---|
+| `publish-export-a-concept` | 3 / 0 | 3 / 0 | none (RE1 a pin) | 0 s / 0 s |
+| `markdown-links` | 9 / 0 | 9 / 1 | ML10 | under 1 s / under 1 s |
+| `nostr-letters` | 11 / 0 | 12 / 0 | none (EL12 a pin) | 9 s / about 8 s |
+| `nostr-links` | 6 / 0 | 6 / 2 | EK7, EK8 | 7 s / about 6 s |
+| `nostr-own` | 5 / 0 | 3 / 2 | EW2, EW5 | 7 s / about 7 s |
+| `nostr-send` | 16 / 0 | 15 / 4 | ES8, ES13, ES17, ES19 | 34 s, ES17 waiting out the harness's 15 s / about 22 s |
+
+Seven tests are new: ML10, EK7, EK8, EL12, ES17, ES18 and ES19. Six are changed: RE1, ES8, ES13, ES14, EW2 and EW5. Nine fail; every other test passes as before. The mark in EK8's message printed raw, and is shown here as `<U+FEFF>`:
+
+```
+  FAIL  ML10 … a text that starts with a byte-order mark has its links found at their offsets and rewritten, every other character as it was
+        after the mark, each link is found with its destination as written; got [{"form":"inline","destination":"(tapestry:00000001-aaaa-4bbb-8ccc-ddddddddddd","start":10,"end":55},{"form":"autolink","destination":"<tapestry:00000003-aaaa-4bbb-8ccc-ddddddddddd",…},{"form":"reference","destination":" tapestry:00000002-…",…},{"form":"definition","destination":" tapestry:00000002-…",…}]
+  FAIL  ES8 … letters go out by kind first, headers, supersets, sets, the rest; …
+        letters go out by kind of node first: concept headers, then supersets, then sets, then the rest; got ["pet (header) went out after pet-property-tree-graph (rest)"] in the order ["pet-superset (superset)","lap-pets-a3381a64 (set)","strays-a3381a64 (set)","walkers-a3381a64 (set)",…,"pet-property-tree-graph (rest)","pet (header)","pet-core-nodes-graph (rest)",…]
+  FAIL  ES13 … the read-back doesn't answer: each letter unread, not-sent out, recorded in the call's change entry with each relay's answer, and not on its node
+        the call writes one change entry, export nostr, and answers it; got 0 entries and change null
+  FAIL  ES17 … a strfry import that never ends doesn't hold the call: …
+        the call answers while its strfry import never ends; it hadn't answered when the harness stopped at its own 15000 ms: the harness timed out after 15000 ms
+  FAIL  ES19 … of the letters export sent for a node, the node keeps the newest: …
+        the node holds this call's letter, 9df48aeb… at 1900000000, the newer of the two, not the other export's, 9419374e… at 1899999940; got {"id":"9419374e…","created_at":1899999940,"sentTo":["own"]}
+  FAIL  EW2 … event-update at an exported node answers unchanged for its letter, an older one, and a newer one an export nostr entry records for it, writing nothing; …
+        a newer letter an export nostr entry records for the node: event-update answers success and unchanged; got {"status":200,"body":{"success":true,"action":"updated",…}}
+  FAIL  EW5 … holdsLetterOrNewer answers yes for … a newer one an export nostr entry records for the node; …
+        (round 1) a newer version an export nostr entry records for the node: yes; got false
+  FAIL  EK7 … a graph past the fourth level of imports, and the 51st graph, are each sent with their lists unfollowed and reported graph-not-followed, naming it
+        one graph-not-followed report, naming g5, five levels below; got []
+  FAIL  EK8 … an element field whose markdown starts with a byte-order mark has its tapestry: link rewritten in the letter, the mark kept
+        no tapestry: is left in the letter; got "<U+FEFF>see [the dog concept](tapestry:cbf1abed-8ffb-4368-970b-1004a1b10c00) here"
+```
 
 ## Verification
 

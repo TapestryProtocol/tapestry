@@ -32,6 +32,10 @@
  *   ML8  a dropped autolink becomes the name decide gives, or nothing when it gives none
  *   ML9  only tapestry: destinations reach decide, with the link; null leaves a link as it is (kept); links in code never
  *        reach it
+ *   Review round 1 (finding 5):
+ *   ML10 a text that starts with a byte-order mark (U+FEFF, which micromark's preprocess skips): its inline link,
+ *        autolink, and reference definition with the reference that uses it are found at their offsets, and rewritten,
+ *        every other character as it was, the mark included; a dropped link there keeps its text
  */
 
 const fs = require('fs');
@@ -150,6 +154,24 @@ test('ML9 [AC3, Decision 7]: only tapestry: destinations reach decide, with the 
   assert(out.text === text.replace(T(2), 'nostr:naddr1two'), `null left [b] as it was; only the autolink changed; got ${show(out.text)}`);
   const action = (d) => ((out.links || []).find((l) => l.destination === d) || {}).action;
   assert(action(T(1)) === 'kept' && action(T(2)) === 'rewritten', `the links say kept and rewritten; got ${show(out.links)}`);
+});
+
+test('ML10 [AC3, Decision 7; review round 1, finding 5] (round 1): a text that starts with a byte-order mark has its links found at their offsets and rewritten, every other character as it was', async () => {
+  const { findLinks, rewriteLinks } = helper();
+  // U+FEFF, made from its code point so no escape sits in this file.
+  const BOM = String.fromCharCode(0xfeff);
+  const text = `${BOM}See [Rex](${T(1)}), <${T(3)}> and [Tom][t].\n\n[t]: ${T(2)}\n`;
+  const links = await findLinks(text);
+  assert(JSON.stringify(forms(links)) === JSON.stringify([`autolink ${T(3)}`, `definition ${T(2)}`, `inline ${T(1)}`, `reference ${T(2)}`].sort()),
+    `after the mark, each link is found with its destination as written; got ${show(links)}`);
+  atOffsets(text, links);
+  const to = { [T(1)]: 'nostr:naddr1one', [T(2)]: 'nostr:naddr1two', [T(3)]: 'nostr:naddr1three' };
+  const out = await rewriteLinks(text, (d) => ({ to: to[d] }));
+  const want = text.replace(T(1), to[T(1)]).replace(T(2), to[T(2)]).replace(T(3), to[T(3)]);
+  assert(out && out.text === want, `only the destinations changed, the mark kept; got ${show(out && out.text)} want ${show(want)}`);
+  assert(out.text.charCodeAt(0) === 0xfeff && !out.text.includes('tapestry:'), 'the mark is still first, and no tapestry: is left');
+  const dropped = await rewriteLinks(`${BOM}see [Rex the dog](${T(1)}) now`, () => ({ drop: true }));
+  assert(dropped.text === `${BOM}see Rex the dog now`, `a dropped link after the mark keeps its text, every other character as it was; got ${show(dropped.text)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

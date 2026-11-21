@@ -50,10 +50,20 @@
  * Runs: runExport(opts) is one harness run with the Cypher engine, the fake relays and DNS, the fake strfry import and
  * the assistant's key (relayFake.js says what relays, live, strfry and exportTiming take): → { req, cmd, spy, error,
  * file, fixture, dir, state(), log(), store(url) }. opts.fixture reuses an earlier run's relay fixture, its store and its
- * log, so a later call sees what an earlier one sent. runOps(file, requests) runs the graph operations alone.
+ * log, so a later call sees what an earlier one sent. opts.timeoutMs (review round 1) is the harness's own timeout, after
+ * which it stops and answers what ran (100 s by default). runOps(file, requests) runs the graph operations alone.
  * runTodays(state, run, { strfry }) runs one of today's importers (event-update, the I/O import, the brain-write hook) or
  * export's holdsLetterOrNewer, stack-free, in test/helpers/todaysImportersChild.js: → { error, answer, log, state() }.
  * Requests: exp(id, caller, body), history(id, query), op(id, name, body).
+ * Review round 1's builders:
+ *   exportEntry({ letters, at, caller }, state?)  an export nostr change entry recording each of `letters`
+ *                       ({ node, address, kind, was, now, relays }) as a letter-sent change, written by
+ *                       src/operations/changes.js's own recordChange on the Cypher engine: into `state` when it is given,
+ *                       else into an empty graph, → { entry, labels, props }, the node as the graph holds it (for the
+ *                       graph fake's meanwhile add)
+ *   graphNode(state, { slug, name, nodes, imports, relationships })  a graph element of the instance's own, made with
+ *                       _eventless.js's makeNode at 39999:<assistant>:<slug>, whose json tag holds a graph object listing
+ *                       nodes and imports ([{ slug, uuid }]): → its tapestryKey
  * Answers (the ADR leaves some field names to the Implementer; these accessors say what the suites read):
  *   letters(d)          the answer's letters, one for each node in the scope
  *   keyOf(l)            a letter's node, its tapestryKey: l.node, else l.tapestryKey
@@ -192,7 +202,7 @@ function storeEntries(dir, entries) {
 function runExport({
   state = null, file = null, fixture = null, ownEvents = [], relays = {}, dns = DNS, live = {}, timing = {}, exportTiming = {},
   strfry = { mode: 'ok' }, lmdb = [], env = {}, requests = [], cli = [], assistantKeys = 'ta', ownerKey = OWNER, spy = true,
-  label = 'export-nostr', check = true,
+  label = 'export-nostr', check = true, timeoutMs = null,
 } = {}) {
   const dir = file ? path.dirname(file) : S.tmp(`${label}-`);
   const stateFile = file || path.join(dir, 'graph.json');
@@ -207,6 +217,7 @@ function runExport({
     spy,
     owner: ownerKey,
     ...(assistantKeys === 'ta' ? { assistantKeys: { privkey: TA_SECRET } } : { assistantKeys }),
+    ...(Number.isFinite(timeoutMs) ? { timeoutMs } : {}),
     scenarios: [{ graphFake: { stateFile, engine: 'cypher' }, relayFake: { file: fixtureFile }, strfry: { file: fixtureFile }, requests, cli }],
   };
   const r = S.runHarness(spec, { dir, env: envFor(dir, { ownerKey, env }) });
@@ -294,6 +305,31 @@ function unsigned(pubkey, { kind = 39999, at = 1690000900, tags = [], content = 
   e.id = NT.getEventHash(e);
   e.sig = 'ab'.repeat(64);
   return e;
+}
+
+/**
+ * An export nostr change entry (review round 1, finding 3), written by src/operations/changes.js's own recordChange on
+ * the Cypher engine, so it is the entry an export writes: into `state` when one is given, else into an empty graph.
+ * letters: [{ node, address, kind, was, now: { id, created_at }, relays }] → { entry, labels, props }.
+ */
+async function exportEntry({ letters, at = new Date().toISOString(), caller = { role: 'owner', pubkey: OWNER } }, state = null) {
+  const { recordChange } = require(path.join(ROOT, 'src/operations/changes.js'));
+  const s = state || F.emptyGraph();
+  const tx = { run: async (c, p) => E.run(s, c, p) };
+  const changes = letters.map((l) => ({
+    change: 'letter-sent', node: l.node, address: l.address, kind: l.kind, was: l.was === undefined ? null : l.was, now: l.now,
+    relays: l.relays || [{ relay: 'own', status: 'accepted', reason: null }],
+  }));
+  const entry = await recordChange(tx, { at, caller, operation: 'export nostr', changes });
+  const n = s.nodes.find((x) => x.props.tapestryKey === entry.id);
+  if (!n) throw new Error(`the export suites' setup wrote no change entry (${entry.id}), which is test/helpers/exportFixtures.js's, not the feature's`);
+  return { entry, labels: [...n.labels], props: copy(n.props) };
+}
+
+/** A graph element of the instance's own, made here with makeNode, its json a graph object: → its tapestryKey. */
+async function graphNode(state, { slug, name = slug, nodes = [], imports = [], relationships = [] }) {
+  const json = { word: { slug, name, wordTypes: ['word', 'graph'] }, graph: { nodes, relationshipTypes: [], relationships, imports } };
+  return eventlessNode(state, { uuid: `39999:${TA}:${slug}`, name, tags: [['d', slug], ['name', name], ['json', JSON.stringify(json)]] });
 }
 
 let WORLD = null;
@@ -638,7 +674,7 @@ function everythingIn(s, { own = [TA, OWNER] } = {}) {
 module.exports = {
   ROOT, NL, ROUTE, DECL, SEND, OWN_MODULE, LINKS, OWN_RELAY, PEER, OWNER, TA, TA_SECRET, DNS, URL_OF, KEYS, NT,
   needDecl, copy, addressOf, FIRMWARE, firmware, firmwareOnly, envFor, storeEntries, runExport, runTodays, runOps, exp, op, history,
-  data, refused, setupData, eventlessNode, unsigned, world,
+  data, refused, setupData, eventlessNode, unsigned, world, exportEntry, graphNode,
   lettersOf, keyOf, letterFor, isOwnRelay, relayOf, codeOf, reportsOf, countOf, mentions,
   nodeByKey, at, tagArrays, jsonOf, sentToOf, plain, signings, sortedTags, sameTags, letterAt, namesIn, decodeNip19, strings, letterJson,
   entriesOf, exportEntries, everythingIn, petScope, dogScope, sameSet,

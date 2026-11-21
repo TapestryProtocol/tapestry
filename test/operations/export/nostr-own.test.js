@@ -18,7 +18,9 @@
  *   EW1  import nostr of the letters export sent: each own, and every node as it was
  *   EW2  event-update at a node whose letter export sent, strfry answering that letter: unchanged, with no statement that
  *        deletes its tags or imports a letter, and the node as it was; an older letter at its address, the same; a newer
- *        one is imported as today
+ *        one is imported as today. (Changed at review round 1, ADR 0034 Amendment 2 item 1) a newer letter an export
+ *        nostr entry records for the node, as an unread one is recorded, is turned away the same way; on that same
+ *        graph a newer one no entry records is imported
  *   EW3  the I/O import of a file holding that letter: the item skipped, with the reason, and no import statement run
  *        for it (strfry was written first, as Decision 10 has it); a newer letter is imported
  *   EW4  the brain-write hook: export's own Tapestry letter, posted again, isn't imported, the node as it was; a newer
@@ -26,7 +28,10 @@
  *   EW5  holdsLetterOrNewer(read, event) itself (src/operations/catalog/export/_own.js), over today's own letters: yes
  *        for the letter the node holds, and for an older version, or a tie the node's lower id wins; no for a newer
  *        version, a tie the event's lower id wins, another author's node, an own node with no letter, and no node. Its
- *        answer is taken as true or false, or { holds } with one
+ *        answer is taken as true or false, or { holds } with one. (Changed at review round 1, Amendment 2 item 1) the
+ *        graph holds an export nostr entry recording a newer version for the node: yes for that one, and still no for
+ *        a newer version no entry records
+ * The entries are written by src/operations/changes.js's own recordChange (exportFixtures.js's exportEntry).
  */
 
 const S = require('../../helpers/graphOpsSuite');
@@ -46,6 +51,24 @@ const facts = (n) => ({ labels: [...n.labels].sort(), props: Object.keys(n.props
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 /** A version of `e` at its address, `by` seconds later (or earlier), with another name. */
 const version = (e, by, name) => F.letter(KEYS.ta, { kind: e.kind, at: e.created_at + by, tags: e.tags.map((t) => (t[0] === 'name' ? ['name', name] : t)), content: e.content });
+
+/**
+ * Review round 1 (Amendment 2 item 1): a copy of `after` with an export nostr entry, written by changes.js's own
+ * recordChange, recording `recorded`, a version of the node's letter 50 s newer, for the node `key`, its own relay's
+ * answer unread, as the entry of a call whose read-back didn't answer has it; and `other`, 60 s newer, no entry records.
+ */
+async function exportedNewer({ after, key, letter }) {
+  const recorded = version(letter, 50, 'Rex, from an export whose read-back never answered');
+  const other = version(letter, 60, 'Rex, edited elsewhere');
+  const withEntry = X.copy(after);
+  await X.exportEntry({
+    letters: [{
+      node: key, address: X.addressOf(letter), kind: letter.kind, was: { id: letter.id, created_at: letter.created_at }, now: { id: recorded.id, created_at: recorded.created_at },
+      relays: [{ relay: 'own', status: 'unread', reason: "the instance's own relay couldn't be read back, so nothing is claimed for this letter" }],
+    }],
+  }, withEntry);
+  return { recorded, other, withEntry };
+}
 
 let MAIN = null;
 function main() {
@@ -77,7 +100,7 @@ test('EW1 [AC6]: import nostr of the letters export sent answers own for each, a
   void w;
 });
 
-test('EW2 [AC6, Decision 10]: event-update at an exported node answers unchanged for its letter and an older one, writing nothing; a newer one is imported as today', async () => {
+test('EW2 [AC6, Decision 10; Amendment 2 item 1] (changed at round 1): event-update at an exported node answers unchanged for its letter, an older one, and a newer one an export nostr entry records for it, writing nothing; a newer one no entry records is imported as today', async () => {
   const { w, k, after, rexLetter } = await main();
   const address = X.nodeByKey(after, k.rex).props.uuid;
   const node = X.nodeByKey(after, k.rex);
@@ -93,6 +116,19 @@ test('EW2 [AC6, Decision 10]: event-update at an exported node answers unchanged
   const t = X.runTodays(after, { handler: 'event-update', uuid: address }, { strfry: [newer] });
   assert(t.answer && t.answer.status === 200 && t.answer.body.success === true && t.answer.body.action === 'updated', `a newer letter is imported as today: updated; got ${show(t.answer)} ${t.error || ''}`);
   assert(writesOver(t.log).length > 0 && X.nodeByKey(t.state(), k.rex).props.id === newer.id, 'its statements ran, and the node holds the newer letter');
+  // (round 1, Amendment 2 item 1) A newer letter an export nostr entry records for Rex, as one whose read-back didn't
+  // answer, or that lost a race, is recorded: turned away all the same. On the same graph, a newer one no entry records
+  // is imported, as above.
+  const { recorded, other, withEntry } = await exportedNewer({ after, key: k.rex, letter: rexLetter });
+  const r1 = X.runTodays(withEntry, { handler: 'event-update', uuid: address }, { strfry: [recorded] });
+  assert(!r1.error && r1.answer && r1.answer.status === 200 && r1.answer.body.success === true && r1.answer.body.unchanged === true,
+    `a newer letter an export nostr entry records for the node: event-update answers success and unchanged; got ${show(r1.answer)} ${r1.error || ''}`);
+  assert(r1.log.some((x) => x.at === 'strfry' && x.cmd === 'scan') && writesOver(r1.log).length === 0, `and writes nothing over the node; ran ${show(writesOver(r1.log))}`);
+  const now = X.nodeByKey(r1.state(), k.rex);
+  assert(same(facts(node), facts(now)) && X.sameTags(X.tagArrays(after, node), X.tagArrays(r1.state(), now)), `the node, its letter and its tags are as they were; now ${show(facts(now))}`);
+  const r2 = X.runTodays(withEntry, { handler: 'event-update', uuid: address }, { strfry: [other] });
+  assert(r2.answer && r2.answer.status === 200 && r2.answer.body.action === 'updated' && X.nodeByKey(r2.state(), k.rex).props.id === other.id,
+    `on the same graph, a newer letter no export entry records is imported as today; got ${show(r2.answer)} ${r2.error || ''}`);
   void w;
 });
 
@@ -124,10 +160,12 @@ test('EW4 [AC6, Decision 10, amendment 7]: the brain-write hook doesn\'t import 
   assert(n.answer && n.answer.report && n.answer.report.success === true && writesOver(n.log).length > 0 && X.nodeByKey(n.state(), k.tapestry).props.id === newer.id, `a newer Tapestry letter is imported as today; got ${show(n.answer)} ${n.error || ''}`);
 });
 
-test('EW5 [AC6, Decision 10]: holdsLetterOrNewer answers yes for the letter an own node holds or an older version, and no for a newer one, another author\'s node, a node with no letter or none', async () => {
+test('EW5 [AC6, Decision 10; Amendment 2 item 1] (changed at round 1): holdsLetterOrNewer answers yes for the letter an own node holds, an older version, and a newer one an export nostr entry records for the node; no for a newer one no entry records, another author\'s node, a node with no letter or none', async () => {
   const w = await X.world();
   const k = w.keys;
   const held = w.ownEvents.find((e) => X.addressOf(e) === w.addr.dogRex);
+  // (round 1) The graph the cases run on holds an export nostr entry recording a newer version for dog's Rex.
+  const { recorded, withEntry } = await exportedNewer({ after: w.state, key: k.dogRex, letter: held });
   // A tie on created_at goes to the lower id (NIP-01): grind one version below the held id and one above it.
   const tie = (lower) => { for (let i = 0; i < 400; i++) { const e = version(held, 0, `Rex, tied ${i}`); if (lower ? e.id < held.id : e.id > held.id) return e; } throw new Error('no tie found'); };
   const cat = F.conceptLetters(KEYS.alice, 'cat', { at: 1690000700 }).letters.header;
@@ -137,13 +175,14 @@ test('EW5 [AC6, Decision 10]: holdsLetterOrNewer answers yes for the letter an o
     ['the letter the node holds', held, true],
     ['an older version', version(held, -10, 'Rex, earlier'), true],
     ['a tie the node\'s lower id wins', tie(false), true],
-    ['a newer version', version(held, 10, 'Rex, later'), false],
+    ['(round 1) a newer version an export nostr entry records for the node', recorded, true],
+    ['a newer version no export entry records', version(held, 10, 'Rex, later'), false],
     ['a tie the event\'s lower id wins', tie(true), false],
     ['another author\'s node, alice\'s cat header', cat, false],
     ['an own node with no letter, pet\'s Rex', petRex, false],
     ['no node at the address', nobody, false],
   ];
-  const t = X.runTodays(w.state, { handler: 'holds', events: cases.map((c) => c[1]) });
+  const t = X.runTodays(withEntry, { handler: 'holds', events: cases.map((c) => c[1]) });
   assert(!t.error && t.answer && Array.isArray(t.answer.answers), `holdsLetterOrNewer answered; got ${t.error || show(t.answer)}`);
   cases.forEach(([what, , want], i) => assert(holds(t.answer.answers[i]) === want, `${what}: ${want ? 'yes' : 'no'}; got ${show(t.answer.answers[i])}`));
   void k;
