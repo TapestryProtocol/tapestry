@@ -285,6 +285,6 @@ Review round 1 (`engineering-team/reviews/community-reference/39-firmware-instal
    - **The model.** `firmwareLinks` in `src/operations/catalog/graph/_sets.js` builds firmware's links "as install.js parses them", for `graph link-set` and `unlink-set`. Its part (d) now leaves out a reference whose curator is the instance's assistant.
    - **Why.** Otherwise, on production, `unlink-set` would refuse to take out the leftover superset loop as firmware's own, though no install makes it any more.
    - **A test pins it.**
-   - **ADR graph-operations-first-slice/0037 gains an Amended-by pointer,** since its Decision 4 says each of the six headers gets the `b`.
+   - **Two Amended-by pointers.** ADR graph-operations-first-slice/0028 gets one, since its Decision 6 defines part (d). Its Amendment 1 item 5 records this superset loop, and ledger row `2026-11-16-curator-instance-superset-self-loop` gives the fix Decision 3 and this item make; the row gets a dated note. ADR graph-operations-first-slice/0037 gets one too, since its Decision 4 says each of the six headers gets the `b`.
 
 **Ratification:** at the next gate.

@@ -12,6 +12,14 @@
 - **What the new rules make of it.** `class-thread-acyclic`'s check would report the loop as a cycle. `graph unlink-set` would refuse to take it out as firmware's own, part (d) (ADR graph-operations-first-slice/0028 Decision 6), and a reinstall would MERGE it again.
 - **Why it wasn't checked.** The test design and implementation sessions may not touch the Mac Studio's stack, which is a private instance.
 
+**2026-11-21: seen, and fixed on a branch** (community-reference #39, ADR community-reference/0035 Decision 3 and Amendment 1, item 8).
+- **It is there.** Production, whose assistant curates `nostr-relay`'s reference, has its `nostr-relay` superset linked to itself. That instance's header also points at itself.
+- **The fix.** It is on `fix/header-tags-once`:
+  - install skips a reference the instance curates itself, and takes the loop out;
+  - `graph link-set` and `unlink-set`'s model of firmware's links (`src/operations/catalog/graph/_sets.js`, part d) leaves it out;
+  - seed-firmware's target skips it.
+- **When the row closes.** When the fix reaches production and its reinstall takes the loop out.
+
 **Fix shape.** On a curator's instance, check for the loop: `MATCH (s:Superset)-[:IS_A_SUPERSET_OF]->(s) RETURN s.uuid`. If it is there, have install skip part (d) when its two ends are the same node, and take the loop out with `POST /api/normalize/delete-relationship`.
 
 **Pointer:** `engineering-team/decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md` (Amendment 1, item 5); `engineering-team/stories/graph-operations-first-slice/28-link-set-and-unlink-set.test-plan.md` (Gaps and questions, 6); `src/firmware/install.js:1290–1300`.

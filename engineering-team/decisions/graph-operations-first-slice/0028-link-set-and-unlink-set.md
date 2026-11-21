@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-11-15
 **Story:** `engineering-team/stories/graph-operations-first-slice/28-link-set-and-unlink-set.md`
+**Amended by:** `community-reference` ADR 0035, Amendment 1, item 8 (2026-11-21): Decision 6's part (d) makes no link for a community reference whose curator is the instance's own assistant, since install now skips that reference and takes out the loop to its superset. That is Amendment 1 item 5's self-loop, and the fix ledger row `2026-11-16-curator-instance-superset-self-loop` gives.
 
 ## Context
 
