@@ -235,7 +235,9 @@ At review round 1's fixes (the Implementer, 2026-11-21; ADR 0037 Amendment 3):
 ### The suites (Implementation, 2026-11-21 UTC)
 
 Each ran on this Mac stack-free: stub `curl` and `docker` first on `PATH`, every service endpoint dead, `TAPESTRY_CONTAINER=no-such-container`, `TAPESTRY_CONTAINER_PORT` unset, and `BRAINSTORM_CONF_PATH` on a conf whose `NEO4J_URI` is a closed port.
-- **The scoped gate,** `tmp/gate-runs/20261121T004837Z-42423-7b27.json` on `e18fc03d`: PASS, 1,571 passed, 0 failed, 45 skipped, across twelve registry entries (`operations`, `external-cli`, `openapi-coverage`, `stack-free-npm-test`, `firmware-element-sync`, `graph-rule-firmware`, `schema-save-finds-the-right-header`, `admin-action-sweep`, `pass-3-finishes-in-minutes`, `tapestry-key-put-await`, `event-less-create-set`, `trusted-dictionary`).
+- **The implementation's scoped gate,** `tmp/gate-runs/20261121T004837Z-42423-7b27.json`: PASS, 1,571 passed, 0 failed, 45 skipped, across twelve registry entries. It ran on `abfcbda4` with the implementation not yet committed (its record reads `abfcbda4+dirty`); that tree was then committed as `e18fc03d`, before the live check's re-aims (`1a79e174`).
+- **The merged tree's,** `tmp/gate-runs/20261121T014244Z-58081-e480.json` on `d7572ebb` (staging merged in): PASS, 1,580 passed, 0 failed, across thirteen, `word-elements-fit-the-installed-word-schema` added.
+- **After review round 1's fixes,** `tmp/gate-runs/20261121T034251Z-18941-45c1.json` on `d90418c4`, a clean tree: PASS, 1,665 passed, 0 failed, 45 skipped, across seventeen. Review round 1 found `openapi-document`, `ledger-row-ids` and `session-start` read files this change touches, and `graph-rules-builder` was added for the rule file the fixes touch (ledger row `2026-11-21-no-map-from-diff-to-suites`).
 - **This story's suites,** after the live check's re-aims: oracles 8 passed; target 31; plan 8; route 32; record 4; agent 1; live 0 passed and 4 skipped (stack-free); status 9. Together about 23 s.
 
 ### The live check (2026-11-21 UTC, on a scratch stack)
@@ -263,10 +265,23 @@ The scratch's own assistant was `d9b72885…`. One scratch ran at a time: the li
   - it found `seed-firmware` among the lifecycle commands made from the declarations;
   - status said nothing had been installed by seed-firmware yet;
   - on the emptied graph, it installed: 459 nodes and 935 relationships added, unsigned, `rules check` with no finding, one change entry, in 29 s through nginx (against its 900 s);
-  - it looked up `dog` (`graph resolve --ref dog --kind concept`) and found the concept at `39998:<the scratch's assistant>:dog`, its own;
+  - it looked up `dog` (`graph resolve --ref dog --kind concept`). Its record in `agent-run.log` prints `[]`, since the summary read the wrong field; round 2's record of the same call, `r2-resolve-dog.json`, holds the answer: one candidate, `39998:<the scratch's assistant>:dog`, its own, matched by name, slug and d-tag;
   - it ran seed-firmware again: 459 `unchanged`, no change entry, 1 s;
   - status then gave `seeded`: version 1.0.0, by the admin, 222 files, 459 nodes, 935 relationships, `changedSince` 0. Today's reader still counts no `NostrEvent` header (`installed: none`), as the ADR's Consequences expect.
 - **The records:** `tmp/live-check-37/` (`setup.log`, `live-run1.log`, `live-run2.log`, `live-l2.log`, `agent-run.log`, `agent-install.json`, `agent-repeat.json`, `probe1.json`), copied to the main checkout's `tmp/live-check-37/`.
+
+### The live re-check after review round 1's fixes (2026-11-21 UTC)
+
+On a fresh scratch stack (its assistant `26c703da…`), with the fixed code (`d90418c4`) mounted, and set up as above:
+- **L1, L3 and L4:** PASS. First contact gave the same seven `kept`, the same two relationships kept with `noRecord`, and the same two `others`, every one a direct `HAS_ELEMENT` from a superset.
+- **L2:** PASS.
+- **The agent and the offload** (Amendment 3, items 1–2), through `tmp/live-check-37/round2.sh`:
+  - on the emptied graph, the admin agent installed through the external CLI: 459 added, in 29 s through nginx;
+  - `graph resolve --ref dog --kind concept` answered one candidate, its own (`r2-resolve-dog.json`);
+  - the Dashboard's offload moved 416 `json` tags into the LMDB, and derive-all ran for each label (419 list items, 41 headers, 41 schemas, 41 primary properties, 22 sets, 41 supersets);
+  - seed-firmware then answered 459 `unchanged`, with no change entry: "Nothing changed: the graph already holds firmware 1.0.0 as its files say.";
+  - status's `seeded` still read: 459 nodes, 935 relationships, `changedSince` 0.
+- **The records:** `r2-live-suite.log`, `r2-live-l2.log`, `r2-agent.log` and the `r2-*.json` answers, in `tmp/live-check-37/`, copied to the main checkout's. The scratch stack was then removed.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
