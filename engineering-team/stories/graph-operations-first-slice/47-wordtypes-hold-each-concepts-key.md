@@ -155,7 +155,7 @@ For Architecture, not this gate:
 - **One test's input was wrong, and was amended apart.** XW1's `graph create-element` gave no `description`, which `graph create-concept`'s starter schema requires, so it was refused before the checks it sets up. It now gives one; no assertion changed. That is the test plan's Amendment 1, committed by itself before the implementation.
 - **The catalog's repair row says what repair does with this rule's findings too.** The ADR named only the check row.
 - **A ledger row tracks the reinstalls.** `ledger/2026-11-20-word-types-keys-await-firmware-reinstall.md` records that each instance's firmware nodes gain their keys, and its graph rule concept its twelfth item, only at a firmware reinstall there, each on the owner's yes.
-- **The way on names no other operation (ADR 0047, Amendment 1, 2026-11-21).** Decision 4 had it say that `graph add-to-concept` adds a key along with the concept's section. Review rounds 1 and 2 each found a case where that wording was untrue. Round 2's case was a node whose JSON holds no `wordTypes` list, which gets the section and no key. The way on now names a reinstall, and a repair still to come. Entry 12's "Refuses or reports" no longer lists the writes that put the key in, for the same reason. The finding's `why` no longer says that no operation gives a node a key it lacks (Amendment 1, item 5): add-to-concept can, as when it puts a node whose JSON holds a `wordTypes` list into one of the concept's sets that it isn't directly in. The Background's "The writes put the key in" and the Out of scope's "The writes already put the key in" overstate add-to-concept in the same way; both are left as planning wrote them.
+- **The way on names no other operation (ADR 0047, Amendment 1, 2026-11-21).** Decision 4 had it say that `graph add-to-concept` adds a key along with the concept's section. Review rounds 1 and 2 each found a case where that wording was untrue. Round 2's case was a node whose JSON holds no `wordTypes` list, which gets the section and no key. The way on now names a reinstall, and a repair still to come. Entry 12's "Refuses or reports" no longer lists the writes that put the key in, for the same reason. The finding's `why` no longer says that no operation gives a node a key it lacks (Amendment 1, item 5): add-to-concept can, as when it puts one of the instance's own nodes, whose JSON holds a `wordTypes` list, into one of the concept's sets that it isn't directly in. The Background's "The writes put the key in" and the Out of scope's "The writes already put the key in" overstate add-to-concept in the same way; both are left as planning wrote them.
 
 ## Evidence
 
@@ -191,16 +191,16 @@ Results:
   - a walk of firmware's element files: `firmware-concept-elements-sets`, `tapestry-per-concept-detail-views`, `add-node-as-element-restore`, `tagging-edges-realtime-engine` and `word-elements-fit-the-installed-word-schema`.
 - None of them reads a live URL whatever the environment says. `harness-lint`'s local URLs are lint fixtures, and `session-start`'s stack probe goes through the stubbed `curl`. `event-tagging-firmware-seed` isn't among them.
   - With `TAPESTRY_CONTAINER` unset, `firmware-concept-elements-sets` falls back to the `tapestry` container. Only the `docker` stub kept it off the agent-memory instance; its four skips are the stub's doing (ledger row `2026-11-13-live-suites-have-no-off-switch`).
-- **What it missed** (the fix check of round 2). The round changed a test file, and the list had no suite that scans every test file. `gate-result-record` is one; the fix check ran it, and its 34 pass.
-
-**The check of the fix check's findings (2026-11-21).** The same 21 suites ran on the committed `2af10578`, in the same environment. That round changed no test file and no firmware file, and the suites that read what it changed (the rule's file, the ADR, the story and the ledger) were already listed.
-- **Overall: PASS, 1844 passed, 0 failed, 26 skipped across 21 suites** (record `tmp/gate-runs/20261121T021233Z-47671-708f.json`).
-- The rule's three suites give 10, 10 and 1 again.
 
 Results:
 - **Overall: PASS, 1844 passed, 0 failed, 26 skipped across 21 suites** (record `tmp/gate-runs/20261121T014937Z-70585-f248.json`).
 - The rule's three suites give 10, 10 and 1, as before, and story 45's `rules check` and `rules repair` give 11 and 16. The three rule-list suites give 26, 13 (4 skipped) and 21, and the FN suite 11.
 - `node src/firmware/graph-rules.js --check`: the 12 items are current.
+- **What it missed** (the fix check of round 2). The round changed a test file, and the list had no suite that scans every test file. `gate-result-record` is one; the fix check ran it, and its 34 pass.
+
+**The check of the fix check's findings (2026-11-21).** The same 21 suites ran on the committed `2af10578`, in the same environment. That round changed no test file and no firmware file, and the suites that read what it changed (the rule's file, the ADR, the story and the ledger) were already listed.
+- **Overall: PASS, 1844 passed, 0 failed, 26 skipped across 21 suites** (record `tmp/gate-runs/20261121T021233Z-47671-708f.json`).
+- The rule's three suites give 10, 10 and 1 again.
 
 **The live check on a scratch stack (2026-11-20 23:59 to 2026-11-21 00:05 UTC).** Never this Mac's agent-memory instance. The scripts and records are in `tmp/live-check-47/`, which git ignores: `runA.sh` and its log, `setup.sh`, `check.js`, `compare.py`, `edit-wt.js`, `fits.js` and `agent.sh`.
 - **Setup.** `scripts/scratch-stack.sh up` ran from a worktree of staging's `c063ecdd`, on image `agent-memory-tapestry:latest`; its boot installs the image's firmware. Then:
