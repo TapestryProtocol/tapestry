@@ -11,8 +11,8 @@
  * copy-node (A10.24) when they are built.
  *
  *   factsOf(key, node)                a node read whole, its properties and _labels, as whoseNode answers it
- *   whoseNode(read, key)              U0: { key, uuid, name, author, hasLetter, labels, person, placeholder, own }, or
- *                                     null for no node
+ *   whoseNode(read, key)              U0: { key, uuid, name, author, hasLetter, labels, person, placeholder, own,
+ *                                     record }, or null for no node
  *   refuseUnlessOwn(facts, { input }) facts, for the instance's own node; else person-node, placeholder-node or
  *                                     not-own-node, in that order, naming the input
  *   requireOwn(read, key, { input })  that, for a key; unknown-node when no node has it
@@ -80,15 +80,19 @@ const text = (x) => (typeof x === 'string' && x.length > 0 ? x : null);
 
 /**
  * The facts of the node keyed `key`, from the node read whole ({ ...properties, _labels }, as U0 answers it, or as a
- * deletion's entry recorded it): → { key, uuid, name, author, hasLetter, labels, person, placeholder, own }.
+ * deletion's entry recorded it): → { key, uuid, name, author, hasLetter, labels, person, placeholder, own, record }.
  * - person: it is a NostrUser node; placeholder: it is a NostrEvent with no created_at (ADR 0026 Decision 4).
  * - own: the read conventions' own test (reads.js's nodeOf), so a write counts a node as its own when a read does,
  *   and false for a person node or a placeholder, whatever key it carries.
  * - hasLetter: a letter is an event, and a node the import made of one has its id; a placeholder's id names an event
  *   the graph doesn't hold, so it has none.
+ * - record: the sections of lifecycle seed-firmware's install record the node carries as its own properties (cameFrom,
+ *   installed), which a write's schema check sets aside, as the derive's does (_schemas.js's recordCarried; ADR
+ *   graph-operations-first-slice/0037 Amendment 3 item 6; review round 2, R2-N1). Empty for a node without it.
  */
 function factsOf(key, n) {
   const R = require('../../reads');
+  const { recordCarried } = require('./_schemas');
   const labels = Array.isArray(n && n._labels) ? [...n._labels] : [];
   const uuid = text(n.uuid);
   const name = text(n.tapestryValue) || text(n.name);
@@ -96,7 +100,7 @@ function factsOf(key, n) {
   const person = labels.includes('NostrUser');
   const placeholder = labels.includes('NostrEvent') && (n.created_at === undefined || n.created_at === null);
   const own = !person && !placeholder && R.nodeOf({ tapestryKey: key, name, address: uuid, author }, R.ownKeys()).own;
-  return { key, uuid, name, author, hasLetter: n.id !== undefined && n.id !== null && !placeholder, labels, person, placeholder, own };
+  return { key, uuid, name, author, hasLetter: n.id !== undefined && n.id !== null && !placeholder, labels, person, placeholder, own, record: recordCarried(n) };
 }
 
 /**

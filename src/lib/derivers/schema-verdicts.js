@@ -15,7 +15,8 @@
  *     of schemas.
  * The cache's copy is dated by lastValidated; the rule decides when it is asked (ADR 0020a Decision 7).
  *
- *   schemaVerdicts({ tapestryKey, json, judge?, read?, now }) → parentJsonSchemas
+ *   schemaVerdicts({ tapestryKey, json, judge?, read?, now, record? }) → parentJsonSchemas; record names the install
+ *                                record sections the node carries, set aside (ADR 0037 Amendment 3, item 6)
  *   readOverRunCypher()           a read, (cypher, params) → rows, made from the driver's runCypher
  *
  * It opens nothing when it loads: _schemas.js, _fields.js and the driver are required when first called. A derive pass
@@ -28,7 +29,7 @@ function readOverRunCypher() {
   return (cypher, params) => runCypher(cypher, params);
 }
 
-async function schemaVerdicts({ tapestryKey, json, judge = null, read = null, now }) {
+async function schemaVerdicts({ tapestryKey, json, judge = null, read = null, now, record = [] }) {
   const X = require('../../operations/catalog/graph/_schemas');
   const F = require('../../operations/catalog/graph/_fields');
   const r = read || readOverRunCypher();
@@ -36,7 +37,9 @@ async function schemaVerdicts({ tapestryKey, json, judge = null, read = null, no
   const concepts = [...new Set((await F.conceptsOfNodes(r, [tapestryKey])).map((row) => row.concept))].sort();
   const entries = [];
   for (const concept of concepts) {
-    const c = await j.check(concept, json);
+    // record: the record sections the derive put in from the node's own properties, which the judge sets aside (ADR
+    // graph-operations-first-slice/0037 Amendment 3, item 6).
+    const c = await j.check(concept, json, { record });
     if (c.header === false) continue;
     const nodes = Array.isArray(c.nodes) ? c.nodes : [];
     if (!nodes.length) continue;

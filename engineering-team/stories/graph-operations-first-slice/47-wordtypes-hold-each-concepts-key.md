@@ -226,6 +226,18 @@ Results:
   - The hosted instances: each one's reinstall waits for the owner's yes (ledger row `2026-11-20-word-types-keys-await-firmware-reinstall`).
 - The stack was taken down after.
 
+**On staging and production (2026-11-21).**
+- **CI.** TapestryProtocol/tapestry#177's full gate passed: 8359 passed, 0 failed, 655 skipped across 349 suites (run 44867052208). It was still running when #177 merged, and passed at 04:56:56 UTC. The promotion's required checks passed too: its `stack-free` gate gave the same totals (run 44868357818), and `main-source-guard` passed.
+- **Staging.**
+  - #177 merged at 04:47:51 UTC as `b262a8c1`. The owner merged it directly, so no safe-to-merge check ran before it. Deploy run 44867829766 succeeded in 1 min 45 s.
+  - The smoke test was clean on tiers 1–3 and 5; no UI changed, so there was no tier 4. The served API docs carry create-concept's new `wordTypes` input and its 400, and name the new rule.
+- **Production.**
+  - The promotion, TapestryProtocol/tapestry#178, was cut at `b262a8c1`. Its bundle was #177, plus #176 and #173, both docs only.
+  - It merged at 05:13:48 UTC as `b1aad50d`, with `--match-head-commit`, after a safe verdict on the first check (05:13:45). Deploy run 44869893419 succeeded in 1 min 41 s.
+  - The smoke test was clean on the same tiers, with the same text in the served API docs.
+- **Not yet:** a firmware reinstall on any instance. Until one runs there, `rules check` names firmware's own nodes on that instance, and its graph rule concept has 11 items (ledger row `2026-11-20-word-types-keys-await-firmware-reinstall`).
+- **The run records** are in the main checkout's `tmp/live-check-47/staging-smoke/` and `tmp/live-check-47/production-smoke/`, which git ignores.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0047-wordtypes-hold-each-concepts-key.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.test-plan.md`

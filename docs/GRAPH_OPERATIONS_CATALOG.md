@@ -52,7 +52,7 @@
 - **Import (4):** nostr, file, web, refresh.
 - **Export (4):** nostr, file, status, retract.
 - **Cache (3):** get, check, rebuild.
-- **Lifecycle (6, owner only):** backup, restore, seed-firmware, migrate, wipe, status.
+- **Lifecycle (6):** backup, restore, seed-firmware, migrate, wipe, status. The ones built are for the owner and admins; wipe isn't built, and who may call it isn't decided.
 
 ## 1. Graph reads
 
@@ -199,13 +199,13 @@ Today `POST /api/tapestry-key/:key` writes to the cache directly; D10's guard dr
 
 ## 8. Lifecycle
 
-Who may call: the owner only.
+Who may call: the owner and admins, as every lifecycle operation built so far is declared. Wipe isn't built, and who may call it isn't decided.
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
 | `backup` | A full backup of the graph: a Neo4j dump first; later encrypted and chunked into nostr events on a mirror relay (BIBLE §30) | `target?` → the backup's id | New. `bin/backup.js` doesn't back up Neo4j. |
 | `restore` | Restore a backup, keeping its tapestryKeys and provenance | `backup` → restored | New. The second brain's `restore-brain` restores only its own export. |
-| `seed-firmware` | Install or update the built-in concepts, by the bootstrap path, without undoing local edits | `version?` → installed | Signs: `POST /api/firmware/install`, which can also undo local edits. |
+| `seed-firmware` | Install or update the built-in concepts, by the bootstrap path, without undoing local edits | `version?`, `take?`, `takeAll?` → each node's outcome | Built: `POST /api/tapestry/lifecycle/seed-firmware`, for the owner and admins (ADR graph-operations-first-slice/0037). It writes the firmware's nodes unsigned and keeps what was edited. `POST /api/firmware/install` stays the install, and signs, until export nostr can sign what seed-firmware writes. |
 | `migrate` | One-time changes to existing data: missing tapestryKeys, relabeling nodes with no event, adding the uniqueness constraint | `migration` → the result | Partial: `POST /api/tapestry-key/initialize` stamps missing tapestryKeys; `POST /api/normalize/migrate-primary-property-ztags` is one specific migration. |
 | `wipe` | Erase the graph, only after a backup | `backup` (required) → erased | Exists: the Database Settings page sends `MATCH (n) DETACH DELETE n` through `POST /api/neo4j/query`, with no backup step. |
 | `status` | The last backup, the firmware version, the migrations applied, and how fresh the cache is | → the status | New. |

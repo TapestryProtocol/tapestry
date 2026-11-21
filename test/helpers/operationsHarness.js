@@ -51,6 +51,9 @@
  * A request may also carry rawBase64 (a binary body), contentType (noContentType: true sends none) and extra headers; every answer records its headers
  * and bodyBase64 beside the parsed body. A command may carry stdinBase64, stdinIsTTY and stdoutIsTTY; it records
  * stdoutBase64 beside stdout. pauseMs waits after each request, for work a route does after it has answered.
+ * (Story graph-operations-first-slice #37, ADR 0037 Decision 1: "two calls at once install once".) An entry of
+ * scenario.requests that is { together: [request, …] } sends those requests at once, each on its own connection, and
+ * records each answer under its own id, as the others are recorded.
  *
  * It writes { error, scenarios: [{ requests: [{ id, status, headers, body, bodyBase64, at, ms }], cli: [{ id, code, stdout,
  * stdoutBase64, stderr, leaked }] }], runs } to <out.json>. `runs` is globalThis.__opsRuns, which fixture operations
@@ -369,9 +372,13 @@ for (const k of QUIETED) ORIGINAL_CONSOLE[k] = console[k];
       installStrfry(scenario.strfry);
       const out = { requests: [], cli: [] };
       for (const r of scenario.requests || []) {
-        const which = r.app || 'real';
-        if (!apps[which]) apps[which] = await startApp(which === 'fixture' ? spec.fixtureDir : null);
-        out.requests.push(await send(apps[which].port, r));
+        const group = Array.isArray(r.together) ? r.together : [r];
+        for (const x of group) {
+          const which = x.app || 'real';
+          if (!apps[which]) apps[which] = await startApp(which === 'fixture' ? spec.fixtureDir : null);
+        }
+        if (Array.isArray(r.together)) out.requests.push(...(await Promise.all(group.map((x) => send(apps[x.app || 'real'].port, x)))));
+        else out.requests.push(await send(apps[r.app || 'real'].port, r));
         if (scenario.pauseMs) await sleep(scenario.pauseMs);
       }
       for (const scn of scenario.cli || []) out.cli.push(await runCli(scn));

@@ -124,7 +124,7 @@ module.exports = {
       const byKey = new Map((await K.headersByKey(read, order)).map((h) => [h.key, h]));
       const out = [];
       for (const c of order) {
-        const r = await Sch.fits(read, c, json);
+        const r = await Sch.fits(read, c, json, { record: facts.record });
         out.push({ concept: c, key: (byKey.get(c) && byKey.get(c).oKey) || null, fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting });
       }
       return out;
@@ -204,7 +204,7 @@ module.exports = {
     // fields aren't written, and the way on (Amendment 4, item 1). A call that writes a section keeps the plain message.
     if (jsonChanged || ownChanged) {
       try {
-        await Sch.checkElements(read, [{ concept: concept.key, json: view }]);
+        await Sch.checkElements(read, [{ concept: concept.key, json: view, record: facts.record }]);
       } catch (e) {
         if (sectionWritten || !isRefusal(e) || e.code !== 'invalid-fields') throw e;
         throw refusal(e.code, `${e.message} ${M.say.memberMisfit(concept, oKey, joining, set)}`, e.extra);
