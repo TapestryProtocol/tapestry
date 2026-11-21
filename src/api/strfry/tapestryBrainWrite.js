@@ -62,9 +62,10 @@ async function maybeBrainWriteTapestry(signedEvent) {
 
     uuid = `39999:${signedEvent.pubkey}:${dTag}`;
 
-    // 0. A letter the node already holds, or one older than it, posted again, is imported no more: it never comes back
-    //    over the node (ADR graph-operations-first-slice/0034 Decision 10). A newer one, such as an edit in the
-    //    Tapestries UI, is imported as before.
+    // 0. A letter the node already holds, one older than it, or one its sentIds lists as export nostr's, even a newer
+    //    one, posted again, is imported no more: it never comes back over the node (ADR
+    //    graph-operations-first-slice/0034 Decision 10, Amendment 3 item 2; src/operations/catalog/export/_own.js). Any
+    //    other newer one, such as an edit in the Tapestries UI, is imported as before.
     const { holdsLetterOrNewer, TURNED_AWAY } = require('../../operations/catalog/export/_own');
     const graph = require('../../operations/graph');
     if (await holdsLetterOrNewer((cypher, params) => graph.read(cypher, params), signedEvent)) {

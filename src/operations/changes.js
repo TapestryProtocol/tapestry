@@ -48,10 +48,11 @@ const KEY = /^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-
  * repaired, and firmwareOverride: true when it changed a firmware concept with the override (story
  * graph-operations-first-slice #45, ADR graph-operations-first-slice/0045 Decision 9).
  * An export's are letter-sent, one for each letter a relay accepted, or whose read-back didn't answer (unread, recorded
- * on no node), adding address and kind, the letter's; was and now, its { id, created_at } before and after (was null
- * for a node's first letter, and the same as now for a letter re-sent unchanged); relays, each relay's answer; and
- * raced: true when the node held a newer letter another export sent, or a letter no export sent, so it was left as it
- * was (story graph-operations-first-slice #34, ADR graph-operations-first-slice/0034 Decision 8, Amendment 2 item 1).
+ * on its node only in sentIds), adding address and kind, the letter's; was and now, its { id, created_at } before and
+ * after (was null for a node's first letter, and the same as now for a letter re-sent unchanged, or one the node
+ * already held); relays, each relay's answer; and raced: true when the node held a newer letter another export sent,
+ * or a letter no export sent, so it was left as it was (story graph-operations-first-slice #34, ADR
+ * graph-operations-first-slice/0034 Decision 8, Amendment 2 item 1, Amendment 3 items 1 and 2).
  */
 const CHANGE = Object.freeze({
   type: 'object',
@@ -89,7 +90,7 @@ const CHANGE = Object.freeze({
     raced: { type: 'boolean', description: "For a letter sent, true when the node held a newer letter another export sent, or a letter no export sent, so the node was left as it was; absent otherwise" },
     name: { type: 'string', description: "A concept's singular name, an element's name, or a set's, when the change made it" },
     slug: { type: 'string', description: "A concept's slug, an element's, or a set's, when the change made it" },
-    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none. For a deleted node, the node as it was: { labels, properties, concepts, relationships, tags }, each tag with its own labels, properties and relationships, and stored, the JSON the store held for an lmdb: value. For a changed property, { schema, required }: its piece of the concept's schema (null for a node made before the property operations) and whether its parent requires it; for a removed property, the node as it was: { labels, properties, relationships, tags }, each relationship with its type, direction, from and to; for a schema, the document its JSON schema node held. For a letter sent, the { id, created_at } of the letter it replaced, null for the node's first, or the same as now for one re-sent unchanged" },
+    was: { description: "What the field held before the change: a concept's name, plural, slug or description, or an element's name, as text, or an element's field, any JSON value; null when it held none. For a deleted node, the node as it was: { labels, properties, concepts, relationships, tags }, each tag with its own labels, properties and relationships, and stored, the JSON the store held for an lmdb: value. For a changed property, { schema, required }: its piece of the concept's schema (null for a node made before the property operations) and whether its parent requires it; for a removed property, the node as it was: { labels, properties, relationships, tags }, each relationship with its type, direction, from and to; for a schema, the document its JSON schema node held. For a letter sent, the { id, created_at } of the letter it replaced, null for the node's first, or the same as now for one re-sent unchanged, or one the node already held" },
     now: { description: "What it holds after the change: as was, for a concept, an element, a property ({ schema, required }) or a schema; null when the change took it out. For a letter sent, its { id, created_at }" },
   },
 });

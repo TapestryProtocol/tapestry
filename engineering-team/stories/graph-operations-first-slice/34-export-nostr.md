@@ -280,6 +280,17 @@ Judgment calls made fixing review round 1 (2026-11-21, ADR 0034 Amendment 2), ea
 - **`strfry import`'s time (Amendment 2 item 5) replaces deviation 17's 60 s.** It gets the time left before `BUDGET_MS`, 30 s at most, and its child is then killed. `toOwn` waits 1 s more (`STOP_MS`) for the killed child to close, so the read-back never runs beside a live import, and no longer, so a seam that never ends can't hold the call. There's no floor: with no time left, the import is killed at once. The read-back still starts only before `BUDGET_MS`, so the letters of an import stopped at the deadline answer `unread`, and go in the entry.
 - **A byte-order mark** that starts a text moves each of micromark's offsets on by one. A mark later in the text is kept as a character by micromark, so it needs nothing.
 
+Judgment calls made fixing review round 2's findings (2026-11-21, ADR 0034 Amendment 3), each too small for another amendment:
+
+- **(Finding 14.) The same letter twice:** the relays go on through the re-send's statement, which adds them only while the node still holds that id (else `raced`), and the change's `was` is the letter the node held, so the same as `now`, as a re-send's is, by round 1's rule that `was` is what the node held.
+- **`sentIds` lists only the letters a call signed:** each the instance's own relay accepted (set, already held or `raced`) and each `unread`. A re-send adds none, as the test plan's stand-in did, since the letter it re-sends is the one the node holds, which the guard already turns away.
+- **"The newest 20" is the 20 latest recorded.** `sentIds` holds ids only, so the record can't order them by `created_at`. A new id goes last, one already listed keeps its place, and past 20 the earliest recorded drops. So a raced record's older letter goes after the newer one it lost to.
+- **The record locks and reads every node of its letters,** an `unread` one's too, since it now writes that node's `sentIds`. Before, it locked only the nodes it set or re-sent to.
+- **The record tells "a letter another export sent" by the node's `sentIds`** (it lists the id the node holds), so `_record.js`'s `sentByExport` and its entry read are gone. Only scratch stacks and suites hold letters export sent before `sentIds`, since export nostr hasn't been merged anywhere.
+- **The guard's `sentIds` check** (replacing round 1's entry check) applies to an own node at the letter's address, or keyed by its id, with or without a letter, and is asked before the node's own letter is compared.
+- **(Finding 16; replaces round 1's `graph-not-followed` deviation.) The report's `address` is the graph's `uuid`,** left out when it has none, since the schema's `address` isn't nullable. Its words still give the name and the key, and the schema's `address` now says it is the graph's own address for this report.
+- **Wording beyond the brief's list.** The declaration's description, the catalog's row and its "sent as" paragraph name `sentIds` beside `sentTo`, and `changes.js`'s `was` adds "or one the node already held". ADR 0004's header (finding 17) also names the NIP-85 publishers under `src/algos/nip85/`, which send to outside relays from the server in a folder RE1 doesn't read, since without them the new sentence would be wrong too.
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-20, on the tree just before it was committed as `26712ded`)
@@ -332,6 +343,16 @@ A fresh scratch stack `tapestry-scratch` was set up with the same scripts, `tmp/
 - **The private-relay refusal, by hand** (Amendment 2 item 7). The admin agent, through the unchanged external CLI, asked for `export nostr --everything true --relays wss://localhost:7777 --dryRun true`. It was refused `private-relay` on `relays`: "its host, localhost, doesn't resolve to public addresses only … Nothing was signed or sent." The output is `tmp/live-check-34/r2-private-relay.out`.
 
 Sending to an outside relay waits for the first real export, as the story's AC7 has it since Review.
+
+### The suites after review round 2's findings (2026-11-21, on `8a445856` with the fixes uncommitted)
+
+Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every endpoint dead, and the conf file's Neo4j and Redis on a closed port. None ran beside the gate, and none failed:
+- export: nostr 15, markdown-links 10, nostr-letters 12, nostr-links 8, nostr-send 24, nostr-own 6, nostr-agent-through-cli 1, nostr-live 6 skipped. The nine tests the test plan's "Review round 2" lists as failing pass: ES20 to ES24, EW2, EW5, EW6 and EK7. After the gate, the same seven suites and RE1 gave the same counts on Node 22.23.1, CI's major version;
+- RE1 (`test/publish-export-a-concept.test.js`) 3;
+- import: cypher-engine 12, nostr 15, nostr-agent-through-cli 1, nostr-filter 10, nostr-graph 12, nostr-order 11, nostr-own 7, nostr-record 15, nostr-relay 9, nostr-live 6 skipped;
+- the guarded importers' suites: brain-first-tapestry-authoring 11 (its 8 live checks skipped), publish-event-signature-verification 5, b-tag-primitive 16 and curated-dlist-update-publish 69.
+
+The scoped gate, the same six entries through the gate engine on Node 24.18.0, labelled `a10-34-r2-fixes`, is `20261121T051347Z-55527-b43b`: PASS, exit 0, 1,486 passed, 0 failed, 18 skipped, 6/6 suites. By entry: `operations` 1,382/0/16, `external-cli` 53/0/0, `openapi-coverage` 13/0/0, `admin-action-sweep` 9/0/0, `schema-save-finds-the-right-header` 26/0/2 and `publish-export-a-concept` 3/0/0. `operations` has the round's six new tests (ES20 to ES24 and EW6) beside review round 2's 1,376. The record names `8a445856`, the tests' commit, with 12 files uncommitted (`dirty: true`): the 11 files of these fixes, and this story with the Deviations above. This section was written after it. Nothing of this round is committed yet. `bash scripts/harness-lint.sh` was clean before the gate. The runs' logs are in the worktree's `tmp/a10-34/round2-impl/`.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`

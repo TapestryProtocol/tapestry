@@ -14,7 +14,7 @@
  *   4. unless a dry run: the new and changed letters signed and put into the instance's own relay, read back by id, and
  *      sent to each relay named, an unchanged one to each that doesn't hold it yet (_send.js, Decision 6);
  *   5. what was accepted, recorded on its node and in one change entry, and a letter whose read-back didn't answer in
- *      that entry only (_record.js, Decision 8; Amendment 2 item 1).
+ *      that entry and in its node's sentIds only (_record.js, Decision 8; Amendment 2 item 1, Amendment 3 item 2).
  * BUDGET_MS, SEND_CUTOFF_MS, MAX_SCOPE and MAX_SEND are read through the declaration at each call, so a suite can
  * shrink them. It requires nothing at load that opens anything (ADR graph-operations-foundation/0001 Decision 10).
  */
@@ -89,7 +89,7 @@ const REPORT = {
     words: { type: 'string', description: 'What it means, in words' },
     key: { type: 'string', description: 'The tapestryKey the value or link named, or the store key an lmdb: value named' },
     where: { type: 'string', description: "Where in the letter: tag <type>, or json.<path>" },
-    address: { type: 'string', description: 'The address or id a tag or graph list named' },
+    address: { type: 'string', description: "The address or id a tag or graph list named; for graph-not-followed, the graph's own address" },
     type: { type: 'string', description: "An uncarried relationship's type" },
     from: { type: 'string', description: 'The tapestryKey of the node it runs from' },
     to: { type: 'string', description: 'The tapestryKey of the node it runs to' },
@@ -105,7 +105,7 @@ module.exports = {
   description: [
     "Publishes one node (`node`, a ref), a graph (`graph`, a ref to a graph element: a concept graph, a Tapestry, or a selection saved as a graph) or everything of this instance's own (`everything: true`) as nostr letters this instance's assistant signs, to this instance's own relay and to each relay in `relays` (up to ten ws:// or wss:// URLs whose hosts resolve to public addresses only). A graph brings what its graph.nodes lists, the graphs its graph.imports lists (four levels, 50 graphs; a graph past them is sent with its lists unfollowed, and reported graph-not-followed), and for a concept graph that concept's header, core nodes, superset, sets to six levels and their elements, the instance's own only.",
     "Each node's letter is built from the node as the graph holds it now: its tags as its tag nodes hold them, a set's s tags from its parent links, an element's z stamps for its concept's pointer b tags, its stored JSON without graphContext, every lmdb: value resolved, and each tapestry: link and whole tapestry:<key> value rewritten to the target's nostr:naddr1… (or nostr:nevent1… for an event id) when it has a letter or gets one in this call, else dropped to its text or left out, and reported. Only the assistant's own nodes are signed: another author's node, the owner's included, is named by its address and never signed or sent. The graph never changes but for what is recorded of the letters.",
-    "Only what is new or changed since it was last sent is signed again, dated one second after the node's last letter at the least; an unchanged letter is sent as it was signed to a relay named that doesn't hold it. Letters go out by kind of node first, concept headers, then supersets, then sets (parents first), then the rest, and within a kind each comes after the call's letters of that kind it names, a cycle by tapestryKey. Each is put into this instance's own relay with strfry import and read back by id, and only one it holds goes to the relays named, each relay's answer given as that relay gave it. The node then holds the letter's id and created_at, and sentTo (the relays that hold it), and one change entry records the letters sent, and any whose read-back didn't answer. `dryRun: true` signs, sends and records nothing, and answers what the call would do, reports first. A scope bigger than one call (2,000 nodes classed, 500 letters signed, or 30 s of sending) answers `next.after`, the cursor the next call goes on from.",
+    "Only what is new or changed since it was last sent is signed again, dated one second after the node's last letter at the least; an unchanged letter is sent as it was signed to a relay named that doesn't hold it. Letters go out by kind of node first, concept headers, then supersets, then sets (parents first), then the rest, and within a kind each comes after the call's letters of that kind it names, a cycle by tapestryKey. Each is put into this instance's own relay with strfry import and read back by id, and only one it holds goes to the relays named, each relay's answer given as that relay gave it. The node then holds the letter's id and created_at, sentTo (the relays that hold it) and sentIds (the newest 20 letters export signed for it, any whose read-back didn't answer included), and one change entry records the letters sent, and any whose read-back didn't answer. `dryRun: true` signs, sends and records nothing, and answers what the call would do, reports first. A scope bigger than one call (2,000 nodes classed, 500 letters signed, or 30 s of sending) answers `next.after`, the cursor the next call goes on from.",
   ].join('\n\n'),
   inputs: {
     node: { schema: { type: 'string', maxLength: MAX_REF }, description: "The one node to export: its tapestryKey, or a ref graph resolve reads (an address, an event id, a name or a slug)" },
@@ -352,7 +352,8 @@ async function exportScope({ D, ctx, read, form, key, scope, after, relays, sign
       }));
 
       // 5. What was accepted, recorded on its node and in one change entry. An unread letter may be on the instance's
-      //    own relay, so it is in the entry too, and on no node (Amendment 2 item 1).
+      //    own relay, so it is in the entry too, and on its node only in sentIds (Amendment 2 item 1, Amendment 3
+      //    item 2).
       const records = [];
       for (const b of inOrder) {
         const a = answers.get(b.entry.key);

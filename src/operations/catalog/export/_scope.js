@@ -9,7 +9,8 @@
  *                                   top-level graph object (story amendment 6)
  *   scopeOf(read, { form, key })    → { keys, reports }: the scope's tapestryKeys, a not-found report for each address
  *                                   or id a graph lists that no node holds, and a graph-not-followed report for each
- *                                   graph sent with its lists unfollowed (Amendment 2 item 3)
+ *                                   graph sent with its lists unfollowed, naming its key, address and name (Amendment 2
+ *                                   item 3, Amendment 3 item 3)
  *                                     node        that node
  *                                     graph       the graph element, what its graph.nodes lists (by uuid as an
  *                                                 address, else as an event id), the graphs its graph.imports lists,
@@ -271,9 +272,9 @@ async function scopeOf(read, { form, key, own }) {
   const facts = await factsOf(read, [...fromConcepts, ...left.keys()]);
   for (const k of fromConcepts) if (isOwn(facts.get(k), own)) keys.add(k);
   for (const [g, why] of left) {
-    const name = (facts.get(g) || {}).name;
+    const { name, uuid } = facts.get(g) || {};
     reports.push({
-      report: 'graph-not-followed', node: g,
+      report: 'graph-not-followed', node: g, ...(uuid ? { address: uuid } : {}),
       words: `The graph ${name ? `"${name}" (${g})` : g} is sent as it is, but what its graph.nodes and graph.imports list isn't: ${why}. Export it on its own, as graph, to send what it lists.`,
     });
   }

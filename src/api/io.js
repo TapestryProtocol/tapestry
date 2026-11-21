@@ -492,8 +492,10 @@ async function handleImportExecute(req, res) {
 
     // ── Phase 1: Write events to strfry + base Neo4j import ──
     const importedItems = []; // successfully imported items for phase 2 & 3
-    // A letter one of the instance's own nodes already holds, or one older than it, is skipped: it never comes back
-    // over the node (ADR graph-operations-first-slice/0034 Decision 10). strfry, written first, keeps the newest anyway.
+    // A letter one of the instance's own nodes already holds, one older than it, or one its sentIds lists as export
+    // nostr's, even a newer one, is skipped: it never comes back over the node (ADR graph-operations-first-slice/0034
+    // Decision 10, Amendment 3 item 2; src/operations/catalog/export/_own.js). strfry, written first, keeps the newest
+    // anyway.
     const { holdsLetterOrNewer, TURNED_AWAY } = require('../operations/catalog/export/_own');
     const graph = require('../operations/graph');
     for (const item of pending) {

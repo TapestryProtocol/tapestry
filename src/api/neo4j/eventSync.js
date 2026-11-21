@@ -356,8 +356,9 @@ async function handleEventUpdate(req, res) {
       return res.json({ success: false, error: 'Event not found in strfry' });
     }
 
-    // A letter one of the instance's own nodes already holds, or one older than it, never comes back over the node
-    // (ADR graph-operations-first-slice/0034 Decision 10): checked before any tag is deleted.
+    // A letter one of the instance's own nodes already holds, one older than it, or one its sentIds lists as export
+    // nostr's, even a newer one, never comes back over the node (ADR graph-operations-first-slice/0034 Decision 10,
+    // Amendment 3 item 2; src/operations/catalog/export/_own.js): checked before any tag is deleted.
     const { holdsLetterOrNewer, TURNED_AWAY } = require('../../operations/catalog/export/_own');
     const graph = require('../../operations/graph');
     if (await holdsLetterOrNewer((cypher, params) => graph.read(cypher, params), strfryEvent)) {
