@@ -476,7 +476,8 @@ test('ST33 [Amendment 3, item 8; review round 1, N7; round 2, R2-N3]: the tripwi
   const INSTALL = 'src/firmware/install.js';
   const NORMALIZE = 'src/api/normalize/index.js';
   const PINNED = [
-    [INSTALL, 'pass1_bootstrap', /^async function pass1_bootstrap\(/m, /^\/\/ ── Pass 2: Enrich/m, '1ab79ce3b4778d1b60af229e965cab8f5cceeceb9c424d935e94318af838bdd3'],
+    // Updated for story graph-operations-first-slice #47 (pass 1a passes each header file's word.wordTypes; ADR 0047 Decision 9), once target.js followed it.
+    [INSTALL, 'pass1_bootstrap', /^async function pass1_bootstrap\(/m, /^\/\/ ── Pass 2: Enrich/m, 'b4cea1c4dec0c0d6d2c7431b4c8b85422e80015aacf4614b7fe6ef43a50a65e0'],
     [INSTALL, 'pass2_enrich', /^async function pass2_enrich\(/m, /^\/\/ ── Community references/m, 'bf2a3bc6ebf2a94726dac347562142c34afb8c4f2114fc16b2ff58e4e0261b9c'],
     [INSTALL, 'pass_communityReferences', /^async function pass_communityReferences\(/m, /^\/\/ ── Full install/m, 'c026fa317ef57652aa530070c1016cd861443540694c2ee7e804eb89a6eaa67a'],
     [INSTALL, 'install\'s pass 3 (derive, apply enumerations, wire implicit elements, the community-reference edges)', /^ {2}\/\/ ── Pass 3: Derive \+ Apply Enumerations \+ Wire Implicit Elements ──/m,
