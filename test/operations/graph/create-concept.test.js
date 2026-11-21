@@ -234,16 +234,26 @@ test('CC2: it is what today\'s route signs, recorded without signing: addresses,
 test('CC3: _fields.js reads it as it reads a lettered concept: its key, its fields, and no elements yet', async () => {
   const d = await ok('cc1');
   const g = await graph();
+  // The test TA goes in TA_PUBKEY for _fields.js, and back out as this test found it: operations.test.js runs this
+  // suite in the gate's own process, and the gate fails a suite that leaves process.env changed
+  // (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002, Amendment 2).
+  const hadTa = Object.prototype.hasOwnProperty.call(process.env, 'TA_PUBKEY');
+  const savedTa = process.env.TA_PUBKEY;
   process.env.TA_PUBKEY = TA;
-  const F = require(path.join(ROOT, 'src/operations/catalog/graph/_fields.js'));
-  const read = G.readerOver(g);
-  const concept = await F.conceptOf(read, d.concept.conceptHeader);
-  // Today's route makes a schema whose only top-level key is the concept's key, so conceptOf reads it as wrapped, as it
-  // reads beagle, which the seed made with today's route.
-  const beagle = await F.conceptOf(read, (await main()).k.beagle);
-  assert(concept && concept.oKey === 'coffeeHouse' && concept.wrapped === beagle.wrapped && concept.wrapped === true, `conceptOf finds the key coffeeHouse in its header's json, wrapped as today's route's beagle is; got ${show(concept)}`);
-  assert(show(Object.keys(concept.fields).sort()) === show(['description', 'name', 'slug']), `and its schema node's fields; got ${show(concept.fields)}`);
-  assert(show(await F.elementsOf(read, concept, 10)) === show([]), 'and walks its class thread to no elements');
+  try {
+    const F = require(path.join(ROOT, 'src/operations/catalog/graph/_fields.js'));
+    const read = G.readerOver(g);
+    const concept = await F.conceptOf(read, d.concept.conceptHeader);
+    // Today's route makes a schema whose only top-level key is the concept's key, so conceptOf reads it as wrapped, as it
+    // reads beagle, which the seed made with today's route.
+    const beagle = await F.conceptOf(read, (await main()).k.beagle);
+    assert(concept && concept.oKey === 'coffeeHouse' && concept.wrapped === beagle.wrapped && concept.wrapped === true, `conceptOf finds the key coffeeHouse in its header's json, wrapped as today's route's beagle is; got ${show(concept)}`);
+    assert(show(Object.keys(concept.fields).sort()) === show(['description', 'name', 'slug']), `and its schema node's fields; got ${show(concept.fields)}`);
+    assert(show(await F.elementsOf(read, concept, 10)) === show([]), 'and walks its class thread to no elements');
+  } finally {
+    if (hadTa) process.env.TA_PUBKEY = savedTa;
+    else delete process.env.TA_PUBKEY;
+  }
 });
 
 test('CC4: graph history finds its entry by the header and by a core node', async () => {
