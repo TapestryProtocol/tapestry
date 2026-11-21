@@ -123,6 +123,27 @@ Two were left out:
 - **Result:** run `20261121T180907Z-86999-f4a0`, FAIL, exit 1, with 2126 passed, 3 failed and 132 skipped. All three failures are `router-stream-limit-on-connect` P1–P3, the router patch's GNU `sed -i` on macOS (OPEN.md row `2026-10-09-router-patch-sed-macos`). Staging's own tree fails the same three here.
 - **The story's suites** now give 24 tests (`firmware-install-leaves-tags-once`) and 9 (`community-references-prune-builder`). `seed-firmware-target` gives 34, ST33 included.
 
+**On staging (2026-11-21).**
+- **The deploy.** TapestryProtocol/tapestry#189 merged at 19:46:39 UTC as `f2e14987`. Deploy run 44942742796 pulled the fix's four source files. The smoke test was clean on tiers 1–3 and 5; no UI changed, so there was no tier 4.
+- **Two installs cut off.** Each reinstall ran as the loopback call `POST http://127.0.0.1:7778/api/firmware/install` inside the container, just after `scripts/check-safe-to-merge.sh` answered `safe`. A merge into `staging` followed each of the first two within seconds (#181 at 20:28:09, #190 at 20:51:19), and its deploy recreated the container 1 minute 40 seconds into Pass 1. Ledger row `2026-11-21-deploy-safety-misses-firmware-installs` records why. In between, `tag` and `nostr-relay` held Pass 1's letter: 6 tags and no `b`, with their `REFERENCES` to their community headers intact.
+- **The third install finished.** It ran from 22:07:06 to 22:11:46 on `425006cf`, with the owner holding merges. Pass 1 gave 41 concepts and 0 errors, Pass 2 41 enriched, and the log ends "FIRMWARE INSTALL COMPLETE". Read with read-only Cypher just before and after:
+
+  | | Before | After |
+  |---|---|---|
+  | `tag` and `nostr-relay` | 6 tags, no `b` | 7, one `b` |
+  | `nostr-user-tag`, `tag-pinning` and `nostr-event-tag` | 13, one `b` | 7, one `b` |
+  | `tagging-with-specific-tag` | 17, one `b` | 9, one `b` |
+  | The copies of production's `nostr-relay` header and superset | 61 and 63 | 7 and 7 |
+  | The copies of the Mac Studio's five event-tagging headers and three supersets | 6 to 9 each | unchanged |
+  | Tag nodes no event holds | 0 | 0 |
+
+- **AC-1.** Each of the six headers has one `REFERENCES {source:'b-tag'}`, to the community header its `b` names.
+- **The public routes, after** (ADR 0035 §5). install-status gives 41 of 41 concepts at 1.0.0. The summaries give 46 rows for 46 headers (50 before). The sweep finds none of its 56 nodes holding a repeated tag: the 46 headers and 10 community copies, since two of the Mac Studio's supersets aren't on staging.
+- **Three loops are left.** Each is on a copy whose letter's `b` names its own address, so the copy derives it (AC-2). `/neighbors` finds them among the same 56 nodes. None of staging's own nodes has one.
+  - **The copy of production's `nostr-relay` header,** as Amendment 1 item 5 expects. It goes at staging's first install after production's.
+  - **The copies of the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers,** which Amendment 1 didn't foresee. Their letters were signed on 2026-07-17 by the Mac Studio's agent-memory instance, their references' curator. They go only after that instance has an install with the fix, which is the owner's word, its new letters reach `wss://dcosl.brainstorm.world`, and staging installs again. Ledger row `2026-11-16-curator-instance-superset-self-loop` says so.
+- **The run records** are in the main checkout's `tmp/live-check-39/staging/`, which git ignores. The install's answer is in `/tmp/fw-install-story39-20261121T220706Z.log` on the droplet.
+
 ## Linked artifacts
 
 - Book: `engineering-team/audits/header-tags-once/book.md`

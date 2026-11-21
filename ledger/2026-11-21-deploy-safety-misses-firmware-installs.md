@@ -9,6 +9,7 @@
 **What was seen.** Story 39's reinstall of staging was cut off twice on 2026-11-21. Both times the deploy that a merge into `staging` started recreated the `tapestry` container while the install was running:
 - **First attempt.** The install started at 20:28:01 UTC, as the loopback call `POST http://127.0.0.1:7778/api/firmware/install` inside the container. TapestryProtocol/tapestry#181 was merged at 20:28:09. Its deploy, run 44946433865, recreated the container at about 20:29:40, and the install's answer came back empty after 1 minute 40 seconds, in Pass 1.
 - **Second attempt.** The install started at 20:51:08. TapestryProtocol/tapestry#190, a docs-only PR, was merged at 20:51:19. Its deploy, run 44948469514, started at 20:51:22 and recreated the container at about 20:52:48, again 1 minute 40 seconds into Pass 1.
+- **Third attempt.** With the owner holding merges, it ran from 22:07:06 to 22:11:46 and finished.
 
 Both times, `GET /api/deploy-safety/status` had just answered `safe`, a few seconds before the install started.
 

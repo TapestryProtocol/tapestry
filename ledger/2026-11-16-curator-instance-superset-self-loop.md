@@ -20,6 +20,11 @@
   - seed-firmware's target skips it.
 - **When the row closes.** When the fix reaches production and its reinstall takes the loop out. The Mac Studio's local instance, named above, is the other curator's instance: its assistant curates the five event-tagging references, each with a d-tag equal to its slug, so the fix covers it too. Its install is the owner's word (ADR community-reference/0035, Out of scope), and the row says so when it closes.
 
+**2026-11-21: staging is reinstalled with the fix** (community-reference #39, 22:07 to 22:11 UTC). Staging curates none of the references, so none of its own headers or supersets has a relationship to itself. Three copies there do, each holding a letter whose `b` names its own address, which the copy derives (AC-2):
+- **The copy of production's `nostr-relay` header.** It goes at staging's first install after production's.
+- **The copies of the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers.** Their letters, signed on 2026-07-17, carry that `b`; the letters of its other three event-tagging headers carry none. So any instance holding those two copies likely has the same two loops. Only staging's are checked.
+- **When the Mac Studio's two go.** Only after its instance has an install with the fix, its new letters reach the references' relay (`wss://dcosl.brainstorm.world`), and each instance installs again.
+
 **Fix shape.** On a curator's instance, check for the loop: `MATCH (s:Superset)-[:IS_A_SUPERSET_OF]->(s) RETURN s.uuid`. If it is there, have install skip part (d) when its two ends are the same node, and take the loop out with `POST /api/normalize/delete-relationship`.
 
 **Pointer:** `engineering-team/decisions/graph-operations-first-slice/0028-link-set-and-unlink-set.md` (Amendment 1, item 5); `engineering-team/stories/graph-operations-first-slice/28-link-set-and-unlink-set.test-plan.md` (Gaps and questions, 6); `src/firmware/install.js:1290–1300`.
