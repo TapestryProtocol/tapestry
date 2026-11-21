@@ -46,11 +46,11 @@ As an instance owner, or an agent orienting on an instance, I want each concept 
   - that concept's header holds each tag of its current letter exactly once, its `b` included;
   - it holds no tag of an earlier letter;
   - it has exactly one `REFERENCES {source:'b-tag'}` relationship, to the community header its `b` names.
-- [ ] **AC-2 (a community copy holds only the tags of the version it holds).** Given a community header or superset that an earlier install brought in, whose curator has since published a newer version, when firmware install runs, then the copy holds each tag of the version it now holds exactly once, and no tag of an earlier version.
+- [ ] **AC-2 (a community copy holds only the tags of the version it holds).** Given a community header or superset that an earlier install brought in, whose curator has since published a newer version, when firmware install runs, then the copy holds each tag of the version it now holds exactly once, and no tag of an earlier version, and holds no `REFERENCES {source:'b-tag'}` or `INHERITS_FROM` that the version it holds doesn't derive. *(Amended at Architecture 2026-11-21, ADR 0035: the relationships clause. Copies follow their letter, which is what clears the self-loop that production's `b` left on other instances' copies.)*
 - [ ] **AC-3 (an instance that curates its own reference doesn't point at itself).** Given an instance whose own assistant is the curator a concept's `communityReference` names (production, for `nostr-relay`, today), when firmware install runs, then:
   - that concept's header carries no `b` naming its own address;
   - no relationship runs from the header to itself;
-  - its superset holds each tag of its letter exactly once.
+  - its superset holds each tag of its letter exactly once, and no relationship runs from its superset to itself. *(Amended at Architecture 2026-11-21, ADR 0035: the superset clause, for production's `IS_A_SUPERSET_OF` loop found during orientation.)*
 - [ ] **AC-4 (today's duplicates clear on the first install with the fix).** Given an instance in today's state (the six headers with two sets of tags, community copies holding several versions' tags, and production's self-pointing `b` and relationship), when firmware install runs once with the fix, then every one of those nodes meets AC-1 to AC-3, with no other step.
 
 ## Concepts touched
@@ -99,6 +99,6 @@ For the Architect:
   - Its ADR: `engineering-team/decisions/community-reference/0034-b-tag-primitive-emitter-derivation.md`
   - ADR 0030: `engineering-team/decisions/community-reference/0030-communityreference-seed-not-stub.md`
   - `import nostr`'s ADR: `engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md`
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/community-reference/0035-community-references-import-then-prune.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
