@@ -13,7 +13,8 @@
  *      MAX_SEND letters would be signed, or SEND_CUTOFF_MS has passed;
  *   4. unless a dry run: the new and changed letters signed and put into the instance's own relay, read back by id, and
  *      sent to each relay named, an unchanged one to each that doesn't hold it yet (_send.js, Decision 6);
- *   5. what was accepted, recorded on its node and in one change entry (_record.js, Decision 8).
+ *   5. what was accepted, recorded on its node and in one change entry, and a letter whose read-back didn't answer in
+ *      that entry only (_record.js, Decision 8; Amendment 2 item 1).
  * BUDGET_MS, SEND_CUTOFF_MS, MAX_SCOPE and MAX_SEND are read through the declaration at each call, so a suite can
  * shrink them. It requires nothing at load that opens anything (ADR graph-operations-foundation/0001 Decision 10).
  */
@@ -46,7 +47,7 @@ const NO_ASSISTANT_KEY = Object.freeze({ code: 'no-assistant-key', status: 409, 
 const OUTCOMES = Object.freeze(['new', 'changed', 'unchanged', 'not-own', 'owner-signed', 'other-kind', 'no-address', 'unbuildable']);
 const COUNT_OF = Object.freeze({ 'not-own': 'notOwn', 'owner-signed': 'ownerSigned', 'other-kind': 'otherKind', 'no-address': 'noAddress' });
 const STATUSES = Object.freeze(['accepted', 'refused', 'timeout', 'unreachable', 'held', 'not-sent', 'unread']);
-const REPORTS = Object.freeze(['link-dropped', 'value-left-out', 'pointer-unresolved', 'unsent-reference', 'uncarried-relationship', 'not-found']);
+const REPORTS = Object.freeze(['link-dropped', 'value-left-out', 'pointer-unresolved', 'unsent-reference', 'uncarried-relationship', 'not-found', 'graph-not-followed']);
 const SIGNED = Object.freeze(['new', 'changed']);
 
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -83,7 +84,7 @@ const REPORT = {
   type: 'object',
   required: ['report', 'node', 'words'],
   properties: {
-    report: { type: 'string', enum: [...REPORTS], description: "link-dropped (a tapestry: link to a node with no letter, kept as its text), value-left-out (a whole tapestry: value with no letter, left out), pointer-unresolved (an lmdb: value the store doesn't hold, left out; for a json tag, the node is unbuildable), unsent-reference (a tag or a graph list naming an own node that has no letter and isn't sent in this call; the letter still names it), uncarried-relationship (a relationship between two nodes sent that no letter carries) or not-found (an address or id a graph lists that no node holds)" },
+    report: { type: 'string', enum: [...REPORTS], description: "link-dropped (a tapestry: link to a node with no letter, kept as its text), value-left-out (a whole tapestry: value with no letter, left out), pointer-unresolved (an lmdb: value the store doesn't hold, left out; for a json tag, the node is unbuildable), unsent-reference (a tag or a graph list naming an own node that has no letter and isn't sent in this call; the letter still names it), uncarried-relationship (a relationship between two nodes sent that no letter carries), not-found (an address or id a graph lists that no node holds) or graph-not-followed (a graph past the fourth level of imports, or past the 50th, sent as it is, its lists not followed)" },
     node: { type: 'string', description: 'The tapestryKey of the node whose letter it is about (for a relationship, the one it runs from)' },
     words: { type: 'string', description: 'What it means, in words' },
     key: { type: 'string', description: 'The tapestryKey the value or link named, or the store key an lmdb: value named' },
@@ -102,9 +103,9 @@ module.exports = {
   access: 'owner-and-admins',
   summary: 'Publish a scope as letters the assistant signs, and record what was sent',
   description: [
-    "Publishes one node (`node`, a ref), a graph (`graph`, a ref to a graph element: a concept graph, a Tapestry, or a selection saved as a graph) or everything of this instance's own (`everything: true`) as nostr letters this instance's assistant signs, to this instance's own relay and to each relay in `relays` (up to ten ws:// or wss:// URLs whose hosts resolve to public addresses only). A graph brings what its graph.nodes lists, the graphs its graph.imports lists (four levels, 50 graphs), and for a concept graph that concept's header, core nodes, superset, sets to six levels and their elements, the instance's own only.",
+    "Publishes one node (`node`, a ref), a graph (`graph`, a ref to a graph element: a concept graph, a Tapestry, or a selection saved as a graph) or everything of this instance's own (`everything: true`) as nostr letters this instance's assistant signs, to this instance's own relay and to each relay in `relays` (up to ten ws:// or wss:// URLs whose hosts resolve to public addresses only). A graph brings what its graph.nodes lists, the graphs its graph.imports lists (four levels, 50 graphs; a graph past them is sent with its lists unfollowed, and reported graph-not-followed), and for a concept graph that concept's header, core nodes, superset, sets to six levels and their elements, the instance's own only.",
     "Each node's letter is built from the node as the graph holds it now: its tags as its tag nodes hold them, a set's s tags from its parent links, an element's z stamps for its concept's pointer b tags, its stored JSON without graphContext, every lmdb: value resolved, and each tapestry: link and whole tapestry:<key> value rewritten to the target's nostr:naddr1… (or nostr:nevent1… for an event id) when it has a letter or gets one in this call, else dropped to its text or left out, and reported. Only the assistant's own nodes are signed: another author's node, the owner's included, is named by its address and never signed or sent. The graph never changes but for what is recorded of the letters.",
-    "Only what is new or changed since it was last sent is signed again, dated one second after the node's last letter at the least; an unchanged letter is sent as it was signed to a relay named that doesn't hold it. Letters go out so that each comes after the call's letters it names, a cycle broken by rank. Each is put into this instance's own relay with strfry import and read back by id, and only one it holds goes to the relays named, each relay's answer given as that relay gave it. The node then holds the letter's id and created_at, and sentTo (the relays that hold it), and one change entry records the letters sent. `dryRun: true` signs, sends and records nothing, and answers what the call would do, reports first. A scope bigger than one call (2,000 nodes classed, 500 letters signed, or 30 s of sending) answers `next.after`, the cursor the next call goes on from.",
+    "Only what is new or changed since it was last sent is signed again, dated one second after the node's last letter at the least; an unchanged letter is sent as it was signed to a relay named that doesn't hold it. Letters go out by kind of node first, concept headers, then supersets, then sets (parents first), then the rest, and within a kind each comes after the call's letters of that kind it names, a cycle by tapestryKey. Each is put into this instance's own relay with strfry import and read back by id, and only one it holds goes to the relays named, each relay's answer given as that relay gave it. The node then holds the letter's id and created_at, and sentTo (the relays that hold it), and one change entry records the letters sent, and any whose read-back didn't answer. `dryRun: true` signs, sends and records nothing, and answers what the call would do, reports first. A scope bigger than one call (2,000 nodes classed, 500 letters signed, or 30 s of sending) answers `next.after`, the cursor the next call goes on from.",
   ].join('\n\n'),
   inputs: {
     node: { schema: { type: 'string', maxLength: MAX_REF }, description: "The one node to export: its tapestryKey, or a ref graph resolve reads (an address, an event id, a name or a slug)" },
@@ -115,7 +116,7 @@ module.exports = {
     after: { schema: { type: 'string', maxLength: 4000 }, description: 'The cursor a previous call of the same scope answered as next.after, to go on from there' },
   },
   result: {
-    description: "The relays sent to, the reports, the letter of each node classed with its outcome and each relay's answer, the counts of each outcome, where the next call goes on, and the change entry (null when nothing was accepted)",
+    description: "The relays sent to, the reports, the letter of each node classed with its outcome and each relay's answer, the counts of each outcome, where the next call goes on, and the change entry (null when no letter was accepted, and none is unread)",
     schema: {
       type: 'object',
       required: ['dryRun', 'relays', 'reports', 'letters', 'counts', 'next', 'change'],
@@ -350,7 +351,8 @@ async function exportScope({ D, ctx, read, form, key, scope, after, relays, sign
         for (const b of toSend) answers.get(b.entry.key).set(r, got.get(b.event.id));
       }));
 
-      // 5. What was accepted, recorded on its node and in one change entry.
+      // 5. What was accepted, recorded on its node and in one change entry. An unread letter may be on the instance's
+      //    own relay, so it is in the entry too, and on no node (Amendment 2 item 1).
       const records = [];
       for (const b of inOrder) {
         const a = answers.get(b.entry.key);
@@ -358,9 +360,10 @@ async function exportScope({ D, ctx, read, form, key, scope, after, relays, sign
         const now = { id: b.event.id, created_at: b.event.created_at };
         const answered = relayNames.map((r) => { const x = a.get(r) || { status: 'not-sent', reason: null }; return { relay: r, status: x.status, reason: x.reason === undefined ? null : x.reason }; });
         if (SIGNED.includes(b.outcome)) {
-          if (a.get(OWN).status !== 'accepted') continue;
+          const ownStatus = a.get(OWN).status;
+          if (ownStatus !== 'accepted' && ownStatus !== 'unread') continue;
           const was = b.entry.id ? { id: b.entry.id, created_at: b.entry.created_at } : null;
-          records.push({ key: b.entry.key, address: b.entry.uuid, kind: b.kind, was, now, relays: answered, sentTo: [OWN, ...accepted] });
+          records.push({ key: b.entry.key, address: b.entry.uuid, kind: b.kind, was, now, relays: answered, ...(ownStatus === 'accepted' ? { sentTo: [OWN, ...accepted] } : { unread: true }) });
         } else if (accepted.length) {
           records.push({ key: b.entry.key, address: b.entry.uuid, kind: b.kind, was: now, now, relays: answered, add: [OWN, ...accepted] });
         }

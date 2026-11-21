@@ -1,21 +1,24 @@
 'use strict';
 /**
  * export nostr's sender (story graph-operations-first-slice #34, AC1; ADR graph-operations-first-slice/0034 Decision 6).
- * It is the instance's second server-side publisher, beside dlist-curation's, under its own ADR and its own exclusion
- * (Decision 11): RE1 (test/publish-export-a-concept.test.js) excludes src/operations/catalog/export/, where this file
- * sits, and catches a publisher built this way anywhere else.
+ * It is another server-side publisher, beside dlist-curation's and assistant-profile's, under its own ADR and its own
+ * exclusion (Decision 11): RE1 (test/publish-export-a-concept.test.js) excludes src/operations/catalog/export/, where
+ * this file sits, and catches a publisher built this way anywhere else.
  *
- *   strfryImport(lines)        the seam for the instance's own relay: `strfry import` with the letters as JSONL on
- *                              stdin, as src/api/normalize/helpers.js puts a letter into it. Resolves { code } once it
- *                              ran, rejects when it couldn't run. Its exit code is never taken as an answer: strfry
- *                              exits 0 when it refuses an event, so each letter is read back by id (toOwn).
+ *   strfryImport(lines, { ms }) the seam for the instance's own relay: `strfry import` with the letters as JSONL on
+ *                              stdin, as src/api/normalize/helpers.js puts a letter into it, its child killed after
+ *                              `ms` (IMPORT_MS, 30 s, at the most). Resolves { code } once it ran or was killed,
+ *                              rejects when it couldn't run. Its exit code is never taken as an answer: strfry exits 0
+ *                              when it refuses an event, so each letter is read back by id (toOwn).
  *   now()                      the Unix time in seconds a letter's created_at starts from
  *   OK_MS, IN_FLIGHT           how long a relay has to send a letter's OK (5 s), and how many letters wait for theirs at
  *                              a time on one relay (8)
  *   toOwn(letters, conn, opts) put the letters into the instance's own relay and read each back by id over `conn`
  *                              (import's reader, src/operations/catalog/import/_relay.js) → Map(id → { status, reason }),
- *                              status accepted, refused, unread or unreachable (opts.deadline: no read-back starts
- *                              after it, and what it would have read is unread)
+ *                              status accepted, refused, unread or unreachable (opts.deadline: the import is given
+ *                              the time left until it, IMPORT_MS at the most, and is stopped then, its letters as the
+ *                              read-back finds them (Amendment 2 item 5); no read-back starts after it, and what it
+ *                              would have read is unread)
  *   toRelay(url, letters, opts)  send letters to one outside relay over one connection → Map(id → { status, reason }),
  *                              status accepted, refused, timeout, unreachable or not-sent (opts.cutoffAt: no send
  *                              starts after it; such a letter's answer carries cut: true, for next.after)
@@ -25,7 +28,10 @@
 
 const OWN_RELAY = 'ws://127.0.0.1:7777';
 const READ_BATCH = 100;
-const STRFRY_MS = 60000;
+/** The longest a strfry import is given (Amendment 2 item 5): never more than 30 s, whatever the call has left. */
+const IMPORT_MS = 30000;
+/** How much longer toOwn waits, once the import's time is up, for its killed child to close before reading back. */
+const STOP_MS = 1000;
 
 const words = (err) => require('../import/_letters').words(err);
 const answer = (status, reason = null) => ({ status, reason: reason === undefined || reason === '' ? null : reason });
@@ -59,8 +65,9 @@ const sender = {
     return Math.floor(Date.now() / 1000);
   },
 
-  strfryImport(lines) {
+  strfryImport(lines, { ms = IMPORT_MS } = {}) {
     const text = Array.isArray(lines) ? lines.map((l) => (typeof l === 'string' ? l : JSON.stringify(l))).join('\n') : String(lines);
+    const limit = Number.isFinite(ms) ? Math.max(0, Math.min(ms, IMPORT_MS)) : IMPORT_MS;
     return new Promise((resolve, reject) => {
       const { spawn } = require('child_process');
       let child;
@@ -72,7 +79,8 @@ const sender = {
       }
       let stderr = '';
       let done = false;
-      const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, STRFRY_MS);
+      // Stopped when its time is up: what it kept by then is read back either way.
+      const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* gone */ } }, limit);
       child.on('error', (err) => { if (done) return; done = true; clearTimeout(timer); reject(new Error(`strfry import could not run: ${words(err)}`)); });
       child.stderr.on('data', (d) => { if (stderr.length < 4000) stderr += String(d); });
       child.on('close', (code, signal) => { if (done) return; done = true; clearTimeout(timer); resolve({ code, signal, stderr }); });
@@ -85,10 +93,19 @@ const sender = {
   async toOwn(letters, conn, { deadline = Infinity } = {}) {
     const out = new Map();
     if (!letters.length) return out;
-    try {
-      await sender.strfryImport(letters.map((e) => JSON.stringify(e)).join('\n'));
-    } catch (err) {
-      for (const e of letters) out.set(e.id, answer('unreachable', `strfry import could not run, so the instance's own relay was never given it: ${words(err)}`));
+    // The import is given the call's time left, IMPORT_MS at the most, and is killed then (Amendment 2 item 5). It is
+    // waited for STOP_MS longer, so the read-back comes after its child closed, and no longer, so one that never ends
+    // can't hold the call. Its answer is caught here whenever it comes.
+    const ms = Math.max(0, Math.min(deadline - Date.now(), IMPORT_MS));
+    let timer = null;
+    const stopped = new Promise((resolve) => { timer = setTimeout(() => resolve({ stopped: true }), ms + STOP_MS); });
+    const importing = Promise.resolve()
+      .then(() => sender.strfryImport(letters.map((e) => JSON.stringify(e)).join('\n'), { ms }))
+      .then(() => ({ ran: true }), (err) => ({ err }));
+    const imported = await Promise.race([importing, stopped]);
+    clearTimeout(timer);
+    if (imported.err) {
+      for (const e of letters) out.set(e.id, answer('unreachable', `strfry import could not run, so the instance's own relay was never given it: ${words(imported.err)}`));
       return out;
     }
     const ids = letters.map((e) => e.id);

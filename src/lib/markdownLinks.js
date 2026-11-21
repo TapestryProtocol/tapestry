@@ -22,8 +22,9 @@
  *     links lists each tapestry: link, rewritten, dropped or kept, with `to` for one rewritten.
  *
  * A link inside a code span or a code block is never one: CommonMark sees none there, and neither does this. micromark
- * marks each part of a link with its exact offsets in the text, so a rewrite changes only what it names. micromark is
- * an ES module, loaded once with import() and kept.
+ * marks each part of a link with its exact offsets in the text, so a rewrite changes only what it names. Its
+ * preprocess skips a byte-order mark that starts the text, so its offsets there count from the character after the
+ * mark, and each is moved on by one. micromark is an ES module, loaded once with import() and kept.
  */
 
 const TAPESTRY = 'tapestry:';
@@ -47,7 +48,10 @@ function identifier(label) {
 async function scan(text) {
   const { parse, preprocess, postprocess } = await micromark();
   const events = postprocess(parse().document().write(preprocess()(String(text), undefined, true)));
-  const slice = (t) => String(text).slice(t.start.offset, t.end.offset);
+  // micromark's offsets, as indexes into `text`: one on after a leading byte-order mark, which preprocess skips.
+  const shift = String(text).charCodeAt(0) === 0xfeff ? 1 : 0;
+  const at = (point) => point.offset + shift;
+  const slice = (t) => String(text).slice(at(t.start), at(t.end));
   const found = [];
   const definitions = [];
   const open = []; // the links and images being read, innermost last
@@ -57,25 +61,25 @@ async function scan(text) {
     const type = token.type;
     if (kind === 'enter') {
       if (type === 'link' || type === 'image') {
-        open.push({ image: type === 'image', whole: [token.start.offset, token.end.offset], label: null, destination: null, resource: false, reference: null });
+        open.push({ image: type === 'image', whole: [at(token.start), at(token.end)], label: null, destination: null, resource: false, reference: null });
       } else if (type === 'labelText' && open.length && !open[open.length - 1].label) {
-        open[open.length - 1].label = [token.start.offset, token.end.offset];
+        open[open.length - 1].label = [at(token.start), at(token.end)];
       } else if (type === 'resource' && open.length) {
         open[open.length - 1].resource = true;
       } else if (type === 'resourceDestinationString' && open.length) {
-        open[open.length - 1].destination = [token.start.offset, token.end.offset];
+        open[open.length - 1].destination = [at(token.start), at(token.end)];
       } else if (type === 'referenceString' && open.length) {
         open[open.length - 1].reference = slice(token);
       } else if (type === 'autolink') {
-        autolink = { whole: [token.start.offset, token.end.offset], destination: null };
+        autolink = { whole: [at(token.start), at(token.end)], destination: null };
       } else if (type === 'autolinkProtocol' && autolink) {
-        autolink.destination = [token.start.offset, token.end.offset];
+        autolink.destination = [at(token.start), at(token.end)];
       } else if (type === 'definition') {
-        definition = { whole: [token.start.offset, token.end.offset], id: null, destination: null };
+        definition = { whole: [at(token.start), at(token.end)], id: null, destination: null };
       } else if (type === 'definitionLabelString' && definition) {
         definition.id = identifier(slice(token));
       } else if (type === 'definitionDestinationString' && definition) {
-        definition.destination = [token.start.offset, token.end.offset];
+        definition.destination = [at(token.start), at(token.end)];
       }
       continue;
     }

@@ -7,16 +7,18 @@
  *   isGraphElement(read, key)       whether the node is a graph element: one the class thread of this instance's graph
  *                                   concept (39998:<assistant>:graph) reaches, or one whose stored JSON holds a
  *                                   top-level graph object (story amendment 6)
- *   scopeOf(read, { form, key })    → { keys, reports }: the scope's tapestryKeys, and a not-found report for each
- *                                   address or id a graph lists that no node holds
+ *   scopeOf(read, { form, key })    → { keys, reports }: the scope's tapestryKeys, a not-found report for each address
+ *                                   or id a graph lists that no node holds, and a graph-not-followed report for each
+ *                                   graph sent with its lists unfollowed (Amendment 2 item 3)
  *                                     node        that node
  *                                     graph       the graph element, what its graph.nodes lists (by uuid as an
  *                                                 address, else as an event id), the graphs its graph.imports lists,
  *                                                 followed the same way (four levels, 50 graphs, as import nostr follows
- *                                                 them), and for a concept graph (a node that IS_THE_CONCEPT_GRAPH_FOR a
- *                                                 header) that concept's header, its six core nodes, its superset, the
- *                                                 sets below it to six levels and their elements, the instance's own
- *                                                 only, as today's export-set gathers them
+ *                                                 them; a graph past them is sent as it is, its lists unfollowed), and
+ *                                                 for a concept graph (a node that IS_THE_CONCEPT_GRAPH_FOR a header)
+ *                                                 that concept's header, its six core nodes, its superset, the sets
+ *                                                 below it to six levels and their elements, the instance's own only, as
+ *                                                 today's export-set gathers them
  *                                     everything  every node of the instance's own of kind 39998 or 39999 with an address
  *   entriesOf(read, keys)           → each node's facts, with its rank and depth, in rank order: concept headers;
  *                                   supersets; sets, by their depth below a superset, parents first; everything else;
@@ -24,9 +26,10 @@
  *                                   never in a scope
  *   fingerprint(form, key), encodeCursor(scope, position), decodeCursor(text, scope), isAfter(entry, position),
  *   positionOf(entry), START        the cursor next.after holds: [rank, depth, tapestryKey] of the last node finished
- *   sendOrder(items)                → items in the order their letters go out: each after the call's letters it names
- *                                   (its z, n, s, a, e, nodeFrom, nodeTo and concept-graph tags, and a graph's
- *                                   graph.nodes and graph.imports), a cycle broken by rank
+ *   sendOrder(items)                → items in the order their letters go out: by rank first (concept headers,
+ *                                   supersets, sets, the rest), and within a rank each after the call's letters of that
+ *                                   rank it names (its z, n, s, a, e, nodeFrom, nodeTo and concept-graph tags, and a
+ *                                   graph's graph.nodes and graph.imports), a cycle by tapestryKey (Amendment 2 item 2)
  *
  * Every value is a parameter; only firmware's relationship types (checked plain names) reach a statement's text. It
  * opens nothing when it loads, and never writes, signs or sends.
@@ -228,6 +231,7 @@ async function scopeOf(read, { form, key, own }) {
   const followed = new Set();
   const queue = [{ key, depth: 0 }];
   const fromConcepts = [];
+  const tooDeep = new Set(); // the graphs an import names more than MAX_DEPTH levels down
   while (queue.length && followed.size < MAX_GRAPHS) {
     const { key: g, depth } = queue.shift();
     if (followed.has(g)) continue;
@@ -243,7 +247,10 @@ async function scopeOf(read, { form, key, own }) {
           const k = named.get(uuid);
           if (k) {
             keys.add(k);
-            if (where === 'graph.imports' && depth + 1 <= MAX_DEPTH && !followed.has(k)) queue.push({ key: k, depth: depth + 1 });
+            if (where === 'graph.imports' && !followed.has(k)) {
+              if (depth + 1 <= MAX_DEPTH) queue.push({ key: k, depth: depth + 1 });
+              else tooDeep.add(k);
+            }
           } else if (!reports.some((r) => r.node === g && r.address === uuid)) {
             reports.push({
               report: 'not-found', node: g, where, address: uuid,
@@ -255,9 +262,21 @@ async function scopeOf(read, { form, key, own }) {
     }
     fromConcepts.push(...await conceptOf(read, g));
   }
+  // A graph past the fourth level of imports, or past the 50th, is sent as it is, its lists unfollowed, and reported
+  // once, saying why (Amendment 2 item 3).
+  const left = new Map();
+  for (const q of queue) if (!followed.has(q.key) && !left.has(q.key)) left.set(q.key, `this call had followed the lists of ${MAX_GRAPHS} graphs, the most one call follows`);
+  for (const g of tooDeep) if (!followed.has(g) && !left.has(g)) left.set(g, `it is imported more than ${MAX_DEPTH} levels below the graph exported, the deepest one call follows`);
   // A concept's class thread brings the instance's own nodes only, as today's export-set does.
-  const facts = await factsOf(read, fromConcepts);
+  const facts = await factsOf(read, [...fromConcepts, ...left.keys()]);
   for (const k of fromConcepts) if (isOwn(facts.get(k), own)) keys.add(k);
+  for (const [g, why] of left) {
+    const name = (facts.get(g) || {}).name;
+    reports.push({
+      report: 'graph-not-followed', node: g,
+      words: `The graph ${name ? `"${name}" (${g})` : g} is sent as it is, but what its graph.nodes and graph.imports list isn't: ${why}. Export it on its own, as graph, to send what it lists.`,
+    });
+  }
   return { keys: [...keys], reports };
 }
 
@@ -317,16 +336,29 @@ function decodeCursor(cursor, scope) {
   return parsed[2];
 }
 
-// ── the order letters go out in (Decision 2, story amendment 5) ──
+// ── the order letters go out in (Decision 2, story amendment 5; Amendment 2 item 2) ──
 /**
  * items: [{ key, rank, depth, refs: [the addresses and ids it holds: its address, its letter's id], names: [what its
- * letter names] }] → the items in send order. Each strongly connected group goes after the groups it names; a group of
- * more than one is a cycle, sent in rank order.
+ * letter names] }] → the items in send order: rank by rank, concept headers first, and within a rank in the order
+ * rankOrder gives.
  */
 function sendOrder(items) {
+  const out = [];
+  for (const rank of [...new Set(items.map((it) => it.rank))].sort((a, b) => a - b)) out.push(...rankOrder(items.filter((it) => it.rank === rank)));
+  return out;
+}
+
+const byKey = (a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+
+/**
+ * One rank's items in send order. Each strongly connected group, of the names among them, goes after the groups it
+ * names, the ready group first by depth (parents first, for sets) and tapestryKey; a group of more than one is a cycle,
+ * sent by tapestryKey.
+ */
+function rankOrder(items) {
   const byRef = new Map();
   for (const it of items) for (const r of it.refs) if (typeof r === 'string' && r && !byRef.has(r)) byRef.set(r, it.key);
-  const byKey = new Map(items.map((it) => [it.key, it]));
+  const itemOf = new Map(items.map((it) => [it.key, it]));
   const deps = new Map(items.map((it) => [it.key, [...new Set(it.names.map((n) => byRef.get(n)).filter((k) => k && k !== it.key))]]));
   // Tarjan's strongly connected components, without recursion.
   let index = 0;
@@ -357,13 +389,13 @@ function sendOrder(items) {
       if (work.length) { const u = work[work.length - 1][0]; low.set(u, Math.min(low.get(u), low.get(v))); }
       if (low.get(v) === idx.get(v)) {
         const group = [];
-        for (;;) { const w = stack.pop(); onStack.delete(w); groupOf.set(w, groups.length); group.push(byKey.get(w)); if (w === v) break; }
-        group.sort((a, b) => compare(positionOf(a), positionOf(b)));
+        for (;;) { const w = stack.pop(); onStack.delete(w); groupOf.set(w, groups.length); group.push(itemOf.get(w)); if (w === v) break; }
+        group.sort(byKey);
         groups.push(group);
       }
     }
   }
-  // Kahn's order over the groups, the lowest-ranked ready group first.
+  // Kahn's order over the groups, the ready group with the lowest depth and tapestryKey first.
   const waits = groups.map(() => new Set());
   const feeds = groups.map(() => new Set());
   groups.forEach((g, gi) => {

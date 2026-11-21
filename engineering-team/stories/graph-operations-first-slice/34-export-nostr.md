@@ -267,16 +267,29 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 - **A concept graph's class thread brings the instance's own nodes only** (the read conventions' own test), as the story's settled design says. What a graph's lists name is kept whoever wrote it, and answered `not-own` or `owner-signed`. Graphs past four levels or the 50th are neither followed nor reported.
 - **micromark 4.0.2,** pinned exactly as asked (`npm install --save-exact micromark@4.0.2`; 4.0.3 exists). The lock gains its 27 packages, all micromark's own and theirs.
 
+Judgment calls made fixing review round 1 (2026-11-21, ADR 0034 Amendment 2), each too small for another amendment:
+
+- **(Finding 13, unlogged at Implementation; now Amendment 2 item 4.) `uncarried-relationship` counts a `b` tag as carrying a relationship:** `INHERITS_FROM` for an inherit-typed `b`, `REFERENCES` for any other, as import nostr makes them (`import/_letters.js`), though Decision 9's list named no `b`.
+- **The record takes its locks in one statement:** every node it sets, in tapestryKey order, with the `SET n.tapestryLock = true REMOVE n.tapestryLock` that `_concepts.js`'s lock uses, rather than `lockNode`'s two statements a node, so a 500-letter record isn't 1,000 more round trips and two records lock in one order.
+- **A record that finds a letter no export sent** (neither the one the call read, nor one an `export nostr` entry records for the node) leaves the node as it is, `raced`, as Decision 8 had it. Amendment 2 item 1 speaks only of the letters export sent.
+- **A record that replaces an older letter another export sent** gives that letter as its change's `was`, since it is the letter it replaced, not the one the call read.
+- **An unread letter's change** has `was` and `now` as a sent one's, its relays' answers and no `raced`. Its node is in the entry's `keys`, so `graph history` finds it, though the node records nothing.
+- **The guard's entry check** applies to an own node at the letter's address (or keyed by its id) whether or not it holds a letter. It reads only the `export nostr` entries whose `keys` hold that node and whose changes' text holds the id, then checks for a `letter-sent` change of that node with that `now.id`. The record uses the same reader (`_record.js`'s `sentByExport`).
+- **`graph-not-followed`** is given once for each node a `graph.imports` lists that the caps left unread and no other path followed, whether or not its JSON holds lists. It names the graph by its tapestryKey and name and says which cap, but not its address: EK7's `named` matches an address by substring, so `…:wide-w50` would also name `…:wide-w5`.
+- **The send order (Amendment 2 item 2) replaces deviation 12's:** rank by rank, and within a rank the strongly connected groups in Kahn's order, the ready group with the lowest depth (so sets' parents first), then tapestryKey, going first, and a group of more than one by tapestryKey. Deviation 12's naming tags stay.
+- **`strfry import`'s time (Amendment 2 item 5) replaces deviation 17's 60 s.** It gets the time left before `BUDGET_MS`, 30 s at most, and its child is then killed. `toOwn` waits 1 s more (`STOP_MS`) for the killed child to close, so the read-back never runs beside a live import, and no longer, so a seam that never ends can't hold the call. There's no floor: with no time left, the import is killed at once. The read-back still starts only before `BUDGET_MS`, so the letters of an import stopped at the deadline answer `unread`, and go in the entry.
+- **A byte-order mark** that starts a text moves each of micromark's offsets on by one. A mark later in the text is kept as a character by micromark, so it needs nothing.
+
 ## Evidence
 
-### The suites (Implementation, 2026-11-20, on `26712ded`)
+### The suites (Implementation, 2026-11-20, on the tree just before it was committed as `26712ded`)
 
-Each suite ran alone on this Mac, with every service endpoint dead, `TAPESTRY_CONTAINER_PORT` unset, `TAPESTRY_CONTAINER=no-such-container`, and stub `curl` and `docker` first on `PATH` (`tmp/a10-34/`). None failed:
+Each suite ran alone on this Mac, with every service endpoint dead, `TAPESTRY_CONTAINER_PORT` unset, `TAPESTRY_CONTAINER=no-such-container`, and stub `curl` and `docker` first on `PATH` (`tmp/a10-34/`). Their logs are dated 20:08–20:09 (UTC−5), and `26712ded` was committed at 20:10. None failed:
 - export: nostr 15, markdown-links 9, nostr-letters 11, nostr-links 6, nostr-send 16, nostr-own 5, nostr-agent-through-cli 1, nostr-live 6 skipped;
 - RE1 (`test/publish-export-a-concept.test.js`, widened) 3;
 - import nostr's suites, the graph writes the scopes use, `write-path`, `tapestry-key-paths`, `relationship-type-allowed`, and the suites behind the three guarded importers, every one passing as before.
 
-The scoped gate, through the gate engine with a conf file whose Neo4j is a closed port, is `20261121T010128Z-88708-2efe`: PASS, exit 0, 1,473 passed, 0 failed, 18 skipped, 6/6 suites (`operations.test.js`, `external-cli`, `openapi-coverage`, `admin-action-sweep`, `schema-save-finds-the-right-header`, `publish-export-a-concept`).
+The scoped gate, through the gate engine with a conf file whose Neo4j is a closed port, is `20261121T010128Z-88708-2efe`: PASS, exit 0, 1,473 passed, 0 failed, 18 skipped, 6/6 suites (`operations.test.js`, `external-cli`, `openapi-coverage`, `admin-action-sweep`, `schema-save-finds-the-right-header`, `publish-export-a-concept`). It didn't run on `26712ded` (review round 1, finding 12): its record names `823683c6`, the tests' commit, with the implementation's 16 files uncommitted (`dirty: true`), before they were committed as `26712ded` with the docs, the ledger row and these Deviations, 21 files in all. The Reviewer's clean run on `39a9b8c5`, `20261121T014306Z-58530-ba74`, gives the same totals.
 
 ### The live check (2026-11-21, 01:15–01:25Z, scratch stack `tapestry-scratch`)
 
@@ -298,9 +311,21 @@ The image is `tapestry-tapestry`, with this branch's `src/` mounted read-only.
   - The second element's letter on the relay links by `nostr:naddr1…`, which decodes to the first's address, while its node in the graph still holds the `tapestry:` link.
   - `graph history` shows the two `export nostr` entries.
 - **LH2, by hand (6 of 6):** `POST /api/neo4j/event-update` on both exported elements answered `unchanged`, naming the letter each holds. Their tag nodes are the same nodes, and the control panel logged no tag deletion.
-- **Not yet run:** the send to an outside relay, and EA1's private-relay refusal by hand, which wait for the owner to choose the outside relay. A large export through nginx isn't timed; LV6 timed the call direct to the control panel.
+- **Not yet run:** EA1's private-relay refusal by hand on the stack. The send to an outside relay is no longer part of this run (AC7 as amended at Review, ADR 0034 Amendment 2 item 7): the first real export to one is recorded here when it happens. A large export through nginx isn't timed; LV6 timed the call direct to the control panel.
 
 The records are in the worktree's `tmp/live-check-34/`, to be copied to the main checkout's `tmp/` before the worktree goes.
+
+### The suites after review round 1's fixes (2026-11-21, on `d58a6889` with the fixes uncommitted)
+
+Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every endpoint dead, and the conf file's Neo4j and Redis on a closed port. None failed:
+- export: nostr 15, markdown-links 10, nostr-letters 12, nostr-links 8, nostr-send 19, nostr-own 5, nostr-agent-through-cli 1, nostr-live 6 skipped. The nine round-1 tests the test plan lists as failing pass: ML10, EK7, EK8, EW2, EW5, ES8, ES13, ES17 and ES19;
+- RE1 (`test/publish-export-a-concept.test.js`) 3;
+- import: cypher-engine 12, nostr 15, nostr-agent-through-cli 1, nostr-filter 10, nostr-graph 12, nostr-order 11, nostr-own 7, nostr-record 15, nostr-relay 9, nostr-live 6 skipped;
+- the guarded importers' suites: brain-first-tapestry-authoring 11 (its 8 live checks skipped), publish-event-signature-verification 5, b-tag-primitive 16 and curated-dlist-update-publish 69; with change-entry-fields 3 and openapi-coverage 13.
+
+The scoped gate, the same six entries through the gate engine, is `20261121T034436Z-32410-17ad`: PASS, exit 0, 1,480 passed, 0 failed, 18 skipped, 6/6 suites. Its record names `d58a6889` with 12 files uncommitted (`dirty: true`): these fixes, before their commit. `operations` has round 1's seven new tests (1,376 passed, against 1,369), and the other five entries' totals are as before.
+
+The live check hasn't run again since these fixes, so LV5's two exports at once haven't met the new record's locks on a real Neo4j.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`

@@ -9,8 +9,11 @@
  *
  *   holdsLetterOrNewer(read, event) → true when the node at the letter's address (or keyed by its id) is the
  *     instance's own (graph/_nodes.js's factsOf) and holds that letter, or a newer one by NIP-01's order: a later
- *     created_at, or on a tie the lower id. False for anything else: a newer letter, another author's node, an own
- *     node with no letter, no node, or something that isn't an event. `read` is the graph seam's read.
+ *     created_at, or on a tie the lower id. True too for any letter an export nostr entry records as sent for that
+ *     node, newer or not, whatever the node holds: one that lost a race of two exports, or whose read-back didn't
+ *     answer (Amendment 2 item 1; _record.js's sentByExport). False for anything else: a newer letter no export sent,
+ *     another author's node, an own node with no letter, no node, or something that isn't an event. `read` is the
+ *     graph seam's read.
  *
  * It reads and never writes, signs or sends. The loader skips it, as every `_` file. It requires nothing at load that
  * opens anything (ADR graph-operations-foundation/0001 Decision 10).
@@ -37,18 +40,23 @@ async function holdsLetterOrNewer(read, event) {
   const { factsOf } = require('../graph/_nodes');
   const uuids = [...new Set([keyOf(event).uuid, event.id])];
   const rows = await read(AT, { uuids });
+  const own = [];
   for (const r of rows || []) {
     if (!r || typeof r.key !== 'string') continue;
     const facts = factsOf(r.key, { uuid: r.uuid, id: r.id, created_at: r.created_at, pubkey: r.pubkey, name: r.name, tapestryValue: r.tapestryValue, _labels: r.labels });
-    if (!facts.own || !facts.hasLetter) continue;
+    if (!facts.own) continue;
+    own.push(r.key);
+    if (!facts.hasLetter) continue;
     if (r.id === event.id) return true;
     const at = Number(r.created_at);
     if (at > event.created_at || (at === event.created_at && String(r.id) < event.id)) return true;
   }
-  return false;
+  if (!own.length) return false;
+  const { sentByExport } = require('./_record');
+  return (await sentByExport(read, own.map((key) => ({ key, id: event.id })))).size > 0;
 }
 
 /** The words an importer answers with when it turns a letter away. */
-const TURNED_AWAY = "This instance's own node at the letter's address already holds this letter, or a newer one (export nostr records the letters it sends on their nodes), so importing it would put an older or the same letter back over what the graph holds now. Nothing changed.";
+const TURNED_AWAY = "This instance's own node at the letter's address already holds this letter or a newer one, or export nostr sent this letter for it (export records the letters it sends on their nodes and in its change entries), so importing it would put a letter export sent, or an older one, back over what the graph holds now. Nothing changed.";
 
 module.exports = { holdsLetterOrNewer, TURNED_AWAY };

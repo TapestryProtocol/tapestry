@@ -3621,7 +3621,10 @@ paths:
       summary: Import or update a single event in Neo4j
       description: >-
         Owner, admin or a direct-local caller only (src/middleware/routeAccess.js); 401 when not signed in, 403 for any
-        other signed-in person.
+        other signed-in person. A letter that one of the instance's own nodes already holds, one older than it, or one
+        `export nostr` sent for it is turned away, so it never comes back over the node (ADR
+        graph-operations-first-slice/0034 Decision 10): the answer is 200 with `success` and `unchanged` true and the
+        `reason` in words, and nothing changes.
       requestBody:
         required: true
         content:
@@ -3639,7 +3642,7 @@ paths:
         '403':
           description: Signed in, but not the owner or an admin
         '200':
-          description: Event updated
+          description: Event updated, or turned away unchanged
           content:
             application/json:
               schema:
@@ -3649,6 +3652,12 @@ paths:
                     type: boolean
                   uuid:
                     type: string
+                  unchanged:
+                    type: boolean
+                    description: true when the letter was turned away and nothing changed
+                  reason:
+                    type: string
+                    description: Why it was turned away, in words; given with unchanged
 
   /api/neo4j/event-uuids:
     get:
