@@ -174,6 +174,10 @@ Results:
 - One sentence of the rule's finding message changed after the run: its closing full stop, so a repair's refusal reads as rule 11's does. The four suites that read messages ran again and passed: the rule's own 10, check and repair's 10, the agent's 1, and rule 11's repair 16.
 - `stack-free-npm-test` is CI's: its G2 runs against a live control panel when one answers.
 
+**The scoped gate after review round 1's fixes (2026-11-21).** It ran on `2a8e8c2b`, with staging merged in (`a7b0aadb`). The suite list was derived from the changed files (test plan, Amendment 2): CI's registry entries for an operations change, the 37 registered suites whose source names a changed file or what it is built from (`create-concept-duplicate-check` and story 46's suite among them), and `ledger-row-ids`. It ran with every endpoint dead, as before, but with `TAPESTRY_CONTAINER` unset, as CI runs, and `docker` and `curl` stubbed, so nothing reached a container.
+- **Overall: PASS, 1951 passed, 0 failed, 166 skipped across 44 suites** (record `tmp/gate-runs/20261121T004946Z-57222-e9ab.json`).
+- The skips are live parts that need a stack.
+
 **The live check on a scratch stack (2026-11-20 23:59 to 2026-11-21 00:05 UTC).** Never this Mac's agent-memory instance. The scripts and records are in `tmp/live-check-47/`, which git ignores: `runA.sh` and its log, `setup.sh`, `check.js`, `compare.py`, `edit-wt.js`, `fits.js` and `agent.sh`.
 - **Setup.** `scripts/scratch-stack.sh up` ran from a worktree of staging's `c063ecdd`, on image `agent-memory-tapestry:latest`; its boot installs the image's firmware. Then:
   - staging's firmware was copied in;
