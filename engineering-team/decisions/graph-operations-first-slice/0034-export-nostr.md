@@ -296,3 +296,31 @@ The owner approved this ADR as drafted, with the seven together.
 - **Relationship letters for relationships no letter carries.**
 - **Relay hints, NIP-42 AUTH and NIP-65 relay lists.**
 - **Any change to today's signing routes or UI.**
+
+## Amendment 1 (2026-11-20, at Test Design; approved by the owner with the test plan)
+
+Writing the tests raised six points the decisions left open. Each is settled here. None changes a story criterion.
+
+1. **Decision 9: which uncarried relationships are reported.** `uncarried-relationship` covers a relationship of any type between two nodes the call sends that no letter of the call carries. The only types excluded are the `nostr` category's (`HAS_TAG`, `AUTHORS`, `REFERENCES`), which a letter's tags make themselves. The earlier "of a type `structureTypes` allows" left out every type graph add-relationship makes. add-relationship refuses firmware's types and makes declared types such as `CITES`, which import nostr's `structureTypes` never allows, so no letter carries them either. Decision 9's own list and AC2 already report those (test EL7).
+2. **Decision 1: `relays` is zero to ten.** The input is a list of strings with no length bound in its schema. Left out or empty, the letters go to the instance's own relay only, which is what ADR 0043's signing step sends. More than ten is refused `too-many-relays` in `run`, so the refusal names it and isn't the built-in invalid-input answer (test EN12).
+3. **Decision 1: a key no node has is `unknown-ref`.** `resolveOne` passes a tapestryKey through unread, so export reads the node, and refuses `unknown-ref` (404) when none has that key, as AC7 says (test EN7).
+4. **Decision 3: one class, in this order.** A node takes the first that fits:
+   - `no-address`;
+   - then its author, or, when it records none, the key its address carries: the owner's makes it `owner-signed`, and any key but the assistant's makes it `not-own`;
+   - then `other-kind`, a kind other than 39998 or 39999.
+
+   Only a node none of these fits is signed. So another author's node of another kind is `not-own`, and an author-less node whose address carries another key is `not-own` too.
+5. **The answer's fields** (AC1, AC5), so the Implementer has one target:
+   - `dryRun`;
+   - `relays`: `own`, then each relay named, by URL;
+   - `reports`: each `{ report, node, words }`, plus what it names: `key`, `where`, `address`, or `type`, `from` and `to`;
+   - `letters`: each `{ node, address, name, outcome, sent, id, kind, created_at, relays: [{ relay, status, reason }] }`, with `added` and `removed` on a changed one in a dry run;
+   - `counts`: by outcome;
+   - `next`: `{ after }`, or null;
+   - `change`: the entry, or null.
+
+   The suites read these through tolerant accessors (`exportFixtures.js`), so a field the code names otherwise fails no test, but these are the names.
+6. **Decision 8: when a call writes an entry, and Decision 6's cutoff.**
+   - A call writes its change entry when some relay accepted some letter. That includes an unchanged letter re-sent to a relay that hadn't had it, recorded with `was` equal to `now`.
+   - A call in which no relay accepted anything records nothing. Its letters were signed, but exist nowhere.
+   - `SEND_CUTOFF_MS` bounds the sends to outside relays. The one `strfry import` into the instance's own relay runs before them, and isn't cut.
