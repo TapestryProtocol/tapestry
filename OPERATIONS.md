@@ -99,8 +99,17 @@ The first deploy to a new droplet takes 5–15 minutes (the strfry C++ Redis pat
 **The weekly package refresh** (story `container-apt-refresh` #1, ADR `container-apt-refresh/0001`). Every deploy sets
 `PACKAGES_REFRESH` to the ISO week, `date -u +%G-W%V`, such as `2026-W47`. The brains' build in `publish-image.yml`
 does the same. The Dockerfile's refresh step, between the npm installs and `COPY .`, is keyed by it.
-- **Which deploy refreshes.** The first deploy of each ISO week to a target also brings the image's Ubuntu packages up
-  to date. Weeks start on Monday at 00:00 UTC. Every later deploy that week finds the step cached and runs as before.
+- **Which deploy refreshes.**
+  - The first deploy of each ISO week to a target also brings the image's Ubuntu packages up to date. Weeks start on
+    Monday at 00:00 UTC.
+  - So does any deploy that changes a step above the refresh, whatever the week. A changed step reruns every step
+    after it, so a change to any of these brings a refresh with it:
+    - `package.json` or `package-lock.json`;
+    - `ui/package.json` or `ui/package-lock.json`;
+    - `nip50-proxy/package.json`;
+    - a file under `patches/strfry-redis/` or `patches/strfry-router/`;
+    - the Dockerfile above the refresh step.
+  - Every other deploy that week finds the step cached and runs as before.
 - **What it changes.** It runs `apt-get full-upgrade` from Ubuntu's own sources only. NodeSource's Node and Neo4j's
   5.26.10 stay as installed, and the build fails if either moves.
 - **What it costs.**
@@ -111,11 +120,14 @@ does the same. The Dockerfile's refresh step, between the npm installs and `COPY
   - Measured on Ubuntu's snapshot archive, the upgrade levels off: 12 packages and 117 MB after a week, about 100
     packages and 170 MB after six months, mostly OpenJDK.
   - That adds about one to three minutes to the deploy.
-- **How to tell beforehand.** A deploy refreshes if its target has had no successful deploy since Monday 00:00 UTC
-  (`gh run list --workflow <deploy file> --status success --limit 1`), or if its container's marker names an earlier
-  week.
+- **How to tell beforehand.** A deploy refreshes if any of these holds:
+  - its target has had no successful deploy since Monday 00:00 UTC
+    (`gh run list --workflow <deploy file> --status success --limit 1`);
+  - its container's marker names an earlier week;
+  - the merge changes one of the files above (`gh pr diff <number> --name-only`). For the Dockerfile, only a change
+    above the refresh step counts.
 - **The marker.** `docker exec tapestry cat /etc/tapestry/packages-refresh` prints three lines: `week=`,
-  `refreshed_at=` (UTC) and `upgraded=`, the number of packages it upgraded.
+  `refreshed_at=` (UTC) and `upgraded=`, the number of packages the upgrade installed or upgraded.
 - **When Ubuntu's archive can't be reached.** `apt-get update --error-on=any` fails the build, the run goes red, and the
   running container keeps serving. The next deploy tries again. So does a re-run, after the safe-to-merge check.
 - **The sandboxes.** `feat/tags` and `feature-magic-carpet` deploy from their own branches' copies of the Dockerfile
@@ -144,8 +156,12 @@ Every workflow follows four rules that `npm test` holds: actions pinned to a com
    docker exec tapestry cat /etc/tapestry/packages-refresh
    ```
 
-   - It takes a few minutes, and it lasts, since the new image carries the refresh.
-   - The next deploy that week runs the step once more, with the plain week.
+   - It takes a few minutes. It lasts until the next deploy, which builds from this week's own refresh:
+     - **If a deploy has already refreshed this week,** the droplets' BuildKit still holds that refresh, since
+       `docker image prune` leaves the build cache alone. The next deploy reuses it, and the container goes back to
+       its packages.
+     - **If none has,** the next deploy runs the step again.
+   - So a fix that can't wait for next week's refresh needs this recipe again after each deploy that week.
 
 2. **Resetting the cached package step,** for when the weekly refresh has grown slow. This is a full rebuild from a
    fresh `ubuntu:22.04`:

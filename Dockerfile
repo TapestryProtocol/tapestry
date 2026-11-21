@@ -104,7 +104,7 @@ RUN set -eu; \
     keep_conf="-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"; \
     pinned="$(dpkg-query -W -f='${Package}=${Version} ' neo4j nodejs)"; \
     apt-get $only_ubuntu update --error-on=any; \
-    n="$(apt-get $only_ubuntu -s full-upgrade | grep -c '^Inst' || true)"; \
+    n="$(apt-get $only_ubuntu -s --no-remove -o APT::Get::Always-Include-Phased-Updates=true full-upgrade | grep -c '^Inst' || true)"; \
     echo "packages refresh ${PACKAGES_REFRESH:-unset}: ${n} to upgrade"; \
     apt-get $only_ubuntu $keep_conf -y --no-remove -o APT::Get::Always-Include-Phased-Updates=true full-upgrade; \
     test "$(dpkg-query -W -f='${Package}=${Version} ' neo4j nodejs)" = "$pinned"; \
