@@ -193,6 +193,10 @@ Results:
   - With `TAPESTRY_CONTAINER` unset, `firmware-concept-elements-sets` falls back to the `tapestry` container. Only the `docker` stub kept it off the agent-memory instance; its four skips are the stub's doing (ledger row `2026-11-13-live-suites-have-no-off-switch`).
 - **What it missed** (the fix check of round 2). The round changed a test file, and the list had no suite that scans every test file. `gate-result-record` is one; the fix check ran it, and its 34 pass.
 
+**The check of the fix check's findings (2026-11-21).** The same 21 suites ran on the committed `2af10578`, in the same environment. That round changed no test file and no firmware file, and the suites that read what it changed (the rule's file, the ADR, the story and the ledger) were already listed.
+- **Overall: PASS, 1844 passed, 0 failed, 26 skipped across 21 suites** (record `tmp/gate-runs/20261121T021233Z-47671-708f.json`).
+- The rule's three suites give 10, 10 and 1 again.
+
 Results:
 - **Overall: PASS, 1844 passed, 0 failed, 26 skipped across 21 suites** (record `tmp/gate-runs/20261121T014937Z-70585-f248.json`).
 - The rule's three suites give 10, 10 and 1, as before, and story 45's `rules check` and `rules repair` give 11 and 16. The three rule-list suites give 26, 13 (4 skipped) and 21, and the FN suite 11.
