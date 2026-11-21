@@ -201,4 +201,4 @@ Results:
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0047-wordtypes-hold-each-concepts-key.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.md`
