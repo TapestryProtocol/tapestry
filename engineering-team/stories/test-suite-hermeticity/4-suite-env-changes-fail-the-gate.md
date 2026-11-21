@@ -83,7 +83,7 @@ None open. The owner answered three at planning, on 2026-11-20:
 
 ## Linked artifacts
 
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/test-suite-hermeticity/0002-gate-checks-process-env-around-every-suite.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 - Ledger: `ledger/2026-11-20-suite-env-changes-reach-every-suite.md` (this story closes it)
