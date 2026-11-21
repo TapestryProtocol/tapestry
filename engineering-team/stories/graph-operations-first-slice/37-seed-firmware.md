@@ -261,4 +261,4 @@ The scratch's own assistant was `d9b72885…`. One scratch ran at a time: the li
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md`
