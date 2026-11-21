@@ -357,6 +357,14 @@ The scoped gate, the same six entries through the gate engine on Node 24.18.0, l
 **The live checks on these fixes** (2026-11-21, 05:23–05:24Z, on `454e6c5e4`, the same scratch stack. Its control panel was restarted first, from this session, with `supervisorctl restart brainstorm`, which answered "stopped" and then "started". That output wasn't saved to the records.): `nostr-live.test.js` 6 passed, 0 failed, LV6 497 letters in 2.09 s (`tmp/live-check-34/nostr-live.log`; the earlier runs kept as `nostr-live-run1.log` and `nostr-live-run2.log`).
 
 
+### The scoped gate on the merged tree (2026-11-21, on `7ff957e13`, staging merged in)
+
+The gate was derived from the changed files, as ledger row `2026-11-21-scoped-gate-lists-built-by-hand` asks: CI's entries for an operations change, plus every registered suite whose source names a changed file, function or helper. That came to 86 suites; the script and its list are in the session's records, `tmp/a10-34-records/`. Record `20261121T055736Z-44398-0ab1`: 3,795 passed, 10 failed, 180 skipped. The ten failures are this Mac's, not the branch's:
+- safe-to-merge-check's B1–B9 (7) time out behind the stub `curl`, and pass 16/0 when run alone without it;
+- router-stream-limit-on-connect's P1–P3 (3) fail on macOS's BSD `sed` (ledger row `2026-10-09-router-patch-sed-macos`), in files identical to staging's.
+
+The pull request's CI runs the full gate on Linux.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
