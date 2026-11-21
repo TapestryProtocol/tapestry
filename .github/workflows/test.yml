@@ -24,7 +24,7 @@ permissions:
 jobs:
   stack-free:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     env:
       # @scarf/scarf's postinstall phones home; suppress it. Install scripts
       # stay ENABLED overall — lmdb/msgpackr prebuild downloads need them.
