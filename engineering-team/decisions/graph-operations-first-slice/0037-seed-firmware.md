@@ -176,8 +176,8 @@ Pass by pass, in today's order:
   - Its `word` conditionals fail every element of `word` (P-156).
 - **What stays.** The `ENUMERATES` edges (1d¾), which rule 10 reads.
 - **The cost.**
-  - The five enumerated schemas (`word`, `graph`, `property`, `relationship`, `dog`) differ from today's install's, which is an exception to AC1.
-  - On an instance today's install installed, those five differ from the source. So by the story's open question 2 they are `kept`, until taken.
+  - Of the five enumerated schemas (`word`, `graph`, `property`, `relationship`, `dog`), the ones pass 3b writes into differ from today's install's, which is an exception to AC1. In firmware v1.0.0 that is four: `dog`'s enumerating concept, `dog-breed`, has no elements, and today's route skips an enumeration with none, so `dog`'s schema is its file's either way (Amendment 2).
+  - On an instance today's install installed, those four differ from the source. So by the story's open question 2 they are `kept`, until taken.
 
 **6. The install record, and what counts as an edit.** Each node that seed-firmware writes, brings in line or adopts gets two properties:
 - **`cameFrom`.** JSON text `{ "kind": "file", "address": "<the file's path in the folder>", "id": "<the file's sha256>" }`. A release member's, later, is `{ "kind": "nostr", "address": "<its address>", "id": "<its event id>" }`.
@@ -261,7 +261,7 @@ A run that changes nothing writes nothing, records no entry, and answers every n
 - **What stays.** The version carried, and the all, some or none of today's reader (`readInstallState`).
 
 **13. The live check, and what it proves.** On scratch stacks, with Neo4j's uniqueness rules and `tapestry-keys` applied first (story, fact 12), an admin agent runs it through the external CLI:
-- **L1, first contact.** On an instance today's install installed, every firmware node answers `unchanged` and every target relationship is there. The exceptions answer `kept`: Decision 5's five schemas, Amendment 1's three concept graphs, and the direct links from a superset that today's prune order decides. This is AC1's equivalence as far as one instance shows it. Decision 7 of ADR 0043, with two instances and one key, is its own story.
+- **L1, first contact.** On an instance today's install installed, every firmware node answers `unchanged` and every target relationship is there. The exceptions answer `kept`: the schemas pass 3b wrote into (Decision 5; four in v1.0.0), Amendment 1's three concept graphs, and the direct links from a superset that today's prune order decides. This is AC1's equivalence as far as one instance shows it. Decision 7 of ADR 0043, with two instances and one key, is its own story.
 - **L2, an empty instance.** On an instance with no firmware, it installs everything, and a second run changes nothing.
 - **L3, an update.** After a header's `b` is re-pointed (`b-defer` or a raw query) and a firmware file is changed (copied in, then the control panel restarted, ledger row `2026-11-17-scratch-firmware-copy-needs-restart`), it answers the header `kept`, naming its `b`, and the changed file's node `changed`.
 - **L4, taking.** `take` brings a kept node in line.
@@ -275,7 +275,7 @@ A run that changes nothing writes nothing, records no entry, and answers every n
 - **An instance installed by seed-firmware alone isn't ready by today's readers.** `readInstallState` and `GET /api/ready` count `NostrEvent` headers, and the old routes read letters. The graph operations work on it (`supersetsOf` matches `TapestryNode`). The story's "reading the installed firmware from the graph", and the signing step, close this.
 - **Stale letters.** A changed node that a letter backs keeps the old letter until export nostr signs a new one. `event-update` could import the old letter over the change, ADR 0021's caveat.
 - **A second copy of today's install's logic.** It is pinned by oracles that run today's routes from their source, so a change to today's install fails a test until the builder follows. The copy retires with today's install.
-- **Five schemas and three concept graphs differ from today's install's** (Decision 5; Amendment 1). P-156 then shows only on instances today's install installed. The concept graphs' rewrite is ledger row `2026-11-20-add-node-flattens-concept-graphs`.
+- **Four schemas and three concept graphs differ from today's install's** in firmware v1.0.0 (Decision 5; Amendments 1 and 2). P-156 then shows only on instances today's install installed. The concept graphs' rewrite is ledger row `2026-11-20-add-node-flattens-concept-graphs`.
 - **The firmware module gains `TAPESTRY_FIRMWARE_DIR`,** and the derive gains the two record sections.
 - **One transaction for a fresh install:** 459 nodes, their tag nodes and their relationships. If that ever outgrows Neo4j's transaction memory (story graph-operations-foundation #9's limit), it batches by concept, with the installed-firmware graph last.
 - **No index on a change entry's keys,** so `graph history` by node reads every entry. A fresh install's entry names about 460 keys.
@@ -330,3 +330,7 @@ The Tester ran today's routes from their source over the real firmware (story 37
    - *L1* allows only such direct links from a superset (`HAS_ELEMENT` and `IS_A_SUPERSET_OF`), and lists them.
 
 **The Tester's other choices are accepted as made** (the test plan's items 6 to 10): `_seed.js`'s seam, `readState(read, target)` and `plan(target, state, { take, takeAll })`; the field names of the target and the answer; graph-rule's first contact (`put-back` or `changed`, never `kept`); `takeAll`'s missing relationship (`added` or `changed`); and L2's second scratch container (`TAPESTRY_SEED_EMPTY_CONTAINER`).
+
+## Amendment 2 (2026-11-21, at Implementation's live check) — `dog`'s schema
+
+The live check's first contact on a scratch instance that today's install set up (L1) found `dog`'s schema `unchanged`. Its enumerating concept, `dog-breed`, has no elements in firmware v1.0.0: the manifest's dog-breeds existing nodes name concepts it doesn't define (Amendment 1, item 4). Today's apply-enumerations skips an enumeration with no elements (`src/api/normalize/index.js:6183`, "No elements found — skipping"). So pass 3b leaves `dog`'s schema as its file says, and Decision 5's departure shows on four schemas, not five. The design doesn't change: seed-firmware installs all five as their files say. Decisions 5 and 13 and the Consequences are corrected above, and L1 and the first-contact fixture now count the schemas pass 3b writes into from the instance's own graph.

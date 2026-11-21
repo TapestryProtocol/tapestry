@@ -220,6 +220,44 @@ Judgment calls made at Implementation, each too small for an ADR amendment (the 
 - **`version` accepts the manifest's version, `v` with it, or the firmware folder's real name.**
 - **Status's firmware part gains `note`** beside `seeded`, the part's words (Decision 12), declared in its schema with `seeded`.
 
+## Evidence
+
+### The suites (Implementation, 2026-11-21 UTC)
+
+Each ran on this Mac stack-free: stub `curl` and `docker` first on `PATH`, every service endpoint dead, `TAPESTRY_CONTAINER=no-such-container`, `TAPESTRY_CONTAINER_PORT` unset, and `BRAINSTORM_CONF_PATH` on a conf whose `NEO4J_URI` is a closed port.
+- **The scoped gate,** `tmp/gate-runs/20261121T004837Z-42423-7b27.json` on `e18fc03d`: PASS, 1,571 passed, 0 failed, 45 skipped, across twelve registry entries (`operations`, `external-cli`, `openapi-coverage`, `stack-free-npm-test`, `firmware-element-sync`, `graph-rule-firmware`, `schema-save-finds-the-right-header`, `admin-action-sweep`, `pass-3-finishes-in-minutes`, `tapestry-key-put-await`, `event-less-create-set`, `trusted-dictionary`).
+- **This story's suites,** after the live check's re-aims: oracles 8 passed; target 31; plan 8; route 32; record 4; agent 1; live 0 passed and 4 skipped (stack-free); status 9. Together about 23 s.
+
+### The live check (2026-11-21 UTC, on a scratch stack)
+
+`scripts/scratch-stack.sh up` gave `tapestry-scratch`, with this worktree's `src/` mounted read-only. Then the setup ran:
+- the branch's firmware copied over the image's two-month-old one, which had no file the branch lacks;
+- the internal and external CLIs copied in, the owner and an admin set, and the control panel restarted;
+- the graph emptied of the image's firmware;
+- the uniqueness rules applied (the Dashboard's fix, then `tapestry-keys`);
+- today's install of the branch's firmware, in 70 s.
+
+The scratch's own assistant was `d9b72885…`. One scratch ran at a time: the live stack already used about 14 GB of the Docker VM's 23.4 GB.
+- **L1, first contact** (run 2, on a fresh today's install): PASS. It found 452 nodes `unchanged` and 7 `kept` with `noRecord`:
+  - four of the five schemas: pass 3b filled `word`'s (41 elements), `graph`'s (4), `property`'s (8) and `relationship`'s (14), and skipped `dog`'s, since `dog-breed` has no element (ADR 0037, Amendment 2);
+  - the three concept graphs pass 1c flattens.
+
+  Nothing was added or removed. Two relationships were `kept` with `noRecord`, and two links between firmware nodes were the instance's own (`others`). All four are `HAS_ELEMENT` links from a superset, the prune's kind: `superset`'s superset to `word-wrapper`'s, and `set`'s to `superset`'s; then `set`'s to `word-wrapper`'s, and `superset`'s superset to itself.
+  - Run 1 had failed on L1's count, which expected `dog`'s schema `kept`. That expectation was wrong, not the code: today's route skips an enumeration with no elements. The Tester re-aimed L1 and the first-contact fixture.
+- **L3, an update:** PASS. After nostr-relay's `b` was re-pointed by a raw query and `dcosl-brainstorm-world.json` changed in the container's firmware (the control panel restarted), the header answered `kept`, naming its `b`, and the file's node `changed`.
+- **L4, taking:** PASS. `take` brought the header in line, its `b` the firmware's pointer again; the file was put back after.
+- **L2, an empty instance:** PASS, in 31 s with its repeat. On the scratch with its graph emptied, the install answered 459 `added`, no node it made had a letter's `id`, and the repeat answered 459 `unchanged` with no change entry.
+  - It ran the suite's own L2 alone, through `tmp/live-check-37/l2.js`, which lets only L2 register. The scratch script makes one container, and a second scratch stack beside the live one would have left little memory.
+- **The agent, through the external CLI** (AC7; Loom's done-criteria). An admin agent with its own key (`6bf904ff…`) used the unchanged external CLI, inside the container, through its nginx:
+  - it signed in as `admin`;
+  - it found `seed-firmware` among the lifecycle commands made from the declarations;
+  - status said nothing had been installed by seed-firmware yet;
+  - on the emptied graph, it installed: 459 nodes and 935 relationships added, unsigned, `rules check` with no finding, one change entry, in 29 s through nginx (against its 900 s);
+  - it looked up `dog` (`graph resolve --ref dog --kind concept`) and found the concept at `39998:<the scratch's assistant>:dog`, its own;
+  - it ran seed-firmware again: 459 `unchanged`, no change entry, 1 s;
+  - status then gave `seeded`: version 1.0.0, by the admin, 222 files, 459 nodes, 935 relationships, `changedSince` 0. Today's reader still counts no `NostrEvent` header (`installed: none`), as the ADR's Consequences expect.
+- **The records:** `tmp/live-check-37/` (`setup.log`, `live-run1.log`, `live-run2.log`, `live-l2.log`, `agent-run.log`, `agent-install.json`, `agent-repeat.json`, `probe1.json`), copied to the main checkout's `tmp/live-check-37/`.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.test-plan.md`
