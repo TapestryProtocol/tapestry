@@ -105,6 +105,17 @@ None. This story changes how the image is built and deployed. It reads and write
 
 None. Intake's three questions are answered under Background.
 
+## Deviations
+
+- **The gate.** The full `npm test` was not run on the Mac this was built on, because there it writes to a live
+  instance. The test plan's scoped gate ran instead, with the live checks switched on. CI's `stack-free` job runs the
+  whole registry on the PR.
+- **The branch.** The unpushed branch `fix/container-apt-refresh` was renamed `feat/container-apt-refresh`, the name
+  workflow 3 gives.
+- **The option name.** The ADR asked for `APT::Get::Always-Include-Phased-Updates` to be checked against jammy's
+  `apt.conf(5)`. The image ships no man pages, so it was checked against jammy's `libapt-pkg` instead, which holds the
+  name.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md`
 - Test plan: `engineering-team/stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.test-plan.md`

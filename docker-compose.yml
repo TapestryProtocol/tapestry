@@ -1,7 +1,12 @@
 services:
   tapestry:
     container_name: tapestry
-    build: .
+    build:
+      context: .
+      args:
+        # The ISO week whose Ubuntu updates the image carries; the deploy workflows set it, and a local build leaves it
+        # empty (ADR container-apt-refresh/0001).
+        PACKAGES_REFRESH: ${PACKAGES_REFRESH:-}
     depends_on:
       redis:
         condition: service_healthy

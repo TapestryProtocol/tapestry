@@ -71,15 +71,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Short commit id
+      - name: Short commit id, and the ISO week for the package refresh
         id: commit
-        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
 
       - name: Build and push the Tapestry image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: true
+          # The first build of each ISO week brings the image's Ubuntu packages up to date (ADR container-apt-refresh/0001).
+          build-args: |
+            PACKAGES_REFRESH=${{ steps.commit.outputs.week }}
           tags: |
             ghcr.io/tapestryprotocol/tapestry:dogfood
             ghcr.io/tapestryprotocol/tapestry:sha-${{ steps.commit.outputs.short }}

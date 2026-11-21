@@ -93,6 +93,26 @@ RUN cd /usr/local/lib/node_modules/brainstorm/ui && npm ci
 COPY nip50-proxy/package.json /usr/local/lib/node_modules/brainstorm/nip50-proxy/
 RUN cd /usr/local/lib/node_modules/brainstorm/nip50-proxy && npm install
 
+# ── Weekly refresh of Ubuntu's packages (ADR container-apt-refresh/0001) ──
+# The deploy workflows and publish-image.yml pass the ISO week (e.g. 2026-W47) as PACKAGES_REFRESH, so the first
+# build of each week re-runs this step, and only it and what follows: strfry, Neo4j and the npm installs above stay
+# cached. It reads Ubuntu's own sources only, so Node and Neo4j stay exactly as installed above, and it fails the
+# build if either moves. Unset (a local build), it runs once and is then cached. The marker it writes says when.
+ARG PACKAGES_REFRESH=
+RUN set -eu; \
+    only_ubuntu="-o Dir::Etc::SourceParts=- -o Acquire::Retries=3"; \
+    keep_conf="-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"; \
+    pinned="$(dpkg-query -W -f='${Package}=${Version} ' neo4j nodejs)"; \
+    apt-get $only_ubuntu update --error-on=any; \
+    n="$(apt-get $only_ubuntu -s full-upgrade | grep -c '^Inst' || true)"; \
+    echo "packages refresh ${PACKAGES_REFRESH:-unset}: ${n} to upgrade"; \
+    apt-get $only_ubuntu $keep_conf -y --no-remove -o APT::Get::Always-Include-Phased-Updates=true full-upgrade; \
+    test "$(dpkg-query -W -f='${Package}=${Version} ' neo4j nodejs)" = "$pinned"; \
+    mkdir -p /etc/tapestry; \
+    printf 'week=%s\nrefreshed_at=%s\nupgraded=%s\n' "${PACKAGES_REFRESH:-unset}" \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$n" > /etc/tapestry/packages-refresh; \
+    rm -rf /var/lib/apt/lists/*
+
 # Now copy the full application code (this layer busts on every push)
 COPY . /usr/local/lib/node_modules/brainstorm/
 

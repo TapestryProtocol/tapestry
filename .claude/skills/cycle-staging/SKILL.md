@@ -127,7 +127,7 @@ done
 gh run watch "$RUN" --repo TapestryProtocol/tapestry --exit-status
 ```
 
-Typical staging deploy is ~80s on warm Docker layer cache, ~2m+ when `package.json` or other invalidating files change. If the run fails, surface the failure and stop. If no run appears within the bound, stop and surface — do not smoke-test.
+Typical staging deploy is ~80s on warm Docker layer cache, ~2m+ when `package.json` or other invalidating files change. The first deploy of each ISO week (from Monday 00:00 UTC) also refreshes the image's Ubuntu packages, about one to three minutes longer ([SAFE_TO_MERGE.md](../../../docs/SAFE_TO_MERGE.md), "A refreshing deploy"). If the run fails, surface the failure and stop. If no run appears within the bound, stop and surface — do not smoke-test.
 
 ### 7. Smoke test
 
