@@ -76,13 +76,13 @@ As the same owner, I want each call written in my graph like any other graph wri
 
   Called again, it answers `already-declared` and changes nothing.
 - [ ] **AC2 — Wire it, or mark it deliberately unaffiliated.** Given the same header, when the owner or an admin calls:
-  - **the wire operation** with a target address `kind:pubkey:d-tag`, then the node holds `["b", <target>, "pointer"]` once, beside any `b` it already holds, and the rest is as in AC1. Called again with the same target, it answers `already-wired`. A target the graph doesn't hold is reported and still written, since anyone's concept may be a target.
+  - **the wire operation** with a target address, a concept header's `39998:pubkey:d-tag` or an naddr of one *(amended at Architecture, ADR 0048 Decision 2: kind 39998 only)*, then the node holds `["b", <target>, "pointer"]` once, beside any `b` it already holds, and the rest is as in AC1. Called again with the same target, it answers `already-wired`. A target the graph doesn't hold is reported and still written, since anyone's concept may be a target.
   - **the defer operation** on a header with no `b` naming an address or an event id, then the node holds `["b", "b-tag-deferred"]` once, and the rest is as in AC1. Called again, it answers `already-deferred`.
 - [ ] **AC3 — What they refuse.** Each refuses, changes nothing and names the reason, with a test for each refusal:
   - every call refuses a caller who isn't the owner or an admin (open question 1);
   - every call refuses a node that isn't a concept header, another author's concept header, and a header whose address carries the owner's key, which the assistant can't sign a new version of;
   - every call refuses one of firmware's own concepts, as `graph update-concept` does (fact 8);
-  - the wire operation refuses a target that isn't an address, and the header's own address, which is the declare operation's job;
+  - the wire operation refuses a target that isn't a concept header's address *(amended at Architecture, ADR 0048 Decision 2)*, and the header's own address, which is the declare operation's job;
   - the defer operation refuses a header that has a real `b`: a declaration or a wiring beats a deferral.
 - [ ] **AC4 — Export nostr sends them.** Given a header declared shared or wired through these operations, when export nostr runs with a scope that holds it:
   - the header's letter carries each `b` as the node holds it, the self-pointing `b` included;
@@ -125,12 +125,12 @@ The assistant's pubkey differs on every instance, so `<TA>` stands for it. The A
    - This widens ADR shared-concepts-adoption/0001's owner-only rule for these operations only. Today's routes stay owner-only (Out of scope).
 
 **For the Architect:**
-2. **Names and group.** What the three are called and which group they sit in. They could also be one operation that takes a disposition.
-3. **The relationship a `b` draws.** Whether the write draws `REFERENCES {source:'b-tag'}`, a self-loop for a declaration, as D10 and the spec suggest, or leaves that to an import of the letter. Rule 2 reserves the type, and story 39 removed a firmware self-loop (fact 7).
-4. **What the wire operation accepts as a target.** Any address, as today's route does, or only a concept header's.
-5. **Where the new `b` goes among the header's tags.** Export keeps a letter's order, or puts `d` first, `json` last and the rest by type.
+2. **Names and group.** What the three are called and which group they sit in. They could also be one operation that takes a disposition. **Resolved** (ADR 0048 Decision 1): three writes in the `graph` group, `declare-shared`, `wire-to-shared` and `defer-sharing`.
+3. **The relationship a `b` draws.** Whether the write draws `REFERENCES {source:'b-tag'}`, a self-loop for a declaration, as D10 and the spec suggest, or leaves that to an import of the letter. Rule 2 reserves the type, and story 39 removed a firmware self-loop (fact 7). **Resolved** (ADR 0048 Decision 6): the write draws it, as seed-firmware and the importers do, to a placeholder when the target isn't held, and as a self-loop for a declaration.
+4. **What the wire operation accepts as a target.** Any address, as today's route does, or only a concept header's. **Resolved** (ADR 0048 Decision 2): a concept header's address, kind 39998, or an naddr of one, since export makes each wired `b` an element's `z` stamp, which must name a header.
+5. **Where the new `b` goes among the header's tags.** Export keeps a letter's order, or puts `d` first, `json` last and the rest by type. **Resolved** (ADR 0048, fact 5): export decides. It keeps the order of the letter the node has, and adds the rest in its own order, since the graph's tag nodes hold no order.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
