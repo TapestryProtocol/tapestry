@@ -139,10 +139,29 @@ Two were left out:
 
 - **AC-1.** Each of the six headers has one `REFERENCES {source:'b-tag'}`, to the community header its `b` names.
 - **The public routes, after** (ADR 0035 §5). install-status gives 41 of 41 concepts at 1.0.0. The summaries give 46 rows for 46 headers (50 before). The sweep finds none of its 56 nodes holding a repeated tag: the 46 headers and 10 community copies, since two of the Mac Studio's supersets aren't on staging.
-- **Three loops are left.** Each is on a copy whose letter's `b` names its own address, so the copy derives it (AC-2). `/neighbors` finds them among the same 56 nodes. None of staging's own nodes has one.
+- **Three loops are left among them.** Each is on a copy whose letter's `b` names its own address, so the copy derives it (AC-2). `/neighbors` finds them among the same 56 nodes; none of staging's 46 headers has one.
   - **The copy of production's `nostr-relay` header,** as Amendment 1 item 5 expects. It goes at staging's first install after production's.
   - **The copies of the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers,** which Amendment 1 didn't foresee. Their letters were signed on 2026-07-17 by the Mac Studio's agent-memory instance, their references' curator. They go only after that instance has an install with the fix, which is the owner's word, its new letters reach `wss://dcosl.brainstorm.world`, and staging installs again. Ledger row `2026-11-16-curator-instance-superset-self-loop` says so.
 - **The run records** are in the main checkout's `tmp/live-check-39/staging/`, which git ignores. The install's answer is in `/tmp/fw-install-story39-20261121T220706Z.log` on the droplet.
+
+**On production (2026-11-21).**
+- **The promotion.** TapestryProtocol/tapestry#193 carried this story with eight other PRs. The container-apt-refresh session cut it at `425006cf`, and merged it at 22:32:48 UTC as `196a475f`, after a safe verdict. Deploy run 44957304980 (22:32:51 to 22:34:46) pulled the fix's four source files. That session's smoke test was clean on tiers 1, 2 and 5.
+- **The install** ran from 23:37:29 to 23:41:29, after a safe verdict at 23:36:34, with no PR into main open and that session holding main. Pass 1 gave 41 concepts and 0 errors, Pass 2 41 enriched, and the log ends "FIRMWARE INSTALL COMPLETE". The community step logged "nostr-relay: this instance curates its own reference — skipped, its loops to itself removed". Read with read-only Cypher just before and after:
+
+  | | Before | After |
+  |---|---|---|
+  | `tag`, `nostr-user-tag`, `tag-pinning` and `nostr-event-tag` | 13 tags, one `b` | 7, one `b` |
+  | `tagging-with-specific-tag` | 17, one `b` | 9, one `b` |
+  | `nostr-relay`, whose reference production curates | 13, one `b`, naming itself | 6, no `b` |
+  | Its superset | 14 | 7 |
+  | The copies of the Mac Studio's five event-tagging headers and three supersets | 6 to 9 each | unchanged |
+  | Tag nodes no event holds | 0 | 0 |
+
+- **AC-1.** Each of the other five headers has one `REFERENCES {source:'b-tag'}`, to the Mac Studio's header its `b` names.
+- **AC-3.** `nostr-relay`'s header carries no `b` naming its own address, and no relationship runs from it to itself. Its superset holds each tag once and is no longer linked to itself. Before the install, the header pointed at itself through its `b` and a `REFERENCES`, and the superset through `IS_A_SUPERSET_OF`.
+- **The public routes, after** (ADR 0035 §5). install-status gives 41 of 41 concepts at 1.0.0. The summaries give 45 rows for 45 headers (51 before). The sweep finds none of its 56 nodes holding a repeated tag (7 before). `/neighbors` finds two loops among them: the copies of the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers, as on staging.
+- **Not this story's.** A read-only query for every node linked to itself found `superset-superset -HAS_ELEMENT->` itself after the install, which wasn't there before. `set-superset`'s `HAS_ELEMENT` to itself was there before and after. Staging's `set-superset` lists itself too, but its `superset-superset` doesn't. Ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` has a note.
+- **The run records** are in the main checkout's `tmp/live-check-39/production/`. The install's answer is in `/tmp/fw-install-story39-20261121T233729Z.log` on the droplet.
 
 ## Linked artifacts
 

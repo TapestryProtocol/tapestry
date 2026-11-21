@@ -23,6 +23,13 @@
 - **Before this install,** two cut-off attempts' partial Pass 1 had already given most of firmware's nodes their keys. At 20:51 and at 22:06 the check named 14 nodes: those 9, and the JSON schemas of firmware's last five concepts in the manifest (`nostr-user-tag`, `tag-pinning`, `nostr-event-tag`, `tagging-with-specific-tag` and `graph-rule`), which Pass 1 hadn't reached.
 - **Still to do:** production, then david.tapestry.ninja and the other hosted Tapestries.
 
+**2026-11-21: production is reinstalled** (community-reference #39's reinstall, 23:37 to 23:41 UTC, on `196a475f`). Read the same way:
+- **`graph list-elements`** gives 12 items. It gave 11 before.
+- **`rules check`** names nothing. It judges 352 nodes and finds 0 (339 and 49 before; 4 not judged, with no JSON, both times).
+  - **Before, all 49 were firmware's:** the 41 JSON schemas, `nostr-event-tagging-schema` among them, and the eight headers.
+  - **None of production's own nodes was named, before or after.** The measurement found 5 of its own JSON schemas on 2026-11-20, or 4, if it counted `nostr-event-tagging-schema` as production's own, as it did on staging. That is not looked into.
+- **Still to do:** david.tapestry.ninja and the other hosted Tapestries.
+
 **What closes it.** A firmware reinstall on staging once the change reaches it, on production after its promotion, and on david.tapestry.ninja and the other hosted Tapestries once their code has it. Each is the owner's call there. After each, `tapestry rules check --scope graph --rules word-types-hold-concept-keys` names none of firmware's nodes, and `tapestry graph list-elements` for `39998:<TA>:graph-rule` gives twelve items. What it still names is the instance's own:
 - the JSON schemas of the concepts it made itself (david.tapestry.ninja 23, staging 6, production 5, this Mac 10), which a follow-up repair gives their key;
 - any node whose JSON has no word block.
