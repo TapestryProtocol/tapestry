@@ -100,5 +100,5 @@ For the Architect:
   - ADR 0030: `engineering-team/decisions/community-reference/0030-communityreference-seed-not-stub.md`
   - `import nostr`'s ADR: `engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md`
 - ADR: `engineering-team/decisions/community-reference/0035-community-references-import-then-prune.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-reference/39-firmware-install-leaves-tags-once.test-plan.md`
 - Review: (filled in after Review phase)

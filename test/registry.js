@@ -422,6 +422,11 @@ const suites = [
   // longer writes the wordType pair that compares `word.wordTypes` with itself (Loom P-156). Stack-free in every run:
   // the install's enumeration step and Pass 2 run in a child over a fake graph (test/helpers/saveSchemaChild.js).
   { file: 'word-elements-fit-the-installed-word-schema.test.js' },
+  // community-reference #39: a firmware install leaves each header's tags once (ADR community-reference/0035). Stack-free
+  // in every run: the prune builder over test/helpers/cypherEngine.js, and install's community references and their edge
+  // wiring in a child over the same engine (test/helpers/communityStepChild.js).
+  { file: 'community-references-prune-builder.test.js' },
+  { file: 'firmware-install-leaves-tags-once.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so
