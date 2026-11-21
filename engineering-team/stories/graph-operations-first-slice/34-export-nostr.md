@@ -325,7 +325,13 @@ Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every 
 
 The scoped gate, the same six entries through the gate engine, is `20261121T034436Z-32410-17ad`: PASS, exit 0, 1,480 passed, 0 failed, 18 skipped, 6/6 suites. Its record names `d58a6889` with 12 files uncommitted (`dirty: true`): these fixes, before their commit. `operations` has round 1's seven new tests (1,376 passed, against 1,369), and the other five entries' totals are as before.
 
-The live check hasn't run again since these fixes, so LV5's two exports at once haven't met the new record's locks on a real Neo4j.
+### The live check after review round 1's fixes (2026-11-21, 03:53–03:58Z, on `306ef8828`)
+
+A fresh scratch stack `tapestry-scratch` was set up with the same scripts, `tmp/live-check-34/setup.sh` and `micromark.sh`. The export code inside it hashes the same as the worktree's, and the control panel was restarted on the committed fixes.
+- **`nostr-live.test.js`:** 6 passed, 0 failed. LV5's two exports fired together now meet the record's node locks on a real Neo4j: each answers, and every node ends with one letter. LV6: 497 letters accepted in 2.03 s.
+- **The private-relay refusal, by hand** (Amendment 2 item 7). The admin agent, through the unchanged external CLI, asked for `export nostr --everything true --relays wss://localhost:7777 --dryRun true`. It was refused `private-relay` on `relays`: "its host, localhost, doesn't resolve to public addresses only … Nothing was signed or sent." The output is `tmp/live-check-34/r2-private-relay.out`.
+
+Sending to an outside relay waits for the first real export, as the story's AC7 has it since Review.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
