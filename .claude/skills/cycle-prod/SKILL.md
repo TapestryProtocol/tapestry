@@ -120,7 +120,7 @@ done
 gh run watch "$RUN" --repo TapestryProtocol/tapestry --exit-status
 ```
 
-Typical prod deploy is ~80s warm cache, ~2m+ on first build with new deps. If no run appears within the bound, stop and surface — do not smoke-test. If it fails, surface the failure and consider opening a revert. Do NOT auto-merge a revert; recommend it to the user and let them decide.
+Typical prod deploy is ~80s warm cache, ~2m+ on first build with new deps. The first deploy of each ISO week (from Monday 00:00 UTC) also refreshes the image's Ubuntu packages, about one to three minutes longer ([SAFE_TO_MERGE.md](../../../docs/SAFE_TO_MERGE.md), "A refreshing deploy"). If no run appears within the bound, stop and surface — do not smoke-test. If it fails, surface the failure and consider opening a revert. Do NOT auto-merge a revert; recommend it to the user and let them decide.
 
 ### 7. Stability poll + smoke test
 
