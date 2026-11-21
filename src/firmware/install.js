@@ -1175,7 +1175,11 @@ async function pass_communityReferences(opts = {}) {
             const newTags = [...localHeader.tags, ['b', cr.headerATag, 'pointer']];
             await loadTAKey();
             const signed = signAndFinalize({ kind: 39998, content: localHeader.content || '', tags: newTags });
-            await apiPost('/api/strfry/publish', { event: signed });
+            const published = await apiPost('/api/strfry/publish', { event: signed });
+            // The route answers a failed strfry import with 200 and success
+            // false, which apiPost passes through: only a stored letter
+            // carries the b (ADR community-reference/0035 Amendment 1 item 2).
+            if (!published || published.success !== true) throw new Error(`publish failed: ${(published && published.error) || 'no answer'}`);
             seededB = true;
             await executeCypher(buildImportCypher(signed));
             // Pass 1's import left its letter's tags beside the seeded letter's.
