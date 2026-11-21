@@ -30,7 +30,7 @@ The owner settled three questions at planning: load and run, every key, and the 
 - **No suite or in-process helper writes `process.env` at load.** The one unindented write, `test/helpers/routeWalk.js:72`, runs in a child process.
 - **28 suite files write it directly inside a function.** One more, `task-queue-job-gate`, writes it through `test/helpers/taggingEdgesPassFakes.js:879–884` and `:1268–1273`. In the gate's own process, exactly the story's six leave a change behind:
   - `search-api-result-type-settings` sets `TAPESTRY_SETTINGS_PATH` (`:61`) and never puts it back, on purpose (`:52–58`).
-  - `strfry-router-saved-state` P3 restores `BRAINSTORM_ROUTER_PLUGINS_DIR` by assignment (`:172–178`). Node turns an assigned `undefined` into the string `"undefined"`, so a key that was unset is left holding that string. The same file restores the same key correctly at `:366–367`.
+  - `strfry-router-saved-state` P3 restores `BRAINSTORM_ROUTER_PLUGINS_DIR` by assignment (`:172–178`). Node turns an assigned `undefined` into the string `"undefined"`, so a key that was unset is left holding that string. The same file restores the same key correctly at `:366–367`. *(Corrected by Amendment 1: P3 does not leak.)*
   - `tl-certainty-method` (`:54`, `:359`), `tl-membership-method-selector` (`:66`, `:415`) and `tl-weighted-sum-method` (`:52`, `:478`) set `TAPESTRY_SETTINGS_PATH` and end their runs by deleting it.
   - `trusted-list-pin-publish-blockers` AC-7 sets `SCHEDULED_TASKS_CONFIG_PATH` (`:240`) and deletes it at the end of the test, outside a `finally` (`:252`).
 
@@ -213,7 +213,7 @@ A Phase-4 `test/` diff is expected. The Reviewer checks that it is confined to t
   - In `run()` (`:314`), before the first test, note whether `TAPESTRY_SETTINGS_PATH` is set and to what.
   - Put it back in a `finally` around the test loop: delete it if it was unset, set it back if it was set.
   - Rewrite the comment at `:52–58` that calls leaving it set safe.
-- **`test/strfry-router-saved-state.test.js` P3 (`:172–178`):** restore as `:366–367` does, deleting the key when `prev` is `undefined` and assigning it otherwise.
+- **`test/strfry-router-saved-state.test.js` P3 (`:172–178`):** *withdrawn by Amendment 1:* the suite doesn't leak, so nothing changes here.
 - **`test/tl-certainty-method.test.js` (`run()` at `:326`), `test/tl-membership-method-selector.test.js` (`:390`) and `test/tl-weighted-sum-method.test.js` (`:434`):**
   - Note `TAPESTRY_SETTINGS_PATH` at the start of `run()`.
   - Replace the closing `delete` (`:359`, `:415`, `:478`) with a conditional restore, reached on every path out of `run()` that reaches the `delete` today.
@@ -275,3 +275,16 @@ The guard must reach nothing from any machine: `tl-weighted-sum-method`'s live l
 - Per-suite timeouts (`honest-test-gate` story 3).
 - Which suites CI runs, and where `stack-free-npm-test`'s G2 runs.
 - Auditing `node_modules`. A package that writes at load would show in CI as a failure of the first suite that requires it, fixed in that suite under AC5.
+
+## Amendment 1 (2026-11-21, at Test Design; for the owner's approval with the test plan)
+
+Writing the tests corrected one fact that the Context and Implementation notes §2 relied on. The decision and every story criterion stand.
+
+1. **`strfry-router-saved-state` P3 doesn't leak.**
+   - The suite's `run()` sets `BRAINSTORM_ROUTER_PLUGINS_DIR` to its own plugins directory before any test runs (`test/strfry-router-saved-state.test.js:349–350`), and puts it back correctly in a `finally` (`:364–367`).
+   - So P3's restore by assignment (`:172–178`) always meets a value, and never leaves the string `"undefined"`. The Context's audit read that restore line on its own, without the `run()` around it.
+   - Test S2 runs the suite in a child with the key unset and with it preset. It shows that the suite leaves the environment as it found it, today, in both cases.
+2. **What changes.**
+   - Five suites leave a change behind, not six. Read "the six suites" in the Context and Implementation notes §1–§2 as these five.
+   - Implementation notes §2's P3 item is withdrawn: the Implementer changes the other five suites and leaves `strfry-router-saved-state` alone. P3's pattern stays in place. It would bite only if P3 ran outside the suite's `run()`, so it is no leak today, and no test drives a change to it.
+   - S2 stays, as a regression guard: it passes today and must keep passing.
