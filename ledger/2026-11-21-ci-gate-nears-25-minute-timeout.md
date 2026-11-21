@@ -3,8 +3,8 @@
 **Id:** 2026-11-21-ci-gate-nears-25-minute-timeout
 **Type:** meta (the CI test gate, OPERATIONS.md §15)
 **Opened:** 2026-11-21 (story test-suite-hermeticity #4, review round 2, reading PR TapestryProtocol/tapestry#181's checks)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-21 (`timeout-minutes` raised to 40 in `.github/workflows/test.yml`, W7 and OPERATIONS.md §15 with it; ADR test-hermeticity-ci/0001, Amendment 2; making the gate faster is queued in `engineering-team/stories/_intake.md`)
 
 **What was seen.** Row `2026-11-20-ci-gate-outgrows-its-timeout` raised the `stack-free` job's `timeout-minutes` from 15 to 25 on 2026-11-20, and closed. A day later the gate is close to the new limit again whenever GitHub gives it a slow runner. The `Test` workflow runs only on pull requests, so staging's own timing is a pull request's. These nine runs all tested staging with export nostr (#183) and seed-firmware (#182) in it, and every one passed. In each, `operations` ran the same 1,504 passed and 20 skipped tests:
 
@@ -49,3 +49,8 @@ Of these ten, `migrate-job.test.js` costs the most per test: its tests wait out 
 **How it was measured.** Job and step times come from `gh run view <id> --json jobs`. A top-level suite's time comes from its `[n/N] <suite>: PASS (…) <ms>ms` line in `gh run view <id> --log`. A file's time under `test/operations/` comes from the log timestamps of its `=== operations: <title> ===` heading and its `operations: <title>: N passed` line. The runner's cloud and region come from the log's "Runner Image Provisioner" block.
 
 **Pointer:** `.github/workflows/test.yml`; `test/ci-test-job.test.js` W7; OPERATIONS.md §15; `engineering-team/decisions/done/test-hermeticity-ci/0001-ci-test-job.md`; `test/operations.test.js` (`runDiscovered`); `test/helpers/gateRunner.js`.
+
+**How it closed (2026-11-21).**
+- **The choice:** the owner chose to raise the limit to 40 minutes first, and to make the gate faster after that ("Raise to 40 first").
+- **The fix:** the same pull request that opened this row, TapestryProtocol/tapestry#191, sets `timeout-minutes: 40` and changes W7, OPERATIONS.md §15 and ADR 0001 (Amendment 2) with it. At about 96 s a story on the slowest runner seen, 40 minutes holds about ten more stories the size of export nostr or seed-firmware.
+- **What's next:** making the gate faster is queued in `engineering-team/stories/_intake.md` (2026-11-21), with this row's measurements.
