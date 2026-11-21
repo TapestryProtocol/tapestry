@@ -365,6 +365,37 @@ The gate was derived from the changed files, as ledger row `2026-11-21-scoped-ga
 
 The pull request's CI runs the full gate on Linux.
 
+### On staging and production (2026-11-21)
+
+**Staging: TapestryProtocol/tapestry#183,** after its ADR, #173.
+- **The first try:** #183's `stack-free` run, 44874358447, passed on `eef541a6`, and the safe-to-merge check said SAFE at 06:27:38Z. The merge didn't go through: seed-firmware's #182 had merged into staging at 06:26:55Z, and `test/helpers/externalCliServer.js` now conflicted, since each had added its own hooks there.
+- **The fix:** staging was merged in as `c327474b`, keeping both sets of hooks: export's `strfry` and `assistantKeys`, and seed-firmware's `lifecycleFakeState`. Five suites that use them then passed on this Mac, stack-free: the agent runs through the external CLI for export nostr, seed-firmware and import nostr (1 each), nostr-send (24) and nostr-own (6). The owner was told, and answered "ok, merge when it's green".
+- **Its CI:** `stack-free` run 44875787707 passed on `c327474b`, in 22 m 53 s.
+- **The merge:** the safe-to-merge check said SAFE at 06:53:05Z, and #183 merged at 06:53:12Z, pinned with `--match-head-commit` (merge commit `cae6e1cb`).
+- **The deploy:** `deploy-staging.yml` run 44877650711 succeeded, its job in 2 m 39 s, by 06:56:30Z.
+- **The smoke test, 06:56:56–06:57:32Z:** Tiers 1, 2, 3 and 5 passed. Tier 4 doesn't apply, since no UI changed.
+  - Tier 1: stable after 3 polls, with Neo4j answering (19,886 verified followers).
+  - Tier 2: every page and public API answered 200, apart from `get-user-data`'s documented 504.
+  - Tier 3: `/docs/swagger-ui-init.js` listed 40 operation paths. At 06:13, before #182 and #183, it listed 38; the two added are `export/nostr` and seed-firmware's `lifecycle/seed-firmware`. All eleven of export nostr's refusals are listed, and a signed-out call answers 401. The script's check for event-update's new reply looked for the wrong words and printed 0; the saved docs hold the reply ("turned away unchanged", ADR 0034 Decision 10).
+  - Tier 5: import nostr and `graph list-elements` are still listed, and import nostr still answers 401 signed out.
+- **Loom** marked A10.34 done, verified weakly: #183 was merged by nousclawds4, with no teammate's approval.
+
+**Production: TapestryProtocol/tapestry#184,** the promotion of staging at `cae6e1cb`, through `promote/seed-firmware-export-nostr-2026-11-21`.
+- **What it carried:** #183 and seed-firmware's #182 (story 37), with move-element's records (#180) and story 47's records and a ledger row (#179). The owner said "Yes, promote" after being told it would carry #182, and "Yes, merge" once the PR listed all four.
+- **Its required checks:** `stack-free` (run 44878655853, 16 m 55 s) and `main-source-guard` (run 44878655851) passed on `cae6e1cb`.
+- **The merge:** the safe-to-merge check against production said SAFE at 07:23:52Z, and #184 merged at 07:23:55Z, pinned with `--match-head-commit cae6e1cb` (merge commit `e0d5480f`).
+- **The deploy:** `deploy-tapestry.yml` run 44880067110 succeeded, its job in 3 m 29 s, by 07:27:57Z.
+- **The smoke test, 07:28:07–07:28:48Z:** Tiers 1, 2, 3 and 5 passed. Tier 4 doesn't apply.
+  - Tier 1: stable after 3 polls, with Neo4j answering (19,252 verified followers).
+  - Tier 2: every page and public API answered 200, apart from `get-user-data`'s documented 504.
+  - Tier 3: the served docs listed 40 operation paths, where they listed 38 before the merge. The two added are `export/nostr` and `lifecycle/seed-firmware`, and none was dropped. Every refusal of both is listed, with event-update's new reply, and signed-out calls to both answer 401. The docs are byte for byte the ones staging served after #183.
+  - Tier 5: import nostr, `graph list-elements` and `lifecycle status` are still listed, and import nostr still answers 401 signed out.
+- **No firmware reinstall** was needed, and none ran.
+
+**What no one has run.** No signed-in export ran on staging or production: one would sign letters as that instance's assistant, send them to its relay and record them in its graph. The first real export to an outside relay is to be recorded here when it happens (AC7, as amended at Review).
+
+The records are in the main checkout's ignored `tmp/a10-34-records/`: `ship/` for staging, `promote/` for production.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
