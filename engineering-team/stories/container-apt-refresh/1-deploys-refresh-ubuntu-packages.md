@@ -106,7 +106,7 @@ None. This story changes how the image is built and deployed. It reads and write
 None. Intake's three questions are answered under Background.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 - Book: `engineering-team/audits/container-apt-refresh/book.md`
