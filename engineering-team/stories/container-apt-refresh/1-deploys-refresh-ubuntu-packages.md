@@ -1,6 +1,6 @@
 # Story 1: Every build of the tapestry image brings its Ubuntu packages up to date at least once a week
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-21
 **Type:** Bug *(Standard: all five phases. Architecture isn't skipped: how a build refreshes the packages is a real
 choice, weighed against deploy time.)*

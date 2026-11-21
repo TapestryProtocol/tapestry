@@ -339,3 +339,113 @@ These aren't findings in the diff. They are what the PR to `staging` needs to sa
 
 Kick back to Implementation with blocking 1 (the owner's choice of fix) and blocking 2, and the non-blocking ones if
 the owner wants them in the same round. Non-blocking 3 is the Tester's.
+
+## Round 2 — 2026-11-21 (HEAD `a9a7470de`)
+
+**The owner's answer at round 1's gate:** "Fix all, option (a)".
+
+**The diff since round 1:** `git diff a95898f26..a9a7470de`, 7 files, +161 −15, in three commits:
+- `d24924d78`: ADR Amendment 1, which records option (a) and the three changes;
+- `f1aefa98f`: D7, O5 and O6, the registry comment and the test plan's Amendment 1;
+- `a9a7470de`: the fixes in the Dockerfile, OPERATIONS.md and `docs/SAFE_TO_MERGE.md`. It touches no test file.
+
+**How it was made.** As round 1, with each fix checked as a fresh claim. The temporary trees were the trial merge and
+`staging` again, plus a tree at `f1aefa98f`, all in the scratchpad and since removed.
+
+### Gates (run by the reviewer at `a9a7470de`)
+
+- [x] **The scoped gate**, derived again from the final diff. It gives the same 42 suites as round 1
+  (`derive-r2.log`), with the same environment (`review-gate-r2.sh`).
+  - **`staging` has moved** to `25078cf9c`, by two story files and two ledger rows. None of them is a file this diff
+    changes, and the two merge cleanly, as trial merge `0bdbe9816`, never pushed.
+  - **The merged tree**, `npm run gate:status -- --label review-car-r2-merged`:
+
+    ```
+    20261121T162057Z-9879-2535 [review-car-r2-merged] started 2026-11-21T16:20:57.071Z on 0bdbe981 — FAIL, exit 1, 2478 passed, 10 failed, 98 skipped, 42/42 suites; failed: safe-to-merge-check, router-stream-limit-on-connect · <scratchpad>/review-merged/tmp/gate-runs/20261121T162057Z-9879-2535.json
+    ```
+  - **`staging` alone**, `--label review-car-r2-base`:
+
+    ```
+    20261121T163105Z-5575-15b5 [review-car-r2-base] started 2026-11-21T16:31:05.919Z on 25078cf9 — FAIL, exit 1, 2455 passed, 10 failed, 94 skipped, 41/41 suites; failed: safe-to-merge-check, router-stream-limit-on-connect · <scratchpad>/review-base/tmp/gate-runs/20261121T163105Z-5575-15b5.json
+    ```
+  - **Against `staging` alone, suite by suite** (`compare-r2.log`). The 41 shared suites have the same pass, fail and
+    skip counts, with no new failure. The merged tree adds only `container-apt-refresh`'s 23 passes and 4 skips:
+    2478 = 2455 + 23, and 98 = 94 + 4.
+  - **The 10 failures** are round 1's two suites, unchanged: `safe-to-merge-check` behind the stub `curl`, and
+    `router-stream-limit-on-connect` P1–P3 on BSD `sed`.
+- [x] **`safe-to-merge-check` alone** on the merged tree, with the real `curl`: run `20261121T163121Z-6763-bb33`
+  [review-car-r2-stm-alone] recorded `PASS, exit 0, 16 passed, 0 failed, 0 skipped, 1/1 suites`.
+- [x] **The live checks** on the changed step, run by the reviewer (`review-live-r2.sh`). L1–L4 pass. The `+dirty`
+  is this round's uncommitted review file.
+
+  ```
+  20261121T164130Z-95335-e3cc [review-car-r2-live] started 2026-11-21T16:41:30.036Z on a9a7470d+dirty — PASS, exit 0, 27 passed, 0 failed, 0 skipped, 1/1 suites · tmp/gate-runs/20261121T164130Z-95335-e3cc.json
+  ```
+- [x] **The new tests fail without their fixes.**
+  - At `f1aefa98f`, in a tree of that commit, the suite gives `20 passed, 3 failed, 4 skipped`. The three failures
+    are D7, O5 and O6, on their contract assertions, as the test plan's Amendment 1 says.
+  - The six mutation probes each take one fix back out (`mutate-round1.js`, run again by the reviewer). D7, O5 or O6
+    catches every one, and every file comes back byte for byte (`mutate-round2-review.log`).
+- [x] **`bash scripts/harness-lint.sh`**: `harness-lint: clean (0 violations)`.
+
+### Round 1's findings, re-checked
+
+1. **Blocking 1, recipe 1: fixed, with option (a)** (`OPERATIONS.md:159–164`). Each claim, checked again:
+   - **"It lasts until the next deploy."** Both targets with the step build with BuildKit. Staging's run 44877650711
+     and production's 44880067110 each log 16 `CACHED` lines and no `Using cache`. Docker's docs say
+     `docker image prune` leaves the build cache alone, so the next plain-week deploy finds the week's earlier
+     refresh.
+   - **"If none has, the next deploy runs the step again."** With no record under the plain week's key, the step
+     misses the cache.
+   - **"A fix that can't wait for next week's refresh needs this recipe again after each deploy that week."** This
+     follows from the two cases.
+   - **The rest of the fix.** ADR Amendment 1, item 1, says the same, and O6 holds the doc's claim. One slip remains:
+     round 2's non-blocking 1.
+2. **Blocking 2, the deploy that changes a step above the refresh: fixed** (`OPERATIONS.md:102–112` and `:123–128`,
+   `docs/SAFE_TO_MERGE.md:63–68` and `:86–91`).
+   - **The list in §3 is complete.** It is every `COPY` above the step (`Dockerfile:19`, `:20`, `:85`, `:89` and
+     `:93`) plus the Dockerfile itself. The base image changes only when it is pulled, which a deploy doesn't do.
+   - **The documented command works.** `gh pr diff 183 --repo TapestryProtocol/tapestry --name-only` lists
+     `package.json` and `package-lock.json`. That was today's dependency change.
+   - **The rest.** ADR Amendment 1, item 2, amends Consequences, and O5 holds both docs.
+3. **Non-blocking 1, the count: fixed** (`Dockerfile:107`).
+   - The simulation now takes the upgrade's own `--no-remove` and
+     `-o APT::Get::Always-Include-Phased-Updates=true` (`:109`).
+   - ADR Amendment 1, item 3, shows that line exactly, apart from its indent.
+   - The marker's line (`OPERATIONS.md:130`) says "installed or upgraded", which is what `^Inst` counts. D7 holds the
+     options.
+4. **Non-blocking 2, tags: fixed** (`docs/SAFE_TO_MERGE.md:83–84`).
+5. **Non-blocking 3, the registry comment: fixed** in the Tester's commit (`test/registry.js:427`, "L1–L4").
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **`OPERATIONS.md:160–162`: recipe 1's first case says the next deploy "reuses" the week's earlier refresh.**
+   - **The slip.** A next deploy that changes a step above the refresh runs the step again instead (§3, lines
+     105–111). So its packages are as new as that deploy, not older.
+   - **Which way it errs.** The doc's direction is the safe one: it never promises a fix that the deploy then drops.
+     But it contradicts §3's own list a few lines up.
+   - **Optional improvement.** Add "unless that deploy changes a step above the refresh (§3), which runs the step
+     again".
+
+### Harness friction
+
+None new. Round 1's two rows still stand.
+
+### On PASS (same commit)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection performed. The result is in the chat, not in this file.
+
+### Verdict
+
+**PASS.**
+
+- Every round-1 finding is fixed as asked, with the owner's option (a), and each fix holds as a fresh claim.
+- The scoped gate on the merge with today's `staging` matches `staging` alone, suite by suite, and the live checks
+  pass.
+- One non-blocking slip in the new prose remains, for the owner to fix now or leave.
