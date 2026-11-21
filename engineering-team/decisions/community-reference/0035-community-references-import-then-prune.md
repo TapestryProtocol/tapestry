@@ -287,4 +287,4 @@ Review round 1 (`engineering-team/reviews/community-reference/39-firmware-instal
    - **A test pins it.**
    - **Two Amended-by pointers.** ADR graph-operations-first-slice/0028 gets one, since its Decision 6 defines part (d). Its Amendment 1 item 5 records this superset loop, and ledger row `2026-11-16-curator-instance-superset-self-loop` gives the fix Decision 3 and this item make; the row gets a dated note. ADR graph-operations-first-slice/0037 gets one too, since its Decision 4 says each of the six headers gets the `b`.
 
-**Ratification:** at the next gate.
+**Ratification:** the owner, 2026-11-21, at review round 2's gate ("Ship to staging"). The gate's message said his answer ratifies this amendment unless he says otherwise, and named item 3's new consequence, a pass-2-only install putting seed-firmware's write on such a header back as its letter says, as the cost of the exemption. He said nothing otherwise.
