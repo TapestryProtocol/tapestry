@@ -3,6 +3,14 @@
 **Status:** Accepted
 **Date:** 2026-11-21
 **Story:** `engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.md`
+**Amended by:** Amendment 1 (2026-11-21, at Test Design). It covers:
+- what `target.held` means;
+- the field for the `b` values;
+- what a repeat answers in `target`;
+- the order of the checks;
+- the `target` input's schema;
+- the words the refusals say;
+- the two tests whose catalog count moves.
 
 ## Context
 
@@ -231,3 +239,41 @@ We chose **Option A**. Each operation's job matches what its name says, and the 
 - Export retract.
 - The routes for a user's own headers.
 - Whether a target is itself declared shared. It is that author's claim, read per point of view, and this ADR neither checks nor reports it.
+
+## Amendment 1 (2026-11-21, at Test Design) — what the answers hold, and the order of the checks
+
+The Tester raised four points the Decisions left open (`48-declare-a-concept-shared.test-plan.md`, § "Raised at Test Design", items 1–4). The suites pin what follows.
+
+1. **`target.held` says whether the graph holds the target itself.** It replaces Decision 7's "`held` is false when a placeholder was made".
+   - **What counts as held:** a node at the address that isn't a placeholder. A placeholder is a node with no `created_at`, whoever made it and whenever. Import nostr and `buildImportCypher` make one as a `NostrEvent`, seed-firmware as a `TapestryNode`.
+   - **An earlier placeholder:** a wire whose target holds only a placeholder an earlier call made answers `held: false`. `node` is then that placeholder's key, and no second node is made.
+   - **Why:** an agent reads `held` to learn whether the instance knows the concept it wired to, not whether this call made a node.
+2. **`disposition` carries the header's `b` values as `bValues`.** It is a list of strings: each `b`'s value, its second element, once each and sorted, read after the call. ADR shared-concepts-adoption/0001 gave the same name to the same list in the Concepts page's query.
+3. **A repeat of `wire-to-shared` answers `target` as a first call does,** read from the graph, writing nothing.
+   - `address` and `held` are as in item 1.
+   - `node` is the key of the node at the address. It is null when the graph holds none there, which happens when a route that draws no relationship wrote the `b`. The repeat doesn't draw the relationship: a repeat changes nothing.
+4. **The order of the checks.**
+   - **`wire-to-shared`:**
+     1. the input checker;
+     2. `bad-target`, the target's form, checked in `apply` before any statement, since an input's own refusal comes first (update-concept, its Decision 2);
+     3. the locks, which give `not-installed`;
+     4. the header's refusals, `unknown-concept`, `not-own-concept` and `firmware-concept`, in that order;
+     5. `self-target`;
+     6. the repeat;
+     7. the write.
+   - **`declare-shared` and `defer-sharing`:**
+     1. the locks;
+     2. the header's refusals, in the same order;
+     3. `affiliated`, for `defer-sharing` only;
+     4. the repeat;
+     5. the write.
+
+   So the first statement of every transaction is still `K.lock`'s (Decision 4).
+5. **`target`'s input schema is a string with a `maxLength` of 2048, and no `pattern`.** Its form is `targetOf`'s to check (Decision 2), so a bad form is refused `bad-target`, naming the input `target`. A pattern would let the input checker answer `invalid-input` first.
+6. **The words the suites read** follow Decisions 3 and 5:
+   - `not-own-concept` says "another author" for another author's header, and "owner" for one at the owner's key;
+   - `self-target` names `graph declare-shared`;
+   - `not-installed` names the concept-header concept.
+7. **Two existing tests move.** MF15 (`mark-field.test.js`) and EN29 (`enumerate.test.js`) now pin "At a glance (65 operations)", which Decision 10 makes the catalog say, as story 19's Test Design moved MF15.
+
+**Ratification:** the owner, 2026-11-21, at the Test Design gate ("Approved, go on").
