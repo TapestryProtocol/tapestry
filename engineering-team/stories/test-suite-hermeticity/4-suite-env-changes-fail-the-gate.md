@@ -91,6 +91,6 @@ None open. The owner answered three at planning, on 2026-11-20:
 
 - ADR: `engineering-team/decisions/test-suite-hermeticity/0002-gate-checks-process-env-around-every-suite.md`
 - Test plan: `engineering-team/stories/test-suite-hermeticity/4-suite-env-changes-fail-the-gate.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/test-suite-hermeticity/4-suite-env-changes-fail-the-gate.md`
 - Ledger: `ledger/2026-11-20-suite-env-changes-reach-every-suite.md` (this story closes it)
 - Where it was found: `engineering-team/reviews/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.md` (round 1, blocking 1 and harness friction 1)
