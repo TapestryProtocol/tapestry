@@ -2,6 +2,7 @@
 
 **Status:** Accepted (revised 2026-05-18 — see Revision 1)
 **Amended by:** `dlist-curation` ADR 0004 (2026-09-10) — the Option-B rejection ("no server-side external-relay publisher") is superseded **for `src/api/dlist-curation/` only**; the posture and its sentinel (RE1) hold for every other module.
+**Amended by:** `graph-operations-first-slice` ADR 0034 (2026-11-20) — `export nostr`'s sender is the second server-side publisher, with its own ADR and its own exclusion: the Option-B rejection is superseded **for `src/operations/catalog/export/` only**. RE1 widens to scan `src/operations/` as well as `src/api/`, and to catch nostr-tools' `AbstractRelay` and `Relay` beside `SimplePool`. A concept's letters go to the relays the caller names, the instance's own always among them, where Revision 1 sent them to the DList relay alone; the posture and RE1 hold for every other module.
 **Date:** 2026-05-17
 **Story:** `engineering-team/stories/9-publish-export-a-concept.md`
 

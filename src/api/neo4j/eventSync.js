@@ -356,6 +356,14 @@ async function handleEventUpdate(req, res) {
       return res.json({ success: false, error: 'Event not found in strfry' });
     }
 
+    // A letter one of the instance's own nodes already holds, or one older than it, never comes back over the node
+    // (ADR graph-operations-first-slice/0034 Decision 10): checked before any tag is deleted.
+    const { holdsLetterOrNewer, TURNED_AWAY } = require('../../operations/catalog/export/_own');
+    const graph = require('../../operations/graph');
+    if (await holdsLetterOrNewer((cypher, params) => graph.read(cypher, params), strfryEvent)) {
+      return res.json({ success: true, unchanged: true, uuid, eventId: strfryEvent.id, reason: TURNED_AWAY });
+    }
+
     // Check current Neo4j state
     const rows = await runCypher(
       `MATCH (e:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'}) RETURN e.id AS id, e.created_at AS created_at LIMIT 1`

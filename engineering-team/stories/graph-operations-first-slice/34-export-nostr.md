@@ -236,6 +236,30 @@ For Architecture, not this gate (answered by ADR 0034):
 - **The parser,** a new dependency, and **caps and time**: nginx's 60 s, a job as lifecycle backup is, the 128 KiB websocket limit, and a large `json` tag (fact 13).
 - **Locks:** an export beside a graph write on the same node.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-20), each too small for an ADR amendment:
+
+- **`everything` counts only when it is `true`.** `{ everything: false }` alone is `no-scope`, and beside `node` or `graph` it is no second scope, since false asks for nothing.
+- **Each relay is checked before any ref is read.** The order is the scope's form, then the relays (their count, each one's shape, then the host guard), then the ref (`bad-ref`, `unknown-ref`, `ambiguous-ref`), `not-a-graph`, `bad-cursor`, and `no-assistant-key` last. A dry run needs the key too, since it previews a call that would be refused without one.
+- **A relay is named and recorded as `new URL()` gives it, without a trailing slash,** and a relay given twice is sent to once. So `sentTo`, the answer and the change entry all name `wss://relay.example.com/` and `wss://relay.example.com` alike. Each URL keeps import's 2,000-character schema bound (beyond it, `invalid-input`). The list itself has none, and `too-many-relays` is checked in `run` (Amendment 1, item 2).
+- **A cursor is tied to its scope** (the form and the resolved key), as reads.js ties a cursor to its list. One from another scope is `bad-cursor` too. When no node of a page finished, `next.after` goes back to the call's own `after`, or to a start position before every node.
+- **Classing stops at `SEND_CUTOFF_MS`,** checked between batches of 100 nodes, so a big scope leaves the rest for `next.after` and its sends a chance. `BUDGET_MS` bounds the read-back: no read-back request starts after it, and its letters are `unread`. The one `strfry import` is never cut (Amendment 1, item 6).
+- **`MAX_SEND` counts the letters signed** (new and changed), not an unchanged letter re-sent. The page is cut before the letter that would pass it. The page's letters are then built again, so a link to a node the cut left out drops: that node gets no letter in this call.
+- **"Gets a letter in this call"**, for a link's target or a whole value's, means it is a new letter of the call's page (signable, buildable, with no `id`). That is known before anything is signed. So a target whose letter the instance's own relay then refuses still got its `naddr` in the letter that links to it. The next export of the same scope sends the target again.
+- **A tag is left out whole when one of its values is** (an `lmdb:` pointer the store lacks, or a whole `tapestry:` value with no letter), since a tag missing one element would shift the rest. Inside the JSON, only that key or list item is left out.
+- **The `d` tag is the address's d-tag,** whatever the node's tag node says, so a letter always lands at its node; the `d` tag is never rewritten. A node of kind 39998 or 39999 whose `uuid` isn't a `kind:pubkey:d-tag` address is `no-address`, and one whose address carries a key that isn't the assistant's is `not-own`. Both cases extend Amendment 1, item 4, after `other-kind`.
+- **An unbuildable node is reported as `pointer-unresolved`,** with `where: json`, since Decision 9 names no report of its own for it.
+- **`unsent-reference` reads the tags `z`, `n`, `s`, `a`, `e`, `o`, `b`, `concept-graph`, `nodeFrom` and `nodeTo`,** and a graph's `graph.nodes` and `graph.imports`. A placeholder is never the instance's own (graph/_nodes.js's `factsOf`), so a tag naming one isn't reported.
+- **The send order follows Decision 2's naming tags, with `concept-graph` added and `o` and `b` left out.** The groups that name each other (strongly connected) go out in rank order, and the groups themselves in Kahn's order, the lowest-ranked ready group first. With `o`, every core node would name its header and fall into one cycle, losing the order the graphs' lists give.
+- **The change entry's `nodes` is its `keys`:** each `letter-sent` change's `node`, which `graph history` reads. There's no separate field. A change also carries `raced: true` when another write gave the node another letter meanwhile (Decision 8), and CHANGE documents it.
+- **A turned-away letter's answers:** event-update answers `{ success: true, unchanged: true, uuid, eventId, reason }`; the I/O import, `{ slug, status: 'skipped', reason }`; the brain-write hook, `{ success: true, uuid, unchanged: true, reason }`. `holdsLetterOrNewer` looks at the node at the letter's NIP-01 key and at the node keyed by its id, since today's builder keys a replaceable kind by id.
+- **When the instance's own relay can't be read, a node with an `id` is `changed`,** since "the event isn't in the relay" can't be told from "can't read it". Its read-back is then `unread`, and nothing is recorded.
+- **A dry run's relay answers** are `held` where that is known (the instance's own relay for an unchanged letter, a relay in its `sentTo`), and `not-sent`, "a dry run sends nothing", for the rest. A new or changed letter's `id` and `created_at` are null there, since nothing is signed. A letter's `sent` is true when some relay accepted it in this call.
+- **The real `strfryImport` resolves whenever `strfry import` ran,** whatever its exit code, and rejects only when it couldn't start. A run killed at 60 s resolves too, and the read-back tells what it kept.
+- **A concept graph's class thread brings the instance's own nodes only** (the read conventions' own test), as the story's settled design says. What a graph's lists name is kept whoever wrote it, and answered `not-own` or `owner-signed`. Graphs past four levels or the 50th are neither followed nor reported.
+- **micromark 4.0.2,** pinned exactly as asked (`npm install --save-exact micromark@4.0.2`; 4.0.3 exists). The lock gains its 27 packages, all micromark's own and theirs.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
