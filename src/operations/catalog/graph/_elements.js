@@ -568,4 +568,6 @@ module.exports = {
   say, conceptLabel, cleanName, parseFields, madeElsewhere, conceptsReaching, whereTo, findRepeat, differsOf, freeAddress,
   elementJson, elementTags, describeElement, link,
   CHANGED_ELSEWHERE, CHANGED_BY_LABEL, CONCEPTS, changedElsewhere, firmwareElements, firmwareElementOf, repeatsOf, mergeSection, renamedJson,
+  // lifecycle seed-firmware's builder names each element file as install does (ADR graph-operations-first-slice/0037 Decision 4).
+  installName,
 };
