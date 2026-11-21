@@ -16,10 +16,11 @@
  *          (test/helpers/gateFixtures.js) in a temp dir, with records in a temp GATE_RECORD_DIR, and judges the
  *          child's exit, its output and the record it left. The child's starting environment holds
  *          GATE_ENV_FIXTURE_PRESET and never GATE_ENV_FIXTURE_ADDED.
- *   S1–S6  the six suites the story names. Each is loaded and run in a child of its own, directly (not through the
- *          engine), and the child compares its own process.env before and after. These judge the suites alone, so
- *          they fail before the engine changes as well as after. S2 is the exception, passing today: its suite
- *          doesn't leak after all (ADR 0002, Amendment 1), and S2 keeps it that way.
+ *   S1–S8  the six suites the story names (S1–S6), and two that operations.test.js runs in its own process (S7, S8;
+ *          review round 1, ADR 0002, Amendment 2). Each is loaded and run in a child of its own, directly (not
+ *          through the engine), and the child compares its own process.env before and after. These judge the suites
+ *          alone, so they fail before the engine changes as well as after. S2 is the exception, passing today: its
+ *          suite doesn't leak after all (ADR 0002, Amendment 1), and S2 keeps it that way.
  * Every child gets dead endpoints: closed ports, TAPESTRY_CONTAINER=no-such-container, a conf whose Neo4j is a closed
  * port, and fake curl and docker first on PATH. tl-weighted-sum-method's live layer, for one, writes the container's
  * settings.json.
@@ -333,13 +334,17 @@ const SUITE_KEYS = {
   'tl-membership-method-selector.test.js': { key: 'TAPESTRY_SETTINGS_PATH', preset: true },
   'tl-weighted-sum-method.test.js': { key: 'TAPESTRY_SETTINGS_PATH', preset: true },
   'trusted-list-pin-publish-blockers.test.js': { key: 'SCHEDULED_TASKS_CONFIG_PATH', preset: true },
+  // Review round 1, blocking 1 (ADR 0002, Amendment 2): suites operations.test.js runs in its own process. Their key
+  // is a pubkey, preset to one other than the suites' own test TA ('dd' × 32, test/helpers/graphOpsSuite.js).
+  'operations/graph/create-concept.test.js': { key: 'TA_PUBKEY', preset: true, presetValue: 'ee'.repeat(32) },
+  'operations/graph/update-concept.test.js': { key: 'TA_PUBKEY', preset: true, presetValue: 'ee'.repeat(32) },
 };
 
 /**
- * Load and run one suite in a child, its key unset or (preset) set to a path in a temp directory that exists but
- * holds no file; return what the child reports.
+ * Load and run one suite in a child, its key unset or (preset) set: to presetValue when one is given, else to a path in
+ * a temp directory that exists but holds no file. Return what the child reports.
  */
-function suiteInChild(file, { key, preset }) {
+function suiteInChild(file, { key, preset, presetValue }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'suite-env-'));
   try {
     const driver = path.join(dir, 'suite-child.js');
@@ -349,7 +354,9 @@ function suiteInChild(file, { key, preset }) {
     delete env.TAPESTRY_CONTAINER_PORT;
     delete env.GATE_LABEL;
     delete env.GATE_RECORD_DIR;
-    if (preset) {
+    if (preset && presetValue !== undefined) {
+      env[key] = presetValue;
+    } else if (preset) {
       fs.mkdirSync(path.join(dir, 'preset'));
       env[key] = path.join(dir, 'preset', 'preset.json');
     } else {
@@ -367,12 +374,12 @@ function describe(d) {
 }
 
 function suiteLeavesEnvAlone(file) {
-  const { key, preset } = SUITE_KEYS[file];
+  const { key, preset, presetValue } = SUITE_KEYS[file];
   const modes = [{ label: `${key} unset`, preset: false }];
-  if (preset) modes.push({ label: `${key} preset to a temp path`, preset: true });
+  if (preset) modes.push({ label: `${key} preset to ${presetValue === undefined ? 'a temp path' : 'another value'}`, preset: true });
   const problems = [];
   for (const mode of modes) {
-    const rep = suiteInChild(file, { key, preset: mode.preset });
+    const rep = suiteInChild(file, { key, preset: mode.preset, presetValue });
     if (rep.loadError) { problems.push(`${mode.label}: the suite failed to load in the child — ${rep.loadError}`); continue; }
     if (rep.runError) problems.push(`${mode.label}: the suite's run() threw in the child — ${rep.runError}`);
     else if (!rep.result || typeof rep.result.pass !== 'number' || typeof rep.result.fail !== 'number') {
@@ -411,6 +418,15 @@ test('S5 (AC5): tl-weighted-sum-method puts TAPESTRY_SETTINGS_PATH back as it fo
 
 test('S6 (AC5): trusted-list-pin-publish-blockers puts SCHEDULED_TASKS_CONFIG_PATH back as it found it, unset or set', () => {
   suiteLeavesEnvAlone('trusted-list-pin-publish-blockers.test.js');
+});
+
+// Review round 1, blocking 1: two suites under test/operations/, which operations.test.js runs in its own process.
+test('S7 (AC5): the graph create-concept operation suite puts TA_PUBKEY back as it found it, unset or set — so operations.test.js leaves it alone', () => {
+  suiteLeavesEnvAlone('operations/graph/create-concept.test.js');
+});
+
+test('S8 (AC5): the graph update-concept operation suite puts TA_PUBKEY back as it found it, unset or set — so operations.test.js leaves it alone', () => {
+  suiteLeavesEnvAlone('operations/graph/update-concept.test.js');
 });
 
 /* ─────────────── Run ─────────────── */

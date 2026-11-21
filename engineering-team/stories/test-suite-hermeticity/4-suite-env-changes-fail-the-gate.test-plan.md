@@ -21,6 +21,7 @@ Every test is in the new guard suite, `test/suite-env-changes.test.js`, except C
 | AC4 | `E9: a suite that changes keys when it loads changes nothing for the suites before and after it — at their load, at their run, or in a child they start` | same | engine, in a child |
 | AC4 | `E10: a suite that leaves keys changed after its run changes nothing for the suites around it — at their load, at their run, or in a child they start` | same | engine, in a child |
 | AC5 | `S1`–`S6`: each of the six suites the story names, loaded and run in a child with its key unset and then preset, leaves `process.env` as it found it | same | suite, in a child |
+| AC5 | `S7`, `S8`: the graph create-concept and update-concept operation suites, which `operations.test.js` runs in its own process, each leave `TA_PUBKEY` as they found it, unset or preset to another key (added at review round 1, ADR Amendment 2) | same | suite, in a child |
 | AC5 | **The whole registry passes the check,** in CI's stack-free run of the pull request | `.github/workflows/test.yml` (`stack-free`) | CI |
 | (re-aim) | `C6: every suite is loaded before any runs, so a later suite's load-time read cannot see an earlier suite's run-time write`, now through a file | `test/gate-result-record.test.js` | engine, in a child |
 
@@ -46,6 +47,7 @@ Every test is in the new guard suite, `test/suite-env-changes.test.js`, except C
 | `tl-certainty-method`, `tl-membership-method-selector`, `tl-weighted-sum-method` | no change | removes `TAPESTRY_SETTINGS_PATH` |
 | `trusted-list-pin-publish-blockers` | no change | removes `SCHEDULED_TASKS_CONFIG_PATH` |
 | `strfry-router-saved-state` | no change | no change |
+| `operations/graph/create-concept`, `operations/graph/update-concept` (added at review round 1) | adds `TA_PUBKEY` | changes it |
 
 `strfry-router-saved-state` turned out not to leak (ADR Amendment 1):
 - Its `run()` sets `BRAINSTORM_ROUTER_PLUGINS_DIR` before any test runs (`:349–350`) and puts it back in a `finally` (`:364–367`).
@@ -99,7 +101,7 @@ The guard, alone:
 node test/suite-env-changes.test.js
 ```
 
-The scoped gate this phase ran, through the engine, with every endpoint dead (`safe-run.sh` exports the dead endpoints listed above and puts fake `curl` and `docker` first on `PATH`):
+The scoped gate this phase ran, through the engine, with every endpoint dead. `safe-run.sh` exports the dead endpoints listed above and puts fake `curl` and `docker` first on `PATH`. Portable copies of it and `gate.js` are kept in the main checkout's `tmp/ste4/` (gitignored), with the gate records, and run from any checkout as `<main checkout>/tmp/ste4/safe-run.sh "$PWD" <main checkout>/tmp/ste4/gate.js <label> <suites…>`:
 ```
 safe-run.sh gate.js ste4-red suite-env-changes.test.js gate-result-record.test.js search-api-result-type-settings.test.js strfry-router-saved-state.test.js tl-certainty-method.test.js tl-membership-method-selector.test.js tl-weighted-sum-method.test.js trusted-list-pin-publish-blockers.test.js
 npm run gate:status -- --label ste4-red
@@ -136,3 +138,21 @@ Each failure is the feature missing, never an import error or a typo:
 - **C6,** re-aimed, passes on today's engine, as a load-order guard should. So does the rest of `gate-result-record`.
 
 The guard alone takes about 3 s.
+
+### Review round 1's tests (2026-11-21)
+
+Review round 1 found two more suites that leave a key behind (blocking 1; ADR Amendment 2). They aren't registered suites themselves: `operations.test.js` runs them in its own process. S7 and S8 run each alone in a child, as S1–S6 do.
+- **The preset** is a key, not a path: `'ee'.repeat(32)`, a pubkey other than the suites' own test TA, `'dd'.repeat(32)`.
+- **Before the fix,** both fail on the right line, and the other 16 tests pass:
+
+```
+20261121T054500Z-59296-9e07 [ste4-r1-red] started 2026-11-21T05:45:00.733Z on 0b5c1823+dirty — FAIL, exit 1, 16 passed, 2 failed, 0 skipped, 1/1 suites; failed: suite-env-changes
+  FAIL  S7 (AC5): the graph create-concept operation suite puts TA_PUBKEY back as it found it, unset or set — so operations.test.js leaves it alone
+      - TA_PUBKEY unset: its run left process.env changed: added TA_PUBKEY
+      - TA_PUBKEY preset to another value: its run left process.env changed: changed TA_PUBKEY
+  FAIL  S8 (AC5): the graph update-concept operation suite puts TA_PUBKEY back as it found it, unset or set — so operations.test.js leaves it alone
+      - TA_PUBKEY unset: its run left process.env changed: added TA_PUBKEY
+      - TA_PUBKEY preset to another value: its run left process.env changed: changed TA_PUBKEY
+```
+
+The two suites take about 2.6 s and 1.5 s alone, so the guard now takes about 11 s.
