@@ -4,6 +4,7 @@
 **Date:** 2026-11-21
 **Story:** `engineering-team/stories/community-reference/39-firmware-install-leaves-tags-once.md`
 **Amends:** ADR community-reference/0034. Its Decision 1 ("re-sign, republish, and import") now imports, then prunes. Its OQ-2 assumed that create-concept's header import goes through `buildImportCypher`; it doesn't.
+**Amended by:** Amendment 1 (2026-11-21, review round 1): seed-firmware's target and its oracle follow the self-curation skip, `seededB` says whether the header's letter carries the `b`, the "already has a `b`" path stays exempt from the export rule, and four smaller corrections.
 
 ## Context
 
@@ -236,3 +237,42 @@ The order: staging, then production, then david.tapestry.ninja (the owner's inst
 - **Legacy `firmware-community` stubs between two different headers** (Story 38 AC-7).
 - **The local agent-memory container,** which heals at its first install after it runs the fix, at the owner's word.
 - **avi.tapestry.ninja's install,** which is Avi's.
+
+## Amendment 1 (2026-11-21, at review round 1; the owner chose to fix all its findings before the pull request) — seed-firmware's target follows the skip, and `seededB` says whether the letter carries the `b`
+
+Review round 1 (`engineering-team/reviews/community-reference/39-firmware-install-leaves-tags-once.md`) found two blocking issues and five non-blocking ones. The branch first merged `staging` (`7b7f5d1e2`), which brought in `lifecycle seed-firmware` (graph-operations-first-slice #37, ADR 0037). Where a finding offered two fixes, the Architect chose one, below.
+
+1. **Seed-firmware's target and its oracle skip a reference the assistant curates itself (Blocking 1).**
+   - **The target.** `src/firmware/target.js` rebuilds what today's install leaves (ADR 0037 Decision 4). Its community-references step skips a reference whose curator, the `headerATag`'s pubkey, is the target's assistant `ta`: no pointer `b` on the header, no `REFERENCES {source:'b-tag'}` claim, and no entry in `references`. That is what Decision 3 does for today's install.
+   - **The oracle.** `test/helpers/todaysFirmwareRoutes.js`, which follows install's passes line by line, skips it the same way.
+   - **Nothing else in seed-firmware changes.** The target already gives each header its tags once, and it fetches no curator's letters.
+   - **Then ST33's digest.** Its pinned digest of `pass_communityReferences` is updated, as its procedure says: "bring src/firmware/target.js in line, then update its digest here".
+   - **"Nothing else changes"** (Implementation notes §2) now reads: Pass 1, `buildImportCypher`, the post-derive wiring, `event-update` and `set-b-tag`; and in seed-firmware, only the skip above.
+   - **Tests (§3).** A target built under nostr-relay's curator gives its header no `b`, no claim and no `references` entry, and each other reference's header its own. The oracle under the same assistant signs no `b` on it, and agrees with the target.
+
+2. **`seededB` says whether the header's letter carries the `b` (Blocking 2).** Of the review's two fixes, this one:
+   - **When it's set.** At once on the "already has a `b`" path. On the seed path, as soon as the publish has succeeded.
+   - **What follows a failure.** The import and the prune after it stay inside the seed's graceful `try`. If either fails, the log says the header carries its `b` but its import or prune failed, and `seededB` stays true, so the wiring skips the legacy stub. That is what Story 38's AC-4 means, and what its code says `seededB` is: "true if the header now carries a `b`".
+   - **What else it changes.** On the seed path, an import that fails after a good publish no longer gets the stub either. The header has no `REFERENCES` until its next good import derives the `b`-tag one. That is AC-4 as its comment reads it: a header that carries a `b` gets no stub.
+   - **Why not a `try` of each prune's own.** That would still give the stub to a header whose letter carries the `b` when the seed path's import fails, the same mismatch the finding names.
+   - **Tests (§3).** A prune that fails on each path, and an import that fails on the seed path. In each, the header keeps its `REFERENCES {source:'b-tag'}`, and no `firmware-community` relationship forms.
+
+3. **The "already has a `b`" path's import stays as it is (Non-blocking 1).** It is exempt from the export rule's check (`holdsLetterOrNewer`, graph-operations-first-slice ADR 0034 Decision 10), for three reasons:
+   - **It reads the instance's own strfry,** its current signed letter, not a letter come back from a relay. The rule guards an own node against those.
+   - **Today's install is the install.** BIBLE §7 says it undoes what seed-firmware wrote in between, and on a default install Pass 1 does that to every header first. The case left, an install with `pass1: false` after seed-firmware, is that documented consequence.
+   - **The rule can't tell this path's normal case from the one it guards.** A graph write keeps the node's letter (ADR 0037, Context 4), and here the node holds exactly strfry's letter, with an earlier letter's tags beside it. That is what the prune is for.
+   - **The review's other suggestion would be wrong.** Skipping the import but not the prune, when the node holds a newer letter, would prune against the older letter and delete the newer one's tags.
+
+4. **BIBLE §22 says so (Non-blocking 2).** Its "Status today" paragraph gains the import-then-prune, and the skip for a reference the instance curates itself.
+
+5. **The rollout expects staging's copy to keep production's loop until production heals (Non-blocking 3).**
+   - **§5's order stays:** staging first, as the live check.
+   - **Staging's check expects one loop.** After that install, its copy of production's nostr-relay header still has its `REFERENCES` to itself. Production's letter carries the `b` then, so the version the copy holds derives it (AC-2 as amended).
+   - **It goes at staging's next install after production's,** and §5 checks that it does.
+   - **The step suite's fixture** models the graph once production has healed, and its comment now says so.
+
+6. **S0 checks the six references the story names (Non-blocking 4).**
+
+7. **No change for Non-blocking 5.** The prune's tag statement has the shape of `TAGS_DROP`, which staging and production run. With item 2, a prune that fails at staging's reinstall leaves the duplicates, and the right relationship.
+
+**Ratification:** at the next gate.
