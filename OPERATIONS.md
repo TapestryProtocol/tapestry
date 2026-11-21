@@ -159,9 +159,10 @@ Every workflow follows four rules that `npm test` holds: actions pinned to a com
    - It takes a few minutes. It lasts until the next deploy, which builds from this week's own refresh:
      - **If a deploy has already refreshed this week,** the droplets' BuildKit still holds that refresh, since
        `docker image prune` leaves the build cache alone. The next deploy reuses it, and the container goes back to
-       its packages.
+       its packages. The exception is a deploy that changes a step above the refresh (§3), which runs the step again.
      - **If none has,** the next deploy runs the step again.
-   - So a fix that can't wait for next week's refresh needs this recipe again after each deploy that week.
+   - So a fix that can't wait for next week's refresh needs this recipe again after each later deploy that week whose
+     log doesn't print `packages refresh`.
 
 2. **Resetting the cached package step,** for when the weekly refresh has grown slow. This is a full rebuild from a
    fresh `ubuntu:22.04`:

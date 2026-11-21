@@ -16,7 +16,8 @@
   - BuildKit keeps each step as a build-cache record, which `docker image prune` leaves alone. A later build whose key
     matches an earlier one, such as the same week passed again, reuses it.
 - **Why it mattered.** Story `container-apt-refresh` #1's R2 cache check ran on the Mac and passed. It couldn't show
-  that a by-hand refresh with a one-off key is undone by the next plain-week deploy on the droplets. The review found
+  that on the droplets a by-hand refresh with a one-off key is undone by the next plain-week deploy that reuses the
+  week's earlier refresh. The review found
   that from staging's log and Docker's docs (review round 1, blocking 1).
 
 **Fix shape.** Any of these, to decide:

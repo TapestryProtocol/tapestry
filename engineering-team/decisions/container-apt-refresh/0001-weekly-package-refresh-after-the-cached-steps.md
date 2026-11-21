@@ -330,7 +330,8 @@ follows. Items 1 and 2 correct what this ADR said about the deploys. Item 3 chan
    - **The cause.** The droplets build with BuildKit. It keeps each built step as a build-cache record, which
      `docker image prune` leaves alone. So the deploy after a refresh by hand builds from this week's own refresh:
      - when an earlier deploy this week has refreshed, it reuses that refresh, and the container goes back to its
-       packages;
+       packages. The exception is a deploy that changes a step above the refresh (item 2), which runs the step
+       again;
      - when none has, it runs the step again.
 
      Either way, recipe 1's image lasts only until the next deploy.
