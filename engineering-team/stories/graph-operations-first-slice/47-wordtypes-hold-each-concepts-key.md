@@ -156,6 +156,48 @@ For Architecture, not this gate:
 - **The catalog's repair row says what repair does with this rule's findings too.** The ADR named only the check row.
 - **A ledger row tracks the reinstalls.** `ledger/2026-11-20-word-types-keys-await-firmware-reinstall.md` records that each instance's firmware nodes gain their keys, and its graph rule concept its twelfth item, only at a firmware reinstall there, each on the owner's yes.
 
+## Evidence
+
+**The scoped gate, stack-free (2026-11-20).** It ran on `8f5e0149` with the implementation in the working tree (committed as `fbd1aca1`), every endpoint dead:
+- a stub `curl` and `docker` first on `PATH`;
+- `BRAINSTORM_CONF_PATH` at a conf whose `NEO4J_URI` is a closed port;
+- `TAPESTRY_CONTAINER=no-such-container`.
+
+It covered 14 suites:
+- CI's registry entries for an operations change: `operations.test.js`, which runs every suite under `test/operations/`, `external-cli`, `openapi-coverage`, `admin-action-sweep` and `schema-save-finds-the-right-header`;
+- the rule list: `graph-rules-builder`, `graph-rule-firmware` and `firmware-element-sync`;
+- this story's `firmware-nodes-hold-their-concepts-keys`;
+- the suites that read firmware's files or run the install: `neo4j-property-firmware`, `profile-tags`, `event-tagging-firmware-seed`, `concepts-list-shows-concepts-with-no-event` and `pass-3-finishes-in-minutes`.
+
+Results:
+- **Overall: PASS, 1534 passed, 0 failed, 44 skipped** (record `tmp/gate-runs/20261120T235304Z-73207-0e2c.json`, which git ignores). The skips are the live parts, which need a scratch container.
+- One sentence of the rule's finding message changed after the run: its closing full stop, so a repair's refusal reads as rule 11's does. The four suites that read messages ran again and passed: the rule's own 10, check and repair's 10, the agent's 1, and rule 11's repair 16.
+- `stack-free-npm-test` is CI's: its G2 runs against a live control panel when one answers.
+
+**The live check on a scratch stack (2026-11-20 23:59 to 2026-11-21 00:05 UTC).** Never this Mac's agent-memory instance. The scripts and records are in `tmp/live-check-47/`, which git ignores: `runA.sh` and its log, `setup.sh`, `check.js`, `compare.py`, `edit-wt.js`, `fits.js` and `agent.sh`.
+- **Setup.** `scripts/scratch-stack.sh up` ran from a worktree of staging's `c063ecdd`, on image `agent-memory-tapestry:latest`; its boot installs the image's firmware. Then:
+  - staging's firmware was copied in;
+  - the uniqueness rules a set-up instance has were added (the Dashboard's fix, then `tapestry-keys`);
+  - staging's firmware was installed.
+- **LB, before (staging's code and firmware).** Read with the measurement's read-only extract: 459 elements, of which 49 lack a key. Those are the 41 JSON schemas, every firmware concept's, lacking `validationTool`, and the eight headers. Nothing else lacks one.
+- **LB2, this branch's code (`fbd1aca1`) before a reinstall.** `rules check` names the same 49 nodes, with the same keys. It judged 415, and `notJudged` counted 44 `no-json`: the sets and the assistant's relationship records. That is AC2's "On a fresh install of today's firmware …".
+- **LA, after a reinstall with this branch's firmware.** The check names none: 0 found, 416 judged, 44 `no-json` (AC3, AC5). Field by field against LB:
+  - each of the 49 gained exactly its key: 41 × `["word","jsonSchema"]` → `["word","validationTool","jsonSchema"]`, 4 × `graphType`, 2 × `nodeType`, 2 × `validationToolType`;
+  - nothing else of theirs changed, and no other node's word types changed (AC5);
+  - every JSON schema, 42 of 42 (the 41 and teapot's, below), fits validation tool's installed schema, judged with the app's own check (AC3).
+- **LA2, a new concept.** `graph create-concept` made teapot, and a check of it found nothing, with its eight core nodes judged (AC4).
+- **LA3, the agent (AC6).** An admin agent with its own key used the unchanged external CLI inside the container. It:
+  1. signed in as admin;
+  2. checked teapot and was told of nothing;
+  3. made Brown Betty;
+  4. with teapot's key taken out of Brown Betty's `json` tag by hand, checked the graph and was told of Brown Betty once, for `teapot`;
+  5. repaired over teapot: the finding was left, with the way on, and nothing was recorded;
+  6. with the key back, checked Brown Betty, which was judged and not named.
+- **Not covered.**
+  - A fresh install of this branch's firmware alone: the scratch script's boot always installs the image's firmware first. The reinstall rebuilds every firmware header and JSON schema from this branch's files, so for word types it ends where a fresh install would.
+  - The hosted instances: each one's reinstall waits for the owner's yes (ledger row `2026-11-20-word-types-keys-await-firmware-reinstall`).
+- The stack was taken down after.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0047-wordtypes-hold-each-concepts-key.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.test-plan.md`
