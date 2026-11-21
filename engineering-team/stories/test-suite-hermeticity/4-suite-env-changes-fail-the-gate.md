@@ -1,6 +1,6 @@
 # Story 4: A suite that leaves `process.env` changed fails the gate, and the change reaches no other suite
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 

@@ -111,3 +111,80 @@ The owner's Mac never runs the full `npm test`, because its `tapestry` container
 ## Verdict
 
 **CHANGES_REQUESTED.** Blocking 1: AC5 isn't met, because `operations.test.js` leaves `TA_PUBKEY` set, and the pull request's stack-free run would fail there. Everything else holds: AC1–AC4, the ADR's rules, the carve-out and the records.
+
+## Round 2 — 2026-11-21 (HEAD `f4ed296a`)
+
+Round 1's findings were fixed in three commits after its review (`fbc65dc6`), tests first:
+- `0b5c1823`: ADR Amendment 2, and the story's Background and AC5 brought up to seven suites;
+- `2fe0b7bb`: tests S7 and S8, and the test plan's coverage map, red table, red run and script paths;
+- `4a2c2065`: the two operation suites put `TA_PUBKEY` back; the ledger row's Done text and the story's Deviations name them.
+
+Then staging moved, and two more commits followed:
+- `6bef5deb` merges `origin/staging`, which had landed `container-apt-refresh` #1, export nostr and seed-firmware.
+  - `engineering-team/CHANGELOG.md` conflicted: both sides had appended a row dated 2026-11-21. Both are kept, staging's first.
+  - `test/registry.js` merged on its own.
+- `f4ed296a`: Amendment 2's two `status.test.js` lines, which staging's change moved.
+
+I checked each changed statement against the sources, as a new claim (role rule 10). That includes the asked changes, which were my own wording in round 1.
+
+### Gates (run by the reviewer on clean trees; the whole registry by this PR's CI)
+
+- [x] **The scoped gate,** through the engine with every endpoint dead: `20261121T055218Z-93327-bdc9 [ste4-r2] … on 4a2c2065 — PASS, exit 0, 1587 passed, 0 failed, 23 skipped, 13/13 suites`. It ran:
+  - the guard, 18 of 18;
+  - `gate-result-record`, 34 of 34;
+  - the six suites the story names;
+  - `firmware-nodes-hold-their-concepts-keys`;
+  - `operations`, 1327 passed and 0 failed, now through the check;
+  - `harness-lint`, `ledger-row-ids` and `session-start`, which read the changed ledger row, story and ADR.
+- [x] **The red phase of the new tests:** `20261121T054500Z-59296-9e07 [ste4-r1-red] … on 0b5c1823+dirty — FAIL, … 16 passed, 2 failed`. S7 and S8 failed there, each with `added TA_PUBKEY` (unset) and `changed TA_PUBKEY` (preset). Every other test passed.
+- [x] **The scoped gate after the merge,** at `6bef5deb`, with every endpoint dead: `20261121T183631Z-35365-9494 [ste4-merge2] … on 6bef5deb — PASS, exit 0, 1843 passed, 0 failed, 37 skipped, 16/16 suites`.
+  - It ran the 13 suites above, plus three registered suites the merge brought in or touched: `container-apt-refresh` (new; 23 passed, its live checks off), `publish-export-a-concept` (changed) and `external-cli` (its helper `test/helpers/externalCliServer.js` changed).
+  - `operations` ran 1504 tests, staging's new export and seed-firmware suites among them: 0 failed, 20 skipped (the scratch-stack live checks).
+  - No suite's `envChanged` is set in the run's record, and the record has no strays.
+- [x] **`bash scripts/harness-lint.sh`** at `4a2c2065`, `6bef5deb` and `f4ed296a`: clean (0 violations).
+- [x] **The whole registry:** this PR's stack-free run on `f4ed296a`, [44937221100](https://github.com/TapestryProtocol/tapestry/actions/runs/44937221100): `Overall: PASS — 8577 passed, 0 failed, 669 skipped across 351 suites`.
+  - No line of its log reports a `process.env` change or a stray error. `suite-env-changes` passed 18 of 18, and `operations` 1504 with 0 failed.
+  - The run before the merge, 44873425891 on `4a2c2065`, passed too: `Overall: PASS — 8377 passed, 0 failed, 655 skipped across 350 suites`.
+
+### Round-1 findings, re-checked
+
+1. **Blocking 1 — fixed.**
+   - **The two suites put the key back.** `test/operations/graph/create-concept.test.js` CC3 and `test/operations/graph/update-concept.test.js` UC2 each note `TA_PUBKEY`, set the suites' TA, and put it back in a `finally`, deleting it when it was unset (`git diff 2fe0b7bb 4a2c2065 -- test/operations/`). Their assertions are unchanged; they moved inside the `try` and nothing else.
+   - **`operations.test.js` now passes the check:** 1327 passed and 0 failed in `ste4-r2`, and 1504 passed and 0 failed after the merge, in `ste4-merge2` and in CI's run 44937221100, each with no env failure.
+   - **S7 and S8 pin it.** Both fail on the code before the fix (`ste4-r1-red`) and pass after it (`ste4-r2`).
+   - **Their preset** is `'ee'.repeat(32)`, a key other than the suites' TA, `'dd'.repeat(32)` (`test/helpers/graphOpsSuite.js:30`). So "changed" can show.
+   - **Amendment 2's claims hold.**
+     - `operations.test.js:1158–1183` requires each suite and awaits its `run()` in its own process.
+     - `getOwnerAssistantPubkey()` reads `TA_PUBKEY` first (`src/utils/assistantKeys.js:52–56`).
+     - The other writes under `test/operations/` are put back in a `finally` (`lifecycle/backup-job.test.js:172–175`, `:370–375`), or are code strings run in a child (`graph/memberships-shared.test.js:503`, `lifecycle/status.test.js:107`, `:174`; staging's merge at `6bef5deb` moved those two lines, and `f4ed296a` updates the amendment to match).
+   - **The story's count adds up.** AC5 now names seven suites: Background's five that leave a change behind (`search-api-result-type-settings` and the four that delete a key), plus the two operation suites. `strfry-router-saved-state`, also listed there, is marked as not leaking.
+   - **The ledger row's Done text** names the two, with S7 and S8.
+   - **AC5 is met.** The whole registry passes with the check in place (run 44937221100, above), staging's new suites included. So no registered suite leaves `process.env` changed. No suite can mark a change as allowed: the engine checks after every load and every run, with no opt-out (`test/helpers/gateRunner.js:213–281`).
+2. **Non-blocking 1 — fixed.** Portable copies of `safe-run.sh` and `gate.js` are in the main checkout's `tmp/ste4/`.
+   - They write their own fake `curl` and `docker` and a dead conf beside themselves, and run from any checkout.
+   - The test plan's How to run names them (`:104`).
+   - I ran both: the `ste4-r2` and `ste4-merge2` gates above, and an earlier one-suite check (`20261121T054528Z-60016-2ad3`, PASS).
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:** none.
+
+### Outside this story
+
+- **The stack-free job is near its time limit.** Run 44937221100's job took 21 m 16 s, against `timeout-minutes: 25` in `.github/workflows/test.yml`. The run on `4a2c2065` took 16 m 48 s.
+  - Nearly all of the growth is `operations`: 582 s before the merge, 801 s after it, from the export and seed-firmware suites staging added. This story's own suite took 21 s and 25 s.
+  - Ledger row `2026-11-20-ci-gate-outgrows-its-timeout` raised the limit from 15 minutes to 25 the day before. This is not a finding against this diff.
+
+### Harness friction
+
+1. None.
+
+### On PASS (same commit)
+
+- [x] The story's `**Status:**` flipped to `Done` in place.
+- [x] Completion detection performed: the result goes to the chat, not this file.
+
+### Verdict
+
+**PASS.** Round 1's blocking finding is fixed, tests first, and AC1–AC5 hold: the whole registry passes on CI with the check in place, staging's new suites included. The ADR's rules, the carve-out and the records hold, with Amendment 2's two citations brought up to date after the merge.
