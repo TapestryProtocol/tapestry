@@ -274,7 +274,10 @@ A run that changes nothing writes nothing, records no entry, and answers every n
   - the release story adding a source, not an installer.
 - **An instance installed by seed-firmware alone isn't ready by today's readers.** `readInstallState` and `GET /api/ready` count `NostrEvent` headers, and the old routes read letters. The graph operations work on it (`supersetsOf` matches `TapestryNode`). The story's "reading the installed firmware from the graph", and the signing step, close this.
 - **Stale letters.** A changed node that a letter backs keeps the old letter until export nostr signs a new one. `event-update` could import the old letter over the change, ADR 0021's caveat.
-- **A second copy of today's install's logic.** It is pinned by oracles that run today's routes from their source, so a change to today's install fails a test until the builder follows. The copy retires with today's install.
+- **A second copy of today's install's logic.** It is pinned in three ways, and it retires with today's install:
+  - the routes in `src/api/normalize/index.js`, by oracles that run them from their source;
+  - `install.js`'s walk and edge passes, by expectations worked out from the real firmware, and by Amendment 3's tripwire, which fails whenever those passes change;
+  - the whole, by the live check's L1 (Decision 13).
 - **Four schemas and three concept graphs differ from today's install's** in firmware v1.0.0 (Decision 5; Amendments 1 and 2). P-156 then shows only on instances today's install installed. The concept graphs' rewrite is ledger row `2026-11-20-add-node-flattens-concept-graphs`.
 - **The firmware module gains `TAPESTRY_FIRMWARE_DIR`,** and the derive gains the two record sections.
 - **One transaction for a fresh install:** 459 nodes, their tag nodes and their relationships. If that ever outgrows Neo4j's transaction memory (story graph-operations-foundation #9's limit), it batches by concept, with the installed-firmware graph last.
@@ -334,3 +337,29 @@ The Tester ran today's routes from their source over the real firmware (story 37
 ## Amendment 2 (2026-11-21, at Implementation's live check) — `dog`'s schema
 
 The live check's first contact on a scratch instance that today's install set up (L1) found `dog`'s schema `unchanged`. Its enumerating concept, `dog-breed`, has no elements in firmware v1.0.0: the manifest's dog-breeds existing nodes name concepts it doesn't define (Amendment 1, item 4). Today's apply-enumerations skips an enumeration with no elements (`src/api/normalize/index.js:6183`, "No elements found — skipping"). So pass 3b leaves `dog`'s schema as its file says, and Decision 5's departure shows on four schemas, not five. The design doesn't change: seed-firmware installs all five as their files say. Decisions 5 and 13 and the Consequences are corrected above, and L1 and the first-contact fixture now count the schemas pass 3b writes into from the instance's own graph.
+
+## Amendment 3 (2026-11-21, at Review) — review round 1's findings, as the owner chose
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md`) found two ways seed-firmware could misread or overwrite state, and eight smaller gaps. The owner chose the fix for each, as the drafting recommended. This amendment is ratified at the next gate.
+
+1. **The installed-firmware graph is read through the LMDB** (finding 1). Both readers of its `json` (the plan's state and status's `seeded`) resolve an `lmdb:` reference, as every firmware node's `json` is read. So the Dashboard's offload leaves the record readable.
+2. **`word.wordTypes` compares as a set** (finding 1; Decision 6). An offloaded node's `json` is its derived copy, and the set deriver writes a superset's `word.wordTypes` in its own order. That order isn't content, since a node's memberships are its edges (D10). So the content digest reads `word.wordTypes` sorted. An offloaded, re-derived firmware then answers `unchanged`.
+3. **The installed-firmware graph has a reserved address, and a mark** (finding 2; Decisions 1 and 9).
+   - *Its address* is `39999:<ta>:installed-firmware`: a d-tag that no element write gives, since theirs end in a hash of their concept's address.
+   - *It counts as seed-firmware's* only when it carries seed-firmware's mark: its own `installed` record, and its `installedFirmware` section.
+   - *Anything else at that address* refuses `address-held` (409), naming the node and saying it isn't seed-firmware's record. Nothing changes. So a node an admin made there is never read as the last install's lists, and never rewritten.
+4. **Kept relationships are listed apart** (finding N2; Decisions 8 and 9).
+   - *`graph.relationships`* lists only the relationships the install made, brought in line, or adopted as the target has them.
+   - *A kept one* (removed since, or with properties an admin edited) is listed in `installedFirmware.keptRelationships` instead. A later install never takes it out: it stays as it is, and is reported `kept`.
+5. **A relationship alias must be a plain name** (finding N1; Decision 3). The builder refuses `firmware-unreadable` for an alias that isn't `[A-Z_][A-Z0-9_]*`. So no text from the firmware, read from files now and from relays later, reaches Cypher's text.
+6. **The record's sections come only from the node's record** (finding N4; Decision 6). The derive adds `cameFrom` and `installed` to tapestryJSON only when the node carries those properties. Otherwise it leaves a section of either name as it is: it may be a concept's own. The schema judge sets them aside only when the node carries them.
+7. **Today's install and seed-firmware run apart, as the docs say** (finding N5).
+   - *The race:* today's install takes no lock, so the two run at once can leave two nodes at one address.
+   - *The docs:* BIBLE §7 says not to run them together.
+   - *The ledger:* row `2026-11-21-todays-install-races-seed-firmware` records the race. It ends when seed-firmware becomes the install and today's install retires.
+   - *No new lock:* today's install takes none, so AC7's "work as they did" holds.
+8. **A tripwire on today's install's passes** (finding N7).
+   - *The test* holds a digest of `install.js`'s pass functions: `pass1_bootstrap`, `pass2_enrich`, `pass_communityReferences`, and the pass-3 part of `install`.
+   - *It fails* whenever they change, naming `src/firmware/target.js`, so the builder is brought in line before the digest is updated.
+   - *The Consequences* are corrected to say what pins each part.
+9. **Deviation 7 names its conflict with ADR 0043** (finding N3). For files, an unchanged node keeps its record. In the release story, where every member is a new letter, an update moves every unedited node's record to the new release's letter (ADR 0043, Decision 1).
