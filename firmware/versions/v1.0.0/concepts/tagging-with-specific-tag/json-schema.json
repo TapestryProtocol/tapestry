@@ -4,7 +4,7 @@
     "name": "JSON schema for the concept of taggings with specific tags",
     "title": "JSON Schema for the Concept of Taggings with Specific Tags",
     "description": "the json schema for the concept of taggings with specific tags",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-taggings-with-specific-tags",

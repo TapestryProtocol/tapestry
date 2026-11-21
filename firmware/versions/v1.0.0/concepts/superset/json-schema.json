@@ -6,6 +6,7 @@
         "description": "the json schema for the concept of supersets",
         "wordTypes": [
             "word",
+            "validationTool",
             "jsonSchema"
         ],
         "coreMemberOf": [

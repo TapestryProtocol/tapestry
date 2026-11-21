@@ -18,4 +18,6 @@ Fix shape, either or both:
 
 Same class as OPEN.md row `2026-11-05-suite-probe-reaches-private-container`.
 
+**2026-11-21 — story graph-operations-first-slice #47's three gates did the same.** Each listed this suite, since it reads firmware's files: the Implementer's gate (`20261120T235304Z-73207-0e2c`), review round 1's (`20261121T002100Z-6796-ac63`), and the gate after round 1's fixes (`20261121T004946Z-57222-e9ab`). In each, its `:7778` check made the same two read-only GETs to the agent-memory instance and passed, and the two `:8877` checks skipped. Nothing was written. The story's Evidence said "every endpoint dead" and "nothing reached a container" until review round 2 found it (non-blocking 3). That round left the suite out, and ran its other suites in a sandbox that refuses colima's ports. Until this row's fix lands, leave the suite out of a scoped gate on this Mac, or run it that way.
+
 **Pointer:** `engineering-team/reviews/graph-operations-foundation/1-operation-declaration-and-lifecycle-status.md` § Harness friction 1

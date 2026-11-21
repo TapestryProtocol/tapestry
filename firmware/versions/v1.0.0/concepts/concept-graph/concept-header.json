@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-concept-graphs",
     "name": "concept header for the concept of concept graphs",
     "title": "Concept Header for the Concept of Concept Graphs",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "graphType"]
   },
   "conceptHeader": {
     "description": "A graph recording the class thread structure of a concept.",

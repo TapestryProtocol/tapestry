@@ -4,7 +4,7 @@
     "name": "JSON Schema for the concept of web of trust",
     "title": "JSON Schema for the Concept of Web of Trust",
     "description": "This is the JSON Schema for elements of the concept of web of trust. Every element of this concept must validate against this JSON schema.",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-web-of-trust",

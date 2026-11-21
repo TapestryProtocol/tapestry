@@ -9,6 +9,8 @@
 
 const { runCypher } = require('../../lib/neo4j-driver');
 const { regenerateJson } = require('../normalize/helpers');
+// A JSON schema's word types (ADR graph-operations-first-slice/0047 Decision 8).
+const { JSON_SCHEMA_WORD_TYPES } = require('../normalize/firmware');
 
 async function handleGenerateJsonSchema(req, res) {
   try {
@@ -172,7 +174,7 @@ async function handleGenerateJsonSchema(req, res) {
           name: schemaName || `JSON schema for ${concept}`,
           title: schemaName ? schemaName.replace(/^json /i, 'JSON ') : `JSON Schema for ${concept}`,
           description: `the json schema for the concept of ${concept}`,
-          wordTypes: ['word', 'jsonSchema'],
+          wordTypes: [...JSON_SCHEMA_WORD_TYPES],
         },
         jsonSchema: {},
       };

@@ -6,6 +6,7 @@
         "description": "This is the JSON Schema for elements of the concept of graphs. Every graph node must validate against this JSON schema. Subtype-specific sections (coreNodesGraph, conceptGraph, propertyTreeGraph) are validated by their own concept schemas.",
         "wordTypes": [
             "word",
+            "validationTool",
             "jsonSchema"
         ],
         "coreMemberOf": [

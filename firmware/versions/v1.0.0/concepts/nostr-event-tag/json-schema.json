@@ -4,7 +4,7 @@
     "name": "JSON schema for the concept of nostr event taggings",
     "title": "JSON Schema for the Concept of Nostr Event Taggings",
     "description": "the json schema for the concept of nostr event taggings",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-nostr-event-taggings",

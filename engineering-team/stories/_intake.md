@@ -3040,6 +3040,8 @@ an ADR, and a rehearsal on a sandbox before `main`.
 
 ## 2026-11-20 — Nothing checks that a node's `wordTypes` hold the key of each concept it belongs to (feature)
 
+**PICKED UP** 2026-11-20 → `stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.md` (book `audits/graph-operations-first-slice/`)
+
 **Raw request:** none as such; raised by the owner at `graph-operations-first-slice` #46's planning (2026-11-20). That
 story drops the wordType pair install writes for `word.wordTypes`, which compares the list with itself and so checks
 nothing. The owner asked whether the check worth making is done anywhere: "I presume that at some point, somewhere, we
