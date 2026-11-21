@@ -483,9 +483,9 @@ test('ST33 [Amendment 3, item 8; review round 1, N7; round 2, R2-N3]: the tripwi
     [INSTALL, 'pass1_bootstrap', /^async function pass1_bootstrap\(/m, /^\/\/ ── Pass 2: Enrich/m, 'b4cea1c4dec0c0d6d2c7431b4c8b85422e80015aacf4614b7fe6ef43a50a65e0'],
     [INSTALL, 'pass2_enrich', /^async function pass2_enrich\(/m, /^\/\/ ── Community references/m, 'bf2a3bc6ebf2a94726dac347562142c34afb8c4f2114fc16b2ff58e4e0261b9c'],
     // Updated for story community-reference #39 (each import pruned after it, a reference the assistant curates itself
-    // skipped, seededB set once the letter carries the b; ADR community-reference/0035 and its Amendment 1), once
+    // skipped, seededB set once the stored letter carries the b; ADR community-reference/0035 and its Amendment 1), once
     // target.js and the oracle followed it.
-    [INSTALL, 'pass_communityReferences', /^async function pass_communityReferences\(/m, /^\/\/ ── Full install/m, 'a6c0b784bc931fafb394092f53369c27c0b0fa0ba16632bd6fe6670b6b23fa42'],
+    [INSTALL, 'pass_communityReferences', /^async function pass_communityReferences\(/m, /^\/\/ ── Full install/m, '11c57a1aab6c0c25e2fbe3ce20d184a366b13617ccd1f50ca7b791d98cb9f433'],
     [INSTALL, 'install\'s pass 3 (derive, apply enumerations, wire implicit elements, the community-reference edges)', /^ {2}\/\/ ── Pass 3: Derive \+ Apply Enumerations \+ Wire Implicit Elements ──/m,
       /^ {2}console\.log\('\\n╔═+╗'\);\n {2}console\.log\('║ +FIRMWARE INSTALL COMPLETE/m, 'c531d428fa704c760b6014b3a6d4d49321657e288f298282e8b9d5742f3d1e29'],
     // Pass 3c's route, POST /api/normalize/wire-implicit-elements, which install's pass 3 calls and the oracle doesn't
