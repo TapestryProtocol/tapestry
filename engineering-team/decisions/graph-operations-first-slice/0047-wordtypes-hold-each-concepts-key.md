@@ -322,3 +322,14 @@ A later wiring that adds a superconcept to json schema, or a header to a categor
 - **The old `normalize/json` route's header rebuild.**
 - **Labelling production's 152 unlabelled elements.**
 - **Reinstalling firmware anywhere,** which waits for the owner's yes on each instance.
+
+## Amendment 1 (2026-11-21, at review round 2; the owner chose to fix the review's non-blocking findings before the pull request) — the way on names no other operation
+
+Review round 2 (`engineering-team/reviews/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.md`, non-blocking 1) found the way on's sentence about `graph add-to-concept` untrue for a node whose JSON holds no `wordTypes` list: add-to-concept adds keys only to a word block that already holds a list (`src/operations/catalog/graph/add-to-concept.js:179`), so such a node gets the section and no key. Round 1 had found the first wording untrue in another case. The review offered two fixes: drop the sentence, or state every condition. The owner said "Fix findings first" and left the choice, so the Architect picks the first.
+
+1. **`choice.wayOn` names a reinstall and a repair still to come, and no other operation.** It reads: "A firmware reinstall gives firmware's own nodes their keys. For any other node a repair for this rule is still to come." Rulebook entry 12's Repair drops the same sentence, and so does its graph rule item. This replaces Decision 4's "`graph add-to-concept` adds a key only along with the concept's section, to a node that holds none."
+2. **Entry 12's "Refuses or reports" says the same thing without a list of writes.** It said the writes "already put the key in", naming `graph create-element`, `graph create-set` and `graph add-to-concept`. That holds for add-to-concept only when the node's JSON holds a list, as item 1's finding shows. It now gives the reason the rule only reports: the owner chose it (2026-11-20, the story's Out of scope).
+3. **Why not the second fix.** Whether add-to-concept adds a key turns on the node's JSON: a word block holding a list, the view a node kept beside reads, and whether the node is already directly in the set given. A sentence stating all of that has to be checked again whenever add-to-concept changes, and two rounds have each found a case the wording missed. The way on says what clears a finding. For the nodes with no list, the review's count is 8 on david.tapestry.ninja, 2 on staging and 13 on this Mac, and add-to-concept clears none of them. Saying how such a node gets its key belongs to a repair for this rule, which is out of scope.
+4. **What doesn't change.** WT4, WC2, WC7 and XW1 hold that the way on names a reinstall, and it still does. No finding's facts, id or code change.
+
+**Ratification:** to be recorded at the next gate.
