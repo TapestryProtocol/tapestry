@@ -18,7 +18,7 @@
   - install skips a reference the instance curates itself, and takes the loop out;
   - `graph link-set` and `unlink-set`'s model of firmware's links (`src/operations/catalog/graph/_sets.js`, part d) leaves it out;
   - seed-firmware's target skips it.
-- **When the row closes.** When the fix reaches production and its reinstall takes the loop out.
+- **When the row closes.** When the fix reaches production and its reinstall takes the loop out. The Mac Studio's local instance, named above, is the other curator's instance: its assistant curates the five event-tagging references, each with a d-tag equal to its slug, so the fix covers it too. Its install is the owner's word (ADR community-reference/0035, Out of scope), and the row says so when it closes.
 
 **Fix shape.** On a curator's instance, check for the loop: `MATCH (s:Superset)-[:IS_A_SUPERSET_OF]->(s) RETURN s.uuid`. If it is there, have install skip part (d) when its two ends are the same node, and take the loop out with `POST /api/normalize/delete-relationship`.
 
