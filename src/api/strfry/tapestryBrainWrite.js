@@ -46,6 +46,8 @@ function isOwnedTapestryEvent(event, { taPubkey, ownerPubkey } = {}) {
  * Post-import hook. Returns null when the event is not one of the instance's
  * own tapestry letters (the common case — every non-tapestry publish), else
  * a report object: { success, uuid, tapestryKey, derived } on success,
+ * { success: true, uuid, unchanged: true, reason } when the node already holds
+ * that letter or a newer one (nothing is imported), and
  * { success: false, uuid, error } on an internal failure.
  */
 async function maybeBrainWriteTapestry(signedEvent) {
@@ -59,6 +61,16 @@ async function maybeBrainWriteTapestry(signedEvent) {
     if (!dTag) return null; // no coordinate → not an addressable element
 
     uuid = `39999:${signedEvent.pubkey}:${dTag}`;
+
+    // 0. A letter the node already holds, one older than it, or one its sentIds lists as export nostr's, even a newer
+    //    one, posted again, is imported no more: it never comes back over the node (ADR
+    //    graph-operations-first-slice/0034 Decision 10, Amendment 3 item 2; src/operations/catalog/export/_own.js). Any
+    //    other newer one, such as an edit in the Tapestries UI, is imported as before.
+    const { holdsLetterOrNewer, TURNED_AWAY } = require('../../operations/catalog/export/_own');
+    const graph = require('../../operations/graph');
+    if (await holdsLetterOrNewer((cypher, params) => graph.read(cypher, params), signedEvent)) {
+      return { success: true, uuid, unchanged: true, reason: TURNED_AWAY };
+    }
 
     // 1. Brain node + tag nodes (MERGE by uuid; refreshes HAS_TAG on republish).
     await importEventDirect(signedEvent, uuid);
