@@ -107,7 +107,7 @@ None. Intake's three questions are answered under Background.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.test-plan.md`
 - Review: (filled in after Review phase)
 - Book: `engineering-team/audits/container-apt-refresh/book.md`
 - Related: OPEN.md row 134; ledger row `2026-11-14-cold-deploy-outlasts-safe-buffer`.
