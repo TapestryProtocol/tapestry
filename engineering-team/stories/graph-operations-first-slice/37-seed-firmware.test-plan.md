@@ -2,7 +2,7 @@
 
 **Story:** `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.md` (approved, with its "Changed at Architecture" and "Changed at Test Design" sections)
 **ADR:** `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md` (accepted: Option A, Decisions 1–13, with Amendment 1, the owner's rulings at Test Design, 2026-11-20; Amendment 2, at Implementation's live check; and Amendment 3, review round 1's findings as the owner chose, 2026-11-21, ratified at the next gate)
-**Review:** `engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md` (round 1: Blocking 1–2, N1, N2, N4, N7, tested below as "Amendment 3")
+**Review:** `engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md` (round 1: Blocking 1–2, N1, N2, N4, N7, tested below as "Amendment 3"; round 2, PASS: R2-N1–R2-N3 and nit 1, tested below as "Review round 2")
 **Date:** 2026-11-20; Amendment 3's tests 2026-11-21
 
 Every suite but one is stack-free, and all live under `test/operations/lifecycle/`, where `test/operations.test.js` finds and runs them, so none needs a line in `test/registry.js`:
@@ -33,7 +33,7 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | AC1 the relationships, pruned in one fixed order, by address | **ST17** the same files give the same relationships. **ST11** 1a's 328 core edges. **ST12** 1c's existing nodes, nothing for `irish-setter` and `golden-retriever`. **ST13** the 26 existing sets. **ST14** 1c¾ and 1e's prune. **ST15** 1d (relationship letters) and 1d½ (41 headers). **ST16** five ENUMERATES with both paths. **SF4** the same in the graph | target, route | unit, integration |
 | AC1 the six b | **ST9**. **SF5** the b and its claim, `REFERENCES {source: 'b-tag'}`, to a placeholder at the b's address | target, route | |
 | AC1 nothing signed, no guard; the graph operations work | **SF6** the spy is empty; `graph create-concept` then answers `created`. **ST20** the builder asks no graph | route, target | |
-| AC2 the install record | **ST19** cameFrom in the target: an element's file and sha256. **SF7** cameFrom and installed on every node. **SR1–SR3** the derive puts both into tapestryJSON (word and set derivers) and nothing for a node with no record. **SR4** the derive's verdicts set the record aside for a node that carries it. **SR5, SR6** a node with no record keeps a concept section of its own named `installed` or `cameFrom`, and the verdicts judge it (Amendment 3, item 6) | target, route, record | |
+| AC2 the install record | **ST19** cameFrom in the target: an element's file and sha256. **SF7** cameFrom and installed on every node. **SR1–SR3** the derive puts both into tapestryJSON (word and set derivers) and nothing for a node with no record. **SR4** the derive's verdicts set the record aside for a node that carries it. **SR5, SR6** a node with no record keeps a concept section of its own named `installed` or `cameFrom`, and the verdicts judge it (Amendment 3, item 6). **SR7** the write path's checks too (round 2, R2-N1): `graph add-to-concept` puts an element seed-firmware recorded in a concept whose schema closes its top level, its `json` offloaded (the store's copy holds the record's sections) or inline, and `graph update-node` changes the installed-firmware graph under graph's schema, closed the same way; each record is set aside by `checkElements` and in the answer's verdicts (`fits`). A node with no record is judged whole, its own `installed` section refused. **SR8** `recordCarried`: both properties, one, none, and none that can't be read (R2-N2). **SR9** the rule's node form under the same closed schema: a recorded node fits, a node with no record is judged whole (R2-N2) | target, route, record | |
 | AC2 the installed-firmware graph | **SF8** at its reserved address, `39999:<ta>:installed-firmware` (d tag `installed-firmware`), with seed-firmware's mark: its own `installed` record and `installedFirmware` (Amendment 3, item 3); labels, tags, HAS_ELEMENT from graph's superset, word, graph.nodes by address (curator headers included), relationships with ENUMERATES' properties, imports `[]`. **SF34** an admin's element "installed firmware" of graph, made by `graph create-element` at the address Decision 9 first used, stays as it was and isn't read as the record; seed-firmware writes its own at the reserved address. **SF35** a node there without the mark is refused (AC7). **SF33** read through the store after the Dashboard's offload | route | integration |
 | AC2 status | **SF33** after the Dashboard's offload of the installed-firmware graph's json and a superset's, and a derive: `seeded` 1.0.0, `changedSince` 0 (Amendment 3, items 1–2). **SF9** `seeded` and its schema field; `changedSince` 0, then 1 after an edit; null, in words naming seed-firmware, for an empty graph and for today's install's graph; `installed` still `none` by readInstallState. **status.test.js P3**, re-aimed at Implementation: the old fields as before, beside `seeded: null` and a `note` naming seed-firmware, the graph seam stubbed to find no installed-firmware graph | route (status child), status | integration, unit |
 | AC3 safe to repeat | **SF33** after the offload and a derive: 459 unchanged, none kept, change null, no entry (Amendment 3, items 1–2). **SP9** pure: a superset whose `word.wordTypes` is only in the set deriver's order is unchanged; one with another type in it is kept (item 2). **SF10** again, as admin, with `1.0.0` and `v1.0.0`: 459 unchanged, change null, one entry. **SF11** two at once: one installs, the other `busy` or unchanged; each node once. **SF15**'s and **SF23**'s repeats write nothing. **SA1**'s repeat | route, agent | |
@@ -42,9 +42,9 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | AC4 take (open question 3) | **SP5** (takeAll changes 9), **SF21**, **SF23**, **SA1** | plan, route, agent | |
 | AC5 graph rules | **SP6** put back (or changed) on first contact; another author's item blocks. **SF19** put-back, changed, nine unchanged. **ST28** the eleven items | plan, route, target | |
 | AC6 the answer, the entry, rules check | **SF12** version, source (files), nodes with outcome/tapestryKey/address/role/file, counts, relationships, letterOutOfDate `[]`, cacheOutOfDate counting each failed derive, rulesCheck, change, note. **SF13** the entry's who and keys; `graph history` finds both entries by a node. **SF20** 0 findings fresh; a second parent found and left as it was | route | integration |
-| AC7 refusals | **SF24** unknown-version (names 2.0.0 and 1.0.0), not-firmware (names each ref), 501 refs. **SF25** firmware-unreadable (names each file and problem), graph untouched. **SF26** busy (names the backup); graph-unavailable, in words saying nothing can be installed. **SF27** no-assistant. **SF28** 401, 403, 415, unknown input. **ST21–ST27** each unreadable kind (below). **ST31** an existing set naming an undefined concept is skipped, no problem. **SF35** `address-held` (409) for a node at the reserved address without the mark: neither part, the section alone, the record alone; naming the node, nothing written. **ST32, SF38** an alias that isn't a plain name (Amendment 3, items 3 and 5) | route, target | |
+| AC7 refusals | **SF24** unknown-version (names 2.0.0 and 1.0.0), not-firmware (names each ref), 501 refs. **SF25** firmware-unreadable (names each file and problem), graph untouched. **SF26** busy (names the backup); graph-unavailable, in words saying nothing can be installed. **SF27** no-assistant. **SF28** 401, 403, 415, unknown input. **ST21–ST27** each unreadable kind (below). **ST31** an existing set naming an undefined concept is skipped, no problem. **SF35** `address-held` (409) for a node at the reserved address without the mark: neither part, the section alone, the record alone; naming the node, nothing written. **SF39** seed-firmware's own installed-firmware graph, its record there, whose offloaded `json` has no entry in the store: still `address-held`, in words that say its JSON can't be read, never that it isn't seed-firmware's; nothing written (round 2, nit 1). **ST32, SF38** an alias that isn't a plain name (Amendment 3, items 3 and 5) | route, target | |
 | AC7 how it's reached | **SF1** the declaration, its seven refusals, `address-held` among them (Amendment 3, item 3). **SF2** the listing with every refusal; `/docs` has the POST. **SF29** the internal command, no sign-in, its refusal the route's. **SA1** the agent | route, agent | |
-| AC7 what stays, the docs | **SF30** today's install and its route (passes now, a guard). **ST33** the tripwire: a digest of today's install's pass functions, failing, naming `src/firmware/target.js`, when they change (passes now, a guard; Amendment 3, item 8). **SF31** catalog §8's row, BIBLE §7 and §11 | route, target | |
+| AC7 what stays, the docs | **SF30** today's install and its route (passes now, a guard). **ST33** the tripwire: a digest of today's install's pass functions, and of pass 3c's route, `handleWireImplicitElements` in `src/api/normalize/index.js` (round 2, R2-N3), failing, naming `src/firmware/target.js`, when one changes (passes now, a guard; Amendment 3, item 8). **SF31** catalog §8's row, BIBLE §7 and §11 | route, target | |
 | AC7 the live check | **L1–L4** (below); L1 reads the installed-firmware graph at its reserved address and requires each kept relationship listed apart (Amendment 3, items 3 and 4) | live | live |
 
 ### The ADR's decisions
@@ -57,7 +57,7 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | 4 the target, pass by pass | ST1–ST16, ST19, ST28, ST29 (`installName` exported), ST30 (`conceptNodes`' defaults unchanged, a guard), ST31, SP7 (blocked) |
 | 5 pass 3b isn't rebuilt | ST8, SF22, SF23, L1 |
 | Amendment 1 (Test Design): the fold; the three concept graphs kept as create-concept made them; the core nodes' addresses; undefined concepts; one fixed order | SO5, ST4, SF3 (item 1); SO6, ST4, SF3, SP3, SP5, SF22, SF23, L1 (item 2); ST1 (item 3); ST12, ST24, ST25, ST31 (item 4); ST17, ST11–ST16, L1 (item 5) |
-| 6 the record, what counts as an edit, the derive's sections | ST19, SF7, SF15, SR1–SR6, SP9 |
+| 6 the record, what counts as an edit, the derive's sections | ST19, SF7, SF15, SR1–SR9, SP9 |
 | 7 each node's outcome | SP1, SP3, SP5–SP8, SF14–SF16, SF19, SF21–SF23 |
 | 8 relationships | SP4, SF17, SF21, SF22, SF5 (the b claim), SF23, SF36, SF37 |
 | 9 the installed-firmware graph | SF8, SF13, SF33, SF34, SF35 |
@@ -66,6 +66,7 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | 12 status | SF9 |
 | 13 the live check | L1–L4 |
 | Amendment 3 (Review, round 1): read through the LMDB; wordTypes as a set; the reserved address and the mark; kept relationships apart; plain-name aliases; the record's sections; the tripwire | SF33, status's part in SF33 (item 1); SP9, SF33 (item 2); SF1, SF2, SF8, SF11, SF13, SF34, SF35, L1 (item 3); SF36, SF37, L1 (item 4); ST32, SF38 (item 5); SR4–SR6 (item 6); ST33 (item 8). Not tested here: item 7 (BIBLE §7's words and the ledger row) and item 9 (the ADR's words) |
+| Review round 2: the write path's checks; `recordCarried` and the rule; pass 3c's route in the tripwire; a marked graph whose JSON can't be read | SR7 (R2-N1); SR8, SR9 (R2-N2); ST33 (R2-N3); SF39 (nit 1). Not tested here: R2-N4 (the ADR's decisions corrected in place) and nits 2 and 3 (the catalog's line, the story's gate line) |
 
 ### firmware-unreadable (Decision 3)
 
@@ -154,6 +155,18 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
 - *The tripwire's text* is each pass's source with its whitespace collapsed. So re-indenting alone doesn't trip it; any other change does, a comment's included. ST33's message says to bring `src/firmware/target.js` in line, then update the digest.
 - *An alias through the route* (SF38) is refused before anything is written: the graph is empty afterwards. Today a check at write time throws instead, so the route answers 500 `failed`.
 
+**Settled at Review round 2** (2026-11-21), for the owner to confirm at the gate:
+- *SR7's write paths:* `graph add-to-concept` and `graph update-node`, the callers of `fits` and `checkElements` that can reach a recorded node.
+  - `add-to-concept` takes any firmware element.
+  - `update-node` refuses each node seed-firmware records but one: firmware elements (`firmware-node`), the core nodes, sets and rules (`made-elsewhere`), and a relationship letter, which has no json tag (`unreadable-json`). So SR7 changes the installed-firmware graph's description.
+  - `create-element` and `create-set` make new nodes, which carry no record.
+  - How the record reaches the two checks isn't pinned, only their verdicts.
+- *The closed schemas are put in the graph by hand,* as a raw edit would leave them, since `graph set-schema` keeps only a wrapped schema. No builder closes a top level today (the review's R2-N1).
+- *SF39 keeps the refusal `address-held` (409),* which nit 1 calls safe, and pins only its words:
+  - they name the node, say it is seed-firmware's, and say its JSON can't be read;
+  - they never say that it isn't seed-firmware's record or lacks the mark.
+- *SR8 and SR9 pass now* (guards): `recordCarried` and the rule already do what R2-N2 asks to see tested. ST33's new digest (R2-N3) passes too, and fails, naming target.js, when `handleWireImplicitElements` changes (checked in the scratchpad copy).
+
 ## Edge cases
 
 - [x] Empty input: `{}` installs (SF3). An empty graph: all added (SP1), and status says none is recorded (SF9).
@@ -173,6 +186,8 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
 - [x] A concept section named `installed` or `cameFrom` in a node with no record (SR5, SR6).
 - [x] An alias with a space, or a backtick (ST32, SF38).
 - [x] A firmware that drops a relationship the instance kept (SF37).
+- [x] A recorded node read back by a write while its json is offloaded, under a schema closed at its top level (SR7); `recordCarried` over properties that can't be read (SR8).
+- [x] seed-firmware's own installed-firmware graph whose offloaded json has no entry in the store (SF39).
 - [ ] Not tested stack-free: Neo4j's own transaction under 459 nodes (Consequences: one transaction, its memory). L2 shows it on a scratch stack.
 - [ ] Not tested: the control panel stopping mid-run (Decision 1: the one transaction commits or leaves the graph as it was; the next `C.begin` recovers a stale lock, which `migrate.test.js` covers for the lock).
 
@@ -381,3 +396,28 @@ The results:
 - *With all six stubbed,* every suite passed: target 33/0, plan 9/0, oracles 8/0, record 6/0, route 38/0 (21 s), agent 1/0, live 4 skipped, status 9/0. So the new tests ask nothing the existing ones contradict.
 - *With items 1–4 only,* the route suite passed 37 of 38, and SF38 failed.
 - *One fault in the tests, fixed before this record:* SF36 and SF37 crashed building their own messages (`show(undefined)`).
+
+**Review round 2's tests** (2026-11-21, on `A10.37-seed-firmware` at `5bc55fbd`: round 2's review and its doc fixes, with these tests uncommitted beside it). Each suite ran alone, `tmp/a10-37/env.sh` sourced:
+
+```
+seed-firmware-oracles.test.js             8 passed, 0 failed, 0 skipped   0 s
+seed-firmware-target.test.js             33 passed, 0 failed, 0 skipped   2 s    ST33, with pass 3c's route, passes (a guard)
+seed-firmware-plan.test.js                9 passed, 0 failed, 0 skipped   0 s
+seed-firmware.test.js                    38 passed, 1 failed, 0 skipped  21 s    SF39
+seed-firmware-record.test.js              8 passed, 1 failed, 0 skipped   5 s    SR7; SR8 and SR9 pass (guards)
+seed-firmware-agent-through-cli.test.js   1 passed, 0 failed, 0 skipped   6 s
+seed-firmware-live.test.js                0 passed, 0 failed, 4 skipped   0 s
+status.test.js                            9 passed, 0 failed, 0 skipped   0 s
+```
+
+The two failures, each test's first failing message:
+
+```
+R2-N1  SR7   rover, recorded, its json offloaded: graph add-to-concept puts it in gadget, whose schema closes its top level, the record's sections set aside (checkElements); got 400 {"error":"The element's JSON doesn't fit the JSON schema of \"gadget\" (39998:dd…dd:gadget): `cameFrom` isn't a field the schema takes; `installed` isn't a field the schema takes.","code":"invalid-fields"}
+nit 1  SF39  it says the node is seed-firmware's own installed-firmware graph, whose JSON can't be read (an lmdb: reference with no entry); got The node at 39999:dd…dd:installed-firmware (tapestryKey …) isn't seed-firmware's record of what it installed: it lacks seed-firmware's mark, …
+```
+
+What else the round showed:
+- *SR7's other cases, on today's code:* string, inline, is added and fits; n1 is refused naming `installed`; and update-node on the offloaded installed-firmware graph is refused naming `installed`. So only the two recorded, offloaded cases fail.
+- *Each can pass, together with the rest.* A scratchpad copy of the tree (never the worktree) ran every suite with a throwaway stub: `fits` and the rule's write form take a `record`; add-to-concept and update-node pass the node's `recordCarried`; and the plan words a marked graph whose JSON can't be read. Every suite passed: route 39/0, record 9/0, and the rest as above.
+- *The tripwire trips.* In the same copy, a one-word change to `handleWireImplicitElements` failed ST33, naming `src/api/normalize/index.js`'s `handleWireImplicitElements (pass 3c)` and `src/firmware/target.js`.

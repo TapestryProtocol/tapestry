@@ -48,8 +48,9 @@
  *        (ADR 0037 Amendment 1, item 4)
  *   ST32 a relationship type whose alias isn't a plain name ([A-Z_][A-Z0-9_]*): a space, a backtick: a problem naming
  *        its file and the alias (Amendment 3, item 5; review round 1, N1)
- *   ST33 the tripwire: install.js's pass functions as this suite last saw them; when they change, it fails naming
- *        src/firmware/target.js, to be brought in line before the digest is (Amendment 3, item 8; N7). Passes now
+ *   ST33 the tripwire: install.js's pass functions, and pass 3c's route in src/api/normalize/index.js
+ *        (handleWireImplicitElements; review round 2, R2-N3), as this suite last saw them; when one changes, it fails
+ *        naming src/firmware/target.js, to be brought in line before the digest is (Amendment 3, item 8; N7). Passes now
  */
 
 const fs = require('fs');
@@ -466,24 +467,30 @@ test('ST32 [AC7, Amendment 3, item 5]: a relationship type whose alias isn\'t a 
   }
 });
 
-test('ST33 [Amendment 3, item 8; review round 1, N7]: the tripwire: today\'s install\'s pass functions are as the builder last followed them (when one changes, bring src/firmware/target.js in line, then update its digest here)', () => {
-  // Each part's text from src/firmware/install.js, its whitespace collapsed, and the sha256 of that, as the builder
-  // (src/firmware/target.js, ADR 0037 Decision 4) was last brought in line with it: install.js at b2948904.
+test('ST33 [Amendment 3, item 8; review round 1, N7; round 2, R2-N3]: the tripwire: today\'s install\'s pass functions, and pass 3c\'s route, are as the builder last followed them (when one changes, bring src/firmware/target.js in line, then update its digest here)', () => {
+  // [file, what, where it starts, where it ends, its digest]: each part's source, its whitespace collapsed.
+  const INSTALL = 'src/firmware/install.js';
+  const NORMALIZE = 'src/api/normalize/index.js';
   const PINNED = [
-    ['pass1_bootstrap', /^async function pass1_bootstrap\(/m, /^\/\/ ── Pass 2: Enrich/m, '1ab79ce3b4778d1b60af229e965cab8f5cceeceb9c424d935e94318af838bdd3'],
-    ['pass2_enrich', /^async function pass2_enrich\(/m, /^\/\/ ── Community references/m, 'bf2a3bc6ebf2a94726dac347562142c34afb8c4f2114fc16b2ff58e4e0261b9c'],
-    ['pass_communityReferences', /^async function pass_communityReferences\(/m, /^\/\/ ── Full install/m, 'c026fa317ef57652aa530070c1016cd861443540694c2ee7e804eb89a6eaa67a'],
-    ['install\'s pass 3 (derive, apply enumerations, wire implicit elements, the community-reference edges)', /^ {2}\/\/ ── Pass 3: Derive \+ Apply Enumerations \+ Wire Implicit Elements ──/m,
+    [INSTALL, 'pass1_bootstrap', /^async function pass1_bootstrap\(/m, /^\/\/ ── Pass 2: Enrich/m, '1ab79ce3b4778d1b60af229e965cab8f5cceeceb9c424d935e94318af838bdd3'],
+    [INSTALL, 'pass2_enrich', /^async function pass2_enrich\(/m, /^\/\/ ── Community references/m, 'bf2a3bc6ebf2a94726dac347562142c34afb8c4f2114fc16b2ff58e4e0261b9c'],
+    [INSTALL, 'pass_communityReferences', /^async function pass_communityReferences\(/m, /^\/\/ ── Full install/m, 'c026fa317ef57652aa530070c1016cd861443540694c2ee7e804eb89a6eaa67a'],
+    [INSTALL, 'install\'s pass 3 (derive, apply enumerations, wire implicit elements, the community-reference edges)', /^ {2}\/\/ ── Pass 3: Derive \+ Apply Enumerations \+ Wire Implicit Elements ──/m,
       /^ {2}console\.log\('\\n╔═+╗'\);\n {2}console\.log\('║ +FIRMWARE INSTALL COMPLETE/m, 'c531d428fa704c760b6014b3a6d4d49321657e288f298282e8b9d5742f3d1e29'],
+    // Pass 3c's route, POST /api/normalize/wire-implicit-elements, which install's pass 3 calls and the oracle doesn't
+    // run (review round 2, R2-N3).
+    [NORMALIZE, 'handleWireImplicitElements (pass 3c)', /^async function handleWireImplicitElements\(/m, /^\/\/ ═+\n\/\/ POST \/api\/normalize\/apply-enumerations/m, '79e22c0f3575aa080961cf0e71b8560587d7a82c676f7f44f83edfbd81244c7d'],
   ];
-  const src = fs.readFileSync(path.join(F.ROOT, 'src/firmware/install.js'), 'utf8');
+  const sources = new Map();
+  const sourceOf = (file) => { if (!sources.has(file)) sources.set(file, fs.readFileSync(path.join(F.ROOT, file), 'utf8')); return sources.get(file); };
   const changed = [];
-  for (const [name, from, to, pinned] of PINNED) {
+  for (const [file, name, from, to, pinned] of PINNED) {
+    const src = sourceOf(file);
     const at = src.search(from);
     const end = at < 0 ? -1 : src.slice(at).search(to);
-    if (at < 0 || end < 0) { changed.push(`${name} (not found where this test looks: ${at < 0 ? from : to}; it moved)`); continue; }
+    if (at < 0 || end < 0) { changed.push(`${file}'s ${name} (not found where this test looks: ${at < 0 ? from : to}; it moved)`); continue; }
     const digest = F.sha256(src.slice(at, at + end).replace(/\s+/g, ' ').trim());
-    if (digest !== pinned) changed.push(`${name} (now ${digest})`);
+    if (digest !== pinned) changed.push(`${file}'s ${name} (now ${digest})`);
   }
   assert(changed.length === 0, `today's install changed: ${changed.join('; ')}. src/firmware/target.js rebuilds these passes (ADR 0037 Decision 4, Amendment 3 item 8): bring it in line with the change, then update the digest in this test`);
 });

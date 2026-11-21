@@ -76,6 +76,10 @@
  *   SF37 N2, item 4: first contact lists a relationship it kept with noRecord apart; a firmware that drops it leaves it
  *        in place, reported kept
  *   SF38 N1, item 5: an alias that isn't a plain name refuses firmware-unreadable, naming the file and the alias
+ * Review round 2 ("Round 2" in the same review):
+ *   SF39 nit 1: seed-firmware's own installed-firmware graph, its record there, whose offloaded json has no entry in
+ *        the store, is refused in words that say its JSON can't be read, not that it isn't seed-firmware's; nothing
+ *        is written
  */
 
 const fs = require('fs');
@@ -851,6 +855,25 @@ test('SF38 [AC7, Amendment 3 item 5; review round 1, N1]: a relationship type wh
   const b = F.refused(r, 'alias', 409, 'firmware-unreadable');
   assert(words(b).includes(file) && words(b).includes(alias), `it names the file and the alias; got ${words(b)}`);
   assert(r.state().nodes.length === 0, 'nothing was written');
+});
+
+test('SF39 [AC7, Amendment 3 item 3; review round 2, nit 1]: seed-firmware\'s own installed-firmware graph, its record there, whose offloaded json has no entry in the store, is refused in words that say its JSON can\'t be read, not that it isn\'t seed-firmware\'s; nothing is written', () => {
+  const { s } = fresh();
+  const ig = F.nodesAt(s, F.installedGraphAddress())[0];
+  const j = F.installedGraphJson(s);
+  assert(ig && F.propJson(ig, 'installed') && j && j.installedFirmware, 'the install wrote its installed-firmware graph, with its mark: its installed record and installedFirmware');
+  const st = JSON.parse(JSON.stringify(s));
+  const tag = F.relsOf(st, { type: 'HAS_TAG', from: F.installedGraphAddress() }).map((r) => r.toNode).find((t) => t.props.type === 'json');
+  tag.props.value = `lmdb:${ig.props.tapestryKey}`;
+  const lmdb = path.join(F.tmp('seed-firmware-no-entry-'), 'lmdb');
+  const r = F.runSeed({ state: st, firmwareDir: firmwareA(), lmdb, label: 'seed-firmware-no-entry-run-', requests: [F.seed('no-entry', 'owner')] });
+  const b = F.refused(r, 'no-entry', 409, 'address-held');
+  const w = words(b);
+  assert(w.includes(F.installedGraphAddress()) || w.includes(ig.props.tapestryKey), `it names the node; got ${w}`);
+  assert(/seed-firmware/.test(w) && /JSON/.test(w) && /(can['’]t|cannot|can not|couldn['’]t) be read|unreadable/i.test(w), `it says the node is seed-firmware's own installed-firmware graph, whose JSON can't be read (an lmdb: reference with no entry); got ${w}`);
+  assert(!/isn['’]t seed-firmware['’]s/i.test(w) && !/lacks seed-firmware['’]s mark/i.test(w), `it doesn't say the node isn't seed-firmware's, since it carries the record; got ${w}`);
+  const after = r.state();
+  assert(F.stable(after.nodes) === F.stable(st.nodes) && F.stable(after.rels) === F.stable(st.rels), 'nothing is written, no entry');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
