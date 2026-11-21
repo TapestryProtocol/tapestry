@@ -130,6 +130,82 @@ The assistant's pubkey differs on every instance, so `<TA>` stands for it. The A
 4. **What the wire operation accepts as a target.** Any address, as today's route does, or only a concept header's. **Resolved** (ADR 0048 Decision 2): a concept header's address, kind 39998, or an naddr of one, since export makes each wired `b` an element's `z` stamp, which must name a header.
 5. **Where the new `b` goes among the header's tags.** Export keeps a letter's order, or puts `d` first, `json` last and the rest by type. **Resolved** (ADR 0048, fact 5): export decides. It keeps the order of the letter the node has, and adds the rest in its own order, since the graph's tag nodes hold no order.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-21), each too small for an ADR amendment. None goes outside ADR 0048 or its Amendment 1.
+
+- **The target is trimmed** before its form is checked, as today's `b-append` route and `resolve.js` trim theirs, so the `b` holds the trimmed address. Decision 2 doesn't say.
+- **`disposition` is worked out, not read again.** It comes from the `b` values read after the locks, less the markers the call took out, plus the `b` it added. In one transaction under the locks, that is what a read after the call would give (Amendment 1, item 2).
+- **`not-own-concept`'s two cases** are told apart with `reads.js`'s `ownKeys()`. An author that is one of the instance's own keys, but not its assistant's, is the owner's; any other is another author's. With no assistant key, every header is refused, as update-concept refuses it.
+- **`affiliated` reads the header with `dispositionOf`**: it is refused when it is self-declared or wired. That is today's `b-defer` test, a value that is an `a-tag` or an `event-id`, through `bValueForms.js`.
+- **More than one node at a target's address.** The uniqueness rules allow a `NostrEvent` and a node without that label at one uuid. `target.node` is then the one the graph holds (it has a `created_at`), else the lowest tapestryKey. The suites hold one node at each address.
+- **A node with no tapestryKey** at a target's address, or a deferral marker with none, fails the call (500), naming `lifecycle migrate`, as update-concept fails for a tag with no key.
+- **`relationship-added` comes from the statement's counters** (`relationshipsCreated`), as add-relationship reads them. The statement fails the call if either end went missing, so a `b` is never written without its relationship.
+- **The helper's names.** `headerOf` answers `tags` and `values` beside the ADR's `{ facts, h, bTags }`. `addB` and `dropMarkers` take that answer rather than `h`, since the new tag's index is the header's tag count. Three small helpers are added beside the ADR's: `nodeAt` (the target's `held` and `node`, for a first call and a repeat alike), `link` (the `MERGE`) and `answerOf` (the answer's shared fields).
+- **Where the docs sit.** The catalog lists the three after update-concept, in §2 and in "At a glance". set-b-tag's §9 row follows the row for today's three routes. BIBLE §25's bullet is the section's last, and its "Last updated" line is left as it is, as story 34 left it. The skill's sentence follows "No other operation signs a nostr event."
+
+## Evidence
+
+### The suites (Implementation, 2026-11-21, 22:13–22:44Z, on the tree uncommitted beside `092511d9c`, the tests' commit)
+
+Every run went through the session's wrapper (`safe-run.sh`): stub `curl` and `docker` first on `PATH`, `BRAINSTORM_CONF_PATH` on a conf whose Neo4j is a closed port, every endpoint a dead port, and `TAPESTRY_CONTAINER` and `TAPESTRY_CONTAINER_PORT` unset. Nothing reached this Mac's agent-memory instance. The records are in `tmp/a10-44-impl/`.
+
+- **Before the change,** `test/operations.test.js` alone: 1,502 passed, 52 failed, 20 skipped. The 52 were the 50 new tests, MF15 and EN29.
+- **Each new suite alone,** as the code was written: declare-shared 14, wire-to-shared 18, defer-sharing 11, the export cases 6, and the agent through the external CLI 1, all passing.
+- **After it,** `test/operations.test.js` alone: 1,552 passed, 2 failed, 20 skipped. The 50 new tests, MF15 and EN29 pass.
+  - The two failures are `tapestry-key-paths.test.js` G11 and G18. They ask that every source line naming `:NostrEvent` alone be listed in `test/operations/lifecycle/nostr-event-lookups-kept.json`, with why. The placeholder's `CREATE (p:NostrEvent {uuid: $uuid})` in `_dispositions.js` isn't listed yet. It is import nostr's placeholder (Decision 6), whose own line is listed.
+  - That file is under `test/`, which this phase left alone, so the entry waits (below).
+- **With that one entry,** in a copy of the tree (HEAD, this phase's files and the entry, never the worktree): `tapestry-key-paths.test.js` alone gives 20 passed, 0 failed (18 and 2 without it), and `test/operations.test.js` alone gives 1,554 passed, 0 failed, 20 skipped.
+- **The other suites,** each in its own process: the five the gate names beside `operations.test.js`, and every registry suite whose source names the catalog, BIBLE, `inherit-from.md`, a `SKILL.md` or `bValueForms.js`, `event-tagging-firmware-seed` left out. That is 48 suites: 1,582 passed, 10 failed, 82 skipped.
+  - external-cli 53, openapi-coverage 13, admin-action-sweep 9, schema-save-finds-the-right-header 26 (2 skipped), gate-result-record 34, b-tag-primitive 16, b-coverage-audit-and-disposition 18, curated-dlist-update-pointer-switch 12 and harness-lint 85, all passing.
+  - The 10 failures are this Mac's, and fail the same on the copy of HEAD: router-stream-limit-on-connect P1–P3 (BSD sed), and safe-to-merge-check B1–B3, B5, B6, B8 and B9 (timeouts behind the stub `curl`).
+
+### The kept entry (the Tester's lane, 2026-11-21)
+
+- **The entry G11 and G18 asked for** is added in a commit of its own, apart from the implementation's. It sits after import nostr's `CREATE (p:NostrEvent {uuid: a.uuid})` entry, which it mirrors (the test plan, § "Added at Implementation"). `tmp/a10-44-impl/kept-entry.js` wrote it:
+
+  ```json
+  {
+    "file": "src/operations/catalog/graph/_dispositions.js",
+    "text": "const PLACEHOLDER = `CREATE (p:NostrEvent {uuid: $uuid})",
+    "reason": "A CREATE, which can't take a label disjunction: graph wire-to-shared's placeholder for a wired b's target at an address, import nostr's kind (ADR graph-operations-first-slice/0048 Decision 6), made only when the same transaction's lookup by NostrEvent|TapestryNode found no node there. It stands for an event, so it is a NostrEvent."
+  }
+  ```
+
+### The scoped gate with the kept entry (2026-11-21, 22:48–22:59Z, on the tree uncommitted beside `092511d9c`)
+
+Through the same wrapper, with nothing reaching its stubs:
+- **`test/operations.test.js` alone:** 1,554 passed, 0 failed, 20 skipped.
+- **The 48 suites above,** each in its own process: 1,582 passed and 10 failed. The 10 are this Mac's, the same as before: router-stream-limit-on-connect P1–P3, and safe-to-merge-check B1–B3, B5, B6, B8 and B9.
+
+The full gate's verdict is the pull request's CI. On this Mac only a scoped gate runs, since the container named `tapestry` is the owner's agent-memory instance.
+
+### The live check (AC5, 2026-11-21, 22:52–22:54Z, scratch stack `tapestry-scratch`)
+
+The image is `tapestry-tapestry`, with this branch's `src/` mounted read-only. Nothing reached the agent-memory container, and no letter left the stack.
+
+- **Setup.** Story 34's recipe, copied (`tmp/live-check-48/setup.sh`):
+  - the branch's firmware, `bin/tapestry.js` and `clients/cli` copied in;
+  - a throwaway owner, admin and stranger;
+  - the uniqueness rules, then `lifecycle migrate --migration tapestry-keys`, then the branch's firmware installed;
+  - strfry-router stopped, with `BRAINSTORM_PUBLISH_LOCAL_ONLY=true`.
+
+  The four new files inside matched the worktree's by digest. The image predates `micromark`, so its packages were copied in (`micromark.sh`), and `import('micromark')` loads in the container.
+- **LH1, by hand: 25 of 25 checks ok** (`tmp/live-check-48/lh1.js`, `by-hand.log`). The admin agent, with its own key, ran the unchanged external CLI inside the container, through its nginx:
+  - It made three concepts, toy, game and kite, and an element of game.
+  - **`graph declare-shared` on toy** answered `declared`. The disposition was self-declared, with `bValues` its own address, and `letterOutOfDate` false. The entry, the admin's, holds `tag-added` and `relationship-added`, and toy's header holds one self-loop `REFERENCES {source:'b-tag'}`. A repeat answered `already-declared`, change null.
+  - **`graph wire-to-shared` game → toy** answered `wired`, with `target { address, held: true, node: toy's header }`. Game's header holds one `REFERENCES {source:'b-tag'}` to toy's. A kind-39999 target was refused `bad-target`.
+  - **`graph defer-sharing` on kite** answered `deferred`. On the declared toy it was refused `affiliated`.
+  - **`export nostr`, for each concept graph:** a dry run listed its header `new` and sent nothing. The export then sent 8, 9 and 8 letters to the stack's own relay only, each accepted.
+  - **Read back from the stack's strfry by id:**
+    - toy's header letter verifies, is the assistant's, and carries `["b", "39998:<TA>:toy-…", "pointer"]`;
+    - game's header letter carries `["b", <toy's address>, "pointer"]`;
+    - game's element carries the stamp, `["z", <toy's address>]`, beside its own `z`;
+    - kite's header carries `["b", "b-tag-deferred"]`.
+  - `graph history` of toy's header shows its one `graph declare-shared` entry, by the admin.
+
+The records are in the worktree's `tmp/live-check-48/`, to be copied to the main checkout's `tmp/` before the worktree goes.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.test-plan.md`
