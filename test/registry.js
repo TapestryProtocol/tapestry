@@ -424,7 +424,7 @@ const suites = [
   { file: 'word-elements-fit-the-installed-word-schema.test.js' },
   // container-apt-refresh #1: every build of the tapestry image brings its Ubuntu packages up to date once a week
   // (ADR container-apt-refresh/0001). Stack-free in every run: it reads the Dockerfile, compose file, workflows and
-  // docs, and runs each deploy script under bash with docker, git and sed stubbed. Its live checks (L1–L3) run the
+  // docs, and runs each deploy script under bash with docker, git and sed stubbed. Its live checks (L1–L4) run the
   // refresh step in throwaway containers only with TAPESTRY_LIVE_DOCKER_CHECKS=1.
   { file: 'container-apt-refresh.test.js' },
 ];

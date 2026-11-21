@@ -24,6 +24,8 @@
  * Before the implementation, every D, C, P and O test fails on a contract assertion, never a load error. So do W1 for
  * all four workflows, and W2 for deploy-staging.yml and deploy-magic-carpet.yml. W2 already holds for
  * deploy-tapestry.yml and deploy-tags.yml, which have set -euo pipefail; for them it is a guard.
+ * D7, O5 and O6 came with review round 1 (ADR Amendment 1). Each failed on its contract assertion before that round's
+ * fix.
  */
 
 const fs = require('fs');
@@ -171,6 +173,15 @@ test('D5 (AC-2): the refresh step writes /etc/tapestry/packages-refresh with the
 test('D6 (AC-4): the refresh step stops at its first failing command', () => {
   const { body } = refreshStep();
   assert(/^set\s+-[a-z]*e[a-z]*\b/.test(body.trim()), 'the refresh step must start with `set -e` (or `set -eu`), so a failed apt-get fails the build.');
+});
+
+test('D7 (AC-2): the count\'s simulation takes the upgrade\'s own options, so the marker counts what the upgrade does (ADR Amendment 1, item 3)', () => {
+  const { text } = refreshStep();
+  const sim = (text.match(/apt-get[^\n;|]*\s-s\s[^\n;|]*full-upgrade/) || [])[0];
+  assert(sim, 'the refresh step must count its packages with a simulated full-upgrade (`apt-get … -s … full-upgrade`).');
+  const missing = ['--no-remove', 'APT::Get::Always-Include-Phased-Updates=true'].filter((o) => !sim.includes(o));
+  assert(missing.length === 0,
+    `the count's simulation must take the upgrade's own options, so a phased update the upgrade installs is counted too; it lacks ${missing.join(' and ')}.`);
 });
 
 // ═══ C: docker-compose.yml ════════════════════════════════════════════════════════════════════════════════════════
@@ -348,6 +359,35 @@ test('O4 (AC-5): the /cycle-staging and /cycle-prod skills give a refreshing dep
   const missing = CYCLE_SKILLS.filter((f) => !safeRead(f).split('\n').some((l) => /refresh/i.test(l) && /Monday|ISO week/i.test(l)));
   assert(missing.length === 0,
     NOT_IMPL(`${missing.map((f) => path.relative(ROOT, f)).join(' and ')} must say the first deploy of each ISO week refreshes the packages, and how long it takes`));
+});
+
+test('O5 (AC-4, AC-5): OPERATIONS.md §3 and docs/SAFE_TO_MERGE.md say a deploy that changes a step above the refresh refreshes too, and how to see one before a merge (ADR Amendment 1, item 2)', () => {
+  const ops = safeRead(OPERATIONS);
+  const at = ops.indexOf('**The weekly package refresh**');
+  assert(at !== -1, 'OPERATIONS.md §3 has no "The weekly package refresh" paragraph; see O1.');
+  const end = ops.indexOf('These are the **deploy** workflows', at);
+  const paragraph = ops.slice(at, end === -1 ? undefined : end);
+  const stm = section(safeRead(SAFE_TO_MERGE), /refresh/i);
+  const missing = [];
+  for (const [name, text] of [['OPERATIONS.md §3', paragraph], ['docs/SAFE_TO_MERGE.md', stm]]) {
+    for (const t of ['package.json', 'patches/strfry-', 'gh pr diff']) if (!text.includes(t)) missing.push(`${name} lacks ${t}`);
+  }
+  assert(missing.length === 0,
+    `a deploy that changes a step above the refresh reruns it whatever the week, so the docs must name that case and how to see it before a merge: ${missing.join('; ')}.`);
+});
+
+test('O6 (AC-5): OPERATIONS.md says a refresh by hand on a target with the step lasts only until the next deploy, which reuses the week\'s own refresh (ADR Amendment 1, item 1)', () => {
+  const by = section(safeRead(OPERATIONS), (l) => /refresh/i.test(l) && /by hand/i.test(l));
+  assert(by, 'OPERATIONS.md has no by-hand refresh section; see O2.');
+  const start = by.search(/^1\.\s/m);
+  const next = by.search(/^2\.\s/m);
+  assert(start !== -1 && next > start, 'the by-hand section must number its recipes 1., 2. and 3.; unexpected.');
+  const recipe1 = by.slice(start, next);
+  assert(/until the next deploy/i.test(recipe1),
+    'recipe 1 must say its refresh lasts only until the next deploy: BuildKit keeps the week\'s earlier refresh for that deploy to reuse.');
+  assert(/\breuses?\b/i.test(recipe1), 'recipe 1 must say the next deploy reuses this week\'s earlier refresh when a deploy has already refreshed.');
+  assert(!/it lasts, since the new image carries the refresh/i.test(recipe1),
+    'recipe 1 must not say its refresh lasts because the new image carries it: the next deploy builds from the week\'s own refresh.');
 });
 
 // ═══ L: live, in throwaway containers (TAPESTRY_LIVE_DOCKER_CHECKS=1) ═══════════════════════════════════════════════

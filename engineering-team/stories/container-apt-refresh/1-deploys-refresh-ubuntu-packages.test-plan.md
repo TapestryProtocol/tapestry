@@ -157,3 +157,36 @@ So once the step is in, a failing L test means the step is wrong, not the harnes
     `sed`. CI runs on Ubuntu, where they pass.
   - The suite's D1–D3, which read the Dockerfile, pass.
   - This story doesn't touch the patch script, so those three stay as they are here.
+
+## Amendment 1 (2026-11-21, after review round 1; the owner's "Fix all, option (a)")
+
+Review round 1 (`engineering-team/reviews/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`) and ADR
+Amendment 1 add three tests to the suite, one for each finding that changes the step or a doc's claim. They join the
+coverage map above:
+
+| Criterion | Test | Level |
+|---|---|---|
+| AC-2 | **D7** the count's simulation takes the upgrade's own options, `--no-remove` and `-o APT::Get::Always-Include-Phased-Updates=true`, so the marker counts what the upgrade does | source |
+| AC-4, AC-5 | **O5** OPERATIONS.md §3's weekly refresh paragraph and `docs/SAFE_TO_MERGE.md`'s refreshing-deploy section each name the deploy that changes a step above the refresh (`package.json`, `patches/strfry-`) and how to see one before a merge (`gh pr diff`) | source |
+| AC-5 | **O6** the by-hand section's recipe 1 says its refresh lasts only until the next deploy, which reuses this week's earlier refresh, and no longer says it lasts because the new image carries it | source |
+
+- **The registry's comment** now counts the suite's four live checks, L1–L4 (round 1's non-blocking 3).
+- **Not tested: SAFE_TO_MERGE's tags line** (non-blocking 2). It is one sentence, and the review checks it.
+- **What's still a review check.** No test runs BuildKit, which this Mac lacks, so recipe 1's mechanism is a review
+  check (ledger row `2026-11-21-local-docker-builds-skip-buildkit`). O6 holds only the doc's claim.
+- **The scoped gate** for this round is derived from the final diff at review time, as round 1's was
+  (`tmp/review-container-apt-refresh/derive-gate.js`). It replaces the hand-built list under "How to run".
+
+**Verification.** Confirmed on 2026-11-21 at `d24924d78` plus this commit's tests, with
+`node test/container-apt-refresh.test.js`:
+
+```
+container-apt-refresh: 20 passed, 3 failed, 4 skipped
+```
+
+- **The 3 failures** are D7, O5 and O6, each on its contract assertion:
+  - D7: "it lacks --no-remove and APT::Get::Always-Include-Phased-Updates=true";
+  - O5: "OPERATIONS.md §3 lacks package.json", and the same for `patches/strfry-` and `gh pr diff` in both docs;
+  - O6: "recipe 1 must say its refresh lasts only until the next deploy".
+- **The 20 passes** are round 1's 20, unchanged.
+- **The 4 skips** are L1–L4, off.
