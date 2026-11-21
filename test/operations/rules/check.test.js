@@ -86,30 +86,33 @@ async function mainRun() {
   const tag = before.nodes.find((n) => n.labels.includes('NostrEventTag') && typeof n.props.tapestryKey === 'string');
   assert(entry && tag, 'the seed holds a change entry and a tag with a tapestryKey');
   const requests = [
-    get('graph', { scope: 'graph', limit: 200 }),
-    get('graph-again', { scope: 'graph', limit: 200 }),
+    // Story graph-operations-first-slice #47 adds a second rule with a scan (ADR 0047), so each check here names this
+    // suite's rule; 'graph-all' leaves rules out, as CK5 asks.
+    get('graph', { scope: 'graph', rules: [RULE], limit: 200 }),
+    get('graph-again', { scope: 'graph', rules: [RULE], limit: 200 }),
+    get('graph-all', { scope: 'graph', limit: 200 }),
     get('graph-rules', { scope: 'graph', rules: [RULE], limit: 200 }),
-    get('grok', { scope: c.grokBot, limit: 200 }),
-    get('tea', { scope: ctx.made.teaHouse.conceptHeader, limit: 200 }),
-    get('lamp', { scope: ctx.made.lamp.conceptHeader, limit: 200 }),
-    get('bookshop', { scope: ctx.made.bookshop.conceptHeader, limit: 200 }),
-    get('node-project', { scope: ctx.x.grokProject }),
-    get('node-clean', { scope: ctx.f.bot.project }),
-    get('node-element', { scope: ctx.el.lapsang }),
-    get('node-unhooked', { scope: ctx.x.unhooked }),
+    get('grok', { scope: c.grokBot, rules: [RULE], limit: 200 }),
+    get('tea', { scope: ctx.made.teaHouse.conceptHeader, rules: [RULE], limit: 200 }),
+    get('lamp', { scope: ctx.made.lamp.conceptHeader, rules: [RULE], limit: 200 }),
+    get('bookshop', { scope: ctx.made.bookshop.conceptHeader, rules: [RULE], limit: 200 }),
+    get('node-project', { scope: ctx.x.grokProject, rules: [RULE] }),
+    get('node-clean', { scope: ctx.f.bot.project, rules: [RULE] }),
+    get('node-element', { scope: ctx.el.lapsang, rules: [RULE] }),
+    get('node-unhooked', { scope: ctx.x.unhooked, rules: [RULE] }),
     get('r-unknown-rule', { scope: 'graph', rules: ['no-such-rule'] }),
     get('r-not-checkable', { scope: 'graph', rules: ['set-has-a-parent'] }),
     get('r-nobody', { scope: NOBODY }),
     get('r-entry', { scope: entry.props.tapestryKey }),
     get('r-tag', { scope: tag.props.tapestryKey }),
     get('r-no-scope', {}),
-    get('page1', { scope: 'graph', limit: 4 }),
-    get('visitor', { scope: 'graph' }, 'visitor'),
-    get('stranger', { scope: 'graph' }, 'stranger'),
-    get('admin', { scope: 'graph', limit: 200 }, 'admin'),
+    get('page1', { scope: 'graph', rules: [RULE], limit: 4 }),
+    get('visitor', { scope: 'graph', rules: [RULE] }, 'visitor'),
+    get('stranger', { scope: 'graph', rules: [RULE] }, 'stranger'),
+    get('admin', { scope: 'graph', rules: [RULE], limit: 200 }, 'admin'),
     { id: 'list', method: 'GET', url: '/api/tapestry/operations', caller: 'owner' },
   ];
-  const r = P.runOn(file, requests, [{ id: 'cli', argv: ['rules', 'check', '--scope', 'graph', '--limit', '200'] }]);
+  const r = P.runOn(file, requests, [{ id: 'cli', argv: ['rules', 'check', '--scope', 'graph', '--rules', RULE, '--limit', '200'] }]);
   const after = S.readState(file);
   main = { ctx, file, r, before, after, entry, tag };
   return main;
@@ -118,7 +121,7 @@ async function mainRun() {
 test('CK1 [AC2, Decision 5]: the whole graph: the rules run, the scope, how many were judged, and the eleven findings by tapestryKey', async () => {
   const { ctx, r, before } = await mainRun();
   const d = ok(r, 'graph');
-  assert(show(d.rules) === show([RULE]), `it ran ${RULE}, the one rule with a scan; got ${show(d.rules)}`);
+  assert(show(d.rules) === show([RULE]), `it ran ${RULE}, the rule named; got ${show(d.rules)}`);
   assert(d.scope && d.scope.kind === 'graph', `the scope is the whole graph; got ${show(d.scope)}`);
   assert(d.judged === PG.judgedProperties(before).length, `it judged every property with a parent (${PG.judgedProperties(before).length}); got ${d.judged}`);
   assert(d.found === ctx.FINDINGS.length && show(keysOf(d)) === show(ctx.FINDINGS), `the eleven findings, by the node's tapestryKey; got ${d.found} ${show(keysOf(d).map((k) => nameOf(ctx, k)))}`);
@@ -174,7 +177,11 @@ test('CK4 [AC2, Decisions 2 and 4]: a concept\'s scope and a node\'s', async () 
 
 test('CK5 [AC5, Decision 5]: rules: every rule with a scan when left out; unknown-rule and not-checkable, naming A10.31', async () => {
   const { r } = await mainRun();
-  assert(show(keysOf(ok(r, 'graph-rules'))) === show(keysOf(ok(r, 'graph'))), 'naming the rule finds what leaving rules out finds');
+  assert(show(keysOf(ok(r, 'graph-rules'))) === show(keysOf(ok(r, 'graph'))), 'naming the rule finds what naming it finds again');
+  // Story graph-operations-first-slice #47 (ADR 0047 Decision 5): left out, rules are every rule with a scan, both.
+  const all = ok(r, 'graph-all');
+  assert(show(all.rules) === show([RULE, 'word-types-hold-concept-keys']), `left out, rules are every rule with a scan: ${RULE} and word-types-hold-concept-keys; got ${show(all.rules)}`);
+  assert(show(all.violations.filter((v) => v.rule === RULE).map((v) => v.node.tapestryKey)) === show(keysOf(ok(r, 'graph'))), `run beside the other rule, ${RULE} finds what it finds alone`);
   const u = refused(r, 'r-unknown-rule', 400, 'unknown-rule');
   assert(/no-such-rule/.test(u.error) && u.error.includes(RULE), `unknown-rule names the rule asked for and the rules there are; got ${show(u.error)}`);
   const n = refused(r, 'r-not-checkable', 409, 'not-checkable');
@@ -196,12 +203,12 @@ test('CK7 [Decision 5]: limit and cursor page the findings in order; a cursor fr
   let guard = 0;
   while (pages[pages.length - 1].cursor && guard++ < 10) {
     const cur = pages[pages.length - 1].cursor;
-    const next = P.runOn(file, [get('next', { scope: 'graph', limit: 4, cursor: cur })]);
+    const next = P.runOn(file, [get('next', { scope: 'graph', rules: [RULE], limit: 4, cursor: cur })]);
     pages.push(ok(next, 'next'));
   }
   assert(show(pages.map((p) => p.violations.length)) === show([4, 4, 3]) && pages[2].cursor === null, `three pages of 4, 4 and 3, the last with cursor null; got ${show(pages.map((p) => [p.violations.length, p.cursor ? 'cursor' : null]))}`);
   assert(show(pages.flatMap(keysOf)) === show(ctx.FINDINGS) && pages.every((p) => p.found === ctx.FINDINGS.length), 'the pages, in order, are the eleven findings, and each page says how many there are');
-  const bad = P.runOn(file, [get('garbage', { scope: 'graph', cursor: 'not-a-cursor' }), get('other-scope', { scope: ctx.c.grokBot, cursor: pages[0].cursor })]);
+  const bad = P.runOn(file, [get('garbage', { scope: 'graph', rules: [RULE], cursor: 'not-a-cursor' }), get('other-scope', { scope: ctx.c.grokBot, rules: [RULE], cursor: pages[0].cursor })]);
   refused(bad, 'garbage', 400, 'invalid-cursor');
   refused(bad, 'other-scope', 400, 'invalid-cursor');
 });

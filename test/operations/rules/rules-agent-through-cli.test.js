@@ -125,7 +125,7 @@ test('XR1 [AC8]: the agent finds venture hung on robot\'s schema too, repairs it
   const t = json(tangled.stdout);
   assert(tangled.code === 1 && t && t.code === 'tangled-tree', `with venture under two parents, update-property is refused tangled-tree; ${said(tangled)}`);
 
-  const checked = await cli(['rules', 'check', '--scope', robot], env);
+  const checked = await cli(['rules', 'check', '--scope', robot, '--rules', 'property-has-one-parent'], env);
   needDecl(checked, CHECK_DECL, 'check', 'Decision 5');
   const c = json(checked.stdout);
   assert(checked.code === 0 && c && c.data.found === 1 && c.data.violations[0].node.tapestryKey === field && c.data.violations[0].fix, `rules check on robot names venture, with a fix; ${said(checked)}`);
@@ -139,7 +139,7 @@ test('XR1 [AC8]: the agent finds venture hung on robot\'s schema too, repairs it
   assert(repaired.code === 0 && mine(rp) && rp.data.outcome === 'repaired' && show(rp.data.fixed[0].removed.map((x) => [x.from, x.to])) === show([[field, schemaKey]]),
     `rules repair takes off venture's link to robot's schema, recorded as the agent's own; ${said(repaired)}`);
 
-  const again = await cli(['rules', 'check', '--scope', robot], env);
+  const again = await cli(['rules', 'check', '--scope', robot, '--rules', 'property-has-one-parent'], env);
   const a = json(again.stdout);
   assert(again.code === 0 && a && a.data.found === 0, `check again: nothing wrong; ${said(again)}`);
 

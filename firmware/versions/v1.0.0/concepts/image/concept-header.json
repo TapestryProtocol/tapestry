@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-images",
     "name": "concept header for the concept of images",
     "title": "Concept Header for the Concept of Images",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "nodeType"]
   },
   "conceptHeader": {
     "description": "A node whose content is a binary image file.",

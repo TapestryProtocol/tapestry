@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-core-nodes-graphs",
     "name": "concept header for the concept of core nodes graphs",
     "title": "Concept Header for the Concept of Core Nodes Graphs",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "graphType"]
   },
   "conceptHeader": {
     "description": "A graph recording the core nodes and their wiring.",

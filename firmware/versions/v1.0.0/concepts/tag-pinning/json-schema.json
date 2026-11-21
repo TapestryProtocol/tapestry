@@ -4,7 +4,7 @@
     "name": "JSON schema for the concept of tag pinnings",
     "title": "JSON Schema for the Concept of Tag Pinnings",
     "description": "the json schema for the concept of tag pinnings",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       { "slug": "concept-header-for-the-concept-of-tag-pinnings", "uuid": "<uuid>" }
     ]

@@ -17,6 +17,15 @@ const path = require('path');
 
 const FIRMWARE_DIR = path.resolve(__dirname, '../../../firmware/active');
 
+/**
+ * A JSON schema node's word types, coarse to fine: every JSON schema is a validation tool, since firmware's manifest
+ * makes json schema's superset a set of validation tool's (sets.validation-tools). Every writer of a JSON schema's
+ * word block writes a copy of this, so validation tool's class thread and the node's wordTypes agree (story
+ * graph-operations-first-slice #47, ADR graph-operations-first-slice/0047 Decision 8). firmware's json-schema.json files
+ * say the same, and test/firmware-nodes-hold-their-concepts-keys.test.js holds both to the manifest's wiring.
+ */
+const JSON_SCHEMA_WORD_TYPES = Object.freeze(['word', 'validationTool', 'jsonSchema']);
+
 let _manifest = null;
 let _relationshipTypes = null;
 let _concepts = null;
@@ -260,4 +269,5 @@ module.exports = {
   conceptUuid,
   conceptSlugFromUuid,
   clearCache,
+  JSON_SCHEMA_WORD_TYPES,
 };

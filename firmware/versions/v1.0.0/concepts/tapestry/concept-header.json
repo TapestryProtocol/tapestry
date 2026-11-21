@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-tapestries",
     "name": "concept header for the concept of tapestries",
     "title": "Concept Header for the Concept of Tapestries",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "graphType"]
   },
   "conceptHeader": {
     "description": "A graph of concept graphs that validates against normalization rules.",

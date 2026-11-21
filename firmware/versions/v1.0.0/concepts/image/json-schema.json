@@ -6,8 +6,8 @@
         "description": "This is the JSON Schema for the word JSON of image nodes. It validates the metadata that describes an image, not the image file itself.",
         "wordTypes": [
             "word",
-            "jsonSchema",
-            "validationTool"
+            "validationTool",
+            "jsonSchema"
         ],
         "coreMemberOf": [
             {
