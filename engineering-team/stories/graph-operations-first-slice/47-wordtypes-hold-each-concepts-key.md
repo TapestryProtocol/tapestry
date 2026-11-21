@@ -182,6 +182,20 @@ Results:
 - The skips are live parts that need a stack.
 - **What the list missed** (review round 2, non-blocking 4). It was derived at `14a944e7`. The fix commit, `2a8e8c2b`, then changed `src/api/openapi.yaml`, and 15 more registered suites read that file. Review round 2 ran those 15: 613 passed, 5 skipped, none failed.
 
+**The check of review round 2's fixes (2026-11-21).** It ran on `0b22a841` with the fixes in the working tree, committed unchanged as `f860d1b5`, in the same environment as the gate above. Its list was derived at gate time from that round's diff (ledger row `2026-11-21-scoped-gate-lists-built-by-hand`):
+- CI's registry entries for an operations change: `operations.test.js`, `external-cli`, `openapi-coverage`, `openapi-document`, `admin-action-sweep` and `concepts-list-shows-concepts-with-no-event`;
+- 15 registered suites whose source names what the round changed:
+  - the rulebook, the graph rule item or the rule: `graph-rules-builder`, `graph-rule-firmware` and `firmware-element-sync`;
+  - the FN suite itself;
+  - the ledger or the harness's folders: `harness-lint`, `session-start`, `ledger-row-ids`, `rollup-scanners`, `live-link-checks` and `brains-launcher-repo`;
+  - a walk of firmware's element files: `firmware-concept-elements-sets`, `tapestry-per-concept-detail-views`, `add-node-as-element-restore`, `tagging-edges-realtime-engine` and `word-elements-fit-the-installed-word-schema`.
+- None of them reads a live URL whatever the environment says. `harness-lint`'s local URLs are lint fixtures, and `session-start`'s stack probe goes through the stubbed `curl`. `event-tagging-firmware-seed` isn't among them.
+
+Results:
+- **Overall: PASS, 1844 passed, 0 failed, 26 skipped across 21 suites** (record `tmp/gate-runs/20261121T014937Z-70585-f248.json`).
+- The rule's three suites give 10, 10 and 1, as before, and story 45's `rules check` and `rules repair` give 11 and 16. The three rule-list suites give 26, 13 (4 skipped) and 21, and the FN suite 11.
+- `node src/firmware/graph-rules.js --check`: the 12 items are current.
+
 **The live check on a scratch stack (2026-11-20 23:59 to 2026-11-21 00:05 UTC).** Never this Mac's agent-memory instance. The scripts and records are in `tmp/live-check-47/`, which git ignores: `runA.sh` and its log, `setup.sh`, `check.js`, `compare.py`, `edit-wt.js`, `fits.js` and `agent.sh`.
 - **Setup.** `scripts/scratch-stack.sh up` ran from a worktree of staging's `c063ecdd`, on image `agent-memory-tapestry:latest`; its boot installs the image's firmware. Then:
   - staging's firmware was copied in;
