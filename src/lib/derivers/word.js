@@ -49,6 +49,15 @@ function deriveSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+/** The node properties lifecycle seed-firmware records, each JSON text (ADR graph-operations-first-slice/0037 Decision 6). */
+const RECORD_SECTIONS = ['cameFrom', 'installed'];
+/** A record property, parsed; null when there is none or it can't be read. */
+function recordSection(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value) return null;
+  try { const v = JSON.parse(value); return v && typeof v === 'object' && !Array.isArray(v) ? v : null; } catch { return null; }
+}
+
 async function getExistingWordJson(node) {
   const existing = store.get(node.tapestryKey);
   if (existing?.data?.word) return existing.data;
@@ -111,6 +120,14 @@ async function deriveWord(node, ctx = {}) {
     WHERE NOT (ancestor)-[:HAS_ELEMENT]->(n)
     RETURN DISTINCT ancestor.tapestryKey AS tapestryKey
   `, { elementId });
+
+  // ── The install record (ADR graph-operations-first-slice/0037 Decision 6) ──
+  // lifecycle seed-firmware's cameFrom and installed, from the node's own properties, never from an older copy.
+  for (const k of RECORD_SECTIONS) {
+    delete base[k];
+    const v = recordSection(node[k]);
+    if (v) base[k] = v;
+  }
 
   // ── Build graphContext first ──
   const now = Math.floor(Date.now() / 1000);

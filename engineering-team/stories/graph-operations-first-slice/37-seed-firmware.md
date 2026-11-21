@@ -198,6 +198,28 @@ Resolved at this gate. Each carried the drafting's proposal, for the owner to co
 - **The `pointer` b's reference** when the curator's header isn't in the graph. Today's pass fetches that header from relays, and the CI gate reads none.
 - **Status:** where it reads the installed firmware, and its words for an instance that today's install installed.
 
+## Deviations
+
+Judgment calls made at Implementation, each too small for an ADR amendment (the Implementer, 2026-11-20):
+
+- **A relationship letter's address in the target is a stand-in.** The builder gives it a d-tag of 8 hex characters from the sha256 of its nodeFrom, relationshipType and nodeTo, so the target stays a pure function (ST17). The installer matches a graph's letter by those three tags, and an added one gets `randomDTag()`, as create-set gives it (Decision 4, 1c½). The stand-in never reaches the graph.
+- **The b claim's placeholder is a TapestryNode with no NostrEvent label** (a node with no letter, D7). The import's placeholder carries NostrEvent; the import takes this one over when the curator's letter arrives. So the new Cypher names `NostrEvent|TapestryNode` throughout, and needs no entry in `nostr-event-lookups-kept.json` (G18).
+- **The b claims are planned and listed as relationships, but written only with their node's tags** (Decision 8). When a node's tags are written, its `REFERENCES {source: 'b-tag'}` are replaced by the ones its b tags name. When they aren't, a missing claim is `kept`, since it follows the tag.
+- **A missing relationship is `added` when an end is a node the run makes, or when the last install didn't list it.** First contact's `kept` with noRecord applies only between two nodes that were already there. So an empty graph's install adds every relationship (SP1).
+- **The installed-firmware graph lists every target node in the graph after the run, whatever its outcome,** and every target relationship, kept ones included. Decision 9 says "made, brought in line or adopted". Listing kept nodes lets `changedSince` count them. Listing kept relationships keeps one removed by hand `kept` on the next run, not made again. A not-in-source node drops out of the list.
+- **`installedFirmware.nodes` and `.relationships` are counts.** `installedFirmware.references` names the curators' headers that `graph.nodes` also lists, so a later run tells them from firmware nodes.
+- **A node whose record is unchanged keeps that record** even when the source's digest moves. Only a node written or adopted gets a new record. The installed-firmware graph is rewritten whenever its listing or source differs.
+- **A graph-rule item that differs on first contact, with no record, is `put-back` with noRecord** (the test plan's item 8 accepts put-back or changed).
+- **A kept node's `parts`** name what differs from what was installed, or from the firmware when it has no record, as `name`, `json` or `tags:<type>`. With a record, `fromSource` names what differs from the firmware. A blocked node's entry carries `heldBy`, the element holding its name.
+- **More files that don't hold together refuse `firmware-unreadable`** beyond Decision 3's list. These are an element file that gives no name, a header file with no `conceptHeader.oNames.singular`, and relationshipTypes lacking one of the ten types the core nodes use. Today's install logs these and goes on, or fails partway.
+- **1a's memberships (create-concept's step 11) are made for every core node.** Today's fresh install makes only those whose firmware concept was made first. Step 1d makes the rest before any prune reads them, so the target is the same.
+- **The prunes (1e, 3c) and 3c's explicit check follow walks, in which an edge may repeat,** where Neo4j follows paths with no edge twice. They differ only where the one longer route to a node reuses an edge. They run in the fixed order by address (Amendment 1, item 5).
+- **rules check runs in one transaction of its own after the commit and the cache** (`graph.writeTransaction`, reading only), so its reads see one state of the graph. It runs `X.findingsIn` over each firmware concept's scope, and keeps a finding found in two scopes once, by its id. In the stack-free fake, each auto-commit read reads the whole graph file twice, and 41 scopes' reads that way outran the harness.
+- **The cache step registers the derivers when the process hasn't** (the internal command's process), so `cache get` answers the record however it was installed. A derive that answers nothing counts in `cacheOutOfDate`, as one that fails does.
+- **The concept lock is taken by its address, `39998:<assistant>:concept-header`, with `K.lock`'s statement,** but with no refusal when that header isn't there: an empty graph has none (Decision 10).
+- **`version` accepts the manifest's version, `v` with it, or the firmware folder's real name.**
+- **Status's firmware part gains `note`** beside `seeded`, the part's words (Decision 12), declared in its schema with `seeded`.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.test-plan.md`

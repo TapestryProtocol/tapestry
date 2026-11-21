@@ -80,7 +80,7 @@ async function begin(op, { backup = null, migration = null } = {}) {
   if (!lock) throw refusal('busy', store.busyMessage(store.inspectLock()));
   if (!(await jobs.graphAnswers(system))) {
     store.releaseLock(lock.runId);
-    const what = op === 'restore' ? 'restored' : op === 'migrate' ? 'migrated' : 'backed up';
+    const what = op === 'restore' ? 'restored' : op === 'migrate' ? 'migrated' : op === 'seed-firmware' ? 'installed' : 'backed up';
     throw refusal('graph-unavailable', `The graph database isn't answering, so nothing can be ${what} now. See \`supervisorctl status neo4j\`.`);
   }
   return lock;

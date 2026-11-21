@@ -75,12 +75,28 @@ const RESULT_SCHEMA = {
       },
       note: { type: 'string', description: 'What this part knows, in words' },
     }),
-    firmware: part('The firmware this instance carries, and how much of it is in the graph.', {
+    firmware: part('The firmware this instance carries, how much of it is in the graph, and what lifecycle seed-firmware last installed.', {
       version: { type: 'string', description: "The version of the firmware the instance carries (its active manifest's)" },
-      installed: { type: 'string', enum: ['all', 'some', 'none'], description: "How many of the firmware's concepts are in the graph" },
+      installed: { type: 'string', enum: ['all', 'some', 'none'], description: "How many of the firmware's concepts are in the graph, counting the headers a letter backs (today's install's)" },
       conceptsInGraph: count("How many of the firmware's concepts are in the graph"),
       concepts: count('How many concepts the firmware has'),
       missing: { type: 'array', items: { type: 'string' }, description: "The slugs of the firmware's concepts not in the graph" },
+      // Story graph-operations-first-slice #37, ADR graph-operations-first-slice/0037 Decision 12.
+      seeded: {
+        type: 'object',
+        nullable: true,
+        description: 'What lifecycle seed-firmware last installed, read from its installed-firmware graph; null when it has installed nothing',
+        properties: {
+          version: { type: 'string', nullable: true, description: 'The firmware installed' },
+          at: { type: 'string', nullable: true, description: 'When' },
+          by: { type: 'object', nullable: true, description: 'Who: { role, pubkey }' },
+          source: { type: 'object', nullable: true, description: "What from: { kind: 'files', digest, files }, files the number of files read" },
+          nodes: count('The firmware nodes it installed'),
+          relationships: count('The relationships between them it lists'),
+          changedSince: count('How many of those nodes have been edited since they were installed'),
+        },
+      },
+      note: { type: 'string', description: 'What this part knows, in words' },
     }),
     migrations: part('The one-time changes to existing data (lifecycle migrate): each one, whether the graph has it, and its last run.', {
       keys: {
@@ -141,7 +157,7 @@ const status = {
   access: 'owner-and-admins',
   summary: 'The last backup, the firmware version, the migrations applied, and how fresh the cache is',
   description: [
-    'Four parts, each saying plainly what it knows. **backup**: the most recent backup the instance holds, how many it holds, the last backup or restore run, and one that was interrupted. **firmware**: the version the instance carries, and whether all, some or none of its concepts are in the graph. **migrations**: the whole graph\'s tapestryKeys and whether the uniqueness rule is in place, then each migration lifecycle migrate can run, whether the graph has it, and its last run — who ran it, when, and the backup taken before it. **cache**: how many nodes have a cached Tapestry JSON, and how many do not.',
+    'Four parts, each saying plainly what it knows. **backup**: the most recent backup the instance holds, how many it holds, the last backup or restore run, and one that was interrupted. **firmware**: the version the instance carries, whether all, some or none of its concepts are in the graph, and what lifecycle seed-firmware last installed (`seeded`: the version, when, by whom, from what, and how many of its nodes were edited since; null when it has installed nothing). **migrations**: the whole graph\'s tapestryKeys and whether the uniqueness rule is in place, then each migration lifecycle migrate can run, whether the graph has it, and its last run — who ran it, when, and the backup taken before it. **cache**: how many nodes have a cached Tapestry JSON, and how many do not.',
     'A part that cannot be read answers `known: false` with its `problem`, and the others still answer. Status changes nothing.',
   ].join('\n\n'),
   inputs: {},
@@ -170,6 +186,14 @@ const status = {
       const { readInstallState } = require('../../../api/firmware');
       const s = await readInstallState();
       const installed = s.installedCount === 0 ? 'none' : s.installedCount === s.totalCount ? 'all' : 'some';
+      // What seed-firmware last installed, from its installed-firmware graph (ADR graph-operations-first-slice/0037
+      // Decision 12).
+      const { getOwnerAssistantPubkey } = require('../../../utils/assistantKeys');
+      const graph = require('../../graph');
+      const seeded = await require('./_seed').seeded((cypher, params) => graph.read(cypher, params), getOwnerAssistantPubkey() || null);
+      const words = [`The instance carries firmware ${s.activeVersion}; today's install has ${s.installedCount} of its ${s.totalCount} concepts in the graph.`];
+      if (!seeded) words.push('Nothing has been installed by lifecycle seed-firmware yet.');
+      else words.push(`lifecycle seed-firmware installed firmware ${seeded.version} at ${seeded.at}${seeded.by && seeded.by.role ? ` (by the ${seeded.by.role})` : ''}: ${seeded.nodes} nodes, ${seeded.changedSince} of them edited since.`);
       return {
         known: true,
         version: s.activeVersion,
@@ -177,6 +201,8 @@ const status = {
         conceptsInGraph: s.installedCount,
         concepts: s.totalCount,
         missing: s.missing,
+        seeded,
+        note: words.join(' '),
       };
     },
     async migrations() {

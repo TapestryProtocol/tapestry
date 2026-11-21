@@ -424,6 +424,8 @@ Pass 1 ends by wiring and pruning (`src/firmware/install.js`). Step 1d adds `HAS
 
 **Elements an install keeps in line.** Step 1b creates each concept's elements from its `elements/*.json` files and leaves an element that is already there as it was. A concept whose manifest entry sets `updateElements` (only `graph-rule`) is brought in line instead. Each of its elements that the instance's assistant signed is re-signed in place, at the same address, whenever its JSON in the graph differs from its file, and left alone while they match. They differ when the file has changed, and also when someone has edited the element in the graph: the install puts that edit back. Another author's element with the same name is never signed over, and no element is deleted (ADR graph-operations-first-slice/0041 Decision 6). `graph-rule`'s element files are made from the rulebook, `docs/GRAPH_RULES.md`, and the rules' code by `node src/firmware/graph-rules.js`, one per rulebook entry, and are never edited by hand: a test fails until the script is run again after a rule changes.
 
+**lifecycle seed-firmware.** Beside today's install, `POST /api/tapestry/lifecycle/seed-firmware` (the owner and admins; `tapestry lifecycle seed-firmware`) writes the same firmware as nodes of the instance's own, at the same addresses, with no letter: nothing is signed or sent to any relay (ADR graph-operations-first-slice/0037). It rebuilds what today's install leaves from the firmware's files (`src/firmware/target.js`), with two departures: the five schemas pass 3b fills are installed as their files say, and three concept graphs keep the form create-concept gives them. Run again, it brings a node in line unless it was edited since it was installed: an edited node is kept, a re-pointed `b` included, and the answer names what differs. `take` or `takeAll` brings kept nodes in line anyway, and graph-rule's items always follow the rulebook. Each node it writes records `cameFrom` (its file) and `installed` (what was installed), and an installed-firmware graph lists what it installed, which `lifecycle status` reports. Today's install stays the install until export nostr can sign what seed-firmware writes.
+
 ---
 
 ## 8. Word-Wrapper JSON Format
@@ -514,6 +516,7 @@ Base URL: `http://localhost:8080`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/firmware/install` | Install/reinstall firmware concepts |
+| POST | `/api/tapestry/lifecycle/seed-firmware` | `lifecycle seed-firmware` (ADR graph-operations-first-slice/0037; §7). Installs or updates the firmware the instance carries as nodes of its own, unsigned, keeping what was edited. Takes `version?`, `take?` (kept nodes to bring in line, by tapestryKey or address) and `takeAll?`. Answers each node's outcome (`added`, `changed`, `unchanged`, `kept`, `put-back`, `not-in-source`, `blocked`), the relationships, rules check and one change entry. Owner and admins; the command `tapestry lifecycle seed-firmware` |
 
 ### Audit
 

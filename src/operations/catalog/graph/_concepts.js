@@ -157,13 +157,20 @@ function createItems(inputs) {
  * concept's own oSlugs, oKeys and oLabels with its names and titles, old or new (the rename rule).
  * → { nodes: { role → { uuid, kind, labels, name, tags, json } }, wiring: [{ from, type, to }] (roles),
  *     memberships: { role → [firmware slug] } (Amendment 2), membershipType }
+ *
+ * lifecycle seed-firmware builds the firmware's concepts with it from a firmware folder (story
+ * graph-operations-first-slice #37, ADR graph-operations-first-slice/0037 Decision 4 and Amendment 1, item 3). For that
+ * it takes, each left out to keep today's: coreD, the core nodes' d-tag, apart from the header's (today's route puts the
+ * core nodes at the name's slug); zOf(slug), the z address of a firmware concept; aliases, the relationship types as
+ * rel() names them; and oTags: false, which leaves out the `o` tags today's route doesn't sign. The header's
+ * concept-graph tag is the header's d with -concept-graph, as today's route writes it.
  */
-function conceptNodes({ names, d, ta, description = null }) {
-  const R = rel();
-  const z = (slug) => firmwareUuid(slug);
+function conceptNodes({ names, d, ta, description = null, coreD = d, zOf = null, aliases = null, oTags = true }) {
+  const R = aliases || rel();
+  const z = typeof zOf === 'function' ? zOf : (slug) => firmwareUuid(slug);
   const slugPlural = names.oSlugs.plural;
   const uuid = { conceptHeader: `39998:${ta}:${d}` };
-  for (const [role, c] of Object.entries(CORE)) uuid[role] = `39999:${ta}:${d}-${c.suffix}`;
+  for (const [role, c] of Object.entries(CORE)) uuid[role] = `39999:${ta}:${coreD}-${c.suffix}`;
   const headerSlug = `concept-header-for-the-concept-of-${slugPlural}`;
   const memberOf = [{ slug: headerSlug, uuid: uuid.conceptHeader }];
   const slugOf = {
@@ -359,12 +366,13 @@ function conceptNodes({ names, d, ta, description = null }) {
   };
 
   const core = (role, word, zs, describe) => {
-    const tags = [['d', `${d}-${CORE[role].suffix}`], ['name', word.word.name], ...zs.map((s) => ['z', z(s)]), ['o', uuid.conceptHeader, CORE[role].o]];
+    const tags = [['d', `${coreD}-${CORE[role].suffix}`], ['name', word.word.name], ...zs.map((s) => ['z', z(s)])];
+    if (oTags) tags.push(['o', uuid.conceptHeader, CORE[role].o]);
     if (describe !== null) tags.push(['description', describe]);
     tags.push(['json', JSON.stringify(word)]);
     return { uuid: uuid[role], kind: 39999, labels: ['ListItem', ...(CORE[role].label ? [CORE[role].label] : [])], name: word.word.name, tags, json: word, z: zs };
   };
-  const headerTags = [['d', d], ['names', names.oNames.singular, names.oNames.plural], ['slug', names.oSlugs.singular], ['concept-graph', uuid.conceptGraph], ['json', JSON.stringify(headerWord)]];
+  const headerTags = [['d', d], ['names', names.oNames.singular, names.oNames.plural], ['slug', names.oSlugs.singular], ['concept-graph', `39999:${ta}:${d}-concept-graph`], ['json', JSON.stringify(headerWord)]];
   if (description) headerTags.push(['description', description]);
   const nodes = {
     conceptHeader: { uuid: uuid.conceptHeader, kind: 39998, labels: ['ListHeader', 'ConceptHeader'], name: names.oNames.singular, tags: headerTags, json: headerWord, z: [] },

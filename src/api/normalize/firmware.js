@@ -14,8 +14,13 @@ const fs = require('fs');
 const path = require('path');
 
 // ── Locate firmware directory ────────────────────────────────
+// TAPESTRY_FIRMWARE_DIR, read once when the module loads, names another folder; no deployment sets it, and a suite
+// does, so that the whole control panel reads the firmware it is given (story graph-operations-first-slice #37, ADR
+// graph-operations-first-slice/0037 Decision 3).
 
-const FIRMWARE_DIR = path.resolve(__dirname, '../../../firmware/active');
+const FIRMWARE_DIR = process.env.TAPESTRY_FIRMWARE_DIR
+  ? path.resolve(process.env.TAPESTRY_FIRMWARE_DIR)
+  : path.resolve(__dirname, '../../../firmware/active');
 
 let _manifest = null;
 let _relationshipTypes = null;

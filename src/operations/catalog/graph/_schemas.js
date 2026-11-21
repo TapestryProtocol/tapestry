@@ -211,6 +211,19 @@ function aboutGraphContext(err) {
 }
 
 /**
+ * The JSON as a schema judges it: lifecycle seed-firmware's install record, the top-level cameFrom and installed the
+ * derive step puts in, set aside, as graphContext is local to the instance (ADR graph-operations-first-slice/0037
+ * Decision 6). Anything else is judged as it is.
+ */
+const RECORD_SECTIONS = Object.freeze(['cameFrom', 'installed']);
+function withoutRecord(json) {
+  if (!isObject(json) || !RECORD_SECTIONS.some((k) => Object.prototype.hasOwnProperty.call(json, k))) return json;
+  const out = { ...json };
+  for (const k of RECORD_SECTIONS) delete out[k];
+  return out;
+}
+
+/**
  * A checker for one call, or one derive pass: each concept's schema is read and compiled once, however many items or
  * nodes name it (Decision 12; ADR 0042 Decision 6).
  *   check(concept, json, { writing }) → { header, label, name, node, nodeUuid, nodes, fits: true | false | null,
@@ -239,10 +252,11 @@ function judge(read) {
     }
     return memo.get(concept);
   };
-  async function check(concept, json, { writing = false } = {}) {
+  async function check(concept, given, { writing = false } = {}) {
     const j = await of(concept);
     const { validate, problem: why, ...facts } = j;
     if (!validate) return { ...facts, fits: null, problems: [], problem: why, waiting: false };
+    const json = withoutRecord(given);
     if (validate(json)) return { ...facts, fits: true, problems: [], problem: null, waiting: false };
     let errors = validate.errors || [];
     let waiting = false;
