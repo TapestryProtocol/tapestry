@@ -106,6 +106,33 @@ Judgment calls made in Implementation (2026-11-18), each too small for an ADR am
 - **`guards: []` is declared,** so the listing's empty guard list is the declaration's own (Decision 7).
 - **The new ledger row** on `M.say.authorClaim`'s words is `2026-11-18-author-claim-words-misname-n-remaker`, typed `bug`: what the refusal says remakes an `n` claim is wrong, though the refusal itself is right.
 
+## Evidence
+
+### On staging and production (2026-11-19)
+
+**Staging: TapestryProtocol/tapestry#155,** after its ADR, #154.
+- **The ADR,** #154, was merged into staging by the owner at 2026-11-18T23:41:44Z, as `13ac38ec`. `deploy-staging.yml` run 44422926419 deployed it.
+- **Its CI:** the `stack-free` job of `Test` run 44423073246 passed on the PR's head, `5436a77e`, the branch with staging merged in after #154.
+- **The merge,** at 2026-11-19T00:00:01Z, was by nousclawds4. Its merge commit is `d5deea22`.
+- **The deploy:** `deploy-staging.yml` run 44425397241 succeeded, 00:00:04Z to 00:01:57Z.
+- **No record of a safe-to-merge answer or a smoke test was kept for this merge.** Later that day, before #158 merged, staging's `/docs` listed `graph/move-element` among its 33 operation paths (`tmp/staging-smoke-158/paths-before.txt`, from story 19's smoke test). This story's live check is in the main checkout's ignored `tmp/live-check-23/`.
+- **Loom** marked A10.23 done, verified weakly: PR #155 was merged by nousclawds4 with no approval from a teammate other than the owner.
+
+**Production: TapestryProtocol/tapestry#159,** the promotion of staging at `2644eb5a`.
+- **What it carried:** #154 and #155, with story 19's ADR and code (#157 and #158), the docs on which way the property and class-thread relationships point (#156), RW7's records (#153) and rulebook entry 9 (#148). Story 19's record lists the bundle and how the owner approved it.
+- **Its required checks:** `stack-free` (run 44588751573) and `main-source-guard` (run 44588751637) passed on `2644eb5a`.
+- **The safe-to-merge check** against production said safe at 18:45:23Z.
+- **The merge,** at 18:45:26Z, was pinned with `--match-head-commit 2644eb5a`. Its merge commit is `acf4b281`.
+- **The deploy:** `deploy-tapestry.yml` run 44591168252 succeeded, 18:45:29Z to 18:47:09Z.
+- **The smoke test** was clean:
+  - tiers 1, 2 and 5, with Neo4j answering after 7 polls;
+  - tier 3: `/docs` listed 35 operation paths, where it listed 32 before the merge. `graph/move-element` was one of the three added, with story 19's `graph/enumerate` and `graph/unenumerate`, and none dropped.
+
+  Tier 4 didn't apply, since no UI changed.
+- **No firmware reinstall** was needed, and none ran.
+
+The production run's records are in the main checkout's ignored `tmp/prod-smoke-159/`.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild bullet)

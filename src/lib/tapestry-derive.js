@@ -84,11 +84,14 @@ function pickDeriver(labels) {
  * (`MATCH (n) WHERE elementId(n) = $elementId`, a direct lookup), so no query reads the whole graph to find it:
  * 3.85 million nodes on staging since `tapestry-keys` (graph-operations-foundation #8). tapestryOwnSections is the
  * owner's sections kept beside another author's letter, which the word deriver lays over (ADR
- * graph-operations-first-slice/0022 Decision 6).
+ * graph-operations-first-slice/0022 Decision 6). cameFrom and installed are the install record lifecycle seed-firmware
+ * writes, which the word and set derivers put in as top-level sections (ADR graph-operations-first-slice/0037
+ * Decision 6).
  */
 const NODE_FIELDS = `n.tapestryKey AS tapestryKey, n.uuid AS uuid, n.name AS name,
            n.slug AS slug, n.kind AS kind, n.pubkey AS pubkey,
            n.tapestryOwnSections AS tapestryOwnSections,
+           n.cameFrom AS cameFrom, n.installed AS installed,
            labels(n) AS labels, elementId(n) AS elementId`;
 
 /**

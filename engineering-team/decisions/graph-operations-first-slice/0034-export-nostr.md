@@ -324,3 +324,36 @@ Writing the tests raised six points the decisions left open. Each is settled her
    - A call writes its change entry when some relay accepted some letter. That includes an unchanged letter re-sent to a relay that hadn't had it, recorded with `was` equal to `now`.
    - A call in which no relay accepted anything records nothing. Its letters were signed, but exist nowhere.
    - `SEND_CUTOFF_MS` bounds the sends to outside relays. The one `strfry import` into the instance's own relay runs before them, and isn't cut.
+
+## Amendment 2 (2026-11-21, at Review; approved by the owner, "Yes, as recommended")
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/34-export-nostr.md`) found what follows. The story's "Changed at Review" list is the same, as it reaches the criteria.
+
+1. **Decisions 8 and 10: the record locks, keeps the newest, and remembers what it couldn't confirm** (finding 3).
+   - The record's transaction takes each node's write lock before it reads the node's `id`, as the graph writes' `lockNode` does, so two records of one node go one after the other.
+   - Of the letters export sent for a node, the node keeps the newest, by NIP-01's order: the later `created_at`, or on a tie the lower id. A record that finds the node already holding a newer letter export sent leaves it, and its change says `raced`.
+   - A letter whose read-back didn't answer (`unread`) may be on the instance's own relay. So it is recorded in the call's change entry, with each relay's answer, though not on the node. Amendment 1's item 6 becomes: a call writes its entry when some relay accepted a letter or a letter is `unread`; a call whose every letter was refused, unreachable or not sent records nothing.
+   - `holdsLetterOrNewer` also answers yes for any letter whose id an `export nostr` entry records for that node, newer or not. A letter export sent never comes back over its node, whatever the node records.
+2. **Decision 2: order by kind first** (finding 4). Letters go out by rank:
+   - concept headers;
+   - supersets;
+   - sets, parents first;
+   - then the rest.
+
+   Within a rank, each goes after the letters of that rank it names, and a cycle within a rank goes by tapestryKey. So a header goes before its core nodes and elements, as AC5 has it, and a graph still goes after the nodes it lists.
+3. **Decision 9: a graph not followed is reported** (finding 6). A graph past the fourth level of imports, or past the 50th, is sent as it is, its lists unfollowed. It is reported `graph-not-followed`, naming it and why.
+4. **Decision 9: a `b` tag carries a relationship** (finding 13). Its `INHERITS_FROM`, which import nostr wires from it, is a relationship a letter carries.
+5. **Decision 6: `strfry import` within the call's time** (finding 7). The import is given the call's remaining time, never more than 30 s. A hung import is stopped then, and the read-back decides each letter's answer.
+6. **Decision 11: the guard test catches a publisher built export's way** (blocking finding 1). RE1 flags any file outside the excluded folders that calls `.publish(` on a relay. That means one it makes with `SimplePool`, `AbstractRelay` or `Relay`, or one it gets from import's `_relay.js`. "The second server-side publisher" reads "another server-side publisher" wherever it was written (finding 9), since assistant-profile's came first.
+7. **AC7's live run: the stack's own relay only** (blocking finding 2). The scratch-stack run sends to the stack's own relay. Sending to outside relays is covered stack-free (ES3, ES16). The first real export to an outside relay is recorded in the story when it happens. The private-relay refusal is run by hand on the stack.
+
+## Amendment 3 (2026-11-21, after review round 2; the owner's "Fix findings first"; ratified by the owner after review round 3, 2026-11-21, with item 4)
+
+Review round 2 passed, with five non-blocking findings, which the owner has fixed before the pull request. Three of them change a decision.
+
+1. **Decision 8: the same letter twice** (finding 14). Two exports can sign identical content in the same second, so both letters have one id. A record that finds its node already holding that id adds the relays that accepted it to `sentTo`. It isn't `raced`.
+2. **Decisions 8 and 10: the guard reads only the node** (finding 15). Each node keeps `sentIds`: the ids of the newest 20 letters export sent for it or may have sent, accepted or `unread`. `holdsLetterOrNewer` answers yes when the node holds the letter or a newer one, or when `sentIds` lists its id. It reads no change entry, so its cost doesn't grow with the graph's history. The change entries stay the full record that status and retract read.
+   - Twenty is enough because an older exported letter is already turned away by NIP-01's order. Only a newer one needs the list, and only an `unread` letter or a raced record can leave one newer than the node's own.
+   - The other fix weighed was an index on the change entries' `operation`. It would add a Neo4j schema change for every instance, and the scan would still grow with each instance's exports.
+3. **Decision 9: `graph-not-followed` names the graph's address,** beside its key and name (finding 16), once EK7's helper matches addresses exactly.
+4. **AC6 and the BIBLE state the bound** (review round 3, finding 20). `sentIds` keeps 20, so the importers turn away any of the 20 latest letters export sent for a node. Only after more than 20 of one node's letters in a row went unrecorded or raced could an earlier one get past. The owner chose this bound over a longer list when he ratified this amendment.

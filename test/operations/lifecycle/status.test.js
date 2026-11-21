@@ -13,7 +13,9 @@
  *   P1b backup shows the most recent backup, the count, the last run and an interrupted run, and changes nothing
  *   P2  migrations counts keys across the whole graph and lists each migration and its last run (A10.3, ADR 0003 D7)
  *   P2b with the graph not answering, migrations says it can't know
- *   P3  firmware reports the version the instance carries and all, some or none of its concepts in the graph
+ *   P3  firmware reports the version the instance carries and all, some or none of its concepts in the graph; and what
+ *       lifecycle seed-firmware last installed, `seeded` (null before it has installed anything), with a note naming
+ *       seed-firmware (story graph-operations-first-slice #37, ADR graph-operations-first-slice/0037 Decision 12)
  *   P4  cache reports how many nodes have a cached Tapestry JSON, and how many don't
  *   P5  run answers exactly the four parts; a part that fails is { known: false, problem } and the rest stand
  *   P6  every answer, known or not, matches the declaration's own result schema
@@ -212,24 +214,33 @@ test('P2b: with the graph not answering, migrations says it can\'t know — it n
   assert(ok && ok.known === true && ok.keys && ok.keys.withoutKey === 1, `and with the graph answering it counts (so this isn't passing on a part that always fails); got ${show(ok)}`);
 });
 
-test('P3: firmware reports the version the instance carries and whether all, some or none of its concepts are in the graph', () => {
+test('P3: firmware reports the version the instance carries, whether all, some or none of its concepts are in the graph, and what lifecycle seed-firmware last installed: seeded null, in words, before it has installed anything (ADR graph-operations-first-slice/0037 Decision 12)', () => {
   status();
   const out = child(wrap([
     `let state = null;`,
     stub('src/api/firmware/index.js', `{ readInstallState: async () => state }`),
+    // The graph seam (src/operations/graph.js) holds no installed-firmware graph: its read finds no rows. Status writes nothing.
+    `const asked = [];`,
+    stub('src/operations/graph.js', `{ read: async (cypher, params) => { asked.push(String(cypher)); return []; }, writeTransaction: async () => { throw new Error('lifecycle status writes nothing'); } }`),
     `const s = require(${show(STATUS_FILE)});`,
     `const r = {};`,
     `state = { installedCount: 3, totalCount: 3, missing: [], installed: ['a', 'b', 'c'], activeVersion: '9.9.9' }; r.all = await s.parts.firmware();`,
     `state = { installedCount: 2, totalCount: 3, missing: ['c'], installed: ['a', 'b'], activeVersion: '9.9.9' }; r.some = await s.parts.firmware();`,
     `state = { installedCount: 0, totalCount: 3, missing: ['a', 'b', 'c'], installed: [], activeVersion: '9.9.9' }; r.none = await s.parts.firmware();`,
+    `r.asked = asked.length;`,
     `process.stdout.write('RESULT:' + JSON.stringify(r) + '\\n');`,
   ].join(NL)));
   const want = {
-    all: { known: true, version: '9.9.9', installed: 'all', conceptsInGraph: 3, concepts: 3, missing: [] },
-    some: { known: true, version: '9.9.9', installed: 'some', conceptsInGraph: 2, concepts: 3, missing: ['c'] },
-    none: { known: true, version: '9.9.9', installed: 'none', conceptsInGraph: 0, concepts: 3, missing: ['a', 'b', 'c'] },
+    all: { known: true, version: '9.9.9', installed: 'all', conceptsInGraph: 3, concepts: 3, missing: [], seeded: null },
+    some: { known: true, version: '9.9.9', installed: 'some', conceptsInGraph: 2, concepts: 3, missing: ['c'], seeded: null },
+    none: { known: true, version: '9.9.9', installed: 'none', conceptsInGraph: 0, concepts: 3, missing: ['a', 'b', 'c'], seeded: null },
   };
-  for (const k of Object.keys(want)) assert(same(out[k], want[k]), `firmware (${k}) must be ${show(want[k])}; got ${show(out[k])}`);
+  for (const k of Object.keys(want)) {
+    const { note, ...rest } = out[k] || {};
+    assert(same(rest, want[k]), `firmware (${k}) must be ${show(want[k])}, beside its note; got ${show(out[k])}`);
+    assert(typeof note === 'string' && /seed-firmware/.test(note) && /\b(nothing|not|no|none)\b/i.test(note), `firmware (${k})'s note says in words that seed-firmware has installed nothing yet; got ${show(note)}`);
+  }
+  assert(out.asked >= 1, 'the part asked the graph seam for the installed-firmware graph (so seeded: null isn\'t a part that never looked)');
 });
 
 test('P4: cache reports how many nodes have a cached Tapestry JSON, how many have an empty one, and how many have none', () => {

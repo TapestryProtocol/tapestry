@@ -34,6 +34,10 @@
  *                           shared label where it lacks them) to the saved graph and to this transaction's copy alike:
  *                           another import's placeholder, made after this one read the graph (Decision 7.9's race). The
  *                           log gets { call: 'meanwhile', match } just before the statement
+ *                           (story graph-operations-first-slice #34, review round 1, finding 3) an entry may also carry
+ *                           set: [{ key, props }]: that same other transaction gives the node with that tapestryKey those
+ *                           properties (null takes one off), in the saved graph and this transaction's copy alike: another
+ *                           export's record of the node, committed before this one's first write to it
  */
 
 const fs = require('fs');
@@ -95,6 +99,13 @@ function fakeGraph(stateFile) {
             const labels = [...new Set([...(n.labels || []), 'TapestryNode'])];
             const eid = Math.max(committed.nextEid || 1, s.nextEid || 1);
             for (const st of [committed, s]) { st.nodes.push({ eid, labels: [...labels], props: { ...props } }); st.nextEid = eid + 1; }
+          }
+          for (const x of one.set || []) {
+            for (const st of [committed, s]) {
+              const node = st.nodes.find((n) => n.props && n.props.tapestryKey === x.key);
+              if (!node) continue;
+              for (const [p, v] of Object.entries(x.props || {})) { if (v === null) delete node.props[p]; else node.props[p] = copy(v); }
+            }
           }
           log.push({ call: 'meanwhile', match: one.match });
         }

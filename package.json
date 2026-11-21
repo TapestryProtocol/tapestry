@@ -76,6 +76,7 @@
     "ioredis": "^5.10.1",
     "js-yaml": "^4.1.1",
     "lmdb": "^3.5.2",
+    "micromark": "4.0.2",
     "multer": "^1.4.5-lts.1",
     "neo4j-driver": "^5.28.1",
     "nostr-tools": "^2.10.4",

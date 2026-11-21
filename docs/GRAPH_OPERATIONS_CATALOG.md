@@ -52,7 +52,7 @@
 - **Import (4):** nostr, file, web, refresh.
 - **Export (4):** nostr, file, status, retract.
 - **Cache (3):** get, check, rebuild.
-- **Lifecycle (6, owner only):** backup, restore, seed-firmware, migrate, wipe, status.
+- **Lifecycle (6):** backup, restore, seed-firmware, migrate, wipe, status. The ones built are for the owner and admins; wipe isn't built, and who may call it isn't decided.
 
 ## 1. Graph reads
 
@@ -174,16 +174,16 @@ Importing a graph, such as someone else's Tapestry, records its graph element an
 
 ## 6. Export (outside data going out)
 
-Who may call: the owner, and admins for everything except where §10's question 2 decides otherwise.
+Who may call: the owner and admins. §10's question 2 is answered: both may sign as the assistant, to any relay (story graph-operations-first-slice #34).
 
 | Operation | What it does | Takes → returns | Refuses or reports | Today |
 |---|---|---|---|---|
-| `nostr` | Publish a scope as signed events, and record what was sent | `scope`, `relays?`, `dryRun?` → the letters published; a dry run lists the letters it would publish, as new, changed or unchanged since last sent | Signs only nodes you assert, and refers to someone else's node by its address without re-signing it (D8); reports references to nodes with no nostr address yet (design doc §5, question 4) | Partial: `POST /api/strfry/publish` publishes one given event, and every signing route publishes as it writes. Nothing takes a scope or records what was sent. |
+| `nostr` | Publish a scope as signed events, and record what was sent | One of `node` (a ref), `graph` (a ref to a graph element) or `everything: true`, with `relays?` (up to ten), `dryRun?` and `after?` → each node's letter, its outcome (`new`, `changed`, `unchanged`, `not-own`, `owner-signed`, `other-kind`, `no-address` or `unbuildable`) and each relay's answer; the counts; `next.after` when the scope is bigger than one call; and the change entry. A dry run lists the letters it would publish, as new, changed or unchanged since last sent | Signs only nodes whose letter is the assistant's, and refers to someone else's node, the owner's included, by its address without re-signing it (D8). Refuses `no-scope`, `two-scopes`, `bad-ref`, `unknown-ref`, `ambiguous-ref`, `not-a-graph`, `bad-relay`, `private-relay`, `too-many-relays`, `bad-cursor` and `no-assistant-key`. Reports, before the letters, `link-dropped` and `value-left-out` (a `tapestry:` link or value whose target has no letter), `pointer-unresolved`, `unsent-reference` (a reference to one of the instance's own nodes with no letter, outside the call; design doc §5, question 4), `uncarried-relationship`, `not-found` and `graph-not-followed` (a graph past the fourth level of imports, or past the 50th, sent with its lists unfollowed) | Built: `POST /api/tapestry/export/nostr` (A10.34, ADR graph-operations-first-slice/0034). Each letter is built from the node as the graph holds it now: its tags, a set's `s` from its parent links, an element's stamps, its stored JSON without `graphContext`, and each `tapestry:` link rewritten to `nostr:naddr1…` or `nostr:nevent1…`, or dropped. Only what is new or changed is signed again. The letters go into the instance's own relay with `strfry import`, are read back by id, and only those it holds go to the relays named. Each node sent then holds its letter's `id` and `created_at`, its `sentTo` and its `sentIds` (the newest 20 letters export signed for it, which today's importers turn away), and one change entry records the call. Today's signing routes still publish as they write; `POST /api/strfry/publish` publishes one given event. |
 | `file` | Write a scope as a JSON or markdown bundle | `scope`, `format`, `dryRun?` → the file | — | Partial: `POST /api/io/exports` writes a file of chosen nodes and concepts, by nostr address; `GET /api/brain/export` (not in /docs) exports the second brain. |
 | `status` | Which nodes in a scope were sent where, and whether each copy is still current | `scope` → each node's letters and whether they're current | — | New. |
 | `retract` | Ask relays to delete the letters you published for a scope (NIP-09) | `scope`, `dryRun?` → the requests sent | Retracts only letters your keys signed | New. |
 
-**What an export does, whatever the destination** (D12; drafting): it resolves the scope to its nodes and edges; adds, or reports, the nodes its letters refer to that have no nostr address yet; orders the letters so each goes out after the ones it refers to; applies D8 node by node; and records "sent as" for each letter. Exporting everything to nostr isn't a backup: letters are public and leave out whatever has no event form (BIBLE §30). Backup stays in lifecycle.
+**What an export does, whatever the destination** (D12; drafting): it resolves the scope to its nodes and edges; adds, or reports, the nodes its letters refer to that have no nostr address yet; orders the letters so each goes out after the ones it refers to; applies D8 node by node; and records "sent as" for each letter. `export nostr` reports such nodes and adds none (§10, question 9), and records "sent as" on each node it sent, as its `id`, `created_at`, `sentTo` and `sentIds`, with a `letter-sent` change in the call's entry. Exporting everything to nostr isn't a backup: letters are public and leave out whatever has no event form (BIBLE §30). Backup stays in lifecycle.
 
 ## 7. Cache
 
@@ -199,13 +199,13 @@ Today `POST /api/tapestry-key/:key` writes to the cache directly; D10's guard dr
 
 ## 8. Lifecycle
 
-Who may call: the owner only.
+Who may call: the owner and admins, as every lifecycle operation built so far is declared. Wipe isn't built, and who may call it isn't decided.
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|
 | `backup` | A full backup of the graph: a Neo4j dump first; later encrypted and chunked into nostr events on a mirror relay (BIBLE §30) | `target?` → the backup's id | New. `bin/backup.js` doesn't back up Neo4j. |
 | `restore` | Restore a backup, keeping its tapestryKeys and provenance | `backup` → restored | New. The second brain's `restore-brain` restores only its own export. |
-| `seed-firmware` | Install or update the built-in concepts, by the bootstrap path, without undoing local edits | `version?` → installed | Signs: `POST /api/firmware/install`, which can also undo local edits. |
+| `seed-firmware` | Install or update the built-in concepts, by the bootstrap path, without undoing local edits | `version?`, `take?`, `takeAll?` → each node's outcome | Built: `POST /api/tapestry/lifecycle/seed-firmware`, for the owner and admins (ADR graph-operations-first-slice/0037). It writes the firmware's nodes unsigned and keeps what was edited. `POST /api/firmware/install` stays the install, and signs, until export nostr can sign what seed-firmware writes. |
 | `migrate` | One-time changes to existing data: missing tapestryKeys, relabeling nodes with no event, adding the uniqueness constraint | `migration` → the result | Partial: `POST /api/tapestry-key/initialize` stamps missing tapestryKeys; `POST /api/normalize/migrate-primary-property-ztags` is one specific migration. |
 | `wipe` | Erase the graph, only after a backup | `backup` (required) → erased | Exists: the Database Settings page sends `MATCH (n) DETACH DELETE n` through `POST /api/neo4j/query`, with no backup step. |
 | `status` | The last backup, the firmware version, the migrations applied, and how fresh the cache is | → the status | New. |
@@ -249,6 +249,7 @@ Who may call: the owner only.
 
 1. **Who may read what.** Today the concept-graph reads (`/api/concept-graph/*`) and the read path of `/api/neo4j/query` are open to anyone, and neither skips nodes that were never published. So a private node, such as an event-less set, can be read by any visitor. Should reads of unpublished nodes be limited to the owner and admins?
 2. **Who may sign as your assistant.** `export nostr` signs with your assistant's key. Today the signing normalize routes let admins do that, while `/api/strfry/publish` with `signAs: assistant` is owner only (ADR 0005). Which should hold for agents?
+   **Answered** (story graph-operations-first-slice #34, the owner's approval, 2026-11-20): the owner and admins, to any relay. Export signs only what the graph holds, which admins can already write; the instance's own relay can be read from outside anyway; and each call's change entry names who exported what.
 3. **Are all admins equal?** Could one agent be read-only, or kept away from deletes?
 4. **Raw writes.** Today any admin can send write Cypher. The plan makes raw writes owner only, from the internal CLI.
 5. **Deleting an import.** What should deleting a node that came from someone else's event mean, when the next import brings it back: hide it, mute its author, or refuse?
@@ -256,3 +257,4 @@ Who may call: the owner only.
 7. **Order.** Do a concept's or a set's elements need an order, as in a ranked list? If so, is it a field or a property of the edge?
 8. **Watching for changes.** Should an agent be able to subscribe to changes, rather than ask `history` over and over?
 9. **Other people's elements in an export.** When you export a concept or a Tapestry, do other people's elements come along? Your keys can't sign them, so by default the export would carry your own elements and refer to theirs by address.
+   **Answered** (story graph-operations-first-slice #34, the owner's approval, 2026-11-20): only what the scope names goes out, and nothing is added or stopped for what it names in turn. Another author's node, the owner's included, is named by its address and never signed or sent (`not-own`, `owner-signed`); a concept's class thread brings the instance's own nodes only. A reference to one of the instance's own nodes that has no letter is reported (`unsent-reference`, and `link-dropped` or `value-left-out` for a `tapestry:` link or value), first in a dry run, so the caller can widen the scope.

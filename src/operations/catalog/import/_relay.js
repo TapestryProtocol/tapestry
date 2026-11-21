@@ -7,9 +7,12 @@
  *   connect(url)   the seam: resolves a relay with nostr-tools' subscribe(filters, { onevent, oneose, onclose }) →
  *                  { close() }, and close(). open() calls it through this object, `module.exports`, at each connection,
  *                  so a suite replaces it (test/helpers/relayFake.js), as src/operations/graph.js's methods are replaced.
- *   open(url)      → { request(filter), close() }, or { error } when neither try connected
+ *   open(url)      → { request(filter), close(), relay }, or { error } when neither try connected
  *                  request(filter) → { ok: true, events } at the end of stored events, or { ok: false, error } when the
  *                  relay closed the request or the connection, or sent no end within REQUEST_MS
+ *                  relay: the connected relay itself, its send already wrapped as below, for export nostr's sender
+ *                  (story graph-operations-first-slice #34; ADR graph-operations-first-slice/0034 Decision 6), which
+ *                  checks relay.connected before each send of its own. This reader never sends an event
  *   CONNECT_MS, REQUEST_MS  read through this object at each call, so a suite can shorten them (review round 1)
  *
  * The real relay is given a verifyEvent that takes everything, so a bad signature reaches the import's own check
@@ -113,6 +116,7 @@ const reader = {
     return {
       request: (filter) => request(relay, filter),
       close() { try { relay.close(); } catch { /* going away either way */ } },
+      relay,
     };
   },
 };
