@@ -501,3 +501,99 @@ Round 1's two stand: Deviation 1 (eight `json-schema.json` files reordered), and
 - The gates pass: `20261121T011021Z-1774-52f7` (30 suites) and `20261121T011436Z-19783-2946` (3), with `20261121T004946Z-57222-e9ab` (44) read from its record.
 
 **PASS**
+
+## Round 2 fix check — 2026-11-20 (HEAD `2b5a9675`, not a round)
+
+The coordinator asked for a check of the four commits after round 2's review commit (`c3ac38fe`, which also set the story `Done`). They fix round 2's four non-blocking findings: 9 files, +45 −11.
+- `a2e113b8`, the Tester's lane: the FN suite's header and test plan Amendment 3.
+- `0b22a841`, the Architect's: ADR 0047 Amendment 1, not yet ratified.
+- `f860d1b5`, the Implementer's: the way on, entry 12, the item, the story's Deviation and Evidence, and two ledger rows.
+- `2b5a9675`: the story's Evidence for the session's check of these fixes.
+
+I re-derived each changed statement (rule 10), my round 2 wording included. The same agent made this check as round 2, within the same limits. Its scripts and logs are in the ignored `tmp/review-47/round2-fixcheck/`. Its probe ran in a `git archive` copy of `2b5a9675`.
+
+### Gates
+- [~] **My gate,** 26 suites, through `safe-run-ci.sh` inside round 2's sandbox. Its ports were regenerated from colima's forwards (the same 18) and tested again:
+
+  ```
+  20261121T020358Z-62464-47fe [story-47-round2-fixcheck] started 2026-11-21T02:03:58.046Z on 2b5a9675 — FAIL, exit 1, 596 passed, 3 failed, 16 skipped, 26/26 suites; failed: external-cli · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T020358Z-62464-47fe.json
+  ```
+
+  - **The three failures are the sandbox's.** The test signer of I5, I6 and I16 runs `ps` (`test/external-cli.test.js:332`), and the sandbox refuses it: "bin/sh: /bin/ps: Operation not permitted".
+  - **`external-cli` alone, outside the sandbox.** It reaches only servers it starts on ephemeral loopback ports.
+
+    ```
+    20261121T020722Z-30541-47a7 [story-47-round2-fixcheck-extcli] started 2026-11-21T02:07:22.918Z on 2b5a9675 — PASS, exit 0, 53 passed, 0 failed, 0 skipped, 1/1 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T020722Z-30541-47a7.json
+    ```
+  - **The rest pass:**
+    - the five rule suites, by name: 10, 10, 1, 11 and 16, as before;
+    - `gate-result-record`: 34 (below);
+    - the 20 suites the session's check also ran, each with its counts there.
+  - **Round 2's own claim still holds.** Neither of its logs holds a refusal, as text or as a byte list. Each of its skips is a live test with no stack.
+- [x] **The session's check,** read from its record:
+
+  ```
+  20261121T014937Z-70585-f248 [story-47-round2-fixes] started 2026-11-21T01:49:37.281Z on 0b22a841+dirty — PASS, exit 0, 1844 passed, 0 failed, 26 skipped, 21/21 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T014937Z-70585-f248.json
+  ```
+
+  The record counts six dirty paths, as many as the files `f860d1b5` changed, and holds no contents. So its "committed unchanged" rests on my run on `2b5a9675`: the 20 suites both ran give the same counts, and in place of its `operations.test.js` I ran the five rule suites, which give theirs as before.
+- [x] `node src/firmware/graph-rules.js --check`: the 12 items are current. **harness-lint** at `2b5a9675`: `harness-lint: clean (0 violations)`.
+
+### The four fixes
+1. **Non-blocking 1 — fixed,** by Amendment 1's first option.
+   - **The way on.** `WAY_ON` (`src/operations/rules/word-types-hold-concept-keys.js:111`) is item 1's sentence, word for word. Entry 12's Repair (`docs/GRAPH_RULES.md:186`) and the item (`firmware/versions/v1.0.0/concepts/graph-rule/elements/word-types-hold-concept-keys.json:20`) drop the clause, and `--check` passes. Both sentences left are true: a reinstall gives firmware's nodes their keys (round 1's LA), and the findings carry `fix: null`.
+   - **Item 2's new wording holds.** "It only reports, as the owner chose (2026-11-20)" (`docs/GRAPH_RULES.md:184`, the item's `:18`) is the story's Out of scope (`:120`).
+   - **Item 3.** Its 8, 2 and 13 are the story's measurement, "JSON with no word block" (`:41`; production 0), which round 2 cited. Add-to-concept clears none of them (round 2's probe). Its list of what decides whether add-to-concept adds a key leaves out one thing: whether the node already holds the concept's section. With no set given, that alone decides (the third case of the probe below). Optional.
+   - **Item 4:** new non-blocking 3. **The `why` it leaves:** new non-blocking 1.
+2. **Non-blocking 2 — fixed.** The header (`test/firmware-nodes-hold-their-concepts-keys.test.js:35-38`) and Amendment 3 (`47-wordtypes-hold-each-concepts-key.test-plan.md:181`) give the variable `desc`, read as the keyword, and the read over `IS_THE_CORE_GRAPH_FOR`, as round 2's probe showed (`tmp/review-47/round2/probe-routes.log`). The test file's diff is two comment lines.
+3. **Non-blocking 3 — fixed in the story, with one slip in the ledger.**
+   - The story's `:162`, `:167` and `:180` now say what reached the agent-memory instance, and that nothing was written. "Review round 1's gate … did the same" holds (`tmp/review-47/gate47r.log:2010`).
+   - The 2026-11-08 row's note (`ledger/2026-11-08-suite-screen-misses-hardcoded-urls.md:21`): its three run ids, two GETs and two skips hold. Its "That round ran the suite in a sandbox" doesn't: new non-blocking 2.
+   - The meta row's "in all three of story 47's gates" (`ledger/2026-11-21-scoped-gate-lists-built-by-hand.md:18`) still holds, since the session's check left the suite out.
+4. **Non-blocking 4 — fixed.** The story's "What the list missed" (`:183`) and the meta row's new bullet (`:17`) match round 2's account: derived at `14a944e7`, `openapi.yaml` changed at `2a8e8c2b`, 15 more readers, 613 passed and 5 skipped.
+
+### The session's derivation, and the Background
+- **One miss.** The session's `derive.js` has no needle for a suite that scans every test file, and this round changed a test file.
+  - `gate-result-record` reads every `test/*.test.js` for banned patterns (`test/gate-result-record.test.js:412-416`). My gate ran it: 34 passed.
+  - `stack-free-npm-test` scans the folder too, for registration only, and is CI's.
+  - Optional, for the meta row: a changed test file brings in the suites that scan every test file.
+- **Nothing else was missed.** My wider derivation (`derive-r4.js`, `derive-r4.out`) found 28 more registered suites that name `docs/`, `engineering-team/` or ledger paths. Each reads another file (its own ADR, `docs/CONFIGURATION.md` and the like) or fixtures.
+- **"None of them reads a live URL whatever the environment says" holds.** One caveat:
+  - with `TAPESTRY_CONTAINER` unset, `firmware-concept-elements-sets` falls back to the container `tapestry` (`test/firmware-concept-elements-sets.test.js:46`, `test/helpers/stackHttp.js:19`);
+  - its live tests write fixtures once its probe answers (`:267-271`);
+  - its four skips, in both gates, are the docker stub's doing.
+
+  That class is ledger row `2026-11-13-live-suites-have-no-off-switch`'s. Nothing new to file.
+- **The Background** (`:15-17`). Leaving it as planning wrote it, with the Deviation, is right: it is the planning record. But the Out of scope says the same (`:120`, "The writes already put the key in"), and the Deviation (`:158`) names only the Background. Optional: name `:120` too.
+
+### Findings
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **The finding's `why` is untrue now that it stands alone.**
+     - **Where:** "It only reports: no operation gives a node a key it lacks yet" (`src/operations/rules/word-types-hold-concept-keys.js:109`). It carries out Decision 4's `choice.why` (ADR `:186`), and Amendment 1 leaves both.
+     - **The probe** (`r4-probe-why.js`, `why.log`), over the membership seed:
+       - Whiskers, one of the instance's own pets, has `pet` taken out of its `wordTypes`, so the rule names it for `pet`, with that `why`;
+       - `graph add-to-concept` into pet with `walkers` or `lapPets`, sets of pet's it isn't directly in: `added`, its list gains `pet`, and the rule names nothing;
+       - with no set: `already-element`, and nothing changes.
+     - **Amendment 1's item 3 says as much:** "Whether add-to-concept adds a key turns on the node's JSON".
+     - **There since round 1.** Rounds 1 and 2 missed it. While the way on named add-to-concept, it read as an exception; now nothing qualifies it.
+     - **Suggestion,** in Amendment 1, which isn't ratified yet, and in the code: "It only reports, and no repair for this rule exists yet". That is a claim for the next check (rule 10).
+  2. **The 2026-11-08 row's note says round 2 "ran the suite in a sandbox that refuses colima's ports"** (`ledger/2026-11-08-suite-screen-misses-hardcoded-urls.md:21`).
+     - It didn't. Round 2 left `event-tagging-firmware-seed` out, and ran its other suites in that sandbox.
+     - My round 2 wording, "or run it in a sandbox …, as this round did", invited the misreading.
+     - **Suggestion:** "That round left the suite out, and ran its other suites in a sandbox that refuses colima's ports."
+  3. **Amendment 1's item 4 overstates two of its four tests** (ADR `:333`).
+     - WT4 (`test/operations/rules/word-types-hold-concept-keys.test.js:176`) and WC2 (`test/operations/rules/word-types-check-and-repair.test.js:126`) hold that the way on names a reinstall.
+     - WC7 (`:197`) holds only that repair passes check's way on through. XW1 (`test/operations/rules/word-types-agent-through-cli.test.js:168`) holds only that the left finding has one.
+     - WT8 (`:243`), which item 4 doesn't name, holds it for entry 12's Repair.
+     - All pass. **Suggestion:** name what each holds.
+
+### Verdict
+- The four fixes are in:
+  - non-blocking 2 and 4 fully;
+  - non-blocking 1 by Amendment 1's first option;
+  - non-blocking 3 in the story, with one slip in its ledger note.
+- Three new non-blocking findings, all in prose: the `why` that now stands alone, the ledger note, and Amendment 1's item 4.
+- My gate on `2b5a9675` passes but for `external-cli`'s three sandbox-made failures, and `external-cli` passes alone outside it. The session's check gives the same counts.
+
+**PASS**
