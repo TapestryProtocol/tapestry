@@ -4,7 +4,7 @@
 **Date:** 2026-11-21
 **Story:** `engineering-team/stories/community-reference/39-firmware-install-leaves-tags-once.md`
 **Amends:** ADR community-reference/0034. Its Decision 1 ("re-sign, republish, and import") now imports, then prunes. Its OQ-2 assumed that create-concept's header import goes through `buildImportCypher`; it doesn't.
-**Amended by:** Amendment 1 (2026-11-21, review round 1): seed-firmware's target and its oracle follow the self-curation skip, `seededB` says whether the header's letter carries the `b`, the "already has a `b`" path stays exempt from the export rule, and four smaller corrections.
+**Amended by:** Amendment 1 (2026-11-21, review round 1, revised at round 2's check): seed-firmware's target, its oracle and graph sets' model of firmware's links follow the self-curation skip; `seededB` says whether the header's stored letter carries the `b`; the "already has a `b`" path stays exempt from the export rule, at a cost the owner accepts; and four smaller corrections.
 
 ## Context
 
@@ -240,6 +240,8 @@ The order: staging, then production, then david.tapestry.ninja (the owner's inst
 
 ## Amendment 1 (2026-11-21, at review round 1; the owner chose to fix all its findings before the pull request) — seed-firmware's target follows the skip, and `seededB` says whether the letter carries the `b`
 
+*Revised the same day, before ratification, at review round 2's independent check: item 2's publish check made explicit, item 3's reasons corrected, and item 8 added.*
+
 Review round 1 (`engineering-team/reviews/community-reference/39-firmware-install-leaves-tags-once.md`) found two blocking issues and five non-blocking ones. The branch first merged `staging` (`7b7f5d1e2`), which brought in `lifecycle seed-firmware` (graph-operations-first-slice #37, ADR 0037). Where a finding offered two fixes, the Architect chose one, below.
 
 1. **Seed-firmware's target and its oracle skip a reference the assistant curates itself (Blocking 1).**
@@ -251,16 +253,20 @@ Review round 1 (`engineering-team/reviews/community-reference/39-firmware-instal
    - **Tests (§3).** A target built under nostr-relay's curator gives its header no `b`, no claim and no `references` entry, and each other reference's header its own. The oracle under the same assistant signs no `b` on it, and agrees with the target.
 
 2. **`seededB` says whether the header's letter carries the `b` (Blocking 2).** Of the review's two fixes, this one:
-   - **When it's set.** At once on the "already has a `b`" path. On the seed path, as soon as the publish has succeeded.
+   - **When it's set.** At once on the "already has a `b`" path. On the seed path, as soon as the publish has stored the letter, which the step now checks itself. The publish route answers a failed `strfry import` with 200 and `success: false` (`src/api/strfry/commands/publishEvent.js`), and `apiPost` throws only on a failed status with no `success`, so an answer without `success: true` is thrown as a failure.
+   - **A failed publish.** It throws before the import. The letter isn't imported, and `seededB` stays false, so the wiring gives the header Story 38's stub, as it gives any header whose stored letter has no `b`.
    - **What follows a failure.** The import and the prune after it stay inside the seed's graceful `try`. If either fails, the log says the header carries its `b` but its import or prune failed, and `seededB` stays true, so the wiring skips the legacy stub. That is what Story 38's AC-4 means, and what its code says `seededB` is: "true if the header now carries a `b`".
    - **What else it changes.** On the seed path, an import that fails after a good publish no longer gets the stub either. The header has no `REFERENCES` until its next good import derives the `b`-tag one. That is AC-4 as its comment reads it: a header that carries a `b` gets no stub.
    - **Why not a `try` of each prune's own.** That would still give the stub to a header whose letter carries the `b` when the seed path's import fails, the same mismatch the finding names.
-   - **Tests (§3).** A prune that fails on each path, and an import that fails on the seed path. In each, the header keeps its `REFERENCES {source:'b-tag'}`, and no `firmware-community` relationship forms.
+   - **Tests (§3).** A prune that fails on each path, and an import that fails on each path. In each, the header keeps its `REFERENCES {source:'b-tag'}`, and no `firmware-community` relationship forms. And a publish answered without `success: true`: `seededB` is false, and the letter isn't imported.
 
-3. **The "already has a `b`" path's import stays as it is (Non-blocking 1).** It is exempt from the export rule's check (`holdsLetterOrNewer`, graph-operations-first-slice ADR 0034 Decision 10), for three reasons:
-   - **It reads the instance's own strfry,** its current signed letter, not a letter come back from a relay. The rule guards an own node against those.
-   - **Today's install is the install.** BIBLE §7 says it undoes what seed-firmware wrote in between, and on a default install Pass 1 does that to every header first. The case left, an install with `pass1: false` after seed-firmware, is that documented consequence.
-   - **The rule can't tell this path's normal case from the one it guards.** A graph write keeps the node's letter (ADR 0037, Context 4), and here the node holds exactly strfry's letter, with an earlier letter's tags beside it. That is what the prune is for.
+3. **The "already has a `b`" path's import stays as it is, with no export-rule check (Non-blocking 1).**
+   - **Why no check.** `holdsLetterOrNewer` (graph-operations-first-slice ADR 0034 Decision 10) can't tell this path's normal case from the one it guards. A graph write keeps the node's letter (ADR 0037, Context 4), so in both the node holds strfry's letter. In the normal case it has an earlier letter's tags beside it, which is what the prune is for. The rule would answer true in both, and stop the path from healing any instance whose installs don't sign headers again.
+   - **What it costs: a new consequence, the owner's to accept at the gate.**
+     - **Why the rule exists.** Re-importing an own node's letter from the instance's own strfry can undo a graph write. ADR 0037's Context 4 names `event-update` doing it, and ADR 0034 Decision 10 gives that route the check. This path re-imports the same way.
+     - **A default install undoes nothing new.** Pass 1 has just signed every header again, and BIBLE §7 already says the boot install, which runs Pass 1, "undoes edits made in between".
+     - **An install with `pass1: false` is the new case.** Run after `lifecycle seed-firmware` has brought one of the six headers in line, it would re-import that header's last letter over seed-firmware's write, and prune the tag nodes the write made. Before this story the path made no database call.
+     - **BIBLE §7 gains a line saying so.**
    - **The review's other suggestion would be wrong.** Skipping the import but not the prune, when the node holds a newer letter, would prune against the older letter and delete the newer one's tags.
 
 4. **BIBLE §22 says so (Non-blocking 2).** Its "Status today" paragraph gains the import-then-prune, and the skip for a reference the instance curates itself.
@@ -274,5 +280,11 @@ Review round 1 (`engineering-team/reviews/community-reference/39-firmware-instal
 6. **S0 checks the six references the story names (Non-blocking 4).**
 
 7. **No change for Non-blocking 5.** The prune's tag statement has the shape of `TAGS_DROP`, which staging and production run. With item 2, a prune that fails at staging's reinstall leaves the duplicates, and the right relationship.
+
+8. **Graph sets' model of firmware's links follows the skip too (round 2's independent check, non-blocking 4).**
+   - **The model.** `firmwareLinks` in `src/operations/catalog/graph/_sets.js` builds firmware's links "as install.js parses them", for `graph link-set` and `unlink-set`. Its part (d) now leaves out a reference whose curator is the instance's assistant.
+   - **Why.** Otherwise, on production, `unlink-set` would refuse to take out the leftover superset loop as firmware's own, though no install makes it any more.
+   - **A test pins it.**
+   - **ADR graph-operations-first-slice/0037 gains an Amended-by pointer,** since its Decision 4 says each of the six headers gets the `b`.
 
 **Ratification:** at the next gate.
