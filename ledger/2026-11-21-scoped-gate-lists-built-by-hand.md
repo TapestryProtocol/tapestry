@@ -20,4 +20,13 @@
 - **What it costs.** Story 47's test plan, Amendment 2, did this by hand with a short `node -e` over `test/registry.js`, which found 37 suites. A script, say `scripts/scoped-gate-suites.sh <base>`, would make it one step for every Implementer and Reviewer. It would read `git diff --name-only <base>...HEAD` and print the suites for `gateRunner.runGate`.
 - **What closes it.** A harness change: the script, named in the Implementer's and the Reviewer's workflows in place of a hand-built list.
 
+**2026-11-21 (story `container-apt-refresh` #1, review round 1, harness friction 2): again.**
+- **The gap.** The test plan's scoped gate named 8 suites. The review derived 42 from the diff: the registered suites
+  that read a file the story changed, such as `OPERATIONS.md`, `docs/SAFE_TO_MERGE.md`, the workflows or the
+  `Dockerfile`.
+- **No harm this time.** Apart from the story's own new suite, the 42 passed or failed exactly as on `staging` alone.
+- **Not a fix.** The derivation was a one-off script, kept only as a local record
+  (`tmp/review-container-apt-refresh/derive-gate.js` in the main checkout). The book's audit records the sighting
+  (`engineering-team/audits/container-apt-refresh/audit.md` §7).
+
 **Pointer:** `engineering-team/reviews/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.md` (round 1, Blocking 1, and its process note; round 2, non-blocking 3 and 4); `engineering-team/stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.test-plan.md` (Amendment 2).

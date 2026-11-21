@@ -316,6 +316,26 @@ On a fresh scratch stack (its assistant `6456f231…`), with `d7b4c89b`'s code a
   - status's `seeded` gave 460 nodes, 936 relationships and `changedSince` 0.
 - **The records:** `r4-setup.log`, `r4-live-suite.log`, `r4-live-l2.log` and `r4-agent.log` in `tmp/live-check-37/`, with this run's `r2-*.json` answers, copied to the main checkout's. The scratch stack was then removed.
 
+### On staging and production (2026-11-21 UTC)
+
+- **CI.** TapestryProtocol/tapestry#182's `stack-free` run, 44874324444 on `928881cc`, passed: 8,460 passed, 0 failed, 659 skipped, across 349 suites.
+- **Staging.**
+  - On the owner's "merge when green", the safe-to-merge check said safe at 06:26:52, and #182 merged at 06:26:55 as `669c2353`, with `--match-head-commit`. Deploy run 44875587403 succeeded in 1 m 28 s.
+  - The smoke test passed Tiers 1, 2, 3 and 5. No UI changed, so there was no Tier 4.
+    - The served docs went from 38 operation paths to 39. The new one is `/api/tapestry/lifecycle/seed-firmware`, with its refusals listed, and none went missing.
+    - A signed-out POST to it answers 401.
+    - get-user-data gave its known 504 on a large graph (`docs/SMOKE_TEST.md`).
+- **The hosted brains.** The image publish for `669c2353`, run 44875587475, succeeded at 06:35:59. At 15:33, david.tapestry.ninja's served docs listed `lifecycle/seed-firmware` among 40 operation paths. Export nostr's came with the next publish, for `cae6e1cb`.
+- **Production.** Export nostr's session made the promotion, TapestryProtocol/tapestry#184 (`promote/seed-firmware-export-nostr-2026-11-21`).
+  - It was cut at `cae6e1cb`, staging's commit as verified after export nostr's #183. Its bundle was #183, #182, and the docs-only #180 and #179.
+  - Its `stack-free` run, 44878655853, passed: 8,536 passed, 0 failed, 665 skipped, across 349 suites. `main-source-guard` passed too.
+  - On the owner's yes, the safe-to-merge check said safe at 07:23:52, and #184 merged at 07:23:55 as `e0d5480f`, with `--match-head-commit`. Deploy run 44880067110 succeeded in 3 m 29 s.
+  - The smoke test at 07:28 passed Tiers 1, 2, 3 and 5. The served docs went from 38 operation paths to 40, adding `export/nostr` and `lifecycle/seed-firmware`, each with its refusal codes. Signed-out POSTs to both answer 401.
+  - At 15:33, the served docs held the same 40 paths.
+- **Not run on a hosted instance.** This story's session called seed-firmware only on the scratch stacks above. A first call on staging, production or a hosted Tapestry is a firmware install there, and each needs the owner's yes.
+- **Loom:** A10.37 is done, verified weakly: #182 merged with no approval from a teammate.
+- **The run records** are in the main checkout's `tmp/a10-37/` (`ci-182.log`, `merge-182.log`, `deploy-182.log`, `smoke-182.log` and the staging path lists) and `tmp/a10-34-records/promote/` (the promotion's CI, safe-to-merge, deploy and smoke records), which git ignores.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.test-plan.md`

@@ -45,6 +45,12 @@ trustworthy, and it is the one that had degraded furthest.
    Ledger row `2026-10-08-realtime-wrapper-timing-flake-under-load`. A Bug: Architecture skipped, no
    ADR. Numbered past #2, which is cited elsewhere (ledger row
    `2026-11-16-story-numbers-ignore-planned-stories`).
+4. **suite-env-changes-fail-the-gate** — the gate fails a suite that leaves `process.env` changed,
+   at load or after its run, naming the keys, and gives every other suite the environment the gate
+   began with. Story `graph-operations-first-slice` #46's suite showed the leak; ledger row
+   `2026-11-20-suite-env-changes-reach-every-suite`. A Feature. It takes from #2 the cross-suite env
+   hygiene that ADR `honest-test-gate/0001` sent there, `search-api-result-type-settings`'
+   deliberate `TAPESTRY_SETTINGS_PATH` leak included. Also numbered past #2.
 
 ## Out of scope (whole epic, unless a later story says otherwise)
 

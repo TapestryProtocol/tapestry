@@ -3,7 +3,7 @@
 > **Audience:** the active team running this fork at `tapestry.brainstorm.world`.
 > **Prerequisite reading:** [BIBLE.md](./BIBLE.md) — what tapestry *is* and how it works. This file documents the specifics of *our* deployment that aren't useful to other operators forking the codebase.
 
-**Last updated:** 2026-11-18
+**Last updated:** 2026-11-21
 
 ---
 
@@ -91,14 +91,114 @@ GitHub Actions workflows in `.github/workflows/`. All four follow the same SSH-a
 1. Restore `docker-compose.yml` to repo version (`git checkout --`)
 2. Pull latest code from the corresponding branch
 3. Apply production port remap (`sed` to `127.0.0.1:8080:80`)
-4. Rebuild and restart (`docker compose up -d --build`)
+4. Rebuild and restart (`docker compose up -d --build`), with `PACKAGES_REFRESH` set to the ISO week (below)
 5. Prune old images
 
 The first deploy to a new droplet takes 5–15 minutes (the strfry C++ Redis patch builds from scratch). Subsequent deploys take ~80 seconds on a warm Docker layer cache.
 
+**The weekly package refresh** (story `container-apt-refresh` #1, ADR `container-apt-refresh/0001`). Every deploy sets
+`PACKAGES_REFRESH` to the ISO week, `date -u +%G-W%V`, such as `2026-W47`. The brains' build in `publish-image.yml`
+does the same. The Dockerfile's refresh step, between the npm installs and `COPY .`, is keyed by it.
+- **Which deploy refreshes.**
+  - The first deploy of each ISO week to a target also brings the image's Ubuntu packages up to date. Weeks start on
+    Monday at 00:00 UTC.
+  - So does any deploy that changes a step above the refresh, whatever the week. A changed step reruns every step
+    after it, so a change to any of these brings a refresh with it:
+    - `package.json` or `package-lock.json`;
+    - `ui/package.json` or `ui/package-lock.json`;
+    - `nip50-proxy/package.json`;
+    - a file under `patches/strfry-redis/` or `patches/strfry-router/`;
+    - the Dockerfile above the refresh step.
+  - Every other deploy that week finds the step cached and runs as before.
+- **What it changes.** It runs `apt-get full-upgrade` from Ubuntu's own sources only. NodeSource's Node and Neo4j's
+  5.26.10 stay as installed, and the build fails if either moves.
+- **What it costs.**
+  - It costs the upgrade, not a rebuild: strfry, Neo4j and the npm installs stay cached. The deploy log prints
+    `packages refresh <week>: <n> to upgrade`.
+  - Each refresh re-applies everything since the cached first package step was built. So the first refresh on a
+    target, or the first after a long gap, takes longest.
+  - Measured on Ubuntu's snapshot archive, the upgrade levels off: 12 packages and 117 MB after a week, about 100
+    packages and 170 MB after six months, mostly OpenJDK.
+  - That adds about one to three minutes to the deploy.
+- **How to tell beforehand.** A deploy refreshes if any of these holds:
+  - its target has had no successful deploy since Monday 00:00 UTC
+    (`gh run list --workflow <deploy file> --status success --limit 1`);
+  - its container's marker names an earlier week;
+  - the merge changes one of the files above (`gh pr diff <number> --name-only`). For the Dockerfile, only a change
+    above the refresh step counts.
+- **The marker.** `docker exec tapestry cat /etc/tapestry/packages-refresh` prints three lines: `week=`,
+  `refreshed_at=` (UTC) and `upgraded=`, the number of packages the upgrade installed or upgraded.
+- **When Ubuntu's archive can't be reached.** `apt-get update --error-on=any` fails the build, the run goes red, and the
+  running container keeps serving. The next deploy tries again. So does a re-run, after the safe-to-merge check.
+- **The sandboxes.** `feat/tags` and `feature-magic-carpet` deploy from their own branches' copies of the Dockerfile
+  and their workflow. So they refresh only once their branch takes this change. Until then, refresh them by hand
+  (§3.1, recipe 3).
+
 These are the **deploy** workflows (push-triggered). The others are the pull-request **test gate** and the live link checks' weekly run (both in [§15](#15-ci-test-gate-prs-to-stagingmain)), the main-source guard (`guard-main-source.yml`), and the brain-image publisher (`publish-image.yml`, [§18](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments)).
 
 Every workflow follows four rules that `npm test` holds: actions pinned to a commit, declared token permissions, a named environment on each deploy job, and no `pull_request_target` trigger outside the main-source guard. See [§18](#18-workflow-rules-pinned-actions-token-permissions-deploy-environments).
+
+### 3.1. Refreshing a container's packages by hand
+
+**Before any recipe.**
+- Each one runs on the target's server, in `/opt/tapestry`.
+- Each one recreates or restarts the container, as a deploy does, so run the safe-to-merge check against that instance
+  first ([docs/SAFE_TO_MERGE.md](./docs/SAFE_TO_MERGE.md)).
+- Running one on a shared server is the owner's call.
+
+1. **A target whose branch has the refresh step.** This refreshes now, without waiting for next week:
+
+   ```bash
+   cd /opt/tapestry
+   export PACKAGES_REFRESH="$(date -u +%G-W%V)-by-hand-$(date -u +%d%H%M)"
+   docker compose up -d --build
+   docker image prune -f
+   docker exec tapestry cat /etc/tapestry/packages-refresh
+   ```
+
+   - It takes a few minutes. It lasts until the next deploy, which builds from this week's own refresh:
+     - **If a deploy has already refreshed this week,** the droplets' BuildKit still holds that refresh, since
+       `docker image prune` leaves the build cache alone. The next deploy reuses it, and the container goes back to
+       its packages. The exception is a deploy that changes a step above the refresh (§3), which runs the step again.
+     - **If none has,** the next deploy runs the step again.
+   - So a fix that can't wait for next week's refresh needs this recipe again after each later deploy that week whose
+     log doesn't print `packages refresh`.
+
+2. **Resetting the cached package step,** for when the weekly refresh has grown slow. This is a full rebuild from a
+   fresh `ubuntu:22.04`:
+
+   ```bash
+   cd /opt/tapestry
+   export PACKAGES_REFRESH="$(date -u +%G-W%V)"
+   docker compose build --pull --no-cache tapestry
+   docker compose up -d
+   docker image prune -f
+   ```
+
+   - It takes 10–25 minutes. The containers keep serving until `up` recreates them.
+   - Use it only on a branch whose Dockerfile pins strfry (`ARG STRFRY_REF`): `staging`, `main` and `feat/tags`.
+   - Not on `feature-magic-carpet`. It clones strfry's default branch, and its patch script predates the loud-failure
+     fix of 2026-05-04. So a no-cache build there can silently bring in a different strfry, or one without the Redis
+     patch.
+
+3. **A target whose branch doesn't have the step yet,** such as `feat/tags` and `feature-magic-carpet` on 2026-11-21.
+   This upgrades the running container in place, then restarts it, so that every process, NGINX included, loads the
+   new files:
+
+   ```bash
+   docker exec tapestry sh -c 'set -e; o="-o Dir::Etc::SourceParts=- -o Acquire::Retries=3"; \
+     apt-get $o update --error-on=any; \
+     apt-get $o -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
+       -y --no-remove -o APT::Get::Always-Include-Phased-Updates=true full-upgrade; \
+     rm -rf /var/lib/apt/lists/*'
+   docker restart tapestry
+   docker exec tapestry dpkg-query -W nginx neo4j
+   ```
+
+   - It reads Ubuntu's own sources only, as the build step does, so Node and Neo4j stay as installed.
+   - `--force-confold` keeps the NGINX config the entrypoint edits at start.
+   - NGINX isn't under supervisord; the entrypoint starts it. So `docker restart` is what loads the new binary.
+   - It lasts until the container is next recreated, since the next deploy builds from the cached, older image.
 
 ---
 
@@ -285,7 +385,7 @@ End-to-end procedure for adding a new long-lived sandbox to the deploy fleet. Th
    sed -i 's/"80:80"/"127.0.0.1:8080:80"/' docker-compose.yml
    docker compose up -d --build
    ```
-   First build takes 5–15 minutes (strfry's C++/Redis patch compiles from scratch). Subsequent CI/CD deploys warm-cache to ~80 seconds.
+   First build takes 5–15 minutes (strfry's C++/Redis patch compiles from scratch). Subsequent CI/CD deploys warm-cache to ~80 seconds, and the first deploy of each ISO week also refreshes the Ubuntu packages, a few minutes more ([§3](#3-cicd-workflows)).
 
 ### 6.4. Verify and finalize
 
@@ -1049,7 +1149,7 @@ Both tracked as candidates; bandwidth-permitting.
 
 `.github/workflows/test.yml` (story `test-hermeticity-ci` #4, ADR 0001). The first CI job in this repo that runs *tests* rather than deploying — the enforcement surface for "`npm test` must be clean," which was prose-only until now.
 
-**What runs.** On every `pull_request` targeting `staging` or `main`, a single job on a clean `ubuntu-latest` runner: `npm ci` (from the lockfile) then `npm test`. Node 22, matching the production Dockerfile. No Docker stack is provisioned — the suite is stack-free by construction (stories #1–#3): the ~24 live-API suites detect the absent control panel and **self-skip**, visibly and counted, so the run's `Total skipped:` line reports exactly how much of the gate stood down. Full git history (`fetch-depth: 0`) so the harness-lint L9/L10 checks stay live in CI. A newer push to the same PR cancels the older in-flight run; a 25-minute timeout guards against hangs. It was 15 minutes until 2026-11-20, when the suite outgrew it and passing runs were cancelled (ledger row `2026-11-20-ci-gate-outgrows-its-timeout`; ADR test-hermeticity-ci/0001, Amendment 1).
+**What runs.** On every `pull_request` targeting `staging` or `main`, a single job on a clean `ubuntu-latest` runner: `npm ci` (from the lockfile) then `npm test`. Node 22, matching the production Dockerfile. No Docker stack is provisioned — the suite is stack-free by construction (stories #1–#3): the ~24 live-API suites detect the absent control panel and **self-skip**, visibly and counted, so the run's `Total skipped:` line reports exactly how much of the gate stood down. Full git history (`fetch-depth: 0`) so the harness-lint L9/L10 checks stay live in CI. A newer push to the same PR cancels the older in-flight run; a 40-minute timeout guards against hangs. It was 15 minutes until 2026-11-20, when the suite outgrew it and passing runs were cancelled. Then it was 25 minutes until 2026-11-21, when a slow runner finished just over two minutes short of it (ledger rows `2026-11-20-ci-gate-outgrows-its-timeout` and `2026-11-21-ci-gate-nears-25-minute-timeout`; ADR test-hermeticity-ci/0001, Amendments 1 and 2). GitHub picks the runner, and the same tests take about 14 to 23 minutes depending on which one, so the limit has to fit the slowest.
 
 **What is deliberately excluded.** e2e/Playwright and anything relay-touching. That path has a heavy dependency setup and pollutes shared relay state (hundreds of test tags accumulate on a dev relay), and the "where does CI get a throwaway relay?" question is unanswered. Both are a **deferred later phase**, not part of this gate. The job never invokes `npm run test:playwright`.
 

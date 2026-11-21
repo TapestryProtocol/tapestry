@@ -412,12 +412,14 @@ async function todaysFirmware({ dir, ta }) {
     if (!r.answer || r.answer.success !== true) fail(`save-schema of ${entry.slug}`, r);
   }
 
-  // ── The community references: a pointer b on the instance's own header, unless it has a b (the seed).
+  // ── The community references: a pointer b on the instance's own header, unless it has a b (the seed), and none for a
+  // reference the assistant curates itself (community-reference ADR 0035 Decision 3, Amendment 1 item 1).
   for (const entry of manifest.concepts) {
     const cr = entry.communityReference;
     if (!cr || !cr.headerATag) continue;
     const parts = String(cr.headerATag).split(':');
     if (parts.length < 3 || parts[0] !== '39998') continue;
+    if (parts[1] === ta) continue;
     const uuid = `39998:${ta}:${entry.slug}`;
     const header = sb.node(uuid);
     if (!header || header.event.tags.some((t) => t[0] === 'b')) continue;

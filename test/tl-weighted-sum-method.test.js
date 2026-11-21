@@ -433,6 +433,10 @@ t('LC switching back to count restores Story-1 output shape', async () => {
 
 async function run() {
   console.log('\n▶ tl-weighted-sum-method suite (trusted-lists Story 2)');
+  // The tests point TAPESTRY_SETTINGS_PATH at temp files; the finally below puts it back as the run found it
+  // (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002).
+  const hadSettingsPath = Object.prototype.hasOwnProperty.call(process.env, 'TAPESTRY_SETTINGS_PATH');
+  const savedSettingsPath = process.env.TAPESTRY_SETTINGS_PATH;
 
   liveReady = nakAvailable() && dockerAvailable() && await controlPanelReachable();
   if (!liveReady) {
@@ -475,7 +479,8 @@ async function run() {
         console.log(`  ⚠ settings restore FAILED: ${e.message} — inspect ${IN_CONTAINER_SETTINGS}`);
       }
     }
-    delete process.env.TAPESTRY_SETTINGS_PATH;
+    if (hadSettingsPath) process.env.TAPESTRY_SETTINGS_PATH = savedSettingsPath;
+    else delete process.env.TAPESTRY_SETTINGS_PATH;
   }
   console.log(`  tl-weighted-sum-method: ${pass} passed, ${fail} failed, ${skipped} skipped`);
   return { pass, fail, skipped };

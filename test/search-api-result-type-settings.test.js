@@ -52,9 +52,10 @@ let handleMeiliSearchProfiles = null;
 /**
  * Require the meili proxy under our temp settings path. Must bust the
  * require cache for src/ so src/config/settings.js re-evaluates its
- * module-level SETTINGS_PATH against our env var (other suites in the npm
- * gate are HTTP-based and do not read host-local settings.json, so leaving
- * the env set for the rest of the process is safe — documented in the plan).
+ * module-level SETTINGS_PATH against our env var. run() puts
+ * TAPESTRY_SETTINGS_PATH back as it found it when the run ends: the gate
+ * fails a suite that leaves process.env changed (test-suite-hermeticity #4,
+ * ADR test-suite-hermeticity/0002).
  */
 function loadHandlerUnderTempSettings() {
   if (handleMeiliSearchProfiles) return handleMeiliSearchProfiles;
@@ -315,23 +316,30 @@ async function run() {
   console.log('\n--- search-api-result-type-settings tests (epic search-api-result-controls, Story 1) ---');
   let pass = 0, fail = 0, skipped = 0;
   const failures = [];
-  for (const [name, fn] of tests) {
-    try {
-      const result = await fn();
-      if (result === 'SKIP') {
-        console.log(`  SKIP  ${name} (control panel not reachable at ${CONTROL_PANEL_BASE})`);
-        skipped++;
-        continue;
+  const hadSettingsPath = Object.prototype.hasOwnProperty.call(process.env, 'TAPESTRY_SETTINGS_PATH');
+  const savedSettingsPath = process.env.TAPESTRY_SETTINGS_PATH;
+  try {
+    for (const [name, fn] of tests) {
+      try {
+        const result = await fn();
+        if (result === 'SKIP') {
+          console.log(`  SKIP  ${name} (control panel not reachable at ${CONTROL_PANEL_BASE})`);
+          skipped++;
+          continue;
+        }
+        console.log(`  PASS  ${name}`);
+        pass++;
+      } catch (err) {
+        console.log(`  FAIL  ${name}\n        ${err.message}`);
+        failures.push({ name, message: err.message });
+        fail++;
       }
-      console.log(`  PASS  ${name}`);
-      pass++;
-    } catch (err) {
-      console.log(`  FAIL  ${name}\n        ${err.message}`);
-      failures.push({ name, message: err.message });
-      fail++;
     }
+    clearOverrides();
+  } finally {
+    if (hadSettingsPath) process.env.TAPESTRY_SETTINGS_PATH = savedSettingsPath;
+    else delete process.env.TAPESTRY_SETTINGS_PATH;
   }
-  clearOverrides();
   console.log(`\nsearch-api-result-type-settings: ${pass} passed, ${fail} failed${skipped ? `, ${skipped} skipped` : ''}`);
   return { pass, fail, skipped, failures };
 }

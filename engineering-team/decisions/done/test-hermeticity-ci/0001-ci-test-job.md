@@ -22,7 +22,7 @@ Constraints, verified in this checkout:
 ## Options considered
 
 ### Option A — one `pull_request`-triggered workflow running plain `npm test` (chosen)
-`.github/workflows/test.yml`: `on: pull_request: branches: [staging, main]`; ubuntu-latest; `actions/checkout@v4` with `fetch-depth: 0`; `actions/setup-node@v4` with `node-version: 22` + `cache: npm`; `npm ci` (scripts on, `SCARF_ANALYTICS: "false"`); `npm test`; `timeout-minutes: 25` (15 until Amendment 1); concurrency group per head ref with `cancel-in-progress: true`. One job, stable check name.
+`.github/workflows/test.yml`: `on: pull_request: branches: [staging, main]`; ubuntu-latest; `actions/checkout@v4` with `fetch-depth: 0`; `actions/setup-node@v4` with `node-version: 22` + `cache: npm`; `npm ci` (scripts on, `SCARF_ANALYTICS: "false"`); `npm test`; `timeout-minutes: 40` (15 until Amendment 1, 25 until Amendment 2); concurrency group per head ref with `cancel-in-progress: true`. One job, stable check name.
 **Pros:** the command CI runs is the command every contributor runs — R-E3's literal ask, zero drift surface between local and CI; composes with deploys by construction; L9/L10 stay live in CI; no new npm scripts or runner forks to maintain. **Cons:** full-history checkout costs ~18 MiB per run; the gate inherits everything `npm test` does (by design — that is the gate).
 
 ### Option B — dedicated `test:ci` entrypoint (subset runner or env-gated suite list)
@@ -43,7 +43,7 @@ We chose **Option A** — one workflow, plain `npm test`, `pull_request` → sta
 | Cache | `setup-node` `cache: npm` (lockfile-keyed) | standard; no bespoke cache keys to rot |
 | Install | `npm ci`, scripts **enabled**, `SCARF_ANALYTICS: "false"` | lockfile fidelity; prebuild downloads need scripts; scarf phone-home suppressed |
 | fetch-depth | `0` (full history) | keeps L9/L10 live in the CI lint pass; 17.69 MiB pack makes it cheap |
-| Timeout | `timeout-minutes: 25` (Amendment 1; 15 before) | stack-free run was 2–4 min incl. install; it is about 13–17 min by 2026-11-20, so 25 keeps the hang guard clear of a passing run; still a hang guard, not a budget |
+| Timeout | `timeout-minutes: 40` (Amendment 2; 25 from Amendment 1, 15 before) | stack-free run was 2–4 min incl. install; it was about 13–17 min by 2026-11-20, and on 2026-11-21 one tree took 14–23 min depending on GitHub's runner, so 40 keeps the hang guard clear of a passing run on the slowest runner seen; still a hang guard, not a budget |
 | Concurrency | group `test-${{ github.head_ref \|\| github.ref }}`, `cancel-in-progress: true` | newer push supersedes older run; no queue pileup |
 | Retries | **none, structurally** | no retry action, no `--retries`, no re-run steps; `test:playwright` (the only retry-bearing path, `playwright.config.js:17`) is never invoked |
 | Check name | `test / stack-free` (workflow `Test`, job id `stack-free`) | stable name for the operator's future required-check flip |
@@ -79,3 +79,11 @@ The owner chose to raise the job's `timeout-minutes` from 15 to 25.
 - **What changes:** `.github/workflows/test.yml`, W7 in `test/ci-test-job.test.js`, and OPERATIONS.md §15.
 - **What stays the same:** it is still a hang guard, not a budget, and the no-retry rule is unchanged.
 - **One earlier note no longer holds:** the Consequences note that the workflow file isn't a harness-definition path. `.github/workflows` is in `scripts/harness-def-paths.txt` now, so this change has a row in `engineering-team/CHANGELOG.md`.
+
+## Amendment 2 (2026-11-21): the timeout is 40 minutes
+
+The owner chose to raise the job's `timeout-minutes` from 25 to 40, ahead of making the gate faster.
+- **Why:** a day after Amendment 1, a slow runner took the job to 22 m 53 s. GitHub picks the runner, and nine passing runs of one tree, with the same tests, took 13 m 58 s to 22 m 53 s. Five of the nine got a slow runner, at about 21 minutes. Each operations story the size of export nostr or seed-firmware adds about 85 s on a typical slow runner and 96 s on the slowest, so one more such story could take the slowest runner past 25 minutes (ledger row `2026-11-21-ci-gate-nears-25-minute-timeout`). At that rate, 40 minutes holds about ten more.
+- **What changes:** `.github/workflows/test.yml`, W7 in `test/ci-test-job.test.js`, and OPERATIONS.md §15.
+- **What stays the same:** it is still a hang guard, not a budget. It has to fit the slowest runner GitHub hands out, not the typical one. The no-retry rule is unchanged.
+- **What comes next:** making the gate faster, queued in `engineering-team/stories/_intake.md` (2026-11-21).

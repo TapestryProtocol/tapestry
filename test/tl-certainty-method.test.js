@@ -325,6 +325,10 @@ t('LB certainty known-value matrix (0–100 scores; membership/order/counts unch
 /* runner */
 async function run() {
   console.log('\n▶ tl-certainty-method suite (trusted-lists Story 3)');
+  // The tests point TAPESTRY_SETTINGS_PATH at temp files; the finally below puts it back as the run found it
+  // (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002).
+  const hadSettingsPath = Object.prototype.hasOwnProperty.call(process.env, 'TAPESTRY_SETTINGS_PATH');
+  const savedSettingsPath = process.env.TAPESTRY_SETTINGS_PATH;
   liveReady = nakAvailable() && dockerAvailable() && await controlPanelReachable();
   if (!liveReady) {
     liveSkipReason = !nakAvailable() ? 'nak not on PATH'
@@ -356,7 +360,8 @@ async function run() {
         console.log(`  ⚠ settings restore FAILED: ${e.message}`);
       }
     }
-    delete process.env.TAPESTRY_SETTINGS_PATH;
+    if (hadSettingsPath) process.env.TAPESTRY_SETTINGS_PATH = savedSettingsPath;
+    else delete process.env.TAPESTRY_SETTINGS_PATH;
   }
   console.log(`  tl-certainty-method: ${pass} passed, ${fail} failed, ${skipped} skipped`);
   return { pass, fail, skipped };

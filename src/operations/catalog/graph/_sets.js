@@ -287,7 +287,9 @@ let firmwareCache = null;
  *       → node:39999:<TA>:<slug of nodeTo>; a name is the set file of that name in <c>'s sets/, else the first such
  *       file in any firmware concept, and an edge with a name that resolves to no set file is left out (Amendment 3,
  *       item 3: an element file's address isn't its word.slug)
- *   (d) each communityReference.headerATag 39998:<pk>:<d>: superset-of:39998:<TA>:<c> → node:39999:<pk>:<d>-superset
+ *   (d) each communityReference.headerATag 39998:<pk>:<d>: superset-of:39998:<TA>:<c> → node:39999:<pk>:<d>-superset,
+ *       but none when <pk> is <TA>: install skips a reference the instance curates itself (community-reference ADR 0035
+ *       Decision 3, Amendment 1 item 8)
  * → { pairs: Map('<parent> <set>' → { part, what }), pruned: Set of the superset-of descriptors of the concepts whose
  *   folder has a manifest.json, the ones install's prune pass covers }. Nothing, with no assistant key.
  */
@@ -362,6 +364,7 @@ function firmwareLinks() {
     const tag = isObject(c.communityReference) ? c.communityReference.headerATag : null;
     const parts = typeof tag === 'string' ? tag.split(':') : [];
     if (parts.length < 3 || parts[0] !== '39998') continue;
+    if (parts[1] === ta) continue;
     const address = `39999:${parts[1]}:${parts.slice(2).join(':')}-superset`;
     add(supersetOfConcept(c.slug), `node:${address}`, { part: 'd', what: `the community reference of ${c.slug}, ${tag}, which puts its curator's superset, ${address}, under the superset of ${c.slug}` });
   }
