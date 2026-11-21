@@ -449,3 +449,41 @@ None new. Round 1's two rows still stand.
 - The scoped gate on the merge with today's `staging` matches `staging` alone, suite by suite, and the live checks
   pass.
 - One non-blocking slip in the new prose remains, for the owner to fix now or leave.
+
+## Round 2 fix check — 2026-11-21 (HEAD `753dac05a`, not a round)
+
+**The owner's answer at round 2's gate:** "Fix the nit first". This checks only `753dac05a`: 3 files, +7 −4.
+
+### The fix
+
+- **`OPERATIONS.md:162`.** Recipe 1's first case now names its exception: "a deploy that changes a step above the
+  refresh (§3), which runs the step again". That matches §3's list (`:105–111`) and the cache rule behind it.
+- **`OPERATIONS.md:164–165`.** The recipe is needed again only "after each later deploy that week whose log doesn't
+  print `packages refresh`". Under BuildKit a cached step shows only `CACHED`. A step that runs prints its own echo,
+  `packages refresh <week>: <n> to upgrade` (`Dockerfile:108`). So the log tells the two apart.
+- **ADR Amendment 1, item 1,** and the ledger row `2026-11-21-local-docker-builds-skip-buildkit` say the same.
+
+### Gates
+
+- **The fix's readers.** The suites that read OPERATIONS.md, as text: the 13 in round 2's list plus
+  `operations/lifecycle/tapestry-key-paths` and `operations/lifecycle/backup-job`, run alone. The other suites under
+  `test/operations/` only read `docs/GRAPH_OPERATIONS_CATALOG.md`. Same environment as round 2
+  (`review-fixcheck.sh`), on the committed HEAD:
+
+  ```
+  20261121T172604Z-46115-40c1 [review-car-fixcheck] started 2026-11-21T17:26:04.748Z on 753dac05 — FAIL, exit 1, 286 passed, 3 failed, 4 skipped, 15/15 suites; failed: router-stream-limit-on-connect · tmp/gate-runs/20261121T172604Z-46115-40c1.json
+  ```
+
+  - The three failures are `router-stream-limit-on-connect` P1–P3, which fail on BSD `sed`, as in every run here.
+  - `container-apt-refresh` gives 23 passed and 4 skipped, with O6 still passing on the new text.
+  - `tapestry-key-paths` passes 20 and `backup-job` 17.
+- **`bash scripts/harness-lint.sh`:** clean.
+- **`staging`** is still `25078cf9c`, so round 2's merged run stands.
+
+### Findings
+
+None.
+
+### Verdict
+
+**PASS.** The nit is fixed, and the fix's text holds as a fresh claim.
