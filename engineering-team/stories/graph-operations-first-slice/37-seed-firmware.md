@@ -1,6 +1,6 @@
 # Story 37: `lifecycle seed-firmware` — install or update the built-in concepts without undoing local edits
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 **Loom:** A10.37 — https://loom.brainstorm.world/t/A10.37

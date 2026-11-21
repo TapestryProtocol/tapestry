@@ -197,3 +197,122 @@ Not applicable. The story traces to no PRD.
 **CHANGES_REQUESTED**
 
 The story's `**Status:**` stays `Approved`. Completion detection doesn't apply.
+
+---
+
+## Round 2
+
+**Date:** 2026-11-20 (the gate ran 2026-11-21 UTC)
+**Diff:** `git diff a314ec60 HEAD`, HEAD `c6602d62`: 23 files, +841 −157. The commits:
+- `d2c7a6c8`: ADR 0037 Amendment 3, with ledger rows `2026-11-21-todays-install-races-seed-firmware` and `2026-11-21-no-map-from-diff-to-suites`;
+- `f8921b63`: the Tester's failing tests for round 1's findings;
+- `d90418c4`: the fixes. Besides Amendment 3's files, they change `src/operations/rules/element-fits-schema.js` and `src/lib/derivers/schema-verdicts.js`, and log seven new Deviations;
+- `c6602d62`: the Evidence, with the live re-check.
+
+**Against:** Amendment 3's nine items, round 1's findings and nits, the seven new Deviations, and the live re-check's records `tmp/live-check-37/r2-*`. I read those records and ran nothing live.
+
+**How it was made.**
+- As in round 1: stack-free after `source tmp/a10-37/env.sh`, with no `npm test`, no Docker, no network.
+- One more scratchpad probe ran the fixed `readState`, `plan` and `seeded()` with a fake `read`, over three cases:
+  - a marked installed-firmware graph, inline: `held: false`, last install read, `seeded` read;
+  - the same graph with an `lmdb:` reference that has no store entry: `held: true`, refused `address-held`;
+  - an unmarked node at the reserved address: `held: true`, refused `address-held`.
+
+**Verdict:** PASS. Every round-1 finding is resolved. Round 2 adds no blocking finding, four non-blocking ones and three nits.
+
+### Quality gates (run by reviewer, not trusted)
+- [x] **The scoped gate,** the 17 entries asked: round 1's 16 and `graph-rules-builder`. `npm test` was not run, since it writes to this Mac's agent-memory instance.
+  - `npm run gate:status -- --label a10-37-review-r2`: `20261121T035540Z-66580-8461 [a10-37-review-r2] started 2026-11-21T03:55:40.061Z on c6602d62+dirty — PASS, exit 0, 1665 passed, 0 failed, 45 skipped, 17/17 suites`. "dirty" is the untracked `node_modules` symlink, the only entry in `git status`.
+  - The record is `tmp/gate-runs/20261121T035540Z-66580-8461.json`. The story's suites inside it: oracles 8, target 33, plan 9, route 38, record 6, agent 1, live 0 with 4 skipped, status 9, key paths 20. `operations` passed 1401 with 14 skipped, in 289.4 s, as long as in round 1.
+- [x] `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`.
+- [ ] `npm run test:playwright`: not applicable.
+
+### Round 1's findings, one by one
+
+| Round 1 | Amendment 3 | The fix | Tested by | Now |
+|---|---|---|---|---|
+| Blocking 1, the offloaded record | items 1, 2 | Both readers go through `installedGraphOf`, which reads `json` with `jsonValueOf` and resolves `lmdb:`. `jsonValueOf` compares `word.wordTypes` sorted, without repeats. | SF33 (the real `offload-all` handler and the real derive in a child, over a real LMDB store), SP9; live: 416 tags offloaded, derive-all, then 459 `unchanged`, no change entry, `seeded` still read | Resolved |
+| Blocking 2, the admin's element | item 3 | The graph moved to `39999:<ta>:installed-firmware`. It counts as seed-firmware's only with its mark: an `installed` record set on every write, and its `installedFirmware` section. Anything else there makes `plan` refuse `address-held`, inside the transaction, before any write. | SF34 (the admin's element and the second-parent link it lists stay as they were), SF35 (three unmarked variants refused, nothing written), SF8, SF11, SF13 | Resolved |
+| N1, aliases in Cypher | item 5 | `readFirmware` refuses an alias that isn't `[A-Z_][A-Z0-9_]*`, so `readState`'s interpolation (now `_seed.js:257-258`) gets plain names only. | ST32, SF38 | Resolved |
+| N2, kept relationships listed | item 4 | Kept relationships go in `installedFirmware.keptRelationships`. Only `graph.relationships` feeds the removal, and a kept one the firmware drops stays, reported `kept`. | SF36, SF37 | Resolved |
+| N3, ADR 0043's record | item 9 | Deviation 7 now names the conflict, and what the release story does. | none needed | Resolved |
+| N4, a concept's own `installed` / `cameFrom` | item 6 | The derivers add a section only from the node's own property and pass the names to the verdicts. The judge sets aside only what `record` names. The rule passes `recordCarried`. | SR4–SR6 | Resolved, with R2-N1 and R2-N2 below |
+| N5, the race with today's install | item 7 | BIBLE §7 says not to run the two at once, and a ledger row records the race. The owner chose this over a lock. | none needed | Resolved as the owner chose |
+| N6, the docs | none | BIBLE §7 notes the boot install, says "four on firmware 1.0.0" and gives the address; Last updated is 2026-11-21. | SF31 | Resolved |
+| N7, the oracle's reach | item 8 | ST33 digests `pass1_bootstrap`, `pass2_enrich`, `pass_communityReferences` and `install`'s pass 3 (`install.js` at `b2948904`, its last change), and the Consequences say what pins each part. | ST33 | Resolved, with R2-N3 below |
+| N8, the Evidence | none | The lines are corrected. `r2-resolve-dog.json` holds the lookup: one candidate, the instance's own `dog`. | none needed | Resolved, with nit 3 below |
+| Nit 1, the note | none | The note now reads "Nothing changed: the graph already holds firmware 1.0.0 as its files say." (live) | none needed | Resolved |
+| Nit 2, the stale access lines | none | BUSY's `when` names seed-firmware, and catalog §8's line now says the owner and admins. | none needed | Resolved, with nit 2 below |
+| Harness friction | none | Ledger row `2026-11-21-no-map-from-diff-to-suites` | none needed | Recorded |
+
+### The seven new Deviations
+All seven are small enough to be Deviations. Each records a choice Amendment 3 left to the Implementer.
+
+1. **The rule tells the judge** (`element-fits-schema.js:32-34, 85-87`).
+   - This stays within item 6's intent. Item 6 says the judge sets the record aside "only when the node carries them". The rule is one of the judge's two callers that judge a node's tapestryJSON. Without this change, the rule and the derive would disagree on a recorded node under a closed schema (ADR 0042's one verdict).
+   - The query adds two properties, and the call passes them on. Nothing else in the rule changes.
+   - It is untested: R2-N2.
+2. **The installed-firmware graph's own `installed` record has a node's shape.** Small.
+3. **`address-held` is refused by the plan,** and status reads a held node as no install. Small, and checked by probe.
+4. **`noRecord` on a relationship means `graph.relationships` doesn't list it.** This changes only what the answer reports.
+5. **A kept-apart relationship stays listed while it is there.** This follows item 4.
+6. **`word.wordTypes` is compared sorted, without repeats.**
+   - Repeats count as set semantics, which item 2 implies.
+   - It says plainly that records written before it read as edited. Only scratch stacks hold such records.
+   - *Optional:* a later change to `contentOf` would do the same to real instances' records, and an `installed.scheme` field would let a reader tell.
+7. **The catalog's group line.** The change is fine, but its wording overreaches: nit 2.
+
+### Round 2's findings
+
+#### Blocking
+None.
+
+#### Non-blocking
+1. **R2-N1 — `_schemas.js:293` (`fits`) and `checkElements`: the write-path checks pass no `record`.**
+   - Callers: `add-to-concept.js:127, 207`, `update-node.js:262, 297` and `create-element`/`create-set`.
+   - Item 6's set-aside therefore doesn't hold there, though the node carries the record.
+   - **Where it shows:** `graph add-to-concept` accepts a firmware element seed-firmware wrote. When that element's `json` tag is offloaded, `M.jsonOf` → `F.readJson` resolves the LMDB copy, record sections included, and the write's check judges them.
+   - **Today it is harmless:** no firmware schema, and no schema builder, closes the top level (`additionalProperties`).
+   - **Ask:** pass the node's `recordCarried` on these paths, or note the limit.
+2. **R2-N2 — `recordCarried` (`_schemas.js`), the rule's only use of it (`element-fits-schema.js:85`), has no test.**
+   - SR4–SR6 exercise the derive's path, which passes the names it added itself.
+   - **Ask:** add a rule-level case: a recorded node under a closed schema fits, and a concept's own `installed` section in a node with no record is judged.
+3. **R2-N3 — ST33 covers `install.js`, but pass 3c's logic isn't pinned.**
+   - That logic is in `handleWireImplicitElements` (`src/api/normalize/index.js:5844`). The oracle doesn't run it and the tripwire doesn't digest it, yet `target.js` rewrites it.
+   - The amended Consequences (ADR `:277-280`) say `index.js`'s routes are pinned by the oracle.
+   - **Ask:** add that function's body to ST33, or say so in the Consequences.
+4. **R2-N4 — ADR 0037's decisions still say what Amendment 3 changed.**
+   - Decision 9 still gives the old address (`:225`). Decision 6 still sets the sections aside unconditionally (`:196`). Decision 3's refusal list lacks the alias rule (`:135`).
+   - Amendments 1 and 2 corrected their decisions in place. Amendment 3 only adds its section.
+   - **Ask:** correct them in place, or mark each with "see Amendment 3", when it is ratified.
+
+#### Nits
+1. **`_seed.js` `installedGraphOf` and `plan`: a marked graph whose offloaded `json` has no store entry is misreported.** The probe shows it refused `address-held`, in words saying it "isn't seed-firmware's record". It is safe. When the `installed` record is there, say instead that its JSON can't be read (an LMDB reference with no entry).
+2. **`docs/GRAPH_OPERATIONS_CATALOG.md:55`, "Lifecycle (6, the owner and admins)", covers `wipe`.** `wipe` isn't built, and its access isn't decided. §8's line (`:202`) is scoped to the operations "built so far"; say the same at `:55`.
+3. **The story's round-2 gate line says "on `d90418c4`, a clean tree".** The record reads `d90418c4+dirty`. The untracked `node_modules` symlink alone marks every run here dirty, mine too, so say that.
+
+#### Checked and holding
+- **Nothing written on `address-held`** (SF35, and the probe).
+- **The old address is an ordinary graph element now.** An admin's element there keeps its name beside seed-firmware's own graph. The rulebook says "no rule makes them unique".
+- **The reserved d-tag can still be given by today's `POST /api/normalize/create-set`,** whose explicit `dTag` (`index.js:4347, 4380`) puts a set anywhere. The mark then refuses `address-held`, so the mark is the protection that holds.
+- **Item 4, traced in `plan` and `listingOf`.**
+  - Only `graph.relationships` feeds `removed`.
+  - Kept ones go to their own list, b claims included, and are never removed.
+  - `others` excludes both lists.
+  - A made relationship whose properties an admin edited is still taken out when the firmware drops it in the same run. That is what AC4 says.
+- **The docs.**
+  - BIBLE §7 matches the code: the address, the kept list, the boot install and the race.
+  - BIBLE's Last updated names §7 and §11.
+  - Catalog §8's line is fixed.
+- **The live records back the Evidence:** `r2-agent.log`, `r2-offload.json`, `r2-repeat-after-offload.json`, `r2-status-after.json`, `r2-resolve-dog.json` and `r2-live-suite.log`.
+
+### What I could not check
+- CI's time against its 25 minutes, and the full `npm test`.
+- The live re-check, which I read and didn't run.
+
+### Verdict
+**PASS**
+
+### On PASS (same commit)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection performed. Its result is in the chat, not here.
