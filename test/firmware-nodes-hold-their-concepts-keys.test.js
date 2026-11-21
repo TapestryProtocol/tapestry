@@ -29,6 +29,13 @@
  *        refused 400, and nothing is signed
  *   FN9  the install's Pass 1a hands each concept's create-concept call its header file's word types, with overwrite
  *   FN10 graph create-concept makes a JSON schema whose word types are the constant
+ *   FN11 save-schema, given a schema node whose JSON has no word wrapper, writes one with the constant (test plan,
+ *        Amendment 3: review round 1's mutation M11, a fallback that dropped validationTool, got past every suite)
+ *
+ * skeleton, normalize/json and the property route's schema generator are held by FN6's reading of their source alone:
+ * the fake graph can't run their reads (skeleton reads over IS_THE_CORE_GRAPH_FOR, which saveSchemaChild doesn't serve;
+ * normalize/json sorts with ORDER BY … DESC; the property route isn't one saveSchemaChild registers). Test plan,
+ * Amendment 3.
  */
 
 const fs = require('fs');
@@ -255,6 +262,77 @@ t('FN10 [AC4, Decision 8]: graph create-concept makes a JSON schema whose word t
   assert(schemaKeys.length === 1, `teapot has one JSON schema node; got ${show(schemaKeys)}`);
   const j = C.json(after, schemaKeys[0]);
   assert(j && j.word && show(j.word.wordTypes) === show(WANT), `its word types are ${show(WANT)} (ADR 0047 Decision 8); got ${show(j && j.word && j.word.wordTypes)}`);
+});
+
+// ── the old routes, run for real in a child over a fake graph (test/helpers/saveSchemaChild.js) ──
+const SCHEMA_CHILD = path.join(__dirname, 'helpers/saveSchemaChild.js');
+const TA_PRIVKEY = '11'.repeat(32);
+const childTa = () => require(path.join(REPO, 'node_modules/nostr-tools')).getPublicKey(Uint8Array.from(Buffer.from(TA_PRIVKEY, 'hex')));
+/** A tapestryKey (a version 4 UUID) made from `seed`, so a graph is the same every run. */
+function tapestryKeyOf(seed) {
+  const h = require('crypto').createHash('sha256').update(String(seed)).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${'89ab'[parseInt(h[16], 16) % 4]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+/**
+ * teapot, the assistant's lettered concept: its header, with d, name and slug tags, and, when `schemaJson` is given, its
+ * JSON schema node (IS_THE_JSON_SCHEMA_FOR) holding that JSON in its json tag. → { graph, header, schema }
+ */
+function teapotGraph(ta, schemaJson) {
+  const nodes = [];
+  const rels = [];
+  let seq = 0;
+  const id = (p) => `${p}-${seq++}`;
+  const node = (labels, props, tags) => {
+    const e = id('n');
+    nodes.push({ eid: e, labels: [...labels, 'TapestryNode'], props: { tapestryKey: tapestryKeyOf(props.uuid), ...props } });
+    for (const [type, value] of tags) {
+      const tag = id('t');
+      nodes.push({ eid: tag, labels: ['NostrEventTag', 'TapestryNode'], props: { uuid: `tag-${tag}`, tapestryKey: tapestryKeyOf(`tag-${tag}`), type, value } });
+      rels.push({ eid: id('r'), type: 'HAS_TAG', from: e, to: tag, props: {} });
+    }
+    return e;
+  };
+  const header = `39998:${ta}:teapot`;
+  const h = node(['NostrEvent', 'ListHeader', 'ConceptHeader'], { uuid: header, kind: 39998, pubkey: ta, id: 'event-teapot-header', name: 'teapot' }, [['d', 'teapot'], ['name', 'teapot'], ['slug', 'teapot']]);
+  let schema = null;
+  if (schemaJson !== undefined) {
+    schema = `39999:${ta}:teapot-schema`;
+    const s = node(['NostrEvent', 'ListItem', 'JSONSchema'], { uuid: schema, kind: 39999, pubkey: ta, id: 'event-teapot-schema', name: 'json schema for the concept of teapots' },
+      [['d', 'teapot-schema'], ['name', 'json schema for the concept of teapots'], ['json', JSON.stringify(schemaJson)]]);
+    rels.push({ eid: id('r'), type: 'IS_THE_JSON_SCHEMA_FOR', from: s, to: h, props: {} });
+  }
+  return { graph: { nodes, rels }, header, schema };
+}
+/** One run of saveSchemaChild with every endpoint dead → its { results, writes, published, unread, log }. */
+function schemaChild(scenario) {
+  const dead = path.join(os.tmpdir(), `fn-schema-dead-${process.pid}.conf`);
+  fs.writeFileSync(dead, 'NEO4J_URI="bolt://127.0.0.1:9"\nNEO4J_USER="none"\nNEO4J_PASSWORD="none"\n');
+  try {
+    const DEAD = { BRAINSTORM_CONF_PATH: dead, TAPESTRY_API_BASE: 'http://127.0.0.1:9', BRAINSTORM_BASE_URL: 'http://127.0.0.1:9', TAPESTRY_PORT: '9', MEILI_URL_HOST: 'http://127.0.0.1:9', TAPESTRY_CONTAINER: 'no-such-container' };
+    const r = spawnSync(process.execPath, [SCHEMA_CHILD], { input: JSON.stringify({ taPrivkey: TA_PRIVKEY, ...scenario }), encoding: 'utf8', env: { ...process.env, ...DEAD }, maxBuffer: 64 << 20, timeout: 120000 });
+    const at = (r.stdout || '').lastIndexOf('@@RESULT@@');
+    assert(at >= 0, `the child printed no result (exit ${r.status}): ${String(r.stderr || r.stdout).slice(0, 600)}`);
+    const out = JSON.parse(r.stdout.slice(at + 10).split('\n')[0]);
+    assert(!out.error, `the route threw in the child: ${String(out.error).slice(0, 600)}`);
+    return out;
+  } finally {
+    try { fs.unlinkSync(dead); } catch { /* gone */ }
+  }
+}
+/** The json a run last wrote on the node at `uuid`, parsed; undefined when it wrote none there. */
+function savedJson(out, uuid) {
+  const ws = out.writes.filter((w) => w.params && w.params.eventUuid === uuid && w.params.type === 'json');
+  return ws.length ? JSON.parse(ws[ws.length - 1].params.value) : undefined;
+}
+const why = (out) => `answer ${show(out.results).slice(0, 400)}; reads the fake couldn't run ${show(out.unread).slice(0, 300)}`;
+
+t('FN11 [AC4, Decision 8; test plan Amendment 3]: save-schema, given a schema node whose JSON has no word wrapper, writes one with [word, validationTool, jsonSchema]', () => {
+  const ta = childTa();
+  const { graph, schema } = teapotGraph(ta, { jsonSchema: { type: 'object' } });
+  const out = schemaChild({ kind: 'saveSchema', graph, body: { concept: 'teapot', schema: { properties: { teapot: { type: 'object' } } } } });
+  const j = savedJson(out, schema);
+  assert(j, `save-schema writes teapot's schema node; ${why(out)}`);
+  assert(j.word && show(j.word.wordTypes) === show(WANT), `the word wrapper it builds holds ${show(WANT)} (ADR 0047 Decision 8: save-schema's fallback); got ${show(j.word && j.word.wordTypes)}`);
 });
 
 async function run() {
