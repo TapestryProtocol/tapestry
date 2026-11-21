@@ -4,7 +4,7 @@
 >
 > **Purpose:** A single canonical definition of the **pre-merge deploy-safety check** — the gate that keeps a deploy-triggering merge from landing while a scheduled task is running or imminent on the instance that merge redeploys. The cycle skills reference this file rather than restating it; when the recipe changes, update this file and every consumer inherits (the `docs/SMOKE_TEST.md` pattern).
 
-**Last updated:** 2026-07-18
+**Last updated:** 2026-11-21
 
 ---
 
@@ -56,6 +56,39 @@ The check's full journal output goes into the run's report either way — the wa
 ## Buffer policy
 
 The recipe does **not** pin `?bufferMinutes=` — the instance owns the verdict policy, and a caller-pinned window would silently override any future instance-side policy change. Every response echoes the effective `bufferMs`, and the journal captures every response verbatim, so the window each check actually used is always in the run record.
+
+## A refreshing deploy
+
+**Which deploy it is.**
+- The first deploy of each ISO week to an instance also brings the image's Ubuntu packages up to date (OPERATIONS.md
+  §3, ADR `container-apt-refresh/0001`). Weeks start on Monday at 00:00 UTC.
+- So does any deploy that changes a step above the refresh, whatever the week. That is a change to `package.json` or
+  `package-lock.json`, the UI's or nip50-proxy's package files, a file under `patches/strfry-redis/` or
+  `patches/strfry-router/`, or the Dockerfile above the refresh step. Such a deploy already reruns at least one npm
+  install, so it is slower still.
+
+**How long it takes.** A refreshing deploy runs about one to three minutes longer than it would without the refresh,
+and can run longer on the first refresh after a long gap.
+
+**What to do.** A safe verdict guarantees at least the buffer, 10 minutes by default. So on a refreshing deploy, merge
+right after the safe verdict, and don't spend the 5-minute allowance.
+
+**How to tell beforehand.** The deploy refreshes if the instance's deploy workflow has had no successful run since
+Monday 00:00 UTC:
+
+```bash
+gh run list --repo TapestryProtocol/tapestry --workflow deploy-staging.yml --status success --limit 1 --json createdAt
+```
+
+Use `deploy-tapestry.yml` for production. Tags refreshes only once `feat/tags` has taken this change (OPERATIONS.md §3,
+"The sandboxes"). After that, use `deploy-tags.yml`.
+
+It also refreshes if the merge changes one of the files named above. For the Dockerfile, only a change above the
+refresh step counts:
+
+```bash
+gh pr diff <number> --repo TapestryProtocol/tapestry --name-only
+```
 
 ## Manual promotions to `feat/tags`
 
