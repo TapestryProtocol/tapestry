@@ -259,7 +259,7 @@ module.exports = {
       const order = [...(target ? [target] : []), ...conceptKeys.filter((c) => c !== target)];
       const out = [];
       for (const c of order) {
-        const r = await Sch.fits(read, c, j);
+        const r = await Sch.fits(read, c, j, { record: facts.record });
         out.push({ concept: c, key: (byKey.get(c) && byKey.get(c).oKey) || null, fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting });
       }
       return out;
@@ -292,7 +292,7 @@ module.exports = {
     // 11. Rule 4 (Decision 11): each judged concept whose section changed, every finding named. Then rule 10 over the
     // same items, every finding named too (ADR 0019 Decision 8).
     const changedKeys = new Set([...renamedSections, ...(fieldChanges.length ? [targetKey] : [])]);
-    const items = judged.filter((c) => changedKeys.has(byKey.get(c).oKey)).map((c) => ({ concept: c, json }));
+    const items = judged.filter((c) => changedKeys.has(byKey.get(c).oKey)).map((c) => ({ concept: c, json, record: facts.record }));
     if (items.length) {
       await Sch.checkElements(read, items, { every: true });
       await Sch.checkRule(read, 'enumerated-value-allowed', items, { every: true });

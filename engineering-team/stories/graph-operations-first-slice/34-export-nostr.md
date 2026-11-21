@@ -1,6 +1,6 @@
 # Story 34: `export nostr` — publish a scope as signed letters, and record what was sent
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 **Loom:** A10.34 — https://loom.brainstorm.world/t/A10.34
@@ -91,7 +91,7 @@ As the same owner, I want to see before I send what would go out and what can't 
 
 - [ ] **AC1 — Publish a scope.** Given the owner or an admin is signed in, when they call `POST /api/tapestry/export/nostr` with `scope` and `relays`, then each node in the scope that the assistant signs (AC4) gets one letter, signed with the assistant's key and sent to the instance's own relay and to each relay named. The scope takes one of three forms:
   - **a node:** its tapestryKey, or a ref `graph resolve` reads;
-  - **a graph:** a graph element, an element of `39998:<TA>:graph`, named the same way: one that concept's class thread reaches, or one whose stored JSON holds a `graph` object (as amended at Architecture). That is a concept graph, a Tapestry, or a selection saved with `graph create-element`, with what its lists name and the graphs it imports, each the same way. A concept graph also brings its concept's class thread and core nodes, as today's export-set gathers them (fact 7);
+  - **a graph:** a graph element, an element of `39998:<TA>:graph`, named the same way: one that concept's class thread reaches, or one whose stored JSON holds a `graph` object (as amended at Architecture). That is a concept graph, a Tapestry, or a selection saved with `graph create-element`, with what its lists name and the graphs it imports, each the same way, four levels and 50 graphs at most. A graph past them is sent with its lists unfollowed and reported `graph-not-followed` (as amended at Review). A concept graph also brings its concept's class thread and core nodes, as today's export-set gathers them (fact 7);
   - **everything:** every node of the instance's own.
 
   `relays` holds zero or more `wss://` or `ws://` relays. The instance's own relay is always sent to.
@@ -127,7 +127,7 @@ As the same owner, I want to see before I send what would go out and what can't 
   - A node the owner signed is `owner-signed`. It is treated the same way, since only the owner's own signer can sign its next version (fact 8).
   - Person nodes, tag nodes, placeholders and change entries are never letters, and no scope counts them.
 - [ ] **AC5 — In order, with a dry run, and safe to repeat.**
-  - Letters go out so that each comes after the call's letters it names, such as a concept's header before its core nodes and elements. Where a cycle makes that impossible, as a header and the concept graph that lists it do, a fixed order by kind of node breaks it (as amended at Architecture).
+  - Letters go out by kind of node first: concept headers, then supersets, then sets, parents first, then the rest. So a concept's header goes before its core nodes and elements. Within a kind, each goes after the call's letters of that kind it names (as amended at Review).
   - `dryRun: true` signs, sends and records nothing, and answers what the call would do:
     - each node's outcome;
     - for a `changed` one, the tags it would add and take out;
@@ -141,7 +141,7 @@ As the same owner, I want to see before I send what would go out and what can't 
   - through the I/O import (that item answered `skipped`);
   - through the client-publish route's brain-write hook, for a Tapestry letter posted again (added at Architecture).
 
-  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. A newer one, such as an edit in the Tapestries UI, is imported as today.
+  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. So is any of the 20 latest letters export sent for the node, even one newer than the letter the node records, after two exports raced or a read-back failed (as amended at Review, and bounded to 20 when the owner ratified ADR 0034's Amendment 3). A newer letter from anywhere else, such as an edit in the Tapestries UI, is imported as today.
 - [ ] **AC7 — What it refuses, and how it reaches agents.** It refuses, signs, sends and records nothing, and says in words what was wrong, naming the input:
   - no scope, or more than one form of it;
   - a ref that names no node (`unknown-ref`) or more than one (`ambiguous-ref`, with the candidates), as `graph resolve` reads it;
@@ -156,7 +156,7 @@ As the same owner, I want to see before I send what would go out and what can't 
 
   On a scratch stack, an admin agent with its own key, through the external CLI (A10.6) and with no change to it:
   - makes a concept with the graph operations, with a set, two elements and a `tapestry:` link between them, and dry-runs its export, seeing every letter `new`;
-  - exports it to the stack's own relay, and to one outside relay the owner chooses for the check, since the guard refuses a relay on a private address;
+  - exports it to the stack's own relay. Sending to outside relays is covered by the stack-free suites, and the first real export to one is recorded in this story when it happens (as amended at Review);
   - changes one element with `graph update-node`, and sees a dry run list only that element as `changed`;
   - exports again, and sees only that element signed;
   - imports the letters back with import nostr, and finds the graph unchanged;
@@ -226,6 +226,13 @@ Settled by the design, and approved with the story (2026-11-20):
 - AC1 and AC7: a graph element is one the graph concept's class thread reaches, or one whose stored JSON holds a `graph` object; `too-many-relays`, `bad-cursor` and `no-assistant-key` are named.
 - AC6: event-update answers `unchanged` and the I/O import `skipped` for a letter the node holds or an older one, and the client-publish route's brain-write hook is guarded too.
 
+**Changed at Review** (the owner's answer to review round 1, "Yes, as recommended", 2026-11-21; ADR 0034, Amendment 2):
+
+- AC1: a graph past four levels of imports, or past the 50th, is reported `graph-not-followed`.
+- AC5: letters go out by kind of node first (headers, supersets, sets parents first, the rest), and within a kind after what they name.
+- AC6: the importers also turn away any of the 20 latest letters an export of the node sent, even one newer than the letter the node records. The owner chose this bound when he ratified Amendment 3 (2026-11-21).
+- AC7: the scratch-stack run sends to the stack's own relay only. Outside relays are covered stack-free, and the first real send to one is recorded when it happens.
+
 For Architecture, not this gate (answered by ADR 0034):
 - **The record of what was sent:** its form (a property, a node or a ledger; design §5, question 2), per letter and per relay, and how it serves status and retract, including a letter whose node `graph delete-node` took out (ADR 0026).
 - **How each kind of letter is built:** from the would-be tags, which lose their order and any fifth element (fact 2), from relationships (fact 3), from tapestryJson (ADR 0020a), and from `setJson` and `setTags` (ADR 0027). And how to tell the letter a node has, which only strfry keeps whole (fact 4), from the one the graph would sign now.
@@ -236,7 +243,160 @@ For Architecture, not this gate (answered by ADR 0034):
 - **The parser,** a new dependency, and **caps and time**: nginx's 60 s, a job as lifecycle backup is, the 128 KiB websocket limit, and a large `json` tag (fact 13).
 - **Locks:** an export beside a graph write on the same node.
 
+## Deviations
+
+Judgment calls made in Implementation (2026-11-20), each too small for an ADR amendment:
+
+- **`everything` counts only when it is `true`.** `{ everything: false }` alone is `no-scope`, and beside `node` or `graph` it is no second scope, since false asks for nothing.
+- **Each relay is checked before any ref is read.** The order is the scope's form, then the relays (their count, each one's shape, then the host guard), then the ref (`bad-ref`, `unknown-ref`, `ambiguous-ref`), `not-a-graph`, `bad-cursor`, and `no-assistant-key` last. A dry run needs the key too, since it previews a call that would be refused without one.
+- **A relay is named and recorded as `new URL()` gives it, without a trailing slash,** and a relay given twice is sent to once. So `sentTo`, the answer and the change entry all name `wss://relay.example.com/` and `wss://relay.example.com` alike. Each URL keeps import's 2,000-character schema bound (beyond it, `invalid-input`). The list itself has none, and `too-many-relays` is checked in `run` (Amendment 1, item 2).
+- **A cursor is tied to its scope** (the form and the resolved key), as reads.js ties a cursor to its list. One from another scope is `bad-cursor` too. When no node of a page finished, `next.after` goes back to the call's own `after`, or to a start position before every node.
+- **Classing stops at `SEND_CUTOFF_MS`,** checked between batches of 100 nodes, so a big scope leaves the rest for `next.after` and its sends a chance. `BUDGET_MS` bounds the read-back: no read-back request starts after it, and its letters are `unread`. The one `strfry import` is never cut (Amendment 1, item 6).
+- **`MAX_SEND` counts the letters signed** (new and changed), not an unchanged letter re-sent. The page is cut before the letter that would pass it. The page's letters are then built again, so a link to a node the cut left out drops: that node gets no letter in this call.
+- **"Gets a letter in this call"**, for a link's target or a whole value's, means it is a new letter of the call's page (signable, buildable, with no `id`). That is known before anything is signed. So a target whose letter the instance's own relay then refuses still got its `naddr` in the letter that links to it. The next export of the same scope sends the target again.
+- **A tag is left out whole when one of its values is** (an `lmdb:` pointer the store lacks, or a whole `tapestry:` value with no letter), since a tag missing one element would shift the rest. Inside the JSON, only that key or list item is left out.
+- **The `d` tag is the address's d-tag,** whatever the node's tag node says, so a letter always lands at its node; the `d` tag is never rewritten. A node of kind 39998 or 39999 whose `uuid` isn't a `kind:pubkey:d-tag` address is `no-address`, and one whose address carries a key that isn't the assistant's is `not-own`. Both cases extend Amendment 1, item 4, after `other-kind`.
+- **An unbuildable node is reported as `pointer-unresolved`,** with `where: json`, since Decision 9 names no report of its own for it.
+- **`unsent-reference` reads the tags `z`, `n`, `s`, `a`, `e`, `o`, `b`, `concept-graph`, `nodeFrom` and `nodeTo`,** and a graph's `graph.nodes` and `graph.imports`. A placeholder is never the instance's own (graph/_nodes.js's `factsOf`), so a tag naming one isn't reported.
+- **The send order follows Decision 2's naming tags, with `concept-graph` added and `o` and `b` left out.** The groups that name each other (strongly connected) go out in rank order, and the groups themselves in Kahn's order, the lowest-ranked ready group first. With `o`, every core node would name its header and fall into one cycle, losing the order the graphs' lists give.
+- **The change entry's `nodes` is its `keys`:** each `letter-sent` change's `node`, which `graph history` reads. There's no separate field. A change also carries `raced: true` when another write gave the node another letter meanwhile (Decision 8), and CHANGE documents it.
+- **A turned-away letter's answers:** event-update answers `{ success: true, unchanged: true, uuid, eventId, reason }`; the I/O import, `{ slug, status: 'skipped', reason }`; the brain-write hook, `{ success: true, uuid, unchanged: true, reason }`. `holdsLetterOrNewer` looks at the node at the letter's NIP-01 key and at the node keyed by its id, since today's builder keys a replaceable kind by id.
+- **When the instance's own relay can't be read, a node with an `id` is `changed`,** since "the event isn't in the relay" can't be told from "can't read it". Its read-back is then `unread`, and nothing is recorded.
+- **A dry run's relay answers** are `held` where that is known (the instance's own relay for an unchanged letter, a relay in its `sentTo`), and `not-sent`, "a dry run sends nothing", for the rest. A new or changed letter's `id` and `created_at` are null there, since nothing is signed. A letter's `sent` is true when some relay accepted it in this call.
+- **The real `strfryImport` resolves whenever `strfry import` ran,** whatever its exit code, and rejects only when it couldn't start. A run killed at 60 s resolves too, and the read-back tells what it kept.
+- **A concept graph's class thread brings the instance's own nodes only** (the read conventions' own test), as the story's settled design says. What a graph's lists name is kept whoever wrote it, and answered `not-own` or `owner-signed`. Graphs past four levels or the 50th are neither followed nor reported.
+- **micromark 4.0.2,** pinned exactly as asked (`npm install --save-exact micromark@4.0.2`; 4.0.3 exists). The lock gains its 27 packages, all micromark's own and theirs.
+
+Judgment calls made fixing review round 1 (2026-11-21, ADR 0034 Amendment 2), each too small for another amendment:
+
+- **(Finding 13, unlogged at Implementation; now Amendment 2 item 4.) `uncarried-relationship` counts a `b` tag as carrying a relationship:** `INHERITS_FROM` for an inherit-typed `b`, `REFERENCES` for any other, as import nostr makes them (`import/_letters.js`), though Decision 9's list named no `b`.
+- **The record takes its locks in one statement:** every node it sets, in tapestryKey order, with the `SET n.tapestryLock = true REMOVE n.tapestryLock` that `_concepts.js`'s lock uses, rather than `lockNode`'s two statements a node, so a 500-letter record isn't 1,000 more round trips and two records lock in one order.
+- **A record that finds a letter no export sent** (neither the one the call read, nor one an `export nostr` entry records for the node) leaves the node as it is, `raced`, as Decision 8 had it. Amendment 2 item 1 speaks only of the letters export sent.
+- **A record that replaces an older letter another export sent** gives that letter as its change's `was`, since it is the letter it replaced, not the one the call read.
+- **An unread letter's change** has `was` and `now` as a sent one's, its relays' answers and no `raced`. Its node is in the entry's `keys`, so `graph history` finds it, though the node records nothing.
+- **The guard's entry check** applies to an own node at the letter's address (or keyed by its id) whether or not it holds a letter. It reads only the `export nostr` entries whose `keys` hold that node and whose changes' text holds the id, then checks for a `letter-sent` change of that node with that `now.id`. The record uses the same reader (`_record.js`'s `sentByExport`).
+- **`graph-not-followed`** is given once for each node a `graph.imports` lists that the caps left unread and no other path followed, whether or not its JSON holds lists. It names the graph by its tapestryKey and name and says which cap, but not its address: EK7's `named` matches an address by substring, so `…:wide-w50` would also name `…:wide-w5`.
+- **The send order (Amendment 2 item 2) replaces deviation 12's:** rank by rank, and within a rank the strongly connected groups in Kahn's order, the ready group with the lowest depth (so sets' parents first), then tapestryKey, going first, and a group of more than one by tapestryKey. Deviation 12's naming tags stay.
+- **`strfry import`'s time (Amendment 2 item 5) replaces deviation 17's 60 s.** It gets the time left before `BUDGET_MS`, 30 s at most, and its child is then killed. `toOwn` waits 1 s more (`STOP_MS`) for the killed child to close, so the read-back never runs beside a live import, and no longer, so a seam that never ends can't hold the call. There's no floor: with no time left, the import is killed at once. The read-back still starts only before `BUDGET_MS`, so the letters of an import stopped at the deadline answer `unread`, and go in the entry.
+- **A byte-order mark** that starts a text moves each of micromark's offsets on by one. A mark later in the text is kept as a character by micromark, so it needs nothing.
+
+Judgment calls made fixing review round 2's findings (2026-11-21, ADR 0034 Amendment 3), each too small for another amendment:
+
+- **(Finding 14.) The same letter twice:** the relays go on through the re-send's statement, which adds them only while the node still holds that id (else `raced`), and the change's `was` is the letter the node held, so the same as `now`, as a re-send's is, by round 1's rule that `was` is what the node held.
+- **`sentIds` lists only the letters a call signed:** each the instance's own relay accepted (set, already held or `raced`) and each `unread`. A re-send adds none, as the test plan's stand-in did, since the letter it re-sends is the one the node holds, which the guard already turns away.
+- **"The newest 20" is the 20 latest recorded.** `sentIds` holds ids only, so the record can't order them by `created_at`. A new id goes last, one already listed keeps its place, and past 20 the earliest recorded drops. So a raced record's older letter goes after the newer one it lost to.
+- **The record locks and reads every node of its letters,** an `unread` one's too, since it now writes that node's `sentIds`. Before, it locked only the nodes it set or re-sent to.
+- **The record tells "a letter another export sent" by the node's `sentIds`** (it lists the id the node holds), so `_record.js`'s `sentByExport` and its entry read are gone. Only scratch stacks and suites hold letters export sent before `sentIds`, since export nostr hasn't been merged anywhere.
+- **The guard's `sentIds` check** (replacing round 1's entry check) applies to an own node at the letter's address, or keyed by its id, with or without a letter, and is asked before the node's own letter is compared.
+- **(Finding 16; replaces round 1's `graph-not-followed` deviation.) The report's `address` is the graph's `uuid`,** left out when it has none, since the schema's `address` isn't nullable. Its words still give the name and the key, and the schema's `address` now says it is the graph's own address for this report.
+- **Wording beyond the brief's list.** The declaration's description, the catalog's row and its "sent as" paragraph name `sentIds` beside `sentTo`, and `changes.js`'s `was` adds "or one the node already held". ADR 0004's header (finding 17) also names the NIP-85 publishers under `src/algos/nip85/`, which send to outside relays from the server in a folder RE1 doesn't read, since without them the new sentence would be wrong too.
+
+## Evidence
+
+### The suites (Implementation, 2026-11-20, on the tree just before it was committed as `26712ded`)
+
+Each suite ran alone on this Mac, with every service endpoint dead, `TAPESTRY_CONTAINER_PORT` unset, `TAPESTRY_CONTAINER=no-such-container`, and stub `curl` and `docker` first on `PATH` (`tmp/a10-34/`). Their logs are dated 20:08–20:09 (UTC−5), and `26712ded` was committed at 20:10. None failed:
+- export: nostr 15, markdown-links 9, nostr-letters 11, nostr-links 6, nostr-send 16, nostr-own 5, nostr-agent-through-cli 1, nostr-live 6 skipped;
+- RE1 (`test/publish-export-a-concept.test.js`, widened) 3;
+- import nostr's suites, the graph writes the scopes use, `write-path`, `tapestry-key-paths`, `relationship-type-allowed`, and the suites behind the three guarded importers, every one passing as before.
+
+The scoped gate, through the gate engine with a conf file whose Neo4j is a closed port, is `20261121T010128Z-88708-2efe`: PASS, exit 0, 1,473 passed, 0 failed, 18 skipped, 6/6 suites (`operations.test.js`, `external-cli`, `openapi-coverage`, `admin-action-sweep`, `schema-save-finds-the-right-header`, `publish-export-a-concept`). It didn't run on `26712ded` (review round 1, finding 12): its record names `823683c6`, the tests' commit, with the implementation's 16 files uncommitted (`dirty: true`), before they were committed as `26712ded` with the docs, the ledger row and these Deviations, 21 files in all. The Reviewer's clean run on `39a9b8c5`, `20261121T014306Z-58530-ba74`, gives the same totals.
+
+### The live check (2026-11-21, 01:15–01:25Z, scratch stack `tapestry-scratch`)
+
+The image is `tapestry-tapestry`, with this branch's `src/` mounted read-only.
+- **Setup:** story 32's recipe, adapted (`tmp/live-check-34/setup.sh`). It copied in the branch's firmware, `bin/tapestry.js` and `clients/cli`, and set a fresh throwaway owner and admin. It added the five uniqueness rules, ran `lifecycle migrate --migration tapestry-keys`, and installed firmware.
+- **micromark:** the image had none of the 27 packages the lock adds, so they were copied in, and `import('micromark')` loads in the container.
+- **`nostr-live.test.js`:** 6 passed, 0 failed.
+  - LV1: each letter went through the real `strfry import` and was read back, verifying.
+  - LV2: a repeat was all `unchanged`, with nothing signed.
+  - LV3: after `update-node`, only that letter was `changed`, and the relay keeps the newer version.
+  - LV4: import nostr answered `own`, and every node stayed as it was.
+  - LV5: two exports fired together each answered, and every node ended with one letter.
+  - LV6: 497 letters accepted in 1.92 s, about 259 a second. The suite's 8 core nodes and 489 elements fall short of the 500 cap, so the cap wasn't reached.
+- **LH1, by hand (20 of 20):** an admin agent with its own key, through the unchanged external CLI, inside the container.
+  - It made a concept, a set and two elements, the second's description linking to the first by `tapestry:`.
+  - A dry run listed 11 letters `new`; the export sent them to the stack's relay, and a repeat was all `unchanged` (`held`).
+  - After `update-node` on the first element, a dry run listed only it, and the export signed only it, its `created_at` one second after its last.
+  - `import nostr` of the 11 letters answered `own` for each, with the graph's 6,603 nodes and 6,623 relationships unchanged.
+  - The second element's letter on the relay links by `nostr:naddr1…`, which decodes to the first's address, while its node in the graph still holds the `tapestry:` link.
+  - `graph history` shows the two `export nostr` entries.
+- **LH2, by hand (6 of 6):** `POST /api/neo4j/event-update` on both exported elements answered `unchanged`, naming the letter each holds. Their tag nodes are the same nodes, and the control panel logged no tag deletion.
+- **Not yet run:** EA1's private-relay refusal by hand on the stack. The send to an outside relay is no longer part of this run (AC7 as amended at Review, ADR 0034 Amendment 2 item 7): the first real export to one is recorded here when it happens. A large export through nginx isn't timed; LV6 timed the call direct to the control panel.
+
+The records are in the worktree's `tmp/live-check-34/`, to be copied to the main checkout's `tmp/` before the worktree goes.
+
+### The suites after review round 1's fixes (2026-11-21, on `d58a6889` with the fixes uncommitted)
+
+Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every endpoint dead, and the conf file's Neo4j and Redis on a closed port. None failed:
+- export: nostr 15, markdown-links 10, nostr-letters 12, nostr-links 8, nostr-send 19, nostr-own 5, nostr-agent-through-cli 1, nostr-live 6 skipped. The nine round-1 tests the test plan lists as failing pass: ML10, EK7, EK8, EW2, EW5, ES8, ES13, ES17 and ES19;
+- RE1 (`test/publish-export-a-concept.test.js`) 3;
+- import: cypher-engine 12, nostr 15, nostr-agent-through-cli 1, nostr-filter 10, nostr-graph 12, nostr-order 11, nostr-own 7, nostr-record 15, nostr-relay 9, nostr-live 6 skipped;
+- the guarded importers' suites: brain-first-tapestry-authoring 11 (its 8 live checks skipped), publish-event-signature-verification 5, b-tag-primitive 16 and curated-dlist-update-publish 69; with change-entry-fields 3 and openapi-coverage 13.
+
+The scoped gate, the same six entries through the gate engine, is `20261121T034436Z-32410-17ad`: PASS, exit 0, 1,480 passed, 0 failed, 18 skipped, 6/6 suites. Its record names `d58a6889` with 12 files uncommitted (`dirty: true`): these fixes, before their commit. `operations` has round 1's seven new tests (1,376 passed, against 1,369), and the other five entries' totals are as before.
+
+### The live check after review round 1's fixes (2026-11-21, 03:53–03:58Z, on `306ef8828`)
+
+A fresh scratch stack `tapestry-scratch` was set up with the same scripts, `tmp/live-check-34/setup.sh` and `micromark.sh`. The export code inside it hashes the same as the worktree's, and the control panel was restarted on the committed fixes.
+- **`nostr-live.test.js`:** 6 passed, 0 failed. LV5's two exports fired together now meet the record's node locks on a real Neo4j: each answers, and every node ends with one letter. LV6: 497 letters accepted in 2.03 s.
+- **The private-relay refusal, by hand** (Amendment 2 item 7). The admin agent, through the unchanged external CLI, asked for `export nostr --everything true --relays wss://localhost:7777 --dryRun true`. It was refused `private-relay` on `relays`: "its host, localhost, doesn't resolve to public addresses only … Nothing was signed or sent." The output is `tmp/live-check-34/r2-private-relay.out`.
+
+Sending to an outside relay waits for the first real export, as the story's AC7 has it since Review.
+
+### The suites after review round 2's findings (2026-11-21, on `8a445856` with the fixes uncommitted)
+
+Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every endpoint dead, and the conf file's Neo4j and Redis on a closed port. None ran beside the gate, and none failed:
+- export: nostr 15, markdown-links 10, nostr-letters 12, nostr-links 8, nostr-send 24, nostr-own 6, nostr-agent-through-cli 1, nostr-live 6 skipped. The nine tests the test plan's "Review round 2" lists as failing pass: ES20 to ES24, EW2, EW5, EW6 and EK7. After the gate, the same seven suites and RE1 gave the same counts on Node 22.23.1, CI's major version;
+- RE1 (`test/publish-export-a-concept.test.js`) 3;
+- import: cypher-engine 12, nostr 15, nostr-agent-through-cli 1, nostr-filter 10, nostr-graph 12, nostr-order 11, nostr-own 7, nostr-record 15, nostr-relay 9, nostr-live 6 skipped;
+- the guarded importers' suites: brain-first-tapestry-authoring 11 (its 8 live checks skipped), publish-event-signature-verification 5, b-tag-primitive 16 and curated-dlist-update-publish 69.
+
+The scoped gate, the same six entries through the gate engine on Node 24.18.0, labelled `a10-34-r2-fixes`, is `20261121T051347Z-55527-b43b`: PASS, exit 0, 1,486 passed, 0 failed, 18 skipped, 6/6 suites. By entry: `operations` 1,382/0/16, `external-cli` 53/0/0, `openapi-coverage` 13/0/0, `admin-action-sweep` 9/0/0, `schema-save-finds-the-right-header` 26/0/2 and `publish-export-a-concept` 3/0/0. `operations` has the round's six new tests (ES20 to ES24 and EW6) beside review round 2's 1,376. The record names `8a445856`, the tests' commit, with 12 files uncommitted (`dirty: true`): the 11 files of these fixes, and this story with the Deviations above. This section was written after it. Nothing of this round is committed yet. `bash scripts/harness-lint.sh` was clean before the gate. The runs' logs are in the worktree's `tmp/a10-34/round2-impl/`.
+
+**The live checks on these fixes** (2026-11-21, 05:23–05:24Z, on `454e6c5e4`, the same scratch stack. Its control panel was restarted first, from this session, with `supervisorctl restart brainstorm`, which answered "stopped" and then "started". That output wasn't saved to the records.): `nostr-live.test.js` 6 passed, 0 failed, LV6 497 letters in 2.09 s (`tmp/live-check-34/nostr-live.log`; the earlier runs kept as `nostr-live-run1.log` and `nostr-live-run2.log`).
+
+
+### The scoped gate on the merged tree (2026-11-21, on `7ff957e13`, staging merged in)
+
+The gate was derived from the changed files, as ledger row `2026-11-21-scoped-gate-lists-built-by-hand` asks: CI's entries for an operations change, plus every registered suite whose source names a changed file, function or helper. That came to 86 suites; the script and its list are in the session's records, `tmp/a10-34-records/`. Record `20261121T055736Z-44398-0ab1`: 3,795 passed, 10 failed, 180 skipped. The ten failures are this Mac's, not the branch's:
+- safe-to-merge-check's B1–B9 (7) time out behind the stub `curl`, and pass 16/0 when run alone without it;
+- router-stream-limit-on-connect's P1–P3 (3) fail on macOS's BSD `sed` (ledger row `2026-10-09-router-patch-sed-macos`), in files identical to staging's.
+
+The pull request's CI runs the full gate on Linux.
+
+### On staging and production (2026-11-21)
+
+**Staging: TapestryProtocol/tapestry#183,** after its ADR, #173.
+- **The first try:** #183's `stack-free` run, 44874358447, passed on `eef541a6`, and the safe-to-merge check said SAFE at 06:27:38Z. The merge didn't go through: seed-firmware's #182 had merged into staging at 06:26:55Z, and `test/helpers/externalCliServer.js` now conflicted, since each had added its own hooks there.
+- **The fix:** staging was merged in as `c327474b`, keeping both sets of hooks: export's `strfry` and `assistantKeys`, and seed-firmware's `lifecycleFakeState`. Five suites that use them then passed on this Mac, stack-free: the agent runs through the external CLI for export nostr, seed-firmware and import nostr (1 each), nostr-send (24) and nostr-own (6). The owner was told, and answered "ok, merge when it's green".
+- **Its CI:** `stack-free` run 44875787707 passed on `c327474b`, in 22 m 53 s.
+- **The merge:** the safe-to-merge check said SAFE at 06:53:05Z, and #183 merged at 06:53:12Z, pinned with `--match-head-commit` (merge commit `cae6e1cb`).
+- **The deploy:** `deploy-staging.yml` run 44877650711 succeeded, its job in 2 m 39 s, by 06:56:30Z.
+- **The smoke test, 06:56:56–06:57:32Z:** Tiers 1, 2, 3 and 5 passed. Tier 4 doesn't apply, since no UI changed.
+  - Tier 1: stable after 3 polls, with Neo4j answering (19,886 verified followers).
+  - Tier 2: every page and public API answered 200, apart from `get-user-data`'s documented 504.
+  - Tier 3: `/docs/swagger-ui-init.js` listed 40 operation paths. At 06:13, before #182 and #183, it listed 38; the two added are `export/nostr` and seed-firmware's `lifecycle/seed-firmware`. All eleven of export nostr's refusals are listed, and a signed-out call answers 401. The script's check for event-update's new reply looked for the wrong words and printed 0; the saved docs hold the reply ("turned away unchanged", ADR 0034 Decision 10).
+  - Tier 5: import nostr and `graph list-elements` are still listed, and import nostr still answers 401 signed out.
+- **Loom** marked A10.34 done, verified weakly: #183 was merged by nousclawds4, with no teammate's approval.
+
+**Production: TapestryProtocol/tapestry#184,** the promotion of staging at `cae6e1cb`, through `promote/seed-firmware-export-nostr-2026-11-21`.
+- **What it carried:** #183 and seed-firmware's #182 (story 37), with move-element's records (#180) and story 47's records and a ledger row (#179). The owner said "Yes, promote" after being told it would carry #182, and "Yes, merge" once the PR listed all four.
+- **Its required checks:** `stack-free` (run 44878655853, 16 m 55 s) and `main-source-guard` (run 44878655851) passed on `cae6e1cb`.
+- **The merge:** the safe-to-merge check against production said SAFE at 07:23:52Z, and #184 merged at 07:23:55Z, pinned with `--match-head-commit cae6e1cb` (merge commit `e0d5480f`).
+- **The deploy:** `deploy-tapestry.yml` run 44880067110 succeeded, its job in 3 m 29 s, by 07:27:57Z.
+- **The smoke test, 07:28:07–07:28:48Z:** Tiers 1, 2, 3 and 5 passed. Tier 4 doesn't apply.
+  - Tier 1: stable after 3 polls, with Neo4j answering (19,252 verified followers).
+  - Tier 2: every page and public API answered 200, apart from `get-user-data`'s documented 504.
+  - Tier 3: the served docs listed 40 operation paths, where they listed 38 before the merge. The two added are `export/nostr` and `lifecycle/seed-firmware`, and none was dropped. Every refusal of both is listed, with event-update's new reply, and signed-out calls to both answer 401. The docs are byte for byte the ones staging served after #183.
+  - Tier 5: import nostr, `graph list-elements` and `lifecycle status` are still listed, and import nostr still answers 401 signed out.
+- **No firmware reinstall** was needed, and none ran.
+
+**What no one has run.** No signed-in export ran on staging or production: one would sign letters as that instance's assistant, send them to its relay and record them in its graph. The first real export to an outside relay is to be recorded here when it happens (AC7, as amended at Review).
+
+The records are in the main checkout's ignored `tmp/a10-34-records/`: `ship/` for staging, `promote/` for production.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
+- Review: `engineering-team/reviews/graph-operations-first-slice/34-export-nostr.md`
