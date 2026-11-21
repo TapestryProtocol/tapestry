@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-09-12
 **Story:** `engineering-team/stories/honest-test-gate/1-gate-result-tells-the-truth.md`
+**Superseded in part by:** ADR `test-suite-hermeticity/0002` (2026-11-20), for `process.env` only. The engine now checks it around every suite's load and run, fails the suite that changed it and puts it back. That reverses the rejection of snapshot-and-restore in Decision, "Load order", and takes over the "cross-suite env hygiene" item in Out of scope. The load order itself stands.
 
 ## Context
 

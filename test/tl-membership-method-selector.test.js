@@ -389,6 +389,10 @@ t('L3 unauthenticated PUT /api/settings is rejected (settings auth gate)', async
 
 async function run() {
   console.log('\n▶ tl-membership-method-selector suite (trusted-lists Story 1)');
+  // The tests point TAPESTRY_SETTINGS_PATH at temp files; the end of the run puts it back as the run found it
+  // (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002).
+  const hadSettingsPath = Object.prototype.hasOwnProperty.call(process.env, 'TAPESTRY_SETTINGS_PATH');
+  const savedSettingsPath = process.env.TAPESTRY_SETTINGS_PATH;
 
   liveReady = nakAvailable() && await controlPanelReachable();
   if (!liveReady) {
@@ -412,7 +416,8 @@ async function run() {
       console.log(`  ✗ ${name}\n      ${e.message}`);
     }
   }
-  delete process.env.TAPESTRY_SETTINGS_PATH;
+  if (hadSettingsPath) process.env.TAPESTRY_SETTINGS_PATH = savedSettingsPath;
+  else delete process.env.TAPESTRY_SETTINGS_PATH;
   console.log(`  tl-membership-method-selector: ${pass} passed, ${fail} failed, ${skipped} skipped`);
   return { pass, fail, skipped };
 }

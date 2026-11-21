@@ -171,12 +171,22 @@ test('UC2: a rename of a lettered concept keeps a hand edit, follows the rest, k
   const sj = C.json(g, k.beagleNodes.superset);
   assert(sj.superset.description === 'All the beagles we know of.' && sj.superset.name === 'hounds' && sj.set.description === 'This is a set of hounds.', `a value edited by hand stays, the defaults follow; got ${show(sj)}`);
   assert(C.node(g, k.beagle).props.uuid === `39998:${TA}:beagle` && show(d.concept.nodes) === show(k.beagleNodes), 'its address and keys stay');
+  // The test TA goes in TA_PUBKEY for _fields.js, and back out as this test found it: operations.test.js runs this
+  // suite in the gate's own process, and the gate fails a suite that leaves process.env changed
+  // (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002, Amendment 2).
+  const hadTa = Object.prototype.hasOwnProperty.call(process.env, 'TA_PUBKEY');
+  const savedTa = process.env.TA_PUBKEY;
   process.env.TA_PUBKEY = TA;
-  const F = require(path.join(ROOT, 'src/operations/catalog/graph/_fields.js'));
-  const read = G.readerOver(g);
-  const concept = await F.conceptOf(read, k.beagle);
-  const elements = concept ? await F.elementsOf(read, concept, 10) : [];
-  assert(concept && concept.oKey === 'beagle' && elements.map((e) => e.key).includes(k.rover), `its key is still beagle, and rover still reads as its element; got ${show({ concept, elements })}`);
+  try {
+    const F = require(path.join(ROOT, 'src/operations/catalog/graph/_fields.js'));
+    const read = G.readerOver(g);
+    const concept = await F.conceptOf(read, k.beagle);
+    const elements = concept ? await F.elementsOf(read, concept, 10) : [];
+    assert(concept && concept.oKey === 'beagle' && elements.map((e) => e.key).includes(k.rover), `its key is still beagle, and rover still reads as its element; got ${show({ concept, elements })}`);
+  } finally {
+    if (hadTa) process.env.TA_PUBKEY = savedTa;
+    else delete process.env.TA_PUBKEY;
+  }
 });
 
 test('UC3: a slug: create-concept finds the concept by it, refuses its old name while the key stays, and other authors\' slugs don\'t count', async () => {
