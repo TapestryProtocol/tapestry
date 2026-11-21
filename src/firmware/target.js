@@ -25,8 +25,8 @@
  *                  isn't a plain name among them (Amendment 3, item 5); with any, no nodes
  *   ta, aliases    the assistant, and the folder's relationship types as conceptNodes names them, for the installer
  *
- * Today's order, pass by pass (Decision 4): 1a the concepts (conceptNodes, with the header file's overrides and
- * headerTags, and no o tags); 1b the elements; 1c the manifest's existing nodes, with no rewrite of the parent's concept
+ * Today's order, pass by pass (Decision 4): 1a the concepts (conceptNodes, with the header file's overrides,
+ * headerTags and word types, and no o tags); 1b the elements; 1c the manifest's existing nodes, with no rewrite of the parent's concept
  * graph (Amendment 1, item 2); 1c½ the sets and their relationship letters; the existing sets; 1c¾ the concept
  * manifests' links; 1d the z tags' HAS_ELEMENT; 1d½ the headers under concept-header; 1d¾ ENUMERATES; 1e the prune;
  * pass 2 the schemas and the primary-property fold (Amendment 1, item 1); the community references' pointer b and its
@@ -58,6 +58,8 @@ const ENUMERATES = 'ENUMERATES';
 const REFERENCES = 'REFERENCES';
 /** What a relationship alias must be, since it reaches Cypher's text (ADR 0037 Amendment 3, item 5). */
 const PLAIN_NAME = /^[A-Z_][A-Z0-9_]*$/;
+/** A word type create-concept takes in a header's wordTypes: a concept key's form (ADR 0047 Decision 9). */
+const KEY_FORM = /^[a-z][A-Za-z0-9]*$/;
 
 const sha256 = (x) => crypto.createHash('sha256').update(x).digest('hex');
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -153,6 +155,13 @@ function readFirmware(r) {
     if (h.ok && !(ch && isObject(ch.oNames) && typeof ch.oNames.singular === 'string' && ch.oNames.singular.trim())) {
       r.problems.push(`${headerFile} has no conceptHeader.oNames.singular, the concept's name`);
     }
+    // The header's word types, as today's pass 1a passes them to create-concept: a list, when the file's word block holds
+    // one (ADR graph-operations-first-slice/0047 Decision 9). The route refuses one that isn't each a key's form, and
+    // makes no concept.
+    const wordTypes = h.ok && isObject(h.data) && isObject(h.data.word) && Array.isArray(h.data.word.wordTypes) ? h.data.word.wordTypes : null;
+    if (wordTypes && !wordTypes.every((w) => typeof w === 'string' && KEY_FORM.test(w))) {
+      r.problems.push(`${headerFile}'s word.wordTypes isn't a list of concept keys, each [a-z][A-Za-z0-9]*, so today's create-concept refuses it and makes no concept`);
+    }
     const schemaFile = typeof entry.jsonSchema === 'string' ? rel(dir, entry.jsonSchema) : null;
     const s = schemaFile ? r.json(schemaFile, `the manifest names it as ${entry.slug}'s JSON schema`) : null;
     const manifestFile = rel(dir, 'manifest.json');
@@ -175,7 +184,7 @@ function readFirmware(r) {
     }
     for (const x of sets) { const f = r.json(x.file); x.data = f.ok ? f.data : null; }
     concepts.push({
-      entry, slug: entry.slug, dir, headerFile, header: ch, schemaFile, schema: s && s.ok ? s.data : null,
+      entry, slug: entry.slug, dir, headerFile, header: ch, wordTypes, schemaFile, schema: s && s.ok ? s.data : null,
       manifestFile: cm && cm.ok && isObject(cm.data) ? manifestFile : null, links: cm && cm.ok && isObject(cm.data) ? cm.data : null, elements, sets,
     });
   }
@@ -291,6 +300,8 @@ function buildTarget({ dir, ta }) {
     const h = built.nodes.conceptHeader;
     h.json = copy(h.json);
     for (const [k, v] of Object.entries(ch)) if (!GENERATED.has(k)) h.json.conceptHeader[k] = copy(v);
+    // The file's word types after create-concept's own, once each, in the file's order (ADR 0047 Decision 9).
+    if (c.wordTypes) for (const w of c.wordTypes) if (!h.json.word.wordTypes.includes(w)) h.json.word.wordTypes.push(w);
     jsonTag(h);
     h.tags = h.tags.map((t) => (t[0] === 'description' ? ['description', String(t[1]).trim()] : t));
     for (const tag of Array.isArray(ch.headerTags) ? ch.headerTags : []) if (Array.isArray(tag) && tag.length >= 2 && typeof tag[0] === 'string') h.tags.push(copy(tag));

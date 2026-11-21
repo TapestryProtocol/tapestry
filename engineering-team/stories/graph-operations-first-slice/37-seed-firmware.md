@@ -236,6 +236,11 @@ At review round 2's fixes (the Implementer, 2026-11-21; R2-N1 and nit 1):
 - **Those writes still carry an offloaded node's record sections into its json tag.** They read its JSON through the store, where the derive keeps its copy, and write it back inline: `cameFrom` and `installed` go with it, as `graphContext` already did before this round. The judge sets them aside for a node that carries the record, and the install's digest always does.
 - **The unreadable case reaches past nit 1's.** A node there that carries seed-firmware's own `installed` record but whose JSON can't be read is refused `address-held` in words that say so. That covers a json tag that's missing or doesn't parse to an object, and an LMDB reference with no entry or with one that isn't an object; SF39 pins the missing entry. So Amendment 3, item 3's "saying it isn't seed-firmware's record" now holds only for a node without that record, or one with it whose readable JSON has no `installedFirmware` section. Status still reads such a node as no install (`seeded: null`).
 
+At staging's story 47, merged in (the Implementer, 2026-11-21; ADR graph-operations-first-slice/0047 Decision 9):
+
+- **Each header gets its file's word types as today's pass 1a passes them.** The list is create-concept's own `['word', 'conceptHeader']`, then the file's other entries, once each, in the file's order. A file whose word block holds no list keeps create-concept's. The schemas needed no change: they take `JSON_SCHEMA_WORD_TYPES` through `conceptNodes`, which story 47 changed (Decision 8).
+- **A header file whose `word.wordTypes` isn't a list of key-form strings is `firmware-unreadable`.** Today's create-concept answers that with a 400, makes no concept and the install goes on without it. So it joins the other files that don't hold together, listed above.
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-21 UTC)
