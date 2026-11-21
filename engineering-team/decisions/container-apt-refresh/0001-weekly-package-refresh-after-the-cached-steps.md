@@ -320,3 +320,47 @@ locally (ledger row `2026-10-10-sandboxes-got-security-fixes`). A port of this c
 - **Serving the marker over HTTP.** An operator reads it with `docker exec`. A public endpoint would show anyone how
   stale a container might be.
 - **Why build caches go cold.** That's ledger row `2026-11-14-cold-deploy-outlasts-safe-buffer`, which stays open.
+
+## Amendment 1 (2026-11-21, after review round 1; the owner's "Fix all, option (a)")
+
+Review round 1 (`engineering-team/reviews/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`) found what
+follows. Items 1 and 2 correct what this ADR said about the deploys. Item 3 changes one line of the step.
+
+1. **Recipe 1 lasts only until the next deploy** (blocking 1; the owner chose option (a)).
+   - **The cause.** The droplets build with BuildKit. It keeps each built step as a build-cache record, which
+     `docker image prune` leaves alone. So the deploy after a refresh by hand builds from this week's own refresh:
+     - when an earlier deploy this week has refreshed, it reuses that refresh, and the container goes back to its
+       packages;
+     - when none has, it runs the step again.
+
+     Either way, recipe 1's image lasts only until the next deploy.
+   - **The correction.** In the Implementation notes, recipe 1's "It takes a few minutes, and lasts" reads "It takes a
+     few minutes, and lasts until the next deploy". OPERATIONS.md §3.1 says so. It also says that a fix that can't wait
+     for next week's refresh needs recipe 1 again after each deploy that week. Test O6 holds it.
+   - **Not chosen.** Option (b) would make recipe 1 last by changing the deploy scripts.
+2. **A deploy that changes a step above the refresh also refreshes** (blocking 2).
+   - **What Consequences missed.** Consequences gives two signs of the refreshing build: the target has had no
+     successful deploy since Monday 00:00 UTC, or the container's marker names an earlier week. There is a third, a
+     deploy that changes what a step above the refresh copies or runs:
+     - `package.json` or `package-lock.json`;
+     - `ui/package.json` or `ui/package-lock.json`;
+     - `nip50-proxy/package.json`;
+     - a file under `patches/strfry-redis/` or `patches/strfry-router/`;
+     - the Dockerfile above the refresh step.
+
+     Such a deploy misses the cache at that step and runs every step after it, so it refreshes whatever the week.
+   - **The docs.** OPERATIONS.md §3 and `docs/SAFE_TO_MERGE.md` name this case, and give `gh pr diff --name-only` as
+     the way to see it before a merge. Test O5 holds it.
+3. **The count's simulation takes the upgrade's own options** (non-blocking 1). The step's count line becomes:
+
+   ```dockerfile
+       n="$(apt-get $only_ubuntu -s --no-remove -o APT::Get::Always-Include-Phased-Updates=true full-upgrade | grep -c '^Inst' || true)"; \
+   ```
+
+   So in a week when Ubuntu phases an update the image has, the count includes it, as the upgrade does. The count is
+   every package the upgrade installs or upgrades, and OPERATIONS.md says so for the marker's `upgraded=`. Test D7
+   holds it.
+
+Round 1's other two findings change no decision:
+- `docs/SAFE_TO_MERGE.md` says a tags deploy refreshes only once `feat/tags` has this change;
+- the registry's comment counts the suite's four live checks.
