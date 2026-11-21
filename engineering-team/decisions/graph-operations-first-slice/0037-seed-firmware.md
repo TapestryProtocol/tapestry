@@ -246,7 +246,7 @@ Pass by pass, in today's order:
 - **No guard runs** (catalog §8; D4's bootstrap path). The statements meet `tapestry-key-paths`' G4, G11, G18 and G19.
 - **After the commit, the cache.** For each node whose `json` it wrote, the cached entry is removed, then derived again. Each node whose record it wrote is derived again, so `cache get` answers the record (Context 3).
 - **A failed derive** doesn't undo the commit. The answer counts it (`cacheOutOfDate`).
-- **Then `rules check`.** `X.findingsIn` runs over each firmware concept's scope. The answer gives the rules run, how many findings there are, and the first 20. It reports what it finds and undoes nothing (AC6).
+- **Then `rules check`.** It judges the firmware's own nodes, the target's nodes the graph holds (Amendment 4). The answer gives the rules run, how many findings there are, and the first 20. It reports what it finds and undoes nothing (AC6).
 
 **11. The answer.**
 - `version` and `source`;
@@ -365,3 +365,11 @@ Review round 1 (`engineering-team/reviews/graph-operations-first-slice/37-seed-f
    - *It fails* whenever they change, naming `src/firmware/target.js`, so the builder is brought in line before the digest is updated.
    - *The Consequences* are corrected to say what pins each part.
 9. **Deviation 7 names its conflict with ADR 0043** (finding N3). For files, an unchanged node keeps its record. In the release story, where every member is a new letter, an update moves every unedited node's record to the new release's letter (ADR 0043, Decision 1).
+
+## Amendment 4 (2026-11-21, at Review round 4) — rules check judges the firmware's own nodes
+
+Staging's story graph-operations-first-slice #47 added rule 12, `word-types-hold-concept-keys`, which judges a concept's elements. Decision 10 runs `rules check` over each firmware concept's scope. The `word` concept's elements are nearly every node, firmware's and the instance's, so that run judged 447 of 460 nodes on a fresh install. On a real instance it would judge far more, and report on nodes seed-firmware never wrote (review round 4, R4-N2).
+
+So `rules check` judges only the firmware's own nodes, the target's nodes that the graph holds, and reports only the findings on them. It no longer walks each concept's scope. The answer's `rulesCheck` keeps its shape: the rules run, the number judged, the number found, and the first 20.
+
+The owner chose this at the round-4 gate. It is ratified at the next gate.
