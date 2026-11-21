@@ -422,6 +422,11 @@ const suites = [
   // longer writes the wordType pair that compares `word.wordTypes` with itself (Loom P-156). Stack-free in every run:
   // the install's enumeration step and Pass 2 run in a child over a fake graph (test/helpers/saveSchemaChild.js).
   { file: 'word-elements-fit-the-installed-word-schema.test.js' },
+  // container-apt-refresh #1: every build of the tapestry image brings its Ubuntu packages up to date once a week
+  // (ADR container-apt-refresh/0001). Stack-free in every run: it reads the Dockerfile, compose file, workflows and
+  // docs, and runs each deploy script under bash with docker, git and sed stubbed. Its live checks (L1–L4) run the
+  // refresh step in throwaway containers only with TAPESTRY_LIVE_DOCKER_CHECKS=1.
+  { file: 'container-apt-refresh.test.js' },
   // community-reference #39: a firmware install leaves each header's tags once (ADR community-reference/0035). Stack-free
   // in every run: the prune builder over test/helpers/cypherEngine.js, and install's community references and their edge
   // wiring in a child over the same engine (test/helpers/communityStepChild.js).
