@@ -287,3 +287,245 @@ Not applicable: the story's status stays `Approved`, and completion detection wa
 ## Verdict
 
 **CHANGES_REQUESTED**
+
+## Round 2 — 2026-11-21 (HEAD `6c0fe228`)
+
+The owner answered round 1 "Yes, as recommended". That became ADR 0034's Amendment 2 and the story's "Changed at Review". Round 1 was committed as `b4683b8c`. The round added four commits after it, each kept to its role's files:
+- `0c1f2c4f`, the session's: Amendment 2 and the story's amendments (2 files);
+- `d58a6889`, the Tester's: the round-1 tests, written first, their helpers, and the test plan's "Review round 1" (10 files, none under `src/`);
+- `306ef882`, the Implementer's: the fixes, the doc fixes and the story's ten new Deviations (12 files, no test);
+- `6c0fe228`, the story's Evidence of the live re-check (1 file).
+
+`git diff b4683b8c..HEAD` is 23 files, +812 −131.
+
+**How it was made.**
+- **The same limits as round 1.** No `npm test` and no `docker`. No call to any container (the scratch stack included), GitHub or Loom. The scratch stack's records in `tmp/live-check-34/` were read only, and `keys.json` wasn't opened.
+- **Stack-free, as the brief gives it.** Stub `curl` (exit 7) and `docker` (exit 1) were first on `PATH`, every endpoint and the conf file's Neo4j and Redis were on port 9, `TAPESTRY_CONTAINER` was `no-such-container`, and `TAPESTRY_CONTAINER_PORT` was unset. The gate ran first, and each suite alone after it ended, never beside it.
+- **Node.** The gate and every suite ran on Node v24.18.0. The six suites the round changed ran again on 22.23.1, CI's and the container's major version.
+- **Fresh claims.** Each fix was re-derived from the code, a command or a probe. Neither the commit messages, the Evidence nor round 1's wording was taken as given.
+- **Records** are in the ignored `tmp/review-34-r2/`. They hold the gate's output (`gate-r2.out`), the suites' (`suites-node24.out`, `suites-node22.out`, `importers-node24.out`) and the red check (`red-check.sh`, `.out`). Three probes are there with their `.out`: `probe-re1.sh` (finding 1), `probe-record.js` (finding 3) and `probe-kill.js` (finding 7).
+- **The worktree.** `git status` was clean after every run.
+- **The independent check** before the commit (workflow 5, P13) wasn't applied.
+
+### Gates (run by the reviewer at `6c0fe228`)
+
+- [x] **The scoped gate:** the six entries through `test/helpers/gateRunner.js`, on a clean tree. Its `npm run gate:status -- --label a10-34-review-r2` line, with the path shortened:
+
+  ```
+  20261121T040423Z-5654-a5b0 [a10-34-review-r2] started 2026-11-21T04:04:23.094Z on 6c0fe228 — PASS, exit 0, 1480 passed, 0 failed, 18 skipped, 6/6 suites · …/tmp/gate-runs/20261121T040423Z-5654-a5b0.json
+  ```
+
+  By entry:
+  - `operations` 1,376/0/16 (301 s);
+  - `external-cli` 53/0/0 (11 s);
+  - `openapi-coverage` 13/0/0 (2 s);
+  - `admin-action-sweep` 9/0/0 (0.5 s);
+  - `schema-save-finds-the-right-header` 26/0/2 (19 s);
+  - `publish-export-a-concept` 3/0/0 (0 s).
+
+  That is seven more than round 1's 1,473, all in `operations`: the round's seven new tests. The record names `6c0fe228` with `dirty: false`. The Implementer's record the Evidence cites, `20261121T034436Z-32410-17ad`, gives the same totals on `d58a6889` with 12 files uncommitted, as the Evidence says (story:326).
+- [x] **Each suite alone,** after the gate:
+
+  | Suite | Node 24.18.0: passed / failed / skipped | Time | Node 22.23.1 |
+  |---|---|---|---|
+  | `nostr` | 15 / 0 / 0 | 5 s | — |
+  | `markdown-links` | 10 / 0 / 0 | under 1 s | 10 / 0 / 0 |
+  | `nostr-letters` | 12 / 0 / 0 | 7 s | 12 / 0 / 0 |
+  | `nostr-links` | 8 / 0 / 0 | 6 s | 8 / 0 / 0 |
+  | `nostr-send` | 19 / 0 / 0 | 23 s | 19 / 0 / 0 |
+  | `nostr-own` | 5 / 0 / 0 | 6 s | 5 / 0 / 0 |
+  | `nostr-agent-through-cli` | 1 / 0 / 0 | 2 s | — |
+  | `nostr-live` | 0 / 0 / 6 (no scratch container, so its live checks skip) | 0 s | — |
+  | `test/publish-export-a-concept.test.js` | 3 / 0 | 0 s | 3 / 0 |
+
+  That is 70 feature tests passing: round 1's 63 and the seven new (ML10, EK7, EK8, EL12, ES17, ES18, ES19), as the Evidence says.
+- [x] **The guarded importers' suites alone,** as the Evidence lists them:
+  - `brain-first-tapestry-authoring`: 11 passed, its 8 live checks skipped;
+  - `publish-event-signature-verification`: 5;
+  - `b-tag-primitive`: 16;
+  - `curated-dlist-update-publish`: 69.
+
+  None failed.
+- [x] **Red before green** (`red-check.sh`). A copy of HEAD had its `src/` put back to `b4683b8c`'s, with its `node_modules` linked. The nine tests the plan's table lists fail there, and no others, each for the reason the plan records:
+  - ML10: the offsets one short;
+  - EK7: no report;
+  - EK8: `tapestry:` left in the letter;
+  - EW2: `action: updated`;
+  - EW5: `false`;
+  - ES8: the header after the property tree graph;
+  - ES13: no entry;
+  - ES17: the harness stopped at its own 15 s;
+  - ES19: the node keeps the older letter.
+
+  The pins EL12, ES14, ES18 and RE1 pass there, as pins should. The counts are markdown-links 9/1, nostr-letters 12/0, nostr-links 6/2, nostr-own 3/2, nostr-send 15/4 and RE1 3/0.
+- [x] **`bash scripts/harness-lint.sh`:** clean, 0 violations, before this section and with it.
+- [ ] _Playwright: not applicable (no UI). Lint, typecheck and build aren't configured._
+
+### Spec adherence, as amended at Review
+
+| AC | Round 1 | Now |
+|---|---|---|
+| AC1 | yes | yes, with `graph-not-followed` (EK7) |
+| AC2 | yes | yes, a `b` tag carrying its relationship (EL12) |
+| AC3 | but for a leading byte-order mark | yes (ML10, EK8) |
+| AC4 | yes | yes |
+| AC5 | its rule, not its example | yes, kind first (ES8) |
+| AC6 | but after a race or an unread read-back | yes (ES13, ES18, ES19, EW2, EW5; live LV5) |
+| AC7 | no outside relay | yes, as amended: EA1 stack-free; on the stack, LH1 on round 1's code and the private-relay refusal on HEAD's |
+
+### Round-1 findings, re-checked
+
+| # | Finding | Resolution | As Amendment 2 says |
+|---|---|---|---|
+| 1 | Blocking: RE1 misses a publisher built export's way | **Fixed.** `relayPublisher` (`test/publish-export-a-concept.test.js:91-96`) flags a `.publish(` beside a relay class or a require of a module named `_relay`. RE1 first checks that it flags `_send.js`'s own text (`:165`) and a `SimplePool` publisher (`:172`), then scans (`:175`). In `probe-re1.sh`, three copies of `_send.js` each fail RE1, which names the copy. Two are at round 1's places, `src/operations/catalog/graph/_third-publisher.js` and `src/api/third/sender.js` (its requires re-pointed). The third sits beside import's reader, requiring `./_relay`. HEAD as it is passes | item 6: yes |
+| 2 | Blocking: AC7's scratch-stack run incomplete | **Settled by the owner** (item 7; AC7 at story:157-163). The private-relay refusal ran by hand on HEAD's code. The admin agent, through the unchanged CLI, was refused `private-relay` on `relays` for `wss://localhost:7777` (`tmp/live-check-34/r2-private-relay.out`). The rest of LH1 ran on round 1's code. On HEAD's, LV1–LV6 ran on the stack and EA1 ran stack-free | item 7: yes |
+| 3 | A letter export sent can come back after a race or an unread read-back | **Fixed.** The record locks each node first (`_record.js:35-39, 89`), then reads what it holds (`:91`). It keeps the newest letter export sent (`:96-103`), and gives a replaced letter as `was` (`:112`). An `unread` letter goes in the entry, on no node (`nostr.js:364-366`). The guard asks the entries (`_own.js:43-56`; `_record.js:55-75`). ES13, ES19, EW2 and EW5 go red then green; ES14 and ES18 are pins; LV5 ran live. `probe-record.js` confirms each case. Residuals: findings 14 and 15 | item 1: yes |
+| 4 | The header goes out 13th | **Fixed.** `sendOrder` goes rank by rank (`_scope.js:345-349`). `rankOrder` orders within a rank by what each names, the ready groups by depth, then key (`:358-414`). ES8 goes red then green; AC5 is amended (story:130) | item 2: yes |
+| 5 | A leading byte-order mark keeps `tapestry:` links | **Fixed.** After a leading U+FEFF, each offset moves on by one (`markdownLinks.js:52-54`). That is exactly what micromark 4.0.2's preprocess skips: one leading 65279 (`node_modules/micromark/lib/preprocess.js:51-56`). ML10 and EK8 go red then green | no item: an implementation fix |
+| 6 | A graph scope cut short says nothing | **Fixed.** A graph past four levels (`_scope.js:250-253`), or left in the queue at the 50th, is reported `graph-not-followed` once, with the cap (`:267-279`). The enum gains it (`nostr.js:50`). EK7 goes red then green. See deviation 7 below | item 3: yes |
+| 7 | A hung `strfry import` holds the call 60 s | **Fixed.** The import gets the call's time left, 30 s at most (`_send.js:32, 70, 83, 99`). `toOwn` waits 1 s more, and no longer (`:34, 101-105`). ES17 goes red then green. `probe-kill.js` ran the real `strfryImport` against a stub `strfry` that never exits. `toOwn` answered at its 2 s deadline, both letters `unread`. The import resolved at 1,503 ms with `SIGKILL`. No stub process was left after either | item 5: yes |
+| 8 | `/docs` is silent on event-update's turned-away answer | **Fixed as asked:** a sentence and the two fields (`src/api/openapi.yaml:3624-3627, 3645, 3655-3660`). Both are true of `eventSync.js:363-364` | — |
+| 9 | "the second server-side publisher" | **Fixed** in ADR 0004's header (`:5`), `_send.js:4` and RE1's comment (`test/publish-export-a-concept.test.js:156`). No copy is left in the tree. ADR 0004's line has finding 17 | item 6: yes |
+| 10 | BIBLE.md:377's "newer letter" | **Fixed.** BIBLE.md:377 now says what the record does: the lock, the newest letter export sent, and `raced` otherwise. That is true of `_record.js:89-103`, but for finding 14's tie | — |
+| 11 | BIBLE.md:1991's sentence order | **Fixed.** It names the forms it finds first, then the code-span exception | — |
+| 12 | The Evidence's gate didn't run on `26712ded` | **Fixed.** story:292 says so and cites round 1's clean run. The round's own record (story:326) says it ran with the fixes uncommitted. This round's clean run gives the same totals | — |
+| 13 | An unlogged deviation: a `b` tag carries a relationship | **Fixed.** It is logged (story:272) and ratified as item 4. `_letters.js:508` carries `INHERITS_FROM` for an inherit-typed `b` and `REFERENCES` for any other, as import nostr wires them (`import/_letters.js:227, 583`). EL12 pins it | item 4: yes |
+
+### The ten new deviations (story:270-281)
+
+| # | Deviation | Verdict |
+|---|---|---|
+| 1 | A `b` tag carries `INHERITS_FROM` or `REFERENCES` (story:272) | Accepted, and ratified as item 4. The `REFERENCES` half never changes a report: Amendment 1 item 1 leaves the `nostr` category's types out anyway. |
+| 2 | The locks are taken in one statement, in tapestryKey order, in `_concepts.js`'s shape (:273) | Accepted. It takes the exclusive lock `lockNode` takes, held to commit ("The record's locks", below). |
+| 3 | A letter no export sent is left, `raced` (:274) | Accepted. Item 1 speaks only of export's letters. Leaving another writer's letter is Decision 8's rule, and the next export answers `changed` and heals it. |
+| 4 | A replaced letter is the change's `was` (:275) | Accepted: it is the letter the node held before. |
+| 5 | An unread letter's change (:276) | Accepted, as item 1 says: in the entry, on no node, and found by `graph history` by its node. |
+| 6 | The guard's entry check, for an own node with or without a letter (:277) | Accepted as behaviour: it can't be fooled (below). But "It reads only the `export nostr` entries whose `keys` hold that node" is true of what the statement returns, not of what Neo4j reads (finding 15). |
+| 7 | `graph-not-followed` names the graph by key and name, not by address (:278) | **The report still names the graph**, as item 3 asks ("naming it and why"). Its `node` is the graph's tapestryKey. That is how all six older reports name their node, and `graph` takes it as a ref, so an agent can export the graph on its own as the words advise. The words add its name and the cap. **But the stated reason is the test's, not the design's.** EK7's `named` matches an address by substring, and a loose matcher shouldn't decide what the operation answers. So the helper should be tightened (finding 16, a test change for the Tester). After that, the report may carry `address` too, which the schema's field fits (`nostr.js:92`), at the owner's choice. Accepted as built. |
+| 8 | The send order (:279) | Accepted: item 2's order, as `_scope.js:345-414` has it. |
+| 9 | The import's time, `STOP_MS`, and no floor (:280) | Accepted: item 5 gives no floor. "The read-back never runs beside a live import" holds because the child is `strfry` itself, the compiled binary (`Dockerfile:35`), which SIGKILL ends at once. A wrapper script would leave its own child running, and the read-back would then run beside it after `STOP_MS`. |
+| 10 | A leading byte-order mark (:281) | Accepted: micromark skips one leading mark and no other. |
+
+### The record's locks (the brief's item 3)
+
+- **They serialize two records of one node.**
+  - `LOCK` (`_record.js:35-39`) sets `tapestryLock` and takes it off in one statement, the shape of the concept writes' lock (`_concepts.js:624`). Setting a property takes the node's exclusive lock, and Neo4j holds it until commit or rollback. So a second record's `LOCK` waits there.
+  - Its `HELD` read (`:91`) runs after the wait, in the same transaction, so it reads the first record's committed `id`. Its `sentByExport` reads the first record's entry, which committed with it.
+  - That closes round 1's lost update, where both records' `WHERE` read `n.id` without the lock.
+- **In one order.**
+  - `keys` is sorted (`:86`), and one `UNWIND` takes the locks row by row in that order.
+  - Every record takes all its locks in that first statement, before any other write. `probe-record.out` shows the lock first in every case, and keys given as 3, 1, 2 locked as 1, 2, 3.
+  - So two records can't wait on each other in a cycle.
+  - A record and a graph write can still deadlock, as any two writers can. Neo4j then fails one, and `executeWrite` runs it again (`src/operations/graph.js:8-10, 47`). The record's work does nothing outside its transaction.
+- **On a real Neo4j** (`tmp/live-check-34/nostr-live.log`, 03:53:57Z):
+  - LV5 fired two exports of one fresh concept together, from one process in the container. Both answered 200, and every node ended with a letter. LV6 accepted 497 letters in 2.03 s.
+  - The stack's seven export files hash as HEAD's (`r2-setup.log`, 03:53:02Z). Each source file was last written by 03:42:42Z, before the control panel restarted at 03:51:40Z, so the stack ran this code.
+  - LV5 shows the statements run with no failure. It doesn't show the wait, or which branch the second record took.
+
+### The guard's entry check (the brief's item 4)
+
+- **It can't be fooled into turning away a letter no export sent.**
+  - It answers yes only when an `export nostr` entry holds a `letter-sent` change whose `node` is that node and whose `now.id` is the letter's id (`_record.js:72`). The statement's `CONTAINS` only narrows the rows; the parse decides.
+  - An id is the hash of its letter, so no other letter has it.
+  - Only `_record.js` writes `export nostr` entries. It writes them for three kinds of letter: those the own relay accepted, those read back `unread`, and re-sends some relay accepted (`nostr.js:362-368`). A refused or unreachable letter is in none.
+  - EW2 pairs the recorded letter with a newer one no entry records, which is imported.
+- **Its read isn't bounded by a constant.** It scans every change entry (finding 15).
+
+### The import's time and kill (the brief's item 5)
+
+- **No orphan.** The child is the `strfry` binary, spawned without a shell (`_send.js:75`; `Dockerfile:35`). It is SIGKILLed at its time (`:83`), which ends it. `probe-kill.out` shows no stub process left after a kill.
+- **No read-back beside a live import.**
+  - The read-back starts when the import's child has closed.
+  - It doesn't start once the deadline has passed (`:114`). So an import killed at the deadline leaves every letter `unread`, recorded in the entry and on no node.
+  - `STOP_MS` matters only if a killed child takes more than 1 s to close.
+
+### The order (the brief's item 6)
+
+- **Kind first, then what each names within its kind.** `sendOrder` takes the ranks in order. `rankOrder` builds its graph from the names among one rank's letters only, so a name across ranks never holds a letter back. Ready groups go by depth, then key. That is item 2, and AC5 as amended.
+- **ES8** reads the order the letters went into the own relay, and checks it four ways: the kinds never go back; within a kind, each letter goes after what it names; a cycle goes by key; pet's header goes before its twelve core nodes and elements.
+
+### Docs (the brief's item 7)
+
+| Claim | Checked against | Holds |
+|---|---|---|
+| BIBLE §6 (:377): the lock before the record reads the `id`; a node set while its `id` is the one read, or it holds an older letter export sent; the newest kept; a newer export letter, or one no export sent, left, `raced` | `_record.js:89-103` | yes, but for finding 14's tie |
+| §6 (:378): the entry holds each letter some relay accepted, and each `unread` one, which no node records | `nostr.js:362-368`; `_record.js:82` | yes |
+| §6 (:380): the three importers turn away a letter the node holds, an older one, or one an entry records, even a newer one | `_own.js:43-56` | yes |
+| §11 (:610) and the catalog's row: `graph-not-followed` among the reports | `nostr.js:50`; `_scope.js:276` | yes |
+| §29 (:1991): what it finds, then the code-span exception | `markdownLinks.js` | yes |
+| `openapi.yaml:3624-3627, 3645, 3655-3660` | `eventSync.js:363-364` | yes |
+| ADR 0004's header (:5): RE1 catches a `.publish(` on a relay made with a class, or got from `_relay.js` | `relayPublisher`; `probe-re1.out` | yes |
+| ADR 0004 (:5): "the posture and RE1 hold for every other module" | `src/api/assistant/profilePublish.js:140, 154`; ADR 0034 Decision 11 | no: finding 17 |
+| `changes.js:50-54, 89`: a `letter-sent` change for each letter a relay accepted or read back `unread`; `raced` when the node held a newer letter another export sent, or one no export sent | `nostr.js:362-368`; `_record.js:96-109` | yes, but `raced` is also given for finding 14's tie, and for a node deleted meanwhile |
+| The declaration's description (`nostr.js:105-109`) and its result's (`:119`) | the code above | yes |
+
+### Nothing beyond the fixes (the brief's item 8)
+
+- **The fix commit** changes the 12 files the findings and Amendment 2 name, and no test.
+- **The test commit** changes only test files and the plan. Its helper changes are additive: `relayFake.js`'s `hang`, `cypherGraphFake.js`'s `set`, and `exportFixtures.js`'s `timeoutMs`, `exportEntry` and `graphNode`.
+- **The session's commits** change only the ADR and the story.
+- `_letters.js` and the three importers are as round 1 left them.
+- No added line holds key material, `nsec1`, console output or a TODO.
+
+### Findings (round 2)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+14. **`src/operations/catalog/export/_record.js:98-102` — when two exports sign the identical letter, the second's change says `raced`, and its relays aren't added to `sentTo`.**
+    - **How it happens.** Two exports of one node in the same second build the same tags and the same `created_at` (`nostr.js:330-331`), so they sign letters with the same id. LV5 fires two such calls.
+    - **What the record does.** The second record finds the node holding that id. It isn't the id the call read, and it isn't newer than itself (`newer`, `:63`). So the change says `raced`, and `sentTo` stays the first record's. In `probe-record.out`, case E, `wss://b` accepted the letter and isn't added.
+    - **Why it matters.** CHANGE (`changes.js:89`) and BIBLE.md:377 say `raced` means the node held a newer letter, or a letter no export sent. Neither is true here.
+    - **What isn't lost.** The node holds this very letter. A later export naming that relay re-sends the letter unchanged and adds it.
+    - **Optional:** treat a node that holds `l.now.id` as holding this letter, and add its relays as a re-send does, with no `raced`. A pin beside ES18 and ES19 would be the Tester's.
+15. **`src/operations/catalog/export/_record.js:55-58`, `_own.js:54-56` — the guard's entry read scans every change entry.**
+    - **Why.** The change entries are indexed on `at` and `byPubkey` only (`src/lib/tapestry-node-index.js:78-81`). So `MATCH (c:GraphChange {operation: $operation}) WHERE p.key IN c.keys …` is a label scan of every entry the instance has written, each graph write's included, for the one or two nodes the guard asks about.
+    - **When it runs.** For each own letter that the node's own letter doesn't settle: one newer than the node's, or one at a node with no letter. That is the event-update after each edit on the reading pages and the DList pages (`ui/src/pages/reading/writeVerbs.js:280`, `ui/src/pages/lists/DListOverview.jsx:83`), the brain-write after each Tapestries edit, and each such item of an I/O import.
+    - **What it costs.** It grows with the instance's history, not with the call. It is small today, and `graph history --node` filters entries the same way (`changes.js:205-213`). But it is now a step of three import paths, one scan per letter in a bulk I/O import.
+    - **The record.** The deviation (story:277) says it "reads only the `export nostr` entries whose `keys` hold that node". That is what it returns, not what it reads.
+    - **Optional:**
+      - an index on `GraphChange.operation`, made at start beside `graph_change_at`, so the scan covers export's entries only. That adds to ADR graph-operations-foundation/0004 Decision 5's list;
+      - or a ledger row naming the cost;
+      - and either way, the deviation's wording.
+16. **`test/operations/export/nostr-links.test.js:206` — EK7's `named` matches an address by substring, and that decided what the report says** (deviation 7; the Tester's).
+    - **The matcher.** `named` falls back to `X.mentions(rep, uuid)`, which is `JSON.stringify(rep).includes(uuid)` (`test/helpers/exportFixtures.js:588`).
+    - **What it does to the report.** `39999:<TA>:wide-w5` is a substring of `…:wide-w50`. So a `graph-not-followed` report carrying w50's address would also name w5, and EK7's "one report, naming one graph" would fail on a right answer. The Implementer, who may not change a test, left the address out.
+    - **A second use.** EK7 reads its `not-found` checks by substring too, and `…:wide-missing-1` is inside `…:wide-missing-10` to `-19`. So "the other 49 graphs' lists are followed" can pass for w1 when w1's list wasn't read.
+    - **Optional:** compare whole values, `rep.node === key || rep.address === uuid`, and the same for the `not-found` addresses. The report may then carry `address`, at the owner's choice.
+17. **`engineering-team/decisions/community-reference/0004-publish-export-a-concept.md:5` — "the posture and RE1 hold for every other module" isn't true of `src/api/assistant/`.**
+    - **The other publisher.** assistant-profile's `publishToRelays` sends EVENTs from the server to outside relays over `ws` (`src/api/assistant/profilePublish.js:140, 154`; assistant-profile ADR 0002, 2026-09-12), outside both excluded folders.
+    - **RE1 can't see it.** It calls no `.publish(`, so RE1 doesn't flag it. ADR 0034 Decision 11 says both.
+    - **The line contradicts itself.** It now calls export "another server-side publisher", which implies a third, then says the posture holds everywhere else. The dlist-curation line above it has said the same since 2026-09-10, two days before assistant-profile's ADR.
+    - **Optional:** name assistant-profile's sender as the exception RE1 doesn't see, as Decision 11 does.
+18. **`src/api/neo4j/eventSync.js:359-360`, `src/api/io.js:495-496`, `src/api/strfry/tapestryBrainWrite.js:65-67` — the guard's three call sites describe round 1's guard.**
+    - **What they say.** Each says it turns away a letter the node holds, or an older one. The brain-write hook's adds "A newer one, such as an edit in the Tapestries UI, is imported as before".
+    - **What it does now.** Since Amendment 2 item 1, a newer letter an `export nostr` entry records is turned away too (`_own.js:10-16`).
+    - **Optional:** say so, or point at `_own.js`.
+
+### Harness friction
+
+1. **Round 1's item is still unrecorded.** Test Design checked RE1's bite against a stub that didn't have the sender's shape. The `meta` row round 1 proposed, if the owner agrees, isn't in OPEN.md yet.
+2. **Finding 16 is another case of OPEN.md rows 116 and 174.** A test's proxy, here a substring matcher, stood against a right answer. The Implementer, who can't touch tests, shaped the output around it rather than sending the test back. That could be a line on row 174 rather than a row of its own.
+
+### On PASS (same commit)
+
+- [x] The story's `**Status:**` is flipped to `Done` in place. Its "Review:" link is already there (story:339).
+- [x] Completion detection was performed. Its result is in the chat, not in this file.
+- The commit is the session's: the Reviewer was asked to write this file and the story's status only.
+
+### Verdict (round 2)
+
+**PASS**
+- **Both blocking findings are resolved.** RE1 now catches a publisher built export's way, shown on three copies of the sender. AC7's outside relay is the owner's amendment, and its private-relay refusal ran by hand on HEAD's code.
+- **Each round-1 non-blocking finding is fixed** as Amendment 2 says. Where a test reads it, it is red on round 1's code and green on HEAD's.
+- **The record's locks serialize two records of one node,** in one key order, so they can't deadlock each other.
+- **Five non-blocking findings are new:**
+  - 14: an identical letter is marked `raced`;
+  - 15: the guard's read grows with the history;
+  - 16: EK7's substring matcher;
+  - 17: ADR 0004's header;
+  - 18: three stale comments.
+- **For the owner to ratify:** nothing new. Finding 14's fix is a judgment call inside Amendment 2 item 1. Finding 15's index would add to ADR graph-operations-foundation/0004 Decision 5's list.

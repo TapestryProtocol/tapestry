@@ -1,6 +1,6 @@
 # Story 34: `export nostr` — publish a scope as signed letters, and record what was sent
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 **Loom:** A10.34 — https://loom.brainstorm.world/t/A10.34
