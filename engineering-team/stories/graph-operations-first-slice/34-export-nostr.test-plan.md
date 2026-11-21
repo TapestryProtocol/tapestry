@@ -1,7 +1,7 @@
 # Test Plan: Story 34 — `export nostr`
 
 **Story:** `engineering-team/stories/graph-operations-first-slice/34-export-nostr.md` (as amended at Architecture)
-**ADR:** `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md` (accepted: Option A, with seven story amendments; its Amendment 1, at Test Design, approved by the owner with this plan, 2026-11-20; its Amendment 2, at Review, approved by the owner, 2026-11-21: see "Review round 1" below)
+**ADR:** `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md` (accepted: Option A, with seven story amendments; its Amendment 1, at Test Design, approved by the owner with this plan, 2026-11-20; its Amendment 2, at Review, approved by the owner, 2026-11-21: see "Review round 1" below; its Amendment 3, after review round 2, the owner's "Fix findings first", to ratify at the next gate: see "Review round 2" below)
 **Date:** 2026-11-20
 
 Every suite but one is stack-free:
@@ -31,6 +31,10 @@ All live under `test/operations/export/`, where `test/operations.test.js` finds 
 | AC5 (round 1): order by kind first | **ES8** (changed) headers, then supersets, then sets, then the rest; within a kind, after what of that kind it names, a cycle by tapestryKey; pet's header before all its core nodes and elements; a graph after the nodes it lists | `nostr-send.test.js` | operation |
 | AC6 (round 1): a letter an export recorded | **EW2** (changed) event-update turns away a newer letter an `export nostr` entry records for the node; on that graph, a newer one no entry records is imported. **EW5** (changed) `holdsLetterOrNewer` answers yes for the first, no for the second | `nostr-own.test.js` | operation, unit |
 | AC7 (round 1): the guard test | **RE1** (changed) flags a `.publish(` on a relay a file makes with a relay class or gets from import's `_relay.js`; checks first that it flags export's own `_send.js` by its text; passes on the tree | `test/publish-export-a-concept.test.js` | source sentinel |
+| AC1 and Decision 8 (round 2): the same letter twice | **ES20** two exports sign the same letter, one id, in the same second; the other records first (the graph fake's `meanwhile`); this call's record adds the relay that accepted it to `sentTo`, its change not `raced`, and its `sentIds` lists the letter once | `nostr-send.test.js` | operation |
+| AC6 and Decisions 8 and 10 (round 2): what the record leaves, `sentIds` | **ES21** after the chain, each node lists the letter the first export sent, Tom both of his, and a re-send adds none. **ES22** an `unread` letter is listed, its node holding no letter. **ES23** a raced letter and the newer one it lost to are both listed, and so are a replaced letter and the one replacing it. **ES24** after 21 letters for one node, the newest 20, each once. **ES1** (changed: its node check) leaves `sentIds` out beside `id`, `created_at` and `sentTo`. **ES18**, **ES19** (changed: their fixture) the other export also leaves its letter in `sentIds` | `nostr-send.test.js` | operation |
+| AC6 (round 2): the guard reads only the node | **EW2** (changed) event-update turns away a newer letter the node's `sentIds` lists, with no entry recording it; a newer one it doesn't list is imported. **EW5** (changed) yes for a letter `sentIds` lists, a newer one or one at a node with no letter; no for a newer one none lists. **EW6** none of the guard's statements matches a `GraphChange` node, though it answered every case; a newer letter only an entry records gets no | `nostr-own.test.js` | operation, unit |
+| AC1 (round 2): `graph-not-followed` names the address | **EK7** (changed) reports matched to their graph by exact key or address, `not-found` reports by exact node and address; the `graph-not-followed` report carries the graph's `address` beside its key and name | `nostr-links.test.js` | operation |
 
 ### Sending and its classes (Decision 6)
 
@@ -76,6 +80,11 @@ All live under `test/operations/export/`, where `test/operations.test.js` finds 
 - **(Round 1) The record's write lock** (Amendment 2 item 1: each node's lock taken before its `id` is read). The graph fake runs one transaction at a time, so no two records interleave stack-free. ES18 and ES19 race a record against another that committed first, just before its first write to the node; the live check's LV5 fires two exports together, and the Reviewer reads the lock.
 - **(Round 1) The record's tie rule, and whose letter the node held.** ES18 and ES19 race letters a minute apart, each the other export's, recorded in its entry. Two letters of one second (the lower id kept), and a record that finds a letter no export sent, aren't raced.
 - **(Round 1) That the real `strfryImport` kills its child** when the call's time runs out. The suites replace the seam, and ES17's fake never resolves, whatever it is given, so the bound must hold where the call waits for the import. A stub executable that hangs would outlive a run whose code doesn't kill it. The Reviewer reads the kill.
+- **(Round 2) The order of `sentIds`.** The suites read it as a set, each id once. ES24's 21 letters go out one after another in time order, so its newest 20 are the same by `created_at` and by the order they were recorded.
+- **(Round 2) How the record tells that export sent the letter a node holds.** ES18, ES19 and ES20 seed both the other export's entry and its `sentIds`, so they hold whichever of the two the record reads.
+- **(Round 2) A raced record against a letter no export sent.** ES23 races only against another export's letters. The raced letter is listed by the same rule either way.
+- **(Round 2) A read of entries with no `GraphChange` node pattern,** such as `MATCH (c) WHERE c:GraphChange`. EW6's statement check doesn't see one, but its last case does: such a read answers yes for the letter only an entry records.
+- **(Round 2) The docs.** No test reads BIBLE §6, the catalog row, the declaration's words or the three importers' comments (findings 17 and 18) for `sentIds`. EN15 still reads BIBLE §6 for `sentTo`.
 - **The exact cap values** (2,000, 500, 40 s, 30 s, 5 s, 8 in flight). Suites shrink them through the seams, and the live check measures the real ones.
 - **The words of each refusal and report,** beyond naming the input or node. A rewrite of the wording breaks no test.
 - **Which micromark events the helper walks.** ML1–ML9 pin what it finds and how it rewrites.
@@ -245,6 +254,81 @@ Seven tests are new: ML10, EK7, EK8, EL12, ES17, ES18 and ES19. Six are changed:
         one graph-not-followed report, naming g5, five levels below; got []
   FAIL  EK8 … an element field whose markdown starts with a byte-order mark has its tapestry: link rewritten in the letter, the mark kept
         no tapestry: is left in the letter; got "<U+FEFF>see [the dog concept](tapestry:cbf1abed-8ffb-4368-970b-1004a1b10c00) here"
+```
+
+## Review round 2 (2026-11-21)
+
+Review round 2 (the review's "Round 2") passed, with five non-blocking findings. The owner chose "Fix findings first". Three of the findings change a decision, and became ADR 0034's Amendment 3, to ratify at the next gate. Tests come first, before the fixes. Each new or changed test below fails on the code at `7bbf7d6c` for the reason named, or is labelled as passing now. Findings 17 (ADR 0004's header) and 18 (the three importers' comments) are the docs', the Implementer's, and no test reads them.
+
+| Finding (Amendment 3 item) | Test | What it does | Fails now because |
+|---|---|---|---|
+| 14 (item 1): the same letter twice is `raced` | **ES20** (`nostr-send.test.js`) | Two exports of Fido, the same content in the same second. The other export runs first, alone, on a copy of the same graph with the same `now()`, so its letter's id is this call's by construction, not a fixture's guess. This call then runs on a fresh copy, to the own relay and accepts. The graph fake's `meanwhile`, as in ES18 and ES19, commits the other export's record just before this call's first write to Fido: his `id`, `created_at`, `sentTo: ['own']`, `sentIds` listing the letter, and that export's entry, written by `recordChange`. Asserts `meanwhile` fired, this call signed the same id and both relays accepted it, and Fido holds it. His `sentTo` is own and accepts, the change isn't `raced`, and `sentIds` lists the letter once | `sentTo` stays `['own']` (and the change is `raced`) |
+| 15 (item 2): what the record leaves on the node | **ES21**, **ES22**, **ES23**, **ES24** (`nostr-send.test.js`) | **ES21** reads the chain. After A1, each of the 20 nodes lists its one letter. After A4, Tom, signed again, lists both of his, and the rest are as A1 left them. A5's re-send adds no id. **ES22** runs ES13's case on its own: each `unread` letter is listed, and its node holds no `id` and no `sentTo`. **ES23** reads ES18's and ES19's races. Rex lists the other export's newer letter and this call's raced one; Tom lists the older letter replaced and this call's. **ES24** exports Fido 21 times in one run, `update-node` before each but the first. The setup asserts all 21 letters accepted, each newer than the last. His `sentIds` lists the newest 20, each once, and not the first | no node has `sentIds` (ES23: Rex lists only the other export's letter, the one its fixture gave him) |
+| 15 (item 2): the guard reads only the node | **EW2**, **EW5** (changed), **EW6** (`nostr-own.test.js`) | EW2 and EW5 seed what the record now leaves on the node, `sentIds` (`exportFixtures.js`'s `withSentIds`), where round 1 seeded an `export nostr` entry. **EW2**: Rex's `sentIds` lists his letter and one 50 s newer. The setup asserts no entry records the newer one. event-update turns it away, unchanged, writing nothing; a letter 60 s newer that the list doesn't name is imported. **EW5**: dog's Rex lists a letter 50 s newer, and pet's Tom, an own node with no letter, lists one at his address. Each is yes. A newer letter neither lists is no, and every other case is as before. **EW6** shares EW5's run. Its graph also holds an entry recording a letter 70 s newer that no `sentIds` lists. It asserts the guard ran and answered every case, and read the node (the held letter is yes). None of the statements it ran matches a `GraphChange` node pattern: those are the child's log, every statement through the graph seam's read, each run on the Cypher engine. The letter only the entry records is no | EW2: event-update imports the listed letter, `action: updated`. EW5: `false` for it. EW6: 6 of its 17 statements are the entry scan, `MATCH (c:GraphChange {operation: $operation})` |
+| 16 (item 3): EK7's substring matcher | **EK7** (changed; `nostr-links.test.js`) | `named` compares whole values: `rep.node === key`, or `rep.address === uuid`. The `not-found` checks compare `node` and `address` whole. The `graph-not-followed` report carries the graph's key as `node`, its `address`, and its name (in `words`, or as `name`) | the report has no `address` |
+
+**Also changed, passing now and after.** None of these changes an assertion:
+- ES1's `kept` leaves `sentIds` out, beside `id`, `created_at` and `sentTo`. Without that, ES1 fails on the right answer ("nothing else on the node changed").
+- ES18's and ES19's `meanwhile` also give the node `sentIds` listing the other export's letter, as Amendment 3's record leaves it. With the old fixture, ES19 fails if the record tells export's letters by `sentIds`, though that is a right answer.
+
+**Helpers, additively.** `exportFixtures.js` gains `withSentIds(state, key, ids)`, a copy of the graph whose node holds those `sentIds`, set by one `SET` on the Cypher engine, and `sentIdsOf(s, key)`. Nothing else in a helper changed, and only this round's tests use them. The other export suites that load the file were run again alone (below).
+
+**The tests fail only for the missing behaviour.** A throwaway copy of the tree in the session's scratchpad, its `node_modules` linked, got a minimal stand-in for each item:
+- the record: a node already holding the call's own letter gets the accepted relays added, not `raced`; `sentIds` gets each accepted, raced or `unread` letter's id, once each, the newest 20 kept; and it tells export's letters by `sentIds`;
+- the guard: the node's `sentIds` read with its letter, and no entry read;
+- `graph-not-followed` carries the graph's `address`.
+
+Every changed suite then passed: nostr-own 6/0, nostr-send 24/0, nostr-links 8/0. Then each behaviour was broken in turn, and the test meant to catch it failed, every other test passing:
+- no cap: ES24 (21 ids, the first among them);
+- the oldest 20 kept: ES24 (the first among them, one of the newest missing);
+- a raced letter left out: ES23 (Rex lists only the other export's letter);
+- an `unread` letter left out: ES22;
+- an id listed twice: ES20 (the tie's letter twice);
+- a re-send's id added too, with no check for one listed: ES20 and ES21;
+- the tie `raced` again: ES20 (`sentTo` stays `['own']`);
+- the guard falling back to the entry scan when the node doesn't settle it: EW6 (5 of its 16 statements);
+- `sentIds` read only at a node with a letter: EW5 (pet's Tom answered no);
+- the guard reading entries through `MATCH (c) WHERE c:GraphChange …`, which the statement check doesn't see: EW6's last case (the letter only an entry records answered yes).
+
+Each test changed only in its fixture or helper was then put back as HEAD has it, on the stand-ins, and failed on the right answer:
+- ES18's and ES19's fixture without `sentIds`: ES19 (the node kept the older letter), and ES23 with it;
+- ES1's `kept` as HEAD has it: ES1 (pet's header "changed": its new `sentIds`);
+- EK7 as HEAD has it. The report carried `…:wide-w50`'s address, and the substring matcher found it naming `wide-w5` too, which is finding 16 reproduced.
+
+The stand-ins (`standins.diff`, against `src/`), the mutation script and its output, and each suite's last run are in the ignored `tmp/a10-34/round2-tests/`.
+
+**Counts now,** each suite alone, every endpoint dead, the stubs first on `PATH`, at `7bbf7d6c` with these files uncommitted:
+
+| Suite | Before round 2 | Now | Failing now | Time now / with the stand-ins |
+|---|---|---|---|---|
+| `nostr-own` | 5 / 0 | 3 / 3 | EW2, EW5, EW6 | 6 s / 7 s |
+| `nostr-links` | 8 / 0 | 7 / 1 | EK7 | 7 s / 7 s |
+| `nostr-send` | 19 / 0 | 19 / 5 | ES20, ES21, ES22, ES23, ES24 | 26 s / 27 s |
+| `nostr` (unchanged; loads the helper) | 15 / 0 | 15 / 0 | none | 5 s |
+| `nostr-letters` (the same) | 12 / 0 | 12 / 0 | none | 8 s |
+| `nostr-agent-through-cli` (the same) | 1 / 0 | 1 / 0 | none | 2 s |
+
+Six tests are new: ES20 to ES24, and EW6. Six are changed: EW2, EW5 and EK7, which fail now, and ES1, ES18 and ES19, which pass. Nine fail; every other test passes as before. `bash scripts/harness-lint.sh` is clean. Ids and keys are shortened here:
+
+```
+  FAIL  ES20 … a record that finds its node already holding this very letter, which another export signed in the same second, adds the relay that accepted it to sentTo, and its change isn't raced
+        his sentTo gains the relay that accepted the letter in this call: own and wss://accepts.example.com; got ["own"]
+  FAIL  ES21 … a node an export sent a letter for holds sentIds listing it: …
+        after the first export, each of the 20 nodes' sentIds lists its letter, which the own relay accepted; not for 20: [["cf0cf422-…","f4f81777…",null],…]
+  FAIL  ES22 … a letter whose read-back didn't answer (unread) may be on the own relay, so its node's sentIds lists it, …
+        6aec8ab8-…: its sentIds lists the unread letter, 9904bd5f…; got undefined
+  FAIL  ES23 … over ES18's and ES19's races, sentIds lists a raced record's letter and the newer one it lost to, …
+        Rex, whose record raced and left the other export's newer letter: his sentIds lists that letter and this call's, which the own relay holds; got ["5a7e6135…"]
+  FAIL  ES24 … sentIds is capped at 20, the newest kept: …
+        Fido's sentIds lists the newest 20 of his 21 letters, each once, and not the first; got undefined
+  FAIL  EW2 … event-update at an exported node answers unchanged for its letter, an older one, and a newer one the node's sentIds lists, …
+        a newer letter the node's sentIds lists: event-update answers success and unchanged; got {"status":200,"body":{"success":true,"action":"updated",…}}
+  FAIL  EW5 … holdsLetterOrNewer answers yes for … a letter the node's sentIds lists, a newer one or one at a node with no letter; …
+        (round 2) a newer version the node's sentIds lists, as an export whose read-back didn't answer leaves it: yes; got false
+  FAIL  EW6 … holdsLetterOrNewer reads no change entry: …
+        none of its statements matches a change entry, so what it reads doesn't grow with the graph's history; ran 6 of 17 that do: ["UNWIND $pairs AS p MATCH (c:GraphChange {operation: $operation}) WHERE p.key IN c.keys AND c.changes CONTAINS p.id RETURN p.key AS key, p.id AS id, c.changes AS changes"]
+  FAIL  EK7 … reported graph-not-followed, matched to it by its exact key or address, the report carrying its address beside its key and name
+        the report carries g5's key as its node, its address, 39999:2428bd13…:deep-g5, and its name, deep-g5; got {"report":"graph-not-followed","node":"cb4fa5ba-…","words":"The graph \"deep-g5\" (cb4fa5ba-…) is sent as it is, …"}
 ```
 
 ## Verification

@@ -29,7 +29,10 @@
  *   EK7  (item 3, finding 6) a graph past the fourth level of imports (g5 of a chain g0 → … → g5), and the 51st graph
  *        (of w0 and its 50 imports), are each sent with their lists unfollowed, and each reported graph-not-followed,
  *        once, naming it; the graphs before them are followed. The caps are _scope.js's module constants, which no
- *        suite can reach, so the graphs are built to size
+ *        suite can reach, so the graphs are built to size. (Changed at review round 2, Amendment 3 item 3; finding 16)
+ *        a report is matched to its graph by its exact key or address, never by a substring (…:wide-w5 is inside
+ *        …:wide-w50), and the not-found reports by their exact node and address (…:wide-missing-1 is inside
+ *        …:wide-missing-10); the graph-not-followed report carries the graph's address beside its key and name
  *   EK8  (finding 5) an element's field whose markdown starts with a byte-order mark, set by graph update-node: its
  *        link to dog's header is its naddr in the letter, the mark kept, no tapestry: left
  */
@@ -195,17 +198,24 @@ function follow() {
 }
 const notFollowed = (d) => X.reportsOf(d, 'graph-not-followed');
 
-test('EK7 [AC1 and Decision 9, as amended at Review: Amendment 2 item 3; review round 1, finding 6] (round 1): a graph past the fourth level of imports, and the 51st graph, are each sent with their lists unfollowed and reported graph-not-followed, naming it', async () => {
+test('EK7 [AC1 and Decision 9, as amended at Review: Amendment 2 item 3, and after review round 2: Amendment 3 item 3; findings 6 and 16] (changed at round 2): a graph past the fourth level of imports, and the 51st graph, are each sent with their lists unfollowed and reported graph-not-followed, matched to it by its exact key or address, the report carrying its address beside its key and name', async () => {
   const { w, k, g, wide, w0, r } = await follow();
+  // (round 2, finding 16) Whole values only: a report names a graph by its key (its node) or its address, compared
+  // whole, since …:wide-w5 is a substring of …:wide-w50.
+  const uuidOf = (key) => X.nodeByKey(r.state(), key).props.uuid;
+  const nameOf = (key) => X.nodeByKey(r.state(), key).props.name;
+  const named = (rep, key) => rep.node === key || rep.address === uuidOf(key);
+  // (round 2, Amendment 3 item 3) The report carries the graph's key as its node, its address, and its name.
+  const carries = (rep, key) => rep.node === key && rep.address === uuidOf(key) && (rep.name === nameOf(key) || String(rep.words).includes(nameOf(key)));
   // The deep one: g5, five levels below g0.
   const deep = X.data(r, 'deep');
   const keys = X.lettersOf(deep).map(X.keyOf);
   assert(['g0', 'g1', 'g2', 'g3', 'g4', 'g5'].every((n) => keys.includes(g[n])) && keys.includes(k.fido), `g0 to g5 are sent, and Fido, whom g4 four levels down lists; got ${show(keys)}`);
   assert(!keys.includes(k.spot) && !keys.includes(g.g6), `g5's lists aren't followed: neither Spot, which it lists, nor g6, which it imports, is in the scope; got ${show(keys)}`);
   assert((X.relayOf(X.letterFor(deep, g.g5), 'own') || {}).status === 'accepted', `g5 itself is sent; got ${show(X.letterFor(deep, g.g5))}`);
-  const named = (rep, key) => X.mentions(rep, key) || X.mentions(rep, X.nodeByKey(r.state(), key).props.uuid);
   const deepReports = notFollowed(deep);
   assert(deepReports.length === 1 && named(deepReports[0], g.g5), `one graph-not-followed report, naming g5, five levels below; got ${show(deepReports)}`);
+  assert(carries(deepReports[0], g.g5), `the report carries g5's key as its node, its address, ${uuidOf(g.g5)}, and its name, ${nameOf(g.g5)}; got ${show(deepReports[0])}`);
   // The wide one: the 51st graph of w0 and its 50 imports.
   const wideAnswer = X.data(r, 'wide');
   const sent = X.lettersOf(wideAnswer).map(X.keyOf);
@@ -213,10 +223,14 @@ test('EK7 [AC1 and Decision 9, as amended at Review: Amendment 2 item 3; review 
   const wideReports = notFollowed(wideAnswer);
   const left = wide.filter((x) => wideReports.some((rep) => named(rep, x.key)));
   assert(wideReports.length === 1 && left.length === 1, `one graph-not-followed report, naming the one graph past the 50th; got ${show(wideReports)}`);
+  assert(carries(wideReports[0], left[0].key), `the report carries that graph's key as its node, its address, ${uuidOf(left[0].key)}, and its name, ${nameOf(left[0].key)}; got ${show(wideReports[0])}`);
+  // (round 2, finding 16) A not-found report is the graph's own when its node is that graph and its address is what
+  // that graph lists, each compared whole: …:wide-missing-1 is a substring of …:wide-missing-10 to -19.
   const nf = X.reportsOf(wideAnswer, 'not-found');
-  assert(!nf.some((rep) => X.mentions(rep, left[0].missing)), `its list isn't followed: what it lists isn't looked for; got ${show(nf.filter((rep) => X.mentions(rep, left[0].missing)))}`);
+  const reportsOwn = (x) => nf.some((rep) => rep.node === x.key && rep.address === x.missing);
+  assert(!nf.some((rep) => rep.address === left[0].missing), `its list isn't followed: what it lists isn't looked for; got ${show(nf.filter((rep) => rep.address === left[0].missing))}`);
   const read = wide.filter((x) => x !== left[0]);
-  const unread = read.filter((x) => !nf.some((rep) => X.mentions(rep, x.missing)));
+  const unread = read.filter((x) => !reportsOwn(x));
   assert(unread.length === 0, `the other 49 graphs' lists are followed: each reports not-found for what it lists; not for ${show(unread.map((x) => x.i))}`);
   void w;
 });

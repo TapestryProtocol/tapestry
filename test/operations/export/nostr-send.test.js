@@ -62,6 +62,20 @@
  *        change says raced
  *   ES19 (item 1, finding 3) the same with an older letter: the node keeps the newest letter export sent, this call's,
  *        and its change isn't raced
+ *        (Round 2) ES18's and ES19's other export also leaves its letter in the node's sentIds, as Amendment 3 item 2's
+ *        record would; their assertions are as they were. ES1's node check leaves sentIds out, beside id, created_at and
+ *        sentTo, since the record now sets it
+ *   Review round 2 (ADR 0034 Amendment 3):
+ *   ES20 (item 1, finding 14) two exports sign the same letter, one id, in the same second: the other records first (the
+ *        graph fake's meanwhile, as ES18's); this call's record, finding the node holding this very letter, adds the
+ *        relay that accepted it to sentTo, its change not raced, its sentIds listing the letter once
+ *   ES21 (item 2, finding 15) sentIds after the chain: each node lists the letter the first export sent; Tom, signed again,
+ *        both his; a re-send of the same letters adds none
+ *   ES22 (item 2) a letter whose read-back didn't answer (unread) is listed in its node's sentIds, the node holding no
+ *        letter and no sentTo
+ *   ES23 (item 2) over ES18's and ES19's races: the raced letter and the newer one it lost to are both listed, and so are
+ *        the older letter replaced and the one replacing it
+ *   ES24 (item 2) the cap: after 21 letters for one node, its sentIds lists the newest 20, each once, not the first
  */
 
 const crypto = require('crypto');
@@ -81,10 +95,13 @@ const AHEAD = 1900000000;
 const ACCEPTS = X.URL_OF('accepts');
 const HEX64 = /^[0-9a-f]{64}$/;
 const sorted = (o) => Object.keys(o).sort().reduce((x, k) => { x[k] = o[k]; return x; }, {});
-/** A node as an export must leave it, but for its letter: its labels, and its properties less id, created_at and sentTo. */
+/**
+ * A node as an export must leave it, but for its letter: its labels, and its properties less id, created_at, sentTo and
+ * (round 2, Amendment 3 item 2) sentIds, which the record sets.
+ */
 function kept(n) {
-  const { id, created_at: at, sentTo, ...rest } = n.props;
-  void id; void at; void sentTo;
+  const { id, created_at: at, sentTo, sentIds, ...rest } = n.props;
+  void id; void at; void sentTo; void sentIds;
   return { labels: [...n.labels].sort(), props: sorted(rest) };
 }
 function relsAround(s, n) {
@@ -537,13 +554,14 @@ function races() {
     const state = X.copy(w.state);
     // Two exports of a node read it before either records. Here the other one records first: just before this call's
     // first write to the node (its lock, or its record), another transaction gives the node the other export's letter
-    // and writes that export's entry, made by changes.js's recordChange (the graph fake's meanwhile, with set).
+    // and writes that export's entry, made by changes.js's recordChange (the graph fake's meanwhile, with set). (Round 2)
+    // It also leaves that letter in the node's sentIds, as Amendment 3 item 2's record would.
     const newer = raceLetter('newer, for Rex', AHEAD + 60);
     const older = raceLetter('older, for Tom', AHEAD - 60);
     const meanwhile = [];
     for (const [key, letter] of [[k.rex, newer], [k.tom, older]]) {
       const { labels, props } = await X.exportEntry({ letters: [{ node: key, address: X.nodeByKey(state, key).props.uuid, kind: 39999, was: null, now: letter }] });
-      meanwhile.push({ match: key, set: [{ key, props: { id: letter.id, created_at: letter.created_at, sentTo: ['own'] } }], add: [{ labels, props }] });
+      meanwhile.push({ match: key, set: [{ key, props: { id: letter.id, created_at: letter.created_at, sentTo: ['own'], sentIds: [letter.id] } }], add: [{ labels, props }] });
     }
     state.failures = { ...(state.failures || {}), meanwhile };
     const r = X.runExport({ state, ownEvents: w.ownEvents, lmdb: w.lmdb, exportTiming: { NOW: AHEAD }, label: 'export-nostr-races', requests: [exp('rex', 'owner', { node: k.rex }), exp('tom', 'owner', { node: k.tom })] });
@@ -577,6 +595,127 @@ test('ES19 [Decision 8 as amended at Review: Amendment 2 item 1; review round 1,
     `the node holds this call's letter, ${l.id} at ${AHEAD}, the newer of the two, not the other export's, ${older.id} at ${older.created_at}; got ${show({ id: n.id, created_at: n.created_at, sentTo: n.sentTo })}`);
   const c = changeFor(d, k.tom);
   assert(c && c.raced !== true && c.now && c.now.id === l.id, `the call's change for it isn't raced; got ${show(c)}`);
+});
+
+// ── Review round 2 ──
+
+/** Whether `ids` lists each of `want` once, and nothing else (in any order: the list's order isn't pinned). */
+const listsEach = (ids, want) => Array.isArray(ids) && ids.length === want.length && X.sameSet(ids, want);
+const sentIdsShown = (s, key) => show(X.sentIdsOf(s, key));
+
+let TIE = null;
+/**
+ * (Amendment 3 item 1, finding 14) Two exports of Fido sign identical content in the same second, so both letters have
+ * one id. The other export runs first, alone, on a copy of the same graph with the same now(), so its letter's id is
+ * this call's by construction, not a fixture's guess. This call then runs on a fresh copy, sending to the own relay and
+ * accepts. Just before its first write to Fido, the graph fake's meanwhile commits the other export's record, as ES18's
+ * does: Fido given that letter, sentTo ['own'] (the other sent to the own relay only) and sentIds listing it, and that
+ * export's entry, made by changes.js's recordChange.
+ */
+function tie() {
+  if (TIE) return TIE;
+  TIE = (async () => {
+    X.needDecl();
+    const w = await X.world();
+    const k = w.keys;
+    const first = X.runExport({ state: X.copy(w.state), ownEvents: w.ownEvents, lmdb: w.lmdb, exportTiming: { NOW: AHEAD }, label: 'export-nostr-tie-first', requests: [exp('first', 'owner', { node: k.fido })] });
+    const other = X.letterFor(X.data(first, 'first'), k.fido);
+    assert(other && HEX64.test(String(other.id)) && (X.relayOf(other, 'own') || {}).status === 'accepted', `the other export, run first on a copy, sent Fido's letter to the own relay; got ${show(other)}`);
+    const state = X.copy(w.state);
+    const letter = { id: other.id, created_at: other.created_at };
+    const { labels, props } = await X.exportEntry({ letters: [{ node: k.fido, address: w.addr.fido, kind: other.kind, was: null, now: letter }] });
+    state.failures = { ...(state.failures || {}), meanwhile: [{ match: k.fido, set: [{ key: k.fido, props: { id: letter.id, created_at: letter.created_at, sentTo: ['own'], sentIds: [letter.id] } }], add: [{ labels, props }] }] };
+    const r = X.runExport({ state, ownEvents: w.ownEvents, lmdb: w.lmdb, relays: { [ACCEPTS]: F.relay([]) }, exportTiming: { NOW: AHEAD }, label: 'export-nostr-tie', requests: [exp('tie', 'owner', { node: k.fido, relays: [ACCEPTS] })] });
+    return { w, k, other, r, after: r.state() };
+  })();
+  return TIE;
+}
+
+test('ES20 [Decision 8 as amended after review round 2: Amendment 3 item 1; finding 14] (round 2): a record that finds its node already holding this very letter, which another export signed in the same second, adds the relay that accepted it to sentTo, and its change isn\'t raced', async () => {
+  const { k, other, r, after } = await tie();
+  const d = X.data(r, 'tie');
+  const l = X.letterFor(d, k.fido);
+  assert(fired(after, k.fido), 'the other export recorded Fido first, before this call\'s first write to him');
+  assert(l && l.outcome === 'new' && l.id === other.id && (X.relayOf(l, 'own') || {}).status === 'accepted' && (X.relayOf(l, ACCEPTS) || {}).status === 'accepted',
+    `this call signed the same letter, ${other.id}, and the own relay and accepts accepted it; got ${show(l)}`);
+  const n = X.nodeByKey(after, k.fido).props;
+  assert(n.id === other.id && X.plain(n.created_at) === other.created_at, `Fido holds that letter; got ${show({ id: n.id, created_at: n.created_at })}`);
+  assert(listsEach(n.sentTo, ['own', ACCEPTS]), `his sentTo gains the relay that accepted the letter in this call: own and ${ACCEPTS}; got ${show(n.sentTo)}`);
+  const c = changeFor(d, k.fido);
+  assert(c && c.raced !== true && c.now && c.now.id === other.id, `the call's change for him isn't raced: the node holds this very letter, not a newer one or one no export sent; got ${show(c)}`);
+  assert(Array.isArray(n.sentIds) && n.sentIds.filter((x) => x === other.id).length === 1, `his sentIds lists the letter once; got ${show(n.sentIds)}`);
+});
+
+test('ES21 [Decisions 8 and 10 as amended after review round 2: Amendment 3 item 2; finding 15] (round 2): a node an export sent a letter for holds sentIds listing it: after the first export its one letter; after Tom is signed again both of his; a re-send of the same letters adds none', async () => {
+  const { a1, a4, a5, afterA1, afterA4, afterA5, scope, k } = await chain();
+  const first = X.lettersOf(X.data(a1, 'a1'));
+  const unlisted = first.filter((l) => !listsEach(X.sentIdsOf(afterA1, X.keyOf(l)), [l.id]));
+  assert(first.length === 20 && unlisted.length === 0, `after the first export, each of the 20 nodes' sentIds lists its letter, which the own relay accepted; not for ${unlisted.length}: ${show(unlisted.slice(0, 3).map((l) => [X.keyOf(l), l.id, X.sentIdsOf(afterA1, X.keyOf(l))]))}`);
+  const tom1 = X.letterFor(X.data(a1, 'a1'), k.tom);
+  const tom2 = X.letterFor(X.data(a4, 'a4'), k.tom);
+  assert(tom1 && tom2 && tom2.outcome === 'changed' && tom2.id !== tom1.id, `the setup: Tom was signed again; got ${show(tom2)}`);
+  assert(listsEach(X.sentIdsOf(afterA4, k.tom), [tom1.id, tom2.id]), `after Tom is signed again, his sentIds lists both his letters, each once; got ${sentIdsShown(afterA4, k.tom)}`);
+  const moved = scope.filter((key) => key !== k.tom && !listsEach(X.sentIdsOf(afterA4, key), X.sentIdsOf(afterA1, key) || []));
+  assert(moved.length === 0, `every other node's sentIds is as the first export left it; not ${show(moved)}`);
+  const resent = X.lettersOf(X.data(a5, 'a5'));
+  const grew = scope.filter((key) => !listsEach(X.sentIdsOf(afterA5, key), X.sentIdsOf(afterA4, key) || []));
+  assert(resent.length === 20 && resent.every((l) => l.outcome === 'unchanged') && grew.length === 0, `the same letters re-sent to accepts add no id to any sentIds; not for ${show(grew.map((key) => [key, X.sentIdsOf(afterA5, key)]))}`);
+});
+
+test('ES22 [Decision 8 as amended after review round 2: Amendment 3 item 2] (round 2): a letter whose read-back didn\'t answer (unread) may be on the own relay, so its node\'s sentIds lists it, the node holding no letter and no sentTo', async () => {
+  X.needDecl();
+  const w = await X.world();
+  const r = classRun(w, { own: { silentAfterImport: true }, timing: { REQUEST_MS: 800 }, label: 'export-nostr-es22' });
+  const letters = X.lettersOf(X.data(r, 'send'));
+  assert(letters.length === 3 && letters.every((l) => (X.relayOf(l, 'own') || {}).status === 'unread' && HEX64.test(String(l.id))), `the setup: three letters, each unread; got ${show(letters.map((l) => [X.keyOf(l), l.id, l.relays]))}`);
+  for (const l of letters) {
+    const key = X.keyOf(l);
+    assert(!recorded(r.state(), key), `${key}: the node holds no letter and no sentTo, so nothing is claimed for it`);
+    assert(listsEach(X.sentIdsOf(r.state(), key), [l.id]), `${key}: its sentIds lists the unread letter, ${l.id}; got ${sentIdsShown(r.state(), key)}`);
+  }
+});
+
+test('ES23 [Decision 8 as amended after review round 2: Amendment 3 item 2] (round 2): over ES18\'s and ES19\'s races, sentIds lists a raced record\'s letter and the newer one it lost to, and an older letter replaced and the one replacing it', async () => {
+  const { k, r, newer, older, after } = await races();
+  const rex = X.letterFor(X.data(r, 'rex'), k.rex);
+  const tom = X.letterFor(X.data(r, 'tom'), k.tom);
+  assert(fired(after, k.rex) && fired(after, k.tom) && [rex, tom].every((l) => l && (X.relayOf(l, 'own') || {}).status === 'accepted'), `the setup: both races ran, and each call's letter went into the own relay; got ${show([rex, tom])}`);
+  assert(listsEach(X.sentIdsOf(after, k.rex), [newer.id, rex.id]), `Rex, whose record raced and left the other export's newer letter: his sentIds lists that letter and this call's, which the own relay holds; got ${sentIdsShown(after, k.rex)}`);
+  assert(listsEach(X.sentIdsOf(after, k.tom), [older.id, tom.id]), `Tom, whose record replaced the other export's older letter: his sentIds lists both; got ${sentIdsShown(after, k.tom)}`);
+});
+
+let MANY = null;
+/** (Amendment 3 item 2) Fido exported 21 times in one run, graph update-node changing his description before each but the first. */
+function many() {
+  if (MANY) return MANY;
+  MANY = (async () => {
+    X.needDecl();
+    const w = await X.world();
+    const k = w.keys;
+    const requests = [];
+    for (let i = 0; i < 21; i += 1) {
+      if (i > 0) requests.push(X.op(`edit${i}`, 'update-node', { node: k.fido, concept: k.petHeader, fields: { description: `a loyal one, edit ${i}` } }));
+      requests.push(exp(`e${i}`, 'owner', { node: k.fido }));
+    }
+    const r = X.runExport({ state: X.copy(w.state), ownEvents: w.ownEvents, lmdb: w.lmdb, exportTiming: { NOW: AHEAD }, label: 'export-nostr-cap', requests });
+    return { w, k, r, after: r.state() };
+  })();
+  return MANY;
+}
+
+test('ES24 [Decision 8 as amended after review round 2: Amendment 3 item 2] (round 2): sentIds is capped at 20, the newest kept: after 21 letters for one node, it lists the newest 20, each once, and not the first', async () => {
+  const { k, r, after } = await many();
+  const letters = [];
+  for (let i = 0; i < 21; i += 1) {
+    if (i > 0) X.data(r, `edit${i}`);
+    letters.push(X.letterFor(X.data(r, `e${i}`), k.fido));
+  }
+  assert(letters.every((l, i) => l && l.outcome === (i === 0 ? 'new' : 'changed') && (X.relayOf(l, 'own') || {}).status === 'accepted') && new Set(letters.map((l) => l.id)).size === 21,
+    `the setup: 21 letters for Fido, each signed and accepted by the own relay; got ${show(letters.map((l) => l && [l.outcome, (X.relayOf(l, 'own') || {}).status]))}`);
+  assert(letters.every((l, i) => i === 0 || l.created_at > letters[i - 1].created_at), `each newer than the one before; got ${show(letters.map((l) => l.created_at))}`);
+  const ids = X.sentIdsOf(after, k.fido);
+  const newest = letters.slice(1).map((l) => l.id);
+  assert(listsEach(ids, newest), `Fido's sentIds lists the newest 20 of his 21 letters, each once, and not the first; got ${Array.isArray(ids) ? `${ids.length} ids, the first letter ${ids.includes(letters[0].id) ? 'among them' : 'not among them'}, ${newest.filter((x) => !ids.includes(x)).length} of the newest 20 missing` : show(ids)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

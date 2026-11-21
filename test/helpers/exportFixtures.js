@@ -64,6 +64,11 @@
  *   graphNode(state, { slug, name, nodes, imports, relationships })  a graph element of the instance's own, made with
  *                       _eventless.js's makeNode at 39999:<assistant>:<slug>, whose json tag holds a graph object listing
  *                       nodes and imports ([{ slug, uuid }]): → its tapestryKey
+ * Review round 2's (ADR 0034 Amendment 3 item 2):
+ *   withSentIds(state, key, ids)  a copy of `state` whose node `key` holds sentIds `ids`, set by one SET on the Cypher
+ *                       engine: what export's record leaves on a node for the letters it sent or may have sent (the
+ *                       list's order isn't pinned; the guard reads membership)
+ *   sentIdsOf(s, key)   the node's sentIds as the graph holds it (undefined when it has none)
  * Answers (the ADR leaves some field names to the Implementer; these accessors say what the suites read):
  *   letters(d)          the answer's letters, one for each node in the scope
  *   keyOf(l)            a letter's node, its tapestryKey: l.node, else l.tapestryKey
@@ -324,6 +329,17 @@ async function exportEntry({ letters, at = new Date().toISOString(), caller = { 
   const n = s.nodes.find((x) => x.props.tapestryKey === entry.id);
   if (!n) throw new Error(`the export suites' setup wrote no change entry (${entry.id}), which is test/helpers/exportFixtures.js's, not the feature's`);
   return { entry, labels: [...n.labels], props: copy(n.props) };
+}
+
+/**
+ * (Review round 2, Amendment 3 item 2) A copy of `state` whose node `key` holds sentIds `ids`, as export's record leaves
+ * it, set on the Cypher engine. Setup only: a node it can't find is this file's failure, not the feature's.
+ */
+function withSentIds(state, key, ids) {
+  const s = copy(state);
+  const r = E.run(s, 'MATCH (n:TapestryNode {tapestryKey: $key}) WHERE NOT n:GraphChange SET n.sentIds = $ids RETURN n.tapestryKey AS key', { key, ids });
+  if (!r.rows.length) throw new Error(`the export suites' setup found no node ${key} to give sentIds, which is test/helpers/exportFixtures.js's, not the feature's`);
+  return s;
 }
 
 /** A graph element of the instance's own, made here with makeNode, its json a graph object: → its tapestryKey. */
@@ -606,6 +622,8 @@ function jsonOf(s, key) {
   try { return JSON.parse(t.props.value); } catch { return null; }
 }
 const sentToOf = (s, key) => { const n = nodeByKey(s, key); return n ? n.props.sentTo : undefined; };
+/** (Review round 2, Amendment 3 item 2) The node's sentIds: the ids of the letters export sent or may have sent for it. */
+const sentIdsOf = (s, key) => { const n = nodeByKey(s, key); return n ? n.props.sentIds : undefined; };
 /** A stored property as a plain value: an integer the engine keeps as { $int } (a neo4j.int parameter) as a number. */
 const plain = (v) => E.plainValue(v);
 const signings = (spy) => (Array.isArray(spy) ? spy : []).filter((x) => /finalizeEvent|signAndFinalize/.test(x)).length;
@@ -674,8 +692,8 @@ function everythingIn(s, { own = [TA, OWNER] } = {}) {
 module.exports = {
   ROOT, NL, ROUTE, DECL, SEND, OWN_MODULE, LINKS, OWN_RELAY, PEER, OWNER, TA, TA_SECRET, DNS, URL_OF, KEYS, NT,
   needDecl, copy, addressOf, FIRMWARE, firmware, firmwareOnly, envFor, storeEntries, runExport, runTodays, runOps, exp, op, history,
-  data, refused, setupData, eventlessNode, unsigned, world, exportEntry, graphNode,
+  data, refused, setupData, eventlessNode, unsigned, world, exportEntry, graphNode, withSentIds,
   lettersOf, keyOf, letterFor, isOwnRelay, relayOf, codeOf, reportsOf, countOf, mentions,
-  nodeByKey, at, tagArrays, jsonOf, sentToOf, plain, signings, sortedTags, sameTags, letterAt, namesIn, decodeNip19, strings, letterJson,
+  nodeByKey, at, tagArrays, jsonOf, sentToOf, sentIdsOf, plain, signings, sortedTags, sameTags, letterAt, namesIn, decodeNip19, strings, letterJson,
   entriesOf, exportEntries, everythingIn, petScope, dogScope, sameSet,
 };
