@@ -14,7 +14,13 @@
  *     spec.graphFakeState when it is given (story graph-operations-foundation #4), through test/helpers/
  *     cypherGraphFake.js when spec.graphFakeEngine is 'cypher', and with the fake relays and DNS of
  *     test/helpers/relayFake.js over the fixture spec.relayFake names, when it is given (story
- *     graph-operations-first-slice #32, ADR graph-operations-first-slice/0032).
+ *     graph-operations-first-slice #32, ADR graph-operations-first-slice/0032); with lifecycle's system replaced by
+ *     test/helpers/lifecycleFakes.js's fakeSystem over spec.lifecycleFakeState, when it is given (story
+ *     graph-operations-first-slice #37); and (story graph-operations-first-slice #34, ADR
+ *     graph-operations-first-slice/0034) export nostr's fake strfry import over the fixture spec.strfry names
+ *     (relayFake.js's installStrfry), and the assistant's key, spec.assistantKeys ({ privkey } or null), which
+ *     src/utils/assistantKeys.js's getOwnerAssistantKeys answers from before anything loads it
+ *     (test/helpers/assistantKeysFake.js).
  * Every request carries X-Forwarded-For before the central check sees it, as nginx traffic does, so no request is
  * trusted as a direct-local caller: the CLI has to sign in, as it does on a real instance.
  *
@@ -44,6 +50,8 @@ if (!SPEC) { process.stderr.write('usage: node test/helpers/externalCliServer.js
 const spec = JSON.parse(fs.readFileSync(SPEC, 'utf8'));
 const ROOT = path.resolve(spec.root || path.join(__dirname, '..', '..'));
 const fromRoot = (name) => require(require.resolve(name, { paths: [ROOT] }));
+// Story graph-operations-first-slice #34: the assistant's key, before anything loads the module that answers it.
+if (Object.prototype.hasOwnProperty.call(spec, 'assistantKeys')) require(path.join(__dirname, 'assistantKeysFake.js')).install({ root: ROOT, keys: spec.assistantKeys });
 
 function record(req) {
   const h = req.headers || {};
@@ -98,6 +106,16 @@ async function main() {
     }
     // Story graph-operations-first-slice #32: the fake relays and DNS, before the catalog loads.
     if (spec.relayFake) require(path.join(__dirname, 'relayFake.js')).install({ root: ROOT, file: spec.relayFake });
+    // Story graph-operations-first-slice #37 (ADR 0037 Decision 1): lifecycle's system (the lock's check that the
+    // graph answers) over test/helpers/lifecycleFakes.js's fake, kept in spec.lifecycleFakeState, as the operations
+    // harness installs it for a scenario's lifecycleFake.
+    if (spec.lifecycleFakeState) {
+      const sys = require(path.join(ROOT, 'src/operations/catalog/lifecycle/_system.js'));
+      const fake = require(path.join(__dirname, 'lifecycleFakes.js')).fakeSystem(spec.lifecycleFakeState);
+      for (const k of Object.keys(fake)) sys[k] = fake[k];
+    }
+    // Story graph-operations-first-slice #34: export nostr's fake strfry import, before the catalog loads.
+    if (spec.strfry) require(path.join(__dirname, 'relayFake.js')).installStrfry({ root: ROOT, file: spec.strfry });
     registerOperationRoutes(app, { dir: spec.catalogDir });
   }
 

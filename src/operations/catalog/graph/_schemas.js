@@ -23,10 +23,13 @@
  *                                 header, name, nodes }, where header is false when the key names no concept header,
  *                                 and nodes are the schema nodes found, [{ tapestryKey, uuid }]
  *   problemsOf(schema, json)      { problems: [{ path, message }] }, or { problem } when the schema doesn't compile
- *   fits(read, concept, json)     a write's check: { fits: true | false | null, problems, problem, waiting }; null with
- *                                 no schema to check against, or when the JSON misses only its graphContext (waiting)
+ *   fits(read, concept, json, { record })  a write's check: { fits: true | false | null, problems, problem, waiting };
+ *                                 null with no schema to check against, or when the JSON misses only its graphContext
+ *                                 (waiting); record names the install record's sections the node carries, set aside
  *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
- *                                 schema once; its check(concept, json, { writing }) sets nothing aside unless writing
+ *                                 schema once; its check(concept, json, { writing, record }) sets nothing aside unless
+ *                                 writing, and the record sections `record` names, those the node carries
+ *   recordCarried(props)          the record sections a node carries, from its properties (ADR 0037 Amendment 3, item 6)
  *   tapestryJsonOf(node)          the node's tapestryJson → { json }, or { problem, missing } (ADR 0042 Decision 1)
  *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems,
  *                                 errors } }, or { problem } when it doesn't compile: the property operations' reports
@@ -211,6 +214,30 @@ function aboutGraphContext(err) {
 }
 
 /**
+ * The JSON as a schema judges it: lifecycle seed-firmware's install record, the top-level cameFrom and installed the
+ * derive step puts in from the node's own properties, set aside, as graphContext is local to the instance (ADR
+ * graph-operations-first-slice/0037 Decision 6). Only the sections `record` names are, those the node carries: a
+ * section of either name in a node with no record may be a concept's own, and is judged (Amendment 3, item 6).
+ */
+const RECORD_SECTIONS = Object.freeze(['cameFrom', 'installed']);
+function withoutRecord(json, record) {
+  const names = (Array.isArray(record) ? record : []).filter((k) => RECORD_SECTIONS.includes(k));
+  if (!isObject(json) || !names.some((k) => Object.prototype.hasOwnProperty.call(json, k))) return json;
+  const out = { ...json };
+  for (const k of names) delete out[k];
+  return out;
+}
+/** The record sections a node carries, from its own properties: each of cameFrom and installed that holds a JSON object. */
+function recordCarried(props) {
+  const holds = (v) => {
+    if (isObject(v)) return true;
+    if (typeof v !== 'string' || !v) return false;
+    try { return isObject(JSON.parse(v)); } catch { return false; }
+  };
+  return RECORD_SECTIONS.filter((k) => isObject(props) && holds(props[k]));
+}
+
+/**
  * A checker for one call, or one derive pass: each concept's schema is read and compiled once, however many items or
  * nodes name it (Decision 12; ADR 0042 Decision 6).
  *   check(concept, json, { writing }) → { header, label, name, node, nodeUuid, nodes, fits: true | false | null,
@@ -239,10 +266,11 @@ function judge(read) {
     }
     return memo.get(concept);
   };
-  async function check(concept, json, { writing = false } = {}) {
+  async function check(concept, given, { writing = false, record = [] } = {}) {
     const j = await of(concept);
     const { validate, problem: why, ...facts } = j;
     if (!validate) return { ...facts, fits: null, problems: [], problem: why, waiting: false };
+    const json = withoutRecord(given, record);
     if (validate(json)) return { ...facts, fits: true, problems: [], problem: null, waiting: false };
     let errors = validate.errors || [];
     let waiting = false;
@@ -260,10 +288,11 @@ function judge(read) {
 /**
  * A write's check: whether `json`, which a write is about to store, fits the schema of the concept keyed `concept` →
  * { fits: true | false | null, problems, problem, waiting }, with the problems only about graphContext set aside
- * (ADR 0042 Decision 3).
+ * (ADR 0042 Decision 3), and the install record's sections `record` names, those the node carries (its facts' record,
+ * ADR graph-operations-first-slice/0037 Amendment 3 item 6; review round 2, R2-N1).
  */
-async function fits(read, concept, json) {
-  const r = await judge(read).check(concept, json, { writing: true });
+async function fits(read, concept, json, { record = [] } = {}) {
+  const r = await judge(read).check(concept, json, { writing: true, record });
   return { fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting };
 }
 
@@ -301,4 +330,4 @@ async function checkRule(read, name, items, { every = false } = {}) {
   throw refusal(found[0].code, message, { rule: rule.name });
 }
 
-module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements, checkRule };
+module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements, checkRule, recordCarried };

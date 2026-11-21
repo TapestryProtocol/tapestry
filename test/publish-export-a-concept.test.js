@@ -26,6 +26,21 @@
  * RE1      : PASS pre AND post — scope guard; a flip to FAIL means the
  *            Implementer drifted to ADR Option B (new server-side external
  *            publisher) or changed the out-of-scope publish primitive.
+ *            Widened by graph-operations-first-slice ADR 0034 Decision 11
+ *            (export nostr, story 34): it scans src/operations/ as well as
+ *            src/api/, catches nostr-tools' AbstractRelay and Relay beside
+ *            SimplePool, and excludes src/operations/catalog/export/ (export
+ *            nostr's sender, "its own ADR and its own exclusion") beside
+ *            src/api/dlist-curation/. Import nostr's reader,
+ *            src/operations/catalog/import/_relay.js, uses AbstractRelay but
+ *            never publishes, so it holds.
+ *            Widened again at story 34's review round 1 (blocking finding 1;
+ *            ADR 0034 Amendment 2 item 6): export's sender names no relay
+ *            class, since it takes its relay from _relay.js's open(), so RE1
+ *            missed a copy of it. relayPublisher(text) now flags any file
+ *            that calls .publish( on a relay it makes with SimplePool,
+ *            AbstractRelay or Relay, or gets from import's _relay.js, and RE1
+ *            checks first that it flags _send.js's own text.
  */
 
 const fs = require('fs');
@@ -61,10 +76,25 @@ function collect(dir) {
 
 const UI_FILES = collect(path.join(ROOT, 'ui/src'));
 const API_FILES = collect(path.join(ROOT, 'src/api'));
+// graph-operations-first-slice ADR 0034 Decision 11: RE1 scans the operations module too.
+const OPERATIONS_FILES = collect(path.join(ROOT, 'src/operations'));
 
 // A concept-scoped export/publish token (distinct from the existing
 // per-PROFILE publishEverywhere usage in ui/src/hooks/useProfileActions.js).
 const CONCEPT_EXPORT = /export-set|publish[-\s.]{0,3}concept|concept[\s\S]{0,40}export/i;
+
+// RE1's test of a file (graph-operations-first-slice ADR 0034 Amendment 2 item 6, from story 34's review round 1,
+// blocking finding 1): a server-side publisher calls .publish( on a relay, one it makes with nostr-tools' SimplePool,
+// AbstractRelay or Relay, or one it gets from import nostr's reader, src/operations/catalog/import/_relay.js, whose
+// open() answers the connected relay, as export nostr's _send.js gets its own. The require is read by the module's
+// name, wherever the file sits, so a copy of the sender with its requires re-pointed is caught too.
+const RELAY_CLASS = /\b(SimplePool|AbstractRelay|Relay)\b/;
+const IMPORT_READER = /(?:require|import)\s*\(\s*['"`][^'"`]*\/_relay(?:\.js)?['"`]\s*\)|\bfrom\s+['"`][^'"`]*\/_relay(?:\.js)?['"`]/;
+function relayPublisher(text) {
+  const s = String(text);
+  return /\.publish\s*\(/.test(s) && (RELAY_CLASS.test(s) || IMPORT_READER.test(s));
+}
+const EXPORT_SENDER = path.join(ROOT, 'src/operations/catalog/export/_send.js');
 
 // ---------------------------------------------------------------------------
 // Failing tests — FAIL now, PASS once Story #9 is implemented per ADR 0004.
@@ -122,18 +152,35 @@ test('RE1: publish primitive reused unchanged; no ADR-Option-B server-side exter
   // curation-header endpoint is the justification this ADR's "not justified yet" left room for —
   // its signer is a server-held assistant key no browser can use, and the router's community
   // stream may be off. The posture stands for every OTHER module; that one directory is excluded.
-  const SUPERSEDED_BY_ADR = [path.join(ROOT, 'src/api/dlist-curation') + path.sep];
-  const optionB = API_FILES.filter((f) => !SUPERSEDED_BY_ADR.some((dir) => f.startsWith(dir))).find((f) => {
-    const s = fs.readFileSync(f, 'utf8');
-    return /SimplePool/.test(s) && /\.publish\s*\(/.test(s);
-  });
+  // graph-operations-first-slice ADR 0034 Decision 11 (export nostr): its sender, under
+  // src/operations/catalog/export/, is another server-side publisher, with its own ADR and its
+  // own exclusion. A third, built the same way anywhere else under src/api/ or src/operations/, is caught.
+  const SUPERSEDED_BY_ADR = [
+    path.join(ROOT, 'src/api/dlist-curation') + path.sep,
+    path.join(ROOT, 'src/operations/catalog/export') + path.sep,
+  ];
+  // The test bites on export's own sender (story 34's review round 1, blocking finding 1): its text, wherever it sat,
+  // is a publisher, though it names no relay class. Only its folder's exclusion lets it pass.
+  assert(
+    fs.existsSync(EXPORT_SENDER) && relayPublisher(fs.readFileSync(EXPORT_SENDER, 'utf8')),
+    'RE1\'s test must flag export nostr\'s own sender, src/operations/catalog/export/_send.js, by its text: it calls ' +
+      '.publish( on the relay import\'s _relay.js open() answers (ADR 0034 Decision 6 and Amendment 2 item 6), so a ' +
+      'copy of it anywhere outside the excluded folders is a third publisher. ' +
+      (fs.existsSync(EXPORT_SENDER) ? 'relayPublisher() answered no for it.' : 'The file does not exist.')
+  );
+  assert(
+    relayPublisher("const { SimplePool } = require('nostr-tools');\nnew SimplePool().publish(relays, event);"),
+    'RE1\'s test must still flag a publisher built on a relay class it makes, such as SimplePool (the test RE1 had before).'
+  );
+  const optionB = [...API_FILES, ...OPERATIONS_FILES].filter((f) => !SUPERSEDED_BY_ADR.some((dir) => f.startsWith(dir))).find((f) => relayPublisher(fs.readFileSync(f, 'utf8')));
   assert(
     !optionB,
-    'A server-side external-relay publisher (SimplePool + .publish()) was introduced' +
+    'A server-side external-relay publisher (.publish() on a relay made with SimplePool, AbstractRelay or Relay, or got from import\'s _relay.js) was introduced' +
       (optionB ? ` in ${path.relative(ROOT, optionB)}` : '') +
-      ' — that is ADR 0004 Option B, explicitly REJECTED for this stub. Export must reuse the ' +
-      'browser-side publish path (Option A). (Pre-impl: fetchEvents.js uses SimplePool.querySync ' +
-      'for FETCH only, never .publish — this guard holds.)'
+      ' — that is ADR 0004 Option B, explicitly REJECTED for this stub, outside the two directories ' +
+      'an ADR excludes (src/api/dlist-curation/, dlist-curation ADR 0004; src/operations/catalog/export/, ' +
+      'graph-operations-first-slice ADR 0034). (Pre-impl: fetchEvents.js uses SimplePool.querySync ' +
+      'for FETCH only, and import nostr\'s _relay.js uses AbstractRelay to read only, never .publish — this guard holds.)'
   );
 });
 
