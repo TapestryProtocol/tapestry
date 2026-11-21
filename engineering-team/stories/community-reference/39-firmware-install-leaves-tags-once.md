@@ -1,6 +1,6 @@
 # Story 39: A firmware install leaves each header's tags once
 
-**Status:** In Progress
+**Status:** Done
 **Created:** 2026-11-21
 **Type:** Bug
 
@@ -117,6 +117,11 @@ Two were left out:
 - The story's suites gave 9 and 16. The four that pin the step gave 16, 7, 4 and 4, as before.
 
 **Not checked here.** The change touches no concept definition, so there was no concept-graph orientation, and the local container is off-limits. The live check is the book's reinstall of staging, on the owner's yes (ADR 0035, OQ-4).
+
+**After review round 1, on the branch merged with staging (2026-11-21).** The branch merged `origin/staging` (`25078cf9c`), which brought in `lifecycle seed-firmware`. Then came ADR 0035 Amendment 1, its tests, and its fixes, through `f344f1a92`.
+- **The scoped gate:** 92 suites, derived from `git diff origin/staging...HEAD`, in the same environment.
+- **Result:** run `20261121T180907Z-86999-f4a0`, FAIL, exit 1, with 2126 passed, 3 failed and 132 skipped. All three failures are `router-stream-limit-on-connect` P1–P3, the router patch's GNU `sed -i` on macOS (OPEN.md row `2026-10-09-router-patch-sed-macos`). Staging's own tree fails the same three here.
+- **The story's suites** now give 24 tests (`firmware-install-leaves-tags-once`) and 9 (`community-references-prune-builder`). `seed-firmware-target` gives 34, ST33 included.
 
 ## Linked artifacts
 

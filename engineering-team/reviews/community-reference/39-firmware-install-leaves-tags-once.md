@@ -111,3 +111,82 @@ Applied (workflow 5, "Optional: an independent check before the commit"). A read
 **CHANGES_REQUESTED.**
 - **Blocking 1:** the change has to land with seed-firmware's target, its oracle and its tripwire brought in line, which reaches past ADR 0035.
 - **Blocking 2:** a failed prune must not turn the header's `b` relationship into the legacy stub.
+
+---
+
+## Round 2
+
+**Date:** 2026-11-21
+**Diff:** `git diff 1513bdbb2..213db6fe9`, eleven commits:
+- the merge of `origin/staging` (`7b7f5d1e2`). Staging is still `25078cf9c`, by `git ls-remote` at this round's end;
+- ADR 0035 Amendment 1 (`30c0c6a74`), revised before ratification (`2ccbb0561`);
+- the tests (`96032fdec`, `983c24288`);
+- the fixes (`d6aeff776`, `ea5d6eefd`);
+- ST33's digest (`22c9c737d`, `f344f1a92`);
+- the docs the independent check's re-checks asked for (`986331bc9`, `213db6fe9`).
+
+### Quality gates (run by reviewer, not trusted)
+
+All in the test plan's environment, on the merged branch.
+- [x] **The scoped gate at `f344f1a92`:** 92 suites, derived from `git diff origin/staging...HEAD`. It holds every registered suite, and every suite under `test/operations/`, whose code (comments aside) names a changed file or requires a helper that does:
+  `20261121T180907Z-86999-f4a0 [header-tags-once-39-round2-final] started 2026-11-21T18:09:07.933Z on f344f1a9 — FAIL, exit 1, 2126 passed, 3 failed, 132 skipped, 92/92 suites; failed: router-stream-limit-on-connect`.
+  - **The three failures** are that suite's P1–P3. They fail on every macOS gate, because the router patch uses GNU `sed -i` (OPEN.md row `2026-10-09-router-patch-sed-macos`). Staging's own tree, `git archive origin/staging` unpacked here, fails the same three, with the wrapper and without it. Every other suite passed. The skips are live parts, which need a stack.
+  - **Left out:**
+    - `test/operations/export/`, which needs staging's new dependency `micromark`, a download;
+    - `event-tagging-firmware-seed`, which calls the local control panel;
+    - `stack-free-npm-test`, which stays CI's.
+- [x] **After the docs commits:** the suites whose code reads `BIBLE.md`, `ledger/` or `engineering-team/`:
+  `20261121T181751Z-87583-892b [header-tags-once-39-docs] started 2026-11-21T18:17:51.051Z on 986331bc — FAIL, exit 1, 1639 passed, 3 failed, 57 skipped, 52/52 suites; failed: router-stream-limit-on-connect`. Its failures are the same macOS three. The last docs commit, `213db6fe9`, changed one ledger line after this run; `ledger-row-ids` passes over it, 6 of 6, and `harness-lint` is clean.
+- **Two runs that aren't verdicts:**
+  - `20261121T173632Z-81394-2356`, the same gate before the independent check's findings: FAIL, with the same three macOS failures, and 2023 passed across 86 suites;
+  - `20261121T180622Z-5312-4915`, killed by the tool's two-minute limit on a foreground command, UNFINISHED after 19 of 92.
+
+### Round 1's findings, checked again as fresh claims
+
+| Finding | What changed | Checked by |
+|---|---|---|
+| Blocking 1 | Staging merged in. `src/firmware/target.js` and its oracle, `test/helpers/todaysFirmwareRoutes.js`, skip a reference the target's assistant curates; so does graph sets' `firmwareLinks` (`_sets.js` part d, Amendment 1 item 8). ST33's digest follows. ADRs graph-operations-first-slice/0028 and 0037 gain Amended-by pointers. | S11, S12 and S13 pass, and `seed-firmware-target` gives 34 of 34. Under production's assistant, `buildTarget` gives `nostr-relay`'s header no `b`, no relationship to itself and no `references` entry, and the oracle signs no `b`. Taking each skip out fails its test (guard checks G1, G2 and G7). |
+| Blocking 2 | `seededB` is set at once on the "already has a `b`" path. On the seed path it's set once the publish answers `success: true`. The catch says which part failed. | E6 to E10 pass. Taking out each placement, or the publish check, fails its test (G3 to G6, and the check's own mutations). |
+| Non-blocking 1 | The path stays exempt (Amendment 1 item 3, revised). BIBLE §7 gains the consequence. | See below: the first reasons given were wrong. |
+| Non-blocking 2 | BIBLE §22's passage and the Last updated entry. | Read against the code. The suites that read the Last updated line pass. |
+| Non-blocking 3 | The fixture's comment, and Amendment 1 item 5. | Read. |
+| Non-blocking 4 | S0 checks the six references. | S0 passes. A manifest without `tag-pinning`'s reference fails it (the check's mutation). |
+| Non-blocking 5 | No change. | — |
+| Harness friction | A dated note on ledger row `2026-11-13-review-has-no-origin-drift-check`. | — |
+
+### What the independent check found this round
+
+It was applied three times: to the round's first four commits, then to the next four, then to the docs commits. Each finding was checked against the sources here before it was acted on.
+
+- **Amendment 1 item 3 misstated two of its sources** (its round-2 Blocking 1).
+  - It said the export rule guards an own node only against letters come back from a relay. But `handleEventUpdate` reads the instance's own strfry, through `findInStrfry` and `strfry scan`, and ADR 0034 Decision 10 gives that route the check.
+  - It said BIBLE §7 covers a `pass1: false` install. §7 covers the boot install, which posts `{}`, so Pass 1 runs.
+  - **Revised:** the exemption now rests on the one sound reason. The rule can't tell this path's normal case from the one it guards: in both, the node holds strfry's letter (ADR 0037, Context 4). And the revision names its cost as a new consequence for the owner to accept. BIBLE §7 says so.
+- **Round 1's own suggested wording was wrong** (reviewer.md, step 10). Non-blocking 1's optional ask was to skip the import, not the prune, when the node holds a newer letter. That would prune against the older letter: on the engine, the newer letter's 8 tag nodes went to 0. Amendment 1 item 3 records it and doesn't adopt it.
+- **A publish answered 200 with `success: false` was counted as stored** (its non-blocking 1). `apiPost` throws only on a failed status with no `success`. The seed path now checks the answer itself (E10).
+- **Two placements of `seededB` were untested** (its non-blocking 2). E9 and E10 pin them.
+- **Smaller points:** the fixture comment's wording; the third copy of the step's logic, in `_sets.js`; and ADR 0037's pointer. The re-checks then found:
+  - two wording slips in the new BIBLE text;
+  - the open ledger row this story fixes, `2026-11-16-curator-instance-superset-self-loop`, and ADR 0028 as the home of part (d);
+  - that row's closing condition, which left out the Mac Studio's local instance.
+
+  Each is fixed. The last re-check found nothing wrong.
+- **What round 1 missed.** Planning didn't find ledger row `2026-11-16-curator-instance-superset-self-loop`, which already recorded this story's superset loop. It now has a dated note, and closes when production's reinstall takes the loop out.
+
+### Findings
+
+#### Blocking
+None.
+
+#### Non-blocking
+None open. Each of round 1's, and each the independent check raised this round, is fixed above.
+
+#### Harness friction
+1. **Planning missed an open ledger row about the same fault.** `2026-11-16-curator-instance-superset-self-loop` recorded this story's superset loop five days earlier. The story's planning scanned the intake and the importers' row, but not the ledger for its own fault. A step in workflow 1 that greps `ledger/` for the story's key nouns before drafting would have found it. This is a lesson for the next planning, too small for a row of its own; noted here.
+
+### Verdict
+**PASS.** Both blocking findings and all five non-blocking ones are fixed, each with a test where it is code. The gate's only failures are the known macOS ones. The independent check's three passes leave nothing open.
+
+### On PASS (same commit)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [ ] Completion detection: reported in the chat, not here.
