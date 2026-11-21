@@ -1159,29 +1159,33 @@ async function pass_communityReferences(opts = {}) {
           // (AC-6). This is ALSO the idempotency mechanism (AC-5): a second
           // install sees the `b` it wrote on the first and suppresses.
           const hasB = Array.isArray(localHeader.tags) && localHeader.tags.some(t => t[0] === 'b');
+          // seededB says whether the header's letter carries the b, whatever
+          // its import or prune then does (ADR community-reference/0035
+          // Amendment 1 item 2), so the wiring never makes it a stub.
           if (hasB) {
+            seededB = true;
             // ADR community-reference/0035 Decision 2: no re-sign and no
             // publish, but the letter it holds is imported again and the
             // tags earlier letters left are pruned (an install that signs no
             // header again, as feat/tags' Pass 1, heals this way).
             await executeCypher(buildImportCypher(localHeader));
             await executeCypher(buildPruneCypher(localHeader));
-            seededB = true;
             console.log(`  ⏭️  ${slug}: b already present — seed suppressed (never-clobber); its tags reconciled`);
           } else {
             const newTags = [...localHeader.tags, ['b', cr.headerATag, 'pointer']];
             await loadTAKey();
             const signed = signAndFinalize({ kind: 39998, content: localHeader.content || '', tags: newTags });
             await apiPost('/api/strfry/publish', { event: signed });
+            seededB = true;
             await executeCypher(buildImportCypher(signed));
             // Pass 1's import left its letter's tags beside the seeded letter's.
             await executeCypher(buildPruneCypher(signed));
-            seededB = true;
             console.log(`  ✅ ${slug}: pointer-b seeded on local header → REFERENCES{source:'b-tag'} derived`);
           }
         }
       } catch (seedErr) {
-        console.log(`  ⚠️  ${slug}: b seed failed — ${seedErr.message} (graceful — continuing)`);
+        const what = seededB ? 'its letter carries the b, but its import or prune failed' : 'b seed failed';
+        console.log(`  ⚠️  ${slug}: ${what} — ${seedErr.message} (graceful — continuing)`);
       }
 
       const fetched = await apiGet('/api/relay/external', {
