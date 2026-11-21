@@ -597,3 +597,71 @@ I re-derived each changed statement (rule 10), my round 2 wording included. The 
 - My gate on `2b5a9675` passes but for `external-cli`'s three sandbox-made failures, and `external-cli` passes alone outside it. The session's check gives the same counts.
 
 **PASS**
+
+## Fix check, second pass — 2026-11-20 (HEAD `7aa3efa5`, not a round)
+
+The coordinator asked for a check of the three commits after the fix check's commit (`1b2f8aff`). They fix its three findings and take two of its optional points: 5 files, +14 −6.
+- `11cfd74c`, the Architect's: Amendment 1 gains item 5, the `why`, and items 3 and 4 are corrected. It is still unratified.
+- `2af10578`, the Implementer's: the `why`, the ledger note, the story's Deviation and Evidence, and the meta row.
+- `7aa3efa5`: the story's Evidence for the session's run on `2af10578`.
+
+I re-derived each changed statement (rule 10), my suggested wording included. The records are in the ignored `tmp/review-47/fixcheck2/`, and the probe ran in a `git archive` copy of `7aa3efa5`.
+
+### Gates
+- [x] **My gate,** 20 suites, sandboxed as before. They are the suites that read what changed, the rule suites by name and CI's entries but `external-cli`:
+
+  ```
+  20261121T022224Z-32853-5ac4 [story-47-fixcheck2] started 2026-11-21T02:22:24.367Z on 7aa3efa5 — PASS, exit 0, 408 passed, 0 failed, 9 skipped, 20/20 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T022224Z-32853-5ac4.json
+  ```
+- [x] **`external-cli` alone, outside the sandbox** (its test signer runs `ps`):
+
+  ```
+  20261121T022440Z-94781-e11d [story-47-fixcheck2-extcli] started 2026-11-21T02:24:40.840Z on 7aa3efa5 — PASS, exit 0, 53 passed, 0 failed, 0 skipped, 1/1 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T022440Z-94781-e11d.json
+  ```
+- [x] **The session's run,** read from its record:
+
+  ```
+  20261121T021233Z-47671-708f [story-47-fixcheck-fixes] started 2026-11-21T02:12:33.258Z on 2af10578 — PASS, exit 0, 1844 passed, 0 failed, 26 skipped, 21/21 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T021233Z-47671-708f.json
+  ```
+
+  Its tree was clean, and it ran the same 21 suites, with the same counts, as `…f248`. HEAD differs from `2af10578` only in the story's four Evidence lines. Every suite both of us ran gives the same counts.
+- [x] `node src/firmware/graph-rules.js --check`: current. **harness-lint** at `7aa3efa5`: `harness-lint: clean (0 violations)`.
+
+### The fixes
+1. **The `why` — fixed.**
+   - `WHY` (`src/operations/rules/word-types-hold-concept-keys.js:109`) is item 5's sentence. It is true: `rules repair` gives this rule's findings `fix: null` and leaves them, and nothing else repairs them.
+   - Item 5's account is the fix check's probe (`tmp/review-47/round2-fixcheck/why.log`), and its quote of Decision 4 is ADR `:186`'s.
+   - The old words survive only in the ADR's history (Decision 4, `:186-187`, quoted by items 1 and 5) and in the Deviation that records the change.
+   - The tests that read the `why` hold only that it is a non-empty string (WT4, WC2) or that repair passes it on (WC7). They pass.
+2. **The ledger note — fixed.** It now reads my suggested sentence (`ledger/2026-11-08-suite-screen-misses-hardcoded-urls.md:21`), and it holds: round 2 left `event-tagging-firmware-seed` out, and ran its gates in the sandbox. One of those suites, `create-concept-duplicate-check`, also ran once outside it, before the sandbox was built; its live tests return before any request.
+3. **Item 4 — fixed.** It now says what each test holds, as the fix check found. Its id claim is `idOf`'s: code, node, parents, key and concepts (`src/operations/catalog/rules/_rules.js:120-128`).
+4. **The optional points — taken:**
+   - item 3's list gains the section;
+   - the Deviation names the Out of scope's `:120`;
+   - the meta row gains the scan-every-test-file bullet (`ledger/2026-11-21-scoped-gate-lists-built-by-hand.md:17`);
+   - the Evidence records the caveat and the miss (story `:193-194`).
+
+### Findings
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **The Deviation's example is untrue for a node kept beside** (story `:158`): "add-to-concept can, as when it puts a node whose JSON holds a `wordTypes` list into one of the concept's sets that it isn't directly in".
+     - **The probe** (`r5-probe-beside.js`, `beside.log`). Two nodes hold beagle's section and a list with `beagle` taken out, so the rule names each for `beagle`. Each goes into `scrollShelf`, a set of beagle's that neither is directly in:
+       - `setItem`, the assistant's own, kept in its json tag: `added`, its list gains `beagle` (and `scroll`), and the rule names nothing after;
+       - `peerInSet`, OTHER's, kept beside: `added`, with only `membership-added`. It is still named for `beagle`, and now for `scroll` too.
+     - **The code.** `wordTypes` gains keys only for a node kept in its json tag (`src/operations/catalog/graph/add-to-concept.js:176-190`). A node kept beside gets only a section, and only when one is written (`:167`, `:191-192`). Its view gains a key only from a section kept beside (`src/operations/catalog/graph/_fields.js:129`).
+     - **Suggestion:** "as when it puts one of the instance's own nodes, whose JSON holds a `wordTypes` list, into one of the concept's sets that it isn't directly in". The probe's `setItem` bears that out.
+  2. **The new Evidence paragraph sits inside the one before it** (story `:196-198`).
+     - It was put after the earlier check's "What it missed" bullet, and before that check's own "Results:" (`:200-203`).
+     - So the earlier check's Overall line, with record `…f248.json`, now reads as the new check's. The new check's heading already has its own (`…708f.json`).
+     - **Suggestion:** move `:196-198` to after `:203`.
+
+### Verdict
+- The fix check's three findings are fixed, and two of its optional points are taken.
+- Two new non-blocking slips in the story's prose:
+  - the Deviation's example, true for the instance's own nodes and not for one kept beside;
+  - a paragraph in the wrong place.
+
+  Neither changes what the code does.
+- My gate and `external-cli` pass on `7aa3efa5`, and the session's run gives the same counts.
+
+**PASS**
