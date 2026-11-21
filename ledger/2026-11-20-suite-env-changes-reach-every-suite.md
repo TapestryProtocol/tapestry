@@ -3,8 +3,11 @@
 **Id:** 2026-11-20-suite-env-changes-reach-every-suite
 **Type:** meta
 **Opened:** 2026-11-20 (story graph-operations-first-slice #46, review round 1, harness friction 1)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-21. Fixed in story `test-suite-hermeticity` #4, ADR `test-suite-hermeticity/0002`, the first fix shape.
+- **The engine** (`test/helpers/gateRunner.js`) copies `process.env` before the first load, and compares it after each load and after each run (plus one macrotask). A suite that changed it is that suite's FAIL, naming the keys and never their values. One that changed it at load is not run. The copy then goes back, so no other suite, and no child a later suite starts, sees the change.
+- **The test:** `test/suite-env-changes.test.js` E1–E10, through the engine in a child over fixtures.
+- **Five suites that left a key changed were brought into line,** each pinned by an S test: `search-api-result-type-settings`, `tl-certainty-method`, `tl-membership-method-selector`, `tl-weighted-sum-method` and `trusted-list-pin-publish-blockers`. A sixth, `strfry-router-saved-state`, turned out not to leak (ADR Amendment 1).
 
 **What was seen.** Story 46's new suite, `test/word-elements-fit-the-installed-word-schema.test.js`, set dead endpoints on `process.env` when it loaded: `TAPESTRY_CONTAINER=no-such-container`, `BRAINSTORM_BASE_URL` at port 9 and five more. The gate engine loads every suite into one process before running any (`test/helpers/gateRunner.js:157–164`), so the values were in place when every suite ran in a full `npm test`, those registered before it included. The reviewer showed it with a probe suite listed first, which saw port 9 and `no-such-container` (gate run `20261120T222242Z-87439-52e3`).
 

@@ -237,19 +237,27 @@ t('AC-6: publishToStrfry feeds the event via stdin, not a shell argument', () =>
 t('AC-7: readConfig seeds a disabled refreshPinnedTagTLs entry on fresh install', () => {
   const tmp = path.join(os.tmpdir(), `sched-fresh-${process.pid}-${tests.length}.json`);
   try { fs.unlinkSync(tmp); } catch {}
+  // Put SCHEDULED_TASKS_CONFIG_PATH back as this test found it, pass or fail (test-suite-hermeticity #4,
+  // ADR test-suite-hermeticity/0002).
+  const hadConfigPath = Object.prototype.hasOwnProperty.call(process.env, 'SCHEDULED_TASKS_CONFIG_PATH');
+  const savedConfigPath = process.env.SCHEDULED_TASKS_CONFIG_PATH;
   process.env.SCHEDULED_TASKS_CONFIG_PATH = tmp;
-  const mod = freshRequire('src/api/scheduled-tasks/index.js');
-  assert(typeof mod.readConfig === 'function', 'scheduled-tasks must export readConfig');
-  const config = mod.readConfig();
-  assert(config && Array.isArray(config.entries), 'readConfig must return { entries: [...] }');
-  const entry = config.entries.find((e) => e.taskId === 'refreshPinnedTagTLs');
-  assert(entry,
-    'a fresh-install config (config file absent) must seed a refreshPinnedTagTLs schedule entry ' +
-    '(requires the SCHEDULED_TASKS_CONFIG_PATH env override — ADR testability note 2 / AC-7)');
-  assertEqual(entry.enabled, false,
-    'the seeded refreshPinnedTagTLs entry must be DISABLED by default (matches every other scheduled task; ' +
-    'retraction must not auto-run on fresh deploy — AC-7)');
-  delete process.env.SCHEDULED_TASKS_CONFIG_PATH;
+  try {
+    const mod = freshRequire('src/api/scheduled-tasks/index.js');
+    assert(typeof mod.readConfig === 'function', 'scheduled-tasks must export readConfig');
+    const config = mod.readConfig();
+    assert(config && Array.isArray(config.entries), 'readConfig must return { entries: [...] }');
+    const entry = config.entries.find((e) => e.taskId === 'refreshPinnedTagTLs');
+    assert(entry,
+      'a fresh-install config (config file absent) must seed a refreshPinnedTagTLs schedule entry ' +
+      '(requires the SCHEDULED_TASKS_CONFIG_PATH env override — ADR testability note 2 / AC-7)');
+    assertEqual(entry.enabled, false,
+      'the seeded refreshPinnedTagTLs entry must be DISABLED by default (matches every other scheduled task; ' +
+      'retraction must not auto-run on fresh deploy — AC-7)');
+  } finally {
+    if (hadConfigPath) process.env.SCHEDULED_TASKS_CONFIG_PATH = savedConfigPath;
+    else delete process.env.SCHEDULED_TASKS_CONFIG_PATH;
+  }
 });
 
 /* ─── Run ─── */

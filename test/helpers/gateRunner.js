@@ -13,6 +13,11 @@
  *     process.exit stays trapped from the first load until the engine's own exit, so a
  *     call made at load time or deferred past a suite's run() can't end the run either.
  *     Escaped async errors are recorded and fail the run instead of crashing it.
+ *   - process.env is checked around every suite (test-suite-hermeticity #4, ADR
+ *     test-suite-hermeticity/0002). A copy taken before the first load is compared after each
+ *     load, and after each run plus one macrotask. A suite that changed it is that suite's FAIL,
+ *     naming the keys and never their values; one that changed it at load is not run. Then the
+ *     copy is put back, so no other suite, and no child a later suite starts, sees the change.
  *   - A run that ends before its verdict anyway — the engine's own failure, or a suite
  *     whose run() never settles while nothing else is pending — records FAIL and exits
  *     non-zero. No run exits 0 without a verdict.
@@ -82,6 +87,46 @@ function totalsOf(results, extraFailed) {
     suitesFailed: results.filter((x) => x.verdict === 'FAIL').length + extraFailed,
     suitesSkipped: results.filter((x) => x.verdict === 'SKIP').length,
   };
+}
+
+/* ───────────── process.env around every suite (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002) ───────────── */
+
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+/** One macrotask: work a suite deferred with a zero-delay timer or setImmediate lands before the next check. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** A plain copy of process.env. Taken once, before the first load, it is the run's starting environment. */
+function snapshotEnv() { return Object.assign({}, process.env); }
+
+/**
+ * What differs from the starting environment, as sorted key names: { added, changed, removed }, or null when nothing
+ * does. Values are compared here and never kept, printed or recorded (story AC3).
+ */
+function envChangesSince(start) {
+  const added = [];
+  const changed = [];
+  const removed = [];
+  for (const k of Object.keys(process.env)) {
+    if (!has(start, k)) added.push(k);
+    else if (process.env[k] !== start[k]) changed.push(k);
+  }
+  for (const k of Object.keys(start)) if (!has(process.env, k)) removed.push(k);
+  if (added.length + changed.length + removed.length === 0) return null;
+  return { added: added.sort(), changed: changed.sort(), removed: removed.sort() };
+}
+
+/** Put the starting environment back: delete every added key, and set every changed or removed one back. */
+function restoreEnv(start) {
+  for (const k of Object.keys(process.env)) if (!has(start, k)) delete process.env[k];
+  for (const k of Object.keys(start)) if (process.env[k] !== start[k]) process.env[k] = start[k];
+}
+
+/** "(<n> key[s]): added A, B; changed C; removed D" — the count first, so a clipped message still says how many. */
+function describeEnvChanges(c) {
+  const n = c.added.length + c.changed.length + c.removed.length;
+  const groups = ['added', 'changed', 'removed'].filter((kind) => c[kind].length).map((kind) => `${kind} ${c[kind].join(', ')}`);
+  return `(${n} key${n === 1 ? '' : 's'}): ${groups.join('; ')}`;
 }
 
 async function runGate({ suites, recordDir, label } = {}) {
@@ -154,17 +199,34 @@ async function runGate({ suites, recordDir, label } = {}) {
   process.exit = (code) => { throw new Error(`called process.exit(${code === undefined ? '' : code}) — a suite may not end the run`); };
 
   try {
+    // The starting environment every suite loads and runs from (ADR test-suite-hermeticity/0002, Decision, rule 1).
+    const startEnv = snapshotEnv();
     const loaded = suites.map((entry) => {
       if (typeof entry.run === 'function') return { entry, mod: { run: entry.run } };
+      let out;
       try {
-        return { entry, mod: require(path.resolve(TEST_DIR, entry.file)) };
+        out = { entry, mod: require(path.resolve(TEST_DIR, entry.file)) };
       } catch (e) {
-        return { entry, loadError: `failed to load: ${errorText(e)}` };
+        out = { entry, loadError: `failed to load: ${errorText(e)}` };
       }
+      // A load that changed process.env, whether it returned or threw, is that suite's FAIL, and it is not run (rule 4).
+      const envAtLoad = envChangesSince(startEnv);
+      if (envAtLoad) {
+        restoreEnv(startEnv);
+        out.envAtLoad = envAtLoad;
+      }
+      return out;
     });
+    // A change that a timer left by some suite's load makes, once the loads are done, is a stray (rule 5).
+    await settle();
+    const deferredAtLoad = envChangesSince(startEnv);
+    if (deferredAtLoad) {
+      restoreEnv(startEnv);
+      stray(`process.env changed after the suites loaded, before any ran ${describeEnvChanges(deferredAtLoad)}`);
+    }
 
     for (let i = 0; i < loaded.length; i++) {
-      const { entry, mod, loadError } = loaded[i];
+      const { entry, mod, loadError, envAtLoad } = loaded[i];
       const name = nameOf(entry);
       const tag = `[${i + 1}/${loaded.length}]`;
       current = name;
@@ -172,7 +234,10 @@ async function runGate({ suites, recordDir, label } = {}) {
       say(`▶ ${tag} ${name}`);
       const started = Date.now();
       let r;
-      if (loadError) {
+      if (envAtLoad) {
+        const envText = `changed process.env when it loaded, so it was not run ${describeEnvChanges(envAtLoad)} — a suite may set process.env only inside run(), and must put it back before run() ends`;
+        r = { pass: 0, fail: 1, skipped: 0, error: loadError ? `${loadError}; and ${envText}` : envText, envChanged: { phase: 'load', ...envAtLoad } };
+      } else if (loadError) {
         r = { pass: 0, fail: 1, skipped: 0, error: loadError };
       } else if (!mod || typeof mod.run !== 'function') {
         r = { pass: 0, fail: 1, skipped: 0, error: 'exports no run() function' };
@@ -181,6 +246,17 @@ async function runGate({ suites, recordDir, label } = {}) {
           r = normalize(await mod.run());
         } catch (err) {
           r = { pass: 0, fail: 1, skipped: 0, error: errorText(err) };
+        }
+        // One macrotask while `current` still names this suite, so what it deferred counts against it; then a key
+        // left changed is one more failed check, named, and the starting environment goes back (rule 6).
+        await settle();
+        const envAfterRun = envChangesSince(startEnv);
+        if (envAfterRun) {
+          restoreEnv(startEnv);
+          const envText = `left process.env changed after its run ${describeEnvChanges(envAfterRun)} — put each key back before run() ends (delete one that was unset)`;
+          r.fail += 1;
+          r.error = r.error ? `${r.error}; and ${envText}` : envText;
+          r.envChanged = { phase: 'run', ...envAfterRun };
         }
       }
       Object.assign(r, { name, file: entry.file || name, ms: Date.now() - started, skipNote: entry.skipNote });
@@ -192,12 +268,19 @@ async function runGate({ suites, recordDir, label } = {}) {
         suites: results.map((x) => ({
           file: x.file, verdict: x.verdict, pass: x.pass, fail: x.fail, skipped: x.skipped, ms: x.ms,
           error: x.error ? R.clip(x.error) : null, failures: R.clipFailures(x.failures),
+          envChanged: x.envChanged || null,
         })),
       });
     }
     // One macrotask, so an escaped rejection or a deferred call from the last suite lands
     // — and is attributed to that suite — before the verdict.
     await new Promise((resolve) => setTimeout(resolve, 0));
+    // A change found now, after that wait, is a stray of the last suite's (rule 7).
+    const deferredAtEnd = envChangesSince(startEnv);
+    if (deferredAtEnd) {
+      restoreEnv(startEnv);
+      stray(`process.env changed after ${current || 'the last suite'} finished ${describeEnvChanges(deferredAtEnd)}`);
+    }
     current = null;
 
     say('\nTest Results');

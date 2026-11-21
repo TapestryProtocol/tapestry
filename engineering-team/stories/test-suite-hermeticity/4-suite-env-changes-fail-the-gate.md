@@ -81,6 +81,12 @@ None open. The owner answered three at planning, on 2026-11-20:
 2. **Every key.** It covers every key in `process.env`, not only the endpoint variables review 46 named.
 3. **Give it back.** After a leak, the gate gives every other suite the environment it began with (AC4). Naming and failing the leaking suite is not enough on its own.
 
+## Deviations
+
+- **Test Design: `strfry-router-saved-state` doesn't leak** (Background, corrected there; ADR Amendment 1, approved with the test plan). Five suites were brought into line, not six, and test S2 keeps the sixth as it is.
+- **Implementation: the engine's one-macrotask wait is a new local helper, `settle()`,** used for the new waits after the loads and after each run. The wait that was already there after the last suite is left as written.
+- **Implementation: `tl-membership-method-selector` puts its key back at the end of `run()` without a `finally`.** Its `delete` wasn't in one, and every path out of `run()` reaches it. ADR §2 asks for a restore "reached on every path out of `run()` that reaches the `delete` today", and that is what this is.
+
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/test-suite-hermeticity/0002-gate-checks-process-env-around-every-suite.md`
