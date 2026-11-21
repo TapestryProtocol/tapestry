@@ -94,6 +94,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     `rules check` to find a property hung under more than one parent and `rules repair` to take off its extra link to
     its concept's JSON schema (firmware's only with an override); the old enumerate and create-property routes stop
     hanging properties on the schema (Loom A10.31.a, a subtask, so it takes the next number free).
+46. `stories/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.md` — an element of `word`
+    fits the `word` schema an install leaves: install stops writing the wordType pair for `word.wordTypes`, which
+    compares the list with itself, and nothing else changes; a reinstall clears the pairs already written. A bug from
+    story 42's live check, filed on Loom as P-156, an open proposal with no task yet, so it takes the next number free.
 
 ## Key facts / guardrails
 

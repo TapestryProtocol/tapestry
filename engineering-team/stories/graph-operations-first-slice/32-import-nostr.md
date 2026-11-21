@@ -272,6 +272,29 @@ Each suite alone, as above (`tmp/a10-32/env.sh`):
   - Going on from `next.until` recorded the other 101, with `next` null. All 600 are in the graph.
 - **Afterwards,** `docker ps -a` listed the same containers as before the first boot.
 
+### On staging and production (2026-11-20)
+
+**Staging.** The owner merged TapestryProtocol/tapestry#166 at 16:44:50 UTC (merge commit `110f85b4`). The deploy, run 44776449542, took 1 m 57 s.
+- **CI:** #166's `stack-free` run, 44772004490, ran 8,315 passed and 3 failed. All three were in `firmware-element-sync`, from the property-has-one-parent merge (#164). Hotfix #165 fixed them at 16:48. Every import nostr suite passed in that run.
+- **Smoke tests:** at 16:47, at `c26da584` (17:01) and at `0372c52a` (18:04), Tiers 1, 2, 3 and 5 passed; Tier 4 doesn't apply, since no UI changed.
+  - Tier 1: stable after 3 polls, with Neo4j answering.
+  - Tier 2: every page and public API answered 200, apart from `get-user-data`'s documented 504.
+  - Tier 3: `/docs/swagger-ui-init.js` lists `POST /api/tapestry/import/nostr` with all nine of its refusals, beside the other operation paths (38 in all), and a signed-out call answers 401.
+
+**Production.** Promotion PR #167 ran `promote/import-nostr-2026-11-20` into `main`, pinned at a verified staging commit.
+- **The first pin:** `c26da584`. Its required `stack-free` run, 44779388446, was cancelled at the 15-minute limit inside `operations`, after 338 of 347 suites passed.
+- **The fix:** the owner chose to raise the limit first. #168 set it to 25 minutes, and its own run passed in 14 m 24 s.
+- **The second pin:** `0372c52a`, which added only #168. Its run, 44789481737, passed 8,318 with 0 failed, in 17 m 29 s; `main-source-guard` also passed.
+- **The merge:** the safe-to-merge check said SAFE at 18:24:09, and #167 merged at 18:24:12 (merge commit `eae67f45`).
+- **The deploy:** run 44792426614 took 7 m 48 s.
+- **Smoke test at 18:32:** Tiers 1, 2, 3 and 5 passed, as on staging.
+  - Neo4j answered with 19,252 verified followers.
+  - The served docs list `POST /api/tapestry/import/nostr` with all nine refusals, and a signed-out call answers 401.
+
+**What no one has run.** No signed-in import ran on staging or production, since one would write to a shared instance's graph. The agent's sequence through the external CLI ran on scratch stacks (the live checks above).
+
+**Loom:** A10.32 is done, verified weakly (merged by the owner, with no teammate's approval).
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md)
