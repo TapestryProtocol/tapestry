@@ -17,9 +17,11 @@
  * Every call goes through docker exec <container> to the control panel on 127.0.0.1 inside the container
  * (test/helpers/scratchLoopback.js), as the direct-local caller.
  *
- *   L1 first contact: on an instance today's install installed, every firmware node answers unchanged but the five
- *      schemas pass 3b filled and the three concept graphs pass 1c flattened, which answer kept with noRecord (ADR 0037
- *      Amendment 1, item 2); nothing is added or removed; a relationship kept with noRecord, or a link between firmware
+ *   L1 first contact: on an instance today's install installed, every firmware node answers unchanged but the schemas
+ *      pass 3b filled and the three concept graphs pass 1c flattened, which answer kept with noRecord (ADR 0037
+ *      Amendment 1, item 2). Pass 3b fills an enumeration's schema only when its enumerating concept has an element
+ *      (apply-enumerations skips one with none), so L1 reads which from the container's firmware and graph before it
+ *      runs: on firmware 1.0.0, dog-breed has none and dog's schema is its file's. Nothing is added or removed; a relationship kept with noRecord, or a link between firmware
  *      nodes that the target lacks (the instance's own, others), is allowed only when it is the prune's kind, a
  *      HAS_ELEMENT or IS_A_SUPERSET_OF from a superset, since the target prunes in one fixed order, by address, where
  *      today's install prunes in Neo4j's (Amendment 1, item 5); L1 prints each such link
@@ -40,7 +42,6 @@ const L = require('../../helpers/scratchLoopback');
 const { assert, show } = S;
 const { test, run } = S.makeSuite('operations: lifecycle seed-firmware on scratch stacks (skips unless TAPESTRY_CONTAINER names tapestry-scratch…)');
 const ROUTE = '/api/tapestry/lifecycle/seed-firmware';
-const FIVE = ['word', 'graph', 'property', 'relationship', 'dog'];
 /** The concept graphs pass 1c flattens, which the target keeps as create-concept made them (ADR 0037 Amendment 1, item 2). */
 const DEPARTED = ['node-type', 'graph-type', 'validation-tool-type'];
 const dtag = require(path.join(S.ROOT, 'src/lib/dtag.js'));
@@ -78,23 +79,48 @@ function writeInContainer(rel, text) {
   execFileSync('docker', ['exec', '-i', c, 'sh', '-c', `cat > '${IN_CONTAINER}/${rel}'`], { input: text, timeout: 60000 });
 }
 
+/**
+ * Each enumeration of the container's firmware, the schema it targets on the instance, and how many elements its
+ * enumerating concept's class thread holds, read as today's apply-enumerations reads them (src/api/normalize/index.js:
+ * IS_A_SUPERSET_OF*0..10, then HAS_ELEMENT). The route skips one with none, so its schema is its file's.
+ */
+function enumerationsOnTheInstance(ta) {
+  const manifest = JSON.parse(L.sh(`cat '${IN_CONTAINER}/manifest.json'`));
+  const singular = (x) => ({ properties: 'property', sets: 'set' }[x] || x.replace(/s$/, ''));
+  const out = [];
+  for (const [plural, data] of Object.entries(manifest.enumerations || {})) {
+    const source = singular(plural);
+    const n = L.cypher('MATCH (h:NostrEvent|TapestryNode {uuid: $h})-[:IS_THE_CONCEPT_FOR]->(s:Superset) MATCH (s)-[:IS_A_SUPERSET_OF*0..10]->(x)-[:HAS_ELEMENT]->(e) RETURN count(DISTINCT e) AS c', { h: `39998:${ta}:${source}` });
+    for (const e of data['existing-nodes'] || []) {
+      const js = L.cypher('MATCH (js:JSONSchema)-[:IS_THE_JSON_SCHEMA_FOR]->(h:NostrEvent|TapestryNode {uuid: $h}) RETURN js.uuid AS u', { h: `39998:${ta}:${e.concept}` });
+      out.push({ source, concept: e.concept, elements: Number(n.length ? n[0].c : 0), schema: js.length ? js[0].u : null });
+    }
+  }
+  return out;
+}
+
 let L1 = null;
 function firstContact() {
   if (L1) return L1;
   const ta = L.taPubkey();
   const status = L.http('GET', '/api/firmware/install-status', undefined, 60);
   if (!(status.json && status.json.installed === true)) okData(L.http('POST', '/api/firmware/install', {}, 900), "today's install (L1's precondition)");
-  L1 = { ta, d: seed({}, 'first contact') };
+  const enumerations = enumerationsOnTheInstance(ta);
+  L1 = { ta, enumerations, d: seed({}, 'first contact') };
   return L1;
 }
 
-test('L1 [AC1, AC4, Decision 13, Amendment 1]: first contact: every firmware node unchanged but the five schemas and the three flattened concept graphs (kept, noRecord); nothing added or removed; only the prune\'s direct links from a superset kept or the instance\'s own, each listed', () => {
+test('L1 [AC1, AC4, Decision 13, Amendment 1]: first contact: every firmware node unchanged but the schemas pass 3b filled (read from the instance) and the three flattened concept graphs (kept, noRecord); nothing added or removed; only the prune\'s direct links from a superset kept or the instance\'s own, each listed', () => {
   if (ready()) return 'skip';
-  const { ta, d } = firstContact();
+  const { ta, d, enumerations } = firstContact();
+  const filled = enumerations.filter((x) => x.elements > 0);
+  console.log(`    L1: pass 3b filled ${filled.map((x) => `${x.concept}'s schema (${x.source}: ${x.elements} elements)`).join(', ') || 'no schema'}; skipped ${enumerations.filter((x) => !(x.elements > 0)).map((x) => `${x.concept}'s (${x.source}: no element)`).join(', ') || 'none'}`);
+  assert(enumerations.length > 0 && filled.every((x) => x.schema), `the firmware's enumerations, each filled one's schema found on the instance; got ${show(enumerations)}`);
   const kept = (d.nodes || []).filter((e) => e.outcome === 'kept');
-  const want = [...FIVE.map((x) => `39999:${ta}:${x}-schema`), ...DEPARTED.map((x) => `39999:${ta}:${x}-concept-graph`)];
-  assert(kept.length === 8 && kept.every((e) => want.includes(e.address) && e.noRecord === true), `only the five schemas and the three concept graphs are kept, each with noRecord; got ${show(kept.map((e) => [e.address, e.parts]))}`);
-  assert(count(d, 'unchanged') === 451 && !count(d, 'added') && !count(d, 'changed'), `451 unchanged; got ${show(d.counts)}`);
+  const want = [...new Set([...filled.map((x) => x.schema), ...DEPARTED.map((x) => `39999:${ta}:${x}-concept-graph`)])];
+  assert(kept.length === want.length && kept.every((e) => want.includes(e.address) && e.noRecord === true),
+    `kept with noRecord are exactly the ${filled.length} schemas pass 3b filled and the three concept graphs pass 1c flattened (${want.length}); got ${show(kept.map((e) => [e.address, e.parts]))}`);
+  assert(count(d, 'unchanged') === 459 - want.length && !count(d, 'added') && !count(d, 'changed'), `${459 - want.length} unchanged, everything else; got ${show(d.counts)}`);
   const r = d.relationships || {};
   assert((r.added || []).length === 0 && (r.removed || []).length === 0, `first contact adds and removes no relationship; got added ${show((r.added || []).slice(0, 10))}, removed ${show((r.removed || []).slice(0, 10))}`);
 

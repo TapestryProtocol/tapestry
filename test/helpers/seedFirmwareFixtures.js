@@ -12,8 +12,10 @@
  *                                (test/helpers/todaysFirmwareRoutes.js), memoized
  *   targetLetters(o)             the oracle's letters with the concept graphs pass 1c rewrites as create-concept made
  *                                them: what the target holds (ADR 0037 Amendment 1, item 2)
- *   keptOnFirstContact(o)        the eight nodes first contact keeps on today's install's graph: the five schemas pass
- *                                3b fills and the three concept graphs pass 1c flattens
+ *   enumeratedOnTodaysInstall(o) the enumerations today's pass 3b applies: one whose enumerating concept has no element
+ *                                it skips, as the route does (dog-breed's, on firmware/active)
+ *   keptOnFirstContact(o)        the nodes first contact keeps on today's install's graph: the schemas pass 3b fills
+ *                                (four on firmware/active) and the three concept graphs pass 1c flattens
  *   buildTarget(dir, ta)         src/firmware/target.js's buildTarget({ dir, ta }), or a throw that it doesn't exist yet
  *
  * The graph, in test/helpers/cypherEngine.js's shape:
@@ -21,8 +23,9 @@
  *   todaysGraph(o, opts)         the firmware's nodes as today's install leaves them (story fact 1): each letter a node
  *                                with NostrEvent and its id, its tags as importEventDirect makes them, the role labels
  *                                and the slug the routes set, the edges the routes MERGE, each community-reference
- *                                header's b claim, and the five enumerated schemas as pass 3b leaves them (an enum at
- *                                each destination path); opts.edges adds relationships, opts.edit(state, at) edits
+ *                                header's b claim, and each schema pass 3b fills as it leaves it (an enum at each
+ *                                destination path; an enumeration with no enumerating element skipped, as the route
+ *                                skips it); opts.edges adds relationships, opts.edit(state, at) edits
  *   cy(state, cypher, params)    one statement on the engine, its rows
  *
  * Runs (each a child process, test/helpers/operationsHarness.js, every endpoint dead):
@@ -135,9 +138,39 @@ function targetLetters(o) {
   for (const [address, l] of o.rewrittenBy1c) m.set(address, l);
   return m;
 }
-/** The nodes first contact keeps with noRecord on a graph today's install made: the five schemas and the three concept graphs. */
+/**
+ * The enumerations today's pass 3b applies: each of the manifest's, unless its enumerating concept has no element on
+ * today's install, which apply-enumerations skips (src/api/normalize/index.js, handleApplyEnumerations: "No elements
+ * found — skipping"). Its elements are its superset's class thread when pass 3b runs, as today's install leaves it: its
+ * element files (1b) and the manifest's existing nodes it finds (1c), both edges the routes MERGE; each node whose z
+ * names it (1d, word excepted); and for concept-header every header (1d½). For firmware/active, dog-breed has none (its
+ * existing nodes name irish-setter and golden-retriever, which no concept is), so dog's schema is its file's on today's
+ * install too. → [{ concept, source, destination }]
+ */
+function enumeratedOnTodaysInstall(o) {
+  const hasElements = (slug) => {
+    if (slug === 'concept-header') return [...o.letters.values()].some((l) => l.role === 'conceptHeader');
+    const sup = o.supersetOf(slug);
+    if (!sup) return false;
+    if (o.edges.some((e) => e.type === 'HAS_ELEMENT' && e.from === sup)) return true;
+    const header = o.headerOf(slug);
+    return slug !== 'word' && [...o.letters.values(), ...o.relationshipLetters].some((l) => l.address !== sup && l.tags.some((t) => t[0] === 'z' && t[1] === header));
+  };
+  const out = [];
+  for (const [plural, data] of Object.entries(o.manifest.enumerations || {})) {
+    const source = O.categoryToSlug(plural);
+    if (!hasElements(source)) continue;
+    for (const e of data['existing-nodes'] || []) out.push({ concept: e.concept, source, destination: e['destination-path'] || e.path });
+  }
+  return out;
+}
+/**
+ * The nodes first contact keeps with noRecord on a graph today's install made: each schema pass 3b filled (four of the
+ * five on firmware/active: word's, graph's, property's and relationship's) and the three concept graphs pass 1c flattened.
+ */
 function keptOnFirstContact(o) {
-  const schemas = [...o.letters.values()].filter((l) => l.role === 'jsonSchema' && FIVE.includes(l.concept)).map((l) => l.address);
+  const filled = new Set(enumeratedOnTodaysInstall(o).map((x) => x.concept));
+  const schemas = [...o.letters.values()].filter((l) => l.role === 'jsonSchema' && filled.has(l.concept)).map((l) => l.address);
   const graphs = [...o.letters.values()].filter((l) => l.role === 'conceptGraph' && DEPARTED_GRAPHS.includes(l.concept)).map((l) => l.address);
   return [...schemas, ...graphs];
 }
@@ -283,10 +316,8 @@ function todaysGraph(o, { ta = TA, edges = [], schemaValues = true, edit = null 
     at.set(address, n);
     return n;
   };
-  const enumerations = [];
-  for (const [plural, data] of Object.entries(o.manifest.enumerations || {})) {
-    for (const e of data['existing-nodes'] || []) enumerations.push({ concept: e.concept, destination: e['destination-path'] || e.path, values: [`${O.categoryToSlug(plural)}-a`, `${O.categoryToSlug(plural)}-b`] });
-  }
+  // Pass 3b's values, for each enumeration it applies (one whose enumerating concept has no element it skips).
+  const enumerations = enumeratedOnTodaysInstall(o).map((x) => ({ ...x, values: [`${x.source}-a`, `${x.source}-b`] }));
   for (const [address, l] of o.letters) {
     let letter = l;
     const en = schemaValues && l.role === 'jsonSchema' ? enumerations.filter((x) => x.concept === l.concept) : [];
@@ -436,6 +467,7 @@ function statusFirmware(state, { firmwareDir = null } = {}) {
 module.exports = {
   ROOT, NL, TA, ACTIVE, ROUTE, STATUS, DECL, SEED, TARGET, FIVE, COMMUNITY, DEPARTED_GRAPHS, ROLE_LABELS, assert, show, tmp: S.tmp, dtag,
   needDecl, needTarget, needSeed, copyFirmware, applyChanges, fileSha, sha256, readFirmwareJson, oracle, buildTarget, targetLetters, keptOnFirstContact,
+  enumeratedOnTodaysInstall,
   nodesOf, relsOfTarget, isRelationshipLetter, tagValue, parsed, roleLabels, tagKey, tagSet, setDiff, sameSet, stable, sameJson, relEnds,
   hasTargetRel, targetRel,
   emptyGraph, cy, live, nodesAt, byKey, byEid, relsOf, tagsOf, jsonTagOf, propJson, entries, installedGraphAddress, addNode, addRel, addTagNodes,

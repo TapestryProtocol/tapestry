@@ -17,9 +17,9 @@
  *
  *   SP1  an empty graph: every node and every relationship of the target is added
  *   SP2  the plan reads and writes nothing: it is the same twice, and the graph isn't asked while it runs
- *   SP3  first contact with today's install's graph: equal nodes unchanged (adopted); the five schemas pass 3b filled,
- *        the three concept graphs pass 1c flattened (ADR 0037 Amendment 1, item 2), an edited header and a re-pointed b
- *        kept with noRecord; nothing added, nothing changed
+ *   SP3  first contact with today's install's graph: equal nodes unchanged (adopted); the schemas pass 3b filled (four:
+ *        it skips dog's, dog-breed having no element), the three concept graphs pass 1c flattened (ADR 0037 Amendment 1,
+ *        item 2), an edited header and a re-pointed b kept with noRecord; nothing added, nothing changed
  *   SP4  first contact's relationships: one there is unchanged; one missing is kept with noRecord, not added; one
  *        between two firmware nodes that the target lacks is the instance's own (others), never removed
  *   SP5  take, by address and by tapestryKey, and takeAll: each kept node changed; takeAll takes the kept relationships
@@ -127,12 +127,12 @@ test('SP2 [Decision 7]: the plan is pure: twice over the same state it is the sa
   assert(F.stable(JSON.parse(JSON.stringify(a))) === F.stable(JSON.parse(JSON.stringify(b))), 'the same inputs give the same plan');
 });
 
-test('SP3 [AC4 open question 2, Decisions 5 and 7, Amendment 1]: first contact: a node equal to the target is unchanged, adopted; the five schemas, the three flattened concept graphs, an edited header and a re-pointed b are kept with noRecord', async () => {
+test('SP3 [AC4 open question 2, Decisions 5 and 7, Amendment 1]: first contact: a node equal to the target is unchanged, adopted; the four schemas pass 3b filled, the three flattened concept graphs, an edited header and a re-pointed b are kept with noRecord', async () => {
   const { o, s } = await firstContact();
   const { p } = await planOver(s);
   const nodes = nodeOutcomes(p);
   const keptAddresses = new Set([...F.keptOnFirstContact(o), o.headerOf('dog'), o.headerOf('nostr-relay')]);
-  assert(keptAddresses.size === 10, 'ten: five schemas, three concept graphs and the two edits');
+  assert(keptAddresses.size === 9, `nine: the four schemas pass 3b filled (word's, graph's, property's, relationship's; dog-breed has no element, so it skips dog's), three concept graphs and the two edits; got ${keptAddresses.size}`);
   for (const address of keptAddresses) {
     const e = nodes.get(address);
     assert(e && e.outcome === 'kept' && e.noRecord === true, `${address.split(':')[2]} differs from the source and has no record: kept, noRecord; got ${show(e)}`);
@@ -167,7 +167,7 @@ test('SP5 [AC4 open question 3, Decision 7]: take by address and by tapestryKey,
   assert(outcomeAt(byKey.p, o.headerOf('dog')) === 'changed' && outcomeAt(byKey.p, o.headerOf('nostr-relay')) === 'kept', 'take by tapestryKey: that node changed');
   const all = await planOver(s, { takeAll: true });
   const c = tally(all.p);
-  assert(!c.kept && c.changed === 10, `takeAll: the ten kept nodes changed, none kept; got ${show(c)}`);
+  assert(!c.kept && c.changed === 9, `takeAll: the nine kept nodes changed, none kept; got ${show(c)}`);
   const missing = relOutcome(all.p, 'HAS_ELEMENT', o.supersetOf('concept-header'), o.headerOf('word'));
   assert(missing === 'added' || missing === 'changed', `takeAll makes a missing relationship; got ${show(missing)}`);
 });

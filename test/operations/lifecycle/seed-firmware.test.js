@@ -47,9 +47,9 @@
  *   SF20 AC6 rules check reports what it finds over the firmware's nodes, and undoes nothing
  *   SF21 AC4 take by tapestryKey and by address: that node changed, its record moved; takeAll: every kept node and
  *        relationship, the b claim replaced with its tag; then nothing left to change
- *   SF22 AC4 first contact with today's install: equal nodes unchanged and adopted, keeping their letters; the five
- *        schemas, the three concept graphs pass 1c flattened and the edited nodes kept with noRecord; missing
- *        relationships kept with noRecord
+ *   SF22 AC4 first contact with today's install: equal nodes unchanged and adopted, keeping their letters; the schemas
+ *        pass 3b filled (four: it skips dog's), the three concept graphs pass 1c flattened and the edited nodes kept with
+ *        noRecord; missing relationships kept with noRecord
  *   SF23 AC4 first contact again: still kept, nothing written; then takeAll: each kept node changed, keeping its
  *        tapestryKey, id, NostrEvent and created_at, its old tag nodes gone, and named in letterOutOfDate
  *   SF24 AC7 unknown-version, naming the version carried; not-firmware, naming each ref; nothing changed
@@ -200,8 +200,8 @@ async function firstContact() {
   return FIRST;
 }
 
-/** What first contact keeps on FIRST's graph: the five schemas and three concept graphs, and the fixture's two edits. */
-const kept10 = (o) => [...F.keptOnFirstContact(o), o.headerOf('dog'), o.headerOf('nostr-relay')];
+/** What first contact keeps on FIRST's graph: the four schemas pass 3b filled, three concept graphs, and the fixture's two edits. */
+const keptFirst = (o) => [...F.keptOnFirstContact(o), o.headerOf('dog'), o.headerOf('nostr-relay')];
 const seedEntries = (s) => F.entries(s).filter((e) => e.operation === 'lifecycle seed-firmware');
 const firmwareNodes = (s, o) => [...o.letters.keys()].map((a) => F.nodesAt(s, a));
 
@@ -558,13 +558,16 @@ test('SF21 [AC4 open question 3]: take by tapestryKey and by address: that node 
 });
 
 // ── AC4: first contact with today's install ──
-test('SF22 [AC4 open question 2, Decision 5, Amendment 1]: first contact with today\'s install: equal nodes unchanged and adopted, keeping their letters; the five schemas, the three flattened concept graphs and the edited nodes kept with noRecord; missing relationships kept', async () => {
+test('SF22 [AC4 open question 2, Decision 5, Amendment 1]: first contact with today\'s install: equal nodes unchanged and adopted, keeping their letters; the four schemas pass 3b filled, the three flattened concept graphs and the edited nodes kept with noRecord; missing relationships kept', async () => {
   const { o, c } = await firstContact();
   const d = F.data(c, 'first');
-  const want = kept10(o);
-  assert(F.countOf(d, 'kept') === 10 && F.countOf(d, 'unchanged') === 449, `449 unchanged, 10 kept (the five schemas pass 3b filled, the three concept graphs pass 1c flattened, dog's edited header, nostr-relay's re-pointed b); got ${show(d.counts)}`);
+  const want = keptFirst(o);
+  assert(want.length === 9, `the fixture: four schemas pass 3b filled (dog-breed has no element, so it skips dog's), three concept graphs and two edits; got ${want.length}`);
+  assert(F.countOf(d, 'kept') === 9 && F.countOf(d, 'unchanged') === 450, `450 unchanged, 9 kept (the schemas of word, graph, property and relationship, which pass 3b filled; the three concept graphs pass 1c flattened; dog's edited header; nostr-relay's re-pointed b); got ${show(d.counts)}`);
   const by = F.entriesByAddress(d);
   for (const address of want) assert(by.get(address) && by.get(address).outcome === 'kept' && by.get(address).noRecord === true, `${address.split(':')[2]} kept with noRecord; got ${show(by.get(address))}`);
+  const dogSchema = [...o.letters.values()].find((l) => l.role === 'jsonSchema' && l.concept === 'dog').address;
+  assert(!by.has(dogSchema), `dog's schema, which today's pass 3b skips (dog-breed has no element), is its file's on today's install too: unchanged, adopted; got ${show(by.get(dogSchema))}`);
   const r = F.relsOfAnswer(d);
   assert(!r.added.length && !r.removed.length && r.kept.length > 0 && r.kept.every((x) => x.noRecord === true), `relationships: none added or removed; the missing ones kept with noRecord; got ${show({ added: r.added.length, removed: r.removed.length, kept: r.kept.length })}`);
 });
@@ -572,14 +575,14 @@ test('SF22 [AC4 open question 2, Decision 5, Amendment 1]: first contact with to
 test('SF23 [AC4, Decision 10]: first contact again: still kept, nothing written; then takeAll: each kept node changed, keeping its tapestryKey, id, NostrEvent and created_at, its old tag nodes gone, and named in letterOutOfDate', async () => {
   const { o, before, c, after } = await firstContact();
   const again = F.data(c, 'first-again');
-  assert(F.countOf(again, 'kept') === 10 && again.change === null, `again: ten kept, nothing written; got ${show({ counts: again.counts, change: again.change })}`);
+  assert(F.countOf(again, 'kept') === 9 && again.change === null, `again: nine kept, nothing written; got ${show({ counts: again.counts, change: again.change })}`);
   const adopted = F.nodesAt(after, o.elementOf(ROVER))[0];
   const was = F.nodesAt(before, o.elementOf(ROVER))[0];
   assert(adopted.props.id === was.props.id && adopted.labels.includes('NostrEvent') && F.propJson(adopted, 'installed'), 'an adopted node keeps its letter (id, NostrEvent) and has a record');
   const all = F.data(c, 'first-all');
-  assert(F.countOf(all, 'changed') === 10 && !F.countOf(all, 'kept'), `takeAll: the ten changed; got ${show(all.counts)}`);
+  assert(F.countOf(all, 'changed') === 9 && !F.countOf(all, 'kept'), `takeAll: the nine changed; got ${show(all.counts)}`);
   const late = new Set((all.letterOutOfDate || []).map((x) => (typeof x === 'string' ? x : x.address || x.tapestryKey)));
-  for (const address of kept10(o)) {
+  for (const address of keptFirst(o)) {
     const n = F.nodesAt(after, address)[0];
     const b = F.nodesAt(before, address)[0];
     assert(n.props.tapestryKey === b.props.tapestryKey && n.props.id === b.props.id && n.labels.includes('NostrEvent') && n.props.created_at === b.props.created_at, `${address.split(':')[2]} keeps its tapestryKey, id, NostrEvent and created_at`);

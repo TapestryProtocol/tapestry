@@ -37,8 +37,8 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | AC2 status | **SF9** `seeded` and its schema field; `changedSince` 0, then 1 after an edit; null, in words naming seed-firmware, for an empty graph and for today's install's graph; `installed` still `none` by readInstallState. **status.test.js P3**, re-aimed at Implementation: the old fields as before, beside `seeded: null` and a `note` naming seed-firmware, the graph seam stubbed to find no installed-firmware graph | route (status child), status | integration, unit |
 | AC3 safe to repeat | **SF10** again, as admin, with `1.0.0` and `v1.0.0`: 459 unchanged, change null, one entry. **SF11** two at once: one installs, the other `busy` or unchanged; each node once. **SF15**'s and **SF23**'s repeats write nothing. **SA1**'s repeat | route, agent | |
 | AC4 update | **SF14** changed (record moved), added. **SF15** kept naming json / name / b, record not moved, edit kept; kept again with nothing written. **SF16** not-in-source, still there. **SF17** relationships: removed, added, kept (removed by hand; properties edited), others (a direct link under a firmware superset; a second parent). **SF18** the instance's own element stays. **SF21** take by key and by address; takeAll by an admin (the b claim replaced); then nothing to change | route | integration |
-| AC4 first contact (open question 2) | **SP3** (10 kept), **SP4**, **SP8** pure. **SF22** 449 unchanged and adopted (keeping their letters); 10 kept with noRecord: the five schemas, the three concept graphs and the fixture's two edits; missing relationships kept with noRecord. **SF23** again, 10 kept; takeAll changes the 10 ("Settled at Test Design", item 9): tapestryKey, id, NostrEvent and created_at kept, old tag nodes gone, letterOutOfDate | plan, route | |
-| AC4 take (open question 3) | **SP5** (takeAll changes 10), **SF21**, **SF23**, **SA1** | plan, route, agent | |
+| AC4 first contact (open question 2) | **SP3** (9 kept), **SP4**, **SP8** pure. **SF22** 450 unchanged and adopted (keeping their letters), dog's schema among them; 9 kept with noRecord: the four schemas pass 3b filled, the three concept graphs and the fixture's two edits; missing relationships kept with noRecord. **SF23** again, 9 kept; takeAll changes the 9 ("Settled at Test Design", item 9): tapestryKey, id, NostrEvent and created_at kept, old tag nodes gone, letterOutOfDate | plan, route | |
+| AC4 take (open question 3) | **SP5** (takeAll changes 9), **SF21**, **SF23**, **SA1** | plan, route, agent | |
 | AC5 graph rules | **SP6** put back (or changed) on first contact; another author's item blocks. **SF19** put-back, changed, nine unchanged. **ST28** the eleven items | plan, route, target | |
 | AC6 the answer, the entry, rules check | **SF12** version, source (files), nodes with outcome/tapestryKey/address/role/file, counts, relationships, letterOutOfDate `[]`, cacheOutOfDate counting each failed derive, rulesCheck, change, note. **SF13** the entry's who and keys; `graph history` finds both entries by a node. **SF20** 0 findings fresh; a second parent found and left as it was | route | integration |
 | AC7 refusals | **SF24** unknown-version (names 2.0.0 and 1.0.0), not-firmware (names each ref), 501 refs. **SF25** firmware-unreadable (names each file and problem), graph untouched. **SF26** busy (names the backup); graph-unavailable, in words saying nothing can be installed. **SF27** no-assistant. **SF28** 401, 403, 415, unknown input. **ST21–ST27** each unreadable kind (below). **ST31** an existing set naming an undefined concept is skipped, no problem | route, target | |
@@ -93,8 +93,8 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
      - SO6 still shows today's rewrite, and now also that the oracle keeps create-concept's form of exactly those three (`rewrittenBy1c`).
      - ST2–ST5 and SF3 compare against `targetLetters`: today's letters with those three put back.
      - ST4 asserts each has its word block, each node's slug, two imports and its one relationship, and is not the flattened form.
-     - On today's install's graph they differ, so first contact keeps them with noRecord: SP3 and SF22 count 10 kept and 449 unchanged; SP5 and SF23's takeAll change 10; SF23 also finds node-type's concept graph back in create-concept's form.
-     - L1 expects 8 kept with noRecord (the five schemas and the three concept graphs) and 451 unchanged.
+     - On today's install's graph they differ, so first contact keeps them with noRecord: SP3 and SF22 count 9 kept and 450 unchanged; SP5 and SF23's takeAll change 9; SF23 also finds node-type's concept graph back in create-concept's form. (The counts were 10 and 449 until Implementation's live check: see "Found at Implementation" below.)
+     - L1 expects kept with noRecord exactly the three concept graphs and each schema pass 3b filled on the instance, and every other node unchanged.
 3. **`nostr-event-tag`'s core nodes.**
    - *What today's install does:* create-concept puts the header at `dTag` but the core nodes at the name's slug. The concept is named "nostr event tagging", so its core nodes are at `…:nostr-event-tagging-superset` and so on.
    - *Ruling (the owner, 2026-11-20):* **follow today.** `conceptNodes` takes the header's d-tag and the core nodes' apart (Amendment 1, item 3).
@@ -133,6 +133,13 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
 9. **A missing relationship taken by takeAll** is accepted as `added` or `changed` (SP5), and must exist afterwards (SF23). *Accepted as chosen (the owner, 2026-11-20).*
 10. **L2 needs a second scratch container** (`TAPESTRY_SEED_EMPTY_CONTAINER`, an empty graph), since L1, L3 and L4 need an instance today's install installed. Decision 13 says "scratch stacks". L2 skips without it. *Accepted as chosen (the owner, 2026-11-20).*
 
+**Found at Implementation's live check** (the coordinator, 2026-11-20; root cause confirmed, the fix in the tests):
+- *What happened:* on a scratch stack today's install set up (firmware 1.0.0, the branch at `e18fc03d`), L1 found 7 nodes kept with noRecord, not 8. They were four schemas (word's, graph's, property's, relationship's) and the three concept graphs; dog's schema answered `unchanged`.
+- *The cause:* today's apply-enumerations skips an enumeration whose enumerating concept has no element (`src/api/normalize/index.js`: "No elements found — skipping"). dog-breed has none on 1.0.0: its existing nodes name `irish-setter` and `golden-retriever`, which item 4 skips. So pass 3b never touches dog's schema, and it equals its file. Live, dog-breed's class thread holds 0 elements. L3 and L4 passed.
+- *The fix:*
+  - The stack-free fixture now skips such an enumeration exactly as the route does (`enumeratedOnTodaysInstall`): SP3 and SF22 count 9 kept and 450 unchanged; SP5 and SF23's takeAll change 9; SF22 also finds dog's schema unchanged.
+  - L1 reads from the instance which enumerations pass 3b applied, so a later firmware that gives dog-breed elements still passes.
+
 ## Edge cases
 
 - [x] Empty input: `{}` installs (SF3). An empty graph: all added (SP1), and status says none is recorded (SF9).
@@ -165,7 +172,7 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
   - *Graphs:* `todaysGraph(oracle, …)`, the firmware's nodes as today's install leaves them:
     - lettered, with importEventDirect's tag nodes, the role labels and slugs, and the routes' edges;
     - each seeded header's two sets of tag nodes, AUTHORS, and its b claim to a placeholder;
-    - the five schemas with an enum at each enumeration's destination path, as pass 3b fills them.
+    - each schema pass 3b fills, with an enum at its enumeration's destination path. An enumeration whose enumerating concept has no element is skipped, as the route skips it (`enumeratedOnTodaysInstall`): on `firmware/active`, dog-breed's, so dog's schema is its file's.
   - *Runs:* `runSeed(…)` is one harness run with the cypher engine, the lifecycle fake and the firmware folder. `statusFirmware(state)` runs lifecycle status's firmware part in a child whose driver and graph seam both read the state.
   - *Readers:* indexed, so a 3,000-node state reads fast. The answer's accessors are tolerant of the names in item 7.
 - **The oracles** are `test/helpers/todaysFirmwareRoutes.js` (new) and `todaysCreateConcept.js` (extended additively; story 16's suites pass unchanged).
@@ -211,8 +218,8 @@ GATE_LABEL=a10-37-tests node -e 'const {runGate}=require("./test/helpers/gateRun
 Automated in `seed-firmware-live.test.js`:
 
 - **L1, first contact.** On an instance today's install installed (L1 runs `POST /api/firmware/install` first if needed):
-  - only the five schemas and the three concept graphs are `kept`, each with `noRecord` (item 2);
-  - 451 are `unchanged`;
+  - kept with `noRecord` are exactly the three concept graphs (item 2) and each schema pass 3b filled. L1 reads which from the container's firmware and graph before it runs: an enumeration whose enumerating concept's class thread (`IS_A_SUPERSET_OF*0..10`, then `HAS_ELEMENT`) holds at least one element. On firmware 1.0.0 that is word's, graph's, property's and relationship's, since dog-breed has none, so 7 are kept. L1 prints the filled and skipped enumerations;
+  - every other node is `unchanged`: 459 minus those, 452 on firmware 1.0.0;
   - no relationship is added or removed;
   - a relationship kept with noRecord, or a link between firmware nodes counted as `others`, is allowed only when it is a HAS_ELEMENT or IS_A_SUPERSET_OF from a superset, the prune's kind (item 5). L1 prints each such link, from the answer's `relationships.kept` and from the graph's links between the installed-firmware graph's nodes that its relationships don't list. Anything else kept fails.
 - **L2, an empty instance.** On a second container: 459 added; no node at a firmware address has an `id`; a repeat is unchanged, with no change entry.
@@ -272,7 +279,7 @@ What that showed:
 - **The target suite: 29 of 30 passed before the rulings, and 30 of 31 after** (ST4's departure, ST17's fixed order and ST31 included). ST29 failed both times because the stub doesn't export `installName`. So the suite's expectations are consistent with an oracle-built target, and its problem cases with a reader that names files.
 - **The route suite: 16 of 32 passed** where the stub does what they ask: SF1–SF4, SF6, SF7, SF10, SF12, SF18, SF24, SF25, SF27–SF30 and SF32.
   - Once SF18 was fixed (below), 15 passed. After the rulings, the same 15 passed, SF3 among them with the three concept graphs as create-concept made them.
-  - The rest failed on what the stub leaves out: the b claim, the installed-firmware graph, status, updates, take by key, first contact (now its 10 kept and 449 unchanged), `_common.js`'s words and the docs.
+  - The rest failed on what the stub leaves out: the b claim, the installed-firmware graph, status, updates, take by key, first contact (now its 9 kept and 450 unchanged), `_common.js`'s words and the docs.
   - None crashed.
 - **The agent suite** got through the install, the lookup of dog's header and the repeat, over the external CLI and the new server hook, and failed at the update, as the stub has none.
 - **Three faults in the tests,** since fixed:
@@ -282,5 +289,20 @@ What that showed:
 - **The fresh install took 3.0 s** in the harness. The run of the route suite against the stub took 34 s, most of it the stub builder's slow path search.
 
 **Suite times:**
-- *Now, failing:* about 1.2 s for all seven suites.
+- *At Test Design, failing:* about 1.2 s for all seven suites.
 - *Expected once implemented, if the install writes about one statement a node:* about 25–35 s. Most of that is the route suite's six installs: fresh, update, take, first contact and its repeats. Then the agent suite (about 5 s), the target and plan suites (about 2 s each), and the record suite (0.3 s).
+- *Measured at Implementation:* 23 s in all (below).
+
+**At Implementation** (2026-11-20, at `e18fc03d`, the implementation uncommitted in the worktree), after the live check's finding (the fixture now skips an enumeration with no enumerating element; L1 reads which pass 3b applied). Each suite ran alone, `tmp/a10-37/env.sh` sourced (every endpoint dead, the dead conf):
+
+```
+RESULT seed-firmware-oracles.test.js {"pass":8,"fail":0,"skipped":0} 0.1s
+RESULT seed-firmware-target.test.js {"pass":31,"fail":0,"skipped":0} 1.2s
+RESULT seed-firmware-plan.test.js {"pass":8,"fail":0,"skipped":0} 0.5s
+RESULT seed-firmware.test.js {"pass":32,"fail":0,"skipped":0} 15.5s
+RESULT seed-firmware-record.test.js {"pass":4,"fail":0,"skipped":0} 0.3s
+RESULT seed-firmware-agent-through-cli.test.js {"pass":1,"fail":0,"skipped":0} 5.4s
+RESULT seed-firmware-live.test.js {"pass":0,"fail":0,"skipped":4} 0.0s
+```
+
+`status.test.js`, its P3 re-aimed to Decision 12 at Implementation, passes 9 of 9.
