@@ -25,5 +25,5 @@
 - Run cache-behaviour checks on a GitHub runner, which has buildx.
 - Have the test plan template say that a local Docker cache check must name the builder it ran on.
 
-**Pointer:** `engineering-team/reviews/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`, blocking 1 and
+**Pointer:** `engineering-team/reviews/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`, blocking 1 and
 harness friction 1.

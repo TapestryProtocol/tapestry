@@ -3,8 +3,8 @@
  * Story container-apt-refresh #1: every build of the tapestry image brings its Ubuntu packages up to date at least
  * once a week. ADR container-apt-refresh/0001 (Accepted): a refresh step between the npm installs and `COPY .`, keyed
  * by the ISO week that every server deploy and the brains' build pass in as PACKAGES_REFRESH.
- *   Story:     engineering-team/stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md
- *   Test plan: engineering-team/stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.test-plan.md
+ *   Story:     engineering-team/stories/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md
+ *   Test plan: engineering-team/stories/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.test-plan.md
  *
  * Stack-free in every run:
  *   D  the Dockerfile, source level: the step's place, its apt options, its guard and its marker.
