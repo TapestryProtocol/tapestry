@@ -80,6 +80,10 @@
  *   SF39 nit 1: seed-firmware's own installed-firmware graph, its record there, whose offloaded json has no entry in
  *        the store, is refused in words that say its JSON can't be read, not that it isn't seed-firmware's; nothing
  *        is written
+ * Review round 4 ("Round 4"; ADR 0037 Amendment 4):
+ *   SF40 R4-N2: rulesCheck judges only the firmware's own nodes: rule 12 (word-types-hold-concept-keys) is reported on
+ *        a firmware node that breaks it, never on the instance's own element or another author's that break it too;
+ *        judged is at most the target's nodes; its shape kept
  */
 
 const fs = require('fs');
@@ -875,6 +879,47 @@ test('SF39 [AC7, Amendment 3 item 3; review round 2, nit 1]: seed-firmware\'s ow
   assert(!/isn['’]t seed-firmware['’]s/i.test(w) && !/lacks seed-firmware['’]s mark/i.test(w), `it doesn't say the node isn't seed-firmware's, since it carries the record; got ${w}`);
   const after = r.state();
   assert(F.stable(after.nodes) === F.stable(st.nodes) && F.stable(after.rels) === F.stable(st.rels), 'nothing is written, no entry');
+});
+
+test('SF40 [AC6, Decision 10, Amendment 4; review round 4, R4-N2]: rulesCheck judges only the firmware\'s own nodes: rule 12 is reported on a firmware node that breaks it, and not on the instance\'s own element or another author\'s that break it too; judged is at most the target\'s nodes', async () => {
+  const { s } = fresh();
+  const o = await F.oracle(firmwareA());
+  const st = JSON.parse(JSON.stringify(s));
+  const RULE12 = 'word-types-hold-concept-keys';
+  // rover, firmware's element, its JSON edited by hand: its wordTypes lose dog's key.
+  const rover = F.nodesAt(st, o.elementOf(ROVER))[0];
+  const tag = F.relsOf(st, { type: 'HAS_TAG', from: rover.props.uuid }).map((r) => r.toNode).find((t) => t.props.type === 'json');
+  const rj = JSON.parse(tag.props.value);
+  tag.props.value = JSON.stringify({ ...rj, word: { ...rj.word, wordTypes: rj.word.wordTypes.filter((w) => w !== 'dog') } });
+  // Biscuit, the instance's own element of dog, and an element of nostr-relay another author made: neither's wordTypes
+  // holds its concept's key. Each is reached through dog's or nostr-relay's class thread, and through word's.
+  const biscuitD = F.dtag.childDTag('Biscuit', o.headerOf('dog'));
+  const biscuit = F.addNode(st, ['ListItem'], { uuid: `39999:${TA}:${biscuitD}`, kind: 39999, pubkey: TA, name: 'Biscuit', tapestryValue: 'Biscuit', created_at: 1700000003 });
+  F.addTagNodes(st, biscuit, [['d', biscuitD], ['name', 'Biscuit'], ['z', o.headerOf('dog')], ['json', JSON.stringify({ word: { slug: 'dog--biscuit', name: 'dog: Biscuit', wordTypes: ['word'] }, dog: { slug: 'biscuit', name: 'Biscuit' } })]]);
+  F.addRel(st, F.nodesAt(st, o.supersetOf('dog'))[0], 'HAS_ELEMENT', biscuit);
+  const theirs = F.addNode(st, ['NostrEvent', 'ListItem'], { uuid: `39999:${OTHER}:their-relay`, id: F.sha256('their relay'), kind: 39999, pubkey: OTHER, name: 'their relay', created_at: 1700000004 });
+  F.addTagNodes(st, theirs, [['d', 'their-relay'], ['name', 'their relay'], ['z', o.headerOf('nostr-relay')], ['json', JSON.stringify({ word: { slug: 'nostr-relay--their-relay', name: 'nostr relay: their relay', wordTypes: ['word'] }, nostrRelay: { slug: 'their-relay', name: 'their relay' } })]]);
+  F.addRel(st, F.nodesAt(st, o.supersetOf('nostr-relay'))[0], 'HAS_ELEMENT', theirs);
+  const check = (id, key) => ({ id, method: 'GET', url: `/api/tapestry/rules/check?scope=${key}&rules=${RULE12}`, caller: 'owner' });
+  const r = F.runSeed({
+    state: st, firmwareDir: firmwareA(), label: 'seed-firmware-rules-scope-',
+    requests: [F.seed('again', 'owner'), check('c-rover', rover.props.tapestryKey), check('c-biscuit', biscuit.props.tapestryKey), check('c-theirs', theirs.props.tapestryKey)],
+  });
+  for (const [id, what] of [['c-rover', 'rover'], ['c-biscuit', 'Biscuit'], ['c-theirs', 'their relay']]) {
+    const c = F.data(r, id);
+    assert(c.found >= 1 && (c.violations || []).some((v) => v.rule === RULE12), `${what} breaks rule 12: rules check over it alone finds it (so this isn't passing on a node that's fine); got ${String(show(c)).slice(0, 300)}`);
+  }
+  const rc = F.data(r, 'again').rulesCheck;
+  assert(rc && Array.isArray(rc.rules) && rc.rules.includes(RULE12) && Array.isArray(rc.first) && Number.isInteger(rc.judged), `rulesCheck keeps its shape (the rules run, judged, the number found, the first 20) and ran rule 12; got ${String(show(rc)).slice(0, 300)}`);
+  const on = (n) => rc.first.filter((f) => f && f.node && f.node.tapestryKey === n.props.tapestryKey);
+  assert(on(rover).some((f) => f.rule === RULE12), `firmware's rover, its dog key gone, is reported; got ${String(show(rc.first)).slice(0, 400)}`);
+  assert(!on(biscuit).length && !on(theirs).length, `the instance's own Biscuit and another author's relay, which seed-firmware never wrote, aren't reported: rules check judges only the firmware's own nodes (Amendment 4); got ${String(show([...on(biscuit), ...on(theirs)])).slice(0, 400)}`);
+  const firmware = new Set(st.nodes.filter((n) => n.props.installed).map((n) => n.props.tapestryKey));
+  const stray = rc.first.filter((f) => !(f && f.node && firmware.has(f.node.tapestryKey)));
+  assert(stray.length === 0, `every finding reported is on a node seed-firmware wrote; got ${String(show(stray)).slice(0, 400)}`);
+  const found = (() => { const m = show(rc).match(/"(?:findings|count|found|total)"\s*:\s*(\d+)/); return m ? Number(m[1]) : null; })();
+  assert(found !== null && found >= on(rover).length && (found > 20 || found === rc.first.length), `the number found counts what it reports, the first 20 of it; got ${found} and ${rc.first.length}`);
+  assert(rc.judged > 0 && rc.judged <= F.census().total, `judged is at most the target's ${F.census().total} nodes, never each concept's scope; got ${rc.judged}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

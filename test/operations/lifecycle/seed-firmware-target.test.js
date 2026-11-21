@@ -53,6 +53,9 @@
  *   ST33 the tripwire: install.js's pass functions, and pass 3c's route in src/api/normalize/index.js
  *        (handleWireImplicitElements; review round 2, R2-N3), as this suite last saw them; when one changes, it fails
  *        naming src/firmware/target.js, to be brought in line before the digest is (Amendment 3, item 8; N7). Passes now
+ *   ST34 a header file whose word.wordTypes isn't all concept keys' form ([a-z][A-Za-z0-9]*): a key with a space, and a
+ *        number: a problem naming the file, as today's create-concept refuses that list (ADR 0047 Decision 9; review
+ *        round 4, R4-N1; the refusal is da47c43c's). Passes now
  */
 
 const fs = require('fs');
@@ -498,6 +501,19 @@ test('ST33 [Amendment 3, item 8; review round 1, N7; round 2, R2-N3]: the tripwi
     if (digest !== pinned) changed.push(`${file}'s ${name} (now ${digest})`);
   }
   assert(changed.length === 0, `today's install changed: ${changed.join('; ')}. src/firmware/target.js rebuilds these passes (ADR 0037 Decision 4, Amendment 3 item 8): bring it in line with the change, then update the digest in this test`);
+});
+
+test('ST34 [AC7, Decision 3, ADR 0047 Decision 9; review round 4, R4-N1]: a header file whose word.wordTypes isn\'t all concept keys\' form is a problem naming the file: a key with a space, and a number', async () => {
+  const cases = [
+    ['concepts/word/concept-header.json', (j) => ({ ...j, word: { ...j.word, wordTypes: ['word', 'conceptHeader', 'node type'] } }), 'a key with a space'],
+    ['concepts/image/concept-header.json', (j) => ({ ...j, word: { ...j.word, wordTypes: ['word', 'conceptHeader', 5] } }), 'a number'],
+  ];
+  for (const [file, change, what] of cases) {
+    const { list, text } = await problemsOf(F.copyFirmware({ [file]: change }, { label: 'seed-firmware-wordtypes-' }));
+    assert(list.length >= 1 && text.includes(file) && /wordTypes/.test(text), `${what}: a problem names ${file} and its wordTypes; got ${text.slice(0, 400)}`);
+  }
+  const fine = await problemsOf(F.copyFirmware({ 'concepts/word/concept-header.json': (j) => ({ ...j, word: { ...j.word, wordTypes: ['word', 'conceptHeader', 'nodeType', 'graphType'] } }) }, { label: 'seed-firmware-wordtypes-ok-' }));
+  assert(fine.list.length === 0, `a list of concept keys is no problem; got ${fine.text.slice(0, 300)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
