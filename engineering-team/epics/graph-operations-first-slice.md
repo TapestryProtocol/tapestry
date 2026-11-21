@@ -76,6 +76,11 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     the same in any order and on repeat; never changes the instance's own nodes, and gives another author's claim on
     them only its membership; the first import operation, and the piece a firmware Tapestry's install waits on (Loom
     A10.32).
+34. `stories/graph-operations-first-slice/34-export-nostr.md` — publish a node, a graph or everything of the instance's
+    own as letters its assistant signs, built from what the graph says now, its `tapestry:` links rewritten or
+    reported, someone else's nodes named by address and never signed, only what is new or changed signed again, and
+    each letter recorded; the first export operation, and the install's signing step for firmware by import (Loom
+    A10.34; status and retract follow as its subtask).
 41. `stories/graph-operations-first-slice/41-graph-rule-concept.md` — the graph rules as a firmware concept on every
     instance, one item per rulebook entry, made from the rulebook and the rules' code; the items `rules list-rules`
     (A10.31) will read (Loom A10.41).
@@ -94,6 +99,10 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     `rules check` to find a property hung under more than one parent and `rules repair` to take off its extra link to
     its concept's JSON schema (firmware's only with an override); the old enumerate and create-property routes stop
     hanging properties on the schema (Loom A10.31.a, a subtask, so it takes the next number free).
+46. `stories/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.md` — an element of `word`
+    fits the `word` schema an install leaves: install stops writing the wordType pair for `word.wordTypes`, which
+    compares the list with itself, and nothing else changes; a reinstall clears the pairs already written. A bug from
+    story 42's live check, filed on Loom as P-156, an open proposal with no task yet, so it takes the next number free.
 
 ## Key facts / guardrails
 
