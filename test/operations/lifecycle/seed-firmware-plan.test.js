@@ -28,6 +28,9 @@
  *   SP7  an element with no node at its address, while another element with its name is in the concept's class
  *        thread, is blocked
  *   SP8  a relationship letter at the random address today's create-set gave it is that set's: unchanged
+ *   SP9  word.wordTypes compares as a set: a superset whose wordTypes are only in another order (the set deriver's) is
+ *        unchanged, adopted; one whose wordTypes hold another type is kept (ADR 0037 Amendment 3, item 2; review round
+ *        1, Blocking 1)
  */
 
 const crypto = require('crypto');
@@ -225,6 +228,30 @@ test('SP8 [Decision 4, 1c½]: a relationship letter at the random address today\
   const added = [...nodes.values()].filter((e) => e.outcome === 'added');
   assert(added.length === 0, `nothing is added on first contact with today's install: each relationship letter is matched by its nodeFrom, nodeTo and relationshipType, not made again at a new address; got ${first(added)}`);
   assert(nodes.size === F.nodesOf(await target()).length, `one entry for each node of the target, the 22 letters included; got ${nodes.size}`);
+});
+
+test('SP9 [AC4, Amendment 3, item 2]: word.wordTypes compares as a set: supersets whose wordTypes are only in the set deriver\'s order are unchanged, adopted; one whose wordTypes hold another type is kept', async () => {
+  const o = await F.oracle();
+  const supersets = [...o.letters.values()].filter((l) => l.role === 'superset').map((l) => l.address);
+  const other = o.supersetOf('dog');
+  const s = F.todaysGraph(o, {
+    edit: (st) => {
+      for (const address of supersets) {
+        for (const t of F.relsOf(st, { type: 'HAS_TAG', from: address }).map((r) => r.toNode).filter((x) => x.props.type === 'json')) {
+          const j = JSON.parse(t.props.value);
+          j.word.wordTypes = address === other ? [...j.word.wordTypes, 'thing'] : ['word', 'superset', 'set'];
+          t.props.value = JSON.stringify(j);
+        }
+      }
+    },
+  });
+  const firstSuperset = F.jsonTagOf(s, F.nodesAt(s, o.supersetOf('node-type'))[0]);
+  assert(show(firstSuperset.word.wordTypes) === show(['word', 'superset', 'set']) && show(o.letters.get(o.supersetOf('node-type')).json.word.wordTypes) !== show(firstSuperset.word.wordTypes),
+    'the fixture: a superset\'s wordTypes are in the set deriver\'s order, not its letter\'s (so this case is about order)');
+  const { p } = await planOver(s);
+  const notAdopted = supersets.filter((a) => a !== other && outcomeAt(p, a) !== 'unchanged');
+  assert(notAdopted.length === 0, `${notAdopted.length} of the 40 supersets whose wordTypes differ only in order aren't unchanged; the first: ${first(notAdopted.map((a) => [a.split(':')[2], outcomeAt(p, a)]))}`);
+  assert(outcomeAt(p, other) === 'kept', `dog's superset, whose wordTypes hold another type, is kept (only the order is set aside); got ${show(outcomeAt(p, other))}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

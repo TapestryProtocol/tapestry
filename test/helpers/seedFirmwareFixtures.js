@@ -36,8 +36,11 @@
  *   statusFirmware(state, opts)  lifecycle status's firmware part, run in a child whose Neo4j driver and graph seam both
  *                                answer from `state` through the engine
  *
- * Readers: live, nodesAt, byKey, relsOf, tagsOf, tagSet, propJson, entries, installedGraphAddress, the answer's
- * entries, counts, parts and relationship lists.
+ * Readers: live, nodesAt, byKey, relsOf, tagsOf, tagSet, propJson, entries, installedGraphAddress (the reserved
+ * 39999:<ta>:installed-firmware, Amendment 3 item 3) and oldInstalledGraphAddress, installedGraphJson, listedIn, the
+ * answer's entries, counts, parts and relationship lists.
+ * The store (review round 1): offloadAndDerive(state, { lmdb, offload, derive }) runs the Dashboard's offload and the
+ * derive for real in a child; runSeed's and statusFirmware's lmdb option hand that store to the next child.
  */
 
 const crypto = require('crypto');
@@ -258,8 +261,30 @@ const jsonTagOf = (s, node) => { const t = tagsOf(s, node).find((x) => x[0] === 
 /** A node property that holds JSON text (cameFrom, installed), parsed; null when absent. */
 const propJson = (n, k) => { const v = n && n.props ? n.props[k] : undefined; if (v === undefined || v === null) return null; return typeof v === 'string' ? parsed(v) : v; };
 const entries = (s) => S.entriesOf(s);
-/** Where the installed-firmware graph is (ADR 0037 Decision 9). */
-const installedGraphAddress = (ta = TA) => `39999:${ta}:${dtag.childDTag('installed firmware', `39998:${ta}:graph`)}`;
+/**
+ * Where the installed-firmware graph is: a reserved d-tag, which no element write gives, since theirs end in a hash of
+ * their concept's address (ADR 0037 Decision 9, as Amendment 3 item 3 moves it).
+ */
+const installedGraphAddress = (ta = TA) => `39999:${ta}:installed-firmware`;
+/** Where Decision 9 first put it, and where graph create-element puts an element named "installed firmware" of graph. */
+const oldInstalledGraphAddress = (ta = TA) => `39999:${ta}:${dtag.childDTag('installed firmware', `39998:${ta}:graph`)}`;
+/** The installed-firmware graph's JSON in a state, its json tag read through the store when it is an lmdb: reference. */
+function installedGraphJson(s, { ta = TA, lmdb = null } = {}) {
+  const n = nodesAt(s, installedGraphAddress(ta))[0];
+  if (!n) return null;
+  const j = jsonTagOf(s, n);
+  if (typeof j === 'string' && j.startsWith('lmdb:') && lmdb) return readStoreEntry(lmdb, j.slice(5));
+  return j;
+}
+/** Whether a list of the installed-firmware graph holds (type, from, to), as { nodeFrom: { slug }, … } or { type, from, to }. */
+function listedIn(list, type, from, to) {
+  return (Array.isArray(list) ? list : []).some((x) => {
+    const t = x.relationshipType && typeof x.relationshipType === 'object' ? x.relationshipType.slug : x.type || x.relationshipType;
+    const f = x.nodeFrom && typeof x.nodeFrom === 'object' ? x.nodeFrom.slug : x.from || x.nodeFrom;
+    const o = x.nodeTo && typeof x.nodeTo === 'object' ? x.nodeTo.slug : x.to || x.nodeTo;
+    return t === type && f === from && o === to;
+  });
+}
 
 /** Make a node in a state directly, as an import or a route leaves it; → the node. */
 function addNode(s, labels, props) {
@@ -348,15 +373,43 @@ function todaysGraph(o, { ta = TA, edges = [], schemaValues = true, edit = null 
 }
 
 // ── runs ──
-/** The child's environment: graphOpsSuite's, the firmware folder given, and the assistant unless noAssistant. */
-function envFor(dir, { firmwareDir = null, noAssistant = false } = {}) {
+/**
+ * The child's environment: graphOpsSuite's, the firmware folder given, and the assistant unless noAssistant; lmdb names
+ * a store (TAPESTRY_LMDB_PATH) shared with an earlier child, rather than the run's own new one.
+ */
+function envFor(dir, { firmwareDir = null, noAssistant = false, lmdb = null } = {}) {
   const env = S.childEnv(dir);
   if (firmwareDir) env.TAPESTRY_FIRMWARE_DIR = firmwareDir; else delete env.TAPESTRY_FIRMWARE_DIR;
   if (noAssistant) delete env.TA_PUBKEY;
+  if (lmdb) env.TAPESTRY_LMDB_PATH = lmdb;
   return env;
 }
+/**
+ * The Dashboard's "Offload N tags" over the json tags of the nodes `offload` names, then the derive of the nodes `derive`
+ * names, run for real over `state` (test/helpers/seedFirmwareOffloadChild.js) with the store at `lmdb`:
+ * → { state, offloaded, derived: { key → the entry's data } }.
+ */
+function offloadAndDerive(state, { lmdb, offload = [], derive = [] }) {
+  const dir = S.tmp('seed-firmware-offload-');
+  const stateFile = path.join(dir, 'state.json');
+  const keysFile = path.join(dir, 'keys.json');
+  fs.writeFileSync(stateFile, JSON.stringify({ ...JSON.parse(JSON.stringify(state)), failures: {}, log: [] }));
+  fs.writeFileSync(keysFile, JSON.stringify({ offload, derive }));
+  const r = spawnSync(process.execPath, [path.join(__dirname, 'seedFirmwareOffloadChild.js'), stateFile, keysFile], { cwd: ROOT, env: envFor(dir, { lmdb }), encoding: 'utf8', timeout: 120000, maxBuffer: 64 * 1024 * 1024 });
+  const line = (r.stdout || '').split(NL).find((l) => l.startsWith('RESULT:'));
+  assert(line, `the offload child printed no result (exit ${r.status}): ${(r.stderr || '').slice(-500)}`);
+  const out = JSON.parse(line.slice(7));
+  assert(!out.error, `the offload child failed: ${String(out.error).slice(0, 600)}`);
+  return { state: JSON.parse(fs.readFileSync(stateFile, 'utf8')), offloaded: out.offloaded, derived: out.derived };
+}
+/** An entry's data in the store at `lmdb`, read in a child of its own (the store holds its folder open). */
+function readStoreEntry(lmdb, key) {
+  const r = spawnSync(process.execPath, ['-e', `const s = require(${show(path.join(ROOT, 'src/lib/tapestry-store.js'))}); const e = s.get(${show(key)}); process.stdout.write('RESULT:' + JSON.stringify(e ? e.data : null));`], { cwd: ROOT, env: { ...process.env, TAPESTRY_LMDB_PATH: lmdb }, encoding: 'utf8', timeout: 60000 });
+  const line = (r.stdout || '').split('RESULT:')[1];
+  return line ? JSON.parse(line) : null;
+}
 /** One harness run of seed-firmware's world; see the file's header. → { req, cmd, spy, error, file, state(), dir, env, raw } */
-function runSeed({ state = null, file = null, firmwareDir = null, requests = [], cli = [], spy = false, noAssistant = false, lifecycleFailures = {}, graphFailures = null, lock = null, label = 'seed-firmware-' } = {}) {
+function runSeed({ state = null, file = null, firmwareDir = null, requests = [], cli = [], spy = false, noAssistant = false, lifecycleFailures = {}, graphFailures = null, lock = null, lmdb = null, label = 'seed-firmware-' } = {}) {
   const dir = S.tmp(label);
   const graphFile = path.join(dir, 'graph.json');
   const base = state ? JSON.parse(JSON.stringify(state)) : file ? CG.readState(file) : emptyGraph();
@@ -365,7 +418,7 @@ function runSeed({ state = null, file = null, firmwareDir = null, requests = [],
   CG.writeState(graphFile, base);
   const lifecycleFile = path.join(dir, 'lifecycle.json');
   LF.newFakeState(lifecycleFile, { failures: lifecycleFailures });
-  const env = envFor(dir, { firmwareDir, noAssistant });
+  const env = envFor(dir, { firmwareDir, noAssistant, lmdb });
   if (lock) LF.writeLock(env.TAPESTRY_BACKUPS_DIR, lock);
   const spec = { spy, scenarios: [{ lifecycleFake: { stateFile: lifecycleFile }, graphFake: { stateFile: graphFile, engine: 'cypher' }, requests, cli }] };
   const r = S.runHarness(spec, { dir, env });
@@ -425,7 +478,7 @@ function relIs(entry, type, from, to, keyOf = () => null) {
 }
 
 /** lifecycle status's firmware part over `state`, in a child: its driver and its graph seam answer from the engine. */
-function statusFirmware(state, { firmwareDir = null } = {}) {
+function statusFirmware(state, { firmwareDir = null, lmdb = null } = {}) {
   const dir = S.tmp('seed-firmware-status-');
   const file = path.join(dir, 'graph.json');
   CG.writeState(file, { ...JSON.parse(JSON.stringify(state)), failures: {}, log: [] });
@@ -455,7 +508,7 @@ function statusFirmware(state, { firmwareDir = null } = {}) {
   ].join(NL);
   const scriptFile = path.join(dir, 'status-child.js');
   fs.writeFileSync(scriptFile, script);
-  const env = envFor(dir, { firmwareDir });
+  const env = envFor(dir, { firmwareDir, lmdb });
   const r = spawnSync(process.execPath, [scriptFile], { cwd: ROOT, env, encoding: 'utf8', timeout: 60000, maxBuffer: 16 * 1024 * 1024 });
   const line = (r.stdout || '').split(NL).find((l) => l.startsWith('RESULT:'));
   assert(line, `the status child printed no result (exit ${r.status}): ${(r.stderr || '').slice(-500)}`);
@@ -470,7 +523,8 @@ module.exports = {
   enumeratedOnTodaysInstall,
   nodesOf, relsOfTarget, isRelationshipLetter, tagValue, parsed, roleLabels, tagKey, tagSet, setDiff, sameSet, stable, sameJson, relEnds,
   hasTargetRel, targetRel,
-  emptyGraph, cy, live, nodesAt, byKey, byEid, relsOf, tagsOf, jsonTagOf, propJson, entries, installedGraphAddress, addNode, addRel, addTagNodes,
+  emptyGraph, cy, live, nodesAt, byKey, byEid, relsOf, tagsOf, jsonTagOf, propJson, entries, installedGraphAddress, oldInstalledGraphAddress,
+  installedGraphJson, listedIn, offloadAndDerive, readStoreEntry, addNode, addRel, addTagNodes,
   withEnumerated, todaysGraph,
   envFor, runSeed, seed, together, data, refused, countOf, entriesByAddress, partsOf, relsOfAnswer, relIs, statusFirmware, camel,
 };

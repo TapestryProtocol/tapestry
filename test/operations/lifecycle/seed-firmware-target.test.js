@@ -46,6 +46,10 @@
  *   ST30 conceptNodes called as today still gives today's eight nodes with the spec's o tags (its defaults unchanged)
  *   ST31 an existing set naming a concept the manifest doesn't define is skipped: no problem, and nothing made of it
  *        (ADR 0037 Amendment 1, item 4)
+ *   ST32 a relationship type whose alias isn't a plain name ([A-Z_][A-Z0-9_]*): a space, a backtick: a problem naming
+ *        its file and the alias (Amendment 3, item 5; review round 1, N1)
+ *   ST33 the tripwire: install.js's pass functions as this suite last saw them; when they change, it fails naming
+ *        src/firmware/target.js, to be brought in line before the digest is (Amendment 3, item 8; N7). Passes now
  */
 
 const fs = require('fs');
@@ -444,6 +448,44 @@ test('ST31 [AC7, Amendment 1, item 4]: an existing set naming a concept the mani
   const rels = (x) => new Set(F.relsOfTarget(x).map(F.relEnds).map((r) => `${r.from}|${r.type}|${r.to}`));
   const d = F.setDiff(rels(t), rels(await active()));
   assert(!d.onlyFirst.length && !d.onlySecond.length, `its relationships are firmware/active's; differ ${firstFew([...d.onlyFirst, ...d.onlySecond])}`);
+});
+
+test('ST32 [AC7, Amendment 3, item 5]: a relationship type whose alias isn\'t a plain name, [A-Z_][A-Z0-9_]*, is a problem naming its file and the alias: a space, and a backtick', async () => {
+  const cases = [
+    ['concepts/relationship-type/elements/core-node-concept-graph.json', 'IS THE CONCEPT GRAPH FOR'],
+    ['concepts/relationship-type/elements/core-node-core-graph.json', 'IS_THE_CORE`GRAPH_FOR'],
+  ];
+  for (const [file, alias] of cases) {
+    const dir = F.copyFirmware({ [file]: (j) => ({ ...j, relationshipType: { ...j.relationshipType, alias } }) });
+    const t = await F.buildTarget(dir, TA);
+    const text = show(t.problems || []);
+    assert(Array.isArray(t.problems) && t.problems.length >= 1, `the alias ${show(alias)} is a problem: the builder must not take it; got no problem`);
+    const named = (t.problems || []).some((x) => { const w = typeof x === 'string' ? x : show(x); return w.includes(file) && w.includes(alias); });
+    assert(named, `a problem names ${file} and the alias ${show(alias)}; got ${text.slice(0, 400)}`);
+    assert(F.nodesOf(t).length === 0 || !F.relsOfTarget(t).some((r) => F.relEnds(r).type === alias), 'and no relationship of that type is built');
+  }
+});
+
+test('ST33 [Amendment 3, item 8; review round 1, N7]: the tripwire: today\'s install\'s pass functions are as the builder last followed them (when one changes, bring src/firmware/target.js in line, then update its digest here)', () => {
+  // Each part's text from src/firmware/install.js, its whitespace collapsed, and the sha256 of that, as the builder
+  // (src/firmware/target.js, ADR 0037 Decision 4) was last brought in line with it: install.js at b2948904.
+  const PINNED = [
+    ['pass1_bootstrap', /^async function pass1_bootstrap\(/m, /^\/\/ ── Pass 2: Enrich/m, '1ab79ce3b4778d1b60af229e965cab8f5cceeceb9c424d935e94318af838bdd3'],
+    ['pass2_enrich', /^async function pass2_enrich\(/m, /^\/\/ ── Community references/m, 'bf2a3bc6ebf2a94726dac347562142c34afb8c4f2114fc16b2ff58e4e0261b9c'],
+    ['pass_communityReferences', /^async function pass_communityReferences\(/m, /^\/\/ ── Full install/m, 'c026fa317ef57652aa530070c1016cd861443540694c2ee7e804eb89a6eaa67a'],
+    ['install\'s pass 3 (derive, apply enumerations, wire implicit elements, the community-reference edges)', /^ {2}\/\/ ── Pass 3: Derive \+ Apply Enumerations \+ Wire Implicit Elements ──/m,
+      /^ {2}console\.log\('\\n╔═+╗'\);\n {2}console\.log\('║ +FIRMWARE INSTALL COMPLETE/m, 'c531d428fa704c760b6014b3a6d4d49321657e288f298282e8b9d5742f3d1e29'],
+  ];
+  const src = fs.readFileSync(path.join(F.ROOT, 'src/firmware/install.js'), 'utf8');
+  const changed = [];
+  for (const [name, from, to, pinned] of PINNED) {
+    const at = src.search(from);
+    const end = at < 0 ? -1 : src.slice(at).search(to);
+    if (at < 0 || end < 0) { changed.push(`${name} (not found where this test looks: ${at < 0 ? from : to}; it moved)`); continue; }
+    const digest = F.sha256(src.slice(at, at + end).replace(/\s+/g, ' ').trim());
+    if (digest !== pinned) changed.push(`${name} (now ${digest})`);
+  }
+  assert(changed.length === 0, `today's install changed: ${changed.join('; ')}. src/firmware/target.js rebuilds these passes (ADR 0037 Decision 4, Amendment 3 item 8): bring it in line with the change, then update the digest in this test`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

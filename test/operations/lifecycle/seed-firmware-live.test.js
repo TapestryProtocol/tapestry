@@ -24,7 +24,9 @@
  *      runs: on firmware 1.0.0, dog-breed has none and dog's schema is its file's. Nothing is added or removed; a relationship kept with noRecord, or a link between firmware
  *      nodes that the target lacks (the instance's own, others), is allowed only when it is the prune's kind, a
  *      HAS_ELEMENT or IS_A_SUPERSET_OF from a superset, since the target prunes in one fixed order, by address, where
- *      today's install prunes in Neo4j's (Amendment 1, item 5); L1 prints each such link
+ *      today's install prunes in Neo4j's (Amendment 1, item 5); L1 prints each such link. The installed-firmware graph
+ *      is at its reserved address, 39999:<ta>:installed-firmware, and lists each relationship it kept apart, in
+ *      installedFirmware.keptRelationships (Amendment 3, items 3 and 4)
  *   L2 an empty instance: seed-firmware installs all 459 nodes, unsigned (no node at a firmware address has an id), and
  *      a second run changes nothing and records no entry
  *   L3 an update: after nostr-relay's header's b is re-pointed by a raw query, and dcosl-brainstorm-world.json is changed
@@ -34,7 +36,6 @@
  * After L4 the container's firmware file is put back and the control panel restarted.
  */
 
-const path = require('path');
 const { execFileSync } = require('child_process');
 const S = require('../../helpers/graphOpsSuite');
 const L = require('../../helpers/scratchLoopback');
@@ -44,7 +45,6 @@ const { test, run } = S.makeSuite('operations: lifecycle seed-firmware on scratc
 const ROUTE = '/api/tapestry/lifecycle/seed-firmware';
 /** The concept graphs pass 1c flattens, which the target keeps as create-concept made them (ADR 0037 Amendment 1, item 2). */
 const DEPARTED = ['node-type', 'graph-type', 'validation-tool-type'];
-const dtag = require(path.join(S.ROOT, 'src/lib/dtag.js'));
 const IN_CONTAINER = '/usr/local/lib/node_modules/brainstorm/firmware/active';
 const DCOSL = 'concepts/nostr-relay/elements/dcosl-brainstorm-world.json';
 
@@ -110,7 +110,7 @@ function firstContact() {
   return L1;
 }
 
-test('L1 [AC1, AC4, Decision 13, Amendment 1]: first contact: every firmware node unchanged but the schemas pass 3b filled (read from the instance) and the three flattened concept graphs (kept, noRecord); nothing added or removed; only the prune\'s direct links from a superset kept or the instance\'s own, each listed', () => {
+test('L1 [AC1, AC4, Decision 13, Amendments 1 and 3]: first contact: every firmware node unchanged but the schemas pass 3b filled (read from the instance) and the three flattened concept graphs (kept, noRecord); nothing added or removed; only the prune\'s direct links from a superset kept or the instance\'s own, each listed; the installed-firmware graph at 39999:<ta>:installed-firmware, listing the kept ones apart', () => {
   if (ready()) return 'skip';
   const { ta, d, enumerations } = firstContact();
   const filled = enumerations.filter((x) => x.elements > 0);
@@ -131,15 +131,22 @@ test('L1 [AC1, AC4, Decision 13, Amendment 1]: first contact: every firmware nod
   const byKey = new Map(keys.length ? L.cypher('MATCH (n:TapestryNode) WHERE n.tapestryKey IN $keys RETURN n.tapestryKey AS k, n.uuid AS u', { keys }).map((x) => [x.k, x.u]) : []);
   for (const x of keptRels) { x.from = byKey.get(x.from) || x.from; x.to = byKey.get(x.to) || x.to; }
 
-  // The instance's own links between firmware nodes: in the graph, and in neither of the installed-firmware graph's lists.
-  const installed = `39999:${ta}:${dtag.childDTag('installed firmware', `39998:${ta}:graph`)}`;
+  // The instance's own links between firmware nodes: in the graph, and in neither of the installed-firmware graph's
+  // relationship lists, graph.relationships and installedFirmware.keptRelationships (Amendment 3, item 4).
+  const installed = `39999:${ta}:installed-firmware`;
   const g = L.cypher("MATCH (g:TapestryNode {uuid: $u}) OPTIONAL MATCH (g)-[:HAS_TAG]->(t:NostrEventTag {type: 'json'}) RETURN g.tapestryKey AS k, t.value AS v", { u: installed })[0];
   assert(g, `the installed-firmware graph is at ${installed}`);
   let json = null;
   if (g.v && !String(g.v).startsWith('lmdb:')) json = JSON.parse(g.v);
   else { const c = L.http('GET', `/api/tapestry-key/${g.k}`, undefined, 60); json = c.json && c.json.data && c.json.data.data; }
   assert(json && json.graph && Array.isArray(json.graph.nodes) && Array.isArray(json.graph.relationships), 'its graph lists nodes and relationships');
-  const listed = new Set(json.graph.relationships.map((x) => `${x.nodeFrom.slug}|${x.relationshipType.slug}|${x.nodeTo.slug}`));
+  const fw = json.installedFirmware || {};
+  const keyOf = (x) => `${x.nodeFrom.slug}|${x.relationshipType.slug}|${x.nodeTo.slug}`;
+  const made = new Set(json.graph.relationships.map(keyOf));
+  const keptApart = new Set((Array.isArray(fw.keptRelationships) ? fw.keptRelationships : []).map(keyOf));
+  const notApart = keptRels.filter((x) => !keptApart.has(`${x.from}|${x.type}|${x.to}`) || made.has(`${x.from}|${x.type}|${x.to}`));
+  assert(notApart.length === 0, `each relationship kept is listed in installedFirmware.keptRelationships, not graph.relationships; ${notApart.length} aren't, the first ${show(notApart.slice(0, 5))}`);
+  const listed = new Set([...made, ...keptApart]);
   const firmware = json.graph.nodes.map((x) => x.slug).filter((a) => String(a).split(':')[1] === ta);
   const inGraph = L.cypher("MATCH (a:TapestryNode)-[r]->(b:TapestryNode) WHERE a.uuid IN $n AND b.uuid IN $n AND type(r) <> 'HAS_TAG' RETURN a.uuid AS from, type(r) AS type, b.uuid AS to", { n: firmware });
   const others = inGraph.filter((x) => !listed.has(`${x.from}|${x.type}|${x.to}`));

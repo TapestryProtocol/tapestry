@@ -11,22 +11,27 @@
  *   Plan:  engineering-team/stories/graph-operations-first-slice/37-seed-firmware.test-plan.md
  *
  * The derive runs in a child (test/helpers/seedFirmwareDeriveChild.js) over today's install's graph, the two
- * properties set on some of its nodes as seed-firmware writes them (JSON text); the judge runs in-process over a small
- * graph, its reads through test/helpers/cypherEngine.js.
+ * properties set on some of its nodes as seed-firmware writes them (JSON text), and three small concepts of the
+ * instance's own beside it. The verdicts are the ones the derive gives (graphContext.parentJsonSchemas), through story
+ * 42's judge, which the derive calls knowing the node.
  *
  *   SR1 the word deriver: an element's and a header's tapestryJSON gain top-level cameFrom and installed, parsed, beside
  *       what they held
  *   SR2 the set deriver: a set's and a superset's do too
  *   SR3 a node with no record gets neither section
- *   SR4 the judge (src/operations/catalog/graph/_schemas.js) sets both aside: a schema that allows no other top-level
- *       section judges a node's JSON with them as fitting, and still refuses an unknown section, writing or not
+ *   SR4 the derive's schema verdicts set the record aside for a node that carries it: a schema that allows no other
+ *       top-level section finds such a node fitting, and still refuses a node's unknown section (moved onto the derive
+ *       path, which knows the node, at review round 1: ADR 0037 Amendment 3 item 6)
+ *   SR5 a node with no record whose JSON has a concept's section named installed keeps it through the derive, and the
+ *       verdicts judge it: fitting when it fits, and naming installed.when when it doesn't (Amendment 3, item 6; review
+ *       round 1, N4)
+ *   SR6 the same for a section named cameFrom
  */
 
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const F = require('../../helpers/seedFirmwareFixtures');
-const E = require('../../helpers/cypherEngine');
 const S = require('../../helpers/graphOpsSuite');
 
 const { assert, show, TA } = F;
@@ -58,10 +63,11 @@ async function derived() {
     n.props.installed = JSON.stringify(r.installed);
   }
   const plain = F.nodesAt(s, o.elementOf('concepts/json-data-type/elements/string.json'))[0];
+  const custom = customConcepts(s);
   const dir = F.tmp('seed-firmware-derive-');
   const stateFile = path.join(dir, 'state.json');
   const keysFile = path.join(dir, 'keys.json');
-  const keys = [...recs.map((r) => F.nodesAt(s, r.address)[0].props.tapestryKey), plain.props.tapestryKey];
+  const keys = [...recs.map((r) => F.nodesAt(s, r.address)[0].props.tapestryKey), plain.props.tapestryKey, ...Object.values(custom.elements)];
   fs.writeFileSync(stateFile, JSON.stringify(s));
   fs.writeFileSync(keysFile, JSON.stringify(keys));
   const child = spawnSync(process.execPath, [CHILD, stateFile, keysFile], { cwd: F.ROOT, env: F.envFor(dir), encoding: 'utf8', timeout: 60000, maxBuffer: 32 * 1024 * 1024 });
@@ -69,9 +75,52 @@ async function derived() {
   assert(line, `the derive child printed no result (exit ${child.status}): ${(child.stderr || '').slice(-500)}`);
   const result = JSON.parse(line.slice(7));
   assert(!result.error, `the derive child failed: ${String(result.error).slice(0, 600)}`);
-  DERIVED = { out: result.out, keys, recs, plain: plain.props.tapestryKey };
+  DERIVED = { out: result.out, keys, recs, plain: plain.props.tapestryKey, custom };
   return DERIVED;
 }
+
+/**
+ * Three concepts of the instance's own, put into the state: gadget, whose schema allows no top-level section but word,
+ * graphContext and gadget; installed, whose key is `installed`, its section requiring a text `when`; and came from,
+ * whose key is `cameFrom`, its section requiring a text `place`. Their elements: g1 (gadget, carrying a record, as
+ * seed-firmware sets one), g2 (gadget, with an unknown `extra` section), i1 and i2 (installed: when as text, and as a
+ * number) and c1 (came from). → { headers: { gadget, installed, cameFrom }, elements: { g1, g2, i1, i2, c1 } } by key.
+ */
+function customConcepts(s) {
+  const concept = (slug, name, key, section) => {
+    const header = F.addNode(s, ['ListHeader', 'ConceptHeader'], { uuid: `39998:${TA}:${slug}`, kind: 39998, pubkey: TA, name });
+    const superset = F.addNode(s, ['ListItem', 'Superset'], { uuid: `39999:${TA}:${slug}-superset`, kind: 39999, pubkey: TA, name: `superset for the concept of ${name}s` });
+    F.addRel(s, header, 'IS_THE_CONCEPT_FOR', superset);
+    const schema = F.addNode(s, ['ListItem', 'JSONSchema'], { uuid: `39999:${TA}:${slug}-schema`, kind: 39999, pubkey: TA, name: `JSON schema for the concept of ${name}s` });
+    F.addTagNodes(s, schema, [['json', JSON.stringify({ word: { slug: `json-schema-for-the-concept-of-${slug}s`, wordTypes: ['word', 'jsonSchema'] }, jsonSchema: section })]]);
+    F.addRel(s, schema, 'IS_THE_JSON_SCHEMA_FOR', header);
+    return { header, superset, key };
+  };
+  const element = (c, d, json, props = {}) => {
+    const n = F.addNode(s, ['ListItem'], { uuid: `39999:${TA}:${d}`, kind: 39999, pubkey: TA, name: d, tapestryValue: d, ...props });
+    F.addTagNodes(s, n, [['d', d], ['name', d], ['json', JSON.stringify({ word: { slug: d, name: d, wordTypes: ['word', c.key] }, ...json })]]);
+    F.addRel(s, c.superset, 'HAS_ELEMENT', n);
+    return n.props.tapestryKey;
+  };
+  const top = (key, inner) => ({ type: 'object', additionalProperties: false, required: [key], properties: { word: { type: 'object' }, graphContext: { type: 'object' }, [key]: inner } });
+  const gadget = concept('gadget', 'gadget', 'gadget', top('gadget', { type: 'object', properties: { name: { type: 'string' } } }));
+  const installed = concept('installed', 'installed', 'installed', top('installed', { type: 'object', required: ['when'], properties: { when: { type: 'string' } } }));
+  const cameFrom = concept('came-from', 'came from', 'cameFrom', top('cameFrom', { type: 'object', required: ['place'], properties: { place: { type: 'string' } } }));
+  const rec = record('x', 'concepts/gadget/elements/g1.json');
+  return {
+    headers: { gadget: gadget.header.props.tapestryKey, installed: installed.header.props.tapestryKey, cameFrom: cameFrom.header.props.tapestryKey },
+    elements: {
+      g1: element(gadget, 'g1', { gadget: { name: 'Sprocket' } }, { cameFrom: JSON.stringify(rec.cameFrom), installed: JSON.stringify(rec.installed) }),
+      g2: element(gadget, 'g2', { gadget: { name: 'Cog' }, extra: { note: 'not a section the schema takes' } }),
+      i1: element(installed, 'i1', { installed: { when: 'yesterday' } }),
+      i2: element(installed, 'i2', { installed: { when: 5 } }),
+      c1: element(cameFrom, 'c1', { cameFrom: { place: 'Lisbon' } }),
+    },
+    rec,
+  };
+}
+/** A derived node's verdict for a concept: its parentJsonSchemas entry, or null. */
+const verdictOf = (json, conceptKey) => ((json && json.graphContext && json.graphContext.parentJsonSchemas) || []).find((v) => v.conceptTapestryKey === conceptKey) || null;
 function sectionsFor(d, i) {
   const json = d.out[d.keys[i]];
   assert(json && json.word && json.graphContext, `the derive built ${d.recs[i] ? d.recs[i].address : 'it'}'s tapestryJSON (so this isn't passing on a derive that did nothing); got ${show(json).slice(0, 200)}`);
@@ -102,28 +151,36 @@ test('SR3 [Decision 6]: a node with no install record gets neither section', asy
   assert((json.cameFrom === undefined || json.cameFrom === null) && (json.installed === undefined || json.installed === null), `no cameFrom, no installed; got ${show({ cameFrom: json.cameFrom, installed: json.installed })}`);
 });
 
-test('SR4 [Decision 6]: the judge sets cameFrom and installed aside, as graphContext: a schema that allows no other top-level section finds a node\'s JSON with them fitting, and still refuses an unknown section, writing or not', async () => {
-  const X = require(path.join(F.ROOT, 'src/operations/catalog/graph/_schemas.js'));
-  const s = F.emptyGraph();
-  const header = F.addNode(s, ['ListHeader', 'ConceptHeader'], { uuid: `39998:${TA}:gadget`, name: 'gadget', kind: 39998, pubkey: TA });
-  const schema = F.addNode(s, ['ListItem', 'JSONSchema'], { uuid: `39999:${TA}:gadget-schema`, name: 'JSON schema for the concept of gadgets', kind: 39999, pubkey: TA });
-  F.addTagNodes(s, schema, [['json', JSON.stringify({ word: { slug: 'json-schema-for-the-concept-of-gadgets', wordTypes: ['word', 'jsonSchema'] }, jsonSchema: {
-    type: 'object', additionalProperties: false, required: ['gadget'],
-    properties: { word: { type: 'object' }, graphContext: { type: 'object' }, gadget: { type: 'object', properties: { name: { type: 'string' } } } },
-  } })]]);
-  F.addRel(s, schema, 'IS_THE_JSON_SCHEMA_FOR', header);
-  const read = async (q, p) => E.run(s, q, p || {}, { write: false }).rows;
-  const base = { word: { slug: 'gadget--sprocket', wordTypes: ['word', 'gadget'] }, gadget: { name: 'Sprocket' }, graphContext: { identifiers: {} } };
-  const rec = record('x', 'concepts/gadget/elements/sprocket.json');
-  const withRecord = { ...base, cameFrom: rec.cameFrom, installed: rec.installed };
-  const plain = await X.judge(read).check(header.props.tapestryKey, base);
-  assert(plain.fits === true, `the JSON fits without the record (so the schema is read and checked); got ${show(plain).slice(0, 300)}`);
-  for (const writing of [false, true]) {
-    const c = await X.judge(read).check(header.props.tapestryKey, withRecord, { writing });
-    assert(c.fits === true, `${writing ? 'a write\'s check' : 'the derive\'s and the rule\'s check'}: cameFrom and installed are set aside; got ${show({ fits: c.fits, problems: c.problems }).slice(0, 300)}`);
-    const other = await X.judge(read).check(header.props.tapestryKey, { ...withRecord, extra: {} }, { writing });
-    assert(other.fits === false && show(other.problems).includes('extra') && !show(other.problems).includes('cameFrom'), `an unknown section is still refused, and only it; got ${show(other.problems).slice(0, 300)}`);
-  }
+test('SR4 [Decision 6, Amendment 3 item 6]: the derive\'s verdicts set the record aside for a node that carries it: a schema allowing no other top-level section finds it fitting, and still refuses a node\'s unknown section', async () => {
+  const d = await derived();
+  const g1 = d.out[d.custom.elements.g1];
+  assert(g1 && g1.word && F.sameJson(g1.cameFrom, d.custom.rec.cameFrom) && F.sameJson(g1.installed, d.custom.rec.installed), `g1, which carries the record, has its two sections; got ${show(g1).slice(0, 300)}`);
+  const v1 = verdictOf(g1, d.custom.headers.gadget);
+  assert(v1 && v1.valid === true, `g1's verdict for gadget: fitting, the record set aside; got ${show(v1)}`);
+  const v2 = verdictOf(d.out[d.custom.elements.g2], d.custom.headers.gadget);
+  assert(v2 && v2.valid === false && show(v2.errors).includes('extra'), `g2's unknown section is still refused, naming it; got ${show(v2)}`);
+});
+
+test('SR5 [Amendment 3, item 6; review round 1, N4]: a node with no record whose JSON has a concept section named installed keeps it through the derive, and the verdicts judge it', async () => {
+  const d = await derived();
+  const i1 = d.out[d.custom.elements.i1];
+  assert(i1 && i1.word, 'the derive built i1');
+  assert(F.sameJson(i1.installed, { when: 'yesterday' }), `i1 has no install record, so its own installed section stays as it is; got ${show(i1.installed)}`);
+  const v1 = verdictOf(i1, d.custom.headers.installed);
+  assert(v1 && v1.valid === true, `i1's verdict for installed: its section judged, and fitting; got ${show(v1)}`);
+  const i2 = d.out[d.custom.elements.i2];
+  assert(i2 && F.sameJson(i2.installed, { when: 5 }), `i2 keeps its section too; got ${show(i2 && i2.installed)}`);
+  const v2 = verdictOf(i2, d.custom.headers.installed);
+  assert(v2 && v2.valid === false && show(v2.errors).includes('installed.when'), `i2's section is judged, not set aside: refused, naming installed.when; got ${show(v2)}`);
+});
+
+test('SR6 [Amendment 3, item 6; review round 1, N4]: a node with no record whose JSON has a concept section named cameFrom keeps it through the derive, judged and fitting', async () => {
+  const d = await derived();
+  const c1 = d.out[d.custom.elements.c1];
+  assert(c1 && c1.word, 'the derive built c1');
+  assert(F.sameJson(c1.cameFrom, { place: 'Lisbon' }), `c1's own cameFrom section stays as it is; got ${show(c1.cameFrom)}`);
+  const v = verdictOf(c1, d.custom.headers.cameFrom);
+  assert(v && v.valid === true, `c1's verdict for came from: its section judged, and fitting; got ${show(v)}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

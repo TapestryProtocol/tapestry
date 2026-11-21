@@ -1,8 +1,9 @@
 # Test Plan: Story 37 — `lifecycle seed-firmware`
 
 **Story:** `engineering-team/stories/graph-operations-first-slice/37-seed-firmware.md` (approved, with its "Changed at Architecture" and "Changed at Test Design" sections)
-**ADR:** `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md` (accepted: Option A, Decisions 1–13, with Amendment 1, the owner's rulings at Test Design, 2026-11-20)
-**Date:** 2026-11-20
+**ADR:** `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md` (accepted: Option A, Decisions 1–13, with Amendment 1, the owner's rulings at Test Design, 2026-11-20; Amendment 2, at Implementation's live check; and Amendment 3, review round 1's findings as the owner chose, 2026-11-21, ratified at the next gate)
+**Review:** `engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md` (round 1: Blocking 1–2, N1, N2, N4, N7, tested below as "Amendment 3")
+**Date:** 2026-11-20; Amendment 3's tests 2026-11-21
 
 Every suite but one is stack-free, and all live under `test/operations/lifecycle/`, where `test/operations.test.js` finds and runs them, so none needs a line in `test/registry.js`:
 
@@ -32,19 +33,19 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | AC1 the relationships, pruned in one fixed order, by address | **ST17** the same files give the same relationships. **ST11** 1a's 328 core edges. **ST12** 1c's existing nodes, nothing for `irish-setter` and `golden-retriever`. **ST13** the 26 existing sets. **ST14** 1c¾ and 1e's prune. **ST15** 1d (relationship letters) and 1d½ (41 headers). **ST16** five ENUMERATES with both paths. **SF4** the same in the graph | target, route | unit, integration |
 | AC1 the six b | **ST9**. **SF5** the b and its claim, `REFERENCES {source: 'b-tag'}`, to a placeholder at the b's address | target, route | |
 | AC1 nothing signed, no guard; the graph operations work | **SF6** the spy is empty; `graph create-concept` then answers `created`. **ST20** the builder asks no graph | route, target | |
-| AC2 the install record | **ST19** cameFrom in the target: an element's file and sha256. **SF7** cameFrom and installed on every node. **SR1–SR3** the derive puts both into tapestryJSON (word and set derivers) and nothing for a node with no record | target, route, record | |
-| AC2 the installed-firmware graph | **SF8** address, labels, tags, HAS_ELEMENT from graph's superset, word, graph.nodes by address (curator headers included), relationships with ENUMERATES' properties, imports `[]`, installedFirmware | route | integration |
-| AC2 status | **SF9** `seeded` and its schema field; `changedSince` 0, then 1 after an edit; null, in words naming seed-firmware, for an empty graph and for today's install's graph; `installed` still `none` by readInstallState. **status.test.js P3**, re-aimed at Implementation: the old fields as before, beside `seeded: null` and a `note` naming seed-firmware, the graph seam stubbed to find no installed-firmware graph | route (status child), status | integration, unit |
-| AC3 safe to repeat | **SF10** again, as admin, with `1.0.0` and `v1.0.0`: 459 unchanged, change null, one entry. **SF11** two at once: one installs, the other `busy` or unchanged; each node once. **SF15**'s and **SF23**'s repeats write nothing. **SA1**'s repeat | route, agent | |
-| AC4 update | **SF14** changed (record moved), added. **SF15** kept naming json / name / b, record not moved, edit kept; kept again with nothing written. **SF16** not-in-source, still there. **SF17** relationships: removed, added, kept (removed by hand; properties edited), others (a direct link under a firmware superset; a second parent). **SF18** the instance's own element stays. **SF21** take by key and by address; takeAll by an admin (the b claim replaced); then nothing to change | route | integration |
-| AC4 first contact (open question 2) | **SP3** (9 kept), **SP4**, **SP8** pure. **SF22** 450 unchanged and adopted (keeping their letters), dog's schema among them; 9 kept with noRecord: the four schemas pass 3b filled, the three concept graphs and the fixture's two edits; missing relationships kept with noRecord. **SF23** again, 9 kept; takeAll changes the 9 ("Settled at Test Design", item 9): tapestryKey, id, NostrEvent and created_at kept, old tag nodes gone, letterOutOfDate | plan, route | |
+| AC2 the install record | **ST19** cameFrom in the target: an element's file and sha256. **SF7** cameFrom and installed on every node. **SR1–SR3** the derive puts both into tapestryJSON (word and set derivers) and nothing for a node with no record. **SR4** the derive's verdicts set the record aside for a node that carries it. **SR5, SR6** a node with no record keeps a concept section of its own named `installed` or `cameFrom`, and the verdicts judge it (Amendment 3, item 6) | target, route, record | |
+| AC2 the installed-firmware graph | **SF8** at its reserved address, `39999:<ta>:installed-firmware` (d tag `installed-firmware`), with seed-firmware's mark: its own `installed` record and `installedFirmware` (Amendment 3, item 3); labels, tags, HAS_ELEMENT from graph's superset, word, graph.nodes by address (curator headers included), relationships with ENUMERATES' properties, imports `[]`. **SF34** an admin's element "installed firmware" of graph, made by `graph create-element` at the address Decision 9 first used, stays as it was and isn't read as the record; seed-firmware writes its own at the reserved address. **SF35** a node there without the mark is refused (AC7). **SF33** read through the store after the Dashboard's offload | route | integration |
+| AC2 status | **SF33** after the Dashboard's offload of the installed-firmware graph's json and a superset's, and a derive: `seeded` 1.0.0, `changedSince` 0 (Amendment 3, items 1–2). **SF9** `seeded` and its schema field; `changedSince` 0, then 1 after an edit; null, in words naming seed-firmware, for an empty graph and for today's install's graph; `installed` still `none` by readInstallState. **status.test.js P3**, re-aimed at Implementation: the old fields as before, beside `seeded: null` and a `note` naming seed-firmware, the graph seam stubbed to find no installed-firmware graph | route (status child), status | integration, unit |
+| AC3 safe to repeat | **SF33** after the offload and a derive: 459 unchanged, none kept, change null, no entry (Amendment 3, items 1–2). **SP9** pure: a superset whose `word.wordTypes` is only in the set deriver's order is unchanged; one with another type in it is kept (item 2). **SF10** again, as admin, with `1.0.0` and `v1.0.0`: 459 unchanged, change null, one entry. **SF11** two at once: one installs, the other `busy` or unchanged; each node once. **SF15**'s and **SF23**'s repeats write nothing. **SA1**'s repeat | route, agent | |
+| AC4 update | **SF14** changed (record moved), added. **SF15** kept naming json / name / b, record not moved, edit kept; kept again with nothing written. **SF16** not-in-source, still there. **SF17** relationships: removed, added, kept (removed by hand; properties edited), others (a direct link under a firmware superset; a second parent). **SF18** the instance's own element stays. **SF21** take by key and by address; takeAll by an admin (the b claim replaced); then nothing to change. **SF36** the two relationships SF17 keeps (removed by hand; properties edited) are listed in `installedFirmware.keptRelationships`, not `graph.relationships` (Amendment 3, item 4) | route | integration |
+| AC4 first contact (open question 2) | **SP3** (9 kept), **SP4**, **SP8** pure. **SF22** 450 unchanged and adopted (keeping their letters), dog's schema among them; 9 kept with noRecord: the four schemas pass 3b filled, the three concept graphs and the fixture's two edits; missing relationships kept with noRecord. **SF23** again, 9 kept; takeAll changes the 9 ("Settled at Test Design", item 9): tapestryKey, id, NostrEvent and created_at kept, old tag nodes gone, letterOutOfDate. **SF37** a relationship kept with noRecord (dog-breed's ENUMERATES, its paths edited) is listed in `installedFirmware.keptRelationships`; a later firmware that drops it leaves it in place, reported kept, not removed (Amendment 3, item 4) | plan, route | |
 | AC4 take (open question 3) | **SP5** (takeAll changes 9), **SF21**, **SF23**, **SA1** | plan, route, agent | |
 | AC5 graph rules | **SP6** put back (or changed) on first contact; another author's item blocks. **SF19** put-back, changed, nine unchanged. **ST28** the eleven items | plan, route, target | |
 | AC6 the answer, the entry, rules check | **SF12** version, source (files), nodes with outcome/tapestryKey/address/role/file, counts, relationships, letterOutOfDate `[]`, cacheOutOfDate counting each failed derive, rulesCheck, change, note. **SF13** the entry's who and keys; `graph history` finds both entries by a node. **SF20** 0 findings fresh; a second parent found and left as it was | route | integration |
-| AC7 refusals | **SF24** unknown-version (names 2.0.0 and 1.0.0), not-firmware (names each ref), 501 refs. **SF25** firmware-unreadable (names each file and problem), graph untouched. **SF26** busy (names the backup); graph-unavailable, in words saying nothing can be installed. **SF27** no-assistant. **SF28** 401, 403, 415, unknown input. **ST21–ST27** each unreadable kind (below). **ST31** an existing set naming an undefined concept is skipped, no problem | route, target | |
-| AC7 how it's reached | **SF1** the declaration. **SF2** the listing with every refusal; `/docs` has the POST. **SF29** the internal command, no sign-in, its refusal the route's. **SA1** the agent | route, agent | |
-| AC7 what stays, the docs | **SF30** today's install and its route (passes now, a guard). **SF31** catalog §8's row, BIBLE §7 and §11 | route | |
-| AC7 the live check | **L1–L4** (below) | live | live |
+| AC7 refusals | **SF24** unknown-version (names 2.0.0 and 1.0.0), not-firmware (names each ref), 501 refs. **SF25** firmware-unreadable (names each file and problem), graph untouched. **SF26** busy (names the backup); graph-unavailable, in words saying nothing can be installed. **SF27** no-assistant. **SF28** 401, 403, 415, unknown input. **ST21–ST27** each unreadable kind (below). **ST31** an existing set naming an undefined concept is skipped, no problem. **SF35** `address-held` (409) for a node at the reserved address without the mark: neither part, the section alone, the record alone; naming the node, nothing written. **ST32, SF38** an alias that isn't a plain name (Amendment 3, items 3 and 5) | route, target | |
+| AC7 how it's reached | **SF1** the declaration, its seven refusals, `address-held` among them (Amendment 3, item 3). **SF2** the listing with every refusal; `/docs` has the POST. **SF29** the internal command, no sign-in, its refusal the route's. **SA1** the agent | route, agent | |
+| AC7 what stays, the docs | **SF30** today's install and its route (passes now, a guard). **ST33** the tripwire: a digest of today's install's pass functions, failing, naming `src/firmware/target.js`, when they change (passes now, a guard; Amendment 3, item 8). **SF31** catalog §8's row, BIBLE §7 and §11 | route, target | |
+| AC7 the live check | **L1–L4** (below); L1 reads the installed-firmware graph at its reserved address and requires each kept relationship listed apart (Amendment 3, items 3 and 4) | live | live |
 
 ### The ADR's decisions
 
@@ -56,14 +57,15 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | 4 the target, pass by pass | ST1–ST16, ST19, ST28, ST29 (`installName` exported), ST30 (`conceptNodes`' defaults unchanged, a guard), ST31, SP7 (blocked) |
 | 5 pass 3b isn't rebuilt | ST8, SF22, SF23, L1 |
 | Amendment 1 (Test Design): the fold; the three concept graphs kept as create-concept made them; the core nodes' addresses; undefined concepts; one fixed order | SO5, ST4, SF3 (item 1); SO6, ST4, SF3, SP3, SP5, SF22, SF23, L1 (item 2); ST1 (item 3); ST12, ST24, ST25, ST31 (item 4); ST17, ST11–ST16, L1 (item 5) |
-| 6 the record, what counts as an edit, the derive's sections | ST19, SF7, SF15, SR1–SR4 |
+| 6 the record, what counts as an edit, the derive's sections | ST19, SF7, SF15, SR1–SR6, SP9 |
 | 7 each node's outcome | SP1, SP3, SP5–SP8, SF14–SF16, SF19, SF21–SF23 |
-| 8 relationships | SP4, SF17, SF21, SF22, SF5 (the b claim), SF23 |
-| 9 the installed-firmware graph | SF8, SF13 |
+| 8 relationships | SP4, SF17, SF21, SF22, SF5 (the b claim), SF23, SF36, SF37 |
+| 9 the installed-firmware graph | SF8, SF13, SF33, SF34, SF35 |
 | 10 one transaction, the lock, keeping a letter's id, the cache, rules check | SF11, SF12 (cacheOutOfDate), SF20, SF23 |
 | 11 the answer | SF10, SF12, SF15, SF17, SF22 |
 | 12 status | SF9 |
 | 13 the live check | L1–L4 |
+| Amendment 3 (Review, round 1): read through the LMDB; wordTypes as a set; the reserved address and the mark; kept relationships apart; plain-name aliases; the record's sections; the tripwire | SF33, status's part in SF33 (item 1); SP9, SF33 (item 2); SF1, SF2, SF8, SF11, SF13, SF34, SF35, L1 (item 3); SF36, SF37, L1 (item 4); ST32, SF38 (item 5); SR4–SR6 (item 6); ST33 (item 8). Not tested here: item 7 (BIBLE §7's words and the ledger row) and item 9 (the ADR's words) |
 
 ### firmware-unreadable (Decision 3)
 
@@ -77,6 +79,7 @@ Every suite but one is stack-free, and all live under `test/operations/lifecycle
 | A relationship type a concept manifest uses that `relationshipTypes` lacks | ST26 |
 | Three at once, each named | ST27, SF25 (through the route, the graph untouched) |
 | An existing node or existing set naming a concept the manifest doesn't define: skipped, as today, and no problem (Amendment 1, item 4) | ST12 (the real manifest's existing nodes), ST31 (an existing set, in a temporary folder) |
+| A relationship type whose alias isn't a plain name, `[A-Z_][A-Z0-9_]*` (Amendment 3, item 5) | ST32 (a space, and a backtick, each naming its file and the alias), SF38 (through the route, naming both, nothing written) |
 
 ## Settled at Test Design
 
@@ -140,6 +143,17 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
   - The stack-free fixture now skips such an enumeration exactly as the route does (`enumeratedOnTodaysInstall`): SP3 and SF22 count 9 kept and 450 unchanged; SP5 and SF23's takeAll change 9; SF22 also finds dog's schema unchanged.
   - L1 reads from the instance which enumerations pass 3b applied, so a later firmware that gives dog-breed elements still passes.
 
+**Settled at Review round 1** (Amendment 3's tests, 2026-11-21). Where the amendment is silent, the tests chose as follows, for the owner to confirm at the gate:
+- *The mark's record.* The installed-firmware graph must carry an `installed` property that parses to an object (SF8, SF34). Its fields aren't pinned. A node there with a record of a node's shape (`digest`, `parts`) and no `installedFirmware` section is refused like the others (SF35's third case), since the mark is both.
+- *What `address-held` names:* the node's address or its tapestryKey, either (SF35). Its other words aren't pinned.
+- *Each item fails for its own reason.* SF8, SF11 and SF13 look at the reserved address, so they fail until it moves. SF33 and SF36, which test other items, find the installed-firmware graph at either address.
+- *The kept list's form.* `installedFirmware.keptRelationships` is read in `graph.relationships`' form (`nodeFrom.slug`, `relationshipType.slug`, `nodeTo.slug`) or as `{ type, from, to }` (`listedIn`). Whose properties it holds, the target's or the graph's, isn't pinned.
+- *Both kinds of kept are listed apart:* removed since (numeric-types → number) and with properties an admin edited (dog-breed's ENUMERATES). That holds on an update (SF36) and on first contact, with noRecord (SF37).
+- *A firmware that drops a kept relationship:* the relationship stays as the admin left it and is reported in `relationships.kept`, never `removed` (SF37). Whether the list still names it afterwards isn't pinned.
+- *The offload is the real one.* SF33 runs the Dashboard's `POST /api/tapestry-key/offload-all` handler and the real derive in a child, over two nodes (the installed-firmware graph and node-type's superset). The real LMDB store sits at `TAPESTRY_LMDB_PATH`, and the harness run reads the same store.
+- *The tripwire's text* is each pass's source with its whitespace collapsed. So re-indenting alone doesn't trip it; any other change does, a comment's included. ST33's message says to bring `src/firmware/target.js` in line, then update the digest.
+- *An alias through the route* (SF38) is refused before anything is written: the graph is empty afterwards. Today a check at write time throws instead, so the route answers 500 `failed`.
+
 ## Edge cases
 
 - [x] Empty input: `{}` installs (SF3). An empty graph: all added (SP1), and status says none is recorded (SF9).
@@ -154,6 +168,11 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
 - [x] An element blocked by another element of its name in the class thread (SP7); another author's graph-rule item (SP6).
 - [x] A node seed-firmware didn't make, under a firmware concept, and its link (SF18); a direct link the firmware's prune would take out (SF17).
 - [x] The firmware folder changed between two calls in one process: the builder reads fresh (ST18, SA1).
+- [x] The Dashboard's offload and a derive between two runs: the installed-firmware graph's json and a superset's an `lmdb:` reference, the superset's `word.wordTypes` in the set deriver's order (SF33, SP9).
+- [x] An admin's element named "installed firmware" of graph, at the address Decision 9 first used (SF34). A node at the reserved address without seed-firmware's mark: neither part, the section alone, the record alone (SF35).
+- [x] A concept section named `installed` or `cameFrom` in a node with no record (SR5, SR6).
+- [x] An alias with a space, or a backtick (ST32, SF38).
+- [x] A firmware that drops a relationship the instance kept (SF37).
 - [ ] Not tested stack-free: Neo4j's own transaction under 459 nodes (Consequences: one transaction, its memory). L2 shows it on a scratch stack.
 - [ ] Not tested: the control panel stopping mid-run (Decision 1: the one transaction commits or leaves the graph as it was; the next `C.begin` recovers a stale lock, which `migrate.test.js` covers for the lock).
 
@@ -177,6 +196,10 @@ Ten points where the ADR was silent, or read two ways, and the tests had to choo
   - *Readers:* indexed, so a 3,000-node state reads fast. The answer's accessors are tolerant of the names in item 7.
 - **The oracles** are `test/helpers/todaysFirmwareRoutes.js` (new) and `todaysCreateConcept.js` (extended additively; story 16's suites pass unchanged).
 - **The derive child:** `test/helpers/seedFirmwareDeriveChild.js` (new) runs `tapestry-derive.js` over the engine. Today's derive runs there whole, its schema verdicts included.
+- **The offload child** (Amendment 3): `test/helpers/seedFirmwareOffloadChild.js` (new).
+  - *What it runs:* the offload-all handler, from `registerTapestryKeyRoutes`, then the real derive, over a state. Only the handler's read of inline json tags is narrowed, to the nodes named.
+  - *What it touches:* only `src/lib/neo4j-driver.js` is stubbed. The real LMDB store is at `TAPESTRY_LMDB_PATH`. It writes the state back, in about 0.2 s.
+  - *The fixtures it adds:* `installedGraphAddress()` (now the reserved address), `oldInstalledGraphAddress()`, `installedGraphJson`, `listedIn`, `offloadAndDerive` and `readStoreEntry`, and an `lmdb` option for `runSeed` and `statusFirmware`.
 - **The harness hooks** (additive):
   - `operationsHarness.js`: a request `{ together: [r1, r2] }` sends both at once (SF11).
   - `externalCliServer.js`: `spec.lifecycleFakeState` replaces `_system.js` with the fake, as the harness does for `lifecycleFake`.
@@ -221,7 +244,8 @@ Automated in `seed-firmware-live.test.js`:
   - kept with `noRecord` are exactly the three concept graphs (item 2) and each schema pass 3b filled. L1 reads which from the container's firmware and graph before it runs: an enumeration whose enumerating concept's class thread (`IS_A_SUPERSET_OF*0..10`, then `HAS_ELEMENT`) holds at least one element. On firmware 1.0.0 that is word's, graph's, property's and relationship's, since dog-breed has none, so 7 are kept. L1 prints the filled and skipped enumerations;
   - every other node is `unchanged`: 459 minus those, 452 on firmware 1.0.0;
   - no relationship is added or removed;
-  - a relationship kept with noRecord, or a link between firmware nodes counted as `others`, is allowed only when it is a HAS_ELEMENT or IS_A_SUPERSET_OF from a superset, the prune's kind (item 5). L1 prints each such link, from the answer's `relationships.kept` and from the graph's links between the installed-firmware graph's nodes that its relationships don't list. Anything else kept fails.
+  - a relationship kept with noRecord, or a link between firmware nodes counted as `others`, is allowed only when it is a HAS_ELEMENT or IS_A_SUPERSET_OF from a superset, the prune's kind (item 5). L1 prints each such link, from the answer's `relationships.kept` and from the graph's links between the installed-firmware graph's nodes that neither of its relationship lists names. Anything else kept fails;
+  - the installed-firmware graph is read at `39999:<ta>:installed-firmware`, and each relationship kept is listed in `installedFirmware.keptRelationships`, not in `graph.relationships` (Amendment 3, items 3 and 4).
 - **L2, an empty instance.** On a second container: 459 added; no node at a firmware address has an `id`; a repeat is unchanged, with no change entry.
 - **L3, an update.**
   - *The setup:* nostr-relay's b is re-pointed by a raw query, and `dcosl-brainstorm-world.json` is changed in the container's firmware, then the control panel restarted.
@@ -306,3 +330,54 @@ RESULT seed-firmware-live.test.js {"pass":0,"fail":0,"skipped":4} 0.0s
 ```
 
 `status.test.js`, its P3 re-aimed to Decision 12 at Implementation, passes 9 of 9.
+
+**Amendment 3's tests** (2026-11-21, on `A10.37-seed-firmware` at `d2c7a6c8`: the implementation, review round 1 and Amendment 3, with these tests uncommitted beside it). The new tests fail with the current code. Each suite ran alone, `tmp/a10-37/env.sh` sourced:
+
+```
+seed-firmware-oracles.test.js             8 passed,  0 failed, 0 skipped   1 s
+seed-firmware-target.test.js             32 passed,  1 failed, 0 skipped   1 s    ST32 fails; ST33 passes (a guard)
+seed-firmware-plan.test.js                8 passed,  1 failed, 0 skipped   1 s    SP9
+seed-firmware.test.js                    27 passed, 11 failed, 0 skipped  25 s
+seed-firmware-record.test.js              4 passed,  2 failed, 0 skipped   1 s    SR5, SR6
+seed-firmware-agent-through-cli.test.js   1 passed,  0 failed, 0 skipped   5 s
+seed-firmware-live.test.js                0 passed,  0 failed, 4 skipped   0 s
+status.test.js                            9 passed,  0 failed, 0 skipped   1 s
+```
+
+The 15 failures, by item, each test's first failing message:
+
+```
+item 1–2  SF33  status reads the installed-firmware graph through the store: seeded 1.0.0, no node edited since; got null
+item 2    SP9   40 of the 40 supersets whose wordTypes differ only in order aren't unchanged; the first: [["node-type-superset","kept"], …]
+item 3    SF1   it declares address-held (409); got [ the six refusals ]
+          SF2   its refusals include address-held; got [ … "no-assistant","busy","graph-unavailable"]
+          SF8   one node at 39999:dd…dd:installed-firmware; got 0
+          SF11  one installed-firmware graph; got 0
+          SF13  and the installed-firmware graph, at 39999:dd…dd:installed-firmware; no node is there
+          SF34  the admin's element keeps its tags, its JSON among them: seed-firmware neither reads it as its record nor rewrites it; got {"now":[json …],"was":[json …]}
+          SF35  held-no-mark is refused 409 address-held; got 200 {"success":true, …}
+item 4    SF36  dog-breed's ENUMERATES, its paths edited is listed in installedFirmware.keptRelationships; got undefined
+          SF37  it is listed in installedFirmware.keptRelationships; got undefined
+item 5    ST32  the alias "IS THE CONCEPT GRAPH FOR" is a problem: the builder must not take it; got no problem
+          SF38  alias is refused 409 firmware-unreadable; got 500 {"error":"lifecycle seed-firmware failed: a relationship type that isn't a plain name: \"IS THE CONCEPT GRAPH FOR\"","code":"failed"}
+item 6    SR5   i1 has no install record, so its own installed section stays as it is; got undefined
+          SR6   c1's own cameFrom section stays as it is; got undefined
+```
+
+What the failures show:
+- SF34 shows Blocking 2 on today's code: the first run reads the admin's element as its record and rewrites its JSON.
+- SF37's first assertion already passes: first contact keeps the edited ENUMERATES with noRecord. It fails only on the listing.
+- ST33, the tripwire, passes with today's digests.
+
+**Each can pass, together with the rest.** A copy of the tree in the session's scratchpad (never the worktree) ran every suite against a throwaway stub of items 1–6, in `_seed.js`, `seed-firmware.js`, `target.js`, the word and set derivers, `schema-verdicts.js` and `_schemas.js`. What the stub did:
+- the reserved address, and the json read through `tapestry-resolve`;
+- `word.wordTypes` sorted in the content's digest;
+- the mark checked when the state is read (`address-held` otherwise), and an `installed` record written on the installed-firmware graph;
+- kept relationships listed apart, read back, and reported kept;
+- the alias checked in the builder;
+- the record's sections added only when the node carries them, with the judge told so.
+
+The results:
+- *With all six stubbed,* every suite passed: target 33/0, plan 9/0, oracles 8/0, record 6/0, route 38/0 (21 s), agent 1/0, live 4 skipped, status 9/0. So the new tests ask nothing the existing ones contradict.
+- *With items 1–4 only,* the route suite passed 37 of 38, and SF38 failed.
+- *One fault in the tests, fixed before this record:* SF36 and SF37 crashed building their own messages (`show(undefined)`).

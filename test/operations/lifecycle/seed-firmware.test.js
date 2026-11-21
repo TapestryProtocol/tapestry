@@ -18,7 +18,8 @@
  * TAKE, after UPDATE: take by key, by address, takeAll, and again; FIRST, today's install's graph met for the first
  * time, again, then takeAll; and one run each for busy, graph-unavailable, no-assistant and firmware-unreadable.
  *
- *   SF1  the declaration: a write for the owner and admins, with run; version, take (≤500) and takeAll; its refusals
+ *   SF1  the declaration: a write for the owner and admins, with run; version, take (≤500) and takeAll; its refusals,
+ *        address-held among them (Amendment 3)
  *   SF2  listed for agents with every refusal; /docs has POST /api/tapestry/lifecycle/seed-firmware
  *   SF3  AC1 nodes: each at today's address, once, with today's tags (a set), role labels, JSON, name and slug, and
  *        TapestryNode with a key; no NostrEvent, no id; three concept graphs as create-concept made them (Amendment 1)
@@ -27,7 +28,8 @@
  *   SF5  AC1 the six headers carry the pointer b, and the b claim, REFERENCES {source: 'b-tag'}, to a node at its address
  *   SF6  AC1 nothing is signed, published or read from a key store; graph create-concept then makes a concept
  *   SF7  AC2 each node's install record: cameFrom and installed
- *   SF8  AC2 the installed-firmware graph: its address, labels, tags, HAS_ELEMENT from graph's superset, and its JSON
+ *   SF8  AC2 the installed-firmware graph: at its reserved address, 39999:<ta>:installed-firmware (Amendment 3), with
+ *        its mark (its installed record and installedFirmware), labels, tags, HAS_ELEMENT from graph's superset, its JSON
  *   SF9  AC2 status: seeded (version, at, by, source, nodes, relationships, changedSince); none before any run, for an
  *        empty graph and for today's install's graph; readInstallState still counts letters
  *   SF10 AC3 again: every node unchanged, nothing written, no entry; with version 1.0.0 and v1.0.0 too
@@ -62,6 +64,18 @@
  *   SF31 AC7 the docs: catalog §8, BIBLE §7 and §11 say what it does
  *   SF32 TAPESTRY_FIRMWARE_DIR: the firmware module reads the folder it names, read once at load, firmware/active
  *        otherwise
+ * Review round 1 (engineering-team/reviews/graph-operations-first-slice/37-seed-firmware.md; ADR 0037 Amendment 3):
+ *   SF33 Blocking 1, items 1–2: after the Dashboard's offload of the installed-firmware graph's json and a superset's,
+ *        and a derive: status still reads seeded, and a repeat answers 459 unchanged, with no change entry
+ *   SF34 Blocking 2, item 3: an admin's own "installed firmware" element of graph, made by graph create-element before
+ *        the first run, stays as it was, and what it lists isn't read as the last install's; seed-firmware writes its
+ *        own at 39999:<ta>:installed-firmware, with its mark
+ *   SF35 Blocking 2, item 3: a node at the reserved address without the mark (neither part; the section and no record;
+ *        a record and no section) is refused address-held (409), naming it, and nothing is written
+ *   SF36 N2, item 4: an update lists the relationships it kept apart, in installedFirmware.keptRelationships
+ *   SF37 N2, item 4: first contact lists a relationship it kept with noRecord apart; a firmware that drops it leaves it
+ *        in place, reported kept
+ *   SF38 N1, item 5: an alias that isn't a plain name refuses firmware-unreadable, naming the file and the alias
  */
 
 const fs = require('fs');
@@ -81,7 +95,7 @@ const FIDO = 'concepts/dog/elements/fido.json';
 const NULL = 'concepts/json-data-type/elements/null.json';
 const RULE_EDITED = 'concepts/graph-rule/elements/class-thread-acyclic.json';
 const RULE_CHANGED = 'concepts/graph-rule/elements/concept-slug-unique.json';
-const CODES = Object.freeze({ 'unknown-version': 409, 'firmware-unreadable': 409, 'not-firmware': 400, 'no-assistant': 409, busy: 409, 'graph-unavailable': 409 });
+const CODES = Object.freeze({ 'unknown-version': 409, 'firmware-unreadable': 409, 'not-firmware': 400, 'no-assistant': 409, 'address-held': 409, busy: 409, 'graph-unavailable': 409 });
 const first = (xs) => show(xs.slice(0, 5)).slice(0, 800);
 const words = (b) => String(b && (b.error || b.message || ''));
 
@@ -206,7 +220,7 @@ const seedEntries = (s) => F.entries(s).filter((e) => e.operation === 'lifecycle
 const firmwareNodes = (s, o) => [...o.letters.keys()].map((a) => F.nodesAt(s, a));
 
 // ── the declaration and its listing ──
-test('SF1 [Decision 1]: the declaration: a write for the owner and admins, with run; version, take (up to 500) and takeAll, each optional; its six refusals', () => {
+test('SF1 [Decision 1, Amendment 3 item 3]: the declaration: a write for the owner and admins, with run; version, take (up to 500) and takeAll, each optional; its seven refusals, address-held among them', () => {
   F.needDecl();
   const d = require(F.DECL);
   assert(d.group === 'lifecycle' && d.name === 'seed-firmware' && d.kind === 'write' && d.access === 'owner-and-admins', `lifecycle seed-firmware, a write for the owner and admins; got ${show({ group: d.group, name: d.name, kind: d.kind, access: d.access })}`);
@@ -322,7 +336,7 @@ test('SF7 [AC2, Decision 6]: each node seed-firmware wrote records cameFrom (kin
   assert(rover.address === ROVER && rover.id === F.fileSha(firmwareA(), ROVER), `rover came from its file, by path and sha256; got ${show(rover)}`);
 });
 
-test('SF8 [AC2, Decision 9]: the installed-firmware graph: an element of graph at its address, unsigned, with its word, its graph (every node by address, the relationships firmware made) and installedFirmware', async () => {
+test('SF8 [AC2, Decision 9, Amendment 3 item 3]: the installed-firmware graph: an element of graph at its reserved address, 39999:<ta>:installed-firmware, unsigned, with seed-firmware\'s mark (its installed record and installedFirmware), its word, its graph (every node by address, the relationships firmware made)', async () => {
   const { s } = fresh();
   const o = await F.oracle(firmwareA());
   const at = F.nodesAt(s, F.installedGraphAddress());
@@ -331,6 +345,9 @@ test('SF8 [AC2, Decision 9]: the installed-firmware graph: an element of graph a
   assert(g.labels.includes('ListItem') && !g.labels.includes('NostrEvent') && g.props.id === undefined, `ListItem, with no letter; got ${show(g.labels)}`);
   const tags = F.tagsOf(s, g);
   assert(['d', 'name', 'z', 'json'].every((t) => tags.some((x) => x[0] === t)) && tags.some((x) => x[0] === 'z' && x[1] === `39998:${TA}:graph`), `tags d, name, z (graph) and json; got ${show(tags.map((x) => x[0]))}`);
+  assert(tags.some((x) => x[0] === 'd' && x[1] === 'installed-firmware'), `its d tag is the reserved d-tag, installed-firmware; got ${show(tags.filter((x) => x[0] === 'd'))}`);
+  const record = F.propJson(g, 'installed');
+  assert(record && typeof record === 'object' && !Array.isArray(record), `it carries its own installed record, half of seed-firmware's mark; got ${show(g.props.installed)}`);
   assert(F.relsOf(s, { type: 'HAS_ELEMENT', from: o.supersetOf('graph'), to: F.installedGraphAddress() }).length === 1, 'graph\'s superset HAS_ELEMENT it');
   const j = F.jsonTagOf(s, g);
   assert(j && j.word && j.word.slug === 'graph--installed-firmware' && j.word.name === 'graph: installed firmware' && j.word.title === 'Graph: Installed Firmware' && show(j.word.wordTypes) === show(['word', 'graph']), `its word block; got ${show(j && j.word)}`);
@@ -424,7 +441,7 @@ test('SF13 [AC6, Decision 10]: the change entry names who installed and every no
   const missing = [...o.letters.keys()].filter((a) => !keys.has(F.nodesAt(s, a)[0].props.tapestryKey));
   assert(missing.length === 0, `its keys name every node it made; missing ${missing.length}`);
   const g = F.nodesAt(s, F.installedGraphAddress())[0];
-  assert(g && keys.has(g.props.tapestryKey), 'and the installed-firmware graph');
+  assert(g && keys.has(g.props.tapestryKey), `and the installed-firmware graph, at ${F.installedGraphAddress()}; ${g ? 'its key isn\'t among the entry\'s keys' : 'no node is there'}`);
   const { b1 } = await update();
   const h = b1.req('h-dcosl');
   const found = h.status === 200 ? h.body.data.entries.filter((x) => x.operation === 'lifecycle seed-firmware') : [];
@@ -690,6 +707,150 @@ test('SF32 [Decision 3]: TAPESTRY_FIRMWARE_DIR: the firmware module reads the fo
     process.stdout.write('RESULT:' + JSON.stringify({ dir: f.firmwareDir(), date: f.getManifest().date }));
   `], { cwd: F.ROOT, encoding: 'utf8', env }));
   assert(unset.dir === path.join(F.ROOT, 'firmware/active') && unset.date === '2026-03-28', `left unset, firmware/active; got ${show(unset)}`);
+});
+
+// ── Review round 1 (ADR 0037 Amendment 3) ──
+/** The installed-firmware graph's JSON at the reserved address, else where Decision 9 first put it (so a test of another item isn't failed by the move). */
+const igJsonOf = (st) => { for (const a of [F.installedGraphAddress(), F.oldInstalledGraphAddress()]) { const n = F.nodesAt(st, a)[0]; if (n) return F.jsonTagOf(st, n); } return null; };
+const schemaAddress = (o, slug) => [...o.letters.values()].find((l) => l.role === 'jsonSchema' && l.concept === slug).address;
+const ppAddress = (o, slug) => [...o.letters.values()].find((l) => l.role === 'primaryProperty' && l.concept === slug).address;
+
+/**
+ * ADMIN_GRAPH: today's install's graph, with the instance's own second parent (dog's primary property IS_A_PROPERTY_OF
+ * nostr-relay's schema) and dog-breed's ENUMERATES with its paths edited, as an admin leaves them; then an admin makes an
+ * element "installed firmware" of graph with graph create-element, listing that second parent (C1); seed-firmware's
+ * first run (C2); and a run with a firmware that drops dog-breed's enumeration (C3).
+ */
+let ADMIN_GRAPH = null;
+async function adminGraph() {
+  if (ADMIN_GRAPH) return ADMIN_GRAPH;
+  F.needDecl();
+  const o = await F.oracle(firmwareA());
+  const dogPP = ppAddress(o, 'dog');
+  const relaySchema = schemaAddress(o, 'nostr-relay');
+  const dogSchema = schemaAddress(o, 'dog');
+  const s0 = F.todaysGraph(o, { edges: [
+    { from: dogPP, type: 'IS_A_PROPERTY_OF', to: relaySchema },
+    { from: o.supersetOf('dog-breed'), type: 'ENUMERATES', to: dogSchema, props: { sourcePath: 'dogBreed.slug', destinationPath: 'dog.breed' } },
+  ] });
+  const graphKey = F.nodesAt(s0, o.headerOf('graph'))[0].props.tapestryKey;
+  const fields = {
+    nodes: [{ slug: dogPP, uuid: dogPP, name: 'primary property for the concept of dogs' }, { slug: relaySchema, uuid: relaySchema, name: 'JSON schema for the concept of nostr relays' }],
+    relationshipTypes: [{ slug: 'IS_A_PROPERTY_OF' }],
+    relationships: [{ nodeFrom: { slug: dogPP }, relationshipType: { slug: 'IS_A_PROPERTY_OF' }, nodeTo: { slug: relaySchema } }],
+    imports: [],
+  };
+  const c1 = F.runSeed({ state: s0, firmwareDir: firmwareA(), label: 'seed-firmware-admin-graph-', requests: [{ id: 'element', method: 'POST', url: '/api/tapestry/graph/create-element', caller: 'admin', body: { concept: graphKey, name: 'installed firmware', fields } }] });
+  const made = F.data(c1, 'element');
+  const sc1 = c1.state();
+  const c2 = F.runSeed({ state: sc1, firmwareDir: firmwareA(), label: 'seed-firmware-first-admin-', requests: [F.seed('first', 'owner')] });
+  const sc2 = c2.state();
+  const fc = F.copyFirmware({ 'manifest.json': (m) => { delete m.enumerations['dog-breeds']; return m; } }, { from: firmwareA(), label: 'seed-firmware-fc-' });
+  const c3 = F.runSeed({ state: sc2, firmwareDir: fc, label: 'seed-firmware-dropped-', requests: [F.seed('dropped', 'owner')] });
+  ADMIN_GRAPH = { o, made, sc1, c2, sc2, c3, sc3: c3.state(), dogPP, relaySchema, dogSchema };
+  return ADMIN_GRAPH;
+}
+
+test('SF33 [AC2, AC3, Amendment 3 items 1–2; review round 1, Blocking 1]: after the Dashboard\'s offload of the installed-firmware graph\'s json and a superset\'s, and a derive, status still reads seeded, and a repeat answers 459 unchanged with no change entry', async () => {
+  const { s } = fresh();
+  const o = await F.oracle(firmwareA());
+  const ig = F.nodesAt(s, F.installedGraphAddress())[0] || F.nodesAt(s, F.oldInstalledGraphAddress())[0];
+  assert(ig, 'the install wrote its installed-firmware graph');
+  const sup = F.nodesAt(s, o.supersetOf('node-type'))[0];
+  const lmdb = path.join(F.tmp('seed-firmware-lmdb-'), 'lmdb');
+  const keys = [ig.props.tapestryKey, sup.props.tapestryKey];
+  const off = F.offloadAndDerive(s, { lmdb, offload: keys, derive: keys });
+  assert(off.offloaded === 2, `the offload route offloaded the two json tags; got ${off.offloaded}`);
+  const jsonTag = (n) => F.tagsOf(off.state, F.nodesAt(off.state, n.props.uuid)[0]).find((t) => t[0] === 'json');
+  assert(jsonTag(ig)[1] === `lmdb:${ig.props.tapestryKey}` && jsonTag(sup)[1] === `lmdb:${sup.props.tapestryKey}`, 'each json tag is now its lmdb: reference');
+  const wt = off.derived[sup.props.tapestryKey] && off.derived[sup.props.tapestryKey].word.wordTypes;
+  assert(show(wt) === show(['word', 'superset', 'set']) && show(wt) !== show(o.letters.get(o.supersetOf('node-type')).json.word.wordTypes), `the derive wrote the superset's wordTypes in the set deriver's order, not its letter's; got ${show(wt)}`);
+  const st = F.statusFirmware(off.state, { firmwareDir: firmwareA(), lmdb });
+  const sd = st.part.seeded;
+  assert(sd && sd.version === '1.0.0' && sd.changedSince === 0, `status reads the installed-firmware graph through the store: seeded 1.0.0, no node edited since; got ${String(show(sd)).slice(0, 300)}`);
+  const r = F.runSeed({ state: off.state, firmwareDir: firmwareA(), lmdb, label: 'seed-firmware-offloaded-', requests: [F.seed('again', 'owner')] });
+  const d = F.data(r, 'again');
+  assert(F.countOf(d, 'unchanged') === 459 && !F.countOf(d, 'kept') && d.change === null, `the repeat changes nothing: 459 unchanged, none kept, no change entry; got ${show({ counts: d.counts, change: d.change && d.change.id })}`);
+  assert(seedEntries(r.state()).length === seedEntries(off.state).length, 'and records no entry');
+});
+
+test('SF34 [AC4, Amendment 3 item 3; review round 1, Blocking 2]: an admin\'s own "installed firmware" element of graph, made by graph create-element before seed-firmware\'s first run, stays as it was, and what it lists isn\'t read as the last install\'s; seed-firmware writes its own at 39999:<ta>:installed-firmware, with its mark', async () => {
+  const { made, sc1, c2, sc2, dogPP, relaySchema } = await adminGraph();
+  assert(made.element.address === F.oldInstalledGraphAddress(), `graph create-element put the admin's element at childDTag('installed firmware', graph); got ${made.element.address}`);
+  F.data(c2, 'first');
+  const before = F.nodesAt(sc1, made.element.address)[0];
+  const after = F.nodesAt(sc2, made.element.address);
+  assert(after.length === 1 && after[0].props.tapestryKey === before.props.tapestryKey && F.stable(after[0].props) === F.stable(before.props) && show([...after[0].labels].sort()) === show([...before.labels].sort()),
+    `the admin's element keeps its key, labels and properties; got ${show(after.map((n) => ({ labels: n.labels, props: n.props }))).slice(0, 300)}`);
+  const tagsBefore = F.tagSet(F.tagsOf(sc1, before));
+  const tagsAfter = F.tagSet(F.tagsOf(sc2, after[0]));
+  const td = F.setDiff(tagsAfter, tagsBefore);
+  assert(F.sameSet(tagsAfter, tagsBefore), `the admin's element keeps its tags, its JSON among them: seed-firmware neither reads it as its record nor rewrites it; got ${String(show({ now: td.onlyFirst.map((t) => String(t).slice(0, 80)), was: td.onlySecond.map((t) => String(t).slice(0, 80)) })).slice(0, 400)}`);
+  assert(F.relsOf(sc2, { type: 'IS_A_PROPERTY_OF', from: dogPP, to: relaySchema }).length === 1, 'the relationship its JSON lists, the instance\'s own second parent, stays: it was never the last install\'s');
+  const own = F.nodesAt(sc2, F.installedGraphAddress());
+  const j = own.length ? F.jsonTagOf(sc2, own[0]) : null;
+  assert(own.length === 1 && j && j.installedFirmware && F.propJson(own[0], 'installed'), `seed-firmware writes its own installed-firmware graph at ${F.installedGraphAddress()}, with its mark: an installedFirmware section and its installed record; got ${own.length} node(s) there`);
+});
+
+test('SF35 [AC7, Amendment 3 item 3; review round 1, Blocking 2]: a node at 39999:<ta>:installed-firmware without seed-firmware\'s mark is refused address-held (409), naming it, and nothing is written', () => {
+  F.needDecl();
+  const word = { slug: 'graph--installed-firmware', name: 'graph: installed firmware', wordTypes: ['word', 'graph'] };
+  const graph = { nodes: [], relationshipTypes: [], relationships: [], imports: [] };
+  const variants = [
+    ['held-no-mark', 'a node an admin made there, with no record', { word, graph }],
+    ['held-section-only', 'a node with an installedFirmware section but no installed record', { word, graph, installedFirmware: { version: '1.0.0', nodes: 0, relationships: 0 } }],
+    ['held-record-only', 'a node with an installed record but no installedFirmware section', { word, graph }, { installed: JSON.stringify({ version: '1.0.0', digest: 'a'.repeat(64), parts: {}, at: '2026-11-20T00:00:00.000Z' }) }],
+  ];
+  for (const [id, what, json, record = {}] of variants) {
+    const s = F.emptyGraph();
+    const n = F.addNode(s, ['ListItem'], { uuid: F.installedGraphAddress(), kind: 39999, pubkey: TA, name: 'installed firmware', tapestryValue: 'installed firmware', created_at: 1700000000, ...record });
+    F.addTagNodes(s, n, [['d', 'installed-firmware'], ['name', 'installed firmware'], ['z', `39998:${TA}:graph`], ['json', JSON.stringify(json)]]);
+    const r = F.runSeed({ state: s, firmwareDir: firmwareA(), label: 'seed-firmware-held-', requests: [F.seed(id, 'owner')] });
+    const b = F.refused(r, id, 409, 'address-held');
+    assert(words(b).includes(F.installedGraphAddress()) || words(b).includes(n.props.tapestryKey), `${what}: the refusal names the node; got ${words(b)}`);
+    const after = r.state();
+    assert(F.stable(after.nodes) === F.stable(s.nodes) && F.stable(after.rels) === F.stable(s.rels), `${what}: nothing is written, no entry`);
+  }
+});
+
+test('SF36 [AC4, Amendment 3 item 4; review round 1, N2]: an update lists the relationships it kept apart: dog-breed\'s ENUMERATES, its paths edited, and numeric-types → number, removed by hand, are in installedFirmware.keptRelationships, not graph.relationships', async () => {
+  const { b1, s1, o, schemaOf } = await update();
+  assert(F.countOf(F.data(b1, 'update'), 'changed') >= 1, 'the update ran and rewrote its installed-firmware graph');
+  const j = igJsonOf(s1);
+  assert(j && j.graph && j.installedFirmware, 'the installed-firmware graph is there');
+  const kept = j.installedFirmware.keptRelationships;
+  const numeric = o.setOf('concepts/json-data-type/sets/numeric-types.json');
+  const number = o.elementOf('concepts/json-data-type/elements/number.json');
+  for (const [type, from, to, what] of [['ENUMERATES', o.supersetOf('dog-breed'), schemaOf('dog'), 'dog-breed\'s ENUMERATES, its paths edited'], ['HAS_ELEMENT', numeric, number, 'numeric-types → number, removed by hand']]) {
+    assert(F.listedIn(kept, type, from, to), `${what} is listed in installedFirmware.keptRelationships; got ${String(show(kept)).slice(0, 300)}`);
+    assert(!F.listedIn(j.graph.relationships, type, from, to), `${what} isn't in graph.relationships, which lists what the install made, brought in line or adopted`);
+  }
+});
+
+test('SF37 [AC4, Amendment 3 item 4; review round 1, N2]: first contact lists a relationship it kept with noRecord apart, in installedFirmware.keptRelationships; then a firmware that drops it leaves it in place, reported kept', async () => {
+  const { o, c2, sc2, c3, sc3, dogSchema } = await adminGraph();
+  const from = o.supersetOf('dog-breed');
+  const d = F.data(c2, 'first');
+  assert(F.relsOfAnswer(d).kept.some((x) => F.relIs(x, 'ENUMERATES', from, dogSchema) && x.noRecord === true), `first contact keeps dog-breed's edited ENUMERATES with noRecord; got ${show(F.relsOfAnswer(d).kept).slice(0, 300)}`);
+  const j = igJsonOf(sc2);
+  assert(j && j.installedFirmware && F.listedIn(j.installedFirmware.keptRelationships, 'ENUMERATES', from, dogSchema), `it is listed in installedFirmware.keptRelationships; got ${String(show(j && j.installedFirmware && j.installedFirmware.keptRelationships)).slice(0, 300)}`);
+  assert(!F.listedIn(j.graph.relationships, 'ENUMERATES', from, dogSchema), 'and not in graph.relationships');
+  const dropped = F.data(c3, 'dropped');
+  const r = F.relsOfAnswer(dropped);
+  assert(!r.removed.some((x) => F.relIs(x, 'ENUMERATES', from, dogSchema)) && r.kept.some((x) => F.relIs(x, 'ENUMERATES', from, dogSchema)), `a firmware that drops the enumeration doesn't take it out: it is reported kept; got removed ${show(r.removed).slice(0, 200)}, kept ${show(r.kept).slice(0, 200)}`);
+  const left = F.relsOf(sc3, { type: 'ENUMERATES', from, to: dogSchema });
+  assert(left.length === 1 && left[0].props.sourcePath === 'dogBreed.slug', 'it stays in place, as the admin left it');
+});
+
+test('SF38 [AC7, Amendment 3 item 5; review round 1, N1]: a relationship type whose alias isn\'t a plain name refuses firmware-unreadable, naming its file and the alias; nothing is written', () => {
+  F.needDecl();
+  const file = 'concepts/relationship-type/elements/core-node-concept-graph.json';
+  const alias = 'IS THE CONCEPT GRAPH FOR';
+  const dir = F.copyFirmware({ [file]: (j) => ({ ...j, relationshipType: { ...j.relationshipType, alias } }) }, { label: 'seed-firmware-alias-' });
+  const r = F.runSeed({ firmwareDir: dir, label: 'seed-firmware-alias-run-', requests: [F.seed('alias', 'owner')] });
+  const b = F.refused(r, 'alias', 409, 'firmware-unreadable');
+  assert(words(b).includes(file) && words(b).includes(alias), `it names the file and the alias; got ${words(b)}`);
+  assert(r.state().nodes.length === 0, 'nothing was written');
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));
