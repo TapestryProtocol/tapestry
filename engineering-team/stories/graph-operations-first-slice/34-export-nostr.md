@@ -260,6 +260,41 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 - **A concept graph's class thread brings the instance's own nodes only** (the read conventions' own test), as the story's settled design says. What a graph's lists name is kept whoever wrote it, and answered `not-own` or `owner-signed`. Graphs past four levels or the 50th are neither followed nor reported.
 - **micromark 4.0.2,** pinned exactly as asked (`npm install --save-exact micromark@4.0.2`; 4.0.3 exists). The lock gains its 27 packages, all micromark's own and theirs.
 
+## Evidence
+
+### The suites (Implementation, 2026-11-20, on `26712ded`)
+
+Each suite ran alone on this Mac, with every service endpoint dead, `TAPESTRY_CONTAINER_PORT` unset, `TAPESTRY_CONTAINER=no-such-container`, and stub `curl` and `docker` first on `PATH` (`tmp/a10-34/`). None failed:
+- export: nostr 15, markdown-links 9, nostr-letters 11, nostr-links 6, nostr-send 16, nostr-own 5, nostr-agent-through-cli 1, nostr-live 6 skipped;
+- RE1 (`test/publish-export-a-concept.test.js`, widened) 3;
+- import nostr's suites, the graph writes the scopes use, `write-path`, `tapestry-key-paths`, `relationship-type-allowed`, and the suites behind the three guarded importers, every one passing as before.
+
+The scoped gate, through the gate engine with a conf file whose Neo4j is a closed port, is `20261121T010128Z-88708-2efe`: PASS, exit 0, 1,473 passed, 0 failed, 18 skipped, 6/6 suites (`operations.test.js`, `external-cli`, `openapi-coverage`, `admin-action-sweep`, `schema-save-finds-the-right-header`, `publish-export-a-concept`).
+
+### The live check (2026-11-21, 01:15–01:25Z, scratch stack `tapestry-scratch`)
+
+The image is `tapestry-tapestry`, with this branch's `src/` mounted read-only.
+- **Setup:** story 32's recipe, adapted (`tmp/live-check-34/setup.sh`). It copied in the branch's firmware, `bin/tapestry.js` and `clients/cli`, and set a fresh throwaway owner and admin. It added the five uniqueness rules, ran `lifecycle migrate --migration tapestry-keys`, and installed firmware.
+- **micromark:** the image had none of the 27 packages the lock adds, so they were copied in, and `import('micromark')` loads in the container.
+- **`nostr-live.test.js`:** 6 passed, 0 failed.
+  - LV1: each letter went through the real `strfry import` and was read back, verifying.
+  - LV2: a repeat was all `unchanged`, with nothing signed.
+  - LV3: after `update-node`, only that letter was `changed`, and the relay keeps the newer version.
+  - LV4: import nostr answered `own`, and every node stayed as it was.
+  - LV5: two exports fired together each answered, and every node ended with one letter.
+  - LV6: 497 letters accepted in 1.92 s, about 259 a second. The suite's 8 core nodes and 489 elements fall short of the 500 cap, so the cap wasn't reached.
+- **LH1, by hand (20 of 20):** an admin agent with its own key, through the unchanged external CLI, inside the container.
+  - It made a concept, a set and two elements, the second's description linking to the first by `tapestry:`.
+  - A dry run listed 11 letters `new`; the export sent them to the stack's relay, and a repeat was all `unchanged` (`held`).
+  - After `update-node` on the first element, a dry run listed only it, and the export signed only it, its `created_at` one second after its last.
+  - `import nostr` of the 11 letters answered `own` for each, with the graph's 6,603 nodes and 6,623 relationships unchanged.
+  - The second element's letter on the relay links by `nostr:naddr1…`, which decodes to the first's address, while its node in the graph still holds the `tapestry:` link.
+  - `graph history` shows the two `export nostr` entries.
+- **LH2, by hand (6 of 6):** `POST /api/neo4j/event-update` on both exported elements answered `unchanged`, naming the letter each holds. Their tag nodes are the same nodes, and the control panel logged no tag deletion.
+- **Not yet run:** the send to an outside relay, and EA1's private-relay refusal by hand, which wait for the owner to choose the outside relay. A large export through nginx isn't timed; LV6 timed the call direct to the control panel.
+
+The records are in the worktree's `tmp/live-check-34/`, to be copied to the main checkout's `tmp/` before the worktree goes.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
