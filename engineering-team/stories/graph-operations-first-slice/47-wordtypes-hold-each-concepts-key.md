@@ -1,6 +1,6 @@
 # Story 47: A node's `wordTypes` hold the key of each concept it belongs to: `rules check` names a node that lacks one, and firmware's nodes and each new concept's JSON schema get theirs
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-20
 **Type:** Feature
 **Loom:** none yet. Filing a proposal related to A10.31 is the owner's call, offered once this story is approved (the intake entry).

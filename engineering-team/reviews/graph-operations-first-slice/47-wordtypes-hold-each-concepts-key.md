@@ -298,3 +298,206 @@ One thing blocks the merge:
 ## On PASS (same commit)
 - [ ] Story `**Status:**` flipped to `Done` in place: not applicable (CHANGES_REQUESTED). The brief also left the status alone.
 - [ ] Completion detection: not applicable until a PASS.
+
+## Round 2 — 2026-11-20 (HEAD `9106fbeb`)
+
+Round 1 reviewed `ee531556` and was committed as `6f6f125b`. Four commits came after it:
+- `a7b0aadb`, a merge of `origin/staging` at `8fc07725`: story 46 (#174), export nostr's ADR amendment (#173), seed firmware's story and ADR (#171), and property-has-one-parent's ship records (#172). 17 files, +2168 −5.
+- `14a944e7`, in the Tester's lane: FN11 and the suite's header, and the test plan's Amendments 2 and 3.
+- `2a8e8c2b`, in the Implementer's lane: blocking 1, non-blocking 1, 2 and 4, the intake marker, the epic's line for story 47, and a `meta` ledger row for harness friction 1.
+- `9106fbeb`: the story's Evidence for the session's round 2 gate.
+
+Story 47's own three commits come to 11 files, +135 −5. Four are under `src/` or `firmware/`: `src/firmware/install.js`, the rule's file, `src/api/openapi.yaml` and the graph rule item. I checked each fix as a fresh claim, round 1's suggested wording included (role rule 10).
+
+**How it was made.** A Reviewer agent with no Edit access wrote this round at the session's request. It changes only this file, doesn't commit, and leaves the story's status alone.
+- **The gates** ran through the session's `safe-run-ci.sh`: stub `curl` and `docker` first on `PATH`, `BRAINSTORM_CONF_PATH` at a dead conf, and `TAPESTRY_CONTAINER` unset, as CI runs.
+- **Inside a sandbox, too.** Each gate ran under `sandbox-exec` with `tmp/review-47/round2/deny-forwards.sb`. It refuses outbound connections:
+  - on loopback, to the 18 ports colima forwards from its VM on this Mac (80, 3000, 3069, 5432, 6379, 7474, 7475, 7687, 7688, 7700, 7777, 7778, 8000, 8081, 8687, 8777, 8778 and 19071) and to 8877;
+  - anywhere, to 22, 80, 443, 7777 and 7778.
+
+  It was tested first (`nettest.js`): those connections fail `EPERM`, and a server a suite starts on its own loopback port still answers. Neither gate's log records a refusal.
+- **The probes** ran with the same environment, outside the sandbox, over fake graphs. They ran in a `git archive` copy of HEAD with its own scratch git, in the session's scratchpad:
+  - FN11's mutations;
+  - skeleton and normalize/json in `test/helpers/saveSchemaChild.js`, which refuses `fetch` and every launcher;
+  - `graph add-to-concept` and `rules check` in the operations harness.
+
+  The scripts and logs are in the ignored `tmp/review-47/round2/`. The copy isn't kept.
+- **What it never ran:** `npm test`, Playwright, `stack-free-npm-test` (CI's), `event-tagging-firmware-seed` (new non-blocking 3), `operations.test.js` (its five rule suites ran by name instead), or the session's 44-suite gate again (read from its record).
+- **No independent check** (workflow 5, P13).
+
+### Gates (run by the reviewer at `9106fbeb`)
+
+- [x] **The Reviewer's scoped gate,** 30 suites, through the gate engine. `npm run gate:status -- --label story-47-round2-review`:
+
+  ```
+  20261121T011021Z-1774-52f7 [story-47-round2-review] started 2026-11-21T01:10:21.123Z on 9106fbeb — PASS, exit 0, 799 passed, 0 failed, 14 skipped, 30/30 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T011021Z-1774-52f7.json
+  ```
+
+  - **For the fixes, 15 suites:**
+    - create-concept-duplicate-check 3, 3 skipped; firmware-nodes-hold-their-concepts-keys 11; graph-rules-builder 26; graph-rule-firmware 13, 4 skipped; firmware-element-sync 21;
+    - openapi-coverage 13; openapi-document 10; ledger-row-ids 6; word-elements-fit-the-installed-word-schema 9; schema-save-finds-the-right-header 26, 2 skipped;
+    - under `test/operations/rules/`, by name: word-types-hold-concept-keys 10, word-types-check-and-repair 10, word-types-agent-through-cli 1, check 11 and repair 16.
+  - **Against the session's gate:** the ten outside `test/operations/` give its counts exactly, and the five rule suites give round 1's.
+  - **The 15 other suites that read `src/api/openapi.yaml`.** The fix commit changed that file, and the session's gate didn't list them (new non-blocking 4). Together 613 passed, 5 skipped:
+    - assistant-attention 38, 1 skipped; assistant-outbox-check 29; assistant-duty-menu-check 65; assistant-duty-menu-publish 36; assistant-profile-check 33;
+    - assistant-relay-list-publish 32, 1 skipped; assistant-self-map-check 94; assistant-self-map-publish 92; assistant-scores-route 32; assistant-shared-categories 21;
+    - assistant-taggings-publish 19, 1 skipped; assistant-trusted-content 30; my-assistants-nip05 13; setup-status 38, 2 skipped; setup-open-sign-up 41.
+- [x] **The three suites that read the real `_intake.md`,** which the fix commit gives a marker. `--label story-47-round2-intake`:
+
+  ```
+  20261121T011436Z-19783-2946 [story-47-round2-intake] started 2026-11-21T01:14:36.941Z on 9106fbeb — PASS, exit 0, 74 passed, 0 failed, 0 skipped, 3/3 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T011436Z-19783-2946.json
+  ```
+
+  rollup-scanners 33, note-tagging-raw-events-inspector-ui 32 and kill-timeout-orphans-by-default 9.
+- [x] **The session's round 2 gate,** read from its record, not re-run:
+
+  ```
+  20261121T004946Z-57222-e9ab [story-47-round2] started 2026-11-21T00:49:46.036Z on 2a8e8c2b — PASS, exit 0, 1951 passed, 0 failed, 166 skipped, 44/44 suites · /Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/magical-jepsen-43e8c5/tmp/gate-runs/20261121T004946Z-57222-e9ab.json
+  ```
+
+  - Its tree was clean (`dirty: false`). HEAD differs from `2a8e8c2b` only in the story's four new Evidence lines (`9106fbeb`).
+  - Its 44 are Amendment 2's: the six CI entries and `ledger-row-ids` in the session's `gate47-round2.js`, and the 37 in its `derived-suites.json`. `operations.test.js` gave 1327 passed, 10 skipped.
+- [x] **`create-concept-duplicate-check` alone, as CI runs it:** S1, S2 and S3 pass; H1, H2 and H3 skip; exit 0.
+- [x] `node src/firmware/graph-rules.js --check`: "the 12 items in firmware/active/concepts/graph-rule/elements are current."
+- [x] **harness-lint** at `9106fbeb`, before this round was written: `harness-lint: clean (0 violations)`. With this round on disk, see "On PASS".
+- [x] **G5:** all 352 `test/*.test.js` are in the registry. 348 `suites` entries name a file and 4 are `excluded`; the 349th suite, `config-loading`, is a `run`.
+- [ ] `npm run test:playwright`: not applicable (no UI change).
+
+### The merge with staging
+
+- **The merge is git's own.** `git merge-tree --write-tree 6f6f125b 8fc07725` gives tree `86ac429f`, which is `a7b0aadb`'s tree: no conflict and no hand edit.
+- **Nothing of story 47's was lost.** `git diff 8fc07725 a7b0aadb` is `git diff bcbd7468 6f6f125b`, line for line, `index` lines aside.
+- **Staging's side arrived whole.** `git diff 6f6f125b a7b0aadb` is `git diff bcbd7468 8fc07725` but for one hunk header in `test/registry.js`, shifted by story 47's entry above it. That is the only file both sides changed.
+- **Story 46's three pieces are at HEAD:**
+  - `"enforce-wordType-conditionals": false` (`firmware/versions/v1.0.0/manifest.json:408`);
+  - its suite, unchanged from staging;
+  - its registry line (`test/registry.js:424`), beside story 47's (`:416`).
+
+  Its suite passes on the merged tree: 9 of 9 in both gates.
+- **`origin/staging`** here is still `8fc07725`, an ancestor of HEAD. It wasn't fetched again.
+
+### Round 1's findings, re-checked
+
+1. **Blocking 1 — fixed.**
+   - **The fix.** `overwrite: true` now comes before the comment and the `wordTypes` spread (`src/firmware/install.js:202-205`). The spread adds only `wordTypes`, so the body the route gets is unchanged.
+   - **S2's window,** counted from `apiPost('/api/normalize/create-concept'` (`:196`): `overwrite: true` is 331 characters on, as on the base. At `ee531556` it was 680.
+   - **The suite** passes as CI runs it (above), and in both gates: 3 passed, 3 skipped.
+   - **The second ask,** the suite in the scoped gate, is Amendment 2's. The session's gate ran it.
+2. **Non-blocking 1 — fixed.**
+   - **The new sentence** is in entry 12's Repair (`docs/GRAPH_RULES.md:186`), the item (`firmware/versions/v1.0.0/concepts/graph-rule/elements/word-types-hold-concept-keys.json:20`) and the Evidence (`47-wordtypes-hold-each-concepts-key.md:201`). It says an install writes a JSON schema's word types from the code's constant, and a header's from its file.
+   - **Re-derived** over every route `src/firmware/install.js` calls:
+     - only create-concept writes a JSON schema's or a header's word block: the schema's from the constant (`src/api/normalize/index.js:1386`), the header's from the file's list (`install.js:205`, `index.js:1226-1233`);
+     - save-schema keeps the wrapper it finds, and its fallback writes the constant (`index.js:2045-2066`);
+     - apply-enumerations replaces only `jsonSchema`;
+     - the b-tag pass re-signs a header with its own tags plus a `b`;
+     - none of firmware's 88 element files is a JSON schema or a header.
+   - **The item** is what the generator makes (`--check`), and the edit moved no address.
+3. **Non-blocking 2 — fixed in part.** The way on now names the set case (`src/operations/catalog/graph/add-to-concept.js:179-188`). Its new sentence is untrue for another case: new non-blocking 1.
+4. **Non-blocking 3 — fixed for save-schema.**
+   - **FN11** (`test/firmware-nodes-hold-their-concepts-keys.test.js:267-336`) runs the real save-schema in `saveSchemaChild` over a teapot whose schema node's JSON has no word wrapper. It compares the wrapper written with the literal `WANT` (`:55`), not with the module's constant, which FN1 pins.
+   - **Mutations,** in the copy of HEAD, at the fallback (`src/api/normalize/index.js:2061`). Unmutated, the suite gives 11 of 11.
+
+     | # | Mutation | Caught by |
+     |---|---|---|
+     | M11 | round 1's, verbatim: `firmware.JSON_SCHEMA_WORD_TYPES.filter((w) => w !== 'validationTool')` | FN11. schema-save-finds-the-right-header (26 of 26) and story 46's suite (9 of 9) still pass. |
+     | M11b | no `wordTypes` at all, the constant's name left in a comment | FN11 |
+     | M11c | the old `['word', 'jsonSchema']`, the constant's name in a comment | FN6, FN11 |
+   - **The other three writers** stay held by FN6's reading of their source, as the suite's header (`:35-38`) and Amendment 3 say. Skeleton's reason holds: run in the child, it stops at a read over `IS_THE_CORE_GRAPH_FOR`, which the child doesn't serve. Normalize/json's reason doesn't: new non-blocking 2.
+5. **Non-blocking 4 — fixed.**
+   - **The entry** (`src/api/openapi.yaml:1076-1089`) lists `wordTypes`, with the route's pattern for its items (`src/api/normalize/index.js:1229`), and a 400.
+   - **The 400's text** covers both of the route's 400s: "Concept name is required" (`:1221`) and the list's (`:1230`).
+   - **Its description** matches the code: after `word` and `conceptHeader`, once each, in order (`:1226-1233`); every JSON schema the route makes holds the constant (`:1386`).
+   - **The suites** that read the file pass: openapi-coverage, openapi-document and the 15 above.
+6. **Non-blocking 5 — not taken up.** The LF note is still under the Evidence's "Not covered" (`47-wordtypes-hold-each-concepts-key.md:200-201`), now in non-blocking 1's wording, and the Deviations are as they were. AC3's "fresh install" stays for the owner to ratify at this gate, with Deviation 1.
+7. **Harness friction 1 — filed,** as `ledger/2026-11-21-scoped-gate-lists-built-by-hand.md`. Its account holds:
+   - S2's 500-character window (`test/create-concept-duplicate-check.test.js:69-74`);
+   - the 14 suites and 1534 tests (story `:173`);
+   - round 1's 28 suites, without that one;
+   - story 45's miss, fixed by #165 (`c26da584`, `fix/element-sync-rule-11`). #164, which the older row's pointer names, is story 45's own pull request.
+
+   Its fix shape lacks one point: new non-blocking 4.
+
+### The intake marker, the epic's line and the ledger rows
+
+- **The intake marker** (`engineering-team/stories/_intake.md:3043`) is in workflow 0's form (`engineering-team/workflows/0-intake.md:12`), at the top of its block, as `:2978`'s is.
+  - **Not `(partial)`, rightly.** Story 47 settles the entry's three open decisions. The entry's other finding, the set deriver's rewrite, is out of scope as dropping nothing today.
+  - **The real reader agrees:** `scripts/lib/collect-intake.sh`'s `intake_entries` lists the entry `retired`. The book folder the marker names exists.
+- **The epic's line** (`engineering-team/epics/graph-operations-first-slice.md:106-109`) follows 46's, in the form 44 to 46 use for a story with no Loom task.
+- **Story 47's reinstall row** (`ledger/2026-11-20-word-types-keys-await-firmware-reinstall.md`), unchanged since round 1, still holds after the merge. Its command is the form XW1 runs (`test/operations/rules/word-types-agent-through-cli.test.js:160`).
+  - Story 46's row, `2026-11-20-word-wordtypes-switch-awaits-firmware-reinstall`, waits on the same reinstalls, and neither row names the other. Optional: name each in the other, as story 46's names rule 9's.
+- **The new `meta` row:** above, item 7.
+- **The lint:** clean at HEAD (above). `ledger-row-ids`: 6 of 6 in both gates.
+
+### Findings
+
+- **Blocking:** none.
+- **Non-blocking:**
+  1. **The way on's new sentence is untrue for one of the instance's own nodes whose JSON holds no `wordTypes` list.**
+     - **Where:** `src/operations/rules/word-types-hold-concept-keys.js:110`, entry 12's Repair (`docs/GRAPH_RULES.md:186`) and the item (`firmware/versions/v1.0.0/concepts/graph-rule/elements/word-types-hold-concept-keys.json:20`).
+     - **What it says:** "graph add-to-concept adds a concept's key to one of the instance's own nodes when it gives the node the concept's section, or puts it in one of the concept's sets".
+     - **What the code does:** it adds keys only to a word block that already holds a list (`src/operations/catalog/graph/add-to-concept.js:179`). A node with no word block, or none with `wordTypes`, gets the section and no key.
+     - **The probe** (`r2-probe-wayon.js`, `wayon.log`), in the operations harness over `test/helpers/membershipGraph.js`'s seed:
+       - Whiskers as seeded, into beagle: `added`, and its list gains `beagle`. Checked after, it is named for nothing.
+       - Whiskers with no word block, into beagle: `added`, kept in its json tag, and its JSON still has no word block. Checked before, it is named for `pet`; after, for `pet` and `beagle`.
+       - Whiskers with a word block but no `wordTypes` (`add-no-word.log`): `added`, and no key.
+     - **Why it matters:** those are the nodes AC2 says lack every key, and the story measured them: 8 on david.tapestry.ninja, 2 on staging, 13 on this Mac. For them the way on's route adds a membership and a finding, and clears none.
+     - **It also understates one case.** For a node kept beside, the section's key reaches the view the rule reads, through `F.overlaySections` (`src/operations/catalog/graph/_fields.js:128`), again only when the word block holds a list. In the probe, Snowy, OTHER's, went into pet, kept beside, and was named for nothing after. So "one of the instance's own nodes" is narrower than what happens.
+     - **Suggestion,** in all three places, then the generator and its `--check`. Either:
+       - drop the clause, leaving "For any other node a repair for this rule is still to come"; or
+       - say: "graph add-to-concept adds the concept's key when it gives a node the concept's section or puts it in one of the concept's sets, if the node's JSON holds a wordTypes list (for a node kept beside, the list its view reads), and changes nothing for a node already in the concept, directly in the set given, with the concept's section."
+
+       The second is a claim for the next round to check (rule 10). The probes bear out its parts, except a node kept beside with no list, which I read from the code only.
+     - **Best before the pull request,** since the item reaches every instance with the reinstall the row above tracks.
+  2. **The FN suite's header and Amendment 3 give a wrong reason for normalize/json.**
+     - **Where:** `test/firmware-nodes-hold-their-concepts-keys.test.js:37` and the test plan (`47-wordtypes-hold-each-concepts-key.test-plan.md:181`): "normalize/json sorts with `ORDER BY … DESC`".
+     - **What's true:** `handleNormalizeJson` sorts nothing; there is no `ORDER BY` in it (`src/api/normalize/index.js:826-1181`). And the fake parses `DESC` (`test/helpers/pathCypherFake.js:297`).
+     - **Why the fake can't run it** (`probe-routes.log`). Run in the child, the route answers 500: "expected ), met DESC". Its header read names a variable `desc` (`index.js:846`), which the fake's tokenizer takes for the keyword. The same read also goes over `IS_THE_CORE_GRAPH_FOR` (`:849`), as skeleton's does.
+     - **The conclusion holds:** the fake can't run it, so FN6's reading carries it.
+     - **Suggestion,** in the Tester's lane: "normalize/json's header read names a variable `desc`, which the fake reads as the keyword DESC, and reads over `IS_THE_CORE_GRAPH_FOR` too".
+  3. **"Nothing reached a container" isn't so. In each of story 47's three gates, `event-tagging-firmware-seed` made two GETs to this Mac's agent-memory instance.**
+     - **Where:** the story's Evidence, `:177` ("so nothing reached a container") and `:161` ("every endpoint dead").
+     - **What the suite does.** Its check "LIVE: published tagging-with-specific-tag header …" GETs `http://localhost:7778/api/assistant/pubkey` and `/api/strfry/scan`, whatever the environment says (`test/event-tagging-firmware-seed.test.js:137-140`). It skips only when they fail.
+     - **What answers there.** On this Mac `:7778` is colima's SSH forward (`ssh: …/.colima/_lima/colima/ssh.sock [mux]`), to the container that ledger row `2026-11-08-suite-screen-misses-hardcoded-urls` names as the agent-memory instance.
+     - **What ran.** The suite has 11 tests: 8 read files and 3 are live. All three gates gave it 9 passed, 2 skipped: the Implementer's (`20261120T235304Z-73207-0e2c`), round 1's (`20261121T002100Z-6796-ac63`) and the session's round 2 (`20261121T004946Z-57222-e9ab`).
+       - Nothing listens on `:8877`, so the two checks there skip.
+       - The ninth pass is the `:7778` check, which passes only when both GETs are answered. Round 1's log shows it (`tmp/review-47/gate47r.log:2010`), and so does the round 2 gate's (excerpt in `tmp/review-47/round2/event-tagging-in-round2-gate.txt`).
+     - **Nothing was written:** both are reads.
+     - **A correction to round 1.** Its "What it never ran" names "anything that reaches the `tapestry` container". That is wrong for this suite: round 1's gate made the same two GETs.
+     - **Suggestion:**
+       - correct the two Evidence lines;
+       - on this Mac, leave the suite out of scoped gates, or run it in a sandbox that refuses colima's ports, as this round did, until the 2026-11-08 row's fix lands (the suite reading `BRAINSTORM_BASE_URL`);
+       - add a dated note to that row: story 47's three gates reached the instance in this way.
+  4. **The 37 derived suites leave out 15 registered suites that read a file the fix commit changed.**
+     - **What happened.** Amendment 2 derived its list at `14a944e7`. `2a8e8c2b` then changed `src/api/openapi.yaml`, and the session's gate ran the old list on it. Nineteen registered suites read that file; the gate ran four (operations, openapi-coverage, openapi-document and schema-save-finds-the-right-header).
+     - **Nothing hid behind it:** this round ran the other 15, and all pass (above).
+     - **Where it bears:** the Evidence's "derived from the changed files" (`47-wordtypes-hold-each-concepts-key.md:177`), and the new row's fix shape (`ledger/2026-11-21-scoped-gate-lists-built-by-hand.md:15-18`).
+     - **Suggestion:**
+       - in the row: derive the list at gate time from the final diff, not once at Test Design, and have the script flag a suite that reads a live URL whatever the environment says (non-blocking 3);
+       - in the Evidence: say that this round ran the 15.
+
+### Harness friction
+1. **Outside this story: story 37 has no line in the epic's list.** `engineering-team/epics/graph-operations-first-slice.md` goes from 34 (`:79`) to 41 (`:84`). `stories/graph-operations-first-slice/37-seed-firmware.md` and ADR 0037 came with staging (#171), and staging's epic has no line for them either. That's for story 37's next commit, or an OPEN.md row, not for this story.
+2. Non-blocking 3 and 4 already have rows: `2026-11-08-suite-screen-misses-hardcoded-urls` and `2026-11-21-scoped-gate-lists-built-by-hand`. Nothing new to file.
+
+### For the owner to ratify at this gate
+Round 1's two stand: Deviation 1 (eight `json-schema.json` files reordered), and AC3's "fresh install", carried by the reinstall and the stack-free suites (non-blocking 5).
+
+### On PASS (same commit)
+- [ ] **Story `**Status:**` set to `Done`:** left to the session that commits this review, since the brief keeps the Reviewer off the story file. harness-lint's L1 flags a review whose last verdict is a pass while its story isn't Done. So with this round on disk and the story still `Approved`, harness-lint reports one violation, L1 on the story. Setting the status in the same commit clears it.
+- [ ] **Completion detection:** its result goes in the chat, not this file.
+
+### Verdict
+- Blocking 1 is fixed: S2 finds `overwrite: true` where it did on the base, and the suite passes as CI runs it.
+- Of round 1's five non-blocking findings, three are fixed and one is fixed in part. One, LF's place in the story, was left for the owner. Harness friction 1 is on file.
+- FN11 catches round 1's M11, which no suite caught, and two variants of it.
+- The merge is git's own, and story 47's patch and story 46's three pieces are whole.
+- Four new non-blocking findings, all in prose:
+  - the way on, for nodes with no list;
+  - a wrong reason in a test comment;
+  - the Evidence's "nothing reached a container";
+  - a gate list that went stale within the round.
+
+  None changes what the code does.
+- The gates pass: `20261121T011021Z-1774-52f7` (30 suites) and `20261121T011436Z-19783-2946` (3), with `20261121T004946Z-57222-e9ab` (44) read from its record.
+
+**PASS**
