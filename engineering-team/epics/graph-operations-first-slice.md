@@ -76,6 +76,11 @@ n, and its first ADR 000n), because teammates plan them at the same time in diff
     the same in any order and on repeat; never changes the instance's own nodes, and gives another author's claim on
     them only its membership; the first import operation, and the piece a firmware Tapestry's install waits on (Loom
     A10.32).
+34. `stories/graph-operations-first-slice/34-export-nostr.md` — publish a node, a graph or everything of the instance's
+    own as letters its assistant signs, built from what the graph says now, its `tapestry:` links rewritten or
+    reported, someone else's nodes named by address and never signed, only what is new or changed signed again, and
+    each letter recorded; the first export operation, and the install's signing step for firmware by import (Loom
+    A10.34; status and retract follow as its subtask).
 41. `stories/graph-operations-first-slice/41-graph-rule-concept.md` — the graph rules as a firmware concept on every
     instance, one item per rulebook entry, made from the rulebook and the rules' code; the items `rules list-rules`
     (A10.31) will read (Loom A10.41).
