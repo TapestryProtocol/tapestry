@@ -6,6 +6,7 @@
         "description": "This is the JSON Schema for elements of the concept of concept graphs. Every element of this concept must validate against this JSON schema.",
         "wordTypes": [
             "word",
+            "validationTool",
             "jsonSchema"
         ],
         "coreMemberOf": [

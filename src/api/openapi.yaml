@@ -1073,7 +1073,20 @@ paths:
                   description: >-
                     Replace a concept this instance's key has already made under this name, including its
                     definition and schema. Without it, a repeat answers success false.
+                wordTypes:
+                  type: array
+                  items:
+                    type: string
+                    pattern: '^[a-z][A-Za-z0-9]*$'
+                  description: >-
+                    The header's word types beyond word and conceptHeader, each a concept key such as graphType,
+                    written once each in the order given. A firmware install gives each header's from its file, so a
+                    header the manifest makes an element of another concept holds that concept's key (ADR
+                    graph-operations-first-slice/0047 Decision 9). Every JSON schema the route makes holds word,
+                    validationTool and jsonSchema.
       responses:
+        '400':
+          description: No name, or wordTypes that isn't a list of concept keys; nothing is made
         '401':
           description: Not signed in
         '403':

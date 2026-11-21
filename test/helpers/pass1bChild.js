@@ -15,7 +15,8 @@
  *                  re-sign the assistant's, never the first row it read
  *   throws          the lookup fails
  * stdout: one line `@@RESULT@@<json>` with { createElement, regenerateJson, loadTAKey, lookups, otherConcepts,
- *   errors, log }.
+ *   createConcept, errors, log }. createConcept is Pass 1a's create-concept bodies, each { dTag, wordTypes, overwrite }
+ *   (graph-operations-first-slice #47).
  *
  * The stubs:
  *   - src/lib/neo4j-driver.js: runCypher answers install's lookup of a graph-rule element by name from the scenario,
@@ -104,7 +105,7 @@ stub('src/utils/assistantKeys.js', {
 globalThis.fetch = async (url, opts = {}) => {
   const endpoint = String(url).replace(/^https?:\/\/[^/]+/, '');
   const body = opts.body ? JSON.parse(opts.body) : {};
-  calls.posts.push({ endpoint, concept: body.concept, name: body.name });
+  calls.posts.push({ endpoint, concept: body.concept, name: body.name, dTag: body.dTag, wordTypes: body.wordTypes, overwrite: body.overwrite });
   let answer = { success: true };
   if (endpoint === '/api/normalize/create-concept') answer = { success: true, concept: { uuid: `39998:${TA}:${body.dTag}` } };
   else if (endpoint === '/api/normalize/create-element') answer = { success: true, element: { uuid: `39999:${TA}:${body.name}-created` } };
@@ -125,6 +126,9 @@ globalThis.fetch = async (url, opts = {}) => {
     regenerateJson: calls.regenerateJson.map((r) => ({ uuid: r.uuid, name: r.json && r.json.graphRule && r.json.graphRule.name, json: r.json })),
     loadTAKey: calls.loadTAKey,
     lookups: calls.lookups,
+    // Pass 1a's create-concept bodies (graph-operations-first-slice #47, ADR 0047 Decision 9): what each concept's call
+    // carries, its d-tag, its wordTypes and its overwrite.
+    createConcept: calls.posts.filter((c) => c.endpoint === '/api/normalize/create-concept').map((c) => ({ dTag: c.dTag, wordTypes: c.wordTypes === undefined ? null : c.wordTypes, overwrite: c.overwrite === true })),
     errors: (out && out.errors) || [],
     log: log.filter((l) => /graph-rule|Already in line|Re-signed|Not made|❌/.test(l)),
   })}\n`);

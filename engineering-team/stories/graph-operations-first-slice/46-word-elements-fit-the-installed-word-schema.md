@@ -115,6 +115,21 @@ As the owner, or an agent working the graph, I want the `word` schema an install
   - The rule `element-fits-schema`'s check found nothing on either for `word`.
 - **The tree it ran on:** `f288493e`, with the implementation's manifest change in the working tree. That change was committed as `b9db0e84` during the run, and `src/` didn't change.
 
+**On staging and production (2026-11-20 and 21).**
+- **CI.** TapestryProtocol/tapestry#174's full gate passed: 8327 passed, 0 failed, 655 skipped across 348 suites. The promotion's `stack-free` and `main-source-guard` passed too.
+- **Staging.**
+  - #174 merged at 23:58:09 UTC as `72f4e2c8`, after a safe verdict on the first check. Deploy run 44840587607 succeeded in 1 min 41 s. The smoke test was clean, and the served manifest had `concept-headers` switched off.
+  - The firmware reinstall, on the owner's yes, ran 00:18:03–00:21:37 UTC. Pass 2 enriched 41 schemas with no errors; 745 nodes were derived and 4 enumerations applied.
+  - `word`'s schema went from 93 conditionals to 1, the set's, with the allowed list of 46 keys. Dog's pair kept its 4 entries.
+  - The firmware relationship type "property enumeration" failed the old schema with the bug's problems and fits the new one, by the repo's check. Rule 9's graph-rule item arrived.
+- **Production.**
+  - The promotion, TapestryProtocol/tapestry#175, was cut at `72f4e2c8` and merged at 00:47:36 UTC as `ee1e5f90`, after a safe verdict on the first check. Deploy run 44846161797 succeeded in 1 min 32 s. The smoke test was clean, with the served manifest's switch off.
+  - The firmware reinstall, on the owner's yes, ran 01:00:56–01:08:21 UTC, after the deploy-safety check waited out the hourly search refresh. Pass 2 enriched 41 schemas with no errors; 720 nodes were derived, 4 enumerations applied and 76 implicit elements wired, and the log ends "FIRMWARE INSTALL COMPLETE".
+  - `word`'s schema went from 91 conditionals to 1, with the allowed list of 45 keys. Dog's pair kept its 4. "Property enumeration" fits, and rule 9's item arrived.
+  - The SSH session that ran the install lost its connection without notice and returned no output; it ended with "Connection reset by peer" at 03:00:57. The install had finished: a second, read-only session found its log complete and the answer file it left written at 01:08:21.
+- **Not yet:** david.tapestry.ninja and the other hosted Tapestries. Each needs a build with this manifest before a reinstall helps (ledger row `2026-11-20-word-wordtypes-switch-awaits-firmware-reinstall`).
+- **The run records** are in the main checkout's `tmp/live-check-46/staging/` and `tmp/live-check-46/production/`, which git ignores.
+
 ## Linked artifacts
 - ADR: none. Architecture was skipped as obvious, the owner's choice when approving the story (2026-11-20): what is left, turning off the manifest's switch or leaving the pair out in code, gives the same result.
 - Test plan: `engineering-team/stories/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.test-plan.md`

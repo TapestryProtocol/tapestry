@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-image-validation-scripts",
     "name": "concept header for the concept of image validation scripts",
     "title": "Concept Header for the Concept of Image Validation Scripts",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "validationToolType"]
   },
   "conceptHeader": {
     "description": "A script that validates image file integrity.",

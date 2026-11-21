@@ -431,7 +431,7 @@ async function handleNormalizeSkeleton(req, res) {
           name: schemaName,
           title: `JSON Schema for the Concept of ${name}`,
           description: `the json schema for the concept of ${name}`,
-          wordTypes: ['word', 'jsonSchema'],
+          wordTypes: [...firmware.JSON_SCHEMA_WORD_TYPES],
           coreMemberOf: [{ slug: `concept-header-for-the-concept-of-${slug}`, uuid: headerUuid }],
         },
         jsonSchema: {
@@ -949,7 +949,7 @@ async function handleNormalizeJson(req, res) {
                 name: `JSON schema for the concept of ${name}`,
                 title: `JSON Schema for the Concept of ${name}`,
                 description: `the json schema for the concept of ${name}`,
-                wordTypes: ['word', 'jsonSchema'],
+                wordTypes: [...firmware.JSON_SCHEMA_WORD_TYPES],
                 coreMemberOf: [{ slug: `concept-header-for-the-concept-of-${slug}`, uuid: h.headerUuid }],
               },
               jsonSchema: parsed,
@@ -966,7 +966,7 @@ async function handleNormalizeJson(req, res) {
             name: `JSON schema for the concept of ${name}`,
             title: `JSON Schema for the Concept of ${name}`,
             description: `the json schema for the concept of ${name}`,
-            wordTypes: ['word', 'jsonSchema'],
+            wordTypes: [...firmware.JSON_SCHEMA_WORD_TYPES],
             coreMemberOf: [{ slug: `concept-header-for-the-concept-of-${slug}`, uuid: h.headerUuid }],
           },
           jsonSchema: {},
@@ -975,7 +975,7 @@ async function handleNormalizeJson(req, res) {
       // Ensure word section is up to date
       wordWrapper.word.slug = wordWrapper.word.slug || `json-schema-for-the-concept-of-${slug}`;
       wordWrapper.word.name = wordWrapper.word.name || `JSON schema for the concept of ${name}`;
-      wordWrapper.word.wordTypes = wordWrapper.word.wordTypes || ['word', 'jsonSchema'];
+      wordWrapper.word.wordTypes = wordWrapper.word.wordTypes || [...firmware.JSON_SCHEMA_WORD_TYPES];
       await regenerateJson(h.schemaUuid, wordWrapper);
       updated.push({ role: 'JSON Schema', uuid: h.schemaUuid });
     }
@@ -1220,6 +1220,17 @@ async function handleCreateConcept(req, res) {
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, error: 'Concept name is required' });
     }
+    // The header's word types: word, conceptHeader, then any the caller gives, once each, in order. A firmware install
+    // gives each header's from its file, so a header firmware's manifest makes an element of another concept holds that
+    // concept's key (story graph-operations-first-slice #47, ADR graph-operations-first-slice/0047 Decision 9).
+    const headerWordTypes = ['word', 'conceptHeader'];
+    if (req.body.wordTypes !== undefined) {
+      const given = req.body.wordTypes;
+      if (!Array.isArray(given) || !given.every((w) => typeof w === 'string' && /^[a-z][A-Za-z0-9]*$/.test(w))) {
+        return res.status(400).json({ success: false, error: 'wordTypes must be a list of word types, each a concept key such as graphType' });
+      }
+      for (const w of given) if (!headerWordTypes.includes(w)) headerWordTypes.push(w);
+    }
 
     const trimName = name.trim();
     const trimPlural = (plural || '').trim() || trimName + 's';
@@ -1256,7 +1267,7 @@ async function handleCreateConcept(req, res) {
         slug: `concept-header-for-the-concept-of-${slugPlural}`,
         name: `concept header for the concept of ${names.oNames.plural}`,
         title: `Concept Header for the Concept of ${names.oTitles.plural}`,
-        wordTypes: ['word', 'conceptHeader'],
+        wordTypes: headerWordTypes,
       },
       conceptHeader: {
         description: description || `${names.oTitles.singular} is a concept.`,
@@ -1372,7 +1383,7 @@ async function handleCreateConcept(req, res) {
         name: `JSON schema for the concept of ${names.oNames.plural}`,
         title: `JSON Schema for the Concept of ${names.oTitles.plural}`,
         description: `the json schema for the concept of ${names.oNames.plural}`,
-        wordTypes: ['word', 'jsonSchema'],
+        wordTypes: [...firmware.JSON_SCHEMA_WORD_TYPES],
         coreMemberOf: [{ slug: `concept-header-for-the-concept-of-${slugPlural}`, uuid: headerUuid }],
       },
       jsonSchema: {
@@ -2047,7 +2058,7 @@ async function handleSaveSchema(req, res) {
           name: `JSON schema for the concept of ${concept}`,
           title: `JSON Schema for the Concept of ${concept}`,
           description: `the json schema for the concept of ${concept}`,
-          wordTypes: ['word', 'jsonSchema'],
+          wordTypes: [...firmware.JSON_SCHEMA_WORD_TYPES],
           coreMemberOf: [{ slug: `concept-header-for-the-concept-of-${cSlug}`, uuid: headerUuid }],
         },
         jsonSchema: {},

@@ -7,8 +7,8 @@
         "description": "The master schema for all word nodes. Governs the universal 'word' section, concept-scoped blocks, and 'graphContext' including conditional Set-specific fields.",
         "wordTypes": [
             "word",
-            "jsonSchema",
-            "validationTool"
+            "validationTool",
+            "jsonSchema"
         ],
         "coreMemberOf": [
             {
