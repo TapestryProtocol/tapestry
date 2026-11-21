@@ -246,6 +246,8 @@ Each ran on this Mac stack-free: stub `curl` and `docker` first on `PATH`, every
 - **After review round 1's fixes,** `tmp/gate-runs/20261121T034251Z-18941-45c1.json` on `d90418c4`, with nothing tracked uncommitted (its record reads `+dirty` only for the untracked `node_modules` link, to the main checkout's): PASS, 1,665 passed, 0 failed, 45 skipped, across seventeen. Review round 1 found `openapi-document`, `ledger-row-ids` and `session-start` read files this change touches, and `graph-rules-builder` was added for the rule file the fixes touch (ledger row `2026-11-21-no-map-from-diff-to-suites`).
 - **This story's suites,** after the live check's re-aims: oracles 8 passed; target 31; plan 8; route 32; record 4; agent 1; live 0 passed and 4 skipped (stack-free); status 9. Together about 23 s.
 
+- **After review round 2's fixes,** the Reviewer's round-3 gate, `tmp/gate-runs/20261121T044550Z-29841-3c49.json` on `6b2b2200`: PASS, 1,679 passed, 0 failed, 50 skipped, across eighteen (the seventeen and `concepts-list-shows-concepts-with-no-event`).
+
 ### The live check (2026-11-21 UTC, on a scratch stack)
 
 `scripts/scratch-stack.sh up` gave `tapestry-scratch`, with this worktree's `src/` mounted read-only. Then the setup ran:

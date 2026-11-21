@@ -316,3 +316,74 @@ None.
 ### On PASS (same commit)
 - [x] Story `**Status:**` flipped to `Done` in place.
 - [x] Completion detection performed. Its result is in the chat, not here.
+
+---
+
+## Round 3
+
+**Date:** 2026-11-20 (the gate ran 2026-11-21 UTC)
+**Diff:** `git diff a9f9625d HEAD`, HEAD `6b2b2200`, with nothing tracked uncommitted: 13 files, +322 −51. The commits:
+- `5bc55fbd`: the docs: R2-N4's ADR text, nit 2's catalog lines and nit 3's Evidence wording;
+- `b53f9629`: the Tester's tests: SR7–SR9, ST33's extension, and SF39;
+- `6b2b2200`: the fixes, which include a change to the shared `src/operations/catalog/graph/_nodes.js`, and three new Deviation lines.
+
+**How it was made.** As in rounds 1 and 2: stack-free after `source tmp/a10-37/env.sh`, with no `npm test`, no Docker and no network.
+
+**Verdict:** PASS. Round 2's four findings and three nits are resolved, and nothing new blocks.
+
+### Quality gates (run by reviewer, not trusted)
+- [x] **The scoped gate: the 17 entries, and one more.**
+  - The extra is `concepts-list-shows-concepts-with-no-event`. It is the one registry suite outside `operations.test.js` whose tests make nodes through the graph writes (create-concept, create-element). It does that only on a scratch stack, and skips it here.
+  - `npm run gate:status -- --label a10-37-review-r3`: `20261121T044550Z-29841-3c49 [a10-37-review-r3] started 2026-11-21T04:45:50.061Z on 6b2b2200+dirty — PASS, exit 0, 1679 passed, 0 failed, 50 skipped, 18/18 suites`. "dirty" is the untracked `node_modules` link, the only entry in `git status`.
+  - The record is `tmp/gate-runs/20261121T044550Z-29841-3c49.json`. Inside it:
+    - the graph writes that read `factsOf`: add-to-concept 60, delete-node 40, move-element 44, remove-from-concept 36, update-node 46, update-node's shared helpers 13;
+    - import nostr's suites, and the rules `element-fits-schema` 11 and `enumerated-value-allowed` 17;
+    - this story's: route 39, record 9, target 33, plan 9, oracles 8, agent 1, live 4 skipped;
+    - `operations` as a whole passed 1405 with 14 skipped, in 300.8 s.
+- [x] `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`.
+- [ ] `npm test` was not run: it writes to this Mac's agent-memory instance. `npm run test:playwright` is not applicable.
+
+### Round 2's findings, one by one
+
+| Round 2 | The fix | Tested by | Now |
+|---|---|---|---|
+| R2-N1, the write path's checks | `factsOf` (`_nodes.js:93-104`) carries `record`, `recordCarried` of the node `whoseNode` already reads whole, so no query changes. `fits` takes `{ record }`. graph add-to-concept (`:127`, `:207`) and update-node (`:262`, `:295`) pass `facts.record`, and the rule's write form hands `item.record` to the judge. create-element and create-set make new nodes, which carry none. | SR7: add-to-concept with offloaded and inline JSON, update-node on the installed-firmware graph, both under schemas closed at their top level; a node with no record still judged whole and refused | Resolved |
+| R2-N2, `recordCarried` untested | Tests only | SR8 (13 shapes of properties); SR9 (the rule's node form: a recorded node fits, one without a record is judged whole) | Resolved |
+| R2-N3, pass 3c unpinned | ST33 digests `handleWireImplicitElements` too, failing with a message that names `src/firmware/target.js` | ST33 | Resolved |
+| R2-N4, the ADR's decisions | Corrected in place: Decision 1's refusals gain `address-held`; Decision 3 gains the alias rule; Decision 6 reads `wordTypes` as a set and adds the record only when it is carried; Decision 9 has the reserved address, the mark and the kept list | None needed | Resolved |
+| Nit 1, an unreadable record's words | `installedGraphOf` tells a recorded graph whose JSON can't be read apart, and `plan` refuses `address-held` in words that say so: a missing tag, JSON that isn't an object, an LMDB entry that is missing or isn't an object | SF39 | Resolved |
+| Nit 2, the catalog's `wipe` | Catalog `:55` and `:202` scope "the owner and admins" to the operations built, and say that wipe's access isn't decided | None needed | Resolved |
+| Nit 3, the Evidence's "clean tree" | It now says `+dirty` only for the untracked `node_modules` link | None needed | Resolved |
+
+### The `_nodes.js` change and the other graph writes
+- **Who uses `factsOf`:**
+  - `whoseNode` (U0) and its callers: `_memberships.js:186` (add-to-concept and remove-from-concept), `move-element.js:204`, `remove-property.js:33` and the rule `node-has-a-concept.js:55`;
+  - `_properties.js:538, 665`;
+  - `delete-node.js:173`, and `:310`, which rebuilds facts from a deletion's entry;
+  - import nostr's `_letters.js:414`.
+- **None of them copies the facts whole.** Each reads named fields (`own`, `labels`, `uuid`, `hasLetter`). The answers' node objects pick theirs explicitly: `nodeOf` (`_memberships.js:170`) and `answerNode` (`delete-node.js:100`). So the new `record` reaches no answer, change entry or result schema.
+- **The new `require('./_schemas')` inside `factsOf` loads nothing.** `_schemas.js` has no require at module scope, and doesn't require `_nodes.js`.
+- **The gate runs every affected suite and passes.** `operations` runs every graph write's suite, import nostr's and the rules'; `external-cli` runs the agents'.
+
+### The three new Deviation lines
+All three are small.
+1. **A node's record rides on its facts.** This is the mechanism R2-N1 asked for, and it changes no query.
+2. **Writes keep an offloaded node's record sections in its `json` tag.**
+   - This records a consequence of the store's shared entry. A write reads an offloaded node's JSON from the derive's copy and writes it back inline, as `graphContext` already rode before this story.
+   - Every place that judges or compares a recorded node sets the sections aside.
+   - Of seed-firmware's nodes, only the installed-firmware graph has an offloadable `json` tag that such a write keeps in place. update-node refuses the others. add-to-concept refuses core nodes and sets (`made-elsewhere`) and keeps a firmware element's section beside its letter (`keptIn`, `_memberships.js`). A relationship letter has no `json` tag to offload.
+3. **The unreadable case reaches past nit 1's.** It covers every way the JSON can't be read, and status still reads such a node as no install.
+
+### Round 3's findings
+- **Blocking:** none.
+- **Non-blocking:** none.
+- **One observation, no change asked.** The property operations' report (`_properties.js:1062-1064`, `validatorOf().check`) judges an element's tapestryJSON whole, the record included. It never refuses, and it could list a recorded element the rule doesn't only under a schema closed by hand, which no builder makes.
+
+### What I could not check
+- CI's time against its 25 minutes, and the full `npm test`.
+- Nothing live ran this round. These fixes change write-path checks, a refusal's words and docs, and are tested stack-free.
+
+### Verdict
+**PASS**
+
+The story stays `**Status:** Done`.
