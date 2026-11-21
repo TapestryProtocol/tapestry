@@ -1,7 +1,7 @@
 # Test Plan: Story 1 — Every build of the tapestry image brings its Ubuntu packages up to date at least once a week
 
-**Story:** `engineering-team/stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`
-**ADR:** `engineering-team/decisions/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md`
+**Story:** `engineering-team/stories/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`
+**ADR:** `engineering-team/decisions/done/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md`
 **Date:** 2026-11-21
 
 All tests are in one new suite, `test/container-apt-refresh.test.js`, registered in `test/registry.js`. Each test's
@@ -160,7 +160,7 @@ So once the step is in, a failing L test means the step is wrong, not the harnes
 
 ## Amendment 1 (2026-11-21, after review round 1; the owner's "Fix all, option (a)")
 
-Review round 1 (`engineering-team/reviews/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`) and ADR
+Review round 1 (`engineering-team/reviews/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`) and ADR
 Amendment 1 add three tests to the suite, one for each finding that changes the step or a doc's claim. They join the
 coverage map above:
 

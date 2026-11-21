@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-21
-**Story:** `engineering-team/stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`
+**Story:** `engineering-team/stories/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`
 
 ## Context
 
@@ -323,7 +323,7 @@ locally (ledger row `2026-10-10-sandboxes-got-security-fixes`). A port of this c
 
 ## Amendment 1 (2026-11-21, after review round 1; the owner's "Fix all, option (a)")
 
-Review round 1 (`engineering-team/reviews/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`) found what
+Review round 1 (`engineering-team/reviews/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md`) found what
 follows. Items 1 and 2 correct what this ADR said about the deploys. Item 3 changes one line of the step.
 
 1. **Recipe 1 lasts only until the next deploy** (blocking 1; the owner chose option (a)).
