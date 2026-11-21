@@ -42,6 +42,12 @@
  *             (item 2)
  *   E7        the same on the "already has a b" path (item 2)
  *   E8        a seeded letter whose import fails after its publish gets no stub either (item 2)
+ * Review round 2's independent check (Amendment 1 as revised):
+ *   E9        a header on the "already has a b" path whose import fails keeps its REFERENCES {source:'b-tag'} (item 2)
+ *   E10       a publish answered without success true counts as failed: seededB is false, and the letter isn't
+ *             imported (item 2)
+ *   S13       graph sets' model of firmware's links (src/operations/catalog/graph/_sets.js, part d) leaves out the
+ *             reference the assistant curates itself, and keeps each other (item 8)
  *
  * The assistants: production's is read from the manifest (the curator nostr-relay's reference names), and staging's is
  * made up, so the decision of which reference is the instance's own is the code's, made at run time.
@@ -139,7 +145,8 @@ const selfB = (v) => (v > 2 ? [['b', SELF.headerATag, 'pointer']] : []);
  * two; the copy of production's nostr-relay header and its superset hold `prodVersions` versions each, the later headers
  * with production's b naming its own header, so the copy has a REFERENCES to itself. The relay has each curator's next
  * version, production's with no b unless `newestProdB` says otherwise: the graph once production has healed. Staging's
- * own first install comes before production's, and keeps that loop until its next (ADR 0035 Amendment 1, item 5).
+ * own first install comes before production's, and keeps that loop until its next install after production's (ADR
+ * 0035 Amendment 1, item 5).
  */
 function stagingToday({ prodVersions = 9, oldProdB = selfB, newestProdB = [] } = {}) {
   const w = world(STAGING);
@@ -171,6 +178,12 @@ function productionToday() {
       copies(w, c, { hv: c.pin ? 1 : 2, sv: 2 });
     }
   }
+  return w;
+}
+/** An instance whose Pass 1 has run and whose community step hasn't: each header's letter carries no b yet. */
+function pass1Only() {
+  const w = world(STAGING);
+  for (const c of CRS) { pass1(w, c); w.relay.put(curatorHeader(c, 1)); w.relay.put(curatorSuperset(c, 1)); }
   return w;
 }
 /** An instance before its first install: nothing in its graph or strfry, and the curators' letters on the relay (production's with no b). */
@@ -547,6 +560,61 @@ test('E8 (Amendment 1 item 2): when a seeded letter\'s import fails after its pu
   assert(out.calls.publishes.some((l) => C.addressOf(l) === ownHeader(STAGING, c) && l.tags.some((x) => x[0] === 'b' && x[1] === c.headerATag)), 'and the seeded letter, b included, was published first');
   const why = keptItsClaim(out, c);
   assert(!why, why);
+});
+
+/* ───────────── review round 2's independent check (ADR 0035 Amendment 1, as revised) ───────────── */
+
+test('E9 (Amendment 1 item 2): a header on the "already has a b" path whose import fails keeps its REFERENCES {source:\'b-tag\'}: the wiring makes no stub of it', () => {
+  const c = OTHERS[0];
+  const { out } = once('has-b-import-fails', () => [neverResigned(), { installs: [{ resign: false }], failImportAt: ownHeader(STAGING, c) }]);
+  assert(out.calls.failedImports.includes(ownHeader(STAGING, c)), `the child never failed the import at ${C.short(ownHeader(STAGING, c))}: the path under test didn't run`);
+  const why = keptItsClaim(out, c);
+  assert(!why, why);
+});
+
+test('E10 (Amendment 1 item 2): a seeded letter whose publish is answered without success true counts as unpublished: the edge wiring is told the header carries no b, and the letter isn\'t imported', () => {
+  const c = OTHERS[0];
+  const address = ownHeader(STAGING, c);
+  const { out } = once('publish-fails', () => [pass1Only(), { direct: true, failPublishAt: address }]);
+  assert(out.calls.failedPublishes.includes(address), `the child never answered the publish at ${C.short(address)} with success false: the path under test didn't run`);
+  const entry = (out.pending || []).find((p) => p.slug === c.slug);
+  assert(entry, `pass_communityReferences handed the wiring no entry for ${c.slug}; with the fetch good, it should`);
+  assert(entry.seededB === false, `the wiring is told seededB ${entry.seededB} for ${c.slug}, though strfry never stored its seeded letter: seededB says whether the header's stored letter carries the b (ADR 0035 Amendment 1 item 2)`);
+  const n = nodeAt(out, address);
+  const bs = n ? C.tagsOf(out.graph, n).filter((t) => t.props.type === 'b') : [];
+  assert(!bs.length, `${C.short(address)} holds ${bs.length} b tag nodes: the unpublished letter was imported`);
+});
+
+/** Graph sets' firmware links (src/operations/catalog/graph/_sets.js's firmwareLinks) under an assistant, as '<parent> <set>' keys, from a child with the assistant stubbed. */
+function firmwareLinkKeysUnder(ta) {
+  deadConf();
+  const code = [
+    "const path = require('path'); const Module = require('module');",
+    `const ROOT = ${JSON.stringify(C.ROOT)};`,
+    "const file = require.resolve(path.join(ROOT, 'src/utils/assistantKeys.js'));",
+    "const m = new Module(file); m.filename = file; m.loaded = true;",
+    `m.exports = { getOwnerAssistantPubkey: () => ${JSON.stringify(ta)} };`,
+    'require.cache[file] = m;',
+    "for (const k of ['log', 'info', 'warn', 'debug']) console[k] = () => {};",
+    "const { firmwareLinks } = require(path.join(ROOT, 'src/operations/catalog/graph/_sets.js'));",
+    "process.stdout.write('@@RESULT@@' + JSON.stringify([...firmwareLinks().pairs.keys()]) + '\\n');",
+  ].join('\n');
+  const r = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8', env: { ...process.env, ...DEAD }, timeout: 60000 });
+  const at = (r.stdout || '').lastIndexOf('@@RESULT@@');
+  assert(at >= 0, `the child printed no firmware links (exit ${r.status}): ${brief(r.stderr || r.stdout, 600)}`);
+  return JSON.parse(r.stdout.slice(at + 10).split('\n')[0]);
+}
+
+test('S13 (AC-3, Amendment 1 item 8): graph sets\' model of firmware\'s links leaves out the community link of the reference the assistant curates itself, and keeps each other\'s', () => {
+  const linkOf = (ta, c) => `superset-of:${ownHeader(ta, c)} node:${c.supersetATag}`;
+  const prod = new Set(firmwareLinkKeysUnder(PROD));
+  const found = [];
+  if (prod.has(linkOf(PROD, SELF))) found.push(`it counts ${C.short(linkOf(PROD, SELF))}, the instance's own superset under itself, as firmware's`);
+  for (const c of OTHERS) if (!prod.has(linkOf(PROD, c))) found.push(`it lost ${c.slug}'s community link, ${C.short(linkOf(PROD, c))}`);
+  assert(!found.length, `firmwareLinks under production's assistant (ADR 0035 Amendment 1 item 8):${list(found)}`);
+  const staging = new Set(firmwareLinkKeysUnder(STAGING));
+  const lost = CRS.filter((c) => !staging.has(linkOf(STAGING, c))).map((c) => c.slug);
+  assert(!lost.length, `under an assistant that curates none of them, each of the six community links is firmware's; ${lost.join(', ')} aren't`);
 });
 
 /* ───────────── run ───────────── */

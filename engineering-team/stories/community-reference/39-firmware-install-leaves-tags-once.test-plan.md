@@ -265,3 +265,22 @@ S11: its header carries [["b","39998:919ba08a…:nostr-relay","pointer"]]; it cl
 S12: nostr-relay: the oracle signs [["b","39998:919ba08a…:nostr-relay","pointer"]]; it should sign []
 E6, E7, E8: 39998:580923c1…:tag has REFERENCES {source:'firmware-community'} to 39998:82b75e47…:tag; it should keep its one REFERENCES {source:'b-tag'}, to 39998:82b75e47…:tag, and the wiring make no firmware-community stub of it
 ```
+
+### Round 2's independent check (Amendment 1, as revised)
+
+Review round 2's independent check found what the round's first tests left open. Amendment 1 was revised to answer it, and these tests pin it:
+
+| Finding | Test | Level |
+|---|---|---|
+| Item 2 | E9: a header on the "already has a `b`" path whose import fails keeps its `REFERENCES {source:'b-tag'}`. It passes already: it guards `seededB` being set before that path's import | install step in a child |
+| Item 2 | E10: a seeded letter whose publish is answered 200 with `success: false` counts as unpublished. The wiring is told `seededB` false, and the letter isn't imported | `pass_communityReferences` in a child |
+| Item 8 | S13: graph sets' `firmwareLinks` (`src/operations/catalog/graph/_sets.js`, part d) under nostr-relay's curator leaves out that reference's community link, and keeps each other's. Under staging's made-up assistant, all six are firmware's | `_sets.js` in a child with the assistant stubbed |
+
+The child gains `failPublishAt`: the publish route answers 200 with `success: false` and stores nothing, as it answers a failed `strfry import`. The fixture's comment now says staging keeps the loop "until its next install after production's".
+
+**Verification.** Confirmed on 2026-11-21 at `2ccbb056` (the revision's commit), with these tests in the working tree: `firmware-install-leaves-tags-once: 22 passed, 2 failed`, the two being E10 and S13. E9 passes, as the guard it is.
+
+```
+E10: the wiring is told seededB true for tag, though strfry never stored its seeded letter: seededB says whether the header's stored letter carries the b (ADR 0035 Amendment 1 item 2)
+S13: it counts superset-of:39998:919ba08a…:nostr-relay node:39999:919ba08a…:nostr-relay-superset, the instance's own superset under itself, as firmware's
+```

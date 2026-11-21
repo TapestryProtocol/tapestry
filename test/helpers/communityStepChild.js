@@ -21,10 +21,12 @@
  *                 cypher-shell stops at a batch's first failing statement
  *   failPruneAt   an address: executeCypher refuses a batch that imports nothing and deletes at that address, a prune
  *                 (ADR 0035 Amendment 1 item 2's tests), before any of it runs
+ *   failPublishAt an address: POST /api/strfry/publish of a letter there answers 200 with success false and stores
+ *                 nothing, as the route answers a failed `strfry import` (src/api/strfry/commands/publishEvent.js)
  * stdout: one line `@@RESULT@@<json>`: { ta, graph, strfry, pending, calls, log, threw }, calls being publishes (the
  *   letters sent to /api/strfry/publish), relay (each /api/relay/external filter), scans (each /api/strfry/scan filter),
- *   signs (each letter signAndFinalize made), failedImports, failedPrunes, and unexpected (any other route or function
- *   asked for).
+ *   signs (each letter signAndFinalize made), failedImports, failedPrunes, failedPublishes, and unexpected (any other
+ *   route or function asked for).
  *
  * The stubs:
  *   - src/api/neo4j/eventSync.js: the real module's builders (buildImportCypher, and buildPruneCypher once it exists),
@@ -70,7 +72,7 @@ async function main() {
   const state = { nodes: sc.graph.nodes, rels: sc.graph.rels, nextEid: sc.graph.nextEid };
   const strfry = new C.LetterStore(sc.strfry || []);
   const relay = new C.LetterStore(sc.relay || []);
-  const calls = { publishes: [], relay: [], scans: [], signs: [], failedImports: [], failedPrunes: [], unexpected: [] };
+  const calls = { publishes: [], relay: [], scans: [], signs: [], failedImports: [], failedPrunes: [], failedPublishes: [], unexpected: [] };
   const log = [];
   let clock = Math.max(1700000000, ...(sc.strfry || []).map((l) => l.created_at), ...(sc.relay || []).map((l) => l.created_at)) + 100;
 
@@ -134,7 +136,15 @@ async function main() {
     const body = opts.body ? JSON.parse(opts.body) : {};
     const filter = () => JSON.parse(u.searchParams.get('filter') || '{}');
     if (route === 'GET /api/strfry/scan') { const f = filter(); calls.scans.push(f); return reply(200, { success: true, events: strfry.query(f) }); }
-    if (route === 'POST /api/strfry/publish') { calls.publishes.push(body.event); strfry.put(body.event); return reply(200, { success: true }); }
+    if (route === 'POST /api/strfry/publish') {
+      if (sc.failPublishAt && body.event && C.addressOf(body.event) === sc.failPublishAt) {
+        calls.failedPublishes.push(sc.failPublishAt);
+        return reply(200, { success: false, error: `strfry import failed (communityStepChild's failPublishAt)` });
+      }
+      calls.publishes.push(body.event);
+      strfry.put(body.event);
+      return reply(200, { success: true });
+    }
     if (route === 'GET /api/relay/external') {
       const f = filter();
       calls.relay.push(f);
