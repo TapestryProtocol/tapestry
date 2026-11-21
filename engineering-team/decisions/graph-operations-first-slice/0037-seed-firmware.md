@@ -114,6 +114,7 @@ We chose **Option A**. It is the one option where keeping local edits is a funct
   - `firmware-unreadable` (409), naming each file and its problem (Decision 3);
   - `not-firmware` (400), naming each `take` ref that is no node of the source;
   - `no-assistant` (409), when the instance has no assistant key;
+  - `address-held` (409), when a node without seed-firmware's mark holds the installed-firmware graph's address, naming it (Amendment 3);
   - lifecycle's `busy` and `graph-unavailable` (`_common.js`, whose message gains "installed").
 - **It runs inline, not as a job.** It holds the lifecycle lock (`C.begin('seed-firmware')`) for its whole run, so it never runs beside a backup, restore or migrate, and two calls at once install once (AC3).
   - Its work is bounded: 459 nodes, their tags and their relationships. It finishes well inside nginx's 900 s.
@@ -132,7 +133,8 @@ We chose **Option A**. It is the one option where keeping local edits is a funct
   - a manifest that doesn't parse;
   - a file a manifest names that isn't there, or isn't JSON;
   - a concept an enumeration names that the manifest doesn't define. An existing node or existing set naming one is skipped, as today, and isn't a problem (Amendment 1);
-  - a relationship type a concept manifest uses that `relationshipTypes` lacks.
+  - a relationship type a concept manifest uses that `relationshipTypes` lacks;
+  - a relationship alias that isn't a plain name, `[A-Z_][A-Z0-9_]*`, so no firmware text reaches Cypher's text (Amendment 3).
 - **`version`.** It must be the manifest's version, `1.0.0`, or the folder's name for it, `v1.0.0`. Anything else refuses `unknown-version`.
 - **`source.digest`** is the sha256 of every file the builder read, by path and by content. So two runs of the same files are known to be the same, though the version number doesn't change (story, fact 5).
 
@@ -187,13 +189,13 @@ Pass by pass, in today's order:
 - **A node's content** is three things:
   - its name;
   - its tags other than `json`, as a sorted set;
-  - its `json` by value, read with the derive's reader (`lmdb:` references resolved, `graphContext` and the two record sections set aside).
+  - its `json` by value, read with the derive's reader (`lmdb:` references resolved, `graphContext` and the two record sections set aside), with `word.wordTypes` read as a set (Amendment 3).
 
   Labels, tapestryKey, `id`, `created_at` and the other properties aren't content.
 - **A node is edited** when its content's digest isn't `installed.digest`. The parts say what differs: its name, its JSON, or a tag type, such as `b`.
-- **`cache get` answers it** (AC2). The derive puts both properties into the node's tapestryJSON, as top-level `cameFrom` and `installed` sections.
+- **`cache get` answers it** (AC2). The derive puts both properties into the node's tapestryJSON, as top-level `cameFrom` and `installed` sections, only when the node carries them (Amendment 3).
   - That is a change to `tapestry-derive.js`'s property list and to the `word` and `set` derivers.
-  - Wherever tapestryJSON is judged against a schema (story 42's judge), the two sections are set aside, as `graphContext` is.
+  - Wherever tapestryJSON is judged against a schema (story 42's judge), the two sections are set aside, as `graphContext` is, for a node that carries them (Amendment 3).
 
 **7. Each node's outcome** (`plan`, a pure function of the target, the graph's state and `take`):
 - **No node at its address:** `added`, or `blocked` (Decision 4, 1b).
@@ -222,13 +224,13 @@ Pass by pass, in today's order:
 - **The `b` claim** goes with its tag, as the import's claims do. When seed-firmware writes a header's tags, the node's `REFERENCES {source: 'b-tag'}` is replaced by the one its `b` names.
 
 **9. The installed-firmware graph.** One element of the graph concept:
-- **Where:** at `39999:<ta>:<childDTag('installed firmware', 39998:<ta>:graph)>`, with no letter, `ListItem`, tags `d`, `name`, `z` and `json`, and a `HAS_ELEMENT` from graph's superset.
+- **Where:** at `39999:<ta>:installed-firmware`, a d-tag no element write gives, with seed-firmware's mark: its own `installed` record and its `installedFirmware` section. Anything else at that address refuses `address-held` (Amendment 3). It has no letter, `ListItem`, tags `d`, `name`, `z` and `json`, and a `HAS_ELEMENT` from graph's superset.
 - **Its JSON**, in `elementJson`'s form:
   - `word`: `{ slug: 'graph--installed-firmware', name: 'graph: installed firmware', title: 'Graph: Installed Firmware', wordTypes: ['word', 'graph'] }`;
   - `graph`:
     - `nodes`: one entry for each node the install made, brought in line or adopted, each `{ slug: <its address>, uuid: <its address>, name }`. A curator's header the `b` claims is listed too, so its slug resolves;
     - `relationshipTypes`: each alias used;
-    - `relationships`: `{ nodeFrom: { slug }, relationshipType: { slug }, nodeTo: { slug } }`, with `properties` for `ENUMERATES`;
+    - `relationships`: `{ nodeFrom: { slug }, relationshipType: { slug }, nodeTo: { slug } }`, with `properties` for `ENUMERATES`. A kept relationship is listed in `installedFirmware.keptRelationships` instead, and a later install never takes it out (Amendment 3);
     - `imports`: `[]`;
   - `installedFirmware`: `{ version, source: { kind: 'files', digest, files }, at, by: { role, pubkey }, nodes, relationships }`.
 - **Why addresses as slugs.** Every reader matches a relationship's ends by slug (Context 7), and only an address is unique across the firmware's 459 nodes and the curators' headers.
