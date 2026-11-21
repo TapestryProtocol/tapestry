@@ -529,3 +529,208 @@ None.
   - 17: ADR 0004's header;
   - 18: three stale comments.
 - **For the owner to ratify:** nothing new. Finding 14's fix is a judgment call inside Amendment 2 item 1. Finding 15's index would add to ADR graph-operations-foundation/0004 Decision 5's list.
+
+## Round 3 — 2026-11-21 (HEAD `ee7a5245`)
+
+Round 2 passed with five non-blocking findings, 14 to 18. The owner chose "Fix findings first", and the three that change a decision became ADR 0034's Amendment 3, to ratify at the next gate. Round 2 was committed as `adca099f`. The round added four commits after it, each kept to its role's files:
+- `7bbf7d6c`, the session's: Amendment 3, and ledger row `2026-11-21-guard-test-checked-against-wrong-shape` (2 files);
+- `8a445856`, the Tester's: the tests, written first, their helper, and the test plan's "Review round 2" (5 files, none under `src/`);
+- `454e6c5e`, the Implementer's: the fixes, the doc fixes, the story's eight new Deviations and ledger row `2026-11-21-server-publishers-re1-cannot-see` (13 files, no test);
+- `ee7a5245`, the story's Evidence of the live re-check (1 file).
+
+`git diff adca099f..HEAD` is 20 files, +558 −156.
+
+**How it was made.**
+- **The same limits as rounds 1 and 2.** No `npm test` and no `docker`. No call to any container (the scratch stack included), GitHub or Loom. The live re-check's records in `tmp/live-check-34/` were read only, and `keys.json` wasn't opened.
+- **Stack-free, as the brief gives it.** Stub `curl` (exit 7) and `docker` (exit 1) were first on `PATH`, every endpoint and the conf file's Neo4j and Redis were on port 9, `TAPESTRY_CONTAINER` was `no-such-container`, and `TAPESTRY_CONTAINER_PORT` was unset. Each suite ran alone first, then the gate, then the Node 22 runs and the red check. Nothing ran beside the gate.
+- **Node.** The gate and every suite ran on Node v24.18.0. The same suites ran again on 22.23.1, CI's and the container's major version.
+- **Fresh claims.** Each fix, deviation, doc sentence and ledger line was re-derived from the code, a command or a record. Neither the commit messages, the Evidence nor round 2's wording was taken as given.
+- **Not run:** the guarded importers' own suites, which the brief doesn't list. The Evidence says they pass (story:353). EW2 to EW4 drive the three importers' real handlers over the guard.
+- **Records** are in the ignored `tmp/review-34-r3/`:
+  - the suites' script and logs (`suites.sh`, `suites-node24.out`, `suites-node22.out`, and one log a suite);
+  - the gate's (`gate.sh`, `gate-r3.out`);
+  - the red check (`red-check.sh`, `.out`);
+  - `harness-lint-before.out`.
+- **The worktree.** `git status` was clean after every run.
+- **The independent check** before the commit (workflow 5, P13) wasn't applied.
+
+### Gates (run by the reviewer at `ee7a5245`)
+
+- [x] **The scoped gate:** round 2's six entries through `test/helpers/gateRunner.js`, on a clean tree. Its `npm run gate:status -- --label a10-34-review-r3` line, with the path shortened:
+
+  ```
+  20261121T053558Z-19823-84a9 [a10-34-review-r3] started 2026-11-21T05:35:58.409Z on ee7a5245 — PASS, exit 0, 1486 passed, 0 failed, 18 skipped, 6/6 suites · …/tmp/gate-runs/20261121T053558Z-19823-84a9.json
+  ```
+
+  By entry:
+  - `operations` 1,382/0/16 (313 s);
+  - `external-cli` 53/0/0 (12 s);
+  - `openapi-coverage` 13/0/0 (2 s);
+  - `admin-action-sweep` 9/0/0 (0.5 s);
+  - `schema-save-finds-the-right-header` 26/0/2 (21 s);
+  - `publish-export-a-concept` 3/0/0 (0 s).
+
+  That is six more than round 2's 1,480, all in `operations`: the round's six new tests. The record names `ee7a5245` with `dirty: false` and no stray errors. The Implementer's record the Evidence cites, `20261121T051347Z-55527-b43b` (`a10-34-r2-fixes`), gives the same totals on `8a445856` with 12 files uncommitted, as the Evidence says (story:355). By its file times, the Implementer's suites ended before that gate started and the Node 22 runs began after it ended.
+- [x] **Each suite alone,** before the gate:
+
+  | Suite | Node 24.18.0: passed / failed / skipped | Time | Node 22.23.1 |
+  |---|---|---|---|
+  | `nostr` | 15 / 0 / 0 | 5 s | 15 / 0 / 0 |
+  | `markdown-links` | 10 / 0 / 0 | under 1 s | 10 / 0 / 0 |
+  | `nostr-letters` | 12 / 0 / 0 | 8 s | 12 / 0 / 0 |
+  | `nostr-links` | 8 / 0 / 0 | 6 s | 8 / 0 / 0 |
+  | `nostr-send` | 24 / 0 / 0 | 28 s | 24 / 0 / 0 |
+  | `nostr-own` | 6 / 0 / 0 | 7 s | 6 / 0 / 0 |
+  | `nostr-agent-through-cli` | 1 / 0 / 0 | 2 s | 1 / 0 / 0 |
+  | `nostr-live` | 0 / 0 / 6 (no scratch container, so its live checks skip) | 0 s | 0 / 0 / 6 |
+  | `test/publish-export-a-concept.test.js` | 3 / 0 | 0 s | 3 / 0 |
+
+  That is 76 feature tests passing: round 2's 70 and the six new (ES20 to ES24, EW6), as the Evidence says (story:350).
+- [x] **Red before green** (`red-check.sh`).
+  - **The copy.** A copy of HEAD had its `src/` put back to `adca099f`'s, with its `node_modules` linked. That is `7bbf7d6c`'s `src/` too, since `git diff adca099f 7bbf7d6c -- src test` is empty.
+  - **What failed.** The nine tests the plan's table lists fail there, and no others, each for the reason it records:
+    - EW2: `action: updated`;
+    - EW5: `false` for the listed letter;
+    - EW6: 6 of its 17 statements are the entry scan;
+    - EK7: the report has no `address`;
+    - ES20: `sentTo` stays `['own']`;
+    - ES21, ES22 and ES24: no `sentIds`;
+    - ES23: Rex lists only the other export's letter.
+  - **The counts** are nostr-own 3/3, nostr-links 7/1 and nostr-send 19/5, as the plan's table has them (test plan:304-306). ES1, ES18 and ES19, changed only in their fixtures, pass there, as the plan says.
+- [x] **`bash scripts/harness-lint.sh`:** clean, 0 violations, before this section and with it. L15 reads both new ledger rows.
+- [ ] _Playwright: not applicable (no UI). Lint, typecheck and build aren't configured._
+
+### Findings 14–18, re-checked
+
+| # | Finding | Resolution | As Amendment 3 says |
+|---|---|---|---|
+| 14 | Two exports signing the identical letter: the second says `raced`, and its relays aren't added | **Fixed.** A node already holding the call's own letter id goes the re-send's way (`_record.js:93-97`). `ADD_SENT_TO` adds the relays that accepted it (`:56-60, 104-108`). The change's `was` is what the node held, the same as `now` (`:97, 118`), and there's no `raced`. The node's lock, taken at `:83`, means `ADD_SENT_TO`'s `n.id = r.id` can't miss. ES20 runs the other export first on a copy with the same clock, so the two ids match by construction. It then commits that export's record just before this call's first write | item 1: yes |
+| 15 | The guard's entry read scans every change entry | **Fixed.** Each node keeps `sentIds` (`_record.js:109-116`; `MAX_SENT_IDS` at `:39`). It gets the id of each letter a call signed that the own relay accepted (set, already held or raced) or that is `unread`. Each id goes in once, appended last, and past 20 the earliest drops. The guard has one statement: the node at the letter's address or id, with its `sentIds` (`_own.js:24-28, 43`). It answers yes when they list the id (`:48`). No change entry is read anywhere on the guard's path. In `_own.js`, `GraphChange` appears only in the `NOT n:GraphChange` filter. In `_record.js`, `SENT_BY_EXPORT` and `sentByExport` are gone, and nothing in the tree names them. On the importers' path, `factsOf` (`graph/_nodes.js:90-100`), `keyOf` (`import/_letters.js:125-133`) and `ownKeys` (`reads.js:147-150`) read no graph. The read seeks the `tapestry_node_uuid` index (`src/lib/tapestry-node-index.js:15`), so its cost doesn't grow with the history. EW6 pins the statements and the behaviour; ES21 to ES24 pin the list | item 2: yes, with "the newest 20" read as deviation 3 reads it |
+| 16 | EK7's substring matcher decided what the report says | **Fixed.** EK7's `named` and `carries` compare whole values (`nostr-links.test.js:207, 209`), and so do its `not-found` checks (`:230`). The report carries the graph's `address` beside its key and name (`_scope.js:275-279`), and the schema's field says so (`nostr.js:92`) | item 3: yes |
+| 17 | ADR 0004:5's "the posture and RE1 hold for every other module" | **Fixed as far as it goes.** Line 5 now says what RE1 flags: such a `.publish(` under `src/api/` or `src/operations/`, outside the two folders (`test/publish-export-a-concept.test.js:78-80, 91-96, 158-161, 175`). It names two senders RE1 can't see. **assistant-profile's `publishToRelays`** sends raw `EVENT` frames over `ws` and calls no `.publish(` (`src/api/assistant/profilePublish.js:140, 154, 192`). Five of the assistant's route files reuse it, and its ADR is dated 2026-09-12. **The NIP-85 publishers under `src/algos/nip85/`:** `publish_nip85_10040.mjs` sends to primal, hasenpfeffr and damus (`:347`), behind `POST /api/publish-kind10040-event` (`src/api/index.js:180`). `publish_nip85_30382.js` would send too, but nothing calls it now, and the kind 30382 publishers in use put their letters into the local strfry only. Each claim is true, but a third sender RE1 can't see is left out: finding 19 | — (docs) |
+| 18 | Three guard comments describe round 1's guard | **Fixed.** Each names the case `sentIds` adds and points at `_own.js` (`eventSync.js:359-361`, `io.js:495-498`, `tapestryBrainWrite.js:65-68`). The brain-write hook's now says "Any other newer one … is imported as before". All three are true of `_own.js:43-54` | — (docs) |
+
+### The eight new deviations (story:283-292)
+
+| # | Deviation | Verdict |
+|---|---|---|
+| 1 | The same letter twice goes through the re-send's statement; `was` is what the node held, the same as `now` (:285) | Accepted. Under the lock, `ADD_SENT_TO` always finds the id, so its "else `raced`" never runs. `was` follows round 2's deviation 4: it is the letter the node held |
+| 2 | `sentIds` lists only the letters a call signed; a re-send adds none (:286) | Accepted. A re-send's letter is the node's own (`nostr.js:369`, where `was` is `now`), and the guard's first check turns it away. If the node moved on meanwhile, it moved to a newer letter, and the re-sent one is older. ES21 pins "adds none" |
+| 3 | "The newest 20" is the 20 latest recorded (:287) | **Accepted, after a hard look.** `sentIds` holds ids only, so the record can't order them by `created_at` without storing more. The two orders differ only when a raced letter records after a newer one it lost to: ES23's Rex lists `[newer, raced]`. That raced letter is older than the node's own, so NIP-01's order already turns it away. Within 20, the list's order never changes the guard's answer. Past 20, either reading drops a letter, and they differ only in which goes first. ES24 can't tell them apart, since its 21 letters record in `created_at` order. The docs say "newest" (finding 20) |
+| 4 | The record locks and reads every node of its letters, an `unread` one's included (:288) | Accepted, and needed. `SET_SENT_IDS` writes a list worked out from `HELD` (`_record.js:61-65, 114`). Without the lock first, two records of one node could each read the same list, and the later would drop the earlier's id |
+| 5 | Another export's letter is told by `sentIds` alone, and the entry read is gone. Only scratch stacks and suites hold export letters from before `sentIds`, "since export nostr hasn't been merged anywhere" (:289) | **Accepted, after a hard look.** The premise holds on this checkout's refs: no remote-tracking branch holds `26712ded`, and neither `origin/staging` (`b262a8c1`, 2026-11-21 04:47Z) nor `origin/main` holds `src/operations/catalog/export/`. What it can misjudge is a node holding an export letter its `sentIds` doesn't list. That happens to one recorded before `sentIds` (scratch stacks only), or one pushed out by 20 later records while the node still held it. A newer export letter for such a node is left `raced` rather than set. Raced letters are listed, so the guard still turns it away. strfry keeps only the newer version at the address, and export reads a node's letter by id (`_letters.js:228-237`). So the next export finds the node's letter gone and answers `changed` (`:399`). The cost is one re-sign, and AC6 isn't touched |
+| 6 | The guard's `sentIds` check covers an own node at the address or keyed by the id, with or without a letter, before the letter is compared (:290) | Accepted (`_own.js:47-48`). EW5's pet's Tom pins the no-letter case. Both checks can only answer yes, so their order changes no answer |
+| 7 | `graph-not-followed`'s `address` is the graph's `uuid`, left out when it has none (:291) | Accepted. The schema's `address` isn't nullable (`nostr.js:92`). A graph reached by an event id may have no `uuid`, and its words still name it by key |
+| 8 | Wording beyond the brief's list, and ADR 0004's NIP-85 publishers (:292) | Accepted for the declaration, the catalog and `changes.js` (Docs, below). The ADR 0004 part is true of what it names. But its own reason, that "without them the new sentence would be wrong too", applies to a sender it leaves out (finding 19) |
+
+### The guard that reads only `sentIds` (the brief's item 3)
+
+- **It can't be made to turn away a newer letter no export sent.**
+  - It answers yes for a letter the node holds, an older one, or an id the node's `sentIds` lists (`_own.js:48-52`). Only the third can fit a newer letter.
+  - Only `_record.js` writes `sentIds` (`:61-65`). It writes only the ids of letters that call signed with `finalizeEvent` (`nostr.js:332, 361`), and nothing else in the tree names `sentIds`.
+  - No generic property writer can reach it. Field mapping writes `<oKey>_<field>` (`graph/_fields.js:151-153`), the locks write `tapestryLock`, and the importers set named properties on a `MERGE`.
+  - An id is the hash of its letter, so a letter with a listed id is the very letter export signed.
+  - EW2 and EW5 each pair a listed letter with a newer one no list names, and the newer one is imported, or answered no.
+- **It turns away every exported letter AC6 covers, as long as it is among the 20 latest recorded for its node.**
+  - A letter newer than the node's own is one whose read-back didn't answer, or one a raced record left. Each is listed (ES22, ES23).
+  - So the guard misses one only after its node has had 21 such records in a row, with no newer letter set between. The oldest is then dropped while it is still newer than the node's own.
+  - Through event-update, which reads the newest version strfry holds at the address (`eventSync.js:72-80`), it would also take every later letter to have missed strfry.
+  - Through the I/O import or the brain-write hook, someone would have to post that old letter back. A letter whose read-back didn't answer went to no other relay (`nostr.js:338, 345`).
+  - Round 2's entry check had no bound. Amendment 3 accepts this one ("Twenty is enough"), but AC6 still says "any" (finding 20).
+  - A record that failed outright leaves a letter neither round's guard sees, as before.
+- **Its importers keep `sentIds`.**
+  - event-update and the I/O import share `buildImportCypher` (`eventSync.js:198-323`; `io.js:449`), and the brain-write hook uses `importEventDirect` (`src/api/normalize/helpers.js:65-122`).
+  - Each `MERGE`s by `uuid` and sets named properties, so importing a newer letter leaves the list on the node.
+  - `graph delete-node`'s entry keeps every property (`delete-node.js:32, 289`).
+
+### The ledger rows (the brief's item 4)
+
+- **`2026-11-21-guard-test-checked-against-wrong-shape`** (meta).
+  - **Well formed:** the id is the filename, 49 characters and six words, with `Type`, an ISO `Opened` and `Status: OPEN`. L15 passes it.
+  - **True.**
+    - Decision 11 promised that "a third publisher built the same way elsewhere is caught" (ADR 0034:228).
+    - The sender the ADR prescribed takes its relay from `_relay.js`'s `open()` (ADR 0034:165, 273).
+    - Round 1's blocking finding 1 and its harness note are as the row tells them.
+    - `3-test-design.md` has the pitfalls section the row names (:29).
+  - It records round 1's harness item, which round 2 found still unrecorded.
+  - That the stand-in named `AbstractRelay` rests on round 1's record. The stand-in itself isn't on disk.
+- **`2026-11-21-server-publishers-re1-cannot-see`** (docs).
+  - **Well formed:** 43 characters, five words. L15 passes it.
+  - **True of what it names,** and of ADR 0004's line 4, which still says "for every other module". "Since 2025-04" is when the NIP-85 scripts moved into `src/algos/nip85/` (`80b91954`).
+  - **But it undercounts:** "already false twice", "Two senders" and "either exception". Its first fix shape, widening RE1's scan to `src/algos/`, wouldn't reach the third (finding 19).
+
+### Docs (the brief's item 5)
+
+| Claim | Checked against | Holds |
+|---|---|---|
+| BIBLE §6 (:377): `sentIds`, the newest 20, each once, the latest recorded last; accepted (set, already held, raced) and `unread`; a re-send adds none | `_record.js:109-116` | yes, "newest" as deviation 3 reads it (finding 20) |
+| §6 (:378): the lock before the read; set while the id is the one read, or an older letter `sentIds` lists; the same letter's relays added as a re-send's; `raced` otherwise | `_record.js:83-108` | yes |
+| §6 (:379): the entry holds each letter accepted or `unread`, an unread one on its node only in `sentIds`; `was` the same as `now` when the node already held it; delete-node keeps `sentIds` | `nostr.js:357-372`; `_record.js:97, 117-121`; `delete-node.js:289` | yes |
+| §6 (:381): the importers turn away a letter the node holds, an older one, or one its `sentIds` lists; the guard reads only the node, so its cost doesn't grow with the history | `_own.js:43-54`; `tapestry-node-index.js:15` | yes. "Never comes back" is bounded at 20 (finding 20) |
+| The catalog's row (:181) and "What an export does" (:186): `sentIds` beside `sentTo`, the newest 20, which today's importers turn away | the same | yes, as above |
+| `changes.js:50-55`, and CHANGE's `was` (:93): an unread letter on its node only in `sentIds`; `was` the same as `now` for one the node already held | `_record.js:97, 118` | yes |
+| CHANGE's `raced` (:90), unchanged: the node held a newer letter another export sent, or one no export sent | `_record.js:90-108` | yes, now that the tie isn't `raced`. Round 2's note of a node deleted meanwhile still applies |
+| The declaration's description (`nostr.js:108`), its header (:17), the record's comment (:354-356) and the report's `address` (:92) | `_record.js`; `_scope.js:275-279` | yes |
+| `_scope.js:10-13`: `graph-not-followed` naming its key, address and name | `_scope.js:275-279` | yes: the address and name when the graph has them |
+| `_own.js:10-17`, and `TURNED_AWAY` (:58, unchanged) | `_own.js:43-54` | yes |
+| The three importers' comments | `_own.js` | yes |
+| `openapi.yaml:3622-3627` (unchanged): a letter "`export nostr` sent for it" is turned away | `_own.js` | yes, within the 20 |
+| ADR 0004 (:5) | RE1; `profilePublish.js`; `src/algos/nip85/`; `bin/` | what it names, yes; complete, no (finding 19) |
+
+### Nothing beyond the fixes (the brief's item 6)
+
+- **`7bbf7d6c`** adds Amendment 3 (+10 lines) and the meta row. `src/` and `test/` are as at `adca099f`.
+- **`8a445856`** changes only tests, their helper and the test plan.
+  - The helper's change is additive: `withSentIds` and `sentIdsOf`, exported.
+  - The plan's one changed line is its ADR line, extended.
+- **`454e6c5e`** changes the 13 files the findings and their docs name, and no test. `_letters.js`, `_send.js`, `_relay.js` and `openapi.yaml` are as round 2 left them.
+- **`ee7a5245`** adds the Evidence's three lines.
+- No added line holds a run of 64 hex characters, `nsec1`, console output or a TODO.
+
+### Findings (round 3)
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+19. **`engineering-team/decisions/community-reference/0004-publish-export-a-concept.md:5`, `ledger/2026-11-21-server-publishers-re1-cannot-see.md:1, 11-13, 18` — a third server-side publisher RE1 can't see is left out.**
+    - **The sender.** `bin/brainstorm-create-and-publish-kind10040.js` sends a kind 10040 letter from the server over `ws` (`:215`). It goes to the instance's relay, to the three `BRAINSTORM_NIP85_RELAYS`, and by default to three general relays, damus, primal and nostr.band (`:23-33`).
+    - **Who runs it.** Two routes spawn it: `POST /api/create-and-publish-kind10040` and `POST /api/publish-signed-kind10040` (`src/api/index.js:181, 183`; `src/api/export/nip85/commands/create-and-publish-kind10040.js:42`, `publish-signed-kind10040.js:107`). Pages under `public/pages/` call the second, `customers/sign-up.html` among them. It has run this way since 2025-08 (`c08c96ae`).
+    - **Why RE1 misses it.** RE1 doesn't read `bin/`, and can't see a script that a route spawns.
+    - **What that leaves untrue.** Line 5 lists where the posture doesn't hold. The row says "already false twice", "Two senders" and "either exception". Each named claim is true, but neither list is complete. Deviation 8's reason for naming the NIP-85 publishers, that without them the sentence would be wrong, applies to this one too.
+    - **Optional:** name it on line 5 and in the row (three senders, not two), and let the row's fix shape reach `bin/`.
+20. **`engineering-team/stories/graph-operations-first-slice/34-export-nostr.md:144, 233`, `BIBLE.md:377, 381` — AC6 still promises "any letter an export of the node sent", and the cap now bounds that at the 20 latest recorded for the node** (the brief's item 3; deviation 3).
+    - **When it bites.** It takes 21 records of one node in a row whose read-back didn't answer, or that raced, with no newer letter set between. The oldest of them can then come back in two ways:
+      - through the I/O import or the brain-write hook, if someone posts it;
+      - through event-update, if no later letter reached strfry.
+    - **The docs.** BIBLE's "never comes back" and AC6's "any" are unqualified. "The newest 20" in BIBLE.md:377, `nostr.js:108` and the catalog's :181 means deviation 3's "latest recorded".
+    - **For the owner, when Amendment 3 is ratified.** Either a line under the story's "Changed at Review" that names the bound, or "the 20 latest recorded" in those sentences.
+21. **`engineering-team/stories/graph-operations-first-slice/34-export-nostr.md:357` — nothing on record shows that the live re-check ran the fixed code.**
+    - **What the log shows.** `tmp/live-check-34/nostr-live.log` ran at 05:23:13–05:24:11Z, after `454e6c5e` was committed (05:22:54Z). It ran on a container whose mounts its runner checked, and they include the worktree's `src/`.
+    - **What it doesn't show.** The control panel must restart to load new code, and no record holds that restart. Round 2 had one: `r2-setup.log`, with the files' hashes and the restart time.
+    - **Why it matters little.** LV1 to LV6 read no `sentIds`. The run's worth is that the new statements run on a real Neo4j, and that rests on the Evidence's word.
+    - **Optional:** record the restart time, and the export files' hashes inside the stack, in `tmp/live-check-34/`.
+
+### Harness friction
+
+1. **Round 2's second item is still unrecorded.** Finding 16's substring matcher was another case of OPEN.md rows 116 and 174, and this diff touches neither row. That remains the owner's call.
+
+### On PASS
+
+- The story already reads `**Status:** Done` (story:3), and this round changes nothing else in it.
+- Completion detection was performed again. Its result is in the chat, not in this file.
+- Nothing is committed: the brief asks for no commit, push or GitHub call.
+
+### Verdict (round 3)
+
+**PASS**
+- **Each round-2 finding is resolved** as Amendment 3 says, and the two doc findings, 17 and 18, as their wording asks. Each fix a test reads is red on round 2's code and green on HEAD's, on Node 24 and on Node 22.
+- **The guard reads only the node**, and no change entry is read on its path. A node's `sentIds` holds only the ids of letters export signed, so the guard can't be made to turn away a letter no export sent.
+- **The eight deviations are accepted.** Deviations 3 and 5 got a hard look, and neither changes a guard answer within the 20.
+- **Three non-blocking findings are new:**
+  - 19: a third server-side publisher, left out of ADR 0004's line and the ledger row;
+  - 20: AC6's "any" against the cap of 20, for the owner when Amendment 3 is ratified;
+  - 21: no record that the live re-check ran the fixed code.
+- **For the owner to ratify:** Amendment 3, at the next gate, with finding 20's bound.
