@@ -121,13 +121,19 @@ The first use on david.tapestry.ninja waits for the owner's yes.
 
 ## Raised at Test Design
 
-Each was put to the Architect and is answered by ADR 0048's Amendment 1 (2026-11-21, pending the owner at this gate). The suites now pin each answer.
+Each was put to the Architect and is answered by ADR 0048's Amendment 1 (2026-11-21, ratified by the owner at this gate). The suites now pin each answer.
 1. **`target.held` for a placeholder that is already there.** Decision 7 said `held` is false "when a placeholder was made", which left open a target holding only an earlier call's placeholder. **Answered by Amendment 1 item 1:** `held` is true only when a node that isn't a placeholder (one with no `created_at`) is at the address. So kite wired to FISH after lamp's call answers `held: false`, `node` that placeholder's key, with no second node. WS3 pins it, and the same for seed-firmware's kind of placeholder.
 2. **The field for `disposition`'s `b` values.** Decision 7 named no field, and the suites accepted four names. **Answered by Amendment 1 item 2:** `disposition.bValues`, the `b` values as strings, once each and sorted, read after the call. The four-name tolerance is gone, and the suites pin that one field exactly.
 3. **`target` on `already-wired`.** Decision 7 didn't say what a repeat answers in `target`. **Answered by Amendment 1 item 3:** `{ address, held, node }`, read from the graph as a first call answers it, writing nothing. `node` is null when no node is at the address. WS4 and WS5 pin the repeat, and WS17 the `null`, with nothing drawn.
 4. **The order of wire-to-shared's checks.** A bad target on an unknown, another author's or firmware concept could have answered either refusal. **Answered by Amendment 1 item 4,** which orders all three operations' checks. WS18, DS8 and DF7 pin each pair that can meet. Amendment 1 item 5 adds the input's schema: a string, `maxLength` 2048, no `pattern` (WS16).
 5. **Two existing tests move.** MF15 and EN29 pinned "At a glance (62 operations)" and now ask for 65, failing until the catalog changes, as at story 19. **Answered by Amendment 1 item 7,** which records the move.
 6. **The words pinned.** The suites read "another author" and "owner" in `not-own-concept`, and "declare-shared" in `self-target`. **Answered by Amendment 1 item 6:** those, with `self-target` naming `graph declare-shared` and `not-installed` the concept-header concept. WS11, DS9, WS12 and DF7 pin it.
+
+## Added at Implementation (the Tester's lane)
+
+**One kept lookup.** `test/operations/lifecycle/tapestry-key-paths.test.js` (G11, G18) wants every source line that names `:NostrEvent` alone to be listed, with its reason, in `test/operations/lifecycle/nostr-event-lookups-kept.json`. The placeholder ADR 0048 Decision 6 prescribes, `CREATE (p:NostrEvent {uuid: $uuid})` in `src/operations/catalog/graph/_dispositions.js`, is such a line. Test Design missed it, since the line didn't exist yet.
+
+The entry sits after import nostr's identical placeholder, and gives the reason: a `CREATE` can't take a label disjunction, and it runs only when the same transaction's lookup by `NostrEvent|TapestryNode` found no node there. Stories 32 and 44 added their entries the same way. It is a commit of its own, apart from the implementation's.
 
 ## Verification
 

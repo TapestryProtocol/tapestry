@@ -202,6 +202,11 @@
       "reason": "A CREATE, which can't take a label disjunction: the placeholder for a claim's end at an address, made only when the same transaction's lookup by NostrEvent|TapestryNode found no node there (Decision 8). It stands for an event, so it is a NostrEvent."
     },
     {
+      "file": "src/operations/catalog/graph/_dispositions.js",
+      "text": "const PLACEHOLDER = `CREATE (p:NostrEvent {uuid: $uuid})",
+      "reason": "A CREATE, which can't take a label disjunction: graph wire-to-shared's placeholder for a wired b's target at an address, import nostr's kind (ADR graph-operations-first-slice/0048 Decision 6), made only when the same transaction's lookup by NostrEvent|TapestryNode found no node there. It stands for an event, so it is a NostrEvent."
+    },
+    {
       "file": "src/operations/catalog/import/_letters.js",
       "text": "MERGE (p:NostrEvent {id: i})",
       "reason": "A MERGE by id, which can't take a label disjunction: the placeholder for an e or b tag's event named by id, made only when no node holds that id or a uuid that is it (Decision 8). An event by definition."
