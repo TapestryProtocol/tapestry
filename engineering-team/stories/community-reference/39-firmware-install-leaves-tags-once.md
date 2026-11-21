@@ -1,6 +1,6 @@
 # Story 39: A firmware install leaves each header's tags once
 
-**Status:** Approved
+**Status:** In Progress
 **Created:** 2026-11-21
 **Type:** Bug
 
@@ -89,6 +89,34 @@ For the Architect:
 2. **The relationships a `b` made.** When a header's letter is imported again, should relationships derived from an earlier letter's `b` go too, as `set-b-tag` clears them, so that a `b` that's gone leaves no relationship behind?
 3. **An older version on the relay.** The community fetch could bring back a version older than the copy holds; three of the six have no `knownGoodEventId`. Today's import takes it anyway (the ledger's "older versions over newer"). Does AC-2 need "the newest version stands" too, or does that stay with the ledger row?
 4. **Testing without the local container,** for example on a scratch stack, as earlier live checks did.
+
+## Deviations
+
+- **The two builders share only the tag-uuid function.** As ADR 0035 §1 asks, the tag-uuid expression moved into `tagUuidOf` (`src/api/neo4j/eventSync.js`), which both builders call. `buildPruneCypher` computes the node's uuid, and picks out the `b` tags that derive a relationship, with `buildImportCypher`'s own expressions written again beside it. So `buildImportCypher` changes by that one line. The builder suite (P1–P9) runs the two together, so a drift between them fails it.
+- **The log lines.** The self-curated reference logs a line of its own, a `(dry-run)` one in a dry run. The never-clobber line now ends "its tags reconciled", since that path imports and prunes.
+
+## Evidence
+
+**The scoped gate, stack-free (2026-11-21).** It ran on `5d81232c` (the failing tests' commit), with the implementation in the working tree, committed unchanged after it. Every endpoint was dead, as the test plan's "How to run" sets:
+- stub `curl` and `docker` first on `PATH`;
+- `BRAINSTORM_CONF_PATH` at a conf whose `NEO4J_URI` is a closed port;
+- `BRAINSTORM_BASE_URL` and `TAPESTRY_PORT` at a closed port, `TAPESTRY_CONTAINER` unset.
+
+Its 27 suites were derived from the diff: every registered suite that loads or reads `src/api/neo4j/eventSync.js` or `src/firmware/install.js`.
+- The story's two, and the four that pin the community-references step: `b-tag-primitive`, `b-tag-seeds`, `community-reference-nostr-relay-stub` and `community-reference-superset-link`.
+- Those that exercise `buildImportCypher` or read the step: `community-class-thread-pull`, `b-coverage-audit-and-disposition`, and `operations.test.js`, which runs every suite under `test/operations/` (`tapestry-key-paths`, `cypher-engine` and import nostr's among them).
+- Those that load install in a child: `firmware-element-sync`, `firmware-nodes-hold-their-concepts-keys`, `word-elements-fit-the-installed-word-schema`, `schema-save-finds-the-right-header`, `pass-3-finishes-in-minutes` and `graph-rule-firmware`.
+- Those that read either file's source, or skip their live parts with no stack: `close-unauth-write-surface`, `relationship-primitives`, `create-concept-duplicate-check`, `store-the-four-when-a-goal-is-captured-or-updated`, `default-deny-mutations`, `dlist-curation-header-endpoint`, `curated-dlist-update-publish`, `nostr-user-tag-hybrid-ea-writer`, `brains-launcher-repo`, `event-less-create-set`, `pin-a-tag` and `profile-tags`.
+
+Two were left out:
+- `event-tagging-firmware-seed`, which calls `localhost:7778` whatever the environment says;
+- `stack-free-npm-test`, whose G2 runs live tests when a control panel answers. It stays CI's.
+
+**Results:**
+- **Overall: PASS, 1727 passed, 0 failed, 85 skipped across 27 suites** (record `tmp/gate-runs/20261121T161645Z-95758-e2ea.json`, which git ignores). The skips are live parts, which need a stack.
+- The story's suites gave 9 and 16. The four that pin the step gave 16, 7, 4 and 4, as before.
+
+**Not checked here.** The change touches no concept definition, so there was no concept-graph orientation, and the local container is off-limits. The live check is the book's reinstall of staging, on the owner's yes (ADR 0035, OQ-4).
 
 ## Linked artifacts
 
