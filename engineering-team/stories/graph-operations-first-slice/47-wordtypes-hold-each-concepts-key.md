@@ -155,13 +155,16 @@ For Architecture, not this gate:
 - **One test's input was wrong, and was amended apart.** XW1's `graph create-element` gave no `description`, which `graph create-concept`'s starter schema requires, so it was refused before the checks it sets up. It now gives one; no assertion changed. That is the test plan's Amendment 1, committed by itself before the implementation.
 - **The catalog's repair row says what repair does with this rule's findings too.** The ADR named only the check row.
 - **A ledger row tracks the reinstalls.** `ledger/2026-11-20-word-types-keys-await-firmware-reinstall.md` records that each instance's firmware nodes gain their keys, and its graph rule concept its twelfth item, only at a firmware reinstall there, each on the owner's yes.
+- **The way on names no other operation (ADR 0047, Amendment 1, 2026-11-21).** Decision 4 had it say that `graph add-to-concept` adds a key along with the concept's section. Review rounds 1 and 2 each found a case where that wording was untrue. Round 2's case was a node whose JSON holds no `wordTypes` list, which gets the section and no key. The way on now names a reinstall, and a repair still to come. Entry 12's "Refuses or reports" no longer lists the writes that put the key in, for the same reason. The Background's "The writes put the key in" overstates add-to-concept in the same way; it is left as planning wrote it.
 
 ## Evidence
 
-**The scoped gate, stack-free (2026-11-20).** It ran on `8f5e0149` with the implementation in the working tree (committed as `fbd1aca1`), every endpoint dead:
+**The scoped gate, stack-free (2026-11-20).** It ran on `8f5e0149` with the implementation in the working tree (committed as `fbd1aca1`), with every endpoint it gives the suites dead:
 - a stub `curl` and `docker` first on `PATH`;
 - `BRAINSTORM_CONF_PATH` at a conf whose `NEO4J_URI` is a closed port;
 - `TAPESTRY_CONTAINER=no-such-container`.
+
+One suite didn't use them (corrected at review round 2, non-blocking 3). `event-tagging-firmware-seed` GETs `http://localhost:7778` whatever the environment says, and on this Mac that port reaches the agent-memory instance. Its live check made two read-only GETs there, `/api/assistant/pubkey` and `/api/strfry/scan`, and passed. Nothing was written. Review round 1's gate and the gate after its fixes, below, did the same (ledger row `2026-11-08-suite-screen-misses-hardcoded-urls`).
 
 It covered 14 suites:
 - CI's registry entries for an operations change: `operations.test.js`, which runs every suite under `test/operations/`, `external-cli`, `openapi-coverage`, `admin-action-sweep` and `schema-save-finds-the-right-header`;
@@ -174,9 +177,10 @@ Results:
 - One sentence of the rule's finding message changed after the run: its closing full stop, so a repair's refusal reads as rule 11's does. The four suites that read messages ran again and passed: the rule's own 10, check and repair's 10, the agent's 1, and rule 11's repair 16.
 - `stack-free-npm-test` is CI's: its G2 runs against a live control panel when one answers.
 
-**The scoped gate after review round 1's fixes (2026-11-21).** It ran on `2a8e8c2b`, with staging merged in (`a7b0aadb`). The suite list was derived from the changed files (test plan, Amendment 2): CI's registry entries for an operations change, the 37 registered suites whose source names a changed file or what it is built from (`create-concept-duplicate-check` and story 46's suite among them), and `ledger-row-ids`. It ran with every endpoint dead, as before, but with `TAPESTRY_CONTAINER` unset, as CI runs, and `docker` and `curl` stubbed, so nothing reached a container.
+**The scoped gate after review round 1's fixes (2026-11-21).** It ran on `2a8e8c2b`, with staging merged in (`a7b0aadb`). The suite list was derived from the changed files (test plan, Amendment 2): CI's registry entries for an operations change, the 37 registered suites whose source names a changed file or what it is built from (`create-concept-duplicate-check` and story 46's suite among them), and `ledger-row-ids`. It ran with the same dead endpoints, but with `TAPESTRY_CONTAINER` unset, as CI runs, and `docker` and `curl` stubbed, so nothing reached a container through them. `event-tagging-firmware-seed` made its two read-only GETs to the agent-memory instance, as in the first gate.
 - **Overall: PASS, 1951 passed, 0 failed, 166 skipped across 44 suites** (record `tmp/gate-runs/20261121T004946Z-57222-e9ab.json`).
 - The skips are live parts that need a stack.
+- **What the list missed** (review round 2, non-blocking 4). It was derived at `14a944e7`. The fix commit, `2a8e8c2b`, then changed `src/api/openapi.yaml`, and 15 more registered suites read that file. Review round 2 ran those 15: 613 passed, 5 skipped, none failed.
 
 **The live check on a scratch stack (2026-11-20 23:59 to 2026-11-21 00:05 UTC).** Never this Mac's agent-memory instance. The scripts and records are in `tmp/live-check-47/`, which git ignores: `runA.sh` and its log, `setup.sh`, `check.js`, `compare.py`, `edit-wt.js`, `fits.js` and `agent.sh`.
 - **Setup.** `scripts/scratch-stack.sh up` ran from a worktree of staging's `c063ecdd`, on image `agent-memory-tapestry:latest`; its boot installs the image's firmware. Then:
