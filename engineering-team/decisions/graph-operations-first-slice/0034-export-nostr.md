@@ -346,3 +346,13 @@ Review round 1 (`engineering-team/reviews/graph-operations-first-slice/34-export
 5. **Decision 6: `strfry import` within the call's time** (finding 7). The import is given the call's remaining time, never more than 30 s. A hung import is stopped then, and the read-back decides each letter's answer.
 6. **Decision 11: the guard test catches a publisher built export's way** (blocking finding 1). RE1 flags any file outside the excluded folders that calls `.publish(` on a relay. That means one it makes with `SimplePool`, `AbstractRelay` or `Relay`, or one it gets from import's `_relay.js`. "The second server-side publisher" reads "another server-side publisher" wherever it was written (finding 9), since assistant-profile's came first.
 7. **AC7's live run: the stack's own relay only** (blocking finding 2). The scratch-stack run sends to the stack's own relay. Sending to outside relays is covered stack-free (ES3, ES16). The first real export to an outside relay is recorded in the story when it happens. The private-relay refusal is run by hand on the stack.
+
+## Amendment 3 (2026-11-21, after review round 2; the owner's "Fix findings first", to ratify at the next gate)
+
+Review round 2 passed, with five non-blocking findings, which the owner has fixed before the pull request. Three of them change a decision.
+
+1. **Decision 8: the same letter twice** (finding 14). Two exports can sign identical content in the same second, so both letters have one id. A record that finds its node already holding that id adds the relays that accepted it to `sentTo`. It isn't `raced`.
+2. **Decisions 8 and 10: the guard reads only the node** (finding 15). Each node keeps `sentIds`: the ids of the newest 20 letters export sent for it or may have sent, accepted or `unread`. `holdsLetterOrNewer` answers yes when the node holds the letter or a newer one, or when `sentIds` lists its id. It reads no change entry, so its cost doesn't grow with the graph's history. The change entries stay the full record that status and retract read.
+   - Twenty is enough because an older exported letter is already turned away by NIP-01's order. Only a newer one needs the list, and only an `unread` letter or a raced record can leave one newer than the node's own.
+   - The other fix weighed was an index on the change entries' `operation`. It would add a Neo4j schema change for every instance, and the scan would still grow with each instance's exports.
+3. **Decision 9: `graph-not-followed` names the graph's address,** beside its key and name (finding 16), once EK7's helper matches addresses exactly.
