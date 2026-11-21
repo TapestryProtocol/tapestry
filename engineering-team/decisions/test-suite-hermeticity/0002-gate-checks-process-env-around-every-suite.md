@@ -300,7 +300,7 @@ Review round 1 found that the Context's audit didn't reach every suite the gate'
    - `test/operations/graph/create-concept.test.js` CC3 (`:237`) and `test/operations/graph/update-concept.test.js` UC2 (`:174`) each set `TA_PUBKEY` to the suites' test TA (`'dd'.repeat(32)`, `test/helpers/graphOpsSuite.js:30`), and nothing puts it back.
    - `getOwnerAssistantPubkey()` reads `TA_PUBKEY` first (`src/utils/assistantKeys.js:52–56`). So today the 14 suites after `operations.test.js` run with that test TA as the instance's.
    - Run through this ADR's engine, `operations.test.js` fails the check: `left process.env changed after its run (1 key): added TA_PUBKEY` (run `20261121T053127Z-4424-ae68`).
-   - Every other write under `test/operations/` is put back (`lifecycle/backup-job.test.js`), or runs in a child (`graph/memberships-shared.test.js:503`, `lifecycle/status.test.js:105`, `:172`).
+   - Every other write under `test/operations/` is put back (`lifecycle/backup-job.test.js`), or runs in a child (`graph/memberships-shared.test.js:503`, `lifecycle/status.test.js:107`, `:174`).
 3. **What changes.**
    - Implementation notes §2 gains both suites. Each notes `TA_PUBKEY` before its test sets it, and puts it back in a `finally`, deleting it when it was unset.
    - The guard gains S7 and S8 for them, written first, as S1–S6 were. Each runs its suite in a child, with `TA_PUBKEY` unset and preset to a key other than the suites' `TA`.
