@@ -13,7 +13,8 @@
  *                                           the counts of unchanged and others (Decision 8); a take ref no node of the
  *                                           target answers refuses not-firmware, and a node at the installed-firmware
  *                                           graph's address without seed-firmware's mark refuses address-held
- *                                           (Amendment 3, item 3)
+ *                                           (Amendment 3, item 3), as does seed-firmware's own there whose JSON can't
+ *                                           be read, in words that say so (review round 2, nit 1)
  *   apply(tx, target, state, plan, { caller, at })  the plan's writes in one transaction, in today's order: nodes,
  *                                           records, b claims, relationships, the installed-firmware graph, one change
  *                                           entry (Decision 10) → { change, written, letterOutOfDate, addresses }
@@ -41,7 +42,7 @@ const SET_ASIDE = Object.freeze(['graphContext', 'cameFrom', 'installed']);
 const RULES_SHOWN = 20;
 const TYPE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const NOT_FIRMWARE = Object.freeze({ code: 'not-firmware', status: 400, when: 'A take ref that names no node of the firmware: neither the address of one of its nodes nor the tapestryKey of the node at one; the refusal names each such ref' });
-const ADDRESS_HELD = Object.freeze({ code: 'address-held', status: 409, when: "A node at the installed-firmware graph's address, 39999:<assistant>:installed-firmware, that isn't seed-firmware's record: it lacks seed-firmware's mark, its own installed record and an installedFirmware section; the refusal names it, and nothing is written" });
+const ADDRESS_HELD = Object.freeze({ code: 'address-held', status: 409, when: "A node at the installed-firmware graph's address, 39999:<assistant>:installed-firmware, that isn't seed-firmware's record: it lacks seed-firmware's mark, its own installed record and an installedFirmware section; or seed-firmware's own, its record there, whose JSON can't be read (an LMDB reference with no entry). The refusal names it and says which, and nothing is written" });
 
 const sha256 = (x) => crypto.createHash('sha256').update(x).digest('hex');
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -67,12 +68,22 @@ function installedGraphAddress(ta) {
 /**
  * An installed-firmware graph's JSON, read through the LMDB when its json is offloaded (Amendment 3, item 1), if it
  * carries seed-firmware's mark: its own installed record, and an installedFirmware section (item 3). → { json } when
- * it is seed-firmware's, { held: true } when it isn't.
+ * it is seed-firmware's; { held: true, unreadable } when it carries the record but its JSON can't be read, so whether
+ * it holds the section can't be told (review round 2, nit 1); { held: true } when it isn't seed-firmware's.
  */
 function installedGraphOf(installedText, rawJson) {
-  const j = jsonValueOf(rawJson);
-  const marked = isObject(parseJson(installedText)) && isObject(j) && isObject(j.installedFirmware);
-  return marked ? { json: j } : { held: true };
+  const recorded = isObject(parseJson(installedText));
+  let unreadable = null;
+  if (typeof rawJson !== 'string' || !rawJson) unreadable = 'it has no json tag';
+  else if (rawJson.startsWith('lmdb:')) {
+    let value = null;
+    try { value = require('../../../lib/tapestry-resolve').resolveValue(rawJson); } catch { value = null; }
+    if (value === null || value === undefined) unreadable = `its json tag is an LMDB reference (${rawJson}) whose entry is missing from the store`;
+    else if (!isObject(value)) unreadable = `its json tag's entry in the store (${rawJson}) isn't a JSON object`;
+  } else if (!isObject(parseJson(rawJson))) unreadable = "its json tag isn't JSON of an object";
+  if (recorded && unreadable) return { held: true, unreadable };
+  const j = unreadable ? null : jsonValueOf(rawJson);
+  return recorded && isObject(j) && isObject(j.installedFirmware) ? { json: j } : { held: true };
 }
 
 // ── a node's content (Decision 6) ──
@@ -203,7 +214,7 @@ async function readState(read, target) {
   let last = null;
   let held = null;
   const ig = installed ? installedGraphOf(installed.installedText, tagValue(installed.tags, 'json')) : null;
-  if (ig && ig.held) held = { address: installed.address, key: installed.key };
+  if (ig && ig.held) held = { address: installed.address, key: installed.key, unreadable: ig.unreadable || null };
   if (ig && ig.json) {
     const j = ig.json;
     const graph = isObject(j.graph) ? j.graph : null;
@@ -300,6 +311,11 @@ const sameProps = (a, b) => stable(isObject(a) ? a : {}) === stable(isObject(b) 
 function plan(target, state, { take, takeAll = false } = {}) {
   // A node at the installed-firmware graph's address without seed-firmware's mark is someone's own: it is never read
   // as the last install's lists, nor rewritten (Amendment 3, item 3).
+  if (state.held && state.held.unreadable) {
+    // Seed-firmware's own graph, its record there, whose JSON can't be read: what the last install listed can't be
+    // known, so nothing is installed over it (review round 2, nit 1).
+    throw refusal(ADDRESS_HELD.code, `The node at ${state.held.address} (tapestryKey ${state.held.key}) is seed-firmware's own installed-firmware graph, its installed record there, but its JSON can't be read: ${state.held.unreadable}. What the last install listed can't be known without it, so the firmware isn't installed over it. Bring its JSON back, its entry in the store or its json tag inline, then try again. Nothing changed.`);
+  }
   if (state.held) {
     throw refusal(ADDRESS_HELD.code, `The node at ${state.held.address} (tapestryKey ${state.held.key}) isn't seed-firmware's record of what it installed: it lacks seed-firmware's mark, its own installed record and an installedFirmware section. That address is the installed-firmware graph's, so the firmware can't be installed while it is held. Nothing changed.`);
   }

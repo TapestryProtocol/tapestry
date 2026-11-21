@@ -230,6 +230,12 @@ At review round 1's fixes (the Implementer, 2026-11-21; ADR 0037 Amendment 3):
 - **`word.wordTypes` compares as a set, sorted and without repeats.** A record written by the round-0 code, before this, reads as edited wherever a node's `wordTypes` aren't in sorted order. Only the live check's scratch stacks hold such records.
 - **The catalog's group list (line 55) says the owner and admins too,** beside §8's "Who may call", the line the review named.
 
+At review round 2's fixes (the Implementer, 2026-11-21; R2-N1 and nit 1):
+
+- **A node's install record rides on its facts.** `factsOf` (`_nodes.js`) gains `record`, the sections the node carries as its own properties (`recordCarried`), taken from the node `whoseNode` already reads whole, so no query changes. graph add-to-concept and update-node pass it to `fits` and in `checkElements`'s items, and the rule's write form hands an item's `record` to the judge. create-element and create-set pass none, since the node they make has no record.
+- **Those writes still carry an offloaded node's record sections into its json tag.** They read its JSON through the store, where the derive keeps its copy, and write it back inline: `cameFrom` and `installed` go with it, as `graphContext` already did before this round. The judge sets them aside for a node that carries the record, and the install's digest always does.
+- **The unreadable case reaches past nit 1's.** A node there that carries seed-firmware's own `installed` record but whose JSON can't be read is refused `address-held` in words that say so. That covers a json tag that's missing or doesn't parse to an object, and an LMDB reference with no entry or with one that isn't an object; SF39 pins the missing entry. So Amendment 3, item 3's "saying it isn't seed-firmware's record" now holds only for a node without that record, or one with it whose readable JSON has no `installedFirmware` section. Status still reads such a node as no install (`seeded: null`).
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-21 UTC)

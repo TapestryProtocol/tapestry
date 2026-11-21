@@ -12,10 +12,15 @@
  *                               empty: the JSON comes from the graph), and the later element writes' (Decision 16).
  *                               The problems only about graphContext, which the derive step builds after the write, are
  *                               set aside, so a write is never refused for them (ADR 0042 Decision 3). A key that names
- *                               no concept header has no finding: the operation's own refusal answers for it.
+ *                               no concept header has no finding: the operation's own refusal answers for it. With
+ *                               { concept, json, record }, the write is to a node that carries lifecycle
+ *                               seed-firmware's install record: the sections record names (cameFrom, installed) are
+ *                               set aside too, as the derive and the node form set them aside (ADR
+ *                               graph-operations-first-slice/0037 Amendment 3, item 6; review round 2, R2-N1).
  *   { node } or { node, concept }  a node as it stands: its tapestryJson, from the tapestry-store, judged against the
  *                               schema of each concept whose class thread reaches it, or of the one named, with nothing
- *                               set aside: one finding for each concept it doesn't fit, and one no-schema finding for
+ *                               set aside but the install record's sections the node carries (E4): one finding for
+ *                               each concept it doesn't fit, and one no-schema finding for
  *                               each concept with no usable schema. A node with no tapestryJson is one invalid-fields
  *                               finding, marked missing, and tapestryJson that isn't an object is one invalid-fields
  *                               finding (ADR 0042 Decision 2). A node no concept reaches has none: that is rule 3's
@@ -92,8 +97,9 @@ module.exports = {
         continue;
       }
       if (typeof item.concept !== 'string' || !item.concept) continue;
-      // A write's JSON: the problems only about graphContext are set aside (ADR 0042 Decision 3).
-      const r = await j.check(item.concept, item.json, { writing: true });
+      // A write's JSON: the problems only about graphContext are set aside (ADR 0042 Decision 3), and the install
+      // record's sections the item's record names, those its node carries (ADR 0037 Amendment 3 item 6; R2-N1).
+      const r = await j.check(item.concept, item.json, { writing: true, record: Array.isArray(item.record) ? item.record : [] });
       if (r.header === false) continue;
       if (r.fits === null && !r.waiting) out.push({ item, concept: item.concept, code: 'no-schema', message: noSchema(r.problem) });
       else if (r.fits === false) out.push({ item, concept: item.concept, code: 'invalid-fields', problems: r.problems, message: `The element's JSON doesn't fit the JSON schema of ${r.label}: ${X.listProblems(r.problems)}.` });

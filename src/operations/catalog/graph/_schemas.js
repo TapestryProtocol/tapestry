@@ -23,8 +23,9 @@
  *                                 header, name, nodes }, where header is false when the key names no concept header,
  *                                 and nodes are the schema nodes found, [{ tapestryKey, uuid }]
  *   problemsOf(schema, json)      { problems: [{ path, message }] }, or { problem } when the schema doesn't compile
- *   fits(read, concept, json)     a write's check: { fits: true | false | null, problems, problem, waiting }; null with
- *                                 no schema to check against, or when the JSON misses only its graphContext (waiting)
+ *   fits(read, concept, json, { record })  a write's check: { fits: true | false | null, problems, problem, waiting };
+ *                                 null with no schema to check against, or when the JSON misses only its graphContext
+ *                                 (waiting); record names the install record's sections the node carries, set aside
  *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
  *                                 schema once; its check(concept, json, { writing, record }) sets nothing aside unless
  *                                 writing, and the record sections `record` names, those the node carries
@@ -287,10 +288,11 @@ function judge(read) {
 /**
  * A write's check: whether `json`, which a write is about to store, fits the schema of the concept keyed `concept` →
  * { fits: true | false | null, problems, problem, waiting }, with the problems only about graphContext set aside
- * (ADR 0042 Decision 3).
+ * (ADR 0042 Decision 3), and the install record's sections `record` names, those the node carries (its facts' record,
+ * ADR graph-operations-first-slice/0037 Amendment 3 item 6; review round 2, R2-N1).
  */
-async function fits(read, concept, json) {
-  const r = await judge(read).check(concept, json, { writing: true });
+async function fits(read, concept, json, { record = [] } = {}) {
+  const r = await judge(read).check(concept, json, { writing: true, record });
   return { fits: r.fits, problems: r.problems, problem: r.problem, waiting: r.waiting };
 }
 
