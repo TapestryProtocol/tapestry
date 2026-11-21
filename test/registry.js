@@ -268,6 +268,7 @@ const suites = [
   { file: 'my-assistant-page.test.js' },
   { file: 'one-writer-assistant-profile.test.js' },
   { file: 'gate-result-record.test.js' },
+  { file: 'suite-env-changes.test.js' },
   { file: 'harden-user-data-error-path.test.js' },
   { file: 'harden-compute-endpoint.test.js' },
   { file: 'shared-concepts-row-detail.test.js' },

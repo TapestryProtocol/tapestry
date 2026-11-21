@@ -26,7 +26,7 @@ Its review (round 1, blocking 1) showed a suite listed first reading port 9 and 
 
 **A change left after a run reaches later suites the same way.** On 2026-11-20 a text search found 28 suite files that write to `process.env` inside a function. Most put the value back. At least these don't:
 - `search-api-result-type-settings` leaves `TAPESTRY_SETTINGS_PATH` set on purpose (`test/search-api-result-type-settings.test.js:54–61`), reasoning that later suites don't read it. ADR `honest-test-gate/0001` left this to the assertion sweep (`test-suite-hermeticity` #2).
-- `strfry-router-saved-state` P3 restores `BRAINSTORM_ROUTER_PLUGINS_DIR` by assignment (`test/strfry-router-saved-state.test.js:173–178`). When the key was unset, that leaves it holding the string `"undefined"`.
+- `strfry-router-saved-state` P3 restores `BRAINSTORM_ROUTER_PLUGINS_DIR` by assignment (`test/strfry-router-saved-state.test.js:173–178`). When the key was unset, that leaves it holding the string `"undefined"`. *Corrected at Test Design, 2026-11-21: this one doesn't leak. The suite's `run()` sets the key before any test runs and puts it back correctly, so P3 never meets an unset key (ADR `test-suite-hermeticity/0002`, Amendment 1).*
 - Four suites put a key back by deleting it: `tl-certainty-method`, `tl-membership-method-selector` and `tl-weighted-sum-method` (`TAPESTRY_SETTINGS_PATH`), and `trusted-list-pin-publish-blockers` (`SCHEDULED_TASKS_CONFIG_PATH`). That is a change whenever the key was already set before the suite ran, whether by the gate's starting environment or by an earlier suite's leak.
 
 **Who it hurts.** Everyone who reads a gate verdict, most of all anyone who runs the gate where a stack answers. There a leak can do either of two things:
@@ -56,7 +56,7 @@ As anyone who reads the test gate's verdict, I want the gate to fail any suite t
   - so the leak changes no other suite's result.
 - [ ] **AC5 — Today's suites pass, with no way round.**
   - With this in place, the gate passes when run with no stack, as CI runs it.
-  - Every registered suite that would trip the check is brought into line in this story, including the six named in Background. (The four that put a key back by deleting it trip the check only when the gate begins with that key set.)
+  - Every registered suite that would trip the check is brought into line in this story, including the five in Background that leave a change behind. (The four that put a key back by deleting it trip the check only when the gate begins with that key set. `strfry-router-saved-state`, also listed there, turned out not to leak; see the correction there.)
   - No suite can mark a change as allowed.
 
 ## Concepts touched
@@ -84,7 +84,7 @@ None open. The owner answered three at planning, on 2026-11-20:
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/test-suite-hermeticity/0002-gate-checks-process-env-around-every-suite.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/test-suite-hermeticity/4-suite-env-changes-fail-the-gate.test-plan.md`
 - Review: (filled in after Review phase)
 - Ledger: `ledger/2026-11-20-suite-env-changes-reach-every-suite.md` (this story closes it)
 - Where it was found: `engineering-team/reviews/graph-operations-first-slice/46-word-elements-fit-the-installed-word-schema.md` (round 1, blocking 1 and harness friction 1)

@@ -9,6 +9,11 @@
  * PHASE-3 OWNED (ADR 0001, Implementation notes, carve-out): the Implementer must not
  * modify this file, test/gate-result-record.test.js, or test/stack-free-npm-test.test.js.
  *
+ * Also shared by test/suite-env-changes.test.js (test-suite-hermeticity #4, ADR
+ * test-suite-hermeticity/0002), which added the env fixtures and ENV_FIXTURE below and
+ * re-aimed gate-result-record's C6. The same carve-out holds for that story: its
+ * Implementer must not modify this file either.
+ *
  * Nothing here requires the gate engine at module load. Before implementation the
  * engine does not exist, and a registered suite that throws at require time would crash
  * the current runner's load phase for every suite on the branch. Every engine touch goes
@@ -65,6 +70,32 @@ function lastLine(text) { const ls = lines(text); return (ls[ls.length - 1] || '
 
 const pass = (p) => `module.exports = { run: async () => ({ pass: ${p}, fail: 0 }) };\n`;
 
+/*
+ * The keys and values of test-suite-hermeticity #4's env fixtures (ADR test-suite-hermeticity/0002). ADDED is never
+ * in a run's starting environment; PRESET always is: the guard puts it, with PRESET_VALUE, on the engine's child.
+ * Every value a fixture writes, and PRESET_VALUE, is listed in VALUES, so a guard can show that none of them
+ * reaches the run's output or its record (story AC3). env-writer's key and value are older and listed too.
+ */
+const ENV_FIXTURE = {
+  ADDED: 'GATE_ENV_FIXTURE_ADDED',
+  PRESET: 'GATE_ENV_FIXTURE_PRESET',
+  PROBE: 'GATE_FIXTURE_ENV_PROBE',
+  PRESET_VALUE: 'gate-env-fixture-starting-value-7d1f',
+  AT_LOAD: 'gate-env-fixture-written-at-load-7d1f',
+  CHANGED_AT_LOAD: 'gate-env-fixture-changed-at-load-7d1f',
+  IN_RUN: 'gate-env-fixture-written-in-run-7d1f',
+  CHANGED_IN_RUN: 'gate-env-fixture-changed-in-run-7d1f',
+  LATE: 'gate-env-fixture-written-late-7d1f',
+  WRITER: 'written-by-env-writer',
+};
+ENV_FIXTURE.VALUES = [ENV_FIXTURE.PRESET_VALUE, ENV_FIXTURE.AT_LOAD, ENV_FIXTURE.CHANGED_AT_LOAD, ENV_FIXTURE.IN_RUN,
+  ENV_FIXTURE.CHANGED_IN_RUN, ENV_FIXTURE.LATE, ENV_FIXTURE.WRITER];
+
+// An env fixture whose run() runs leaves ran-<its file name> beside itself, so a guard can tell whether it ran.
+const MARK_RAN = "require('fs').writeFileSync(require('path').join(__dirname, 'ran-' + require('path').basename(__filename)), '');";
+const E = ENV_FIXTURE;
+const envSet = (key, value) => `process.env.${key} = '${value}';`;
+
 const FIXTURE_SOURCES = {
   'pass.test.js': pass(2),
   'second-pass.test.js': pass(1),
@@ -106,11 +137,20 @@ const FIXTURE_SOURCES = {
   // Blocks the event loop for 6 s — longer than AC-5's 5 s bound.
   'blocking.test.js':
     "module.exports = { run: async () => { require('child_process').execSync('sleep 6'); return { pass: 1, fail: 0 }; } };\n",
+  // Leaves a key set after its run. Since test-suite-hermeticity #4 (ADR test-suite-hermeticity/0002) that is the
+  // suite's FAIL; test/suite-env-changes.test.js uses it as such. Its old partner env-reader went with C6's re-aim.
   'env-writer.test.js':
     "module.exports = { run: async () => { process.env.GATE_FIXTURE_ENV_PROBE = 'written-by-env-writer'; return { pass: 1, fail: 0 }; } };\n",
-  'env-reader.test.js':
-    'const SEEN_AT_LOAD = process.env.GATE_FIXTURE_ENV_PROBE;\n' +
-    'module.exports = { run: async () => (SEEN_AT_LOAD === undefined ? { pass: 1, fail: 0 } : { pass: 0, fail: 1 }) };\n',
+  // C6's load-order probe (re-aimed 2026-11-20, test-suite-hermeticity #4): the writer's run leaves a file beside
+  // both fixtures, and the reader notes at load whether it was there. A file, because the engine now gives every
+  // suite back the environment it began with, so process.env can no longer carry the signal.
+  'marker-writer.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    "module.exports = { run: async () => { fs.writeFileSync(path.join(__dirname, 'load-order-marker'), 'written by marker-writer'); return { pass: 1, fail: 0 }; } };\n",
+  'marker-reader.test.js':
+    "const SEEN_AT_LOAD = require('fs').existsSync(require('path').join(__dirname, 'load-order-marker'));\n" +
+    'module.exports = { run: async () => (SEEN_AT_LOAD ? { pass: 0, fail: 1 } : { pass: 1, fail: 0 }) };\n',
 
   /* ── Added at the review kick-back, 2026-09-13 (review c6ed2b35, Blocking 1 and 2) ── */
 
@@ -167,6 +207,71 @@ const FIXTURE_SOURCES = {
   'nan-fail.test.js': 'module.exports = { run: async () => ({ pass: 1, fail: NaN }) };\n',
   'negative-fail.test.js': 'module.exports = { run: async () => ({ pass: 1, fail: -1 }) };\n',
   'string-skipped.test.js': "module.exports = { run: async () => ({ pass: 1, fail: 0, skipped: '4' }) };\n",
+
+  /* ── test-suite-hermeticity #4 (ADR test-suite-hermeticity/0002): suites that change process.env ── */
+
+  // Leaves process.env alone, and marks that it ran.
+  'env-clean.test.js': `module.exports = { run: async () => { ${MARK_RAN} return { pass: 1, fail: 0 }; } };\n`,
+
+  // Change it when they load. Each run() would mark that it ran.
+  'env-adds-at-load.test.js':
+    `${envSet(E.ADDED, E.AT_LOAD)}\nmodule.exports = { run: async () => { ${MARK_RAN} return { pass: 1, fail: 0 }; } };\n`,
+  'env-changes-at-load.test.js':
+    `${envSet(E.PRESET, E.CHANGED_AT_LOAD)}\nmodule.exports = { run: async () => { ${MARK_RAN} return { pass: 1, fail: 0 }; } };\n`,
+  'env-removes-at-load.test.js':
+    `delete process.env.${E.PRESET};\nmodule.exports = { run: async () => { ${MARK_RAN} return { pass: 1, fail: 0 }; } };\n`,
+  'env-throws-at-load.test.js':
+    `${envSet(E.ADDED, E.AT_LOAD)}\nthrow new Error('boom after setting a key (fixture: env-throws-at-load)');\n`,
+  // Adds one key and changes the other at load: what AC4's probes must never see.
+  'env-leaks-at-load.test.js':
+    `${envSet(E.ADDED, E.AT_LOAD)}\n${envSet(E.PRESET, E.CHANGED_AT_LOAD)}\n` +
+    `module.exports = { run: async () => { ${MARK_RAN} return { pass: 1, fail: 0 }; } };\n`,
+  // Sets a key on a zero-delay timer while it loads; the timer fires after every suite has loaded.
+  'env-deferred-at-load.test.js':
+    `setTimeout(() => { ${envSet(E.ADDED, E.LATE)} }, 0);\nmodule.exports = { run: async () => ({ pass: 1, fail: 0 }) };\n`,
+
+  // Leave it changed after their runs: a pass, a pass, a failing run, a throw.
+  'env-changes-in-run.test.js':
+    `module.exports = { run: async () => { ${envSet(E.PRESET, E.CHANGED_IN_RUN)} return { pass: 2, fail: 0 }; } };\n`,
+  'env-removes-in-run.test.js':
+    `module.exports = { run: async () => { delete process.env.${E.PRESET}; return { pass: 2, fail: 0 }; } };\n`,
+  'env-adds-in-failing-run.test.js':
+    `module.exports = { run: async () => { ${envSet(E.ADDED, E.IN_RUN)} return { pass: 1, fail: 1 }; } };\n`,
+  'env-throws-in-run.test.js':
+    `module.exports = { run: async () => { ${envSet(E.ADDED, E.IN_RUN)} throw new Error('fetch failed after setting a key (fixture: env-throws-in-run)'); } };\n`,
+  // Adds one key and changes the other in its run: what AC4's later probe must never see.
+  'env-leaks-in-run.test.js':
+    `module.exports = { run: async () => { ${envSet(E.ADDED, E.IN_RUN)} ${envSet(E.PRESET, E.CHANGED_IN_RUN)} return { pass: 1, fail: 0 }; } };\n`,
+  // Sets one key and changes the other during its run, waits, and puts both back before run() ends.
+  'env-restores-in-run.test.js':
+    'module.exports = { run: async () => {\n' +
+    `  const had = Object.prototype.hasOwnProperty.call(process.env, '${E.PRESET}');\n` +
+    `  const was = process.env.${E.PRESET};\n` +
+    `  try { ${envSet(E.ADDED, E.IN_RUN)} ${envSet(E.PRESET, E.CHANGED_IN_RUN)} await new Promise((r) => setTimeout(r, 5)); }\n` +
+    `  finally { delete process.env.${E.ADDED}; if (had) process.env.${E.PRESET} = was; else delete process.env.${E.PRESET}; }\n` +
+    '  return { pass: 3, fail: 0 };\n' +
+    '} };\n',
+  // Passes at once, leaving a write behind on a zero-delay timer.
+  'env-deferred-in-run.test.js':
+    `module.exports = { run: async () => { setTimeout(() => { ${envSet(E.ADDED, E.LATE)} }, 0); return { pass: 1, fail: 0 }; } };\n`,
+
+  // AC4's probes (one source, two names): what the two keys held at load, at run, and in a child started at run.
+  // Written beside the fixture as probe-<file name>.json; the run itself always passes, and the guard judges the file.
+  ...Object.fromEntries(['env-probe-first.test.js', 'env-probe-last.test.js'].map((name) => [name,
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    "const cp = require('child_process');\n" +
+    `const KEYS = ${JSON.stringify([E.ADDED, E.PRESET])};\n` +
+    'const look = () => Object.fromEntries(KEYS.map((k) => [k, Object.prototype.hasOwnProperty.call(process.env, k) ? process.env[k] : null]));\n' +
+    'const atLoad = look();\n' +
+    'module.exports = { run: async () => {\n' +
+    '  const atRun = look();\n' +
+    "  const src = `process.stdout.write(JSON.stringify(Object.fromEntries(${JSON.stringify(KEYS)}.map((k) => [k, Object.prototype.hasOwnProperty.call(process.env, k) ? process.env[k] : null]))))`;\n" +
+    "  const child = JSON.parse(cp.execFileSync(process.execPath, ['-e', src], { encoding: 'utf8' }));\n" +
+    "  fs.writeFileSync(path.join(__dirname, 'probe-' + path.basename(__filename) + '.json'), JSON.stringify({ atLoad, atRun, child }));\n" +
+    '  return { pass: 1, fail: 0 };\n' +
+    '} };\n',
+  ])),
 };
 
 const DRIVER_SOURCE =
@@ -374,7 +479,7 @@ function probeStackHttp(binDir, mode) {
 module.exports = {
   REPO, TEST_DIR, ADR, MODULES, modulePath, need,
   short, sleep, readSafe, lines, firstLine, lastLine,
-  FIXTURE_SOURCES, scenario, engineEnv, runEngineSync, startEngine,
+  FIXTURE_SOURCES, ENV_FIXTURE, scenario, engineEnv, runEngineSync, startEngine,
   readRecords, waitFor, entryMap, runStatus,
   hasShell, git, makeFakeDocker, probeStackHttp,
 };
