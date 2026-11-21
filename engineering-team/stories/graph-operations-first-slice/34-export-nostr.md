@@ -141,7 +141,7 @@ As the same owner, I want to see before I send what would go out and what can't 
   - through the I/O import (that item answered `skipped`);
   - through the client-publish route's brain-write hook, for a Tapestry letter posted again (added at Architecture).
 
-  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. So is any letter an export of the node sent, even one newer than the letter the node records, after two exports raced or a read-back failed (as amended at Review). A newer letter from anywhere else, such as an edit in the Tapestries UI, is imported as today.
+  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. So is any of the 20 latest letters export sent for the node, even one newer than the letter the node records, after two exports raced or a read-back failed (as amended at Review, and bounded to 20 when the owner ratified ADR 0034's Amendment 3). A newer letter from anywhere else, such as an edit in the Tapestries UI, is imported as today.
 - [ ] **AC7 — What it refuses, and how it reaches agents.** It refuses, signs, sends and records nothing, and says in words what was wrong, naming the input:
   - no scope, or more than one form of it;
   - a ref that names no node (`unknown-ref`) or more than one (`ambiguous-ref`, with the candidates), as `graph resolve` reads it;
@@ -230,7 +230,7 @@ Settled by the design, and approved with the story (2026-11-20):
 
 - AC1: a graph past four levels of imports, or past the 50th, is reported `graph-not-followed`.
 - AC5: letters go out by kind of node first (headers, supersets, sets parents first, the rest), and within a kind after what they name.
-- AC6: the importers also turn away any letter an export of the node sent, even one newer than the letter the node records.
+- AC6: the importers also turn away any of the 20 latest letters an export of the node sent, even one newer than the letter the node records. The owner chose this bound when he ratified Amendment 3 (2026-11-21).
 - AC7: the scratch-stack run sends to the stack's own relay only. Outside relays are covered stack-free, and the first real send to one is recorded when it happens.
 
 For Architecture, not this gate (answered by ADR 0034):
@@ -354,7 +354,7 @@ Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every 
 
 The scoped gate, the same six entries through the gate engine on Node 24.18.0, labelled `a10-34-r2-fixes`, is `20261121T051347Z-55527-b43b`: PASS, exit 0, 1,486 passed, 0 failed, 18 skipped, 6/6 suites. By entry: `operations` 1,382/0/16, `external-cli` 53/0/0, `openapi-coverage` 13/0/0, `admin-action-sweep` 9/0/0, `schema-save-finds-the-right-header` 26/0/2 and `publish-export-a-concept` 3/0/0. `operations` has the round's six new tests (ES20 to ES24 and EW6) beside review round 2's 1,376. The record names `8a445856`, the tests' commit, with 12 files uncommitted (`dirty: true`): the 11 files of these fixes, and this story with the Deviations above. This section was written after it. Nothing of this round is committed yet. `bash scripts/harness-lint.sh` was clean before the gate. The runs' logs are in the worktree's `tmp/a10-34/round2-impl/`.
 
-**The live checks on these fixes** (2026-11-21, 05:23–05:24Z, on `454e6c5e4`, the same scratch stack, its control panel restarted): `nostr-live.test.js` 6 passed, 0 failed, LV6 497 letters in 2.09 s (`tmp/live-check-34/nostr-live.log`; the earlier runs kept as `nostr-live-run1.log` and `nostr-live-run2.log`).
+**The live checks on these fixes** (2026-11-21, 05:23–05:24Z, on `454e6c5e4`, the same scratch stack. Its control panel was restarted first, from this session, with `supervisorctl restart brainstorm`, which answered "stopped" and then "started". That output wasn't saved to the records.): `nostr-live.test.js` 6 passed, 0 failed, LV6 497 letters in 2.09 s (`tmp/live-check-34/nostr-live.log`; the earlier runs kept as `nostr-live-run1.log` and `nostr-live-run2.log`).
 
 
 ## Linked artifacts
