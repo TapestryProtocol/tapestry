@@ -91,7 +91,7 @@ As the same owner, I want to see before I send what would go out and what can't 
 
 - [ ] **AC1 — Publish a scope.** Given the owner or an admin is signed in, when they call `POST /api/tapestry/export/nostr` with `scope` and `relays`, then each node in the scope that the assistant signs (AC4) gets one letter, signed with the assistant's key and sent to the instance's own relay and to each relay named. The scope takes one of three forms:
   - **a node:** its tapestryKey, or a ref `graph resolve` reads;
-  - **a graph:** a graph element, an element of `39998:<TA>:graph`, named the same way: one that concept's class thread reaches, or one whose stored JSON holds a `graph` object (as amended at Architecture). That is a concept graph, a Tapestry, or a selection saved with `graph create-element`, with what its lists name and the graphs it imports, each the same way. A concept graph also brings its concept's class thread and core nodes, as today's export-set gathers them (fact 7);
+  - **a graph:** a graph element, an element of `39998:<TA>:graph`, named the same way: one that concept's class thread reaches, or one whose stored JSON holds a `graph` object (as amended at Architecture). That is a concept graph, a Tapestry, or a selection saved with `graph create-element`, with what its lists name and the graphs it imports, each the same way, four levels and 50 graphs at most. A graph past them is sent with its lists unfollowed and reported `graph-not-followed` (as amended at Review). A concept graph also brings its concept's class thread and core nodes, as today's export-set gathers them (fact 7);
   - **everything:** every node of the instance's own.
 
   `relays` holds zero or more `wss://` or `ws://` relays. The instance's own relay is always sent to.
@@ -127,7 +127,7 @@ As the same owner, I want to see before I send what would go out and what can't 
   - A node the owner signed is `owner-signed`. It is treated the same way, since only the owner's own signer can sign its next version (fact 8).
   - Person nodes, tag nodes, placeholders and change entries are never letters, and no scope counts them.
 - [ ] **AC5 — In order, with a dry run, and safe to repeat.**
-  - Letters go out so that each comes after the call's letters it names, such as a concept's header before its core nodes and elements. Where a cycle makes that impossible, as a header and the concept graph that lists it do, a fixed order by kind of node breaks it (as amended at Architecture).
+  - Letters go out by kind of node first: concept headers, then supersets, then sets, parents first, then the rest. So a concept's header goes before its core nodes and elements. Within a kind, each goes after the call's letters of that kind it names (as amended at Review).
   - `dryRun: true` signs, sends and records nothing, and answers what the call would do:
     - each node's outcome;
     - for a `changed` one, the tags it would add and take out;
@@ -141,7 +141,7 @@ As the same owner, I want to see before I send what would go out and what can't 
   - through the I/O import (that item answered `skipped`);
   - through the client-publish route's brain-write hook, for a Tapestry letter posted again (added at Architecture).
 
-  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. A newer one, such as an edit in the Tapestries UI, is imported as today.
+  Its tags, its JSON and its `tapestry:` links stay as the graph had them, and the node still has its letter. An older letter at its address is turned away the same way. So is any letter an export of the node sent, even one newer than the letter the node records, after two exports raced or a read-back failed (as amended at Review). A newer letter from anywhere else, such as an edit in the Tapestries UI, is imported as today.
 - [ ] **AC7 — What it refuses, and how it reaches agents.** It refuses, signs, sends and records nothing, and says in words what was wrong, naming the input:
   - no scope, or more than one form of it;
   - a ref that names no node (`unknown-ref`) or more than one (`ambiguous-ref`, with the candidates), as `graph resolve` reads it;
@@ -156,7 +156,7 @@ As the same owner, I want to see before I send what would go out and what can't 
 
   On a scratch stack, an admin agent with its own key, through the external CLI (A10.6) and with no change to it:
   - makes a concept with the graph operations, with a set, two elements and a `tapestry:` link between them, and dry-runs its export, seeing every letter `new`;
-  - exports it to the stack's own relay, and to one outside relay the owner chooses for the check, since the guard refuses a relay on a private address;
+  - exports it to the stack's own relay. Sending to outside relays is covered by the stack-free suites, and the first real export to one is recorded in this story when it happens (as amended at Review);
   - changes one element with `graph update-node`, and sees a dry run list only that element as `changed`;
   - exports again, and sees only that element signed;
   - imports the letters back with import nostr, and finds the graph unchanged;
@@ -225,6 +225,13 @@ Settled by the design, and approved with the story (2026-11-20):
 - AC5: each letter goes after the call's letters it names, with rank breaking a cycle; a big scope goes on through `next.after`.
 - AC1 and AC7: a graph element is one the graph concept's class thread reaches, or one whose stored JSON holds a `graph` object; `too-many-relays`, `bad-cursor` and `no-assistant-key` are named.
 - AC6: event-update answers `unchanged` and the I/O import `skipped` for a letter the node holds or an older one, and the client-publish route's brain-write hook is guarded too.
+
+**Changed at Review** (the owner's answer to review round 1, "Yes, as recommended", 2026-11-21; ADR 0034, Amendment 2):
+
+- AC1: a graph past four levels of imports, or past the 50th, is reported `graph-not-followed`.
+- AC5: letters go out by kind of node first (headers, supersets, sets parents first, the rest), and within a kind after what they name.
+- AC6: the importers also turn away any letter an export of the node sent, even one newer than the letter the node records.
+- AC7: the scratch-stack run sends to the stack's own relay only. Outside relays are covered stack-free, and the first real send to one is recorded when it happens.
 
 For Architecture, not this gate (answered by ADR 0034):
 - **The record of what was sent:** its form (a property, a node or a ledger; design §5, question 2), per letter and per relay, and how it serves status and retract, including a letter whose node `graph delete-node` took out (ADR 0026).

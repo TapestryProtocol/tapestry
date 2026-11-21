@@ -324,3 +324,25 @@ Writing the tests raised six points the decisions left open. Each is settled her
    - A call writes its change entry when some relay accepted some letter. That includes an unchanged letter re-sent to a relay that hadn't had it, recorded with `was` equal to `now`.
    - A call in which no relay accepted anything records nothing. Its letters were signed, but exist nowhere.
    - `SEND_CUTOFF_MS` bounds the sends to outside relays. The one `strfry import` into the instance's own relay runs before them, and isn't cut.
+
+## Amendment 2 (2026-11-21, at Review; approved by the owner, "Yes, as recommended")
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/34-export-nostr.md`) found what follows. The story's "Changed at Review" list is the same, as it reaches the criteria.
+
+1. **Decisions 8 and 10: the record locks, keeps the newest, and remembers what it couldn't confirm** (finding 3).
+   - The record's transaction takes each node's write lock before it reads the node's `id`, as the graph writes' `lockNode` does, so two records of one node go one after the other.
+   - Of the letters export sent for a node, the node keeps the newest, by NIP-01's order: the later `created_at`, or on a tie the lower id. A record that finds the node already holding a newer letter export sent leaves it, and its change says `raced`.
+   - A letter whose read-back didn't answer (`unread`) may be on the instance's own relay. So it is recorded in the call's change entry, with each relay's answer, though not on the node. Amendment 1's item 6 becomes: a call writes its entry when some relay accepted a letter or a letter is `unread`; a call whose every letter was refused, unreachable or not sent records nothing.
+   - `holdsLetterOrNewer` also answers yes for any letter whose id an `export nostr` entry records for that node, newer or not. A letter export sent never comes back over its node, whatever the node records.
+2. **Decision 2: order by kind first** (finding 4). Letters go out by rank:
+   - concept headers;
+   - supersets;
+   - sets, parents first;
+   - then the rest.
+
+   Within a rank, each goes after the letters of that rank it names, and a cycle within a rank goes by tapestryKey. So a header goes before its core nodes and elements, as AC5 has it, and a graph still goes after the nodes it lists.
+3. **Decision 9: a graph not followed is reported** (finding 6). A graph past the fourth level of imports, or past the 50th, is sent as it is, its lists unfollowed. It is reported `graph-not-followed`, naming it and why.
+4. **Decision 9: a `b` tag carries a relationship** (finding 13). Its `INHERITS_FROM`, which import nostr wires from it, is a relationship a letter carries.
+5. **Decision 6: `strfry import` within the call's time** (finding 7). The import is given the call's remaining time, never more than 30 s. A hung import is stopped then, and the read-back decides each letter's answer.
+6. **Decision 11: the guard test catches a publisher built export's way** (blocking finding 1). RE1 flags any file outside the excluded folders that calls `.publish(` on a relay. That means one it makes with `SimplePool`, `AbstractRelay` or `Relay`, or one it gets from import's `_relay.js`. "The second server-side publisher" reads "another server-side publisher" wherever it was written (finding 9), since assistant-profile's came first.
+7. **AC7's live run: the stack's own relay only** (blocking finding 2). The scratch-stack run sends to the stack's own relay. Sending to outside relays is covered stack-free (ES3, ES16). The first real export to an outside relay is recorded in the story when it happens. The private-relay refusal is run by hand on the stack.
