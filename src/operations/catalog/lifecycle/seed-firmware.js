@@ -7,9 +7,10 @@
  * Its source is the firmware the instance carries, its files read once and checked before anything is written
  * (src/firmware/target.js). Holding the lifecycle lock, it reads what the graph holds at the firmware's addresses,
  * plans each node's and relationship's outcome, and writes the plan in one transaction, with one change entry
- * (_seed.js). Then the cache, and rules check over the firmware's concepts. It runs inline, not as a job, so the
- * caller's role reaches the entry. Nothing is signed or sent to any relay, and no guard runs: today's install, POST
- * /api/firmware/install, stays the install until export nostr can sign what this writes (ADR 0043, Decision 1).
+ * (_seed.js). Then the cache, and rules check over the firmware's own nodes (Amendment 4). It runs inline, not as a
+ * job, so the caller's role reaches the entry. Nothing is signed or sent to any relay, and no guard runs: today's
+ * install, POST /api/firmware/install, stays the install until export nostr can sign what this writes (ADR 0043,
+ * Decision 1).
  */
 
 const path = require('path');
@@ -71,7 +72,7 @@ module.exports = {
   description: [
     'Installs the firmware the instance carries as nodes of its own, at the addresses today\'s install gives them, under the instance\'s assistant, with no letter: nothing is signed or sent to any relay, and no guard runs. Today\'s install, POST /api/firmware/install, stays the install, and signs as it writes.',
     'Run again, it brings each node in line with the firmware unless it was edited since it was installed: an edited node is **kept** as it is, and the answer names what differs (its JSON, its name, or a tag type such as a re-pointed b). A node today\'s install made has no record of what was installed: it is adopted when it matches, and kept when it differs. Name kept nodes in `take`, by tapestryKey or address, or pass `takeAll`, to bring them in line anyway. Graph-rule\'s items always follow the rulebook, an edit put back. A node the firmware no longer has is left as it is (`not-in-source`); a relationship the last install made that the firmware no longer makes is taken out, and nothing else is.',
-    'Each node it writes records where it came from (`cameFrom`, its file) and what was installed (`installed`), which `cache get` answers. It keeps an installed-firmware graph, an element of the graph concept at `39999:<assistant>:installed-firmware`, that `lifecycle status` reads; it lists the relationships it kept apart, which no later install takes out. A node at that address without seed-firmware\'s mark is refused (`address-held`), and nothing is written. A run that changes nothing writes nothing. Then rules check runs over the firmware\'s concepts, and reports what it finds.',
+    'Each node it writes records where it came from (`cameFrom`, its file) and what was installed (`installed`), which `cache get` answers. It keeps an installed-firmware graph, an element of the graph concept at `39999:<assistant>:installed-firmware`, that `lifecycle status` reads; it lists the relationships it kept apart, which no later install takes out. A node at that address without seed-firmware\'s mark is refused (`address-held`), and nothing is written. A run that changes nothing writes nothing. Then rules check runs over the firmware\'s own nodes, and reports what it finds on them.',
   ].join('\n\n'),
   inputs: {
     version: { schema: { type: 'string', minLength: 1, maxLength: 64 }, required: false, description: 'The firmware to install: the version the instance carries (1.0.0, or its folder\'s name, v1.0.0); left out, that one' },
@@ -113,7 +114,7 @@ module.exports = {
         },
         letterOutOfDate: { type: 'array', items: { type: 'object' }, description: 'The written nodes a letter backs, { address, tapestryKey }: each keeps its old letter until export nostr sends a new one' },
         cacheOutOfDate: count('How many written nodes\' caches could not be rebuilt after the commit'),
-        rulesCheck: { type: 'object', description: 'rules check over the firmware\'s concepts: { findings, rules, judged, first, more }' },
+        rulesCheck: { type: 'object', description: 'rules check over the firmware\'s own nodes, the findings on them: { findings, rules, judged, first, more }' },
         change: CHANGE_ENTRY,
         note: { type: 'string', description: 'What was done, in words' },
       },

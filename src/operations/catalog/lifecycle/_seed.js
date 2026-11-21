@@ -20,8 +20,9 @@
  *                                           entry (Decision 10) → { change, written, letterOutOfDate, addresses }
  *   refreshCache(written)                   after the commit: each written json's cached entry removed, and each
  *                                           written node derived again → how many failed (cacheOutOfDate)
- *   rulesCheck(target)                      rules check over each firmware concept's scope, in a transaction of its
- *                                           own after the cache → { findings, rules, judged, first }
+ *   rulesCheck(target)                      rules check over the firmware's own nodes, the target's nodes the graph
+ *                                           holds (Amendment 4), in a transaction of its own after the cache →
+ *                                           { findings, rules, judged, first }
  *   seeded(read, ta)                        status's seeded, from the installed-firmware graph, or null (Decision 12)
  *   contentOf(node), installedGraphAddress(ta)
  *
@@ -731,8 +732,10 @@ async function refreshCache(written) {
 }
 
 /**
- * rules check over each firmware concept's scope (Decision 10), in a transaction of its own, so that its reads see
- * one state of the graph → { findings, rules, judged, first, more }. It reports and undoes nothing.
+ * rules check over the firmware's own nodes, the target's nodes the graph holds (Decision 10, as Amendment 4 narrows
+ * it), in a transaction of its own, so that its reads see one state of the graph → { findings, rules, judged, first,
+ * more }: the findings on those nodes alone, and judged the number of them some rule judged. Each rule lists each
+ * node's items as a check over that node would, and judges them all in one call. It reports and undoes nothing.
  */
 async function rulesCheck(target) {
   const graph = require('../../graph');
@@ -741,23 +744,34 @@ async function rulesCheck(target) {
     return await graph.writeTransaction(async (tx) => {
       const read = (cypher, params) => tx.read(cypher, params);
       const rules = X.rulesNamed();
-      const headers = target.nodes.filter((t) => t.role === 'conceptHeader').map((t) => t.address);
+      // The firmware's own nodes: the target's nodes the graph holds, by their addresses (Amendment 4).
       const rows = await read(
         `UNWIND $uuids AS u
-         MATCH (h:NostrEvent|TapestryNode {uuid: u})
-         WHERE h:ConceptHeader OR h:ListHeader
-         RETURN h.tapestryKey AS key, coalesce(h.tapestryValue, h.name) AS name`,
-        { uuids: headers },
+         MATCH (n:NostrEvent|TapestryNode {uuid: u})
+         WHERE NOT n:NostrEventTag AND NOT n:GraphChange
+         RETURN DISTINCT n.tapestryKey AS key`,
+        { uuids: target.nodes.map((t) => t.address) },
       );
+      const keys = [...new Set(rows.map((x) => x.key).filter((k) => typeof k === 'string' && k))].sort(byText);
+      // Each rule lists each node's items as a check over that node would, and judges them all in one call.
+      const judged = new Set();
       const seen = new Map();
-      let judged = 0;
-      for (const r of rows.filter((x) => typeof x.key === 'string').sort((a, b) => byText(a.key, b.key))) {
-        const found = await X.findingsIn(read, { kind: 'concept', key: r.key, name: r.name || null }, rules);
-        judged += found.judged;
-        for (const f of found.findings) { const id = X.idOf(f.rule, f.finding); if (!seen.has(id)) seen.set(id, X.answerOf(f.rule, f.finding)); }
+      for (const rule of rules) {
+        const items = [];
+        for (const key of keys) items.push(...await rule.scan(read, { kind: 'node', key }));
+        const left = new Set();
+        for (const f of items.length ? await rule.violations(items, read) : []) {
+          if (f && f.unjudged === true) { left.add(X.nodeKeyOf(f)); continue; }
+          const id = X.idOf(rule.name, f);
+          if (!seen.has(id)) seen.set(id, { rule: rule.name, finding: f, id });
+        }
+        for (const it of items) if (it && typeof it.node === 'string' && !left.has(it.node)) judged.add(it.node);
       }
-      const all = [...seen.values()];
-      return { findings: all.length, rules: rules.map((x) => x.name), judged, first: all.slice(0, RULES_SHOWN), more: all.length > RULES_SHOWN };
+      // In rules check's order: by node, then rule, then id.
+      const all = [...seen.values()]
+        .sort((a, b) => byText(X.nodeKeyOf(a.finding), X.nodeKeyOf(b.finding)) || byText(a.rule, b.rule) || byText(a.id, b.id))
+        .map((x) => X.answerOf(x.rule, x.finding));
+      return { findings: all.length, rules: rules.map((x) => x.name), judged: judged.size, first: all.slice(0, RULES_SHOWN), more: all.length > RULES_SHOWN };
     });
   } catch (err) {
     return { findings: null, rules: [], judged: 0, first: [], more: false, problem: String((err && err.message) || err) };
