@@ -74,7 +74,7 @@ const runOn = (file, requests, { cli = [], spy = true } = {}) => S.answered(S.ru
 
 /** The findings rules check gives on `file`, by the node's tapestryKey. */
 function findingsOn(file, scope = 'graph') {
-  const r = runOn(file, [{ id: 'check', method: 'GET', url: `${CHECK}?scope=${encodeURIComponent(scope)}&limit=200`, caller: 'owner' }], { spy: false });
+  const r = runOn(file, [{ id: 'check', method: 'GET', url: `${CHECK}?scope=${encodeURIComponent(scope)}&rules=property-has-one-parent&limit=200`, caller: 'owner' }], { spy: false });
   const x = r.req('check');
   if (!fs.existsSync(CHECK_DECL)) throw new Error(`rules check, which gives a finding's id, does not exist yet: src/operations/catalog/rules/check.js (ADR 0045 Decision 5): it answered ${x.status}`);
   assert(x.status === 200 && x.body.success, `rules check must answer; got ${x.status} ${show(x.body).slice(0, 400)}`);

@@ -409,10 +409,19 @@ const suites = [
   { file: 'graph-rules-builder.test.js' },
   { file: 'graph-rule-firmware.test.js' },
   { file: 'firmware-element-sync.test.js' },
+  // graph-operations-first-slice #47: firmware's nodes, and each new concept's JSON schema, hold the keys of the concepts
+  // they belong to (ADR graph-operations-first-slice/0047 Decisions 8 to 10). Stack-free in every run: firmware's files,
+  // the old create-concept route in a sandbox, Pass 1 in a child, and graph create-concept over a fake graph. The rule
+  // word-types-hold-concept-keys and its rules check suites live under test/operations/rules/.
+  { file: 'firmware-nodes-hold-their-concepts-keys.test.js' },
   // graph-operations-first-slice #44: the Concepts page and the Dashboard's Concepts tile show a concept with no event,
   // as graph create-concept makes one, and its row offers no Disposition… until it has one. Stack-free in every run;
   // its live checks run only against a scratch container (tapestry-scratch…).
   { file: 'concepts-list-shows-concepts-with-no-event.test.js' },
+  // graph-operations-first-slice #46: an element of `word` fits the `word` schema an install leaves, since install no
+  // longer writes the wordType pair that compares `word.wordTypes` with itself (Loom P-156). Stack-free in every run:
+  // the install's enumeration step and Pass 2 run in a child over a fake graph (test/helpers/saveSchemaChild.js).
+  { file: 'word-elements-fit-the-installed-word-schema.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

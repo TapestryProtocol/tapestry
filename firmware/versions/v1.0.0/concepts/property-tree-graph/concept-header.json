@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-property-tree-graphs",
     "name": "concept header for the concept of property tree graphs",
     "title": "Concept Header for the Concept of Property Tree Graphs",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "graphType"]
   },
   "conceptHeader": {
     "description": "A graph recording the property tree structure of a concept.",

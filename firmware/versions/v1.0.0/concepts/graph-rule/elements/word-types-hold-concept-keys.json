@@ -1,0 +1,32 @@
+{
+  "word": {
+    "slug": "word-types-hold-concept-keys",
+    "name": "word-types-hold-concept-keys",
+    "title": "Word Types Hold Concept Keys",
+    "description": "A node's wordTypes hold the key of each concept whose class thread reaches it.",
+    "wordTypes": [
+      "word",
+      "graphRule"
+    ]
+  },
+  "graphRule": {
+    "name": "word-types-hold-concept-keys",
+    "number": 12,
+    "says": "a node's `wordTypes` hold the key of each concept whose class thread reaches it. The design's D10 says \"edges are the authority on which concepts a node belongs to; the JSON's `wordTypes` and `coreMemberOf` are computed from them\", and a node belongs to every concept whose class thread reaches it (rules 7 and 8). A concept's key is its `oKeys.singular`, the key its elements' sections are filed under. The keys `word` and `graphContext`, which an element's JSON keeps for itself, are expected of no node. The JSON judged is the node's JSON as the writes keep it: its `json` tag, with the owner's sections kept beside another author's letter or firmware's definition (`tapestryOwnSections`) laid over it, as the writes and the derive step read a node; a section kept beside adds its key to `wordTypes` there. Only the string entries of `word.wordTypes` count, and only when it is a list, so JSON with no word block, or no `wordTypes`, lacks every key. A key for a concept that doesn't reach the node, and the order of the list, aren't judged (ADR graph-operations-first-slice/0047, Decisions 1 to 4).",
+    "kind": "a graph rule, about every node a class thread reaches. As a check it judges every node, whoever made it, as every operation's read finds a node: one labelled `TapestryNode`.",
+    "about": "the graph",
+    "refusesOrReports": "it only reports, as the owner chose (2026-11-20). No write is refused for it, and no write's answer changes.",
+    "check": "`rules check` runs it over the whole graph, one concept (its header, its core nodes, its class thread's sets and the nodes they reach) or one node. Its `scan` lists the nodes; its `violations` reads, for all of them at once, the concepts whose class threads reach each node, their headers' keys, and each node's `json` tags and kept-beside sections. It names a node once for each key it lacks, with the concept whose key it is and that `key`, code `missing-concept-key`. A node some concept other than word reaches whose JSON it can't read isn't named: it is counted in the answer's `notJudged`, by why. That is `no-json` for a node with no `json` tag and no sections kept beside it, and `unreadable-json` for two `json` tags that differ, a tag that doesn't parse or that holds no object, or kept-beside sections that aren't JSON of an object. A finding's id covers its key and its concept, so a node's two findings have two ids.",
+    "repair": "none. `rules repair` leaves each finding, with why and the way on. A firmware reinstall gives firmware's own nodes their keys: an install writes a JSON schema's word types from the code's one list of them, and a header's from its firmware file (story graph-operations-first-slice #47, ADR graph-operations-first-slice/0047 Decisions 8 and 9). For any other node a repair is still to come (ADR graph-operations-first-slice/0047, Amendment 1).",
+    "enforcedBy": "a check: `rules check`. The rule's code is in `src/operations/rules/word-types-hold-concept-keys.js`; the operations are `src/operations/catalog/rules/check.js` and `src/operations/catalog/rules/repair.js`, with what they share in `src/operations/catalog/rules/_rules.js`. Built in story graph-operations-first-slice #47 (ADR graph-operations-first-slice/0047).",
+    "status": "enforced",
+    "source": "ADR graph-operations-first-slice/0047",
+    "alsoSays": [],
+    "code": {
+      "file": "src/operations/rules/word-types-hold-concept-keys.js",
+      "summary": "A node's wordTypes hold the key of each concept whose class thread reaches it (design D10), word and graphContext aside. It only reports.",
+      "refuses": false,
+      "refusals": []
+    }
+  }
+}

@@ -108,6 +108,50 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 
   Neither changes what is written. A cap and paging for `left` would be A10.31's, with `rules check`'s paging as its model.
 
+## Evidence
+
+### On staging and production (2026-11-20)
+
+**Staging.** The owner merged TapestryProtocol/tapestry#164 at 15:19:39 UTC (merge commit `2041f6a4`). The deploy, run 44762151388, took 1 m 55 s.
+- **CI:** #164's `stack-free` run, 44759714425 on `8ee88ed4`, ran 8,223 passed and 3 failed: IS4, IS8 and IS10 in `firmware-element-sync`.
+  - That suite lists every graph-rule element by name, and it had no entry for rule 11. Neither this story's scoped gate nor the Reviewer's ran it.
+  - #164 merged with the check red. The session had expected the 15-minute limit to cancel the run, as it had #161's, and had said so, without reading the run's `Overall:` line.
+- **The hotfix, #165:** rule 11 joins the suite's two lists (ledger row `2026-11-20-element-sync-misses-rule-eleven`).
+  - Before the merge, a scoped run of the three suites that list the rules passed 60, with 0 failed.
+  - Its own CI run, 44762760983, was cancelled at the 15-minute limit in suite 343 of 347, before `firmware-element-sync`.
+  - The owner merged it at 16:48:07 (merge commit `c26da584`). Its deploy, run 44776995062, took 1 m 33 s.
+  - CI confirmed it later: run 44789481737, at `0372c52a` (#167's second pin, which holds #165), passed 8,318 with 0 failed, `firmware-element-sync`'s 21 among them.
+- **Smoke tests:** this story's sessions ran none of the five tiers on staging.
+  - Story 32's records give Tiers 1, 2, 3 and 5 on staging at 16:47, at `c26da584` and at `0372c52a`, and all three are after #164.
+  - At 22:39 UTC, staging's `/docs/swagger-ui-init.js` listed `/api/tapestry/rules/check` and `/api/tapestry/rules/repair`, among 38 operation paths.
+
+**The hosted brains.** The publish run for `2041f6a4`, 44762151413, rolled every brain and finished at 15:37:27. david.tapestry.ninja's served docs went from 35 operation paths before the roll to 37 after it, the two new ones being `rules/check` and `rules/repair`.
+
+**Grok bot, repaired on david.tapestry.ninja (AC8's "reaches agents").** On the owner's yes, Zeus, an admin there, ran four steps through the external CLI (`tapestry-zeus`, a copy of `clients/cli`):
+1. **`rules check --scope graph`** judged 175 properties and found 1: grok bot's `project` (`7675c11c-e9ee-4310-9c44-b5c8824ea5cb`), `more-than-one-parent`.
+   - It hung under grok bot's primary property (`7a16470e-…`) and its JSON schema (`8a31de59-06af-4abb-aaad-aa69b0b5b6a7`).
+   - Its fix took off only the link to the schema. Grok bot is the instance's own concept, and not firmware's.
+2. **`rules repair --violation <that id>`** answered `repaired`:
+   - one `IS_A_PROPERTY_OF` removed;
+   - change entry `b73cf6db-962f-4fc1-80dc-8e9609eeb1aa`, at 16:45:47.757;
+   - `letters` naming relationship element `55641f3d-db36-4359-98d3-cd7528cec4d8`, the old route's letter for the link.
+3. **`graph delete-node --node 55641f3d-…`** was refused `not-an-element`: no concept's class thread reaches that element. Nothing changed.
+   - The owner's raw delete-node (A10.30) is the way to remove it.
+   - It records a link that is gone, and nothing rebuilds the edge from it.
+4. **`rules check --scope graph`** again judged 175 and found 0. Grok bot's own scope judged 6 and found 0.
+
+No property write on grok bot has run since, so it is the check, not a write, that shows `tangled-tree` no longer applies there.
+
+**Production.** The A10.32 session's promotion PR, #167, carried #161, #164 and #165 into `main`.
+- It was pinned at `0372c52a`; the safe-to-merge check said SAFE at 18:24:09, and #167 merged at 18:24:12 (merge commit `eae67f45`).
+- The deploy, run 44792426614, took 7 m 48 s.
+- At 22:39 UTC, production's served docs listed `rules/check` and `rules/repair`, among 38 operation paths.
+- **No firmware install ran.** Staging's and production's graph rule concepts gain rule 11's item only at a reinstall, the owner's call, as rules 9 and 10 still wait (ledger row `2026-11-18-rule-nine-awaits-firmware-reinstall`). The rule's code runs without it.
+
+**What no one has run.** No signed-in `rules check` or `rules repair` has run on staging or production. The repair ran on david.tapestry.ninja (above), and on scratch stacks (L1–L5).
+
+**Loom:** A10.31.a is done, verified weakly: the owner merged it, with no teammate's approval.
+
 ## Linked artifacts
 
 - Book: [engineering-team/audits/graph-operations-first-slice/book.md](../../audits/graph-operations-first-slice/book.md) (the frame's Rebuild and Ledger bullets)
@@ -120,3 +164,4 @@ Judgment calls made in Implementation (2026-11-20), each too small for an ADR am
 - ADR: [engineering-team/decisions/graph-operations-first-slice/0045-property-has-one-parent.md](../../decisions/graph-operations-first-slice/0045-property-has-one-parent.md)
 - Test plan: [45-property-has-one-parent.test-plan.md](./45-property-has-one-parent.test-plan.md)
 - Review: [reviews/graph-operations-first-slice/45-property-has-one-parent.md](../../reviews/graph-operations-first-slice/45-property-has-one-parent.md)
+- The hotfix after the merge: [ledger/2026-11-20-element-sync-misses-rule-eleven.md](../../../ledger/2026-11-20-element-sync-misses-rule-eleven.md)

@@ -6,8 +6,8 @@
         "description": "Schema for dog nodes, with conditional breed → wordTypes enforcement.",
         "wordTypes": [
             "word",
-            "jsonSchema",
-            "validationTool"
+            "validationTool",
+            "jsonSchema"
         ],
         "coreMemberOf": [
             {

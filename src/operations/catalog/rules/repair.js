@@ -9,6 +9,9 @@
  * fixed nodes once more, names the relationship elements that still record a removed link, and records one change
  * entry. It changes the instance's own concepts, and firmware's only with firmwareOverride; another author's concept,
  * and every finding with no fix, are left, with why and the way on. Nothing is signed.
+ *
+ * A violation is found by its id among its node's findings, since a rule may name one node more than once; an entry a
+ * rule marks unjudged is no finding, here as in rules check (story #47, ADR graph-operations-first-slice/0047 Decision 6).
  */
 
 const { refusal } = require('../../refusal');
@@ -56,8 +59,8 @@ module.exports = {
   access: 'owner-and-admins',
   summary: 'Fix one violation, or every violation of one rule in a scope; the choices it leaves, with the way on',
   description: [
-    'Takes `violation`, a finding\'s id as `rules check` gives it, or `rule` and `scope` together (a scope as `rules check` takes one). Today it repairs property-has-one-parent: it takes off a property\'s IS_A_PROPERTY_OF to its own concept\'s JSON schema node when the property also hangs under one parent in that concept\'s tree, keeping that link.',
-    "It judges again in its own transaction, after locking each concept it may change, so it writes on the graph as it is: a violation whose node has changed since its check is refused (`changed-since-check`), naming its id now; one that is gone answers `nothing-to-repair`. It changes the instance's own concepts; a firmware concept only with `firmwareOverride: true` (refused `firmware-concept` without it); and never another author's. Every finding it doesn't fix is answered in `left`, with why and the way on.",
+    'Takes `violation`, a finding\'s id as `rules check` gives it, or `rule` and `scope` together (a scope as `rules check` takes one). Today it repairs property-has-one-parent: it takes off a property\'s IS_A_PROPERTY_OF to its own concept\'s JSON schema node when the property also hangs under one parent in that concept\'s tree, keeping that link. The findings of word-types-hold-concept-keys carry no fix: it leaves each in `left`, with why and the way on, and changes nothing.',
+    "It judges again in its own transaction, after locking each concept it may change, so it writes on the graph as it is: a violation is found by its id among its node's findings; one whose node breaks the rule differently since its check is refused (`changed-since-check`), naming its finding's id now; one that is gone answers `nothing-to-repair`. It changes the instance's own concepts; a firmware concept only with `firmwareOverride: true` (refused `firmware-concept` without it); and never another author's. Every finding it doesn't fix is answered in `left`, with why and the way on.",
     'At most 100 fixes a call: `remaining` says how many more there are, and the next call fixes them. The answer names the relationship elements that still record a removed link, which `graph delete-node` deletes. One change entry records every link taken off; nothing is signed.',
   ].join('\n\n'),
   inputs: {
@@ -115,12 +118,14 @@ module.exports = {
 
     // 2 and 3. The candidates, judged once; 4. the locks on the concepts the allowed fixes change.
     const items = await rule.scan(read, scope);
-    const first = await rule.violations(items, read);
+    // An entry a rule marks unjudged is a node it couldn't judge, not a finding (ADR 0047 Decision 6).
+    const findingsOf = async (xs) => (await rule.violations(xs, read)).filter((f) => !(f && f.unjudged === true));
+    const first = await findingsOf(items);
     const locked = [...new Set(first.filter(allowed).slice(0, MAX_FIXES).map((f) => f.fix.concept))].sort(byKey);
     for (const key of locked) await S.lockNode(tx, key);
 
     // 5. Judged again, on the graph as it is now.
-    const now = await rule.violations(items, read);
+    const now = await findingsOf(items);
     const idOf = (f) => X.idOf(rule.name, f);
     const leftOf = (f) => {
       if (f.fix && !ownConcept(f)) {
@@ -138,11 +143,13 @@ module.exports = {
     let left;
     let remaining = 0;
     if (wanted) {
-      const f = now.find((x) => x.node && x.node.tapestryKey === wanted.node);
-      if (!f) return { data: { outcome: 'nothing-to-repair', fixed: [], left: [], remaining: 0 }, changes: [] };
-      const id = idOf(f);
-      if (id !== inputs.violation) {
-        throw refusal(X.CHANGED_SINCE_CHECK.code, `${f.message}. That isn't what the violation ${inputs.violation} found: the node's parents have changed since it was checked. As it is now, the finding is ${id}. Check again, then repair that. Nothing changed.`, { input: 'violation' });
+      // Found by its id among the node's findings: a rule may name one node more than once (ADR 0047 Decision 6).
+      const mine = now.filter((x) => x.node && x.node.tapestryKey === wanted.node);
+      if (!mine.length) return { data: { outcome: 'nothing-to-repair', fixed: [], left: [], remaining: 0 }, changes: [] };
+      const f = mine.find((x) => idOf(x) === inputs.violation);
+      if (!f) {
+        const id = idOf(mine[0]);
+        throw refusal(X.CHANGED_SINCE_CHECK.code, `${mine[0].message}. That isn't what the violation ${inputs.violation} found: the node breaks the rule differently now than when it was checked. As it is now, the finding is ${id}. Check again, then repair that. Nothing changed.`, { input: 'violation' });
       }
       if (!f.fix || !ownConcept(f)) return { data: { outcome: 'left', fixed: [], left: [leftOf(f)], remaining: 0 }, changes: [] };
       if (f.fix.firmware && !override) {
@@ -191,7 +198,7 @@ module.exports = {
 
     // 9. What was written, judged once more: a fix that didn't fix rolls the whole write back.
     if (fixed.length) {
-      const still = await rule.violations(fixed.map((x) => ({ node: x.node.tapestryKey })), read);
+      const still = await findingsOf(fixed.map((x) => ({ node: x.node.tapestryKey })));
       if (still.length) throw new Error(`rules repair took off the planned links, but ${still.map((x) => x.node.tapestryKey).join(', ')} still break ${rule.name}: ${still[0].message}`);
     }
 

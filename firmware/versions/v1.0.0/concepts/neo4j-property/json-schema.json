@@ -4,7 +4,7 @@
     "name": "JSON schema for the concept of neo4j properties",
     "title": "JSON Schema for the Concept of Neo4j Properties",
     "description": "the json schema for the concept of neo4j properties",
-    "wordTypes": ["word", "jsonSchema"],
+    "wordTypes": ["word", "validationTool", "jsonSchema"],
     "coreMemberOf": [
       {
         "slug": "concept-header-for-the-concept-of-neo4j-properties",
