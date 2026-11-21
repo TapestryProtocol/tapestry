@@ -106,7 +106,7 @@ function wordTypesOf(view) {
   return w && Array.isArray(w.wordTypes) ? w.wordTypes.filter((x) => typeof x === 'string') : [];
 }
 
-const WHY = "It only reports: no operation gives a node a key it lacks yet (ADR graph-operations-first-slice/0047).";
+const WHY = "It only reports, and no repair for this rule exists yet (ADR graph-operations-first-slice/0047).";
 // It names no other operation: whether one adds a key turns on the node's JSON (ADR 0047, Amendment 1).
 const WAY_ON = "A firmware reinstall gives firmware's own nodes their keys. For any other node a repair for this rule is still to come.";
 
