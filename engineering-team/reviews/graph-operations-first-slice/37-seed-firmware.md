@@ -480,3 +480,74 @@ Both are small.
 **PASS**
 
 The story stays `**Status:** Done`.
+
+---
+
+## Round 5
+
+**Date:** 2026-11-21 (UTC)
+**Diff:** `git diff 1401e603 HEAD`, HEAD `d7b4c89b`: 7 files, +121 −25. The commits:
+- `6d575781`: ADR 0037 Amendment 4, rules check judges the firmware's own nodes;
+- `07931675`: the Tester's tests, SF40 for R4-N2 and ST34 for R4-N1;
+- `d7b4c89b`: the Implementer's fix, with three Deviation lines.
+
+**One uncommitted change, not mine and left as it is.** The story file carries the coordinator's Evidence update for the live run below: 14 lines, docs only, which no suite reads. My gate ran with it in the tree.
+
+**How it was made.** As in the earlier rounds: stack-free after `source tmp/a10-37/env.sh`, with no `npm test`, no Docker and no network. I read the live records and ran nothing live.
+
+**Verdict:** PASS. R4-N1 and R4-N2 are resolved, and the fresh live run round 4 asked for passes on HEAD's code.
+
+### Quality gates (run by reviewer, not trusted)
+- [x] **The scoped gate: the 19 entries of round 4.**
+  - `npm run gate:status -- --label a10-37-review-r5`: `20261121T060242Z-3268-6c2a [a10-37-review-r5] started 2026-11-21T06:02:42.755Z on d7b4c89b+dirty — PASS, exit 0, 1713 passed, 0 failed, 50 skipped, 19/19 suites`. The totals equal the coordinator's run. "dirty" here is the untracked `node_modules` link and the coordinator's uncommitted Evidence lines.
+  - The record is `tmp/gate-runs/20261121T060242Z-3268-6c2a.json`. Inside it:
+    - this story's suites: route 40 (SF40 among them), target 34 (ST34 among them), record 9, plan 9, oracles 8, agent 1, live 4 skipped;
+    - `operations` as a whole passed 1428 with 14 skipped, in 317.5 s.
+- [x] `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`.
+- [ ] `npm test` was not run: it writes to this Mac's agent-memory instance.
+
+### Round 4's findings
+
+| Round 4 | The fix | Tested by | Now |
+|---|---|---|---|
+| R4-N1, the `wordTypes` refusal untested | Test only | ST34 (`seed-firmware-target.test.js:506`): a key with a space and a number are each a problem naming the file; a list of keys is no problem | Resolved |
+| R4-N2, rules check's reach | Amendment 4. `rulesCheck` (`_seed.js:740`) takes the firmware's own nodes, the target's addresses the graph holds (`:753`). Each rule lists their items with its own node-scope `scan` (`:761`) and judges them in one call (`:763`). Unjudged items are left out (`:764`), and `judged` counts nodes (`:774`). | SF40 (`seed-firmware.test.js:884`): rover, a firmware element whose `dog` key was taken out by hand, is reported. The instance's own Biscuit and another author's relay, each shown to break rule 12 by `rules check` over it alone, aren't. Every finding is on a node seed-firmware wrote, and `judged` is at most the target's count. | Resolved |
+
+### Its reach and cost
+- **No class-thread walk over the instance.** The keys come from the target's ~460 addresses.
+  - Rule 12's node scope is the node itself, with no read (`word-types-hold-concept-keys.js:70`).
+  - Rule 11's is one indexed read a key (`property-has-one-parent.js:82`).
+  - Each rule's judgment is one batched call. Its concept lookup walks up from each node to the concepts that reach it, as a check over one node does, never down a concept's elements.
+  - So the cost follows the firmware, not the instance.
+- **The shape stands.** The findings come in rules check's order. The `rules`, `judged`, `findings`, `first` and `more` fields are kept, and the declaration's `rulesCheck` description says "the firmware's own nodes".
+- **Live, on a fresh install:** rules check ran both rules and judged 416 nodes (41 headers, 287 core nodes, 88 elements), with 0 findings (`r2-install.json`'s `rulesCheck`). The 22 sets and 22 relationship letters have no JSON for rule 12 to judge, and are no Property for rule 11.
+
+### The three Deviation lines
+All three are small and accurate.
+1. **Items node by node, judged in one call per rule.** Each rule keeps its own reach, and the line gives the timings it was chosen on.
+2. **`judged` counts nodes, not items.**
+3. **The firmware's nodes are found by the target's addresses.** So a set's relationship letter (a stand-in address in the target) and the installed-firmware graph aren't judged. Neither rule could find anything on them, which I checked: rule 12 reports a node with no JSON as unjudged, and rule 11 judges only Property nodes.
+
+### The fresh live run (round 4's recommendation)
+The records are `tmp/live-check-37/r4-*.log`, with this run's `r2-*.json`.
+- **The code it ran was HEAD's.** `r4-setup.log` gives `d7b4c89b`, and the container's `target.js`, `_seed.js` and `seed-firmware.js` match the worktree's by digest.
+- **L1, L3 and L4 pass.** First contact kept the four schemas pass 3b filled and the three concept graphs. The same two prune links were kept with `noRecord`, and the same two were the instance's own.
+- **L2 passes**, on the emptied graph.
+- **The agent, through the external CLI:**
+  - it installed 460 nodes in 30 s through nginx, with `cacheOutOfDate` 0;
+  - it resolved its own `dog`;
+  - after offload-all (417 tags) and derive-all, a repeat answered 460 `unchanged`, with no change entry;
+  - `seeded` then read 460 nodes, 936 relationships and `changedSince` 0.
+- **The story's Evidence matches these records** (the uncommitted lines above).
+
+### Round 5's findings
+- **Blocking:** none.
+- **Non-blocking:** none.
+
+### What I could not check
+CI's time against its 25 minutes, and the full `npm test`.
+
+### Verdict
+**PASS**
+
+The story stays `**Status:** Done`.

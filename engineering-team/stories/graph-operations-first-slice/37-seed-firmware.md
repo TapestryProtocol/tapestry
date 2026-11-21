@@ -259,6 +259,8 @@ Each ran on this Mac stack-free: stub `curl` and `docker` first on `PATH`, every
 
 - **After review round 2's fixes,** the Reviewer's round-3 gate, `tmp/gate-runs/20261121T044550Z-29841-3c49.json` on `6b2b2200`: PASS, 1,679 passed, 0 failed, 50 skipped, across eighteen (the seventeen and `concepts-list-shows-concepts-with-no-event`).
 
+- **After staging's story 47 merged in, and review round 4's fix,** `tmp/gate-runs/20261121T055406Z-16533-df6c.json` on `d7b4c89b`, nothing tracked uncommitted: PASS, 1,713 passed, 0 failed, 50 skipped, across nineteen (the eighteen and `firmware-nodes-hold-their-concepts-keys`). The firmware is now 460 nodes, 88 elements and 12 graph-rule items. The suites work those numbers out from its files.
+
 ### The live check (2026-11-21 UTC, on a scratch stack)
 
 `scripts/scratch-stack.sh up` gave `tapestry-scratch`, with this worktree's `src/` mounted read-only. Then the setup ran:
@@ -301,6 +303,18 @@ On a fresh scratch stack (its assistant `26c703da…`), with the fixed code (`d9
   - seed-firmware then answered 459 `unchanged`, with no change entry: "Nothing changed: the graph already holds firmware 1.0.0 as its files say.";
   - status's `seeded` still read: 459 nodes, 935 relationships, `changedSince` 0.
 - **The records:** `r2-live-suite.log`, `r2-live-l2.log`, `r2-agent.log` and the `r2-*.json` answers, in `tmp/live-check-37/`, copied to the main checkout's. The scratch stack was then removed.
+
+### The live run after staging's story 47 merged in (2026-11-21 UTC)
+
+On a fresh scratch stack (its assistant `6456f231…`), with `d7b4c89b`'s code and the merged firmware, set up as above:
+- **L1, L3 and L4:** PASS. First contact again gave the four schemas pass 3b filled and the three flattened concept graphs `kept`.
+- **L2:** PASS.
+- **The agent:**
+  - it installed 460 nodes through the external CLI, in 30 s through nginx;
+  - `graph resolve --ref dog --kind concept` answered the instance's own `dog`;
+  - after the Dashboard's offload (417 `json` tags) and derive-all, seed-firmware answered 460 `unchanged`, with no change entry;
+  - status's `seeded` gave 460 nodes, 936 relationships and `changedSince` 0.
+- **The records:** `r4-setup.log`, `r4-live-suite.log`, `r4-live-l2.log` and `r4-agent.log` in `tmp/live-check-37/`, with this run's `r2-*.json` answers, copied to the main checkout's. The scratch stack was then removed.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0037-seed-firmware.md`
