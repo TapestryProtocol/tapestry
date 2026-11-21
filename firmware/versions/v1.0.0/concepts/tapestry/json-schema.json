@@ -6,8 +6,8 @@
         "description": "This is the JSON Schema for elements of the concept of tapestries. Every element of this concept must validate against this JSON schema.",
         "wordTypes": [
             "word",
-            "jsonSchema",
-            "validationTool"
+            "validationTool",
+            "jsonSchema"
         ],
         "coreMemberOf": [
             {

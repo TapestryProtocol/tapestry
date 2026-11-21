@@ -6,6 +6,7 @@
         "description": "This is the JSON Schema for elements of the concept of validation tools. Every validation tool must validate against this JSON schema. Subtype-specific sections are validated by their own concept schemas.",
         "wordTypes": [
             "word",
+            "validationTool",
             "jsonSchema"
         ],
         "coreMemberOf": [

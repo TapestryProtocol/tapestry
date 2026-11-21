@@ -3,7 +3,7 @@
     "slug": "concept-header-for-the-concept-of-json-schemas",
     "name": "concept header for the concept of JSON schemas",
     "title": "Concept Header for the Concept of JSON Schemas",
-    "wordTypes": ["word", "conceptHeader"]
+    "wordTypes": ["word", "conceptHeader", "validationToolType"]
   },
   "conceptHeader": {
     "description": "A JSON Schema that validates word-based concept elements.",

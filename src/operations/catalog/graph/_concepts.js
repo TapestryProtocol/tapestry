@@ -218,7 +218,8 @@ function conceptNodes({ names, d, ta, description = null, coreD = d, zOf = null,
       name: `JSON schema for the concept of ${names.oNames.plural}`,
       title: `JSON Schema for the Concept of ${names.oTitles.plural}`,
       description: `the json schema for the concept of ${names.oNames.plural}`,
-      wordTypes: ['word', 'jsonSchema'],
+      // A JSON schema is a validation tool (ADR graph-operations-first-slice/0047 Decision 8).
+      wordTypes: [...require('../../../api/normalize/firmware').JSON_SCHEMA_WORD_TYPES],
       coreMemberOf: memberOf,
     },
     jsonSchema: {
