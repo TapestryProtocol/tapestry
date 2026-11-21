@@ -354,6 +354,9 @@ Each suite ran alone, as above: stub `curl` and `docker` first on `PATH`, every 
 
 The scoped gate, the same six entries through the gate engine on Node 24.18.0, labelled `a10-34-r2-fixes`, is `20261121T051347Z-55527-b43b`: PASS, exit 0, 1,486 passed, 0 failed, 18 skipped, 6/6 suites. By entry: `operations` 1,382/0/16, `external-cli` 53/0/0, `openapi-coverage` 13/0/0, `admin-action-sweep` 9/0/0, `schema-save-finds-the-right-header` 26/0/2 and `publish-export-a-concept` 3/0/0. `operations` has the round's six new tests (ES20 to ES24 and EW6) beside review round 2's 1,376. The record names `8a445856`, the tests' commit, with 12 files uncommitted (`dirty: true`): the 11 files of these fixes, and this story with the Deviations above. This section was written after it. Nothing of this round is committed yet. `bash scripts/harness-lint.sh` was clean before the gate. The runs' logs are in the worktree's `tmp/a10-34/round2-impl/`.
 
+**The live checks on these fixes** (2026-11-21, 05:23–05:24Z, on `454e6c5e4`, the same scratch stack, its control panel restarted): `nostr-live.test.js` 6 passed, 0 failed, LV6 497 letters in 2.09 s (`tmp/live-check-34/nostr-live.log`; the earlier runs kept as `nostr-live-run1.log` and `nostr-live-run2.log`).
+
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0034-export-nostr.md`
 - Test plan: [34-export-nostr.test-plan.md](./34-export-nostr.test-plan.md)
