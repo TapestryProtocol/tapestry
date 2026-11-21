@@ -21,7 +21,8 @@
  *                  d-tag and a graph's is matched by these three (Decision 4, 1c½)
  *   relationships  [{ type, from, to, properties }], by address, after 1e's and 3c's prunes
  *   references     each community-reference curator header's address that a b claim reaches (Decision 9)
- *   problems       why the files can't be installed, each naming the file or the concept; with any, no nodes
+ *   problems       why the files can't be installed, each naming the file or the concept, a relationship alias that
+ *                  isn't a plain name among them (Amendment 3, item 5); with any, no nodes
  *   ta, aliases    the assistant, and the folder's relationship types as conceptNodes names them, for the installer
  *
  * Today's order, pass by pass (Decision 4): 1a the concepts (conceptNodes, with the header file's overrides and
@@ -55,6 +56,8 @@ const MEMBER_OF = Object.freeze({ superset: 'superset', jsonSchema: 'json-schema
 const CORE_NODE_TYPES = Object.freeze({ 'concept-header': 'conceptHeader', superset: 'superset', 'json-schema': 'jsonSchema', 'primary-property': 'primaryProperty', 'properties-set': 'properties', 'property-tree-graph': 'propertyTreeGraph', 'core-nodes-graph': 'coreNodesGraph', 'concept-graph': 'conceptGraph' });
 const ENUMERATES = 'ENUMERATES';
 const REFERENCES = 'REFERENCES';
+/** What a relationship alias must be, since it reaches Cypher's text (ADR 0037 Amendment 3, item 5). */
+const PLAIN_NAME = /^[A-Z_][A-Z0-9_]*$/;
 
 const sha256 = (x) => crypto.createHash('sha256').update(x).digest('hex');
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -124,6 +127,8 @@ function readFirmware(r) {
     if (!f.ok) continue;
     const rt = isObject(f.data) && isObject(f.data.relationshipType) ? f.data.relationshipType : null;
     if (!rt || typeof rt.slug !== 'string' || typeof rt.alias !== 'string') { r.problems.push(`${rel(entry.file)} has no relationshipType with a slug and an alias`); continue; }
+    // An alias names a relationship type in Cypher's text, so it must be a plain name (Amendment 3, item 5).
+    if (!PLAIN_NAME.test(rt.alias)) { r.problems.push(`${rel(entry.file)}: the alias ${JSON.stringify(rt.alias)} of the relationship type ${rt.slug} isn't a plain name, [A-Z_][A-Z0-9_]*`); continue; }
     canonical[rt.slug] = rt.alias;
     aliasSet.add(rt.alias);
   }

@@ -27,9 +27,11 @@
 const NAME = 'element-fits-schema';
 
 /** E4: a node's name and address, for messages; no row when no node has the key (ADR 0042 Decision 2). */
+// cameFrom and installed: lifecycle seed-firmware's install record, whose sections the judge sets aside only for a node
+// that carries it, as the derive's verdicts do (ADR graph-operations-first-slice/0037 Amendment 3, item 6).
 const E4 = `MATCH (e:TapestryNode {tapestryKey: $key})
   WHERE NOT e:GraphChange
-  RETURN e.name AS name, e.uuid AS uuid`;
+  RETURN e.name AS name, e.uuid AS uuid, e.cameFrom AS cameFrom, e.installed AS installed`;
 
 const nodeLabel = (row, key) => {
   const name = row && typeof row.name === 'string' && row.name ? row.name : null;
@@ -80,8 +82,9 @@ module.exports = {
         const when = !at ? ''
           : Number.isNaN(at.getTime()) ? ` Its tapestryJson gives ${derivedAt} as the time it was built, which no date can hold.`
             : ` Its tapestryJson was built at ${at.toISOString()}.`;
+        const record = X.recordCarried(rows[0]);
         for (const concept of concepts) {
-          const r = await j.check(concept, t.json);
+          const r = await j.check(concept, t.json, { record });
           if (r.header === false) continue;
           if (r.fits === null) out.push({ item, concept, code: 'no-schema', ...built, message: noSchema(r.problem) });
           else if (!r.fits) out.push({ item, concept, code: 'invalid-fields', problems: r.problems, ...built, message: `${label} doesn't fit the JSON schema of ${r.label}: ${X.listProblems(r.problems)}.${when}` });

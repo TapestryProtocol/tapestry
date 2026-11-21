@@ -50,8 +50,8 @@ function versionsCarried(dir, version) {
 /** The answer's note, in words. */
 function noteOf({ version, counts, rels, wrote, letterOutOfDate, cacheOutOfDate }) {
   if (!wrote) {
-    const kept = counts.kept ? ` ${counts.kept} node${counts.kept === 1 ? ' was' : 's were'} kept as edited, and ${rels.kept.length} relationship${rels.kept.length === 1 ? '' : 's'}; name them in take, or pass takeAll, to bring them in line.` : '';
-    return `Nothing changed: the graph already holds firmware ${version} as its files say, but what was kept.${kept}`;
+    if (!counts.kept && !rels.kept.length) return `Nothing changed: the graph already holds firmware ${version} as its files say.`;
+    return `Nothing changed: the graph already holds firmware ${version} as its files say, but for what was kept: ${counts.kept} node${counts.kept === 1 ? '' : 's'} and ${rels.kept.length} relationship${rels.kept.length === 1 ? '' : 's'}. Name a kept node in take, or pass takeAll, to bring them in line.`;
   }
   const said = OUTCOMES.filter((o) => counts[o]).map((o) => `${counts[o]} ${o}`).join(', ');
   const words = [`Firmware ${version} installed from its files, unsigned: ${said}. Relationships: ${rels.added.length} added, ${rels.removed.length} removed, ${rels.changed.length} changed, ${rels.kept.length} kept.`];
@@ -71,7 +71,7 @@ module.exports = {
   description: [
     'Installs the firmware the instance carries as nodes of its own, at the addresses today\'s install gives them, under the instance\'s assistant, with no letter: nothing is signed or sent to any relay, and no guard runs. Today\'s install, POST /api/firmware/install, stays the install, and signs as it writes.',
     'Run again, it brings each node in line with the firmware unless it was edited since it was installed: an edited node is **kept** as it is, and the answer names what differs (its JSON, its name, or a tag type such as a re-pointed b). A node today\'s install made has no record of what was installed: it is adopted when it matches, and kept when it differs. Name kept nodes in `take`, by tapestryKey or address, or pass `takeAll`, to bring them in line anyway. Graph-rule\'s items always follow the rulebook, an edit put back. A node the firmware no longer has is left as it is (`not-in-source`); a relationship the last install made that the firmware no longer makes is taken out, and nothing else is.',
-    'Each node it writes records where it came from (`cameFrom`, its file) and what was installed (`installed`), which `cache get` answers. It keeps an installed-firmware graph, an element of the graph concept, that `lifecycle status` reads. A run that changes nothing writes nothing. Then rules check runs over the firmware\'s concepts, and reports what it finds.',
+    'Each node it writes records where it came from (`cameFrom`, its file) and what was installed (`installed`), which `cache get` answers. It keeps an installed-firmware graph, an element of the graph concept at `39999:<assistant>:installed-firmware`, that `lifecycle status` reads; it lists the relationships it kept apart, which no later install takes out. A node at that address without seed-firmware\'s mark is refused (`address-held`), and nothing is written. A run that changes nothing writes nothing. Then rules check runs over the firmware\'s concepts, and reports what it finds.',
   ].join('\n\n'),
   inputs: {
     version: { schema: { type: 'string', minLength: 1, maxLength: 64 }, required: false, description: 'The firmware to install: the version the instance carries (1.0.0, or its folder\'s name, v1.0.0); left out, that one' },
@@ -119,7 +119,7 @@ module.exports = {
       },
     },
   },
-  refusals: [UNKNOWN_VERSION, FIRMWARE_UNREADABLE, require('./_seed').NOT_FIRMWARE, NO_ASSISTANT, C.BUSY, C.GRAPH_UNAVAILABLE],
+  refusals: [UNKNOWN_VERSION, FIRMWARE_UNREADABLE, require('./_seed').NOT_FIRMWARE, NO_ASSISTANT, require('./_seed').ADDRESS_HELD, C.BUSY, C.GRAPH_UNAVAILABLE],
 
   async run(inputs, context) {
     const K = require('../graph/_concepts');

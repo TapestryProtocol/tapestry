@@ -52,7 +52,7 @@
 - **Import (4):** nostr, file, web, refresh.
 - **Export (4):** nostr, file, status, retract.
 - **Cache (3):** get, check, rebuild.
-- **Lifecycle (6, owner only):** backup, restore, seed-firmware, migrate, wipe, status.
+- **Lifecycle (6, the owner and admins):** backup, restore, seed-firmware, migrate, wipe, status.
 
 ## 1. Graph reads
 
@@ -199,7 +199,7 @@ Today `POST /api/tapestry-key/:key` writes to the cache directly; D10's guard dr
 
 ## 8. Lifecycle
 
-Who may call: the owner only.
+Who may call: the owner and admins, as every lifecycle operation built so far is declared.
 
 | Operation | What it does | Takes → returns | Today |
 |---|---|---|---|

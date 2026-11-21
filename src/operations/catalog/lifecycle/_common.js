@@ -60,7 +60,7 @@ const SUMMARY = {
 };
 const WARNINGS = { type: 'array', items: { type: 'string' }, description: 'What to know about it, in words' };
 
-const BUSY = { code: 'busy', status: 409, when: 'Another backup, restore or migration is running' };
+const BUSY = { code: 'busy', status: 409, when: 'Another backup, restore, migration or seed-firmware is running' };
 const GRAPH_UNAVAILABLE = { code: 'graph-unavailable', status: 409, when: "The graph database isn't answering" };
 const UNKNOWN = { code: 'unknown-backup', status: 404, when: "The instance holds no backup with that id (the refusal names the ones it holds)" };
 

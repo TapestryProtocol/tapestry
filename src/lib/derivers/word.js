@@ -122,11 +122,12 @@ async function deriveWord(node, ctx = {}) {
   `, { elementId });
 
   // ── The install record (ADR graph-operations-first-slice/0037 Decision 6) ──
-  // lifecycle seed-firmware's cameFrom and installed, from the node's own properties, never from an older copy.
+  // lifecycle seed-firmware's cameFrom and installed, from the node's own properties, only when it carries them: in a
+  // node with none, a section of either name may be a concept's own, and stays as it is (Amendment 3, item 6).
+  const record = [];
   for (const k of RECORD_SECTIONS) {
-    delete base[k];
     const v = recordSection(node[k]);
-    if (v) base[k] = v;
+    if (v) { base[k] = v; record.push(k); }
   }
 
   // ── Build graphContext first ──
@@ -146,7 +147,7 @@ async function deriveWord(node, ctx = {}) {
   };
 
   // ── The rule's verdicts on this tapestryJson (ADR graph-operations-first-slice/0042 Decision 5) ──
-  base.graphContext.parentJsonSchemas = await schemaVerdicts({ tapestryKey, json: base, judge: ctx.judge || null, now });
+  base.graphContext.parentJsonSchemas = await schemaVerdicts({ tapestryKey, json: base, judge: ctx.judge || null, now, record });
 
   return base;
 }

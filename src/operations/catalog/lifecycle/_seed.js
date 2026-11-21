@@ -11,7 +11,9 @@
  *                                           target, tapestryKey } for each node of the target (Decision 7);
  *                                           relationships Decision 11's lists, added, removed, changed and kept, and
  *                                           the counts of unchanged and others (Decision 8); a take ref no node of the
- *                                           target answers refuses not-firmware
+ *                                           target answers refuses not-firmware, and a node at the installed-firmware
+ *                                           graph's address without seed-firmware's mark refuses address-held
+ *                                           (Amendment 3, item 3)
  *   apply(tx, target, state, plan, { caller, at })  the plan's writes in one transaction, in today's order: nodes,
  *                                           records, b claims, relationships, the installed-firmware graph, one change
  *                                           entry (Decision 10) → { change, written, letterOutOfDate, addresses }
@@ -39,6 +41,7 @@ const SET_ASIDE = Object.freeze(['graphContext', 'cameFrom', 'installed']);
 const RULES_SHOWN = 20;
 const TYPE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const NOT_FIRMWARE = Object.freeze({ code: 'not-firmware', status: 400, when: 'A take ref that names no node of the firmware: neither the address of one of its nodes nor the tapestryKey of the node at one; the refusal names each such ref' });
+const ADDRESS_HELD = Object.freeze({ code: 'address-held', status: 409, when: "A node at the installed-firmware graph's address, 39999:<assistant>:installed-firmware, that isn't seed-firmware's record: it lacks seed-firmware's mark, its own installed record and an installedFirmware section; the refusal names it, and nothing is written" });
 
 const sha256 = (x) => crypto.createHash('sha256').update(x).digest('hex');
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -52,10 +55,24 @@ function stable(x) {
 }
 const parseJson = (text) => { if (typeof text !== 'string') return isObject(text) ? text : null; try { return JSON.parse(text); } catch { return null; } };
 
-/** Where the installed-firmware graph is (Decision 9). */
+/**
+ * The installed-firmware graph's d-tag, reserved: no element write gives it, since theirs end in a hash of their
+ * concept's address (Decision 9, as Amendment 3 item 3 moves it).
+ */
+const INSTALLED_D = 'installed-firmware';
+/** Where the installed-firmware graph is. */
 function installedGraphAddress(ta) {
-  const dtag = require('../../../lib/dtag');
-  return `39999:${ta}:${dtag.childDTag('installed firmware', `39998:${ta}:graph`)}`;
+  return `39999:${ta}:${INSTALLED_D}`;
+}
+/**
+ * An installed-firmware graph's JSON, read through the LMDB when its json is offloaded (Amendment 3, item 1), if it
+ * carries seed-firmware's mark: its own installed record, and an installedFirmware section (item 3). → { json } when
+ * it is seed-firmware's, { held: true } when it isn't.
+ */
+function installedGraphOf(installedText, rawJson) {
+  const j = jsonValueOf(rawJson);
+  const marked = isObject(parseJson(installedText)) && isObject(j) && isObject(j.installedFirmware);
+  return marked ? { json: j } : { held: true };
 }
 
 // ── a node's content (Decision 6) ──
@@ -65,7 +82,11 @@ function tagOf(t) {
   while (x.length > 2 && x[x.length - 1] === '') x.pop();
   return x;
 }
-/** A json tag's value, read as the derive reads it: an lmdb: reference resolved, the three local sections set aside. */
+/**
+ * A json tag's value, read as the derive reads it: an lmdb: reference resolved, the three local sections set aside, and
+ * word.wordTypes as a set, sorted, since its order isn't content: a node's memberships are its edges (D10), and the set
+ * deriver writes a superset's in its own order (Amendment 3, item 2).
+ */
 function jsonValueOf(raw) {
   let value = raw;
   if (typeof raw === 'string' && raw.startsWith('lmdb:')) {
@@ -76,6 +97,7 @@ function jsonValueOf(raw) {
   if (!isObject(value)) return value === undefined ? null : value;
   const out = { ...value };
   for (const k of SET_ASIDE) delete out[k];
+  if (isObject(out.word) && Array.isArray(out.word.wordTypes)) out.word = { ...out.word, wordTypes: [...new Set(out.word.wordTypes)].sort() };
   return out;
 }
 /** A node's content → { parts: { name, json, tags: { type → digest } }, digest } from its name and tags. */
@@ -124,7 +146,7 @@ function nodesOf(rows) {
     const id = `${r.uuid}\u0000${r.key}`;
     if (!byNode.has(id)) {
       const labels = Array.isArray(r.labels) ? r.labels : [];
-      byNode.set(id, { key: r.key, address: r.uuid, labels, name: r.name === undefined ? null : r.name, hasLetter: labels.includes('NostrEvent') || (r.id !== null && r.id !== undefined), tags: [], record: recordOf(r.cameFrom, r.installed) });
+      byNode.set(id, { key: r.key, address: r.uuid, labels, name: r.name === undefined ? null : r.name, hasLetter: labels.includes('NostrEvent') || (r.id !== null && r.id !== undefined), tags: [], record: recordOf(r.cameFrom, r.installed), installedText: r.installed === undefined ? null : r.installed });
     }
     if (r.type !== null && r.type !== undefined) byNode.get(id).tags.push([r.type, r.value, r.value1, r.value2]);
   }
@@ -175,24 +197,21 @@ async function readState(read, target) {
     if (n) letters.set(t.address, n);
   }
 
-  // The last install's lists (Decision 9): its nodes but the curators' headers, and its relationships but the b claims.
+  // The last install's lists (Decision 9): its nodes but the curators' headers, the relationships it made, brought in
+  // line or adopted, but the b claims, and apart from them the ones it kept (Amendment 3, item 4). Only a node with
+  // seed-firmware's mark is its record; anything else at the address is held, and the plan refuses (item 3).
   let last = null;
-  if (installed) {
-    const j = parseJson(tagValue(installed.tags, 'json'));
-    const graph = isObject(j) && isObject(j.graph) ? j.graph : null;
-    const fw = isObject(j) && isObject(j.installedFirmware) ? j.installedFirmware : {};
+  let held = null;
+  const ig = installed ? installedGraphOf(installed.installedText, tagValue(installed.tags, 'json')) : null;
+  if (ig && ig.held) held = { address: installed.address, key: installed.key };
+  if (ig && ig.json) {
+    const j = ig.json;
+    const graph = isObject(j.graph) ? j.graph : null;
+    const fw = j.installedFirmware;
     const references = new Set(Array.isArray(fw.references) ? fw.references : []);
     if (graph && Array.isArray(graph.nodes) && Array.isArray(graph.relationships)) {
       const nodes = new Set(graph.nodes.map((x) => x && x.slug).filter((x) => typeof x === 'string' && !references.has(x)));
-      const relationships = new Map();
-      for (const x of graph.relationships) {
-        const type = x && x.relationshipType && x.relationshipType.slug;
-        const from = x && x.nodeFrom && x.nodeFrom.slug;
-        const to = x && x.nodeTo && x.nodeTo.slug;
-        if (typeof type !== 'string' || typeof from !== 'string' || typeof to !== 'string' || isClaim({ type, properties: x.properties })) continue;
-        relationships.set(relKey(type, from, to), isObject(x.properties) ? x.properties : {});
-      }
-      last = { nodes, relationships, version: fw.version || null, source: fw.source || null, references: [...references], json: j };
+      last = { nodes, relationships: listedRelationships(graph.relationships), kept: listedRelationships(fw.keptRelationships), version: fw.version || null, source: fw.source || null, references: [...references], json: j };
     }
   }
 
@@ -247,7 +266,20 @@ async function readState(read, target) {
       blocked.get(r.address).push({ address: r.uuid, author: r.author || null });
     }
   }
-  return { ta, found, letters, installed, last, leftovers, rels, claims, blocked };
+  return { ta, found, letters, installed: held ? null : installed, held, last, leftovers, rels, claims, blocked };
+}
+
+/** A list of the installed-firmware graph's relationships, in graph.relationships' form, as a Map key → properties, the b claims left out. */
+function listedRelationships(list) {
+  const out = new Map();
+  for (const x of Array.isArray(list) ? list : []) {
+    const type = x && x.relationshipType && x.relationshipType.slug;
+    const from = x && x.nodeFrom && x.nodeFrom.slug;
+    const to = x && x.nodeTo && x.nodeTo.slug;
+    if (typeof type !== 'string' || typeof from !== 'string' || typeof to !== 'string' || isClaim({ type, properties: x.properties })) continue;
+    out.set(relKey(type, from, to), isObject(x.properties) ? x.properties : {});
+  }
+  return out;
 }
 
 /** Whether a relationship is a b tag's claim, which goes with its header's tags (Decision 8). */
@@ -266,6 +298,11 @@ const sameProps = (a, b) => stable(isObject(a) ? a : {}) === stable(isObject(b) 
 
 /** Each node's and relationship's outcome; see the file's header. Pure. */
 function plan(target, state, { take, takeAll = false } = {}) {
+  // A node at the installed-firmware graph's address without seed-firmware's mark is someone's own: it is never read
+  // as the last install's lists, nor rewritten (Amendment 3, item 3).
+  if (state.held) {
+    throw refusal(ADDRESS_HELD.code, `The node at ${state.held.address} (tapestryKey ${state.held.key}) isn't seed-firmware's record of what it installed: it lacks seed-firmware's mark, its own installed record and an installedFirmware section. That address is the installed-firmware graph's, so the firmware can't be installed while it is held. Nothing changed.`);
+  }
   const all = takeAll === true;
   const graphOf = (t) => (t.letter ? state.letters.get(t.address) : state.found.get(t.address)) || null;
   // take: by an address of the target, a letter's address in the graph, or the tapestryKey of the node at one.
@@ -328,7 +365,10 @@ function plan(target, state, { take, takeAll = false } = {}) {
     if (blocked.has(r.from) || blocked.has(r.to)) continue;
     (isClaim(r) ? claims : want).push({ type: r.type, from: at(r.from), to: at(r.to), properties: isObject(r.properties) ? r.properties : {} });
   }
+  // The last install's relationships: those it made, brought in line or adopted, and apart from them those it kept,
+  // which no install takes out (Amendment 3, item 4).
   const last = state.last ? state.last.relationships : null;
+  const keptBefore = state.last ? state.last.kept : new Map();
   // A node made by this run: its relationships are new with it, whatever the graph held before.
   const made = new Set(nodes.filter((e) => e.outcome === 'added').map((e) => e.address));
   const out = [];
@@ -351,31 +391,41 @@ function plan(target, state, { take, takeAll = false } = {}) {
     wanted.add(k);
     const entry = { type: r.type, from: r.from, to: r.to, ...(Object.keys(r.properties).length ? { properties: r.properties } : {}) };
     const g = state.rels.get(k);
+    // No record: the installed-firmware graph doesn't list it as made, brought in line or adopted.
     const listed = !!last && last.has(k);
+    const record = listed ? {} : { noRecord: true };
     if (g) {
       if (sameProps(g.properties, r.properties)) out.push({ ...entry, outcome: 'unchanged' });
       else if (listed && sameProps(g.properties, last.get(k))) out.push({ ...entry, outcome: 'changed' });
-      else if (all) out.push({ ...entry, outcome: 'changed', ...(listed ? {} : { noRecord: true }) });
-      else out.push({ ...entry, outcome: 'kept', was: g.properties, ...(listed ? {} : { noRecord: true }) });
-    } else if (made.has(r.from) || made.has(r.to) || (last && !listed)) {
+      else if (all) out.push({ ...entry, outcome: 'changed', ...record });
+      else out.push({ ...entry, outcome: 'kept', was: g.properties, ...record });
+    } else if (made.has(r.from) || made.has(r.to) || (last && !listed && !keptBefore.has(k))) {
       out.push({ ...entry, outcome: 'added' });
     } else if (all) {
-      out.push({ ...entry, outcome: 'added', ...(last ? {} : { noRecord: true }) });
+      out.push({ ...entry, outcome: 'added', ...record });
     } else {
-      // Missing between two nodes that were there: removed since the last install, or, on first contact with no
-      // installed-firmware graph, a relationship with no record (Decision 8).
-      out.push({ ...entry, outcome: 'kept', missing: true, ...(last ? {} : { noRecord: true }) });
+      // Missing between two nodes that were there: removed since it was installed, kept before, or, on first contact
+      // with no installed-firmware graph, a relationship with no record (Decision 8).
+      out.push({ ...entry, outcome: 'kept', missing: true, ...record });
     }
   }
+  // One the last install made, brought in line or adopted, which the firmware no longer makes, is taken out.
   for (const [k, props] of last ? last.entries() : []) {
     if (wanted.has(k) || !state.rels.has(k)) continue;
     const g = state.rels.get(k);
     out.push({ type: g.type, from: g.from, to: g.to, ...(Object.keys(props).length ? { properties: props } : {}), outcome: 'removed' });
   }
-  for (const [k, g] of state.rels) if (!wanted.has(k) && !(last && last.has(k))) out.push({ type: g.type, from: g.from, to: g.to, outcome: 'others' });
+  // One it kept, which the firmware no longer makes, stays as the instance has it, and is reported kept (Amendment 3,
+  // item 4).
+  for (const k of keptBefore.keys()) {
+    if (wanted.has(k) || (last && last.has(k)) || !state.rels.has(k)) continue;
+    const g = state.rels.get(k);
+    out.push({ type: g.type, from: g.from, to: g.to, outcome: 'kept', was: g.properties, noRecord: true });
+  }
+  for (const [k, g] of state.rels) if (!wanted.has(k) && !(last && last.has(k)) && !keptBefore.has(k)) out.push({ type: g.type, from: g.from, to: g.to, outcome: 'others' });
 
   // What the installed-firmware graph lists after this run (Decision 9), and whether anything is to be written.
-  const listing = listingOf(target, nodes, [...want, ...claims]);
+  const listing = listingOf(target, nodes, out);
   const writes = nodes.some((e) => ['added', 'changed', 'put-back'].includes(e.outcome) || e.adopt === true)
     || out.some((r) => ['added', 'changed', 'removed'].includes(r.outcome))
     || !state.installed || !sameListing(state.last, listing, target);
@@ -388,12 +438,23 @@ function relationshipsAnswer(list) {
   return { added: pick('added'), removed: pick('removed'), changed: pick('changed'), kept: pick('kept'), unchanged: list.filter((r) => r.outcome === 'unchanged').length, others: list.filter((r) => r.outcome === 'others').length };
 }
 
-/** The nodes and relationships the installed-firmware graph lists after a run: each node not blocked, and its relationships. */
-function listingOf(target, nodes, relationships) {
+/**
+ * What the installed-firmware graph lists after a run: each node not blocked; in `relationships` each one the run
+ * made, brought in line or adopted as the target has it; and in `kept` each one it kept, apart (Amendment 3, item 4),
+ * with the properties the graph holds, or, when it is missing, the firmware's.
+ */
+function listingOf(target, nodes, out) {
   const byTarget = new Map(target.nodes.map((t) => [t.address, t]));
   const listed = nodes.filter((e) => e.outcome !== 'blocked').map((e) => ({ address: e.address, name: byTarget.get(e.target).name }));
-  return { nodes: listed, relationships, references: [...target.references] };
+  const props = (r) => (isObject(r.was) ? r.was : isObject(r.properties) ? r.properties : {});
+  const relationships = out.filter((r) => ['added', 'changed', 'unchanged'].includes(r.outcome)).map((r) => ({ type: r.type, from: r.from, to: r.to, properties: isObject(r.properties) ? r.properties : {} }));
+  const kept = out.filter((r) => r.outcome === 'kept').map((r) => ({ type: r.type, from: r.from, to: r.to, properties: props(r) }));
+  return { nodes: listed, relationships, kept, references: [...target.references] };
 }
+/** A listed relationship as text, for comparing two listings. */
+const listedText = (x) => `${x.from}\u0000${x.type}\u0000${x.to}\u0000${stable(isObject(x.properties) ? x.properties : {})}`;
+/** A list in graph.relationships' form as { type, from, to, properties }. */
+const fromGraphForm = (list) => (Array.isArray(list) ? list : []).map((x) => ({ from: x && x.nodeFrom && x.nodeFrom.slug, type: x && x.relationshipType && x.relationshipType.slug, to: x && x.nodeTo && x.nodeTo.slug, properties: x && x.properties }));
 /** Whether the installed-firmware graph already lists what a run would list, from the same source. */
 function sameListing(last, listing, target) {
   if (!last) return false;
@@ -402,23 +463,19 @@ function sameListing(last, listing, target) {
   const had = (j.graph.nodes || []).map((x) => x && x.slug).filter((x) => typeof x === 'string').sort();
   const now = [...listing.nodes.map((n) => n.address), ...listing.references].sort();
   if (stable(had) !== stable(now)) return false;
-  const rel = (x) => `${x.from}\u0000${x.type}\u0000${x.to}\u0000${stable(isObject(x.properties) ? x.properties : {})}`;
-  const hadRels = (j.graph.relationships || []).map((x) => rel({ from: x.nodeFrom && x.nodeFrom.slug, type: x.relationshipType && x.relationshipType.slug, to: x.nodeTo && x.nodeTo.slug, properties: x.properties })).sort();
-  const nowRels = listing.relationships.map(rel).sort();
-  return stable(hadRels) === stable(nowRels);
+  const same = (a, b) => stable(a.map(listedText).sort()) === stable(b.map(listedText).sort());
+  return same(fromGraphForm(j.graph.relationships), listing.relationships) && same(fromGraphForm(j.installedFirmware.keptRelationships), listing.kept);
 }
 
-/** The installed-firmware graph's JSON (Decision 9), in elementJson's form, with installedFirmware. */
+/** A listed relationship in graph.relationships' form. */
+const graphForm = (r) => ({ nodeFrom: { slug: r.from }, relationshipType: { slug: r.type }, nodeTo: { slug: r.to }, ...(isObject(r.properties) && Object.keys(r.properties).length ? { properties: r.properties } : {}) });
+/** The installed-firmware graph's JSON (Decision 9), in elementJson's form, with installedFirmware and its kept list. */
 function installedGraphJson(target, listing, { at, by }) {
   const nodes = [...listing.nodes.map((n) => ({ slug: n.address, uuid: n.address, name: n.name })), ...listing.references.map((a) => ({ slug: a, uuid: a, name: a }))];
   const types = [...new Set(listing.relationships.map((r) => r.type))].sort();
-  const relationships = listing.relationships.map((r) => ({
-    nodeFrom: { slug: r.from }, relationshipType: { slug: r.type }, nodeTo: { slug: r.to },
-    ...(isObject(r.properties) && Object.keys(r.properties).length ? { properties: r.properties } : {}),
-  }));
   return {
     word: { slug: 'graph--installed-firmware', name: 'graph: installed firmware', title: 'Graph: Installed Firmware', wordTypes: ['word', 'graph'] },
-    graph: { nodes, relationshipTypes: types.map((slug) => ({ slug })), relationships, imports: [] },
+    graph: { nodes, relationshipTypes: types.map((slug) => ({ slug })), relationships: listing.relationships.map(graphForm), imports: [] },
     installedFirmware: {
       version: target.version,
       source: { kind: target.source.kind, digest: target.source.digest, files: target.source.files },
@@ -427,6 +484,7 @@ function installedGraphJson(target, listing, { at, by }) {
       nodes: listing.nodes.length,
       relationships: listing.relationships.length,
       references: listing.references,
+      keptRelationships: listing.kept.map(graphForm),
     },
   };
 }
@@ -583,17 +641,20 @@ async function apply(tx, target, state, p, { caller, at }) {
   }
   for (const r of p.relationships) { r.from = at2(r.from); r.to = at2(r.to); }
 
-  // The installed-firmware graph (Decision 9): made the first time, its tags rewritten after.
+  // The installed-firmware graph (Decision 9), at its reserved address: made the first time, its tags rewritten after,
+  // and its own installed record set each time, which with its installedFirmware section is seed-firmware's mark
+  // (Amendment 3, item 3).
   const by = byOf(caller);
+  const moved = (r) => ({ ...r, from: at2(r.from), to: at2(r.to) });
   const listing = {
     nodes: p.listing.nodes.map((n) => ({ ...n, address: at2(n.address) })),
-    relationships: p.listing.relationships.map((r) => ({ ...r, from: at2(r.from), to: at2(r.to) })),
+    relationships: p.listing.relationships.map(moved),
+    kept: p.listing.kept.map(moved),
     references: p.listing.references,
   };
   const json = installedGraphJson(target, listing, { at, by });
   const igAddress = installedGraphAddress(ta);
-  const d = igAddress.split(':').slice(2).join(':');
-  const igTags = [['d', d], ['name', 'installed firmware'], ['z', `39998:${ta}:graph`], ['json', JSON.stringify(json)]];
+  const igTags = [['d', INSTALLED_D], ['name', 'installed firmware'], ['z', `39998:${ta}:graph`], ['json', JSON.stringify(json)]];
   let igKey;
   if (state.installed) {
     igKey = state.installed.key;
@@ -601,6 +662,11 @@ async function apply(tx, target, state, p, { caller, at }) {
   } else {
     igKey = await EV.makeNode(tx, { uuid: igAddress, kind: 39999, labels: ['ListItem'], name: 'installed firmware', tags: igTags, pubkey: ta, createdAt });
   }
+  const igContent = contentOf({ name: 'installed firmware', tags: igTags });
+  await tx.run(
+    'MATCH (n:TapestryNode {tapestryKey: $key}) SET n.installed = $installed',
+    { key: igKey, installed: JSON.stringify({ version: target.version, source: target.source.digest, digest: igContent.digest, parts: igContent.parts, at }) },
+  );
   const graphSuperset = (target.nodes.find((t) => t.role === 'superset' && t.concept === 'graph') || {}).address;
   if (graphSuperset) {
     await tx.run(
@@ -688,11 +754,14 @@ async function seeded(read, ta) {
   if (!ta) return null;
   const rows = await read(
     `MATCH (n:NostrEvent|TapestryNode {uuid: $uuid})-[:HAS_TAG]->(t:NostrEventTag {type: 'json'})
-     RETURN t.value AS json`,
+     RETURN t.value AS json, n.installed AS installed`,
     { uuid: installedGraphAddress(ta) },
   );
-  const j = rows.length ? parseJson(rows[0].json) : null;
-  const fw = isObject(j) && isObject(j.installedFirmware) ? j.installedFirmware : null;
+  // Read through the LMDB when its json is offloaded, and only when it carries seed-firmware's mark (Amendment 3,
+  // items 1 and 3).
+  const ig = rows.length ? installedGraphOf(rows[0].installed, rows[0].json) : null;
+  const j = ig && ig.json ? ig.json : null;
+  const fw = j ? j.installedFirmware : null;
   if (!fw) return null;
   const references = new Set(Array.isArray(fw.references) ? fw.references : []);
   const listed = (isObject(j.graph) && Array.isArray(j.graph.nodes) ? j.graph.nodes : []).map((x) => x && x.slug).filter((x) => typeof x === 'string' && !references.has(x));
@@ -718,7 +787,7 @@ async function seeded(read, ta) {
 }
 
 module.exports = {
-  OPERATION, NOT_FIRMWARE,
+  OPERATION, NOT_FIRMWARE, ADDRESS_HELD, INSTALLED_D,
   readState, plan, apply, refreshCache, rulesCheck, seeded, relationshipsAnswer,
   contentOf, partsDiffering, installedGraphAddress, isClaim, stable,
 };

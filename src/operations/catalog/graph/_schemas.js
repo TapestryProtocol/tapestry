@@ -26,7 +26,9 @@
  *   fits(read, concept, json)     a write's check: { fits: true | false | null, problems, problem, waiting }; null with
  *                                 no schema to check against, or when the JSON misses only its graphContext (waiting)
  *   judge(read)                   a checker for one call, or one derive pass, which reads and compiles each concept's
- *                                 schema once; its check(concept, json, { writing }) sets nothing aside unless writing
+ *                                 schema once; its check(concept, json, { writing, record }) sets nothing aside unless
+ *                                 writing, and the record sections `record` names, those the node carries
+ *   recordCarried(props)          the record sections a node carries, from its properties (ADR 0037 Amendment 3, item 6)
  *   tapestryJsonOf(node)          the node's tapestryJson → { json }, or { problem, missing } (ADR 0042 Decision 1)
  *   validatorOf(schema)           a schema compiled once, as the check compiles one → { check(json) → { fits, problems,
  *                                 errors } }, or { problem } when it doesn't compile: the property operations' reports
@@ -212,15 +214,26 @@ function aboutGraphContext(err) {
 
 /**
  * The JSON as a schema judges it: lifecycle seed-firmware's install record, the top-level cameFrom and installed the
- * derive step puts in, set aside, as graphContext is local to the instance (ADR graph-operations-first-slice/0037
- * Decision 6). Anything else is judged as it is.
+ * derive step puts in from the node's own properties, set aside, as graphContext is local to the instance (ADR
+ * graph-operations-first-slice/0037 Decision 6). Only the sections `record` names are, those the node carries: a
+ * section of either name in a node with no record may be a concept's own, and is judged (Amendment 3, item 6).
  */
 const RECORD_SECTIONS = Object.freeze(['cameFrom', 'installed']);
-function withoutRecord(json) {
-  if (!isObject(json) || !RECORD_SECTIONS.some((k) => Object.prototype.hasOwnProperty.call(json, k))) return json;
+function withoutRecord(json, record) {
+  const names = (Array.isArray(record) ? record : []).filter((k) => RECORD_SECTIONS.includes(k));
+  if (!isObject(json) || !names.some((k) => Object.prototype.hasOwnProperty.call(json, k))) return json;
   const out = { ...json };
-  for (const k of RECORD_SECTIONS) delete out[k];
+  for (const k of names) delete out[k];
   return out;
+}
+/** The record sections a node carries, from its own properties: each of cameFrom and installed that holds a JSON object. */
+function recordCarried(props) {
+  const holds = (v) => {
+    if (isObject(v)) return true;
+    if (typeof v !== 'string' || !v) return false;
+    try { return isObject(JSON.parse(v)); } catch { return false; }
+  };
+  return RECORD_SECTIONS.filter((k) => isObject(props) && holds(props[k]));
 }
 
 /**
@@ -252,11 +265,11 @@ function judge(read) {
     }
     return memo.get(concept);
   };
-  async function check(concept, given, { writing = false } = {}) {
+  async function check(concept, given, { writing = false, record = [] } = {}) {
     const j = await of(concept);
     const { validate, problem: why, ...facts } = j;
     if (!validate) return { ...facts, fits: null, problems: [], problem: why, waiting: false };
-    const json = withoutRecord(given);
+    const json = withoutRecord(given, record);
     if (validate(json)) return { ...facts, fits: true, problems: [], problem: null, waiting: false };
     let errors = validate.errors || [];
     let waiting = false;
@@ -315,4 +328,4 @@ async function checkRule(read, name, items, { every = false } = {}) {
   throw refusal(found[0].code, message, { rule: rule.name });
 }
 
-module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements, checkRule };
+module.exports = { MAX_LISTED, TOP, schemaOf, problemsOf, problemOf, listProblems, judge, fits, tapestryJsonOf, validatorOf, checkElements, checkRule, recordCarried };
