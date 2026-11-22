@@ -29,3 +29,8 @@
   - Such a set stays in `set` only because Pass 3 runs to the end. A Pass 3 failure is caught and logged while the install goes on (`install.js:1289–1295`), and such a reinstall leaves those sets out of `set`.
   - A fix of this row's shape, pass 1e counting only class-thread paths, leaves sets alone. A change to `wire-implicit-elements`' check could drop the membership of every such set.
   - To confirm the reading on a scratch reinstall, read its output: `set: pruned N HAS_ELEMENT …` (`install.js:900`), then `Implicit elements wired: N` (`:1292`).
+
+**The two meta-supersets list themselves, and a reinstall changed one (2026-11-21, community-reference #39's reinstalls).** Seen, not looked into:
+- **On production.** A read-only query for every node linked to itself, run just before and after its firmware reinstall (23:37 to 23:41 UTC, on `196a475f`), found `39999:<TA>:set-superset -HAS_ELEMENT->` itself both times. `39999:<TA>:superset-superset -HAS_ELEMENT->` itself was there only after.
+- **On staging,** after its reinstall that day (22:07 to 22:11 UTC, on the same code), `/neighbors` shows `set-superset` listing itself as an element and `superset-superset` not.
+- **Why it may belong here.** Each meta-superset is itself a set, and `superset-superset` is a superset, so the memberships may be meant. But whether one is there depends on the instance and on the install, as with this row's moves between the two meta-supersets. `class-thread-acyclic` may count each as a cycle.

@@ -31,6 +31,21 @@
   - #39: a firmware install leaves each header's tags once;
   - #40: a repeated tag is never listed twice or signed, to be planned after #39.
 
+## Rollout counts
+
+- **Staging (2026-11-21, `425006cf`).** Its reinstall ran from 22:07:06 to 22:11:46 UTC, after a merge's deploy had cut off two attempts.
+  - Its public summaries give 46 rows for 46 headers (50 before).
+  - None of the 56 nodes the sweep reads holds a repeated tag: its 46 headers and 10 community copies.
+  - The six headers hold 7 tags each, or 9 for `tagging-with-specific-tag`, with one `b` each. The copies of production's `nostr-relay` header and superset hold 7 each (61 and 63 before).
+  - Three copies still reference themselves, following their letters: production's `nostr-relay` header, and the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers.
+  - Story 39's Evidence has the details.
+- **Production (2026-11-21, `196a475f`).** Its reinstall ran from 23:37:29 to 23:41:29 UTC.
+  - Its public summaries give 45 rows for 45 headers (51 before).
+  - None of the 56 nodes the sweep reads holds a repeated tag (7 did before).
+  - Five headers hold 7 tags each, or 9 for `tagging-with-specific-tag`, with one `b` each.
+  - `nostr-relay`, whose reference production curates, holds 6 tags and no `b`. Neither it nor its superset (7 tags, 14 before) has a relationship to itself.
+  - Two copies still reference themselves, following their letters: the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers.
+
 ## Known constraints acknowledged at kickoff
 
 - **The local container is off-limits.** It is the owner's private agent-memory instance: not checked, not touched, and no full `npm test` on this Mac.
