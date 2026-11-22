@@ -509,3 +509,63 @@ F1–F4 are fixed, and each fix holds as a fresh claim. D7's guard is real, and 
 
 - [x] The story is already `Done`, so nothing flips.
 - [ ] Completion detection performed. The result goes in the chat, not in this file.
+
+---
+
+## Third fix-check (G1, G2)
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-21 (2026-11-22 UTC)
+**Diff:** `git show d475cf7e0`, one commit, prose only: the meta row `ledger/2026-11-22-brainstorm-config-ignores-conf-path.md`, and the story's Evidence. 2 files, +14 / −5. It comes after `7eb4e87d7`, which holds the second fix-check above. The base is still `94e85fe06`, and the story is `Done`.
+
+### Quality gates (run by reviewer, not trusted)
+
+The safety constraints and environment were round 1's.
+
+- [x] **Scoped gate on the committed HEAD `d475cf7e0`:** `npm run gate:status -- --label ds4-review-5` gives
+  `20261122T041635Z-24531-4b7b [ds4-review-5] started 2026-11-22T04:16:35.058Z on d475cf7e — PASS, exit 0, 236 passed, 0 failed, 0 skipped, 7/7 suites`
+  - **The tree was clean,** and no suite left `process.env` changed.
+  - **Every suite passed:** `harness-lint` 85, `harness-stats` 12, `session-start` 32, `ledger-row-ids` 6, `rollup-scanners` 33, `deploy-safety-sees-installs` 42 and `live-link-checks` 26. That matches the coordinator's report of `ledger-row-ids` 6 of 6 and the suite 42 of 42.
+- [x] **Why these 7.** The commit changes one ledger row and the story. Their readers are `ledger-row-ids`, `session-start`, `harness-lint`, `rollup-scanners` and `live-link-checks` for the ledger, and `harness-lint` and `harness-stats` for the story. `deploy-safety-sees-installs` is included because it reads this story's ledger rows. No code, test or recipe changed, so nothing else reads anything this commit touched.
+- [x] **`bash scripts/harness-lint.sh`:** clean before this section, and clean after it, with 0 violations.
+
+### G1 and G2, each re-checked as a fresh claim
+
+| Claim in the new text | Checked against | |
+|---|---|---|
+| The flag comes from a bare `TASK_QUEUE_ENABLED=` line in `/etc/brainstorm.conf`, and otherwise from `process.env` (meta row :27) | `get()` returns `this.variables[name] \|\| process.env[name]` (`brainstormConfig.js:109-110`), and `variables` holds only what `parseConfig` keeps | **Holds** |
+| `parseConfig` (`brainstormConfig.js:45`) takes only bare `VAR=value` lines (:28) | :45 is `parseConfig`, and its match at :57 is anchored at the name; my in-memory test of it (second fix-check, G1) | **Holds** |
+| The template writes `export TASK_QUEUE_ENABLED=true` (:29) | `config/brainstorm.conf.template:100` | **Holds** |
+| So on a deployed instance the flag reaches `brainstormConfig` through `process.env` (:30) | The entrypoint renders the conf from the template (`docker/entrypoint.sh:41-62`) and writes `/usr/local/bin/start-brainstorm.sh` (:288-295). That wrapper is the `brainstorm` program's command (`docker/supervisord.conf:61`), and it sources the conf and then `exec`s the control panel. So the control panel's environment holds the exported flag | **Holds** |
+| The suites fail with a bare `TASK_QUEUE_ENABLED=true` line, or "in a shell that exports `TASK_QUEUE_ENABLED=true`, as a deployed container's environment can" (:33-34) | A bare line is parsed. No image `ENV`, compose setting or shell profile gives a `docker exec` shell the flag, so it has it only after sourcing the conf, which is why "can" is the right word | **Holds** |
+| Exporting `TASK_QUEUE_ENABLED=false` "works on most hosts, one with a deployed conf included", since the file wins only for a bare line, "which the conf template doesn't write" (:40) | Every writer of `/etc/brainstorm.conf` I found writes the `export` form (the template; `setup/create_nostr_identity.sh`, `setup/neo4jConstraintsAndIndexes.sh` and `bin/update-config.sh`, for their own keys), and none writes a bare `TASK_QUEUE_ENABLED=` line | **Holds** |
+| G2: the Evidence records round 4's commits and run, and the review's run (story :89, :149-153) | `3208c7c90` and `d780c4715` are as described. `20261122T040256Z-24746-f06e` is on `3208c7c9+dirty`: exit 0, with 369 passed, 0 failed and 10 skipped, across the same 13 suites as round 3. `20261122T040850Z-16361-73b4` matches it on the committed tree. Rounds 3 and 4 each changed D7 and prose only | **Holds** |
+
+**Also checked:**
+- **The commit is prose only,** as stated: the story and one ledger row. The row's header fields are unchanged, and L15 holds.
+- **A correction to my own wording.** The second fix-check's G1 said "the entrypoint sources the conf (:292)". In fact :292 is inside the heredoc that writes `start-brainstorm.sh`, and it is that wrapper that sources the conf. The conclusion is the same, and the new row doesn't repeat the detail.
+
+### Findings, third fix-check
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+None.
+
+#### Harness friction *(anything the process itself got wrong this story — stale doc, wrong port/path, contradictory instruction; each becomes an OPEN.md row, type `meta`)*
+
+1. None new.
+
+### Verdict, third fix-check
+
+G1 and G2 are fixed, and every claim in the new text holds as a fresh claim. The scoped gate on the committed HEAD passes.
+
+**PASS**
+
+### Close-out, third fix-check
+
+- [x] The story is already `Done`, so nothing flips.
+- [ ] Completion detection performed. The result goes in the chat, not in this file.
