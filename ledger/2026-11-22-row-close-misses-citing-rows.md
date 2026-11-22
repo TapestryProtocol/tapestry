@@ -6,7 +6,7 @@
 **Status:** OPEN
 **Done:** —
 
-**What was seen.** A doc-lane change closed OPEN.md row 14 as "every part of the row is fixed", and its review caught that two parts were still open (finding B1). One of them, §9.9's droplet list, is the fix that row 24(c) leaves to row 14. Row 24 is open, and its item (c) "folds into the §1/§9 drift reconciliation in **#14**". The closing session never looked for rows that cite row 14, since no step asks for that. The review's own first search, for "row 14", then missed row 24, because row 24 cites the row as "#14". Row 14 stayed open.
+**What was seen.** A doc-lane change closed OPEN.md row 14 as "every part of the row is fixed", and its review caught that two parts were still open (finding B1). One of them, §9.9's droplet list, is the fix that row 24(c) leaves to row 14. Row 24 is open, and its item (c) "folds into the §1/§9 drift reconciliation in **#14**". The closing session didn't look for rows that cite row 14 before closing it, since no step asks for that. The review's own first search, for "row 14", then missed row 24, because row 24 cites the row as "#14". Row 14 stayed open.
 
 OPEN.md § "How to use this ledger" says how to cite a row ("OPEN.md row 230"), how to look a number up, and how to close a row. It doesn't ask whoever closes a row to find the rows that cite it, or what those rows leave to it. Older rows cite each other as "#N", a form that pull request and issue numbers share, so a search for "row N" alone misses them.
 
