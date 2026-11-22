@@ -30,6 +30,13 @@
   - **None of production's own nodes was named, before or after.** The measurement found 5 of its own JSON schemas on 2026-11-20, or 4, if it counted `nostr-event-tagging-schema` as production's own, as it did on staging. That is not looked into.
 - **Still to do:** david.tapestry.ninja and the other hosted Tapestries.
 
+**2026-11-22: why production's check names none of its own nodes.** Read by address from production's public `GET /api/concept-graph/node/<address>`, with no sign-in and nothing written:
+- **Production has four JSON schemas of its own:** `v4v-musician-schema`, `github-account-schema`, `cat-schema` and `cat-breed-schema`. So its own count is 4, not 5.
+- **All four still lack `validationTool`.** Each one's `json` tag gives `word.wordTypes` as `["word","jsonSchema"]`.
+- **None of the four carries the `TapestryNode` label.** Their labels are `NostrEvent`, `ListItem` and `JSONSchema`. The rule judges only nodes with that label (`JUDGEABLE`, `src/operations/rules/word-types-hold-concept-keys.js:27`), so `rules check` can't name them. This is the gap in ledger row `2026-11-17-walk-skips-unlabelled-keyed-nodes`. The story left such nodes out of scope: its measurement found 152 class-thread elements on production with a tapestryKey and no label.
+- **So a repair that works from `rules check`'s findings would miss them.**
+- The reads are recorded in this Mac's main checkout, under `tmp/live-check-47/after-reinstall/`.
+
 **What closes it.** A firmware reinstall on staging once the change reaches it, on production after its promotion, and on david.tapestry.ninja and the other hosted Tapestries once their code has it. Each is the owner's call there. After each, `tapestry rules check --scope graph --rules word-types-hold-concept-keys` names none of firmware's nodes, and `tapestry graph list-elements` for `39998:<TA>:graph-rule` gives twelve items. What it still names is the instance's own:
 - the JSON schemas of the concepts it made itself (david.tapestry.ninja 23, staging 6, production 5, this Mac 10), which a follow-up repair gives their key;
 - any node whose JSON has no word block.
