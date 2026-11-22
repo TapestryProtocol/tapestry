@@ -95,7 +95,7 @@ The owner made two more choices during implementation, on 2026-11-21, when the s
 - ADR: `engineering-team/decisions/done/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md`
 - Test plan: `engineering-team/stories/done/test-gate-speed/1-stack-free-gate-in-half-the-time.test-plan.md`
 - Review: `engineering-team/reviews/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md`
-- Pull request: TapestryProtocol/tapestry#201 (to `staging`)
+- Pull request: TapestryProtocol/tapestry#201 (to `staging`). Shipped on `staging` 2026-11-22: TapestryProtocol/tapestry#201 merged as `5b135ccaa` at 14:53:27Z, 16 s after a safe answer from the safe-to-merge check. The staging deploy, run 45035265698, took 1 m 54 s. The smoke test was clean: stable after 3 polls, Neo4j answering after 3, every page and API 200, Odell's `get-user-data` the expected 504 JSON in 15.9 s, search 2 of 314 hits, and the bundle unchanged at `index-DAxhuweK.js`, since nothing served changed. `main` takes it at its next promotion.
 - Intake: `engineering-team/stories/_intake.md`, the 2026-11-21 entry "The stack-free gate runs one suite at a time, and each operations story adds about a minute and a half to every pull request (refactor)"
 - Ledger: `ledger/2026-11-21-ci-gate-nears-25-minute-timeout.md` (the measurements; closed by #191)
 - Book: `engineering-team/audits/test-gate-speed/book.md`
