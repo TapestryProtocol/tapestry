@@ -159,6 +159,14 @@ function kindToLabel(kind) {
 }
 
 /**
+ * The uuid buildImportCypher gives an event's tag node at index `i`: the last 8 hex of the event's id, the index and the
+ * tag's type. buildPruneCypher keeps the tag nodes it names, so the two builders share it (ADR community-reference/0035).
+ */
+function tagUuidOf(event, i, tag) {
+  return `${event.id.slice(-8)}_${i}_${tag[0]}`;
+}
+
+/**
  * Import a single event into Neo4j.
  * Runs the same Cypher that batchTransfer + setup produces, but targeted.
  *
@@ -216,7 +224,7 @@ function buildImportCypher(event) {
     if (!tag[0]) continue;
 
     // Include index in tagUuid to avoid collisions for multiple tags of the same type
-    const tagUuid = `${event.id.slice(-8)}_${i}_${tag[0]}`;
+    const tagUuid = tagUuidOf(event, i, tag);
     let setClause = `SET t${i}.type = '${esc(tag[0])}'`;
     for (let j = 0; j < Math.min(tag.length - 1, 5); j++) {
       const suffix = j === 0 ? '' : String(j);
@@ -289,6 +297,46 @@ function buildImportCypher(event) {
   // Add REFERENCES statements after tags are created
   statements.push(...refStatements);
 
+  return statements;
+}
+
+/**
+ * The statements that make an event's node hold only what buildImportCypher(event) makes, run once that import has
+ * resolved (ADR community-reference/0035 Decision 1). buildImportCypher MERGEs a tag node per tag and deletes none, so a
+ * node imported at a second letter, or at a curator's newer version, keeps the earlier letter's tag nodes beside the
+ * new ones. This prunes them:
+ *   - each tag node the node holds whose uuid isn't one buildImportCypher gives this event loses its HAS_TAG from the
+ *     node, and is deleted only when no other node holds it (two letters whose ids end alike share tag nodes);
+ *   - with `derivedEdges`, for a community copy, whose letter is its only source: each REFERENCES {source:'b-tag'} and
+ *     INHERITS_FROM from the node to a target this event's b tags don't name. An instance's own header leaves it off:
+ *     a relationship from a b its owner authored stays (Decision 4).
+ * Nothing else on the node is touched, nor any node at the end of a relationship.
+ */
+function buildPruneCypher(event, { derivedEdges = false } = {}) {
+  const isReplaceable = event.kind >= 30000;
+  const dTag = event.tags.find(t => t[0] === 'd')?.[1];
+  const uuid = isReplaceable ? `${event.kind}:${event.pubkey}:${dTag}` : event.id;
+  const node = `MATCH (n:NostrEvent|TapestryNode {uuid: '${esc(uuid)}'})`;
+  const list = (values) => `[${values.map(v => `'${esc(v)}'`).join(', ')}]`;
+
+  const keep = [];
+  event.tags.forEach((tag, i) => { if (tag[0]) keep.push(tagUuidOf(event, i, tag)); });
+  const statements = [
+    `${node}-[h:HAS_TAG]->(t:NostrEventTag) WHERE NOT t.uuid IN ${list(keep)} ` +
+    'WITH n, h, t, COUNT { MATCH (o)-[:HAS_TAG]->(t) WHERE o <> n } AS others ' +
+    'DELETE h ' +
+    'WITH DISTINCT t, others WHERE others = 0 ' +
+    'DETACH DELETE t',
+  ];
+
+  if (derivedEdges) {
+    // The b tags buildImportCypher's b branch derives a relationship from, read as it reads them.
+    const derived = event.tags.filter(t => t[0] === 'b' && t[1] && ['a-tag', 'event-id'].includes(classifyBValue(t[1])));
+    const pointers = derived.filter(t => t[2] !== 'inherit').map(t => t[1]);
+    const parents = derived.filter(t => t[2] === 'inherit').map(t => t[1]);
+    statements.push(`${node}-[r:REFERENCES]->(x) WHERE r.source = 'b-tag' AND NOT x.uuid IN ${list(pointers)} DELETE r`);
+    statements.push(`${node}-[r:INHERITS_FROM]->(x) WHERE NOT x.uuid IN ${list(parents)} DELETE r`);
+  }
   return statements;
 }
 
@@ -375,4 +423,4 @@ async function handleEventUuids(req, res) {
   }
 }
 
-module.exports = { handleEventCheck, handleEventUpdate, handleEventUuids, buildImportCypher, executeCypher };
+module.exports = { handleEventCheck, handleEventUpdate, handleEventUuids, buildImportCypher, buildPruneCypher, executeCypher };
