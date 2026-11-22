@@ -202,9 +202,11 @@ Ten full `npm test` runs in the sealed container, each passing: six with `--cpus
 
 **Runs that went before.** None of these counts toward the ten. All passed in the container, each with 0 failed and 669 skipped:
 - three on the first engine, at commit `7df76221`: 380 to 404 s;
-- six with Amendment 2, at `85fba631`: 361 to 416 s.
+- six with Amendment 2, at `85fba631`: 361 to 416 s;
+- ten in a row at `7836548a`, before Amendment 4: 8,634 passed, runs 1–6 in 357–367 s and runs 7–10 in 515–520 s;
+- ten in a row at `7b89bbb5`, with round 1's fix and before round 2's: 8,638 passed, runs 1–6 in 365–386 s and runs 7–10 in 520 s.
 
-The ten count on the final commit.
+The ten count on the final code commit, `b6493436`. The commits after it change only the story's records: the test plan, the review and the story's status.
 
 ### V4: the PR's CI runs (AC1, AC4, AC5)
 
@@ -219,10 +221,16 @@ names its CPUs, so the review can say what each runner was.
 | V1, re-time | CI 44981972812, AMD EPYC 7763, one job, longest-first | 1,349 s; 703 s | 0.521, over half: the owner chose the split (Amendment 3) |
 | **V1'** | CI 44985636771, two parts, each runner timing today's whole gate first | part 1, AMD EPYC 9V74: 1,154 s, then 215 s. Part 2, AMD EPYC 7763: 1,353 s, then 444 s | **0.186 and 0.328: passes.** The parts' totals add up to the whole gate's: 4,195 + 4,491 = 8,686 passed, and 344 + 325 = 669 skipped |
 | **V2** | sealed container, 4 CPUs, commit `7df76221` | today's engine 1,038.7 s; the new one 403.6 s | **0.389: passes.** All 354 entries have the same counts; `operations` = its own unit + its 111 files |
-| V2, split | sealed container, final tree | part 1: 232 suites, 4,375 passed, 350 skipped, 137 s. Part 2: 233 suites, 4,259 passed, 319 skipped, 233 s | **Passes:** no suite in both parts, all 465 covered, and 8,634 passed, 0 failed, 669 skipped, the same as a whole run |
-| **V3** | sealed container, commit `7836548a`: the final tests, and the workflow still with the timing step, which W1–W10 pass either way | ten full runs in a row: runs 1–6 on 4 CPUs in 357–367 s, runs 7–10 with 4 jobs on 2 CPUs in 515–520 s | **Passes:** all ten 8,634 passed, 0 failed, 669 skipped |
-| CI on `4eb1da50` | CI 44991282286, the final shape | part 1, EPYC 9V74: 235 of 471 suites, `npm test` 5 m 29 s; part 2, EPYC 7763: 236 of 471 suites, 5 m 40 s | Passes: the verdict about 6 minutes after the run started |
-| **V4** | CI 44987919987, the branch's final shape | part 1, 3 m 50 s; part 2, 4 m 20 s; `stack-free`, 3 s | **Passes:** the verdict 4 m 29 s after the run started, against 14–23 min today |
+| V2, split | sealed container, commit `9d90954d`, the split's code | part 1: 232 suites, 4,375 passed, 350 skipped, 137 s. Part 2: 233 suites, 4,259 passed, 319 skipped, 233 s | **Passes:** no suite in both parts, all 465 covered, and 8,634 passed, 0 failed, 669 skipped, the same as a whole run |
+| V3, before Amendment 4 | sealed container, commit `7836548a`, with the workflow still holding the timing step, which W1–W10 pass either way | ten full runs in a row: runs 1–6 on 4 CPUs in 357–367 s, runs 7–10 with 4 jobs on 2 CPUs in 515–520 s | Passed, all ten 8,634 passed, 0 failed, 669 skipped. The engine changed after it |
+| V3, round 1's fix | sealed container, commit `7b89bbb5` | ten full runs in a row: runs 1–6 in 365–386 s, runs 7–10 in 520 s | Passed, all ten 8,638 passed, 0 failed, 669 skipped. The engine changed after it |
+| **V3** | sealed container, commit `b6493436`, the final code | ten full runs in a row: runs 1–6 on 4 CPUs in 367–402 s, runs 7–10 with 4 jobs on 2 CPUs in 522–534 s | **Passes:** all ten 8,640 passed, 0 failed, 669 skipped, with no strays and no suite failing after its result. Run 1's extra time was load from a scoped gate on the host that started beside it |
+| CI on `a57e570e` | CI 44987919987, the first run of the two-part workflow without the timing step | part 1, 3 m 50 s; part 2, 4 m 20 s; `stack-free`, 3 s | Passes: the verdict 4 m 29 s after the run started |
+| CI on `4eb1da50` | CI 44991282286, the two-part workflow | part 1, EPYC 9V74: 235 of 471 suites, `npm test` 5 m 29 s; part 2, EPYC 7763: 236 of 471 suites, 5 m 40 s | Passes: the verdict about 6 minutes after the run started |
+| CI on `7b89bbb5` | CI 44995116940, round 1's fix | part 1, AMD EPYC 9V74: 235 of 471 suites, 4,357 passed, 266 skipped, `npm test` 4 m 19 s; part 2, Intel Xeon 6975P-C: 236 suites, 4,376 passed, 403 skipped, 4 m 14 s | Passes: the verdict 4 m 47 s after the run started |
+| **V4** | CI 45022370952, the final code, `b6493436` | part 1, AMD EPYC 7763: 236 of 471 suites, 4,525 passed, 363 skipped, `npm test` 6 m 42 s; part 2, Intel Xeon 6975P-C: 235 suites, 4,210 passed, 306 skipped, 3 m 36 s; `stack-free`, 3 s | **Passes:** the verdict 7 m 6 s after the run started, against 14–23 min today. The parts add up to 8,735 passed and 669 skipped |
+
+CI runs a pull request's merge with `staging`, so its 471 suites hold one registered suite and five operations files that `staging` gained after this branch was cut. The container runs the branch alone: 465 suites.
 
 ### The failing run, at the Phase-3 commit
 
@@ -262,3 +270,35 @@ No fixture process was left running afterwards.
 
 The sealed container was checked the same day: `npm ci` in 10 s, then `ci-test-job` and `stack-free-npm-test` through
 the engine with `--network none --cpuset-cpus 0-3`, both PASS, `os.availableParallelism()` 4.
+
+### The failing runs of the review rounds (2026-11-22)
+
+Each guard the review rounds added fails against the engine it guards against, for the reason it names. Each was run
+alone under `tmp/ste4/safe-run.sh`, with every endpoint dead.
+
+**P24–P27 against `75cb6286`,** round 1's guards with the engine before Amendment 4: `gate-side-by-side: 0 passed, 4 failed, 0 skipped`.
+
+```
+FAIL  P24  … late-throw, GATE_JOBS=1: it ended exit 0, last line "Overall: PASS — 3 passed, 0 failed, 0 skipped across 2 suites …"
+           (and the same for late-throw, late-reject and late-exit, one at a time and side by side)
+FAIL  P25  … exit-cleanup-throws: it ended exit 0, last line "Overall: PASS …"; and the same for crash-at-exit
+FAIL  P26  late-timer's 300 ms timer must fire before its process ends …; it never fired
+FAIL  P27  … under a header marking it unfinished, before the Overall line …; header at -1, the fixture's line at -1, of 4 lines
+```
+
+**P28 against `7b89bbb5`,** round 2's guard with round 1's fix. No process was left running afterwards: the engine's
+own interrupt ended the unit's group.
+
+```
+FAIL  P28  the run must end on its own: after its result, swallows-at-exit's process must still exit … the engine was
+           still waiting after 20012 ms, last line "[2/2] pass: PASS (2 passed, 0 failed, 0 skipped) 30ms"
+```
+
+**P29** passes against `7b89bbb5`, because a unit with nothing left already reported at once; it pins that half. To
+show it bites, it ran against a copy of the tree whose wait always runs to the cap. That copy's `linger()` had lost its
+`beforeExit` resolve and the cap timer's `unref()`:
+
+```
+FAIL  P29  a unit with nothing left must report at once, not wait out the cap: waiting would make every time at least
+           2000 ms …; the middle of the five is 2058 ms (2040, 2062, 2060, 2058, 2054 ms)
+```
