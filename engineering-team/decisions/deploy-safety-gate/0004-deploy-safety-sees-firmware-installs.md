@@ -4,6 +4,12 @@
 **Date:** 2026-11-21
 **Story:** `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.md`
 **Extends:** ADR deploy-safety-gate/0001, with a fourth live source, a fifth reason and one new block. Nothing in its payload is renamed or removed. ADR 0002's script doesn't change; its recipe doc gains a section.
+**Amended by:** Amendment 1 (2026-11-22, review round 1). It adds:
+- a transition note in the procedure, for instances without this story;
+- a pin on seed-firmware's side of the lock;
+- a test of the lock's pid-reuse rule;
+- a corrected testing note;
+- the two ledger ids, renamed to their UTC day.
 
 ## Context
 
@@ -170,7 +176,7 @@ We chose **Option A**: it sees each install through what already marks it runnin
      ```
 
      Empty output means no deploy is running or waiting. It is one request, and `--jq` is built into `gh`, so `jq` isn't needed.
-   - **A new ledger row,** `2026-11-21-install-starts-after-a-safe-check`, records the gap.
+   - **A new ledger row,** `2026-11-22-install-starts-after-a-safe-check`, records the gap.
 9. **Two story amendments,** dated, at Architecture:
    - **AC-1's seed-firmware clause** gains: "from when it takes the lifecycle lock, before it writes anything, until it lets the lock go".
    - **AC-5** becomes: "With no install running, every field the answer carries today keeps its value, and its one addition, the install block, is empty."
@@ -189,7 +195,7 @@ We chose **Option A**: it sees each install through what already marks it runnin
   - **A merge that skips the check isn't protected.** OPEN.md row 340 records several such merges. Its fix shape (b) has the deploy workflows ask the answer themselves, which would make the gate structural. It stays out of scope, as the owner chose.
   - **A hung install holds the answer unsafe** until it ends or the instance restarts. The check then stops at its bound, 45 minutes, and the operator decides, as for a long task.
   - **Today's install run from the command line** isn't seen.
-- **Found in passing, not this story's to fix: two of today's installs at once break each other.** The handler switches the whole module into internal mode (`install.js:60-66`), and the first install to end switches it back (:1530). The other install's remaining calls then go over HTTP through nginx. The auth layer doesn't treat those as local, so its writes are refused. The answer counts both installs correctly either way. The Implementer records this as ledger row `2026-11-21-overlapping-installs-share-internal-mode`.
+- **Found in passing, not this story's to fix: two of today's installs at once break each other.** The handler switches the whole module into internal mode (`install.js:60-66`), and the first install to end switches it back (:1530). The other install's remaining calls then go over HTTP through nginx. The auth layer doesn't treat those as local, so its writes are refused. The answer counts both installs correctly either way. The Implementer records this as ledger row `2026-11-22-overlapping-installs-share-internal-mode`.
 - **Firmware reinstall required?** No. No concept definition changes.
 - **New dependencies:** none. **New tooling:** none.
 - **The sandboxes** get this when their branches next take staging's changes (the story's Out of scope).
@@ -218,8 +224,8 @@ Test-file changes the ADR requires belong to Phase 3, the Tester's lane, never t
 - **`docs/SAFE_TO_MERGE.md`**: the purpose line, "What the check is", the new section (sub-decision 8), and "Last updated".
 - **`BIBLE.md` §7, Firmware Install**: one bullet. While either install runs, the instance's deploy-safety answer is unsafe (`FIRMWARE_INSTALL_RUNNING`). Before installing on a deployed instance, see `docs/SAFE_TO_MERGE.md`, "Before a firmware install".
 - **Two ledger rows:**
-  - `2026-11-21-install-starts-after-a-safe-check`, the gap (AC-6);
-  - `2026-11-21-overlapping-installs-share-internal-mode`, the hazard found in passing.
+  - `2026-11-22-install-starts-after-a-safe-check`, the gap (AC-6);
+  - `2026-11-22-overlapping-installs-share-internal-mode`, the hazard found in passing.
 - **Testing seams** (suggestions for the Tester, not prescriptions):
   - **`computeVerdict` with `installCount`:** the reason, its place in the order, the next-fire rule, and the five-code contract.
   - **`seedFirmwareFromLock` on made-up locks:** none, stale, unreadable, another op, and a live seed-firmware lock.
@@ -229,7 +235,7 @@ Test-file changes the ADR requires belong to Phase 3, the Tester's lane, never t
     - the same lock naming a dead pid, or another host, gives safe (AC-3);
     - `inFlight.enter` gives unsafe, and `leave()` safe again.
 
-    The queue must read as off, through a `BRAINSTORM_CONF_PATH` at a dead conf, as this Mac's scoped-gate recipe sets.
+    The queue must read as off. It does where `/etc/brainstorm.conf` is absent and `TASK_QUEUE_ENABLED` is unset, as on CI and this Mac. The module that reads the queue flag, `src/utils/brainstormConfig.js`, reads only that file and then `process.env`, and ignores `BRAINSTORM_CONF_PATH` (Amendment 1, item 5).
   - **Sentinels:** `install()` enters `inFlight` and leaves in a `finally`; and sub-decision 7's never-touches list.
   - **AC-4:** a stub-server case in `test/safe-to-merge-check.test.js` that serves `FIRMWARE_INSTALL_RUNNING` k times, then safe. That suite's B cases time out behind a stub `curl` on this Mac, so run it without one. It talks only to its own stub server.
   - **AC-6:** doc-content assertions, and the new ledger row's file and id.
@@ -246,3 +252,30 @@ Test-file changes the ADR requires belong to Phase 3, the Tester's lane, never t
   - the local container.
 - **Two hazards, both ledger rows:** the overlap of two of today's installs, and the race between today's install and seed-firmware.
 - **Any change to the check script, its numbers, or the cycle skills.**
+
+## Amendment 1 (2026-11-22, review round 1)
+
+Round 1's review (`engineering-team/reviews/deploy-safety-gate/4-deploy-safety-sees-installs.md`) found one blocking issue and seven non-blocking ones. The owner chose to fix them all (2026-11-22). Each item below names its finding. Items 4 and 6 each had two possible fixes, and the Architect picked one; the owner's answer at the next gate ratifies or reverses each pick.
+
+1. **The procedure gains a transition note (blocking 1).** Sub-decision 8's section said, with no condition, that an install's answer holds merges. That is false where a branch lacks this story, because story 1's answer still says safe during an install. The section now says:
+   - **An instance sees an install only once its branch carries this story.** On such an instance the answer always carries a `firmware` block (sub-decision 2).
+   - **So an answer with no `firmware` block doesn't see installs.** On that instance, have merges into its branch held until the install ends, as before this story.
+   - **Today that is tags.brainstorm.world, and production until `main` takes this story.** `feat/tags` has story 1 but not story 4, and the sandboxes are outside this book.
+   - **"Nobody needs to hold merges by hand" is qualified to match.**
+   - **The running-deploy check names `deploy-tags.yml`** beside staging's and production's workflows, since a merge into `feat/tags` redeploys tags.
+2. **The gap paragraph also names a merge that skips the check (non-blocking 5).** Such a merge isn't held either, and the installer can't rule it out (OPEN.md row 340).
+3. **seed-firmware's side of the lock is pinned (non-blocking 1).** The answer sees seed-firmware only because `run()` takes the lifecycle lock under the op `'seed-firmware'`.
+   - **A source sentinel holds that.** `seed-firmware.js` calls `C.begin('seed-firmware')` before its write transaction and releases the lock in a `finally`.
+   - **A comment at that call** names the deploy-safety answer as a reader, so the "comments at both ends" of Consequences hold for the writer too.
+4. **The lock's pid-reuse rule gets a test (non-blocking 6).**
+   - **Why it matters.** After a restart that keeps the hostname, such as one under a droplet compose override that pins `hostname:`, a cut-off seed-firmware lock is stale for one reason only: its holder's process id, if it answers at all, has a different `/proc` start time (`_store.js:223-230`).
+   - **The test.** It stands in for the `/proc/<pid>/stat` read, so it runs on macOS, which has no `/proc`, as well as on CI. A lock naming a live process id with a different start time gives no install. The same lock with the matching start time gives one.
+   - **The Architect's pick.** The review offered a ledger note instead. A test was chosen because the answer now relies on the rule.
+5. **The testing note is corrected (non-blocking 3).** The queue reads as off because `/etc/brainstorm.conf` is absent and `TASK_QUEUE_ENABLED` is unset. `src/utils/brainstormConfig.js` reads only that file and then `process.env`, and ignores `BRAINSTORM_CONF_PATH`. The review's harness-friction row records this for every later gate: ledger row `2026-11-22-brainstorm-config-ignores-conf-path`.
+6. **The two ledger ids are renamed to their UTC day (non-blocking 7).** They were first named at 2026-11-22T01:46:29Z, in this ADR's commit, and OPEN.md's id rule is the UTC day a row is minted.
+   - **The new ids** are `2026-11-22-install-starts-after-a-safe-check` and `2026-11-22-overlapping-installs-share-internal-mode`. The citations in this ADR's body are updated.
+   - **Renaming is allowed** until a row reaches `staging`.
+   - **The Architect's pick.** The review called leaving them defensible. They were renamed while that is still free.
+7. **The smaller fixes:**
+   - **`handleStatus`'s JSDoc** says that the GET also reads the lifecycle lock file and probes its holders (non-blocking 2).
+   - **The story's Evidence** records round 2's gate on the final HEAD, with the review's 67-suite list (non-blocking 4).
