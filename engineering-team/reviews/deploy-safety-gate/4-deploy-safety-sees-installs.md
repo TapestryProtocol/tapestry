@@ -329,3 +329,103 @@ Every round-1 finding is fixed, and each fix holds as a fresh claim. What remain
 - [ ] The story's `Status` goes to `Done` in place, in this review's commit. The session makes that change, since the Reviewer writes only this file. Until it lands, harness-lint's L1 reports this review as final against an `Approved` story, and nothing else.
 - [ ] Amendment 1's two Architect picks wait on the owner's ratification at this gate: item 4, a test rather than a ledger note, and item 6, the renamed ids.
 - [ ] Completion detection performed. The result goes in the chat, not in this file.
+
+---
+
+## Fix-check after round 2
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-21 (2026-11-22 UTC)
+**Diff:** `git diff 7a593c0e9..HEAD`, two commits:
+- `9d59e3a37` (test): D7 and the test plan;
+- `d8a6d6581` (docs): the recipe, ADR 0004 Amendment 1, the story's Evidence, the meta row, and a new ledger row.
+
+7 files, +99 / −22. HEAD is `d8a6d6581`, still on `94e85fe06`. The story has been `Done` since round 2's commit.
+
+### Quality gates, fix-check (run by reviewer, not trusted)
+
+The safety constraints and environment were round 1's.
+
+- [x] **Scoped gate, 13 suites, on the committed HEAD:** `npm run gate:status -- --label ds4-review-3` gives
+  `20261122T035447Z-10628-3f2f [ds4-review-3] started 2026-11-22T03:54:47.865Z on d8a6d658 — PASS, exit 0, 369 passed, 0 failed, 10 skipped, 13/13 suites`
+  - **The tree was clean:** the line has no `+dirty`. No suite left `process.env` changed.
+  - **Every suite passed:** `deploy-safety-sees-installs` 42 of 42, `deploy-safety-status` 17 (6 live skips), `container-apt-refresh` 23 (4 skips), `live-link-checks` 26, `harness-lint` 85, `harness-stats` 12, `rollup-scanners` 33, `session-start` 32, `ledger-row-ids` 6, `gate-result-record` 34, `suite-env-changes` 18, `kill-timeout-orphans-by-default` 9 and `note-tagging-raw-events-inspector-ui` 32.
+  - **It agrees with round 3's run,** `20261122T034530Z-17030-d50f` on `9d59e3a3+dirty`: the same 13 suites and totals.
+- [x] **Why these 13 are enough.** The two commits change one test (D7), the recipe, the ADR, the story, the test plan and two ledger rows. Their readers are:
+  - for the recipe: `deploy-safety-sees-installs`, `container-apt-refresh` and `safe-to-merge-check`;
+  - for the ledger: `ledger-row-ids`, `session-start`, `harness-lint` and `live-link-checks`;
+  - for the ADR, story and test plan: `harness-lint`, `harness-stats` and `rollup-scanners`;
+  - for a changed test file: `gate-result-record`.
+
+  The other ledger hits read other rows or only name the folder: `word-elements-fit-the-installed-word-schema`, `property-has-one-parent` and `brains-launcher-repo`. The 13 hold every reader above except `safe-to-merge-check`, run on its own below. They also hold four suites that read nothing changed here, which is harmless.
+- [x] **`test/safe-to-merge-check.test.js` on its own, with the system `curl` (`env-realcurl.sh`):** 17 passed, 0 failed, B10 included. Its C1–C3 read the recipe this check changed.
+- [x] **D7's guard, on a scratch copy of HEAD,** one edit at a time, each restored:
+
+  | Edit to the recipe | Result |
+  |---|---|
+  | none (control) | 42 of 42 |
+  | the "What to do there" bullet removed | D7 alone fails: "the transition note must say that on such an instance, merges into its branch are held by hand until the install ends." |
+  | the production clause removed | D7 alone fails: "the transition note must name production, until `main` takes story #4." |
+  | "on that instance" removed from :130 | D7 alone fails: "… may stand only for an instance that carries story #4 …" |
+  | the "How to tell" bullet removed | D7 alone fails: "the transition note must say how to tell an instance that doesn't see installs yet …" |
+  | "that carries story #4" dropped from :130's bold sentence, with "on that instance" kept | nothing fails (F4) |
+
+  The first three are the test plan's Round 3 edits, reproduced.
+- [x] **`bash scripts/harness-lint.sh`:** clean before this section, and clean after it, with 0 violations. The story is `Done` and the final verdict is the one below.
+
+### Round 2's findings, each re-checked as a fresh claim
+
+I re-derived each fix from the code and the docs, including the new ledger row's reasoning about pids and start times, which re-uses my round-2 wording.
+
+| Round 2 | The fix | Checked against |
+|---|---|---|
+| R2-1: the meta row names one reader | :13 now names `scores.js:138` and `selfMap.js:141` as readers through the first | **Partly holds.** The deploy-safety answer does read through the second, and a dead conf does reach those two. But "Other readers of the same flag use the first" still isn't the split (F1). |
+| R2-2: "H8 first" | :22: H1 fails first, at its after-leave check, with no Redis call | **Holds for this suite.** H1 is the first H test, and its in-install checks pass (unsafe, naming the install) before its after-leave check fails. But "A test process never starts the task queue" overreaches, and it was my round-2 claim (F1). |
+| R2-3: D7 pins less than its name says | D7 checks each part inside the transition note | **Holds.** Four of my five edits fail D7 alone, the test plan's three among them. One residual gap (F4). |
+| R2-4: slips in the Evidence | story :89 and :121 reworded, and round 3's run recorded | **Holds.** The record (`20261122T034530Z-17030-d50f`, on `9d59e3a3+dirty`) matches the Evidence: exit 0, with 369 passed, 0 failed and 10 skipped across 13 suites. |
+| R2-5: D6's row says more than D6 checks | test plan :60 | **Holds.** It now says `docs/SAFE_TO_MERGE.md` doesn't cite the old ids, which is what D6 checks (:967). |
+| R2-6: "this story" in the recipe | four places now say "story #4", and the parenthetical is trimmed | **Holds.** No "this story" is left in the recipe. |
+| R2-7: the ADR's example, and the reboot edge | ADR :272-281, and `ledger/2026-11-22-reboot-can-revive-a-dead-lock.md` | **Mostly holds.** Item 4 now names the restart that `restart: unless-stopped` gives, and confines the coincidence to a droplet reboot, which is right: without one, a restarted process starts later, so its start time can't match. The store keeps raw ticks since boot, with no boot time or boot id (`_store.js:206-212`). The row's reasoning holds, "cut off by a crash or reboot" included: a lock a crash left stale can be revived by a later reboot, and a deploy changes the hostname. Three slips (F2, F3). |
+
+**Also checked:**
+- **The ratification line and the revision note** (ADR :260, :291-296) say what the coordinator relayed of the owner's choice. I can't check that choice beyond that.
+- **Phase lanes:** `9d59e3a37` touches only the suite and the test plan, and `d8a6d6581` touches no test file.
+- **The new row's id** is well formed: six words, minted on 2026-11-22 UTC. L15 holds.
+
+### Findings, fix-check
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **F1. `ledger/2026-11-22-brainstorm-config-ignores-conf-path.md:13` and `:22`: two claims still overreach, both partly from my own round-2 wording.**
+   - **:13 says "Other readers of the same flag use the first".** Re-derived with a grep of `src/` and `bin/`, the flag has seven readers:
+     - through `getConfigFromFile`, which honours `BRAINSTORM_CONF_PATH`: `bin/control-panel.js:334` (whether the queue starts at all), `src/api/assistant/scores.js:138` and `src/api/assistant/selfMap.js:141`;
+     - through `brainstormConfig`, which doesn't: `src/api/deploy-safety/index.js:141`, `src/api/index.js:578`, `src/api/manage/commands/runTask.js:419` and `src/api/tagging-edges/pass.js:69`.
+
+     My round-2 list missed `control-panel.js` and `pass.js`. The row's conclusion holds: a dead conf reaches the first three, not the deploy-safety answer.
+   - **:22 says "A test process never starts the task queue".** That was my round-2 claim, from a grep of `src/` and `bin/` alone. In fact `task-queue-job-gate` starts it in the gate's own process, over stand-ins, and closes it in a `finally`, and `tagging-edges-wiring`'s SWR79 starts it in a child. Both run after this suite in registry order (319 and 305, against 130). So for this suite, standalone or in the full gate, the conclusion holds.
+
+   Optional: name both sides at :13, and at :22 say "this suite's process hasn't started the task queue".
+2. **F2. `ledger/2026-11-22-reboot-can-revive-a-dead-lock.md:26`, and ADR 0004 :278: the wedge is over-described.**
+   - **How long it lasts.** The row says "That lasts until someone removes the lock by hand", and the ADR "until someone removes the lock". It also ends when the process now holding that pid restarts, which gives it a new start time, or when a deploy recreates the container, which gives it a new hostname. The next lifecycle operation then recovers the lock. My round-2 text had the restart clause; it was dropped.
+   - **Which operations refuse.** "Every lifecycle operation refuses `busy`: backup, restore, migrate and seed-firmware." `upload-backup` refuses too (`upload-backup.js:48-49`), while list-backups, download-backup and status don't refuse at all.
+3. **F3. `ledger/2026-11-22-reboot-can-revive-a-dead-lock.md:31`: the second fix shape shares the coincidence.** Process 1's start time also counts ticks from boot, and process 1 starts at a repeatable point after boot. Recorded as ticks, it can match after a reboot too. It helps only if recorded as wall-clock time: the boot time (`btime` in `/proc/stat`) plus the ticks. The boot-id shape (:30) is a full fix.
+4. **F4. `test/deploy-safety-sees-installs.test.js:989-990` (D7): "on that instance" passes on its own.** Dropping "that carries story #4" from :130's bold sentence, while keeping "on that instance", leaves D7 green (checked on a scratch copy). "That instance" would then mean any instance. The transition note stays pinned, so the section still states the condition. Optional, in the Tester's lane: also pin :130's "an instance that carries story #4 answers unsafe".
+
+#### Harness friction *(anything the process itself got wrong this story — stale doc, wrong port/path, contradictory instruction; each becomes an OPEN.md row, type `meta`)*
+
+1. None new. F1's second point is one more case of what role step 10 guards against: my own round-2 claim, from too narrow a grep (`src/` and `bin/`, not `test/`), went into the record, and this check caught it.
+
+### Verdict, fix-check
+
+Every round-2 finding is fixed. Each fix holds as a fresh claim, or holds where it matters. D7's guard is real, and the gate on the committed HEAD passes. What's left is precision in the two ledger rows and one residual gap in D7. None of it changes behaviour or lets an unsafe merge through.
+
+**PASS**
+
+### Close-out, fix-check
+
+- [x] The story is already `Done`, from round 2's review commit, so nothing flips.
+- [ ] Completion detection performed. The result goes in the chat, not in this file.
