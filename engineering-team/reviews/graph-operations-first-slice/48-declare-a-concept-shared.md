@@ -218,3 +218,137 @@ None.
 ## On PASS (same commit)
 - [x] Story `**Status:**` flipped to `Done` in place, and its `Review:` line points here.
 - [x] Completion detection performed; the result and any book arithmetic go in the chat, not in this file. `/close-book` is offered only if the book looks complete.
+
+---
+
+## Round 2 — the fixes for round 1's findings
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-22
+**Diff:** `git diff c23552a8..cd217e17`: 10 files, +308 −16. Round 1's review was committed as `c23552a8`. The owner chose "Fix findings first", and four commits followed:
+- `3c398d99`: ADR 0048 Amendment 2, which answers the five findings. The owner ratifies it at this gate;
+- `e0830e8d`: the tests first, in the Tester's lane: WS19, WS20, the kept-lookups entries for the new lines, and `cypherGraphFake`'s `meanwhile` entries learning `query`. The test plan gains "Added at review round 1's findings";
+- `59cca43f`: the fixes in `relationship-type-allowed.js` and `_dispositions.js`, the two docs, and the story's Deviations. No file under `test/` changed;
+- `cd217e17`: the story's Evidence of the live checks after the fixes.
+
+**How it was made.** As in round 1:
+- every suite ran through the session's wrapper, with `test/operations.test.js` alone;
+- the rest of the list was derived from the diff;
+- no stack was booted, and `npm test` never ran.
+
+The derivations (`derive3.js`, `derive5.js`), the list (`suites-r2.txt`), the gate script (`gate-r2.js`), the mutation scripts (`mutate.js`, `run-mutations.js`) and the runs' output are in the ignored `tmp/review-48/`, and the run records are in `tmp/gate-runs/`. `git status` was clean after every run, and the independent check (P13) wasn't applied.
+
+**Verdict:** PASS. Each of round 1's five findings is answered as Amendment 2 says. The new tests pin both code fixes, and each fails without its fix. One new non-blocking finding, about two of Amendment 2's examples.
+
+### Quality gates (run by reviewer, not trusted)
+
+- [ ] **The full gate** (`npm test`) was not run, for round 1's reason. CI's stack-free job runs it on the pull request.
+- [x] **`test/operations.test.js` alone,** at `cd217e17` on a clean tree:
+
+  ```
+  20261122T013602Z-86922-9e26 [review-48-r2-operations] started 2026-11-22T01:36:02.609Z on cd217e17 — PASS, exit 0, 1556 passed, 0 failed, 20 skipped, 1/1 suites · …/tmp/gate-runs/20261122T013602Z-86922-9e26.json
+  ```
+
+  That is round 1's 1,554, with WS19 and WS20. Inside it, wire-to-shared passes 20 of 20, `tapestry-key-paths` 20 of 20 (G9, G11 and G18 among them), the rule suite 10 of 10 and add-relationship 12 of 12. declare-shared, defer-sharing, the export cases and the agent suite pass as in round 1: 14, 11, 6 and 1.
+- [x] **The rest of the scoped gate,** 57 suites in one `runGate`:
+
+  ```
+  20261122T014218Z-7063-db3e [review-48-r2-scoped] started 2026-11-22T01:42:18.317Z on cd217e17 — FAIL, exit 1, 1732 passed, 10 failed, 88 skipped, 57/57 suites; failed: safe-to-merge-check, router-stream-limit-on-connect · …/tmp/gate-runs/20261122T014218Z-7063-db3e.json
+  ```
+
+  The record names the ten failures, and they are again exactly this Mac's: `safe-to-merge-check` B1–B3, B5, B6, B8 and B9, and `router-stream-limit-on-connect` P1–P3. The other 55 pass, among them `graph-rules-builder` (26), `firmware-element-sync` (21), `graph-rule-firmware` (13, 4 skipped), `external-cli` (53) and `concepts-list-shows-concepts-with-no-event` (10, 5 skipped). The totals match the story's Evidence.
+- [x] **The merge with staging,** checked again because `wire-to-shared.test.js` changed. The five new suites, loaded and run in one process on Node v22.23.1 (`r2-env-check-node22.txt`), changed no `process.env` key at load or after their runs, and all 52 tests passed, wire-to-shared now 20.
+- [ ] _Playwright, lint, typecheck and build: not applicable or not configured, as in round 1._
+
+**How the list was derived.**
+- **What it holds:** round 1's 55, plus every registered suite that names a file this diff changed.
+  - The rule file brings in `graph-rules-builder` and `firmware-element-sync`. `graph-rule-firmware` was on the list already.
+  - `test/helpers/cypherGraphFake.js`, the changed helper, is loaded, through any chain of helpers, only by `operations.test.js`, `external-cli` and `firmware-nodes-hold-their-concepts-keys`. All three were on the list (`derive5.js`).
+  - `community-references-prune-builder` and `firmware-install-leaves-tags-once` reach the fake's engine, `cypherEngine.js`, which is unchanged, through `communityStep`, and never `cypherGraphFake.js`, so they stay off.
+- **A scan I corrected.** A first scan (`derive3.js`) missed names written with `.js`, and a second (`derive4.js`) matched the string `'conceptGraph'`, a role name, as the helper. `derive5.js` counts only `require` calls and `helpers/<name>` paths.
+- **Against the Implementer's.** The list matches the 57 the story's Evidence names.
+
+### Each finding against Amendment 2
+
+1. **Finding 1 → item 1: answered.**
+   - **The code.** `FIRMWARE_MADE` gains `REFERENCES: 'import nostr, and graph declare-shared and wire-to-shared from a b tag'` (`src/operations/rules/relationship-type-allowed.js:47-49`).
+   - **The words now.** Running the rule gives: "REFERENCES is reserved: it is made by import nostr, and graph declare-shared and wire-to-shared from a b tag, with the checks it needs."
+   - **The pin.** WS19 asks for a 409 `reserved-type` from `relationship-type-allowed`, with all three makers named and nothing drawn. On the old words it fails, as the test plan's Verification records.
+   - **The other pin holds.** The rule suite's `REFERENCES: /import nostr/` (`test/operations/rules/relationship-type-allowed.test.js:54`) still matches, and no test pins the old words exactly.
+   - **The doc left alone.** `docs/GRAPH_RULES.md` §2 still calls `REFERENCES` "the import's", which stays true, and Amendment 2 leaves it so that no rule element is regenerated.
+2. **Finding 2 → item 3: answered.** `protocols/drafts/inherit-from.md:4` now says the two pointer writes each draw the relationship the import derives, and the marker draws none.
+3. **Finding 3 → item 3: answered.** `BIBLE.md:1854` now says that when the graph doesn't hold the target, the relationship runs to the placeholder at its address, or to one the write makes (a `NostrEvent` with no `created_at`) when no node is there. That matches `_dispositions.js:175-186`.
+4. **Finding 4 → item 2: answered, by way (b).** The placeholder is merged (`_dispositions.js:165-168`), and `held` and `node` come from the merged node (`:181-184`). Right before the `MERGE`, `ADOPT` (`:158-159`) gives a node without the `NostrEvent` label at the address that label, as G9 asks. Both run only when `nodeAt` found no node (`:178-181`).
+   - **Would the tests fail without the fix?** Yes, and only the ones that should: see the mutation runs below.
+   - **The kept entries.** G9, which is static, passes with `ADOPT`'s literal right before the `MERGE`'s. G11 and G18 pass with the three new entries, each naming a whole line of the code exactly. None is stale, and the old `CREATE` entry is gone.
+   - **On a real Neo4j.**
+     - With the uniqueness rule on `NostrEvent.uuid`, a `MERGE` waits for a node another transaction is committing at that uuid, then matches it.
+     - An import's `CREATE` that comes after the wire's `MERGE` fails its constraint, and import nostr runs the event again (ADR 0032, Decision 7.9). The stream's `buildImportCypher` merges, so it matches the placeholder.
+     - That is Neo4j's documented behaviour for a `MERGE` under a uniqueness rule. LH2 ran the `MERGE` path on a real Neo4j, but no live check, LH2's or this review's, raced an import against a wire. WS20 pins that race on the Cypher engine.
+5. **Finding 5 → item 4: answered.** LH2 passed 16 of 16 (`tmp/live-check-48/r2-lh2.out`), on a fresh scratch stack whose four new files match HEAD's by digest (`_dispositions.js` `85601a05`):
+   - the merged placeholder, of import nostr's shape, with one `REFERENCES` into it, and a repeat that answers `already-wired`;
+   - a deferred concept declared shared, with the marker taken out and its `tag-removed` recorded;
+   - two wires at once, leaving one placeholder.
+
+   LH1 passed again, 25 of 25, on the fixed code.
+
+### Would the tests fail without the fixes? Run here, not read
+
+`tmp/review-48/mutate.js` and `run-mutations.js` ran `wire-to-shared.test.js` through the wrapper, once per mutation, on a copy of HEAD in the session's scratchpad, never the worktree. Each mutation changes only the two fixed files, and all but the pre-fix one change a single line or entry. The suite derives its root from its own location, so each run used the copy's code, as the different results show.
+
+| Mutation | Fails | Passes |
+|---|---|---|
+| none: HEAD, the control | — | all 20 |
+| both files as before the fix (`a8432b7c`) | WS19, on the old words; WS20, on a 500: "Node(…) already exists with label `NostrEvent` and property `uuid`" | the other 18 |
+| `FIRMWARE_MADE` without `REFERENCES` | WS19 | the other 19 |
+| the adoption's call taken out | WS20: "each of the three placeholder statements … has the adoption statement … right before it" | the other 19 |
+| the adoption run after the `MERGE` | WS20, the same | the other 19 |
+| `held` taken from `nodeAt` again | WS20: "target.held and target.node come from the merged node" | the other 19 |
+
+So each part of each fix has a test that fails without it, and nothing else fails. The copy was left at HEAD's code.
+
+### The test helper's change weakens no suite
+
+`test/helpers/cypherGraphFake.js:98`: an entry that carries `query` fires only at a statement whose one-line text also matches it. Without `query`, the new clause short-circuits, and `findIndex` picks the entry it picked before.
+- The other users of this fake's `failures.meanwhile` pass no `query`: `nostr-order` (`:350`), `nostr-send` (`:627`), `cypher-engine` (`:197`), and the main runs of `declare-shared`, `defer-sharing` and `wire-to-shared`.
+- The `meanwhile` that `concept-writes-take-header-lock` and others use, `{ at, graph }`, belongs to the other fake, `graphFake.js`, which didn't change.
+- `oneLine` is defined in the file (`:52`).
+- It came in the tests-first commit, in the Tester's lane, and the fix commit touches no test file.
+
+### What the fixes could newly break
+
+- **The guards on the new lines.** G9, G11 and G18 pass (`tapestry-key-paths` 20 of 20, inside the operations run).
+- **The rule's words.** Only the rule suite's regex pins them, and it passes. `graph-rules-builder`, `graph-rule-firmware` and `firmware-element-sync` pass, and firmware's rule elements are unchanged.
+- **The adoption.** It changes nothing when no node is at the address, and WS20 counts it running only when `nodeAt` found none. In a race it would give a node without the `NostrEvent` label that label, the trade `importEventDirect` makes. Only a writer that skips C1 could put one there (new non-blocking 1).
+- **`held` in the race** is read from the node the `MERGE` lands on, which keeps Amendment 1 item 1's meaning.
+
+### Findings, round 2
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **`engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md:295` and `:312`: two of Amendment 2 item 2's examples of a racer can't race.**
+   - **What it says.**
+     - Line 295 names "another concept's wire" among the writers that can commit a node at the target's address between `nodeAt`'s read and the write.
+     - Line 312 says the event-less node the adoption catches is "in practice seed-firmware's kind of placeholder", or else a node of the instance's own with no letter, "made at that address at the same moment".
+   - **Why they can't.** Each of those writers takes C1 before anything else, so it waits for the wire's transaction to end and can't land in its window.
+     - Another wire takes it by Decision 4 (`:149`: the three "go one at a time ... with each other").
+     - Seed-firmware takes it at `src/operations/catalog/lifecycle/seed-firmware.js:148-149`.
+     - Create-concept, the maker of a node of the instance's own with no letter, takes it at `src/operations/catalog/graph/create-concept.js:71`.
+   - **Who can.** Writers that skip C1: import nostr, the stream's `buildImportCypher`, and today's routes through `importEventDirect`. Each makes a `NostrEvent`, which the `MERGE` matches.
+   - **What it changes.** The code is right either way. The adoption is G9's rule, with little left to catch in practice. LH2's two simultaneous wires show the C1 serialization rather than a race, as `:329` half-says.
+   - **Optional:** correct the examples when the owner ratifies Amendment 2, and the test plan's sentence on RACE2 with them.
+
+#### Harness friction
+
+1. None new. Round 1's sighting stands. This round's derivation needed three passes before its helper scan was right, which is more evidence for ledger row `2026-11-21-scoped-gate-lists-built-by-hand`'s script.
+
+### Verdict
+**PASS**
+
+### On PASS
+- [x] The story's `**Status:**` stays `Done`, and its `Review:` line still points here.
+- [x] Completion detection, unchanged from round 1: the book isn't complete. That goes in the chat, not in this file.
