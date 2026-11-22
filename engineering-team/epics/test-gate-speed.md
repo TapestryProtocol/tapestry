@@ -1,7 +1,7 @@
 # Epic: test-gate-speed
 
 **Created:** 2026-11-21
-**Status:** In Progress
+**Status:** Done (epic retired 2026-11-22 at the test-gate-speed book close: story 1 Done, review PASS at round 3, on TapestryProtocol/tapestry#201 to `staging`, which carries the close; merging it waits for David's yes)
 **Book:** `engineering-team/audits/test-gate-speed/book.md` (acceptance frame, Standard; Refactor lane)
 **Provenance:** `engineering-team/stories/_intake.md`, 2026-11-21: "The stack-free gate runs one suite at a time, and
 each operations story adds about a minute and a half to every pull request (refactor)". On 2026-11-21 the owner chose to
@@ -23,7 +23,7 @@ cancelled, since `stack-free` is required there and §15 forbids running a cance
 
 ## Stories
 
-`stories/test-gate-speed/`:
+`stories/done/test-gate-speed/`:
 
 1. **stack-free-gate-in-half-the-time:** the same verdict in at most half the time on the same runner, with one check
    named `stack-free`, one command, no retries and no new flakes. Refactor, Standard.

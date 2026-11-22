@@ -1,7 +1,7 @@
 # Test Plan: Story 1 — The stack-free gate gives the same verdict in half the time
 
-**Story:** `engineering-team/stories/test-gate-speed/1-stack-free-gate-in-half-the-time.md`
-**ADR:** `engineering-team/decisions/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md`
+**Story:** `engineering-team/stories/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md`
+**ADR:** `engineering-team/decisions/done/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md`
 **Date:** 2026-11-21
 
 This story's deliverable is test infrastructure, so the carve-out in `engineering-team/templates/adr.md` applies. Phase 3

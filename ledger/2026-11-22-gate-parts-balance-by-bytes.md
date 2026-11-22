@@ -19,4 +19,4 @@ Fix shape, if the slower part starts to set the verdict's time: balance by time 
 each suite's time from an earlier run's record, which CI doesn't keep between runs: a committed table of suite times,
 refreshed now and then, would do. Until then, the part times in each run's log show whether the gap is growing.
 
-**Pointer:** `test/helpers/gateRunner.js` (`partsOf`); ADR `engineering-team/decisions/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md` Amendment 3 and Amendment 4 ("The parts balance by bytes, not time"); `engineering-team/reviews/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Non-blocking 3.
+**Pointer:** `test/helpers/gateRunner.js` (`partsOf`); ADR `engineering-team/decisions/done/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md` Amendment 3 and Amendment 4 ("The parts balance by bytes, not time"); `engineering-team/reviews/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Non-blocking 3.

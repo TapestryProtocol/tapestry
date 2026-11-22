@@ -19,4 +19,4 @@ Fix shape: either the review template warns to keep capitalised verdict words of
 the rule reads only a line that holds nothing but the verdict, such as `**Verdict:** PASS`. The rule is a harness
 definition, read by harness-lint's L1 and L4 and by `scripts/harness-stats.sh`, so the change owes a CHANGELOG row.
 
-**Pointer:** `scripts/lib/review-verdict.awk`; `engineering-team/templates/review-checklist.md`; `engineering-team/reviews/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Round 3, harness friction.
+**Pointer:** `scripts/lib/review-verdict.awk`; `engineering-team/templates/review-checklist.md`; `engineering-team/reviews/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Round 3, harness friction.

@@ -19,4 +19,4 @@ story's own text and names the test that pins it, or adds one. A line in `engine
 step 1, or in the test-plan template's coverage map, would do. Both are harness-definition paths, so the change owes a
 CHANGELOG row.
 
-**Pointer:** `engineering-team/reviews/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Blocking 1 and § Harness friction 1; `engineering-team/stories/honest-test-gate/1-gate-result-tells-the-truth.md:145–146`.
+**Pointer:** `engineering-team/reviews/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Blocking 1 and § Harness friction 1; `engineering-team/stories/honest-test-gate/1-gate-result-tells-the-truth.md:145–146`.

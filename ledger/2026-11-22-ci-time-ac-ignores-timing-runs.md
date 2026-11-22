@@ -16,4 +16,4 @@ so that it names any planned measurement runs as the exception. A line in `engin
 pitfalls, or in the Architect's notes on verification steps, would do. Both are harness-definition paths and owe a
 CHANGELOG row.
 
-**Pointer:** `engineering-team/reviews/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Harness friction 3; story AC1; ADR `test-gate-speed/0001` Decision 11.
+**Pointer:** `engineering-team/reviews/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md` § Harness friction 3; story AC1; ADR `test-gate-speed/0001` Decision 11.

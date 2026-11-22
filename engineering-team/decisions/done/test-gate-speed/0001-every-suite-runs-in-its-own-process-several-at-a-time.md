@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-11-21
-**Story:** `engineering-team/stories/test-gate-speed/1-stack-free-gate-in-half-the-time.md`
+**Story:** `engineering-team/stories/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md`
 **Supersedes (in part):**
 - ADR `honest-test-gate/0001`, Decision, "Load order": every suite loads before any runs. Now each suite loads in a
   fresh process of its own, just before it runs (Decision 1).

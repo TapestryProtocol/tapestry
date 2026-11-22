@@ -1,9 +1,9 @@
 # Book of Work: The stack-free gate gives the same verdict in half the time
 
 **Slug:** test-gate-speed
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-11-21
-**Closed:** —
+**Closed:** 2026-11-22 (on the pull request's branch, before its merge: the frame's "Done" is the open pull request, green and reviewed)
 **Strictness:** Standard. All five phases: a Refactor, with Architecture and Test Design, because it changes the gate
 engine or the CI job under ADR `test-hermeticity-ci/0001`.
 
@@ -18,17 +18,17 @@ stability runs.
 
 ### Acceptance frame
 
-- [ ] **Half the time:** the `stack-free` verdict comes in at most half the time today's gate takes. On the slowest
+- [x] **Half the time:** the `stack-free` verdict comes in at most half the time today's gate takes. On the slowest
       runner seen, that is under 12 minutes rather than 23. *(Restated 2026-11-21: one runner reached only about half,
       0.501 and 0.521 on two timings, so the owner chose to split the gate across two runners, each part at most half
       of today's whole gate on its own runner. See the story's Open questions, 3 and 4.)*
-- [ ] **The same verdict:** the same tests run and give the same counts, skips are still counted, and every guarantee
+- [x] **The same verdict:** the same tests run and give the same counts, skips are still counted, and every guarantee
       the gate makes today still holds.
-- [ ] **One check, no retries:** pull requests to `staging` and `main` still get one check named `stack-free`. `npm test`
+- [x] **One check, no retries:** pull requests to `staging` and `main` still get one check named `stack-free`. `npm test`
       is still the one command, and nothing retries.
-- [ ] **No new flakes:** the faster gate is shown stable before merge, and any flake it brings gets a ledger row and a
+- [x] **No new flakes:** the faster gate is shown stable before merge, and any flake it brings gets a ledger row and a
       fix at its root.
-- [ ] **Done:** a PR to `staging`, from a branch cut from `origin/staging`, with CI's `stack-free` green and a review
+- [x] **Done:** a PR to `staging`, from a branch cut from `origin/staging`, with CI's `stack-free` green and a review
       that passes. Merging it waits for David's yes.
 
 ## Epics in this book
@@ -38,7 +38,7 @@ stability runs.
 ## Provenance
 
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high. Every frame bullet is checked against named runs (audit §5).
 
 ## Close artifacts *(filled by `/close-book`)*
 
