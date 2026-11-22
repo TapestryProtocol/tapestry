@@ -223,7 +223,24 @@ Through the same wrapper, with nothing reaching its stubs. The records are in `t
 - **After it,** `test/operations.test.js` alone: 1,556 passed, 0 failed, 20 skipped.
 - **The derived suites,** each in its own process: the Reviewer's 53 (`tmp/review-48/suites.txt`), the Reviewer's two scans of all of `src/` (config-parse-leak and assistant-taggings-publish), and the two registry suites that name the rule file (firmware-element-sync and graph-rules-builder). That is 57 suites: 1,732 passed, 10 failed, 88 skipped.
   - The 10 failures are this Mac's known ones: router-stream-limit-on-connect P1–P3, and safe-to-merge-check B1–B3, B5, B6, B8 and B9.
-- **Not run here:** LH2, Amendment 2 item 4's live check, which the coordinating session runs on a scratch stack.
+- **Not run here:** LH2, Amendment 2 item 4's live check, which the coordinating session runs on a scratch stack (below).
+
+### The live checks after review round 1's fixes (2026-11-22, 01:27–01:31Z, a fresh scratch stack `tapestry-scratch`, on `59cca43ff`)
+
+The setup, micromark and harness are LH1's (`tmp/live-check-48/run-r2.sh`). The four new files inside matched the worktree's by digest, `_dispositions.js` at the fix's version. The stack was taken down at the end.
+
+- **LH1 again: 25 of 25 checks ok,** on the fixed code.
+- **LH2: 16 of 16 checks ok** (`tmp/live-check-48/lh2.js`; Amendment 2 item 4), on a real Neo4j:
+  - **The merged placeholder.** A wire to an address the graph didn't hold answered `wired`, with `held: false` and `node` the placeholder's key. One node was at the address afterwards, with import nostr's shape:
+    - its labels were `NostrEvent` and `TapestryNode`;
+    - its `kind` was 39998, and its `pubkey` the address's;
+    - it had a tapestryKey, and no `created_at` or `id`.
+
+    One `REFERENCES {source:'b-tag'}` ran into it, from the wired header. A repeat answered `already-wired`, change null, with still one node there.
+  - **The marker taken out.** A deferred concept then declared shared held only its self-pointing pointer `b`. Its entry records `tag-removed { field: 'b', was: 'b-tag-deferred' }`.
+  - **Two wires at once.** Two concepts were wired to one absent address by two runs of the external CLI, started 2 ms apart inside the container. Both answered `wired`. One placeholder was made, with a relationship from each header, and both answers named it.
+    - This shows that two wires don't fail each other. It doesn't show that the narrow window between the lookup and the write was hit. WS20 pins that race on the Cypher engine.
+  - `graph history` of the first header shows its one `graph wire-to-shared` entry, by the admin.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
