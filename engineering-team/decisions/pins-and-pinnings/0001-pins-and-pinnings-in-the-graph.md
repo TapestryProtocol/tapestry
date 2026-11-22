@@ -300,7 +300,7 @@ Decision 5 shows a private pinning only to its viewer's own session, on a route 
 - **A read of the Trusted Dictionary that names no `userPubkey` leaves private stances out.** A private `+` lets no concept past its check there, and no private stance sets an `override`.
 - **A read that names the owner counts them only for the owner's own session,** as Decisions 5 and 9 say. The rule goes by the request, not by the point of view it resolves to, so such a read keeps the owner's private stances for the owner even when it falls back to the house point of view (`adoption/index.js:172-173`).
 - **`/api/dictionaries/concepts` is unchanged.** It always names whose Dictionary it is (`adoption/index.js:465-471`), so Decision 5's rule for a route that names a viewer already covers it. Its house branch is a trust point of view, not the instance's Dictionary.
-- **Nothing a private `add-to-dictionary` pinning made without an Add is public,** so no warning before the click is needed for one. An Add publishes a wired header of the person's own (Decision 9). A Trusted List that a private `spawns-trusted-list` pinning spawns is still public, as Decision 5 says.
+- **A private `add-to-dictionary` pinning made without an Add makes nothing public,** so no warning before the click is needed for one. An Add publishes a wired header of the person's own (Decision 9). A Trusted List that a private `spawns-trusted-list` pinning spawns is still public, as Decision 5 says.
 
 The story breakdown's review found this (`docs/loom/G5.6.md`, G5.6.g). The owner's merge of the breakdown ratifies it.
 
