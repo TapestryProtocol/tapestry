@@ -146,6 +146,19 @@ const hang = (name) =>
   '  return { pass: 1, fail: 0 };\n' +
   '} };\n';
 
+// ADR test-gate-speed/0001 Amendment 2: runs for 0.8 s and records when it started and ended in span-<name>.json. A
+// trailing comment of `pad` characters sets its file size, which decides where it starts when suites run side by side.
+const sized = (name, pad) =>
+  "const fs = require('fs');\n" +
+  "const path = require('path');\n" +
+  'module.exports = { run: async () => {\n' +
+  '  const start = Date.now();\n' +
+  '  await new Promise((r) => setTimeout(r, 800));\n' +
+  `  fs.writeFileSync(path.join(__dirname, 'span-${name}.json'), JSON.stringify({ pid: process.pid, loadPid: process.pid, start, end: Date.now() }));\n` +
+  '  return { pass: 1, fail: 0 };\n' +
+  '} };\n' +
+  `// ${'x'.repeat(pad)}\n`;
+
 // The folder an expanding entry names (ADR test-gate-speed/0001 Decision 3), written by scenario().folder().
 // Three suites at two depths, one of them with no run(); a helper that isn't a suite; and a suite under
 // node_modules, which discovery skips.
@@ -356,6 +369,10 @@ const FIXTURE_SOURCES = {
   'chatty-b.test.js': chatty('chatty-b'),
   'prints-then-hangs.test.js': hang('prints-then-hangs'),
   'slow-two.test.js': 'module.exports = { run: () => new Promise((r) => setTimeout(() => r({ pass: 1, fail: 0 }), 60000)) };\n',
+  // Amendment 2's three sizes: about 0.3 KB, 3 KB and 30 KB.
+  'size-small.test.js': sized('size-small', 0),
+  'size-middle.test.js': sized('size-middle', 3000),
+  'size-large.test.js': sized('size-large', 30000),
   // Passes after 1.5 s: long enough that a suite started beside it at the same moment finishes first, even on a
   // loaded runner.
   'takes-a-while.test.js': 'module.exports = { run: () => new Promise((r) => setTimeout(() => r({ pass: 1, fail: 0 }), 1500)) };\n',

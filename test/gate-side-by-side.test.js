@@ -24,6 +24,7 @@
  *            never settles                                                             [AC2; Decisions 4, 6]
  *   P17      an entry with no file is that entry's FAIL                                [AC2; Decision 9]
  *   P18–P19  the docs say how it runs and how to run one at a time                     [AC3, AC5]
+ *   P20      side by side, the largest test file starts first                          [AC1; Amendment 2]
  *
  * Engine tests drive runGate() in a child process over fixture suites written to a temp dir, with records
  * in a temp GATE_RECORD_DIR, as test/gate-result-record.test.js does. Nothing here requires the engine at
@@ -506,6 +507,29 @@ test('P17 (AC2; Decision 9): an entry with no file — a { name, run } function 
     assert(later && later.verdict === 'PASS', `the suite after it must still run and pass; its record entry is ${short(later)}`);
     assert(r.status === 1 && /^Overall: FAIL\b/.test(F.lastLine(r.stdout)),
       `the run must end Overall: FAIL, exit 1; got exit ${r.status}, last line ${JSON.stringify(F.lastLine(r.stdout))}. stderr: ${short(r.stderr)}`);
+  } finally { sc.cleanup(); }
+});
+
+/* ═══ P20 — the order units start in (Amendment 2) ═══════════════════════════════════════════════════ */
+
+test('P20 (AC1; Amendment 2): side by side, the largest test file starts first — with GATE_JOBS=2 the largest of three, listed last, starts before the smallest, listed first — while the record keeps unit order', () => {
+  F.need('runner');
+  const sc = F.scenario();
+  try {
+    F.runEngineSync(sc, [sc.suite('size-small.test.js'), sc.suite('size-middle.test.js'), sc.suite('size-large.test.js')], jobs(2));
+    const { rec } = onlyRecord(sc, 'P20');
+    const small = span(sc, 'size-small');
+    const middle = span(sc, 'size-middle');
+    const large = span(sc, 'size-large');
+    assert(small && middle && large, `precondition: all three run and record when they ran; got ${short({ small, middle, large }, 300)}`);
+    assert(large.start < small.start && middle.start < small.start,
+      `with GATE_JOBS=2 the two largest files must start first and the smallest wait for a free slot, so a long suite listed late can't set the run's tail (${ADR}, Amendment 2); ` +
+      `started at small ${small.start}, middle ${middle.start}, large ${large.start}`);
+    assert(small.start >= Math.min(large.end, middle.end),
+      `the smallest must start only when one of the first two has ended (2 slots); it started at ${small.start}, and they ended at ${middle.end} and ${large.end}`);
+    const names = (rec.suites || []).map((s) => s.name);
+    assert(JSON.stringify(names) === JSON.stringify(['size-small', 'size-middle', 'size-large']),
+      `the order they start in changes nothing else: the record keeps unit order (Amendment 2); got ${short(names)}`);
   } finally { sc.cleanup(); }
 });
 
