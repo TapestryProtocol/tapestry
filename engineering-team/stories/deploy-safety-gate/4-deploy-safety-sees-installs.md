@@ -1,6 +1,6 @@
 # Story 4: The deploy-safety answer sees a running firmware install
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-21
 **Type:** Bug
 

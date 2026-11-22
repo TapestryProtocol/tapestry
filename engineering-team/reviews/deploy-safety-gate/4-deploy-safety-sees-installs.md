@@ -208,3 +208,124 @@ One blocking issue: the installer's procedure promises protection on instances t
 
 - [ ] The story stays `Approved` this round. Nothing flips, and no file moves.
 - [ ] Completion detection not run, since the story hasn't cleared review. The book stays Open.
+
+---
+
+## Round 2
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-21 (2026-11-22 UTC)
+**Diff:** `git diff d3816935d..HEAD`, the three commits since round 1's review commit: ADR 0004 Amendment 1 `7270d05fc`, round 2's tests `2fcc8d70a`, and the fixes `3b2064e16`. 10 files, +245 / −16. HEAD is `3b2064e16`, still on `94e85fe06`.
+
+### Quality gates, round 2 (run by reviewer, not trusted)
+
+The safety constraints and environment were round 1's.
+
+- [x] **Scoped gate, 67 suites, on the final HEAD:** `npm run gate:status -- --label ds4-review-2` gives
+  `20261122T032535Z-65466-0e05 [ds4-review-2] started 2026-11-22T03:25:35.424Z on 3b2064e1 — FAIL, exit 1, 3330 passed, 3 failed, 123 skipped, 67/67 suites; failed: router-stream-limit-on-connect`
+  - **The only failures are `router-stream-limit-on-connect` P1–P3,** BSD `sed` again (open ledger row `2026-10-09-router-patch-sed-macos`). The tree was clean: the line has no `+dirty`.
+  - **No suite left `process.env` changed,** and the skips are round 1's live layers.
+  - **This story's suites:**
+    - `deploy-safety-sees-installs`: 42 of 42, with H10, S4 and D6–D8;
+    - `deploy-safety-status`: 17 passed, with 6 live skips;
+    - `next-task-countdown` 24, `close-unauth-write-surface` 14, `default-deny-mutations` 14, `admin-action-sweep-access` 13, `firmware-install-leaves-tags-once` 24;
+    - `operations`: 1556 passed, 20 skipped.
+  - **The harness readers,** all with no failures: `suite-env-changes` 18, `harness-lint` 85, `ledger-row-ids` 6, `session-start` 32, `rollup-scanners` 33, `harness-stats` 12, `kill-timeout-orphans-by-default` 9, `note-tagging-raw-events-inspector-ui` 32, `gate-result-record` 34.
+  - **It agrees with the coordinator's run,** `20261122T030840Z-63894-09dd` on `2fcc8d70+dirty`: the same 3330 passed and the same three failures.
+- [x] **The list, re-derived from the final diff.** The diff now also holds `seed-firmware.js`, three ledger files and this review, and their readers are already on the list:
+  - `operations.test.js`, which runs `test/operations/`;
+  - `deploy-safety-sees-installs` (S4), `deploy-safety-status` and `firmware-install-leaves-tags-once`, which name seed-firmware;
+  - `harness-lint`, `harness-stats`, `ledger-row-ids`, `session-start` and `rollup-scanners`, which read the ledger and the reviews.
+
+  So it is round 1's 67, identical to the coordinator's `list2.json`, and the same 16 near-misses are left out for round 1's reason.
+- [x] **`test/safe-to-merge-check.test.js` on its own, with the system `curl` (`env-realcurl.sh`):** 17 passed, 0 failed, B10 included. Its C1–C3 read the recipe that round 2 changed.
+- [x] **The new tests without the fixes.** I extracted `2fcc8d70a` (round 2's tests, on round 1's code and docs) into a scratch folder. There the suite gives 35 passed and 7 failed: S4, D2, D3, D5, D6, D7 and D8, each naming what is missing. H10 passes, as a guard on an existing rule should. This matches the test plan's Round 2 section.
+- [x] **The guards, on a scratch copy of HEAD,** one mutation at a time, each restored:
+
+  | Mutation | Result |
+  |---|---|
+  | none (control) | 42 of 42 |
+  | `_store.js:227`, the pid-reuse line, taken out | H10 alone fails: "… must read as no install (got [{"install":"seed-firmware",…}])" |
+  | `C.begin('seed-firmware')` renamed to `C.begin('seed')` | S4 alone fails: "seed-firmware no longer takes the lifecycle lock as C.begin('seed-firmware') …" |
+  | the comment above `C.begin` taken out | S4 alone fails |
+  | the release in seed-firmware's `finally` taken out | S4 alone fails |
+  | the answer's op check renamed to `'seed'`, the install name kept | L2, L3, L5, H2–H7 and H10 fail |
+  | the transition note's production clause taken out | nothing fails (R2-3) |
+  | the note's "What to do there" bullet taken out | nothing fails (R2-3) |
+- [x] **`bash scripts/harness-lint.sh`:** clean before this section. After it, there is one violation, L1: this review is now final against a story still marked `Approved`. The session's flip in the same commit clears it (Close-out, round 2). Nothing else.
+
+### Round 1's findings, each re-checked as a fresh claim
+
+I re-derived each fix from the code and the docs, not from my round-1 wording. Where a fix adopted that wording, the sentence was checked like any other.
+
+| Round 1 | The fix | Checked against |
+|---|---|---|
+| Blocking 1: the procedure promised protection everywhere | a transition note (`docs/SAFE_TO_MERGE.md:115-118`); `deploy-tags.yml` named (:126); :130 qualified; D7 | `origin/feat/tags` (`25d39636e`) and `origin/main` (`9f7d7aa30`) serve story 1's endpoint with no `FIRMWARE_INSTALL_RUNNING` and no `firmware` block. HEAD's handler adds the block to every 200 answer. Its 400 and 500 exits lack it, which can only make an installer hold merges. `deploy-tags.yml` deploys `feat/tags` on push, and the `!= "completed"` filter also catches a run waiting on its environment. **Holds.** D7 pins only part of it (R2-3). |
+| Non-blocking 1: the writer's side unpinned | a comment at `seed-firmware.js:143-145`; S4 | The comment is accurate: the answer keys on the op (`seedFirmwareFromLock`), whatever process holds the lock. S4 fails on a renamed op, a missing comment or a missing `finally` release. **Holds.** |
+| Non-blocking 2: stale JSDoc | `src/api/deploy-safety/index.js:117-122` | "Signal 0" is `pidAlive`'s `process.kill(pid, 0)`, and `/proc/<pid>/stat` is `startTimeOf`'s read, both inside `inspectLock()`, which takes, frees and recovers nothing. **Holds.** |
+| Non-blocking 3: the testing note | ADR :238 and a new meta row | `brainstormConfig.js:18` reads the fixed path, and `get()` (:109-110) falls back to `process.env`. **Holds for the handler,** which is what the ADR speaks of. The meta row overstates it (R2-1, R2-2). |
+| Non-blocking 4: Evidence from before the rebase | a note at story :89, and round 2's run | Its record (`20261122T030840Z-63894-09dd`, on `2fcc8d70+dirty`) matches the numbers given, on the same 67 suites. **Holds,** with two small slips (R2-4). |
+| Non-blocking 5: one gap named | "Two gaps remain" (:138-140) | OPEN.md row 340 records four merges that skipped the check: 2026-09-19, 2026-10-29, and twice on 2026-10-31. "Several" holds. **Holds.** |
+| Non-blocking 6: the pid-reuse rule untested | H10 | Its stand-in stat line puts the start time at field 22, where `startTimeOf` reads it, and the stand-in is put back before anything else can run. On CI's Linux, an intercept that missed would fail H10's control rather than pass it. **Holds.** The rule itself has an edge (R2-7). |
+| Non-blocking 7: ids dated by the local day | `git mv` to 2026-11-22, with `**Id:**` and `**Opened:**` updated; D6 | L15 holds, and neither old id was ever on `origin/staging`. The old ids remain only in round 1 of this review, in the test plan's quoted failure output (labelled as such), and in D6's `OLD_ROW_IDS`, all history or deliberate. **Holds.** |
+| Harness friction 2 | `ledger/2026-11-22-brainstorm-config-ignores-conf-path.md` | A well-formed meta row, but two of its claims don't hold (R2-1, R2-2). |
+
+**Also checked:**
+- **Phase lanes:** `7270d05fc` touches only the ADR, `2fcc8d70a` only the suite and the test plan, and `3b2064e16` no test file.
+- **Amendment 1's other items (1, 2, 3, 5, 6, 7)** match what the fixes did.
+- **No new dependency, tooling, TA pubkey or secret.**
+
+### Findings, round 2
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R2-1. `ledger/2026-11-22-brainstorm-config-ignores-conf-path.md:13`: the queue flag has two readers, not one.** The row says "The second is the one that reads `TASK_QUEUE_ENABLED`". It isn't the only one:
+   - `src/api/assistant/scores.js:138` and `src/api/assistant/selfMap.js:141` read the same flag through `getConfigFromFile` (`src/utils/config.js`), the reader that honours `BRAINSTORM_CONF_PATH`;
+   - `brainstormConfig` serves the deploy-safety answer (`src/api/deploy-safety/index.js:141`), the API's queue mount (`src/api/index.js:578`) and run-task (`src/api/manage/commands/runTask.js:419`).
+
+   So under a dead conf, one flag reaches two parts of the control panel by two paths, which only strengthens the row. Optional: name both readers.
+2. **R2-2. The same row, :18-22: "H8 first" is my own round-1 wording, and it doesn't hold.** I re-derived it:
+   - A test process never calls `initTaskQueue`; only `bin/control-panel.js:338` does. So `isQueueAvailable()` returns false at once (`src/manage/taskQueue/queue/index.js:194`, `_state` unset) and makes no Redis call.
+   - With the flag on, every answer is unsafe with `QUEUE_STATE_UNAVAILABLE`. H1 fails first, and every H test that expects a safe answer fails with it, H8 among them.
+   - "Would reach for the task queue" is loose too: the suites require its module but never reach Redis.
+
+   Optional: "They would fail there, H1 first: every answer is unsafe with `QUEUE_STATE_UNAVAILABLE`, since a test process never starts the queue."
+3. **R2-3. `test/deploy-safety-sees-installs.test.js:976` and `:978` (D7): two of its parts pass on other sentences.**
+   - `/production/i` is met by "Use `deploy-tapestry.yml` for production" (`docs/SAFE_TO_MERGE.md:126`).
+   - `/hold merges[^.]*by hand/` is met by :130's "on that instance nobody needs to hold merges by hand", which says the opposite.
+
+   On a scratch copy, taking out the note's production clause, or its "What to do there" bullet, leaves D7 green. The doc is right today; D7 just pins less than its name says. Optional, in the Tester's lane: test those parts against the note's own lines.
+4. **R2-4. `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.md:89` and `:121`: two small slips in the Evidence.**
+   - **:89** says round 1's run and round 2's "cover the final tree". Round 1's ran on `585e22d1`, before round 2's changes. Only round 2's run and this review's cover the final tree.
+   - **:121** says round 2's gate ran "with the fixes in the working tree and committed unchanged after it". The fix commit holds this paragraph, which names the run, so the paragraph was written after the run; the record shows `2fcc8d70+dirty`.
+
+   No result depends on either: this round's run is on `3b2064e1` itself.
+5. **R2-5. `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.test-plan.md:60`: D6's row says more than D6 checks.** It says "no doc cites the old ids", but D6 checks only `docs/SAFE_TO_MERGE.md` (test :967), and the test plan itself quotes the old names, by design. Optional: "and `SAFE_TO_MERGE.md` no longer cites them".
+6. **R2-6. `docs/SAFE_TO_MERGE.md:115`, :117, :118, :130: "this story" in a standing recipe.** Whoever reads the recipe isn't reading a story. The section's own parenthetical, and the rest of the doc, say "story #4". Optional: "story #4".
+7. **R2-7. ADR 0004 :271 (Amendment 1, item 4): the restart it names is the unchecked one, and the rule isn't reboot-proof.**
+   - **The example.** It names "a droplet compose override that pins `hostname:`", which the ADR's Context says wasn't checked. The certain case is the container restarting itself, after a droplet reboot or a crash. `docker-compose.yml` sets `restart: unless-stopped` (:40), and a restarted container keeps its id, and so its hostname.
+   - **The edge.** There the start-time rule can misjudge. `/proc` start times count clock ticks since boot, so after a reboot a reused pid can start at the same tick count as the dead holder did, and the lock then reads live.
+   - **The effect.** For the gate that fails closed: the answer stays unsafe until the check's bound. But lifecycle operations would refuse `busy` until the process holding that pid restarts or someone removes the lock.
+   - **Not this story's.** The behaviour predates it (ADR graph-operations-foundation/0002, Decision 7), and the odds are low.
+
+   Optional: a ledger row. A holder could also record the kernel's boot id (`/proc/sys/kernel/random/boot_id`).
+
+#### Harness friction *(anything the process itself got wrong this story — stale doc, wrong port/path, contradictory instruction; each becomes an OPEN.md row, type `meta`)*
+
+1. None new. R2-2 is the case role step 10 exists for: my own suggested wording went into the record unchecked, and this round's fresh check caught it.
+
+### Verdict, round 2
+
+Every round-1 finding is fixed, and each fix holds as a fresh claim. What remains is the small imprecision listed above, none of which changes behaviour or would lead an installer or merger into an unsafe act. The new tests fail without the fixes for the right reasons, and the guards are real. The gate on the final HEAD fails only on the known macOS `sed` trio.
+
+**PASS**
+
+### Close-out, round 2 (same commit)
+
+- [ ] The story's `Status` goes to `Done` in place, in this review's commit. The session makes that change, since the Reviewer writes only this file. Until it lands, harness-lint's L1 reports this review as final against an `Approved` story, and nothing else.
+- [ ] Amendment 1's two Architect picks wait on the owner's ratification at this gate: item 4, a test rather than a ledger note, and item 6, the renamed ids.
+- [ ] Completion detection performed. The result goes in the chat, not in this file.
