@@ -256,3 +256,28 @@ None.
 ### On PASS
 - The story's `**Status:**` was already `Done`, from round 2.
 - Completion detection is reported in the chat, not here.
+
+### Its findings, checked (2026-11-22)
+- **1, the wrong premise.** Fixed in `ae70ef10` on the port branch and `a7189386` on this one.
+  - **The port's comments** now say what is true there:
+    - `install.js`'s Decision 2 comment names an install with Pass 1 off;
+    - S3's description and name say the same;
+    - `neverResigned()` says a routine tags install is S9's shape;
+    - `pass1Import` says Pass 1 signs every header again (`test/helpers/communityStep.js:18-21`).
+  - **ADR 0035** gains a dated Correction, with pointers at its Context and §4. The decision doesn't change.
+  - **The test plan's** "Which path a tags install takes" is corrected in place, and marked so.
+- **2, BIBLE §22.** `feat/tags`' §22 gains staging's sentence, without its seed-firmware clause, and "Last updated" moves to 2026-11-22. `harness-lint` on the port branch is now clean: L9 is gone.
+- **3, the test nits.**
+  - `bringIn` and `wire` match `NostrEvent`, as this branch's install does.
+  - The three line references name `install.js` at `25d39636`: the code before the fix, which the fixtures model. They no longer cite lines in the tree they ship in.
+- **The check.** `ae70ef10` changes only those lines:
+  - one comment in `install.js`;
+  - in the step suite, comments, S3's name and the two fixture statements;
+  - a comment in `communityStep.js`;
+  - two lines of `BIBLE.md`.
+
+  On that tree the two suites pass, 9 of 9 and 21 of 21, and `harness-lint` is clean on both branches.
+- **Not fixed here:** staging's copy of the `install.js` comment still names "feat/tags' Pass 1". It can change at that file's next change there.
+
+### Verdict, after the fixes
+**PASS.** All three findings are fixed, and the fixes change no behavior.
