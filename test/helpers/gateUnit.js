@@ -14,10 +14,12 @@
  *   - the counts are normalised, and one macrotask after the run a key left changed is one more failed check,
  *     named (rule 6; as the last suite in its process, rule 7's check is this one);
  *   - escaped rejections and exceptions are this unit's strays;
- *   - after its run the unit stays up until nothing is left that could run, or 2 seconds, so a failure its run left for
- *     later (a timer, an un-awaited assertion, a deferred process.exit) is still its stray (Amendment 4);
- *   - once its result is sent, it exits with no code of its own, so an exit cleanup that throws ends it non-zero, and
- *     the engine fails a unit that exits non-zero or by a signal after its result (Amendment 4);
+ *   - after its run the unit stays up until nothing keeps it alive, or 2 seconds, so a failure its run left for later
+ *     (a timer, an un-awaited assertion, a deferred process.exit) is still its stray. A timer the suite unref'd isn't
+ *     waited for (Amendment 4);
+ *   - once its result is sent, it exits with no code of its own, and an exit cleanup that throws ends it with exit 1,
+ *     whatever the suite left behind. The engine fails a unit that exits non-zero or by a signal after its result
+ *     (Amendment 4);
  *   - a run() that never settles, with nothing left to keep the process alive, is this unit's FAIL. The IPC channel
  *     is unref'd so that it doesn't keep the process alive itself;
  *   - when the IPC channel closes before the result is sent, the engine is gone. This unit then ends at once, with
@@ -48,12 +50,16 @@ function report(result) {
   const msg = { type: 'gate-unit-result', result, strays: strays.map((s) => R.clip(s)) };
   try {
     process.send(msg, () => {
-      // The result is on its way, so this unit's stray listeners have nothing left to report to. They step aside, and
-      // the exit takes no code of its own: an exit cleanup that throws then ends the process with Node's own exit 1,
-      // which the engine reads as this unit's FAIL (Amendment 4).
-      process.removeListener('uncaughtException', strayOf);
-      process.removeListener('unhandledRejection', strayOf);
-      realExit();
+      // The result is on its way. The exit takes no code of its own, so a suite that left process.exitCode set fails.
+      // An exit cleanup that throws is caught here, and the second call ends the process with exit 1: the exit is
+      // already under way, so it doesn't run the exit listeners again. No listener or open handle the suite left can
+      // keep the process alive, and the engine reads either exit as this unit's FAIL (Amendment 4).
+      try {
+        realExit();
+      } catch (err) {
+        try { process.stderr.write(`its exit failed after its result: ${String((err && err.stack) || err)}\n`); } catch { /* its log is gone */ }
+        realExit(1);
+      }
     });
   } catch {
     realExit(3);
@@ -136,7 +142,7 @@ async function runUnit() {
       }
     }
   }
-  // Amendment 4: stay up until nothing is left that could run, or LINGER_MS, whichever comes first. A throw, a rejection
+  // Amendment 4: stay up until nothing keeps the process alive, or LINGER_MS, whichever comes first. A throw, a rejection
   // or a trapped process.exit in that window is this unit's stray, as during its run; process.env is checked once more.
   phase = 'lingering';
   await linger();
@@ -153,7 +159,11 @@ async function runUnit() {
   report(r);
 }
 
-/** Wait until the event loop has nothing left that could run, or LINGER_MS, whichever is first. The timer is unref'd. */
+/**
+ * Wait until nothing keeps the process alive (beforeExit), or LINGER_MS, whichever is first. The cap's own timer is
+ * unref'd, so the cap never keeps the process alive itself. A timer the suite unref'd doesn't either, so it isn't
+ * waited for.
+ */
 function linger() {
   return new Promise((resolve) => {
     const cap = setTimeout(resolve, LINGER_MS);

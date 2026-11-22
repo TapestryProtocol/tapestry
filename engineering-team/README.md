@@ -73,7 +73,7 @@ For **big-picture protocol/spec changes** — evolving `BIBLE.md` + ADRs rather 
   - The run's first line names the machine: how many ran at once, and the CPU count and model.
   - In CI the gate runs in two parts, each on its own runner, and the `stack-free` check needs both. `GATE_PART=<i>/<n>` runs part `i` of `n`. Unset, `npm test` runs the whole gate.
   - A suite's output is printed as one block when it ends, so blocks come in the order suites finish.
-  - A failure a suite leaves for after its run still counts. Its process stays up until nothing is left to run, or 2 seconds, and a throw, rejection or `process.exit` in that time is its stray. A process that exits non-zero or by a signal after its result, such as an exit cleanup that throws, is its FAIL.
+  - A failure a suite leaves for after its run still counts. Its process stays up until nothing keeps it alive, or 2 seconds, and a throw, rejection or `process.exit` in that time is its stray. A timer the suite unref'd isn't waited for. A process that exits non-zero or by a signal after its result, such as an exit cleanup that throws, is its FAIL, and nothing the suite left can stop that exit.
   - No suite may rely on another having run, or on having the machine to itself.
 
 ## How the phases connect

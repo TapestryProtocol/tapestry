@@ -88,6 +88,7 @@ The owner made two more choices during implementation, on 2026-11-21, when the s
 - **Implementation: a unit whose process ends without sending a result is its FAIL,** "its process ended before it reported a result (exit …)". A crash or a suite that kills its own process is one way this happens. The ADR named only the never-settling case.
 - **Implementation: units are forked with `execArgv: []`.** A gate started with `node -e …` would otherwise hand its `-e` to every unit's process, which would then run that code instead of the suite.
 - **Implementation: the record is also rewritten as each unit starts,** not only as it ends, so `progress.running` is current while a run goes (Decision 7, test P12).
+- **Process: round 1's fix put the guards before the amendment.** It was committed as the guards (`fdd06d61`), then ADR Amendment 4 (`73fc1077`), then the code (`7b89bbb5`). The harness puts Architecture first (review round 2, non-blocking 4). The owner had ratified the amendment's design at round 1's gate, and the guards and the amendment agree, so the pushed order stands. Round 2's fixes went in the harness's order: the ADR (`39d9c6f0`), the guards (`673dd65f`), then the code.
 
 ## Linked artifacts
 
