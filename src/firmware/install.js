@@ -26,8 +26,10 @@ const path = require('path');
 const firmware = require('../api/normalize/firmware');
 // Materialize a fetched foreign event into Neo4j as a node (the real
 // strfry→Neo4j import primitive; Pass-3 derive does NOT do this — see
-// ADR 0005 Rev 2). Precedent: src/api/io.js single-event import.
-const { buildImportCypher, executeCypher } = require('../api/neo4j/eventSync');
+// ADR 0005 Rev 2). Precedent: src/api/io.js single-event import. Each import
+// is followed by a prune of what earlier letters left on the node
+// (buildPruneCypher, ADR community-reference/0035).
+const { buildImportCypher, buildPruneCypher, executeCypher } = require('../api/neo4j/eventSync');
 // TA signer for the b-tag emitter (ADR 0034): re-sign the local TA header
 // through the existing runtime TA key path — never a hardcoded key.
 const { loadTAKey, signAndFinalize } = require('../api/normalize/helpers');
@@ -88,6 +90,17 @@ async function apiGet(endpoint, params = {}) {
  */
 async function runCypherApi(cypher, params = {}) {
   return apiPost('/api/neo4j/query', { cypher, params });
+}
+
+/**
+ * Remove what earlier installs made from an instance's own concept to itself, where the concept's community reference
+ * names the instance's own header (ADR community-reference/0035 Decision 3): a REFERENCES from the header to itself,
+ * derived from a b naming its own address, and an IS_A_SUPERSET_OF from the concept's superset to itself, from the
+ * edge wiring.
+ */
+async function removeSelfLoops(headerUuid, supersetUuid) {
+  await runCypherApi('MATCH (h:NostrEvent|TapestryNode {uuid: $header})-[r:REFERENCES]->(h) DELETE r', { header: headerUuid });
+  await runCypherApi('MATCH (s:NostrEvent|TapestryNode {uuid: $superset})-[r:IS_A_SUPERSET_OF]->(s) DELETE r', { superset: supersetUuid });
 }
 
 /**
@@ -997,6 +1010,12 @@ async function pass2_enrich(opts = {}) {
 // Graceful by contract: a relay miss, id mismatch, or any error logs and
 // continues — it never throws out of install (AC-3). The local firmware
 // concept is created exactly as before.
+//
+// ADR community-reference/0035: each import here is followed, once it has
+// resolved, by a prune of what earlier letters left on the node, so a header
+// and each copy hold their current letter's tags once. A reference whose
+// curator is this instance's own assistant names its own header, and is
+// skipped.
 
 async function pass_communityReferences(opts = {}) {
   const { dryRun = false } = opts;
@@ -1019,6 +1038,21 @@ async function pass_communityReferences(opts = {}) {
       }
       const curatorPk = parts[1];
       const dTag = parts.slice(2).join(':');
+
+      // ADR community-reference/0035 Decision 3: this instance curates the
+      // reference itself, as production does nostr-relay's. A seed would point
+      // the header at itself, and the fetch would bring in the instance's own
+      // letters a second time. So no seed, no fetch, no pending entry for the
+      // wiring; and, unless it's a dry run, the loops earlier installs made go.
+      if (curatorPk === taPubkey) {
+        if (dryRun) {
+          console.log(`  (dry-run) ${slug}: this instance curates its own reference — skipped`);
+        } else {
+          await removeSelfLoops(`39998:${taPubkey}:${slug}`, `39999:${taPubkey}:${slug}-superset`);
+          console.log(`  ⏭️  ${slug}: this instance curates its own reference — skipped, its loops to itself removed`);
+        }
+        continue;
+      }
 
       const filter = cr.knownGoodEventId
         ? { ids: [cr.knownGoodEventId] }
@@ -1052,21 +1086,37 @@ async function pass_communityReferences(opts = {}) {
           // (AC-6). This is ALSO the idempotency mechanism (AC-5): a second
           // install sees the `b` it wrote on the first and suppresses.
           const hasB = Array.isArray(localHeader.tags) && localHeader.tags.some(t => t[0] === 'b');
+          // seededB says whether the header's letter carries the b, whatever
+          // its import or prune then does (ADR community-reference/0035
+          // Amendment 1 item 2), so the wiring never makes it a stub.
           if (hasB) {
             seededB = true;
-            console.log(`  ⏭️  ${slug}: b already present — seed suppressed (never-clobber)`);
+            // ADR community-reference/0035 Decision 2: no re-sign and no
+            // publish, but the letter it holds is imported again and the
+            // tags earlier letters left are pruned (an install that signs no
+            // header again, as feat/tags' Pass 1, heals this way).
+            await executeCypher(buildImportCypher(localHeader));
+            await executeCypher(buildPruneCypher(localHeader));
+            console.log(`  ⏭️  ${slug}: b already present — seed suppressed (never-clobber); its tags reconciled`);
           } else {
             const newTags = [...localHeader.tags, ['b', cr.headerATag, 'pointer']];
             await loadTAKey();
             const signed = signAndFinalize({ kind: 39998, content: localHeader.content || '', tags: newTags });
-            await apiPost('/api/strfry/publish', { event: signed });
-            await executeCypher(buildImportCypher(signed));
+            const published = await apiPost('/api/strfry/publish', { event: signed });
+            // The route answers a failed strfry import with 200 and success
+            // false, which apiPost passes through: only a stored letter
+            // carries the b (ADR community-reference/0035 Amendment 1 item 2).
+            if (!published || published.success !== true) throw new Error(`publish failed: ${(published && published.error) || 'no answer'}`);
             seededB = true;
+            await executeCypher(buildImportCypher(signed));
+            // Pass 1's import left its letter's tags beside the seeded letter's.
+            await executeCypher(buildPruneCypher(signed));
             console.log(`  ✅ ${slug}: pointer-b seeded on local header → REFERENCES{source:'b-tag'} derived`);
           }
         }
       } catch (seedErr) {
-        console.log(`  ⚠️  ${slug}: b seed failed — ${seedErr.message} (graceful — continuing)`);
+        const what = seededB ? 'its letter carries the b, but its import or prune failed' : 'b seed failed';
+        console.log(`  ⚠️  ${slug}: ${what} — ${seedErr.message} (graceful — continuing)`);
       }
 
       const fetched = await apiGet('/api/relay/external', {
@@ -1092,6 +1142,9 @@ async function pass_communityReferences(opts = {}) {
       // Pass-3 derive does not import strfry events into Neo4j.
       await apiPost('/api/strfry/publish', { event: ev });
       await executeCypher(buildImportCypher(ev));
+      // The copy holds only what this version's import makes: earlier
+      // versions' tags, and relationships their b tags derived, are pruned.
+      await executeCypher(buildPruneCypher(ev, { derivedEdges: true }));
 
       // ── Phase A (story #11 / ADR 0008): community Superset link ─────
       // Also fetch + materialize the community Superset (deterministic
@@ -1120,6 +1173,7 @@ async function pass_communityReferences(opts = {}) {
         } else {
           await apiPost('/api/strfry/publish', { event: supEv });
           await executeCypher(buildImportCypher(supEv));
+          await executeCypher(buildPruneCypher(supEv, { derivedEdges: true }));
           await runCypherApi(
             'MATCH (n:NostrEvent {uuid:$uuid}) SET n:Superset',
             { uuid: supersetUuid }
