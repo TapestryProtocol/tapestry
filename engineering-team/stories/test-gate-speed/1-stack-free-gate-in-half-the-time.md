@@ -76,6 +76,14 @@ None open. The owner answered two at planning, on 2026-11-21:
 1. **The target.** Half the time on the same runner (AC1), not a third. Half fits the 4 CPUs a runner has with room to spare. A third might have needed the job split across several runners.
 2. **A full local run.** Yes, for this story: the full `npm test` may run on this Mac inside a throwaway Linux container. It works on a copy of the checkout, with networking switched off while the tests run and no Docker socket or host port, so it can't reach the agent-memory instance. AC1's measurement and AC5's ten runs use it.
 
+## Deviations
+
+- **Implementation: an `expand` folder that holds no suite is a FAIL of its own,** named `<folder>/`. The ADR didn't say what an empty or mistyped folder does. Silently running nothing would break the registry's rule that no suite is silently never run.
+- **Implementation: a unit's `ms` is the engine's own measure,** from forking its process to its exit. It includes the process's start, which is part of what side by side costs. Today's engine timed only `run()`, since it loaded every suite up front.
+- **Implementation: a unit whose process ends without sending a result is its FAIL,** "its process ended before it reported a result (exit …)". A crash or a suite that kills its own process is one way this happens. The ADR named only the never-settling case.
+- **Implementation: units are forked with `execArgv: []`.** A gate started with `node -e …` would otherwise hand its `-e` to every unit's process, which would then run that code instead of the suite.
+- **Implementation: the record is also rewritten as each unit starts,** not only as it ends, so `progress.running` is current while a run goes (Decision 7, test P12).
+
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md`

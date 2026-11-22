@@ -46,11 +46,15 @@ function describe({ path: file, rec: r }) {
   const progress = `${p.completed}/${p.total} suites`;
   if (r.state === 'running') {
     if (R.isAlive(r.pid)) {
-      return { code: 4, line: `${head} — RUNNING — ${progress}, current ${p.current || '—'}, last progress ${ago(r.updatedAt)} · ${file}` };
+      // Schema 2 lists every unit running at once (test-gate-speed #1); schema 1 named the one in progress.
+      const current = Array.isArray(p.running) && p.running.length ? p.running.join(', ') : (p.current || '—');
+      return { code: 4, line: `${head} — RUNNING — ${progress}, current ${current}, last progress ${ago(r.updatedAt)} · ${file}` };
     }
     return { code: 3, line: `${head} — UNFINISHED — process ${r.pid} is gone (killed?) after ${progress}, last progress ${ago(r.updatedAt)} · ${file}` };
   }
-  const failed = (r.suites || []).filter((s) => s.verdict === 'FAIL').map((s) => path.basename(String(s.file)).replace(/\.test\.js$/, ''));
+  // A schema-2 suite carries its unit name (operations/graph/add-to-concept); a schema-1 suite, only its file.
+  const failed = (r.suites || []).filter((s) => s.verdict === 'FAIL')
+    .map((s) => s.name || path.basename(String(s.file)).replace(/\.test\.js$/, ''));
   if ((r.strayErrors || []).length) failed.push('stray async errors');
   const how = r.state === 'interrupted' ? ` by ${r.signal}` : '';
   const numbers = r.totals ? `${t.passed} passed, ${t.failed} failed, ${t.skipped} skipped` : 'no totals (interrupted)';

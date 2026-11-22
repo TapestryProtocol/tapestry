@@ -25,7 +25,10 @@
  *   T1  per-operation suites under test/operations/ are found and run                               [Decision 12]
  *
  * After its own tests it runs every suite under test/operations/ (ADR Decision 12), counting their results with its
- * own, so an operation's suite needs no line in test/registry.js.
+ * own, so an operation's suite needs no line in test/registry.js. The gate runs it as run({ discovered: 'separately' })
+ * instead: its registry entry carries expand: 'operations', and the gate runs each of those files as a suite of its own
+ * (test-gate-speed #1, ADR test-gate-speed/0001 Decision 3). Both find the files by the one rule in
+ * test/helpers/discoverSuites.js.
  */
 
 const fs = require('fs');
@@ -33,6 +36,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const yaml = require('js-yaml');
+const { filesUnder, discoverSuites } = require('./helpers/discoverSuites');
 
 const ROOT = path.resolve(__dirname, '..');
 const NL = String.fromCharCode(10);
@@ -862,16 +866,6 @@ test('D5: the entrypoint serves withOperationDocs of the YAML at /docs', () => {
 
 // ── S: no hand-kept list ──────────────────────────────────────────────────────────────────────────────────────────
 
-function filesUnder(dir) {
-  const out = [];
-  if (!fs.existsSync(dir)) return out;
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) { if (e.name !== 'node_modules') out.push(...filesUnder(p)); } else out.push(p);
-  }
-  return out;
-}
-
 test('S1: no file outside the declaration names lifecycle status\'s route or path — nothing lists operations by hand (AC6)', () => {
   statusDecl();
   const scanned = [...filesUnder(path.join(ROOT, 'src')), ...filesUnder(path.join(ROOT, 'bin')), path.join(ROOT, 'test/registry.js')]
@@ -1151,10 +1145,7 @@ test('F7: the list carries a file result and a file body, and their refusals', (
 
 // ── T: per-operation suites ───────────────────────────────────────────────────────────────────────────────────────
 
-/** Every *.test.js under `dir`, sorted, as absolute paths. */
-function discoverSuites(dir) {
-  return filesUnder(dir).filter((f) => f.endsWith('.test.js')).sort();
-}
+// discoverSuites (every *.test.js under a folder, sorted) is test/helpers/discoverSuites.js's, shared with the gate.
 /** Run discovered suites; a file that exports no run() is a failure of its own. */
 async function runDiscovered(files, base) {
   const total = { pass: 0, fail: 0, skipped: 0, failures: [] };
@@ -1204,7 +1195,11 @@ test('T1: suites under test/operations/ are found and run, a file there that exp
 
 // ── Runner ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-async function run() {
+/**
+ * Its own tests, then every suite under test/operations/ — unless given { discovered: 'separately' }, as the gate gives
+ * it when it runs each of those files as a suite of its own (ADR test-gate-speed/0001 Decision 3).
+ */
+async function run(options = {}) {
   console.log(`${NL}=== operations ===`);
   let pass = 0, fail = 0, skipped = 0;
   const failures = [];
@@ -1219,9 +1214,13 @@ async function run() {
         fail++;
       }
     }
-    console.log(`${NL}--- per-operation suites under test/operations/ (ADR Decision 12) ---`);
-    const d = await runDiscovered(discoverSuites(OPS_TESTS), path.join(ROOT, 'test'));
-    pass += d.pass; fail += d.fail; skipped += d.skipped; failures.push(...d.failures);
+    if (options && options.discovered === 'separately') {
+      console.log(`${NL}--- the files under test/operations/ run as suites of their own (ADR test-gate-speed/0001 Decision 3) ---`);
+    } else {
+      console.log(`${NL}--- per-operation suites under test/operations/ (ADR Decision 12) ---`);
+      const d = await runDiscovered(discoverSuites(OPS_TESTS), path.join(ROOT, 'test'));
+      pass += d.pass; fail += d.fail; skipped += d.skipped; failures.push(...d.failures);
+    }
   } finally {
     for (const t of temps) { try { fs.rmSync(t, { recursive: true, force: true }); } catch { /* best effort */ } }
   }
