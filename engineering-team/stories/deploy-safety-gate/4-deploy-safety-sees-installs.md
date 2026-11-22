@@ -78,5 +78,5 @@ For the Architect (each answered in ADR 0004):
 ## Linked artifacts
 - Book: `engineering-team/audits/deploy-safety-sees-installs/book.md`
 - ADR: `engineering-team/decisions/deploy-safety-gate/0004-deploy-safety-sees-firmware-installs.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.test-plan.md`
 - Review: (filled in after Review phase)
