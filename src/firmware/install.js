@@ -1093,8 +1093,8 @@ async function pass_communityReferences(opts = {}) {
             seededB = true;
             // ADR community-reference/0035 Decision 2: no re-sign and no
             // publish, but the letter it holds is imported again and the
-            // tags earlier letters left are pruned (an install that signs no
-            // header again, as feat/tags' Pass 1, heals this way).
+            // tags earlier letters left are pruned (an install whose Pass 1
+            // signed no header again, as one with pass1 off, heals this way).
             await executeCypher(buildImportCypher(localHeader));
             await executeCypher(buildPruneCypher(localHeader));
             console.log(`  ⏭️  ${slug}: b already present — seed suppressed (never-clobber); its tags reconciled`);

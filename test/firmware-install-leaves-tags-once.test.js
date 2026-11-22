@@ -14,7 +14,7 @@
  *   S1  AC-1  one install: each header with a community reference holds its letter's tags once, its b included, and
  *             has one REFERENCES {source:'b-tag'}, to the community header
  *   S2  AC-1  two installs in a row: the same
- *   S3  AC-1  a header whose letter already carries the b, which no install signs again (feat/tags' installs): its
+ *   S3  AC-1  a header whose letter already carries the b, which the install doesn't sign again (Pass 1 off): its
  *             letter's tags once, and the header is neither signed nor published
  *   S4  AC-2  community headers and supersets holding several versions' tags keep only the tags of the version the
  *             install brings in
@@ -106,7 +106,7 @@ function pass1(w, c) {
     C.pass1Import(w.graph, l);
   }
 }
-/** Today's seed (src/firmware/install.js:1059-1063): the header's letter again with the pointer-b, signed, stored, and imported by buildImportCypher. */
+/** Today's seed (src/firmware/install.js:1059-1063 at 25d39636, before the port): the header's letter again with the pointer-b, signed, stored, and imported by buildImportCypher. */
 function seed(w, c) {
   const h = w.strfry.get(ownHeader(w.ta, c));
   const s = C.letter(w.ta, { kind: 39998, at: ++w.clock, tags: [...h.tags, ['b', c.headerATag, 'pointer']], content: h.content });
@@ -114,15 +114,15 @@ function seed(w, c) {
   C.todaysImport(w.graph, s);
   return s;
 }
-/** Today's import of a community letter (install.js:1094, and :1122-1126 for a superset): stored, imported by buildImportCypher, a superset labelled. */
+/** Today's import of a community letter (install.js:1094, and :1122-1126 for a superset, at 25d39636): stored, imported by buildImportCypher, a superset labelled. */
 function bringIn(w, l) {
   w.strfry.put(l);
   C.todaysImport(w.graph, l);
-  if (l.kind === 39999) C.run(w.graph, 'MATCH (n:NostrEvent|TapestryNode {uuid: $uuid}) SET n:Superset', { uuid: C.addressOf(l) });
+  if (l.kind === 39999) C.run(w.graph, 'MATCH (n:NostrEvent {uuid: $uuid}) SET n:Superset', { uuid: C.addressOf(l) });
 }
-/** Today's wiring after Pass 3 for a header that carries the b (install.js:1251-1302): only the superset link. */
+/** Today's wiring after Pass 3 for a header that carries the b (install.js:1251-1302 at 25d39636): only the superset link. */
 function wire(w, c) {
-  C.run(w.graph, 'MATCH (a:NostrEvent|TapestryNode {uuid:$from}), (b:NostrEvent|TapestryNode {uuid:$to}) MERGE (a)-[:IS_A_SUPERSET_OF]->(b)', { from: ownSuperset(w.ta, c), to: c.supersetATag });
+  C.run(w.graph, 'MATCH (a:NostrEvent {uuid:$from}), (b:NostrEvent {uuid:$to}) MERGE (a)-[:IS_A_SUPERSET_OF]->(b)', { from: ownSuperset(w.ta, c), to: c.supersetATag });
 }
 /**
  * The copies of a reference as today's installs leave them: `hv` versions of the community header (one when pinned) and
@@ -192,9 +192,11 @@ function freshInstance({ relayHasLetters = true } = {}) {
   return w;
 }
 /**
- * tags.brainstorm.world's shape: an instance whose installs never sign a header again (feat/tags' Pass 1 has no
- * overwrite, ADR 0035 Context). Each header's letter is the one its first install seeded, b included, and the header holds
- * create-concept's tags and the seeded letter's. The relay has the versions the copies hold, so only the headers change.
+ * An instance whose install signs no header again, as an install with Pass 1 off: each header's letter is the one its
+ * first install seeded, b included, and the header holds create-concept's tags and the seeded letter's. The relay has the
+ * versions the copies hold, so only the headers change. A routine tags.brainstorm.world install isn't this shape: its
+ * Pass 1 signs every header again, as staging's does, since create-concept's duplicate check there never matches
+ * (src/api/normalize/index.js:1198). That is S9's shape.
  */
 function neverResigned() {
   const w = world(STAGING);
@@ -348,7 +350,7 @@ test('S2 (AC-1): after two installs in a row, each header still holds its latest
   assert(!found.length, `after two installs:${list(found)}`);
 });
 
-test('S3 (AC-1): a header whose letter already carries the b, which no install signs again (feat/tags\' installs), ends with its letter\'s tags once, and is neither signed nor published', () => {
+test('S3 (AC-1): a header whose letter already carries the b, which the install doesn\'t sign again (Pass 1 off), ends with its letter\'s tags once, and is neither signed nor published', () => {
   const { w, out } = S_NEVER();
   const before = CRS.map((c) => C.tagsOf(w.graph, C.nodesAt(w.graph, ownHeader(w.ta, c))[0]).length);
   const found = CRS.flatMap((c) => [tagTrouble(out, ownHeader(out.ta, c)), refTrouble(out, ownHeader(out.ta, c), c.headerATag)]).filter(Boolean);

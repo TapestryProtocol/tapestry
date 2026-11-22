@@ -15,9 +15,10 @@
  * superset at :1312), with short stand-ins for their json and description values.
  *
  * The two imports, each run on the engine as it is:
- *   pass1Import(state, letter)  what create-concept does with a header or superset it signs, which Pass 1 does for a
- *                               firmware concept the graph doesn't hold yet (create-concept with no overwrite,
- *                               src/firmware/install.js:171-177): normalize's importEventDirect
+ *   pass1Import(state, letter)  what create-concept does with a header or superset it signs, which Pass 1 does for every
+ *                               firmware concept on every install (src/firmware/install.js:184-190). It passes no
+ *                               overwrite here, but create-concept's duplicate check never matches
+ *                               (src/api/normalize/index.js:1198), so it signs every header again: normalize's importEventDirect
  *                               (src/api/normalize/index.js:135-177), its statements as they are, then the labels
  *                               create-concept sets (:1280-1283 and :1324). It deletes the node's tag nodes and makes one
  *                               per tag, sha256("<address>:<tag.join(',')>:<i>"). This is feat/tags' importEventDirect,
