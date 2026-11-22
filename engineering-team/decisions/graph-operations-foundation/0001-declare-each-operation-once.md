@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-11-08
 **Story:** `engineering-team/stories/graph-operations-foundation/1-operation-declaration-and-lifecycle-status.md`
+**Superseded in part by:** ADR `test-gate-speed/0001` (2026-11-21), Decision 12 only. When the gate runs `operations.test.js`, the gate runs each file under `test/operations/` as a suite of its own, rather than inside `operations.test.js`'s run. A new operation still never edits `test/registry.js`, and a file there that exports no `run()` still fails.
 
 ## Context
 

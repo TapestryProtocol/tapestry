@@ -3,7 +3,7 @@
  * The gate's run record — honest-test-gate #1, ADR honest-test-gate/0001 §2.
  *
  * Every gate run writes one JSON record: created before its first suite runs,
- * rewritten after every suite, and finished with the same verdict and exit code the
+ * rewritten as each suite starts and ends, and finished with the same verdict and exit code the
  * runner exits with. The record is the gate's answer however the run was launched or
  * ended; a background-completion notice, a piped `$?`, or the tail of captured output
  * are not (engineering-team/README.md — "Running and reading the test gate").
@@ -13,14 +13,17 @@
  * never leaves half a record. Shared by the engine (gateRunner.js) and the reader
  * (test/gate-status.js).
  *
- * Schema v1:
+ * Schema v2 (test-gate-speed #1, ADR test-gate-speed/0001 Decision 7; v1 lacked machine, progress.running
+ * and suites[].name, and its suites ran one at a time, so progress.current named the one running):
  *   { schema, runId, label, state: running|finished|interrupted,
  *     verdict: PASS|FAIL|INTERRUPTED|null, exitCode, signal,
  *     startedAt, updatedAt, finishedAt, pid, host, node, cwd, argv,
  *     git: { commit, branch, dirty, dirtyCount } | { error },
- *     progress: { total, completed, current },
+ *     machine: { cpus, model, jobs },
+ *     part: { index, count, of } | null   (GATE_PART=<index>/<count>, of the whole run's <of> units; Amendment 3),
+ *     progress: { total, completed, running: [name], current: 'name, name' | null },
  *     totals: { passed, failed, skipped, suitesPassed, suitesFailed, suitesSkipped } | null,
- *     suites: [{ file, verdict, pass, fail, skipped, ms, error, failures }],
+ *     suites: [{ file, name, verdict, pass, fail, skipped, ms, error, failures, envChanged }]   (in unit order),
  *     strayErrors: [{ during, message }] }
  */
 
@@ -102,8 +105,8 @@ function clipFailures(failures) {
     : clip(f)));
 }
 
-/** Create the record for a new run; returns the handle { file, rec }. */
-function createRecord({ dir, label, total }) {
+/** Create the record for a new run; returns the handle { file, rec }. machine: { cpus, model, jobs }; part: { index, count, of }. */
+function createRecord({ dir, label, total, machine, part }) {
   fs.mkdirSync(dir, { recursive: true });
   prune(dir);
   const runId = newRunId();
@@ -111,7 +114,7 @@ function createRecord({ dir, label, total }) {
   const handle = {
     file: path.join(dir, `${runId}.json`),
     rec: {
-      schema: 1,
+      schema: 2,
       runId,
       label: label || null,
       state: 'running',
@@ -127,7 +130,9 @@ function createRecord({ dir, label, total }) {
       cwd: process.cwd(),
       argv: process.argv.slice(),
       git: gitIdentity(),
-      progress: { total, completed: 0, current: null },
+      machine: machine || null,
+      part: part || null,
+      progress: { total, completed: 0, running: [], current: null },
       totals: null,
       suites: [],
       strayErrors: [],

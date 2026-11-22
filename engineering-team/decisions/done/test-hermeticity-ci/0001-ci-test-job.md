@@ -43,10 +43,10 @@ We chose **Option A** — one workflow, plain `npm test`, `pull_request` → sta
 | Cache | `setup-node` `cache: npm` (lockfile-keyed) | standard; no bespoke cache keys to rot |
 | Install | `npm ci`, scripts **enabled**, `SCARF_ANALYTICS: "false"` | lockfile fidelity; prebuild downloads need scripts; scarf phone-home suppressed |
 | fetch-depth | `0` (full history) | keeps L9/L10 live in the CI lint pass; 17.69 MiB pack makes it cheap |
-| Timeout | `timeout-minutes: 40` (Amendment 2; 25 from Amendment 1, 15 before) | stack-free run was 2–4 min incl. install; it was about 13–17 min by 2026-11-20, and on 2026-11-21 one tree took 14–23 min depending on GitHub's runner, so 40 keeps the hang guard clear of a passing run on the slowest runner seen; still a hang guard, not a budget |
+| Timeout | `timeout-minutes: 40` on each part (Amendment 3; 40 from Amendment 2, 25 from Amendment 1, 15 before) | stack-free run was 2–4 min incl. install; it was about 13–17 min by 2026-11-20, and on 2026-11-21 one tree took 14–23 min depending on GitHub's runner, so 40 keeps the hang guard clear of a passing run on the slowest runner seen; still a hang guard, not a budget |
 | Concurrency | group `test-${{ github.head_ref \|\| github.ref }}`, `cancel-in-progress: true` | newer push supersedes older run; no queue pileup |
 | Retries | **none, structurally** | no retry action, no `--retries`, no re-run steps; `test:playwright` (the only retry-bearing path, `playwright.config.js:17`) is never invoked |
-| Check name | `test / stack-free` (workflow `Test`, job id `stack-free`) | stable name for the operator's future required-check flip |
+| Check name | `test / stack-free` (workflow `Test`, job id `stack-free`; since Amendment 3 the job that needs both parts) | stable name for the operator's future required-check flip |
 | Required-check | **not taken** | explicitly reserved for the operator post-book (story AC-4) |
 
 ## Consequences
@@ -87,3 +87,21 @@ The owner chose to raise the job's `timeout-minutes` from 25 to 40, ahead of mak
 - **What changes:** `.github/workflows/test.yml`, W7 in `test/ci-test-job.test.js`, and OPERATIONS.md §15.
 - **What stays the same:** it is still a hang guard, not a budget. It has to fit the slowest runner GitHub hands out, not the typical one. The no-retry rule is unchanged.
 - **What comes next:** making the gate faster, queued in `engineering-team/stories/_intake.md` (2026-11-21).
+
+## Amendment 3 (2026-11-21): two parts, and one `stack-free` check over them
+
+The owner chose to split the gate across two runners (story `test-gate-speed` #1; ADR `test-gate-speed/0001`, Amendment 3).
+
+- **Why:** every suite now runs in a process of its own, several at a time, and one runner reached only about half of today's time: 0.501 and 0.521 on two runs. A runner's 4 vCPUs behave like about 2 cores.
+- **What changes:**
+  - The workflow has a job `stack-free-part`, with a matrix `part: [1, 2]`. Each leg runs `npm ci` then `npm test` with `GATE_PART`, on its own runner.
+  - A job `stack-free` `needs` it, runs `if: always()`, and fails unless every part succeeded.
+  - The Decision table's "one job" becomes two parts and the check. Its "Check name" row still holds: `stack-free` is the check `main`'s ruleset requires.
+  - W10 in `test/ci-test-job.test.js` pins the shape.
+- **What stays the same:**
+  - pull requests only;
+  - Node 22, `npm ci` with scripts, `fetch-depth: 0`;
+  - the two pinned actions;
+  - no retries;
+  - the concurrency group;
+  - the 40-minute hang guard, now on each part.

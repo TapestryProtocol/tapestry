@@ -3,8 +3,13 @@
 **Id:** 2026-11-17-gate-recipe-runs-operations-suites-twice
 **Type:** meta
 **Opened:** 2026-11-17 (story graph-operations-first-slice #8, Loom A10.8; its review's Harness friction 1)
-**Status:** OPEN
-**Done:** —
+**Status:** DONE
+**Done:** 2026-11-22. Story `test-gate-speed` #1's engine removes the cause: each suite runs in a process of its own
+(ADR `test-gate-speed/0001` Decision 1), so a suite listed twice runs twice in two processes, and neither run finds the
+other's cleanup. The row's recipe shape passed under dead endpoints: run `20261122T143354Z-91554-0202` listed
+`operations.test.js` beside `operations/graph/search` and `operations/graph/add-relationship`. It ended PASS, with
+1550 passed, 0 failed and 20 skipped across 3 suites. The two still run, and count, twice, so a scoped gate still lists
+one or the other. The fix reaches `staging` with TapestryProtocol/tapestry#201.
 
 **What was seen.** The brief for `graph search`'s review, written by the session that built it, asked for one scoped gate over every suite under `test/operations/` and five suites outside it, `operations.test.js` among them. The record read FAIL: `operations.test.js` had 193 failures. Of those, 188 name an ENOENT on a suite's own temporary file (179) or a missing agent key (9), and five more have the same cause, worded otherwise. The other 64 suites passed. The same command on the merge base, `090c848e`, failed the same way, with 188.
 - **The gate loads every suite into one process** before any runs (`test/helpers/gateRunner.js:10`, `:157–160`).
