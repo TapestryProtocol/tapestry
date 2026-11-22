@@ -86,7 +86,7 @@ For the Architect (each answered in ADR 0004):
 
 **The scoped gate, stack-free (2026-11-21, Implementation).** It ran on `239fe71e` (the failing tests' commit), with the implementation in the working tree and committed unchanged after it. Node was 22.23.1, CI's major.
 
-*(Review round 1, finding 4: this run predates the branch's rebase onto `94e85fe06`. Its base was `deef26702`, and its list missed five suites that read changed files. Review round 1's own run covers the rebased tree before round 1's fixes. Round 2's run, below, and review round 2's own run cover the tree with them. Round 3 changed only prose and one test, D7, which passes.)*
+*(Review round 1, finding 4: this run predates the branch's rebase onto `94e85fe06`. Its base was `deef26702`, and its list missed five suites that read changed files. Review round 1's own run covers the rebased tree before round 1's fixes. Round 2's run, below, and review round 2's own run cover the tree with them. Rounds 3 and 4 changed only prose and one test, D7, which passes; their runs are below.)*
 
 **The environment** was the memory's scoped-gate recipe:
 - a stub `curl` and a stub `docker` first on `PATH`;
@@ -145,6 +145,12 @@ SAFE — merge may proceed …
 **Round 3, after review round 2's findings (2026-11-22).** Round 3 changed prose and one test, D7, so it ran the 13 suites that read what changed. Those were this story's two suites, the recipe's and the ledger's readers, and the harness scanners. The run was on `9d59e3a3` (D7), with round 3's prose in the working tree and committed after it.
 - **Run `20261122T034530Z-17030-d50f` (label `ds4-round3-1`):** PASS, exit 0, with 369 passed, 0 failed and 10 skipped across 13 suites.
 - **`test/safe-to-merge-check.test.js`,** with the system `curl`: 17 of 17.
+
+**Round 4, after round 2's fix check (2026-11-22).** That check's findings F1–F4 brought two commits.
+- **`3208c7c90`, F4:** D7 also checks that the paragraph limits "nobody needs to hold merges by hand" to an instance that carries story #4.
+- **`d780c4715`, F1–F3:** prose.
+
+Run `20261122T040256Z-24746-f06e` (label `ds4-round4-1`), on `3208c7c9` with the prose in the working tree and committed after it, gave PASS, exit 0, with 369 passed, 0 failed and 10 skipped across the same 13 suites. The second fix check's own run on the committed tree, `20261122T040850Z-16361-73b4`, matches it. The last correction, G1 and G2, is prose only: this paragraph and the meta row.
 
 **Not checked here.** There was no live check, since the local container is off-limits. The live evidence is the book's: one install on staging and one on production, each on the owner's yes, with the check run against that instance during it.
 
