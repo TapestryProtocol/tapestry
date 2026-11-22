@@ -12,6 +12,12 @@
 - the words the refusals say;
 - the two tests whose catalog count moves.
 
+**Amended by:** Amendment 2 (2026-11-21, at review round 1's findings, which the owner chose to fix before the pull request). It covers:
+- the makers add-relationship's refusal of `REFERENCES` names;
+- a merged placeholder, in place of a created one;
+- two wordings in the docs;
+- a second live check.
+
 ## Context
 
 **The story's criteria** (story 48, in short):
@@ -277,3 +283,49 @@ The Tester raised four points the Decisions left open (`48-declare-a-concept-sha
 7. **Two existing tests move.** MF15 (`mark-field.test.js`) and EN29 (`enumerate.test.js`) now pin "At a glance (65 operations)", which Decision 10 makes the catalog say, as story 19's Test Design moved MF15.
 
 **Ratification:** the owner, 2026-11-21, at the Test Design gate ("Approved, go on").
+
+## Amendment 2 (2026-11-21, at review round 1; the owner chose to fix its non-blocking findings before the pull request) — the refusal's makers, a merged placeholder, two wordings and a second live check
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/48-declare-a-concept-shared.md`) passed with five non-blocking findings. The owner chose "Fix findings first". Each item below answers one or more of them.
+
+1. **add-relationship's refusal of `REFERENCES` names its makers (finding 1).**
+   - **What changes:** `FIRMWARE_MADE` in `src/operations/rules/relationship-type-allowed.js` gains `REFERENCES`: import nostr, and `graph declare-shared` and `wire-to-shared` from a `b`. Story 19 named `ENUMERATES`' makers the same way, pinned by EN28.
+   - **What doesn't:** `docs/GRAPH_RULES.md`'s entry 2 still names `REFERENCES` among the import's reserved types, which stays true. So no graph rule element is regenerated, and no firmware reinstall is needed.
+2. **The placeholder is merged, not created (finding 4).** This replaces Decision 6's "`CREATE (p:NostrEvent {uuid})`".
+   - **The race it closes:** an import, or another concept's wire, can commit a node at the target's address between `nodeAt`'s read and the write. The uniqueness rule on `NostrEvent.uuid` then fails a `CREATE`, and the wire answers 500.
+   - **The two fixes:**
+     - **(a) Run the wire once more on that failure,** as import nostr runs its event again. Rejected: the write path runs a write again only when a node it needs vanished (`src/operations/write.js`). Running again on a uniqueness failure would widen that path for every write, and the operation can't open a second transaction of its own.
+     - **(b) `MERGE` the placeholder.** Chosen. With the uniqueness rule in place, a `MERGE` waits for a node another transaction is committing at the address, and then matches it instead of failing. An import's own `CREATE` that comes after it fails its constraint and runs again, as it already does (ADR 0032, Decision 7.9). It then finds the placeholder and fills it.
+   - **The statement:**
+
+     ```
+     MERGE (p:NostrEvent {uuid: $uuid})
+       ON CREATE SET p.kind = toInteger($kind), p.pubkey = $pubkey
+     ```
+
+     It then gives the node its key with `keyNode('p')`, which keeps a key the node already has, and returns `p.tapestryKey AS key, p.created_at IS NOT NULL AS dated`.
+   - **What the answer reads:** `target.node` and `target.held` come from the merged node. `held` is true when it has a `created_at`, which is Amendment 1 item 1's meaning.
+   - **Why `nodeAt` still runs first:** a `MERGE` on the `NostrEvent` label doesn't see a node at the address without that label, such as seed-firmware's kind of placeholder or a node of the instance's own with no letter.
+   - **The `MERGE` adopts first, as every `MERGE` of a `NostrEvent` by its address does.** Test Design found this (G9 in `test/operations/lifecycle/tapestry-key-paths.test.js`).
+     - **The statement:** right before the `MERGE`, a statement of its own gives a node at the address without the `NostrEvent` label that label: `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent SET x:NostrEvent`. That is `importEventDirect`'s adoption (ADR graph-operations-foundation/0003, Decision 9).
+     - **When it matters:** where `nodeAt` found nothing, it changes nothing. In the race, it makes the `MERGE` land on the node that appeared. The uniqueness rules allow a `NostrEvent` and a node without that label at one uuid, so without it the race could leave two nodes at one address.
+     - **What the race would cost:** such a node is in practice seed-firmware's kind of placeholder, which then has import nostr's labels. A node of the instance's own, with no letter, made at that address at the same moment would gain the `NostrEvent` label, the trade `importEventDirect` makes.
+     - **Why not the other fix:** listing this `MERGE` as an exception to G9 would weaken a check every other `MERGE` by address passes, so it isn't taken.
+     - **Its source text,** for the kept-lookups entries (the Tester's lane), as two lines in `_dispositions.js` right before the placeholder's:
+
+       ```
+       const ADOPT = `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent
+         SET x:NostrEvent`;
+       ```
+
+       `drawReference` runs it, then the `MERGE`, only when `nodeAt` found no node.
+   - **The registry:** the kept-lookups entry names the `MERGE` line, which is the Tester's lane.
+3. **The docs say which writes draw a relationship, and where it runs (findings 2 and 3).**
+   - **`protocols/drafts/inherit-from.md`'s implementation note:** the two pointer writes each draw the relationship the import derives, and the marker draws none.
+   - **BIBLE §25's bullet:** the relationship runs to the placeholder at the address, or to one the write makes when no node is there.
+4. **A second live check, LH2, on a scratch stack (finding 5).** On a real Neo4j:
+   - a wire to an address the graph doesn't hold makes the merged placeholder, of import nostr's shape;
+   - a declaration of a deferred concept takes the marker out;
+   - two wires of different concepts to one absent address, fired together from one node process inside the container, both answer `wired`, with one placeholder made. The race window is narrow, so this checks that two wires can't fail each other. It isn't proof that the window was hit; the engine's test pins the race itself.
+
+**Ratification:** pending the owner, at the round-2 gate.
