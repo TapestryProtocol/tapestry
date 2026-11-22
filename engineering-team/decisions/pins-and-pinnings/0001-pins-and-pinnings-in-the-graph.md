@@ -1,6 +1,6 @@
 # ADR 0001: Pins and pinnings live in the graph as the instance's own, and go out under its Assistant's key
 
-**Status:** Proposed
+**Status:** Accepted (the owner, 2026-11-22: Option A, as drafted)
 **Date:** 2026-11-22
 **Story:** `docs/loom/G5.6.md` (the epic's spec; its stories follow this decision)
 
