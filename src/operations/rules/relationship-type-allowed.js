@@ -44,6 +44,9 @@ const FIRMWARE_MADE = Object.freeze({
   // Made and taken out by these two (story graph-operations-first-slice #19, ADR graph-operations-first-slice/0019
   // Decisions 2 and 5).
   ENUMERATES: 'graph enumerate and unenumerate',
+  // Made by the import from a letter's tags, and by these two from the b they write (story
+  // graph-operations-first-slice #48, ADR graph-operations-first-slice/0048 Amendment 2 item 1).
+  REFERENCES: 'import nostr, and graph declare-shared and wire-to-shared from a b tag',
 });
 const BY_CATEGORY = Object.freeze({
   coreNodeWiring: 'graph create-concept',

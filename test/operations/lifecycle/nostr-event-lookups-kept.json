@@ -202,6 +202,21 @@
       "reason": "A CREATE, which can't take a label disjunction: the placeholder for a claim's end at an address, made only when the same transaction's lookup by NostrEvent|TapestryNode found no node there (Decision 8). It stands for an event, so it is a NostrEvent."
     },
     {
+      "file": "src/operations/catalog/graph/_dispositions.js",
+      "text": "const ADOPT = `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent",
+      "reason": "importEventDirect's adoption of an event-less node (ADR graph-operations-foundation/0003, Decision 9), which G9 asks for before a MERGE of a NostrEvent by its address: graph wire-to-shared's, run right before its placeholder's MERGE when the lookup by NostrEvent|TapestryNode found no node (ADR graph-operations-first-slice/0048 Amendment 2 item 2). It tests for the label."
+    },
+    {
+      "file": "src/operations/catalog/graph/_dispositions.js",
+      "text": "SET x:NostrEvent`;",
+      "reason": "importEventDirect's adoption of an event-less node (ADR graph-operations-foundation/0003, Decision 9), which G9 asks for before a MERGE of a NostrEvent by its address: graph wire-to-shared's, run right before its placeholder's MERGE (ADR graph-operations-first-slice/0048 Amendment 2 item 2). It gives the label back."
+    },
+    {
+      "file": "src/operations/catalog/graph/_dispositions.js",
+      "text": "const PLACEHOLDER = `MERGE (p:NostrEvent {uuid: $uuid})",
+      "reason": "A MERGE, which can't take a label disjunction: graph wire-to-shared's placeholder for a wired b's target at an address, import nostr's kind (ADR graph-operations-first-slice/0048 Decision 6, merged since Amendment 2 item 2), written only when the same transaction's lookup by NostrEvent|TapestryNode found no node there. A MERGE, so a NostrEvent another transaction commits at the address meanwhile, such as an import's, is matched rather than failing the uniqueness rule. It stands for an event, so it is a NostrEvent."
+    },
+    {
       "file": "src/operations/catalog/import/_letters.js",
       "text": "MERGE (p:NostrEvent {id: i})",
       "reason": "A MERGE by id, which can't take a label disjunction: the placeholder for an e or b tag's event named by id, made only when no node holds that id or a uuid that is it (Decision 8). An event by definition."
