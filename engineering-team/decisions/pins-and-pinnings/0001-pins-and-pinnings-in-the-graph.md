@@ -14,7 +14,7 @@ The book is [pins-and-pinnings](../../audits/pins-and-pinnings/book.md): build t
 
 - **The concept.** `tag-pinning` is a firmware concept (`firmware/versions/v1.0.0/concepts/tag-pinning/`). Its schema holds `tagPinning.tagEventId` and a `curationMethod` object with no inner schema. Readers find pins by `z` to the canonical handle, `39998:<LEGACY_Z_TAG_PUBKEY>:tag-pinning`, under ADR 0015's named exception (`src/api/profile-tags/index.js`; `CLAUDE.md`, "Per-deployment TA pubkey").
 - **A pin** is a kind-`39999` event the pinner signs in the browser: `d` is `tag-pin-<slug>-<tagAuthor8>-<viewer8>`, an `e` and an `a` name one Tag, `z` names `tag-pinning`, and a `curation-method` tag carries JSON with the observer, method, cutoff, `includeScoreInTL`, `targetTypes` (people, notes) and `noteMethod` (`pinTag` in `ui/src/utils/publishTagPin.js`). It goes to the instance's relay and to public relays.
-- **No server route writes a pin.** A pin reaches Neo4j only when the relay's events are imported: by the legacy batch transfer (`src/manage/concept-graph/batchTransfer.sh`), or by import nostr.
+- **No server route writes a pin.** A pin reaches Neo4j only when the relay's events are imported: by the legacy batch transfer (`src/manage/concept-graph/batchTransfer.sh`), by `POST /api/neo4j/event-update` (`src/api/neo4j/eventSync.js`), or by import nostr.
 - **Unpinning** is the pinner's NIP-09 deletion, which names the pin by `e` only (`unpinTag`). It carries no `z`, so it never reaches readers who find pins by their concept (ledger `2026-09-27-revokes-do-not-travel`).
 - **Spawning.** `src/api/trustedList/refreshPinnedTags.js` reads every pin from the instance's relay and turns each into a kind-`30392` Trusted List of people, `d` `tl-pin-<obs8>-<tagAuthor8>-<slug>`, and, when the pin's target types include notes, a kind-`30393` list of notes. The instance's Assistant signs both (`getOwnerAssistantKeys`). They are built on pin, on a curation edit, on Apply or Dispute, from the Export dialog, from "Refresh all", and by a daily task that ships switched off. Only the `nip85:rank` method is offered, and `includeScoreInTL` is ignored.
 - **Also on the click:** NIP-51 lists of the Tag's people and notes, signed by the pinner (ADR 0017). Pins are counted, per Tag, in the Tags directory's "Most pinned" sort.
@@ -105,7 +105,7 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
      - A private pinning's holds its Pin, `private`, and a `payload`: one NIP-44 string the Assistant encrypts to itself, which holds the target, polarity, context and curation (Decision 5).
    - **A pinning's letter carries no `json` tag.** The `nostr-pinning` header says so in its `x-tapestry` settings, and export leaves the tag out for that concept's elements. So the curation on the node never reaches the wire, as § 7 has it. The letter holds the draft's tags, plus a `name` that repeats the `d`.
    - **Extensions of the module** make this possible:
-     - `graph create-element` takes an optional `d` and optional extra tags, for an app-layer concept whose wire form fixes them. A `d` that is taken is refused, not given a suffix. The tags the module writes itself (`d`, `name`, `n`, `s`, `b`, `json`, and the concept's own `z`) can't be passed. A further `z`, such as a pinning's to its Pin, can.
+     - `graph create-element` takes an optional `d` and optional extra tags, for an app-layer concept whose wire form fixes them. A `d` that is taken is refused, not given a suffix. The tags the module writes itself (`d`, `name`, `n`, `s`, `b`, `json`, and the concept's own `z`) can't be passed. A further `z`, such as a pinning's to its Pin, can, if it names no concept header. An instance that imports the letter files a node under every concept whose header one of its `z` tags names (`import/_letters.js:228-231`, :584), so a further `z` naming one would file the node under that concept there.
      - `graph update-node` takes the same extra tags, to change a tag's value on an own node.
      - A firmware element file takes the same `d` and tags, as a header file takes `headerTags`. Both installs honour them. Seed-firmware's builder is `src/firmware/target.js`. Today's install makes elements through `POST /api/normalize/create-element` (`src/firmware/install.js:325-329`), which already takes a `dTag` (`src/api/normalize/index.js:1908`) and needs the tags.
      - Export reads a concept header's `x-tapestry` settings for whether its elements' letters carry `json`.
@@ -115,7 +115,9 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
    - **Everyone else signs their own pinnings** in the browser, in the new form, as they sign tag pins today. That includes an admin who pins from the UI. Their pinnings are letters, read from the relay and counted for their author's own point of view.
      - This keeps an admin's own Trusted Lists at their own addresses, and lets them unpin their old pins from the Tag page.
      - It narrows the direction put to the owner, under which every admin pinned through the graph. An admin still can, through the CLI.
-   - **The owner's own signed pinnings,** made with the owner's own key in another client, are a correspondent's letters (BIBLE §31). They count in the owner's view and come first in it (Decision 7), and are never merged into the instance's pinnings without an explicit act.
+   - **The owner's own signed pinnings,** made with the owner's own key in another client, are a correspondent's letters (BIBLE §31). They enter the instance's view only by an explicit act, `pin move`'s re-mint (Decision 8), never by being read (Decision 7).
+     - An outside reader asking what the owner thinks may read them before the instance's, as a personally signed header wins in assistant-designation (BIBLE §31, "The external layer").
+     - That is a reader's rule, for the draft, and this book doesn't build it.
 
 4. **Writing a pinning, then sending it.**
    - **`pin set` writes, and never signs,** like every write (catalog, "Every write"; D1). The caller publishes a public pinning with export nostr, with the pinning as its `node` scope, to the instance's own relay and to any relays it names. The UI does both in turn, and an agent runs `export nostr` after `pin set`. That is D2's "create, then publish".
@@ -139,23 +141,28 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
      - Spawning and the Dictionary page decrypt inside the server.
      - A route that answers for a viewer named in its query string, as the Pinned tab's and the Dictionary's do, shows a private pinning only to that viewer's own session.
    - **Switching between public and private.** The two forms have different `d` tags for the same Pin and target, so `pin set` keeps one live stance across both: it writes the new form, and sets the other to `polarity 0`. Going private, the caller then sends the public pinning's `polarity 0`, so readers see it unpinned. The public pinning's history stays public, and the timing of the switch can be read beside the new private pinning's appearance.
+   - **Going private where an old pin stands.** An old tag pin is a public `spawns-trusted-list` stance (§ 10) that the owner signed, and Brainstorm-UI and other instances read it.
+     - So `pin set` refuses to make a pinning on `spawns-trusted-list` private while the owner's old pin of the same Tag stands undeleted on the instance's relay, and says why.
+     - The UI then has the owner sign that pin's NIP-09 deletion in the browser, and pins privately once the deletion is sent. An agent is refused the same way, and the owner deletes the old pin.
    - **Private keeps the pinning, not what its Pin makes.** A Trusted List that `spawns-trusted-list` publishes is public, and says what it lists. So where a person pins privately to a Pin whose action publishes, the UI says so before the click (Show and Tell's first question: "Do they know?").
 
 6. **Pin, exclude, unpin: polarity, at one `d`.** `+` is `polarity 1`, `−` is `-1`, and an unpin is `polarity 0`, which replaces the pinning at its `d` (§ 3.1, § 4). The node stays, with polarity 0. A new pinning is never deleted with NIP-09: `polarity 0` carries its `z`, so it reaches the readers that find pinnings by their Pin, which today's deletions never do. Readers keep honouring the deletions of old pins. This answers § 11's question 2 with "adopt it", for G5.7 to write down.
 
-7. **What counts as pinned is the owner's own stance, worked out when it's read.**
-   - **A stance is the latest pinning at its `d`.** For one Pin and one owner, a target is pinned when the stance that counts has polarity at least 0.5, and excluded at −0.5 or less (§ 3, § 6.1).
-   - **Which stance counts.**
-     - In the owner's view, the first of these that exists: the owner's own signed new-form pinning; the instance's pinning, private or public; the owner's own old tag pin.
-     - In anyone else's view: their own new-form pinning, then their own old pin.
-     - A Tapestry unpin can't outvote a pinning the owner signed in another client. So where one exists, the owner's Unpin signs a `polarity 0` of their own, in the browser.
+7. **What counts as pinned is one stance, worked out when it's read.**
+   - **One stance, from one source.** For a view, a Pin and a target, one stance counts. The target is pinned when its polarity is at least 0.5, excluded at −0.5 or less, and unpinned otherwise, `polarity 0` included (§ 3, § 4, § 6.1).
+   - **The instance's view** is the owner's pins and Dictionary on the instance, and what its agents act on.
+     - If the instance has any pinning of the target on the Pin, the stance is the instance's. `pin set` keeps at most one of the instance's pinnings of a target on a Pin at a polarity other than 0, across the public and private forms (Decision 5). The stance is that one's, or unpinned when every one is at 0.
+     - Otherwise, the owner's old tag pin counts, as it counts today, until `pin move` re-mints it.
+   - **Anyone else's view.** If the person has a new-form pinning of the target on the Pin, the stance is their latest one at its `d`, at whatever polarity, and `0` is unpinned. Otherwise their own old pin counts.
+   - **So an old pin never comes back.** Once a target has a new-form stance on a Pin, its old pin no longer counts there, whatever that stance's polarity.
+   - **The owner's own signed pinnings** don't count in the instance's view until re-minted (Decision 3).
    - **Silence isn't pinned.** Anything the owner never pinned, or unpinned, isn't pinned in this book. § 6.1's community default is out of its scope (spec, "Out of scope").
    - **Nothing stores the result** (architecture invariant 3).
 
 8. **How tag-pinning moves.**
    - **New pins of a Tag are `spawns-trusted-list` pinnings,** generic, as § 3's interim rule says, made from the Tag page's Pin button.
    - **What a pin spawns, and how, leaves the wire** (§ 7). A pinning's curation is which lists it spawns (people, notes), the observer, the method, the cutoff and the note method.
-     - **For the instance's own pinnings,** it is in the pinning node's JSON: in the clear for a public pinning, whose letter carries no `json` (Decision 2), and in the payload for a private one. Either way it stays in the graph, and a backup carries it.
+     - **For the instance's own pinnings,** it is in the pinning node's JSON: in the clear for a public pinning, whose letter carries no `json` (Decision 2), and in the payload for a private one. Either way it stays in the graph, and a backup carries it. That keeps the direction put to the owner, under which what a pin spawns is the instance's setting, off the wire. The setting is held on the pinning node, not in a settings file, so the graph holds it.
      - **For a person's own signed pinning,** it is in that person's prefs file on the instance (`/var/lib/brainstorm/user-prefs/<pubkey>.json`, `src/api/settings/userPrefsApi.js`), keyed by the pinning's `d`, where their point-of-view settings are. When a person pins again in the new form, the UI copies their old pin's curation into that file, so the observer and the cutoff carry over and the Trusted List keeps its `d`.
      - **A new-form pinning with no curation gets today's defaults,** not "unsupported". Today a pin whose curation can't be read is skipped, and the run then retracts the lists it spawned before (`parseCurationMethod`, `retractStaleTLs`).
    - **The observer still defaults to the pinner,** and to the owner for the instance's pinnings. So a moved pin's Trusted Lists keep their `d` tags, `tl-pin-<obs8>-<tagAuthor8>-<slug>` and `tl-pin-notes-…`, and whatever follows them keeps working.
@@ -166,11 +173,14 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
      - A new-form pinning names its Tag by `a`, its stable address, while today's code finds the Tag by `e` (`parsePinTagEventId`). So the Tag is read at its address.
      - Which stance counts is Decision 7's.
    - **A source that fails stops the run.** Retraction trusts what the gatherer returns, so a graph read that failed and answered nothing would retract every list the graph's pinnings spawned. The graph source throws instead, and the run retracts nothing.
-   - **The owner's old pins move by re-mint** (BIBLE §31): one operation writes each of the owner's tag pins as the instance's pinning, with its curation, in a single auditable act. The owner may then sign the old pins' deletions, but needn't, since a Tag pinned in both forms counts once. Other people's old pins keep counting until they pin again in the new form, which their Tag page offers.
+   - **The owner's old pins move by re-mint** (BIBLE §31).
+     - One operation, `pin move`, writes each of the owner's tag pins as the instance's pinning, with its curation, in a single auditable act. It does the same for any new-form pinnings the owner signed in other clients.
+     - Once a Tag has the instance's stance, its old pin no longer counts (Decision 7). So the owner needn't sign the old pins' deletions, except before going private on one of those Tags (Decision 5).
+     - Other people's old pins keep counting until they pin again in the new form, which their Tag page offers.
    - **ADR 0015's legacy key stays,** for reading old pins. The new concepts never use it, and the `LEGACY_*` constants stay where they are.
-   - **"Most pinned"** (`aggregateTagPins`) counts both forms, once per pinner per Tag.
-     - The instance's pinnings count as the owner's: they are merged with the owner's old and own pins, and pass the author filter, which keeps pinners above a rank, as the owner.
-     - Private pinnings never count.
+   - **"Most pinned"** (`aggregateTagPins`) counts each pinner once per Tag, by the stance that counts for them (Decision 7).
+     - The owner's stance is the instance's view, and it passes the author filter, which keeps pinners above a rank, as the owner.
+     - A private stance never counts, so an owner whose stance on a Tag is private counts for nothing there.
      - Whether it should count pins at all is the reuse hazard's question, and out of scope.
    - **NIP-51 exports** stay with the person who pins in the browser, signed by them, as in ADR 0017. The instance's own pinnings export nothing under the Assistant's key in this book.
 
@@ -178,8 +188,10 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
    - **Whose.** A Dictionary is per person (`ui/src/pages/dictionaries/Concepts.jsx`). The owner's Add and Veto are the instance's pinnings, and anyone else's are their own signed pinnings (Decision 3). The stance that counts is that of the person whose Dictionary it is (Decision 7).
    - **Add** pins the shared concept's header (`+`), then does what Add does today: a concept of the person's own, wired to the shared one and signed by their own Assistant (`Concepts.jsx`; § 8.1's action).
    - **Veto** pins it `−`, and **Restore** unpins it (`polarity 0`).
-   - **The Concepts page** (`computeConceptDictionary`, which has no threshold) sets each row's `override` from that stance on the row's `sharedCoord` (`src/lib/trustedDictionary.js:199`): `'added'` for `+`, `'vetoed'` for `−` and `null` for none. A vetoed row stays listed, and marked, as the page already shows one.
+   - **The Concepts page** (`computeConceptDictionary`, which has no threshold) sets each row's `override` from that stance on the row's `sharedCoord` (`src/lib/trustedDictionary.js:199`): `'added'` for `+`, `'vetoed'` for `−` and `null` for none. A vetoed row stays listed, and marked. The page's code for that is in place, though today `override` is always `null` (`Concepts.jsx:31-33`).
    - **The Trusted Dictionary** (`computeDictionary`, behind `/api/trusted-dictionary`) sets its `override` the same way (`trustedDictionary.js:128`). There a `+` lets a shared concept past the evidence and threshold check (:111-112). That is the hand-added mark that automation never removes (`docs/DICTIONARY_PAGE_HANDOFF.md` § 3).
+     - The check visits only the concepts that someone other than their author and the Assistant has filed under (`trustedDictionary.js:80-99`).
+     - So the `+`-pinned concepts join the ones it visits, and a hand-added concept no one has filed under is kept with no evidence to count.
    - **GUM₃,** the community's sum of these pinnings, stays out of scope.
 
 10. **The operations: a `pin` group in the app layer.**
@@ -188,7 +200,7 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
     - **`pin set`** pins, excludes or unpins a target on a Pin, publicly or privately (Decisions 4 to 6).
     - **`pin list`** lists the Pins.
     - **`pin read`** gives a Pin's pinnings, or one target's stance on every Pin, worked out as Decision 7 says, with private pinnings decrypted.
-    - **`pin move`** re-mints the owner's old tag pins (Decision 8).
+    - **`pin move`** re-mints the owner's old tag pins, and any new-form pinnings the owner signed in other clients (Decision 8).
     - **What they share.** Every one is owner-and-admins, as every operation is. Each is a combination of the module's operations (catalog, "The app layer"), with Decision 2's extensions. The writes among them never sign (Decision 4).
 
 11. **Readers outside Tapestry.** Tapestry writes only the new form. Brainstorm-UI's reader of a person's own pins learns the new form in a follow-up in its own repo. Until then it shows only old pins, which is all its switched-off writer could make.
@@ -199,6 +211,7 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
     - generic pinnings for moved pins, with what they spawn kept off the wire (§ 7, § 10);
     - Trusted Lists that keep their `tl-pin-` tags when their pins move, where § 10 has them "retracted in place as their replacements publish";
     - a pinning letter's `name` tag, which repeats its `d`;
+    - a pinning letter with no `json` tag, where Tapestry Concepts carries an element's data in one (`protocols/drafts/tapestry-concepts.md`). That draft gains the exception, for a concept whose header says so;
     - and nothing about how Tapestry's graph holds a Pin, which isn't wire format.
 
 ## Consequences
@@ -216,7 +229,8 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
   - Private means private from visitors. The instance's admins, its agents among them, read private pinnings through the operations.
   - A private pinning's existence shows, since its `d` and its Pin are in the clear (§ 9). A switch from public to private can be read from its timing.
   - Private hides the pinning, not what its Pin publishes (Decision 5).
-  - Only the owner pins privately in this book. People who pin in the browser pin publicly.
+  - Only the instance pins privately in this book, through the owner's UI or its agents' CLI. People who pin in the browser pin publicly.
+  - Going private on a Tag whose old pin stands waits for the owner to sign that pin's deletion (Decision 5).
   - An admin who pins from the UI pins for themselves, not for the instance (Decision 3).
   - Another person's curation lives in their prefs file, outside the graph, so a backup doesn't carry it.
 - **Follow-ups:**
@@ -243,12 +257,12 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
   - `src/operations/catalog/graph/create-element.js` with `graph/_elements.js`: the `d` at :360-367, the tags at :389-391.
   - `graph/update-node.js` (:313), for tags.
   - For firmware element files: `src/firmware/target.js` (:321-338), which is seed-firmware's builder, and the old `POST /api/normalize/create-element` that today's install calls.
-- **Export.** The own nodes it signs are chosen at `src/operations/catalog/export/_letters.js:57-69`, where a node marked private is left out, whatever the scope. The `json` tag is built at :146-151, where an element whose concept's header says so gets none.
+- **Export.** The own nodes it signs are chosen at `src/operations/catalog/export/_letters.js:57-69`, where a node marked private is left out, whatever the scope. The `json` tag is set aside at :146-151 and emitted in `build` (:371-373), where an element whose concept's header says so gets none.
 - **The operations.**
   - `src/operations/groups.js` gains `pin`, and the operations go under `src/operations/catalog/pin/`.
   - NIP-44 comes from nostr-tools 2.10.4's `nip44`, with the Assistant's keys from `getOwnerAssistantKeys`.
   - The keyed `h8` is an HMAC-SHA256 under a key derived from the Assistant's secret with a fixed label. The story that builds private pinnings picks the derivation, and records it in an amendment here.
-  - A private pinning's change entry (`src/operations/changes.js`) holds only its `d`, its Pin and that it is private.
+  - A private pinning's change entries (`src/operations/changes.js`) hold nothing in the clear that its node doesn't. Create-element's entry names the node, concept, name and slug (`create-element.js:199`), and the name is the `d`. Update-node's old and new values are payloads, never a target, polarity, context or curation.
 - **Spawning.**
   - `enumeratePinnedTags` (`src/api/trustedList/refreshPinnedTags.js:80-86`) and `refreshOnePinnedTagById` (:257) take the graph's pinnings and the relay's new-form pinnings beside the old pins. The graph source throws when it fails.
   - The per-viewer refresh's author filter (:419) and `refreshOnePinnedTagById`'s pinner check (:256-268) take the instance's pinnings as the owner's.
@@ -256,7 +270,7 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
 - **The pin reads.** In `src/api/profile-tags/index.js`, `handlePins` (:1562), `handleTagById`'s `viewerPin` field (:838-855) and `aggregateTagPins` (:727-768) read pins through a wrapper of their own, not through `federatedScan` itself, which tag and assertion reads also use. A private pinning shows only to its viewer's own session.
 - **The Dictionary.**
   - The Concepts page: `computeConceptDictionary`'s `override` at `src/lib/trustedDictionary.js:199`, with its inputs read where `assembleConceptDictionary` gathers them (`src/api/adoption/index.js:386-400`).
-  - The Trusted Dictionary: `computeDictionary`'s `override` at :128 and its check at :111-112, behind `/api/trusted-dictionary` (`src/api/adoption/index.js`).
+  - The Trusted Dictionary: `computeDictionary`'s `override` at :128, and its check at :111-112, behind `/api/trusted-dictionary` (`src/api/adoption/index.js`). The `+`-pinned coordinates join the set the check visits (:80-99), and :126's count of items takes none for a concept with no filer.
   - Veto and Restore are enabled in `ui/src/pages/dictionaries/ConceptEntry.jsx` (:535, :565-571).
 - **The UI.**
   - The Tag page's Pin button (`ui/src/pages/Tag.jsx:124-178`) calls `pin set` and then `export nostr` for the owner.
@@ -264,7 +278,7 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
   - A DList's page gets a Pin control of the same kind.
 - **Tests the Tester moves** (Phase 3, not implementation):
   - `test/graph-rule-firmware.test.js`: GF6 holds the firmware concept order, and GF13 BIBLE §7's concept and category counts, which say 41 concepts today.
-  - `test/seed-firmware-target.test.js`: ST1 to ST5 pin today's install's addresses and tags, wherever a fixed `d` or extra tags change them.
+  - `test/operations/lifecycle/seed-firmware-target.test.js`: ST1 to ST5 pin today's install's addresses and tags, wherever a fixed `d` or extra tags change them. ST2's oracle, `test/helpers/todaysFirmwareRoutes.js`, needs the new `d` and tags too.
 
 ## Out of scope
 
