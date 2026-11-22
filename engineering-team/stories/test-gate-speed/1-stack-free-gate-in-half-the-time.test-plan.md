@@ -47,6 +47,8 @@ they are in Verification, V1 to V4. The tests pin the mechanism those measuremen
 | AC1 (Amendment 2) | P20: with `GATE_JOBS=2`, the largest of three fixtures, listed last, starts before the smallest, listed first, and the record keeps unit order | `test/gate-side-by-side.test.js` | engine |
 | AC2, AC4 (Amendment 3) | P21: `GATE_PART=1/2` and `2/2` give two parts that share no suite, together cover all six fixtures, balance by file size within the largest file, and name the part on the first line and in the record. Their totals add up to an unsplit run's, and `[i/N]` matches the whole run's | same | engine |
 | Amendment 3 | P22: an invalid `GATE_PART` (`0/2`, `3/2`, `1/0`, `one`, `1-2`, `2`) ends the run FAIL before its first suite, naming it. P23: a suite never sees `GATE_PART`, so a gate that a suite starts runs whole | same | engine |
+| AC2 (Amendment 4; review round 1, blocking 1) | P24: a throw, an un-awaited rejection or a `process.exit` that a suite leaves to fire 300 ms after its run fails the run, as a stray named for that suite, one at a time and side by side. P25: a suite whose process exits non-zero or by a signal after sending its result (an exit cleanup that throws, a crash at exit) is its FAIL, saying so "after it sent its result". P26: a suite's process waits for the timers its run left (a 300 ms timer fires before the process ends), and one that leaves an interval running still ends within the cap and passes | `test/gate-side-by-side.test.js` | engine |
+| AC3, AC5 (Amendment 4; review round 1, non-blocking 1) | P27: when the engine itself fails while a suite runs, it prints that suite's output so far, marked unfinished, before `Overall: FAIL`, and ends its process | same | engine |
 | AC4 | W1–W9 unchanged: `pull_request` only, Node 22, `npm ci` then `npm test`, no retries, a 40-minute guard, two pinned actions. G5: `test/test.js` still runs the registry through `runGate` | existing | source contract |
 | AC5 — no new flakes | P3: `GATE_JOBS=1` runs one at a time, in unit order | `test/gate-side-by-side.test.js` | engine |
 | AC5 | P13: a process a suite leaves running is gone once that suite ends. P14: SIGINT prints a running suite's output so far, marked unfinished, before `Overall: INTERRUPTED`, and ends it. P15: an engine killed with SIGKILL leaves no suite running | same | engine |
@@ -147,11 +149,16 @@ One temporary commit on `feat/test-gate-speed`, pushed after the implementation 
 
 ```yaml
       - run: |
-          mkdir -p .oldgate
-          git show origin/staging:test/helpers/gateRecord.js | sed "s|path.resolve(__dirname, '..', '..')|'$PWD'|" > .oldgate/gateRecord.js
-          git show origin/staging:test/helpers/gateRunner.js | sed "s|path.resolve(__dirname, '..')|'$PWD/test'|" > .oldgate/gateRunner.js
-          node -e "process.env.BRAINSTORM_RELAY_URL='wss://test-relay.com'; process.env.BRAINSTORM_RELAY_PUBKEY='test-pubkey'; require('./.oldgate/gateRunner').runGate({ suites: require('./test/registry').suites, label: 'old-engine' })"
+          mkdir -p "$RUNNER_TEMP/oldgate"
+          git show origin/staging:test/helpers/gateRecord.js | sed "s|path.resolve(__dirname, '..', '..')|'$PWD'|" > "$RUNNER_TEMP/oldgate/gateRecord.js"
+          git show origin/staging:test/helpers/gateRunner.js | sed "s|path.resolve(__dirname, '..')|'$PWD/test'|" > "$RUNNER_TEMP/oldgate/gateRunner.js"
+          node -e "process.env.BRAINSTORM_RELAY_URL='wss://test-relay.com'; process.env.BRAINSTORM_RELAY_PUBKEY='test-pubkey'; require(process.env.RUNNER_TEMP + '/oldgate/gateRunner').runGate({ suites: require('./test/registry').suites, label: 'old-engine' })" || echo "the old engine's run exited $?"
 ```
+
+*(Corrected at review round 1: this is the step that ran, in commit `7df76221` and again inside each part for V1′.
+The plan first wrote the copies to `.oldgate/` in the checkout; they went to `$RUNNER_TEMP`, outside it, so no suite
+that reads `git status` saw them. The trailing `|| echo` means the old engine's own exit status didn't gate the job,
+which is why each run's log was read for its `Overall:` line: the old engine passed in every timing run.)*
 
 That is today's engine, as on `origin/staging`, run over this branch's registry. It ignores `expand`, so
 `operations.test.js`, called with nothing, runs its files itself. The step has no "retry" or "rerun", so W8 holds, and no
@@ -173,7 +180,7 @@ That is today's engine, as on `origin/staging`, run over this branch's registry.
 
 ### V2: the same comparison, and the same counts, in the sealed container (AC1, AC2)
 
-Over the final tree, on 4 CPUs: the old engine, the same three lines as V1 run with `node`, then `npm test`. Pass when:
+Over one tree, on 4 CPUs: the old engine, the same three lines as V1 run with `node`, then `npm test`. *(It ran at `7df76221`, before Amendments 2 and 3. Review round 1 compared the final tree's whole run, at `7836548a`, with it: the 351 suites that didn't change, and `operations`, have the same counts.)* Pass when:
 - the new run takes at most half the old one's time;
 - the `Overall:` totals of passed, failed and skipped are equal;
 - every registry entry other than `operations.test.js` has the same counts in both records;
@@ -200,7 +207,7 @@ The ten count on the final commit.
 
 ### V4: the PR's CI runs (AC1, AC4, AC5)
 
-Every CI run of the story's PR to `staging` passes, and finishes the job in under 12 minutes. Each run's first line
+Every CI run of the story's PR to `staging` passes. Every run of the gate as merged gives its `stack-free` verdict in under 12 minutes. The planned timing runs are the exception: V1, the re-time and V1′ run today's whole gate first, and take about 30 minutes by design (ADR Decision 11). One run, 44985568553, was cancelled by a newer push, and `stack-free` read it as a failure, as it should. Each run's first line
 names its CPUs, so the review can say what each runner was.
 
 ### The results (2026-11-21/22)
@@ -213,6 +220,7 @@ names its CPUs, so the review can say what each runner was.
 | **V2** | sealed container, 4 CPUs, commit `7df76221` | today's engine 1,038.7 s; the new one 403.6 s | **0.389: passes.** All 354 entries have the same counts; `operations` = its own unit + its 111 files |
 | V2, split | sealed container, final tree | part 1: 232 suites, 4,375 passed, 350 skipped, 137 s. Part 2: 233 suites, 4,259 passed, 319 skipped, 233 s | **Passes:** no suite in both parts, all 465 covered, and 8,634 passed, 0 failed, 669 skipped, the same as a whole run |
 | **V3** | sealed container, commit `7836548a`: the final tests, and the workflow still with the timing step, which W1–W10 pass either way | ten full runs in a row: runs 1–6 on 4 CPUs in 357–367 s, runs 7–10 with 4 jobs on 2 CPUs in 515–520 s | **Passes:** all ten 8,634 passed, 0 failed, 669 skipped |
+| CI on `4eb1da50` | CI 44991282286, the final shape | part 1, EPYC 9V74: 235 of 471 suites, `npm test` 5 m 29 s; part 2, EPYC 7763: 236 of 471 suites, 5 m 40 s | Passes: the verdict about 6 minutes after the run started |
 | **V4** | CI 44987919987, the branch's final shape | part 1, 3 m 50 s; part 2, 4 m 20 s; `stack-free`, 3 s | **Passes:** the verdict 4 m 29 s after the run started, against 14–23 min today |
 
 ### The failing run, at the Phase-3 commit

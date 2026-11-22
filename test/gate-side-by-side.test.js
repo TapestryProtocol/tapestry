@@ -27,6 +27,9 @@
  *   P20      side by side, the largest test file starts first                          [AC1; Amendment 2]
  *   P21–P23  GATE_PART splits the run into parts that share nothing and add up; an
  *            invalid GATE_PART fails the run; a suite never sees GATE_PART              [AC2, AC4; Amendment 3]
+ *   P24–P27  after its result: a late throw, rejection or exit still fails the run; an exit
+ *            failure is a FAIL; a unit waits for its timers up to a cap; an engine failure
+ *            prints the suites still running                                          [AC2; Amendment 4]
  *
  * Engine tests drive runGate() in a child process over fixture suites written to a temp dir, with records
  * in a temp GATE_RECORD_DIR, as test/gate-result-record.test.js does. Nothing here requires the engine at
@@ -618,6 +621,99 @@ test('P23 (Amendment 3): GATE_PART is for the engine that runs the registry — 
     assert(seen.part === null,
       `a suite must not see GATE_PART, or a gate that a suite starts would run only part of its own registry (${ADR}, Amendment 3); it saw ${JSON.stringify(seen.part)}`);
   } finally { sc.cleanup(); }
+});
+
+/* ═══ P24–P27 — what a suite's process does after its result (Amendment 4; review round 1) ═══════════ */
+
+test('P24 (AC2; Amendment 4): a throw, an un-awaited rejection or a process.exit that a suite leaves to fire 300 ms after its run fails the run, as a stray named for that suite — one at a time and side by side', () => {
+  F.need('runner');
+  const problems = [];
+  for (const [name, re] of [['late-throw', /late throw \(fixture: late-throw\)/], ['late-reject', /late rejection \(fixture: late-reject\)/], ['late-exit', /process\.exit/]]) {
+    for (const n of [1, 2]) {
+      const sc = F.scenario();
+      try {
+        const r = F.runEngineSync(sc, [sc.suite(`${name}.test.js`), sc.suite('pass.test.js')], jobs(n));
+        const recs = F.readRecords(sc.recordDir);
+        const rec = recs.length === 1 ? recs[0].rec : null;
+        const strays = (rec && rec.strayErrors) || [];
+        const later = F.entryMap(rec)['pass.test.js'];
+        const got = [];
+        if (r.status !== 1 || !/^Overall: FAIL\b/.test(F.lastLine(r.stdout))) got.push(`it ended exit ${r.status}, last line ${JSON.stringify(F.lastLine(r.stdout))}`);
+        if (!strays.some((s) => s.during === name && re.test(String(s.message)))) got.push(`no stray during ${name} matching ${re}; strays ${short(strays, 300)}`);
+        if (!(later && later.verdict === 'PASS')) got.push(`the suite beside it is recorded ${short(later)}`);
+        if (got.length) problems.push(`${name}, GATE_JOBS=${n}: ${got.join('; ')}`);
+      } finally { sc.cleanup(); }
+    }
+  }
+  assert(problems.length === 0,
+    `a failure a suite leaves for after its run must still fail the run, named for that suite, as staging's engine failed it (${ADR}, Amendment 4; review round 1, blocking 1):\n      - ${problems.join('\n      - ')}`);
+});
+
+test('P25 (AC2; Amendment 4): a suite whose process fails as it exits, after sending its result — an exit cleanup that throws, or a crash at exit — is that suite\'s FAIL', () => {
+  F.need('runner');
+  const problems = [];
+  for (const name of ['exit-cleanup-throws', 'crash-at-exit']) {
+    const sc = F.scenario();
+    try {
+      const r = F.runEngineSync(sc, [sc.suite(`${name}.test.js`), sc.suite('pass.test.js')], jobs(2));
+      const recs = F.readRecords(sc.recordDir);
+      const m = F.entryMap(recs.length === 1 ? recs[0].rec : null);
+      const bad = m[`${name}.test.js`];
+      const got = [];
+      if (r.status !== 1 || !/^Overall: FAIL\b/.test(F.lastLine(r.stdout))) got.push(`it ended exit ${r.status}, last line ${JSON.stringify(F.lastLine(r.stdout))}`);
+      if (!(bad && bad.verdict === 'FAIL' && /after it sent its result/.test(String(bad.error)))) got.push(`${name} is recorded ${short(bad, 300)}`);
+      if (!(m['pass.test.js'] && m['pass.test.js'].verdict === 'PASS')) got.push(`the suite beside it is recorded ${short(m['pass.test.js'])}`);
+      if (got.length) problems.push(`${name}: ${got.join('; ')}`);
+    } finally { sc.cleanup(); }
+  }
+  assert(problems.length === 0,
+    `a unit whose process exits non-zero or by a signal after reporting must be a FAIL, saying it ended so "after it sent its result" (${ADR}, Amendment 4):\n      - ${problems.join('\n      - ')}`);
+});
+
+test('P26 (Amendment 4): a suite\'s process waits for the timers its run left before it reports, but no longer than the cap — one that leaves an interval running still ends, and passes', () => {
+  F.need('runner');
+  const sc = F.scenario();
+  try {
+    const r = F.runEngineSync(sc, [sc.suite('late-timer.test.js'), sc.suite('leaves-interval.test.js')], jobs(2));
+    const { rec } = onlyRecord(sc, 'P26');
+    const m = F.entryMap(rec);
+    const fired = Number(F.readSafe(path.join(sc.dir, 'late-timer-fired')));
+    assert(Number.isFinite(fired) && fired > 0,
+      `late-timer's 300 ms timer must fire before its process ends: the unit waits until its event loop has nothing left to run (${ADR}, Amendment 4); it never fired`);
+    const lt = m['late-timer.test.js'];
+    const li = m['leaves-interval.test.js'];
+    assert(lt && lt.verdict === 'PASS' && li && li.verdict === 'PASS' && r.status === 0,
+      `both must pass: waiting is not failing; got late-timer ${short(lt)}, leaves-interval ${short(li)}, exit ${r.status}`);
+    assert(li.ms < 8000,
+      `a unit that leaves a handle open must still end, at the cap of a few seconds; leaves-interval took ${li.ms} ms`);
+  } finally { sc.cleanup(); }
+});
+
+test('P27 (Amendment 4; review round 1, non-blocking 1): when the engine itself fails while a suite runs, it prints that suite\'s output so far, marked unfinished, before "Overall: FAIL", and ends its process', async () => {
+  F.need('runner');
+  if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    throw Object.assign(new Error('P27 needs a user that file modes bind: as root the record directory stays writable'), { skipped: true });
+  }
+  const sc = F.scenario();
+  let hung = null;
+  try {
+    const r = F.runEngineSync(sc, [sc.suite('record-dir-readonly.test.js'), sc.suite('prints-then-hangs.test.js')],
+      { extraEnv: { GATE_JOBS: '2', GATE_FIXTURE_WAIT_FOR: path.join(sc.dir, 'hang-pid-prints-then-hangs') } });
+    hung = pidIn(sc, 'hang-pid-prints-then-hangs');
+    const ls = F.lines(r.stdout);
+    const last = (ls[ls.length - 1] || '').trim();
+    const headAt = ls.findIndex((l) => l.includes('prints-then-hangs') && /unfinished/i.test(l));
+    const partialAt = ls.findIndex((l) => l.includes('partial output before the interrupt (fixture: prints-then-hangs)'));
+    assert(hung, 'precondition: prints-then-hangs must start and record its pid before the engine fails');
+    assert(r.status !== 0 && /^Overall: FAIL\b/.test(last),
+      `precondition: the engine's own failure ends the run Overall: FAIL, non-zero; got exit ${r.status}, last line ${JSON.stringify(last)}`);
+    assert(headAt !== -1 && partialAt > headAt && partialAt < ls.length - 1,
+      `the failed run must print each running suite's output so far under a header marking it unfinished, before the Overall line, as the signal path does (${ADR}, Amendment 4); header at ${headAt}, the fixture's line at ${partialAt}, of ${ls.length} lines`);
+    assert(await gone(hung, 5000), `prints-then-hangs (pid ${hung}) must be gone after the engine's failure`);
+  } finally {
+    if (hung && alive(hung)) { try { process.kill(hung, 'SIGKILL'); } catch { /* gone */ } }
+    sc.cleanup();
+  }
 });
 
 /* ═══ P18–P19 — the docs ═════════════════════════════════════════════════════════════════════════════ */

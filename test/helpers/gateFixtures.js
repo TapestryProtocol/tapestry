@@ -281,6 +281,8 @@ const FIXTURE_SOURCES = {
     "if (!process.env.GATE_RECORD_DIR) throw new Error('record-dir-readonly needs GATE_RECORD_DIR');\n" +
     'module.exports = { run: async () => {\n' +
     "  if (typeof process.getuid === 'function' && process.getuid() === 0) return { pass: 0, fail: 0, skipped: 1 };\n" +
+    // Amendment 4's P27: wait up to 10 s for the file GATE_FIXTURE_WAIT_FOR names, so a suite beside it has printed first.
+    '  for (let i = 0; process.env.GATE_FIXTURE_WAIT_FOR && i < 200 && !fs.existsSync(process.env.GATE_FIXTURE_WAIT_FOR); i++) await new Promise((r) => setTimeout(r, 50));\n' +
     '  if (process.env.GATE_FIXTURE_MARKER) fs.writeFileSync(process.env.GATE_FIXTURE_MARKER, String(Date.now()));\n' +
     '  fs.chmodSync(process.env.GATE_RECORD_DIR, 0o500);\n' +
     '  return { pass: 1, fail: 0 };\n' +
@@ -373,6 +375,26 @@ const FIXTURE_SOURCES = {
   'chatty-b.test.js': chatty('chatty-b'),
   'prints-then-hangs.test.js': hang('prints-then-hangs'),
   'slow-two.test.js': 'module.exports = { run: () => new Promise((r) => setTimeout(() => r({ pass: 1, fail: 0 }), 60000)) };\n',
+  // Amendment 4 (review round 1, blocking 1): each passes its run, then fails 300 ms later, after the one macrotask the
+  // engine waits; or fails as its process exits. Staging's engine failed every one of these.
+  'late-throw.test.js':
+    "module.exports = { run: async () => { setTimeout(() => { throw new Error('late throw (fixture: late-throw)'); }, 300); return { pass: 1, fail: 0 }; } };\n",
+  'late-reject.test.js':
+    "module.exports = { run: async () => { new Promise((r) => setTimeout(r, 300)).then(() => { throw new Error('late rejection (fixture: late-reject)'); }); return { pass: 1, fail: 0 }; } };\n",
+  'late-exit.test.js':
+    'module.exports = { run: async () => { setTimeout(() => process.exit(0), 300); return { pass: 1, fail: 0 }; } };\n',
+  'exit-cleanup-throws.test.js':
+    "module.exports = { run: async () => { process.on('exit', () => { throw new Error('exit cleanup throws (fixture: exit-cleanup-throws)'); }); return { pass: 1, fail: 0 }; } };\n",
+  'crash-at-exit.test.js':
+    "module.exports = { run: async () => { process.on('exit', () => { process.kill(process.pid, 'SIGKILL'); }); return { pass: 1, fail: 0 }; } };\n",
+  // Amendment 4: leaves a 300 ms timer that does no harm, and records in late-timer-fired when it fires.
+  'late-timer.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    "module.exports = { run: async () => { setTimeout(() => fs.writeFileSync(path.join(__dirname, 'late-timer-fired'), String(Date.now())), 300); return { pass: 1, fail: 0 }; } };\n",
+  // Amendment 4: leaves an interval running forever, which keeps its process alive until something ends it.
+  'leaves-interval.test.js':
+    'module.exports = { run: async () => { setInterval(() => {}, 1000); return { pass: 1, fail: 0 }; } };\n',
   // Amendment 3: records in seen-part.json what GATE_PART it sees in its run (null when unset).
   'sees-part.test.js':
     "const fs = require('fs');\n" +
