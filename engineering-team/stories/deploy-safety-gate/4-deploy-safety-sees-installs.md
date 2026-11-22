@@ -154,6 +154,14 @@ Run `20261122T040256Z-24746-f06e` (label `ds4-round4-1`), on `3208c7c9` with the
 
 **Not checked here.** There was no live check, since the local container is off-limits. The live evidence is the book's: one install on staging and one on production, each on the owner's yes, with the check run against that instance during it.
 
+**On staging (2026-11-22).** TapestryProtocol/tapestry#204 merged at 04:49:04 UTC, after a safe verdict. Its deploy ran 04:49:07–04:50:47, and the smoke test was clean.
+
+**The evidence install** ran from 04:53:38 to 04:55:56, on the owner's yes.
+- **The answer six seconds in** was unsafe with `FIRMWARE_INSTALL_RUNNING`, and named `firmware-install`.
+- **The check against staging** journaled three unsafe attempts with that reason, then safe at 04:56:52.
+
+The install itself lost its Neo4j-driver reads: it began 20 seconds after another merge's deploy recreated the container. It did no damage (ledger row `2026-11-22-install-after-a-deploy-loses-neo4j`). The book's Rollout evidence, staging, has the journal and the details.
+
 ## Linked artifacts
 - Book: `engineering-team/audits/deploy-safety-sees-installs/book.md`
 - ADR: `engineering-team/decisions/deploy-safety-gate/0004-deploy-safety-sees-firmware-installs.md`
