@@ -116,8 +116,10 @@ function seedFirmwareFromLock(lock) {
 /**
  * GET /api/deploy-safety/status[?bufferMinutes=<n>]
  * Read-only and repeatable: only Redis reads (ping, active jobs, job
- * schedulers), a config-file read, and in-memory Map iteration. Nothing
- * is enqueued, upserted, or removed.
+ * schedulers), a config-file read, in-memory Map iteration, and a read of
+ * the lifecycle lock file with a liveness probe of its holders (signal 0
+ * and /proc/<pid>/stat, through inspectLock()). Nothing is enqueued,
+ * upserted, or removed, and the lock is never taken, freed or recovered.
  */
 async function handleStatus(req, res) {
   try {

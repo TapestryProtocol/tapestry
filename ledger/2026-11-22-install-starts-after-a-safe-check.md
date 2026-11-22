@@ -1,8 +1,8 @@
 # A firmware install that starts just after a merger's check said safe can still be cut off by that merge's deploy
 
-**Id:** 2026-11-21-install-starts-after-a-safe-check
+**Id:** 2026-11-22-install-starts-after-a-safe-check
 **Type:** bug
-**Opened:** 2026-11-21 (story deploy-safety-gate #4, book `audits/deploy-safety-sees-installs/`)
+**Opened:** 2026-11-22 (story deploy-safety-gate #4, book `audits/deploy-safety-sees-installs/`)
 **Status:** OPEN
 **Done:** —
 

@@ -112,17 +112,22 @@ Same exit-code handling, same staleness rule, same journaling — paste the chec
 
 This section is for whoever starts a firmware install on a deployed instance. That means today's install, `POST /api/firmware/install`: the Dashboard's button, or the loopback call `docker exec tapestry curl -s -X POST http://127.0.0.1:7778/api/firmware/install` on the server. It also means `lifecycle seed-firmware`.
 
+**An instance sees an install only once its branch carries this story** (story #4, ADR deploy-safety-gate/0004).
+- **How to tell:** such an instance's answer always has a `firmware` block. An answer with no `firmware` block doesn't see installs, and says safe while one runs.
+- **What to do there:** have merges into that instance's branch held by hand until the install ends, as before this story.
+- **Today that is tags.brainstorm.world,** whose branch `feat/tags` has story #1 but not this story, **and production until `main` takes it.**
+
 **First, check that no deploy of that instance is running or queued.** A deploy already on its way recreates the container, about 90 seconds after its merge, or later on a refreshing deploy. The instance can't see it coming. For staging:
 
 ```bash
 gh run list --repo TapestryProtocol/tapestry --workflow deploy-staging.yml --limit 5 --json status,displayTitle,createdAt --jq '.[] | select(.status != "completed")'
 ```
 
-Use `deploy-tapestry.yml` for production.
+Use `deploy-tapestry.yml` for production and `deploy-tags.yml` for tags.
 - **Empty output** means no deploy is running, queued or waiting. Start the install.
 - **Any line** is a deploy that hasn't completed. Wait for it to finish, then check again.
 
-**Once the install starts, the instance's answer is unsafe until it ends,** with `FIRMWARE_INSTALL_RUNNING`. So a merger's check waits for it, and nobody needs to hold merges by hand.
+**Once the install starts, an instance that carries this story answers unsafe until it ends,** with `FIRMWARE_INSTALL_RUNNING`. So a merger's check waits for it, and on that instance nobody needs to hold merges by hand.
 - **Today's install** counts from its first step to its last, a dry run included.
 - **seed-firmware** counts while it holds the lifecycle lock, which it takes before its first write and lets go after its last.
 
@@ -130,7 +135,9 @@ Use `deploy-tapestry.yml` for production.
 
 **Today's install run from the command line** (`node src/firmware/install.js`) isn't seen. It runs in a process of its own, and nothing reads that process's count. Use the route.
 
-**A gap remains.** Suppose a merger's check said safe just before the install started. The merger can still merge, and that merge's deploy cuts the install off. This recipe has a merger merge right after a safe verdict, so the gap is usually seconds. It is recorded in OPEN.md row `2026-11-21-install-starts-after-a-safe-check`.
+**Two gaps remain.**
+- **A check that came just before the install started.** Suppose a merger's check said safe just before the install started. The merger can still merge, and that merge's deploy cuts the install off. This recipe has a merger merge right after a safe verdict, so the gap is usually seconds. It is recorded in OPEN.md row `2026-11-22-install-starts-after-a-safe-check`.
+- **A merge that skips the check.** Such a merge isn't held at all, since the gate is procedural (see Limits). OPEN.md row 340 records several.
 
 ## Limits
 

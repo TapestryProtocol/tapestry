@@ -1,8 +1,8 @@
 # Two of today's firmware installs at once break each other, because each switches the whole install module into internal mode
 
-**Id:** 2026-11-21-overlapping-installs-share-internal-mode
+**Id:** 2026-11-22-overlapping-installs-share-internal-mode
 **Type:** bug
-**Opened:** 2026-11-21 (story deploy-safety-gate #4, Architecture; ADR `deploy-safety-gate/0004`, Consequences)
+**Opened:** 2026-11-22 (story deploy-safety-gate #4, Architecture; ADR `deploy-safety-gate/0004`, Consequences)
 **Status:** OPEN
 **Done:** —
 

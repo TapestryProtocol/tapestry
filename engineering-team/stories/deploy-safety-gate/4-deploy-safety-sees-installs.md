@@ -86,6 +86,8 @@ For the Architect (each answered in ADR 0004):
 
 **The scoped gate, stack-free (2026-11-21, Implementation).** It ran on `239fe71e` (the failing tests' commit), with the implementation in the working tree and committed unchanged after it. Node was 22.23.1, CI's major.
 
+*(Review round 1, finding 4: this run predates the branch's rebase onto `94e85fe06`. Its base was `deef26702`, and its list missed five suites that read changed files. Review round 1's own run and round 2's run, below, cover the final tree.)*
+
 **The environment** was the memory's scoped-gate recipe:
 - a stub `curl` and a stub `docker` first on `PATH`;
 - `BRAINSTORM_CONF_PATH` at a conf whose `NEO4J_URI` is a closed port;
@@ -115,6 +117,30 @@ attempt 3/10 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"] …
 attempt 4/10 verdict=safe reasons=[] raw={…"firmware":{"installCount":0,"installs":[]},…}
 SAFE — merge may proceed …
 ```
+
+**Round 2, after review round 1's fixes (2026-11-22).** The gate ran on `2fcc8d70` (round 2's tests), with the fixes in the working tree and committed unchanged after it, on the branch rebased onto `94e85fe06`. The environment was the same.
+
+**67 suites:** round 1's 62, plus the five the review found reading changed files:
+- `suite-env-changes`;
+- `rollup-scanners`;
+- `harness-stats`;
+- `kill-timeout-orphans-by-default`;
+- `note-tagging-raw-events-inspector-ui`.
+
+`seed-firmware.js`'s readers are under `test/operations/`, which `operations.test.js` runs.
+
+**Results:**
+- **Run `20261122T030840Z-63894-09dd` (label `ds4-round2-1`): FAIL, exit 1, with 3330 passed, 3 failed and 123 skipped across 67 suites.** The three failures are again `router-stream-limit-on-connect` P1–P3, the macOS `sed` row.
+- **This story's suites:**
+  - `deploy-safety-sees-installs` 42 of 42, with H10, S4 and D6–D8;
+  - `deploy-safety-status` 17 passed, with 6 live skips;
+  - `next-task-countdown` 24;
+  - `operations` 1556 passed, with 20 skipped.
+- **The harness readers:** `suite-env-changes` 18, `rollup-scanners` 33, `harness-stats` 12, `harness-lint` 85, `session-start` 32 and `ledger-row-ids` 6, each with none failed.
+- **`test/safe-to-merge-check.test.js`,** on its own with the system `curl`: 17 of 17.
+- **The guards, on scratch copies of the working tree:**
+  - H10 fails with the store's pid-reuse line taken out;
+  - S4 fails with seed-firmware's lock op renamed to `'seed'`.
 
 **Not checked here.** There was no live check, since the local container is off-limits. The live evidence is the book's: one install on staging and one on production, each on the owner's yes, with the check run against that instance during it.
 
