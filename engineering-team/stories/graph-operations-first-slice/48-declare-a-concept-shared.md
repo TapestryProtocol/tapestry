@@ -149,7 +149,7 @@ Judgment calls made in Implementation (2026-11-21), each too small for an ADR am
 Judgment calls made at the second Implementation round (2026-11-21), each too small for another amendment. None goes outside Amendment 2.
 
 - **`REFERENCES`' makers, in the rule's words:** "import nostr, and graph declare-shared and wire-to-shared from a b tag". So add-relationship's refusal reads "REFERENCES is reserved: it is made by import nostr, and graph declare-shared and wire-to-shared from a b tag, with the checks it needs." The rule suite's `REFERENCES: /import nostr/` still holds.
-- **The adoption's answer isn't read.** Where `nodeAt` found no node, it changes nothing. The writers that make a node without the `NostrEvent` label take C1 first, so in practice it never adopts one (review round 2's finding). Either way the `MERGE`'s `RETURN` says which node the relationship runs to.
+- **The adoption's answer isn't read.** Where `nodeAt` found no node, it changes nothing. The writers that make a node without the `NostrEvent` label at a concept header's address, the only kind a wire targets, take C1 first, so in practice it never adopts one (review round 2's finding, made exact at its fix check). Either way the `MERGE`'s `RETURN` says which node the relationship runs to.
 - **The docs' wording.** `inherit-from.md`'s sentence becomes two, the second saying which writes draw a relationship. BIBLE §25's bullet now says that, when the graph doesn't hold the target, the relationship runs to the placeholder at its address, or to one the write makes when no node is there. The catalog's wire-to-shared row already read true, so it is unchanged.
 
 ## Evidence

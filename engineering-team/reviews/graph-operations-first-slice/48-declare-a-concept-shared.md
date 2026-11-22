@@ -352,3 +352,54 @@ None.
 ### On PASS
 - [x] The story's `**Status:**` stays `Done`, and its `Review:` line still points here.
 - [x] Completion detection, unchanged from round 1: the book isn't complete. That goes in the chat, not in this file.
+
+---
+
+## Round 2 fix check — commit `5e0bda69`
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-22
+**Diff:** `git show 5e0bda69`: 2 files, +7 −7, prose only.
+- **ADR 0048 Amendment 2:** its three examples of the race, and its ratification.
+- **The story:** one Deviation and one Evidence note.
+
+No code or test changed. No registered suite reads either file: every mention under `test/` is a header comment. So no gate ran again, and harness-lint wasn't run, since neither file is a harness-definition path.
+
+**Checked against the code:**
+- **"Only an import can land in that gap"** (ADR `:295`). This holds.
+  - **Another concept's wire** takes C1 first: `K.lock` is its first statement after the form check (Decision 4, `:149`; `wire-to-shared.js:62`).
+  - **Seed-firmware** takes C1 first in its transaction (`seed-firmware.js:148-149`). Before a first install there is no concept-header to lock, but a wire then refuses `not-installed`.
+  - **Create-concept's** first statement in `apply` is `K.lock` (`create-concept.js:71`). Only its guard's reads run earlier, and they make nothing.
+  - **The importers** take no C1 lock: import nostr, the stream's `buildImportCypher` and `importEventDirect`. Each makes a `NostrEvent`, which the `MERGE` matches.
+  - **Restore** runs in an offline window, so nothing runs beside it.
+- **The adoption's "When it matters"** (`:311`). Its conclusion holds: during a wire, nothing can put a node without the `NostrEvent` label at the target's address. Its subject is narrower than it reads (non-blocking 1).
+- **Item 4's two wires** (`:328`). This holds. Each wire's `K.lock` waits for the other's commit. The second's `nodeAt` then finds the first's placeholder, the one placeholder LH2 found.
+- **The ratification** (`:330`) records the owner's answer at the round-2 gate. The gate's words aren't in the repo, so I take it as recorded. Its date is the commits' local date.
+
+**Nothing contradicts it.**
+- **In the ADR,** these agree with the corrected text:
+  - Decision 4;
+  - item 2's way (b) ("An import's own `CREATE` ... runs again");
+  - "Why `nodeAt` still runs first" (`:308`);
+  - the G9 sub-item.
+- **In the story,** the Deviation (`:152`) and the LH2 notes (`:242-243`) say the same.
+- **In the test plan,** the RACE2 sentence (`:157`, "the window the adoption closes") describes where the fake injects its node in WS20, which stays true of the test. It says nothing about which real writer could land there. That fits keeping WS20's second case as G9's pin.
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **ADR `:311` and story `:152`: "the writers that make a node ... without the `NostrEvent` label" names only seed-firmware and create-concept.**
+   - **Why that's narrower than it reads.** It is true for the one kind a target may have, 39998 (`_dispositions.js:106`; Decision 2). Four more writers make such nodes, without C1, but only at 39999 addresses:
+     - create-element (`create-element.js:171`);
+     - create-set (`create-set.js:234`);
+     - add-property (`_properties.js:826`);
+     - add-subset (`src/api/normalize/nodes.js:60`).
+   - **Optional:** add "at a concept header's address" after "a node" in both places.
+
+### Verdict
+**PASS.** Round 2's finding is answered, and the corrected text is accurate against the code, apart from the optional precision above. The story's `**Status:**` stays `Done`.
