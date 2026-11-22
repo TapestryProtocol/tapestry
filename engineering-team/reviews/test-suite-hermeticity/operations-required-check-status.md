@@ -331,3 +331,62 @@ Two blocking items remain, both in the new meta row, and both from round 1's own
 Each is a one-sentence fix.
 
 **CHANGES_REQUESTED**
+
+## Round 2, fix check — 2026-11-21 local, 2026-11-22 UTC (one commit, `f89ff663a`, over `e113b37b2`)
+
+Round 2 is committed as `e113b37b2`, which adds this file's 128 lines and nothing else; no later commit touches this file. The fix is one commit, `f89ff663a`, which changes `ledger/2026-11-22-row-close-misses-citing-rows.md` alone, at `:9` and `:13` (+2 −2). As asked, I checked only that commit, each claim afresh.
+
+### Gates (run by the reviewer)
+
+- [x] `git diff --check HEAD~1..HEAD` and `git diff --check origin/staging...HEAD`: no output, exit 0.
+- [x] `bash scripts/harness-lint.sh` on `f89ff663a`, before this section was written: last line `harness-lint: clean (0 violations)`, exit 0. With this section in place: the same.
+- [x] **The fix's gate**, read with `npm run gate:status -- --label required-check-status-round2-fix`: `20261122T014305Z-37855-4ed5 [required-check-status-round2-fix] started 2026-11-22T01:43:05.208Z on f89ff663+dirty — PASS, exit 0, 38 passed, 0 failed, 0 skipped, 2/2 suites`. `session-start` passed 32 and `ledger-row-ids` 6, as in rounds 1 and 2. The one dirty path is the `node_modules` link.
+- [x] **The selection covers the commit.** It changes the body of one `ledger/` row, and leaves the header fields that L15 and the readers take untouched.
+  - `session-start` is the suite that reads the real `ledger/` folder (`test/session-start.test.js:468`).
+  - `ledger-row-ids` reads the real OPEN.md table (`:130`, `:147`), but it builds its `ledger/` rows in temp folders (`:52-79`). It adds nothing for this commit, and does no harm.
+- [ ] `npm test`: not run, for round 1's reasons. No `gh api` request was needed.
+
+### Claims
+
+| # | Where | Claim | Source checked | Holds? |
+|---|---|---|---|---|
+| 36 | `:9` | "One of them, §9.9's droplet list, is the fix that row 24(c) leaves to row 14" | Round 2's optional wording, plus "that". `OPEN.md:57`: row 24's item (c) is §9.9's droplet list, and it "folds into … **#14**" | Yes |
+| 37 | `:9` | Row 24 is open, and its item (c) "folds into the §1/§9 drift reconciliation in **#14**" | `OPEN.md:57`: Status `OPEN`, and the quoted words with their bold marks | Yes |
+| 38 | `:9` | "The closing session never looked for rows that cite row 14, since no step asks for that" | The transcript shows no such search before the close (round 2, claim 32). `OPEN.md:18-28` has no step that asks for one. The same session did run that search once afterwards, at 01:42:13Z, while testing this fix | Yes, for the close (R2F-N1) |
+| 39 | `:9` | "The review's own first search, for "row 14", then missed row 24, because row 24 cites the row as "#14"" | Round 1's search was `git grep -n -E 'row 14\b\|rows? 14[ ,)]'`. It had no "#14" alternative, and its output didn't include `OPEN.md:57` | Yes |
+| 40 | `:13` | Find the rows that cite it with `git grep -n -w -E 'row N\|#N' -- OPEN.md ledger/` | Run on HEAD. N = 14: finds row 24 (`OPEN.md:57`), exit 0. N = 24: finds row 14's "row 24(c)" (`OPEN.md:47`). N = 9: 7 lines in OPEN.md, against 11 without `-w`. The four lines it drops hold "#93", "row 93", "#96", "row 98" and a cross-repo issue, "Open-Ranking/protocol#9" | Yes |
+| 41 | `:13` | "In an extended pattern, this Mac's git (2.53.0) doesn't read `\b` as a word boundary, so `'row 14\b\|#14\b'` finds nothing, while the `-w` search finds row 24" | `git --version` gives 2.53.0. Run again on HEAD, the `\b` form prints nothing and exits 1 | Yes |
+| 42 | `:13` | "It also finds a story's "#14" in another row, so a lint check could only warn: "#N" also matches pull requests, issues and story numbers" | `ledger/2026-11-17-walk-skips-unlabelled-keyed-nodes.md:5`: "story graph-operations-first-slice #14" | Yes |
+
+### Round-2 findings, re-checked
+
+- **R2-B1 (the search found nothing on this Mac): fixed** (claims 40–42).
+- **R2-B2 (a search that didn't happen): fixed** (claims 38–39). The optional rewording was taken (claim 36).
+
+### Findings
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **R2F-N1. `ledger/2026-11-22-row-close-misses-citing-rows.md:9`: "never looked" is true of the close, not of the whole session.** The closing session did search for rows citing row 14 once, at 01:42:13Z, while testing this fix. The sentence is about the close, so it misleads no one, and `f89ff663a`'s message ("never searched") reads the same way. **Optional:** "didn't look for rows that cite row 14 before closing it".
+
+### Not checked
+
+- `-w` with the git on CI's Linux runners, as in round 2.
+
+### Close-out
+
+- [x] No story to mark Done, and no book (0-intake step 3, `:39`).
+- [ ] Independent checker (`workflows/5-review.md`): not applied, because this session can't start one.
+- [ ] Commit: left to the session that started this review, which asked the Reviewer not to commit. A suggested message: `review: operations-required-check-status — PASS, round 2 fix check (test-suite-hermeticity, doc lane)`.
+
+### Verdict
+
+Both of round 2's blocking items are fixed, and each fix holds against its source. On this Mac, the row's search now finds row 24, and it keeps word boundaries for other numbers. The account of the close now matches the transcript. One wording note stays optional (R2F-N1).
+
+Round 1's B1 was fixed in round 2. So nothing blocking remains in the change as reviewed: `edc58fed8` and its four fix commits, `a05bfec59`, `31d8affb2`, `dd8a4ea5f` and `f89ff663a`. CI's `Test / stack-free` job runs `npm test` on the pull request.
+
+**PASS**
