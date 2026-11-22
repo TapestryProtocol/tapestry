@@ -1,0 +1,495 @@
+# ADR 0001: Every suite runs in its own process, several at a time, on the one runner
+
+**Status:** Accepted
+**Date:** 2026-11-21
+**Story:** `engineering-team/stories/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md`
+**Supersedes (in part):**
+- ADR `honest-test-gate/0001`, Decision, "Load order": every suite loads before any runs. Now each suite loads in a
+  fresh process of its own, just before it runs (Decision 1).
+- ADR `test-suite-hermeticity/0002`, on where its check runs. Its rules stand, and they now run inside each suite's
+  own process (Decision 4).
+- ADR `graph-operations-foundation/0001`, Decision 12, on who runs the files under `test/operations/`. When the gate
+  runs `operations.test.js`, the gate runs each of those files as a suite of its own (Decision 3). A new operation
+  still never edits `test/registry.js`, and a file there that exports no `run()` still fails.
+
+## Context
+
+The story asks for the `stack-free` check's verdict in at most half the time on the same runner (AC1), with the same
+verdict (AC2), a log that can still be read and measured (AC3), one check named `stack-free` with `npm test` as the one
+command and no retries (AC4), and no new flakes (AC5). The owner chose half over a third at planning, because half fits
+the 4 CPUs of one runner and a third might need the job split across runners.
+
+**How the gate runs today** (`origin/staging` `fb9e230b`):
+- `npm test` is `node test/test.js` (`package.json:13`). It sets two relay keys for the config smoke check and calls
+  `runGate({ suites })` with the registry's 353 entries (`test/test.js:13–20`): 352 files and the `config-loading`
+  pseudo-entry, a `{ name, run }` function (`test/registry.js:21–35`).
+- The engine (`test/helpers/gateRunner.js`) loads every suite before running any (`:204–226`), each load guarded. It
+  then runs them one at a time in its own process (`:228–274`).
+  - It traps `process.exit` from the first load to its own exit (`:199`).
+  - It checks `process.env` around each suite and puts it back (`:213–226`, `:253–264`, `:279–283`; ADR
+    `test-suite-hermeticity/0002`).
+  - It counts escaped errors as strays named for the suite then running (`:158–163`).
+  - It writes the run record after every suite (`:266–273`), and its signal handlers record INTERRUPTED
+    (`:176–185`).
+- `operations.test.js` is entry 340 of 353. After its own tests it runs all 111 files under `test/operations/` one
+  after another inside its own run (`runDiscovered`, `test/operations.test.js:1159–1185`), and reports their counts
+  as its own.
+
+**Where the time goes.** In run 44949158788 (#191's last run, Azure eastus, a slow runner), `npm test` took 1,259 s.
+Of that, 797 s was `operations`, and the other 352 suites took 462 s. The slowest file took 57 s
+(`lifecycle/seed-firmware`), and the slowest suite outside `operations` took 51 s (`harness-lint`). The work is CPU
+work. On this Mac, measured at planning, the five slowest files each kept about one core busy:
+
+| File under `test/operations/` | Wall | CPU (user + sys) |
+|---|---|---|
+| `lifecycle/seed-firmware` | 28.6 s | 34.5 s |
+| `export/nostr-send` | 28.4 s | 27.0 s |
+| `lifecycle/migrate-job` | 13.2 s | 11.7 s |
+| `graph/add-to-concept` | 12.4 s | 17.8 s |
+| `rules/repair` | 10.0 s | 14.3 s |
+
+GitHub's Linux runners for public repositories have 4 CPUs and 16 GB (GitHub's "GitHub-hosted runners reference").
+The gate keeps about one of them busy.
+
+**One risk to the target.** A cloud VM's 4 vCPUs are often 2 physical cores with two threads each. Four busy threads
+then do less than four times the work of one. My estimate for this design on such a runner is 2.3 to 3 times faster,
+so half is likely but not certain. Nothing in today's logs names the CPU, so nobody knows yet. AC3 adds the CPU model
+to the log, and Decision 11 measures the speed-up on a real runner before review.
+
+**Can the suites run side by side?** I audited `test/` at planning:
+- **Ports:** every server a suite starts listens on port 0, a free port the system picks. No suite binds a fixed port.
+  `safe-to-merge-check`'s `refusedPort()` (`:150–156`) binds a free port and releases it to get an address nothing
+  answers. Another suite could take that same port in between, but the chance is tiny.
+- **Temporary files:** the fixed names in `os.tmpdir()` all carry `process.pid`. Today every suite has the gate's one
+  pid. Each suite will have its own, so they stay apart. `test/test-config.js` and `test/test-neo4j-config.js` use a
+  fixed name, but no registered suite loads them.
+- **The repository tree:** no suite writes into it, apart from copies of `src/` that a suite makes into a temporary
+  folder (`operations.test.js:902–909`, `openapi-coverage.test.js:337–344`). The run record goes to `tmp/gate-runs/`,
+  which git ignores. This matters because gate-result-record A2 and A7 compare `git status --porcelain` before and
+  after a short run, so any suite writing into the tree at that moment would make them fail.
+- **Git:** every `git init`, `commit`, `clone` or `worktree add` runs in a temporary repository. The real repository is
+  only read.
+- **Process-wide hooks:** no suite or application code uses `process.send`, an IPC channel or `NODE_CHANNEL_FD`. The
+  three suites that read `process.argv` do it in their own child scripts, or under `require.main === module`.
+- **Timing:** about 60 files compare elapsed time with a bound. That is where side-by-side load can bring flakes,
+  as load made RW7 flaky before (OPERATIONS.md §15). The audit can't settle these. AC5's runs can.
+
+**Two engine tests pin today's single process.**
+- **gate-result-record C6** proves "load order" with a file. `marker-writer`'s run writes a file, and `marker-reader`
+  checks at load whether it is there. With a fresh process for each suite, loading just before running, a reader that
+  starts after the writer sees the file. That is the shared file system, not a leak the engine could stop.
+- **C11** proves the engine's own failure by patching `fs` inside a suite (`record-write-fault`), so that the engine's
+  next record write, in the same process, throws. Once suites run in their own processes the patch can't reach the
+  engine. C11's own message says to re-aim the fixture if that happens.
+
+The other A–F, E1–E10 and G tests hold as they are (Implementation notes, Phase 3).
+
+**Constraints.**
+- ADR `test-hermeticity-ci/0001`: one job, the check name `stack-free`, plain `npm test`, no retries, and a 40-minute
+  hang guard.
+- `main`'s ruleset 27080672 requires `stack-free` by name.
+- The project is JavaScript with no build step, and this adds no dependency.
+- CI's Node 22 and this Mac's Node 24 have `os.availableParallelism()`.
+- The gate runs on Linux in CI and on macOS here, both POSIX.
+
+## Options considered
+
+### Option A — A pool of fresh processes on the one runner (chosen)
+
+The engine stays the parent. It runs each suite in a fresh child process, up to the runner's CPU count at a time. The
+files under `test/operations/` become suites of their own, so the biggest suite splits into 112 units. Each child does
+for its one suite what the engine does today, then reports its result to the parent. The parent keeps the record, the
+log, the summary and the signals. The workflow doesn't change.
+
+- **Pros.** It reaches the target on one runner, as the story measures it (AC1). It keeps one job, one check, one
+  command and one record (AC4). The same command runs side by side locally too, so local runs get faster as well.
+  Suites become more isolated than today: globals, the require cache, the working directory and patched modules no
+  longer pass from one suite to the next, which story `test-suite-hermeticity` #4 left out of scope. It also scales
+  with the runner: a bigger machine runs more at a time.
+- **Cons.** It is the riskiest change of the three to the engine itself: about 300 lines of the gate's most-depended-on
+  code move between two processes. It brings load, and so a new class of timing flake (AC5). Starting 464 processes
+  costs about 6% of the work. A suite's output shows only when it ends. And on a runner whose 4 vCPUs share 2 cores,
+  the margin over half is thin (Context).
+
+### Option B — Split the job into parts on several runners
+
+`.github/workflows/test.yml` gets K jobs (`stack-free part 1 of K` …), each running `npm test` over one slice of the
+units, and a final job with the id `stack-free`. It needs every part, runs `if: always()`, and fails unless every part
+succeeded. Each part could also run side by side (Option A inside it).
+
+- **Pros.** With K = 3 and the parts run one suite at a time, a slow runner's job would take about 7.5 minutes. That
+  is 36% of today, with no extra load on any runner and so no new flake class. With Option A inside each part it
+  would be faster still.
+- **Cons.**
+  - AC1 measures speed on one machine. So does the owner's reason for picking half over a third: half fits one
+    runner, and a third might need the job split. This option meets the story's intent by another route, and would
+    need the story changed first.
+  - It changes ADR `test-hermeticity-ci/0001`'s one job and stable check: a pull request gets K + 1 checks, and the
+    verdict comes from a job that ran no tests.
+  - Each part pays its own checkout, `setup-node` and `npm ci`, about 25 s.
+  - Each part lands on a runner of its own, chosen at random, so the slowest part sets the time.
+  - Proving that the parts together ran every unit exactly once needs either job outputs that the final job adds up,
+    or two more actions (`upload-artifact` and `download-artifact`). W9 allows only `checkout` and `setup-node`.
+  - The run record splits across K runners.
+  - `npm test` in CI is no longer the whole of what a contributor runs.
+
+  Rejected for now. It stays the layer to add if Option A falls short on a real runner (Decision 11).
+
+### Option C — Run only `operations`' files side by side
+
+`runDiscovered` gets a worker pool, and nothing else changes.
+
+- **Pros.** It is the smallest change, and it leaves the gate engine as it is.
+- **Cons.** It can't reach half. The other 352 suites stay one at a time: 462 s plus `operations` at about 797 / 2.5
+  ≈ 320 s, so about 780 s, 62% of today. It also puts a second scheduler inside one suite, and the env check would
+  still name `operations` rather than the file that leaked. Rejected.
+
+*(Worker threads in place of child processes were also weighed, inside Option A. A thread can't call
+`process.chdir`, every native addon such as `lmdb` must be built to load in a thread, and `process.exit` behaves
+differently in one. Child processes have none of these differences.)*
+
+## Decision
+
+We chose **Option A**. It is the only option that meets the story as written on one runner, and it keeps ADR
+`test-hermeticity-ci/0001`'s one job, one check and one command. The trade is a larger change to the engine and a new
+flake class. Both are bounded by the guard suite (Phase 3) and by AC5's runs (Decision 11).
+
+1. **Each suite runs in a fresh process of its own.**
+   - The engine forks a new child runner, `test/helpers/gateUnit.js`, for each unit, using
+     `child_process.fork(gateUnit, [], { cwd, env: process.env, stdio: ['ignore', out, out, 'ipc'], detached: true })`.
+   - The parent sends the unit's spec as the first IPC message, so the child's `process.argv` is just
+     `[node, gateUnit.js]`. Today it is `[node, test/test.js]`.
+   - The parent never loads a suite itself.
+   - Node removes the IPC channel's variable from a forked child's environment before any code runs. A check during
+     this design found that neither the child nor any process it starts sees it. So the child starts from exactly the
+     gate's starting environment.
+   - The parent never changes its own environment after it starts.
+2. **Several at a time.**
+   - `GATE_JOBS` sets how many units run at once. The default is `os.availableParallelism()` (4 on GitHub's runners),
+     and `GATE_JOBS=1` runs one at a time, the story's way to run with nothing side by side (AC5).
+   - A value that isn't a whole number of 1 or more ends the run before its first suite: Overall FAIL, exit 1, with a
+     line naming `GATE_JOBS`.
+   - Units start in unit order (Decision 3), each as soon as a slot is free.
+3. **The units.** They are the registry's entries in order, except where an entry carries `expand: '<folder>'`.
+   - That entry's own module runs as one unit, called with `run({ discovered: 'separately' })`.
+   - Right after it come one unit per `*.test.js` file under `test/<folder>/`, at any depth, skipping `node_modules`
+     and sorted by path. This is today's rule (`filesUnder` and `discoverSuites`, `test/operations.test.js:865–873`
+     and `:1155–1157`), moved to one shared helper that both the engine and `operations.test.js` use.
+   - Only `operations.test.js` carries `expand: 'operations'`.
+   - A unit's name is its path under `test/` without `.test.js`, such as `operations/graph/add-to-concept`. A file
+     outside `test/` is named by its basename, as today.
+   - `operations.test.js`'s `run()` skips `runDiscovered` when given `{ discovered: 'separately' }`, and says so in
+     one line. Called with nothing, as standalone or from a scoped gate that lists it, it runs its own tests and then
+     every file, as today. So no caller silently loses the files.
+   - The run counts 464 units: the registry's 353 entries, `config-loading` now among them as a file (Decision 9),
+     plus the 111 files. The totals of tests passed, failed and skipped don't change.
+4. **Inside a unit's process, today's rules for one suite.** `gateUnit.js`:
+   - takes its starting environment first;
+   - traps `process.exit`, so a call throws where it was made;
+   - records `unhandledRejection` and `uncaughtException` as strays of this unit;
+   - loads the suite, guarded, and checks `process.env`: a change at load is that unit's FAIL, and the unit is not
+     run (rule 4 of ADR `test-suite-hermeticity/0002`);
+   - waits one macrotask and checks again, so a change from a timer its load left is a stray, now named for this
+     unit rather than `during: null` (rule 5);
+   - runs it, normalises the counts with today's `normalize()`, waits one macrotask, and checks `process.env` again:
+     a key left changed is one more failed check, named (rule 6). Each unit is the last suite in its own process, so
+     rule 7's end-of-run check is this same check;
+   - sends one result message (counts, failures, error, `envChanged`, strays, ms), waits for it to be sent, and exits
+     through the real `process.exit`.
+
+   What it does when a suite misbehaves:
+   - **A suite that never settles.** When its `run()` never settles and nothing keeps the process alive,
+     `beforeExit` fires. The unit then reports "its run() never settled", and that unit is a FAIL. Today the whole
+     run ends there. Now the other units still run, and the run still ends FAIL with exit 1 (gate-result-record C14).
+   - **A parent that dies.** On the IPC channel's `disconnect`, the child kills its own process group and exits at
+     once. So a parent killed outright (gate-result-record B3) leaves no unit running.
+   - **Values never leave the child.** The child sends only key names. Values are compared there and dropped, as
+     today (story `test-suite-hermeticity` #4, AC3).
+   - **The helpers stay where they are.** `envChangesSince`, `describeEnvChanges`, `normalize`, `verdictOf` and the
+     clipping helpers stay in `gateRunner.js`, which has no load-time side effects, and `gateUnit.js` requires them.
+5. **Each unit's output is one block (AC3).**
+   - Each unit's stdout and stderr both go to one file. Node writes to a file synchronously, so nothing is lost when
+     the unit exits. The file is `<os.tmpdir()>/gate-<runId>/<index>.log`.
+   - When a unit's process has exited, the engine prints its block and deletes its file. The block is
+     `▶ [i/N] <name>`, then the output as written, then today's result line,
+     `  [i/N] <name>: <VERDICT> (<p> passed, <f> failed, <s> skipped) <ms>ms[ — <error>]`.
+   - `i` is the unit's place in unit order and `N` the number of units, so a line always names the same unit.
+   - Blocks appear in the order units finish. The `Test Results` summary that follows lists every unit in unit order,
+     as today.
+6. **A unit's processes end with it.**
+   - Each child leads its own process group (`detached: true`). Once a unit's process has exited, the engine kills
+     what is left in that group (`SIGKILL` to `-pid`). So no process a suite started outlives it, to hold a port or
+     write a file during another suite.
+   - On SIGINT, SIGTERM or SIGHUP the engine kills every running unit's group. It then prints, marked unfinished,
+     each running unit's output so far, records INTERRUPTED, prints `Overall: INTERRUPTED …` as the last line, and
+     exits 128 + the signal number.
+   - A CI cancellation or the 40-minute guard therefore shows which suites were still running, and what they had
+     printed.
+7. **The record, schema 2** (`test/helpers/gateRecord.js`).
+   - It adds `machine: { cpus, model, jobs }`, `progress.running` (the running units' names), and a `name` on each
+     suite entry.
+   - `progress.current` stays, as those names joined with `, ` or `null`, so a reader of schema 1 keeps working.
+   - `suites` is kept in unit order.
+   - `npm run gate:status` reads schema 1 and schema 2. While a run is going, it shows the running names, and it
+     names a failed unit by its unit name.
+8. **The log says how the run was made.**
+   - The first line keeps naming the record, and adds how the run counts its suites and what it ran on:
+     `Gate run <runId> — record: <path> · 464 suites (353 registered, with operations' 111 files run as suites of
+     their own) · 4 at a time on 4 CPUs (<model>)`.
+   - The `Overall:` line keeps its shape and its first token: `across <N> suites` counts units.
+   - `Total skipped:` and the summary are unchanged.
+9. **The config smoke check becomes a file.** `config-loading` moves from a function in `test/registry.js` to
+   `test/config-loading.test.js`, unchanged in what it does. It still relies on the two keys `test/test.js` sets.
+   - With every unit in its own process, a function can't be handed to a child. So the engine treats an entry with
+     no `file` as that entry's FAIL: "has no file; a suite runs in its own process, so it needs one". The run doesn't
+     end there.
+   - No caller passes one today: the gate tests pass files, and so do the scoped-gate scripts.
+10. **The workflow doesn't change.** It keeps one job, `stack-free`, running `npm ci` then `npm test`, with no
+    `strategy`, no `matrix` and no `GATE_JOBS`. So CI runs as many units at a time as the runner has CPUs. A new W10
+    pins that (Phase 3), and W1–W9 stand as written.
+11. **How it is measured, and the stop rule.**
+    - **AC1, on a GitHub runner.** One temporary commit on the story's branch adds a step that runs the same tree
+      twice on the same runner: first through today's engine, then through `npm test`.
+      - Today's engine is `gateRunner.js` and `gateRecord.js` as on `origin/staging`, kept beside the new ones under
+        other names for that one commit.
+      - It runs over the branch's registry. It ignores `expand`, so `operations.test.js`, called with nothing, runs
+        every file itself.
+      - The next push removes the step. The review cites that run's id and both times. That job runs about 30
+        minutes on a slow runner, inside the 40-minute guard.
+    - **The stop rule.** If the new `npm test` takes more than half the old one's time on that runner, the
+      Implementer stops before review. The Architect then brings the owner an amendment, such as more units at a time
+      than CPUs, or Option B on top of this. Nothing merges until the owner chooses.
+    - **AC1 and AC5 on this Mac, in a sealed container.** The owner allowed this at planning. The container:
+      - works on a fresh clone of the branch in this checkout's `tmp/`, since Docker can't see the scratchpad;
+      - runs the `node:22` image (Node 22, as CI uses), as the image's non-root `node` user, since CI's runner isn't
+        root and root ignores file modes;
+      - runs `npm ci` in one container that has a network, and every test run in another with `--network none`, no
+        Docker socket and no published port, so the agent-memory instance is out of reach;
+      - limits CPUs with `--cpuset-cpus`, which `os.availableParallelism()` reads, rather than `--cpus`, which it
+        doesn't.
+
+      AC5's ten passing runs in a row happen there. Some should run with 4 units on 2 CPUs: this Mac's cores are about
+      twice as fast as a slow runner's (seed-firmware: 28.6 s here, 57 s in run 44949158788), and that is how this Mac
+      can put a slow runner's timing pressure on the suites. The test plan sets the split.
+
+## Consequences
+
+- **What this enables.**
+  - **Speed.** On a slow runner, by the estimate above, the job takes about 8 to 10 minutes instead of 21, and each
+    new operations story costs a pull request about a third as much wait. A local full run gets faster the same way.
+  - **Isolation.** Each suite starts in its own process from the gate's starting environment, with nothing left from
+    another suite: no globals, no require cache, no working directory, no patched module and no leftover process.
+  - **Hangs.** A hang now names itself. A CI cancellation prints the suites still running, and their output so far.
+  - **Per-file results.** A failure, an env change or a stray under `test/operations/` is named for its file, not
+    for `operations`.
+- **What this constrains.**
+  - No suite may rely on another: not its order, not a file it leaves, not its process.
+  - No suite may assume it has the machine to itself. A time bound must hold under the load of 4 suites at once on a
+    slow runner. Where one doesn't, it gets a ledger row and a fix at its root (AC5), never a retry.
+  - A suite's output appears only when it ends, or at an interrupt.
+  - `runGate` accepts only file entries.
+- **What changes for a reader.**
+  - The `[i/N]` numbering and the suite count cover 464 units. Result lines arrive in the order units finish. The
+    first line names the CPUs and how many run at once.
+  - Readers that grep `Overall:` or the result lines, the `direct-feature` skill among them, keep working.
+  - The CI log parser that ledger row `2026-11-21-ci-gate-nears-25-minute-timeout` used lives outside the repo. It
+    brackets `operations`' files by their headings, which still print inside each block, and it will want reading
+    against the new per-unit result lines.
+- **New debt and follow-ups.**
+  - **No per-unit time limit.** A hung unit still holds the job until the 40-minute guard, though now it is named.
+  - **Units start in unit order.** Starting the slowest first could shorten the tail. With 464 units, the longest at
+    57 s, and about 300 s of work on each of four CPUs, the tail costs well under a minute. Ordering by an earlier
+    run's times would need that history on CI, which has none.
+  - **Option B stays the next layer** if the suite outgrows one runner.
+- **Firmware reinstall required?** No. No concept definitions change.
+
+## Implementation notes
+
+This story's deliverable is test infrastructure, so the carve-out in the ADR template (`engineering-team/templates/adr.md`,
+"a story whose deliverable IS a test change") applies, as it did for stories `honest-test-gate` #1 and
+`test-suite-hermeticity` #4. The Tester writes a new guard suite, plus the re-aims and
+registrations. The Implementer edits the engine and the suites under change, and must not touch the guard suite or the
+re-aimed tests.
+
+**Phase 3 (the Tester's files; the Implementer must not modify them):**
+- `test/gate-side-by-side.test.js`, new and registered. It drives `runGate()` in a child process over fixture suites,
+  as gate-result-record does, and pins Decisions 1 to 9. For example:
+  - two fixtures that each wait for the other's marker pass only side by side, and with `GATE_JOBS=1` they run one
+    after the other (timestamps that don't overlap);
+  - a global, a require-cache entry or a working-directory change one fixture leaves isn't seen by the next;
+  - each fixture's output is one block, even when two print over the same seconds;
+  - an `expand` fixture folder gives one unit per file, named by path, with counts that add up, and its own module is
+    called with `{ discovered: 'separately' }`;
+  - the first line names the CPU count, the model and the jobs, and so does the record;
+  - an invalid `GATE_JOBS` ends the run FAIL before its first suite;
+  - a unit's leftover process is gone once the unit ends;
+  - SIGINT prints a running unit's partial output before `Overall: INTERRUPTED`;
+  - a parent killed with SIGKILL leaves no unit process running;
+  - an entry with no file is that entry's FAIL, and the run goes on;
+  - the real registry's `operations` entry carries `expand: 'operations'`, and every file under `test/operations/`
+    becomes a unit.
+- `test/gate-result-record.test.js` and `test/helpers/gateFixtures.js`:
+  - re-aim **C6** to the property that survives: each suite loads from the gate's starting environment and with
+    nothing left by another suite, for example a global that `marker-writer` sets in its run, which `marker-reader`
+    must not see at its load;
+  - re-aim **C11** to reach the engine's own record write from outside its process: for example, a fixture that
+    makes the record directory read-only during its run. That needs a non-root user, which CI has and the sealed
+    container uses.
+- `test/ci-test-job.test.js`: add **W10**, the one job with no `strategy`, `matrix` or `GATE_JOBS`.
+- `test/registry.js`:
+  - replace the `config-loading` pseudo-entry with `{ file: 'config-loading.test.js' }`, and add
+    `test/config-loading.test.js` (the same check, as a file);
+  - add `expand: 'operations'` to the `operations.test.js` entry;
+  - update the header comment.
+
+  Today's engine ignores `expand`, so the Phase-3 commit's gate still passes.
+- The temporary AC1 step and its revert (Decision 11) are verification, not deliverable. They land as two commits on
+  the branch, and the test plan names them.
+
+**Phase 4 (the Implementer's files):**
+- `test/helpers/gateRunner.js`: the parent. It builds the units (Decision 3), keeps a pool of `GATE_JOBS` (Decision
+  2), forks and listens (Decision 1), prints the blocks (Decision 5), kills the process groups (Decision 6), handles
+  the record and the summary (Decisions 7 and 8), and keeps today's `abandon` and `exit` safety nets for the engine's
+  own failure.
+- `test/helpers/gateUnit.js`: new. The child (Decision 4).
+- `test/helpers/discoverSuites.js`: new. The one discovery rule, `filesUnder` plus `discoverSuites`.
+  `operations.test.js` re-exports `discoverSuites`, so T1 is unchanged.
+- `test/operations.test.js`: `run(options)` honours `{ discovered: 'separately' }` (Decision 3), and uses the shared
+  helper.
+- `test/helpers/gateRecord.js`: schema 2 (Decision 7).
+- `test/gate-status.js`: reads schema 1 and 2 (Decision 7).
+- `test/test.js`: its header comment. The two keys stay.
+- **Docs.**
+  - OPERATIONS.md §15, "What runs": suites in their own processes, `GATE_JOBS`, and reading a block.
+  - The no-retry policy: a failure seen only side by side gets a ledger row and a root fix, and `GATE_JOBS=1`
+    compares it with a run alone.
+  - Update its `**Last updated:**` line.
+  - `engineering-team/README.md`, "Running and reading the test gate": `GATE_JOBS`, and the first line's machine
+    details. F1 and F2 keep their phrases. README is a harness-definition path, so the same commit adds a row to
+    `engineering-team/CHANGELOG.md` (L10).
+- **The ADR headers.** This ADR's acceptance adds a "Superseded in part by" line to ADRs `honest-test-gate/0001`,
+  `test-suite-hermeticity/0002` and `graph-operations-foundation/0001`, in the Architecture commit.
+
+**Order of work.**
+1. Get the engine and the unit runner green against the guard suite.
+2. Run one full gate in the sealed container, and fix what fails only side by side.
+3. Push, and run the AC1 step on a GitHub runner. The stop rule applies.
+4. Do the ten container runs, then the review.
+
+**Branches.** Only `staging`. The sandbox branches take it when they next take `staging`. The gate runs on pull
+requests to `staging` and `main`, and a promotion carries it to `main`.
+
+## Out of scope
+
+- Splitting the job across runners (Option B), unless the stop rule leads to an amendment the owner accepts.
+- A per-unit time limit, and ordering units by an earlier run's times.
+- Making any suite faster on its own, and the 40-minute limit.
+- The CI log parser outside the repo.
+- Windows, which the gate has never supported.
+
+## Amendment 1 (2026-11-21, Test Design): three details the guard pins
+
+The guard suite, `test/gate-side-by-side.test.js`, pins three details that Decisions 3, 7 and 8 left loose. These come
+with the test plan's approval.
+
+1. **An expanded unit's name** is its folder's name, then its path under that folder, without `.test.js`. An example is
+   `operations/graph/add-to-concept`, which is Decision 3's own example. That way a fixture folder outside `test/` gives
+   path-based names too, such as `ops/nested/also`. The guard can test the rule without writing into `test/` during a
+   run: A2 and A7 compare `git status` before and after a run. Any other unit keeps Decision 3's rule.
+2. **The line `operations.test.js` prints** when given `{ discovered: 'separately' }` names `test/operations/` and says
+   its files run as "suites of their own".
+3. **The machine fields.** `machine.model` is `os.cpus()[0].model`, trimmed, and `machine.cpus` is
+   `os.availableParallelism()`. The first line uses the same two values.
+
+## Amendment 2 (2026-11-21, Implementation): side by side, the largest test file starts first
+
+The stop rule (Decision 11) fired at V1, and the owner chose this change, then one more same-runner timing on CI.
+
+- **What V1 measured.** CI run 44978145159 used an Azure runner with an Intel Xeon Platinum 8573C and 4 vCPUs. Over the same merged tree, today's engine took 1,243 s and this one 623 s. The ratio was 0.501 against the target of at most 0.5.
+  - All four slots were busy for 570 of the 623 s, so more units at a time than CPUs wouldn't help.
+  - Side by side, each suite ran 1.5 to 2.2 times slower than alone: the 4 vCPUs behave like about 2 cores.
+  - The tail after the slots stopped being full cost about 20 s: `schema-save-finds-the-right-header` (69 s) and `operations/lifecycle/seed-firmware` (107 s) were started late.
+  - In the sealed container on 4 real cores, the same tree gave 0.389, with every suite's counts the same (V2).
+- **The change, to Decision 2.** When more than one unit runs at once, the next unit to start is the one with the largest test file. Ties keep unit order, and a unit with no file counts as size 0. File size is the only predictor every run has, CI's fresh runners included, since nothing records an earlier run's times there.
+  - Re-run over V1's own times, this order gives 612 s, a ratio of 0.492. Starting the longest first, if the times were known in advance, would give 606 s.
+  - With `GATE_JOBS=1` nothing runs side by side, the order changes nothing about the time, and units keep unit order. A one-at-a-time run therefore still runs in registry order, as P3, C6 and P9 rely on.
+- **What stays.** Each unit keeps its place in unit order for `[i/N]`, the record and the summary (Decisions 5 and 7). Only the order units start in changes.
+- **The guard.** P20 in `test/gate-side-by-side.test.js` pins it: with `GATE_JOBS=2`, the largest of three fixtures, listed last, starts first.
+
+## Amendment 3 (2026-11-21, Implementation): the job splits across two runners (Option B, on top of Option A)
+
+The owner chose this after the re-time. One GitHub runner can't reliably reach half.
+
+- **What the re-time measured.** CI run 44981972812 used an Azure runner with an AMD EPYC 7763 and 4 vCPUs, the kind seen slowest in the nine runs. Today's engine took 1,349 s and this one, with Amendment 2, 703 s: a ratio of 0.521. Side by side, suites ran 1.86 to 2.13 times slower than alone. Even starting the longest first, with their times known in advance, would give 683 s, a ratio of 0.506. The job, without the timing step, would take about 12 m 03 s.
+  - So the two runs measured so far gave 0.501 and 0.521. A runner's 4 vCPUs behave like about 2 cores, which sets the ceiling near a 2x speed-up.
+  - In the sealed container on 4 real cores, the same engine gave 0.389 (V2).
+- **The change.** Option B, rejected in this ADR's first form, now sits on top of Option A:
+  1. **Two part jobs.** `.github/workflows/test.yml` gets a job `stack-free-part` with a matrix `part: [1, 2]`. Each leg runs the same steps as before (checkout with full history, Node 22, `npm ci`, then `npm test`) with `GATE_PART: <part>/2`, and keeps the 40-minute `timeout-minutes`. Each leg runs its suites side by side, as Option A runs them.
+  2. **One `stack-free` job carries the verdict.** It `needs` the part job, runs `if: always()`, uses no action, and fails unless `needs.stack-free-part.result` is `success`.
+     - The `if: always()` is required. Without it, a failed part would leave `stack-free` skipped, and a skipped check reads as passing to a ruleset.
+     - A cancelled run, superseded by a newer push, so reads red as well.
+     - `main`'s ruleset still finds the check it requires, `stack-free`, by name, and needs no change.
+  3. **`GATE_PART=<i>/<n>`** makes the engine run part `i` of `n`. The engine orders the units largest test file first (Amendment 2), then places each in turn into the part whose files total the fewest bytes so far, ties to the lower part. Part `i` runs its own units, still largest first.
+     - Every unit is in exactly one part, so the parts' totals add up to the whole run's. No part runs a unit twice.
+     - Unset, the engine runs every unit, so a contributor's `npm test` is still the whole gate.
+     - A value that isn't `<i>/<n>`, with whole numbers `1 ≤ i ≤ n`, ends the run before its first suite, as an invalid `GATE_JOBS` does.
+  4. **The log and the record name the part.** The first line says `part <i> of <n>: <k> of <N> suites`. The record holds `part: { index, count, of }`. `[i/N]` keeps each unit's place in the whole run's unit order, so a unit has the same number in either part.
+- **What stays.** One check, `stack-free`, carries the verdict. `npm test` is the command every part runs and a contributor runs. There are no retries, and only `actions/checkout` and `actions/setup-node` are used. The 40-minute guard stays on each part.
+- **What changes elsewhere.**
+  - ADR `test-hermeticity-ci/0001` gains Amendment 3: two parts, and `stack-free` checking them.
+  - W10 in `test/ci-test-job.test.js` now pins that shape. W1–W9 still hold, since they read the part job's steps.
+  - OPERATIONS.md §15 describes the parts.
+  - Because the workflow file is a harness-definition path, its commit adds a CHANGELOG row.
+  - The story's AC1 measures the check's time against today's gate, rather than one machine against itself (story, Open questions).
+- **How it is measured (Decision 11, revised).**
+  - One temporary commit makes each part's runner first run today's whole gate (the V1 step), then its part.
+  - Each runner thus gives its own pair. The check passes AC1 when, on each runner, its part takes at most half of today's whole gate there. That holds even if both parts land on the slowest runner.
+  - The next push removes the step.
+  - In the sealed container, the two parts' totals must add up to a whole run's.
+- **The guard.** P21 in `test/gate-side-by-side.test.js` checks that the parts are disjoint, cover every unit, are balanced and say which part they are. P22 checks that an invalid `GATE_PART` ends the run FAIL before its first suite.
+- **`GATE_PART` reaches only the engine that runs the registry** (added at Test Design for this amendment). The engine
+  takes it out of the environment it gives each unit. A suite that starts an engine of its own, as the gate's own guard
+  suites do, therefore runs that engine's whole registry, whichever part the outer run is. P23 pins it, and the fixture
+  helper's `engineEnv` drops it too.
+
+## Amendment 4 (2026-11-22, review round 1): what a suite's process does after its result still counts
+
+Review round 1 found the blocking gap, and the owner chose to keep the guarantee. Review round 2 found two edges of the fix, and the owner chose to fix them before the verdict: the note under item 1, and item 5.
+
+- **The gap.** Decision 4 sent a unit's result one macrotask after its run, and the unit exited at once. So nothing it did later counted:
+  - a throw, an un-awaited rejection, or a trapped `process.exit` that fires 300 ms after its run;
+  - an exit cleanup that throws, or a crash at exit.
+
+  Staging's engine failed each of these, since everything ran in its one process. The late ones were strays. An exit cleanup that throws was the engine's own failure. A crash at exit killed the whole run's process, though its record said PASS. This engine passed them all. Story `honest-test-gate` #1's guarantee, that a call "deferred past a suite's `run()` is a stray FAIL", rested on prose, and no test reached past one macrotask.
+- **The change, to Decision 4.**
+  1. After its run, and the `process.env` check one macrotask later, a unit stays up until either of two things happens first:
+     - nothing keeps its process alive any more, when `beforeExit` fires;
+     - **2 seconds** have passed since its run ended, on an unref'd timer, so the cap itself never keeps the process alive.
+
+     A timer the suite unref'd doesn't keep the process alive, so the unit doesn't wait for it, and a failure on such a timer is lost. Staging's engine caught one, during whichever suite ran next. Unref'ing a timer says not to wait for it, and the old engine lost the same failure after the last suite of every run (review round 2, non-blocking 1).
+  2. An error, a rejection or a trapped `process.exit` in that window is a stray of this unit, like one during its run. `process.env` is checked once more at the end of the window.
+  3. Then the unit sends its result and exits.
+  4. **A unit whose process exits non-zero, or by a signal, after sending its result is that unit's FAIL**: "its process ended with exit <n> (or by <signal>) after it sent its result". The parent reads the exit status with the message.
+  5. **So the exit after the result takes no code of its own, and nothing can stop it.** Once the result is on its way, the unit calls the real `process.exit()` with no argument, inside a `try`:
+     - An exit cleanup that throws is caught there and written to the unit's log. Then the unit calls the real exit again, with 1. The exit is already under way, so that call doesn't run the exit listeners again: it ends the process with exit 1.
+     - So no listener the suite left can swallow the error, and no handle it left open can keep the process alive. Round 2 found that each could: a suite that left a listener swallowing errors, a cleanup that throws and an open handle kept its process alive after its result, and the engine waited for an exit that never came (review round 2, non-blocking 2).
+     - A failure in the moment between sending and exiting goes to the unit's log and sets exit 1.
+     - A suite that leaves `process.exitCode` non-zero fails the same way. Every suite in the registry that sets it does so only when run directly, under `require.main === module`.
+- **What the cap costs** (measured 2026-11-22 in the sealed container, at `7836548a`, with a 5-second cap):
+  - Of 465 units, 446 had nothing left to run, so they wait no time at all.
+  - Nineteen held something open afterwards. About half let go at about 4 s, which is `fetch`'s idle keep-alive. The rest held on until the 5-second cap.
+  - With 5 s the whole run took 391 s against 357–367 s. At 2 s those nineteen add at most about 38 unit-seconds, about 10 s of a whole run on 4 CPUs, and a few seconds to each CI part.
+  - 2 s catches the reviewer's 300 ms cases, and most failures a suite leaves behind by mistake. A failure that fires later than 2 s after its run is lost, which the old engine also lost for the last suite of every run.
+  - Measured again with the 2-second cap, at `7b89bbb5` (round 2): the ten sealed runs took 365–386 s on 4 CPUs, against 357–367 s without the wait (round 1's ten, at `7836548a`). With 4 jobs on 2 CPUs they took 520 s, against 515–520 s.
+- **Also from round 1:**
+  - **An engine failure mid-run** now prints each running unit's output so far, marked unfinished, as the signal path does.
+  - **The split's coverage rests on determinism (Amendment 3).** Both parts check out the same commit, and the split reads only the tree's file list and file sizes, with ties broken by unit order. So the two runners compute the same parts, and their union is every unit exactly once. That answers Option B's own drawback without job outputs.
+  - **Decision 6 promised too much.** The engine kills what a unit left in its own process group. A process the suite starts with `detached: true` has a group of its own and lives on: ending it is the suite's job, as it was with the old engine.
+  - **The parts balance by bytes, not time** (round 1, non-blocking 3). In the container, part 2 held 920 unit-seconds to part 1's 539. AC1 holds at worst at 0.328, so this is debt, not a defect: balancing by an earlier run's times would need that history on CI.
+- **The guards.**
+  - P24: a late throw, rejection or exit, one at a time and side by side.
+  - P25: an exit failure after the result.
+  - P26: a unit waits for its own timers, and one that leaves an interval still ends within the cap.
+  - P27: an engine failure prints the units still running.
+  - P28 (round 2): an exit that a suite's own listener would have stopped still ends the process, and the suite's FAIL.
+  - P29 (round 2): a unit with nothing left reports at once, so the wait never becomes a fixed cost.

@@ -3091,6 +3091,8 @@ call.
 
 ## 2026-11-21 — The stack-free gate runs one suite at a time, and each operations story adds about a minute and a half to every pull request (refactor)
 
+**PICKED UP** 2026-11-21 → `stories/done/test-gate-speed/1-stack-free-gate-in-half-the-time.md` (book `audits/test-gate-speed/`)
+
 **Raw request:** the owner's choice, on 2026-11-21, between the two fix shapes in ledger row `2026-11-21-ci-gate-nears-25-minute-timeout`: "Raise to 40 first". Pull request TapestryProtocol/tapestry#191 makes the raise. This entry is the step after it.
 
 **What was found** (the row has the runs and how they were measured):

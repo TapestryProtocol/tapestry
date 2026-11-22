@@ -56,7 +56,7 @@ For **big-picture protocol/spec changes** — evolving `BIBLE.md` + ADRs rather 
 
 ## Running and reading the test gate
 
-`npm test` runs every registered suite (`test/registry.js`) through the gate engine (`test/helpers/gateRunner.js`), and every run writes a **run record** — `tmp/gate-runs/<run-id>.json` (gitignored): created before the first suite, updated after each one, and finished with the verdict and exit code the run exits with. **The record is the gate's answer** (honest-test-gate #1, ADR `honest-test-gate/0001`).
+`npm test` runs every registered suite (`test/registry.js`) through the gate engine (`test/helpers/gateRunner.js`), and every run writes a **run record** — `tmp/gate-runs/<run-id>.json` (gitignored): created before the first suite, updated as each one starts and ends, and finished with the verdict and exit code the run exits with. **The record is the gate's answer** (honest-test-gate #1, ADR `honest-test-gate/0001`).
 
 - **Run it however suits the session** — foreground, backgrounded, redirected to a file, or piped. The run's own first line (right after npm's banner) and its last line name the record. When other sessions may run the gate on the same checkout, tag yours: `GATE_LABEL=<who-or-what> npm test`.
 - **Read the answer with `npm run gate:status`** — the newest run by default; `-- --list` (newest 10), `-- --run <run-id>` or `-- --label <text>` when runs overlap; `-- --json` for the raw record. Its exit status is the run's recorded exit code (0 PASS, 1 FAIL, 128+n INTERRUPTED), 3 when the run never finished and its process is gone, 4 while it is still running, 2 when there is no record.
@@ -67,6 +67,14 @@ For **big-picture protocol/spec changes** — evolving `BIBLE.md` + ADRs rather 
   - A suite whose load changed it is not run.
   - The gate then gives every other suite the environment it began with.
   - So set keys only inside `run()`, put them back in a `finally` (deleting one that was unset), and give a child process its own `env`.
+- **Suites run side by side** (test-gate-speed #1, ADR `test-gate-speed/0001`).
+  - Each suite runs in a fresh process of its own, as many at a time as the machine has CPUs. The files under `test/operations/` run as suites of their own.
+  - `GATE_JOBS=<n>` sets how many run at once. `GATE_JOBS=1` runs one at a time: that is how to tell a failure that happens only side by side from one that happens alone.
+  - The run's first line names the machine: how many ran at once, and the CPU count and model.
+  - In CI the gate runs in two parts, each on its own runner, and the `stack-free` check needs both. `GATE_PART=<i>/<n>` runs part `i` of `n`. Unset, `npm test` runs the whole gate.
+  - A suite's output is printed as one block when it ends, so blocks come in the order suites finish.
+  - A failure a suite leaves for after its run still counts. Its process stays up until nothing keeps it alive, or 2 seconds, and a throw, rejection or `process.exit` in that time is its stray. A timer the suite unref'd isn't waited for. A process that exits non-zero or by a signal after its result, such as an exit cleanup that throws, is its FAIL, and nothing the suite left can stop that exit.
+  - No suite may rely on another having run, or on having the machine to itself.
 
 ## How the phases connect
 

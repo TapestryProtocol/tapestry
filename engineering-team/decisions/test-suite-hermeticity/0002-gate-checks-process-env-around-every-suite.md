@@ -9,6 +9,8 @@
 
 Its load order stands: every suite still loads before any runs.
 
+**Superseded in part by:** ADR `test-gate-speed/0001` (2026-11-21), on where the check runs. Its rules stand, and they now run inside each suite's own process. The sentence above no longer holds: each suite loads just before it runs, from the gate's starting environment.
+
 ## Context
 
 The story asks the gate to:

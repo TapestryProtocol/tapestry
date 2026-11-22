@@ -177,6 +177,51 @@ test('W9 (supply chain): only the two official actions/* are used — no unpinne
   }
 });
 
+/** The workflow's jobs, by id, each with the text of its block (the lines indented under it). */
+function jobBlocks(src) {
+  const jobsAt = src.search(/^jobs:\s*$/m);
+  if (jobsAt === -1) return {};
+  const blocks = {};
+  let id = null;
+  for (const line of src.slice(jobsAt).split('\n').slice(1)) {
+    if (/^\S/.test(line)) break; // the next top-level key ends the jobs: block
+    const m = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (m) { id = m[1]; blocks[id] = ''; continue; }
+    if (id) blocks[id] += `${line}\n`;
+  }
+  return blocks;
+}
+
+// test-gate-speed #1: suites run side by side on each runner's CPUs (ADR test-gate-speed/0001 Decision 10), and since
+// Amendment 3 the gate splits across two runners. Two parts run npm test, and one stack-free job, the check main's
+// ruleset requires by name, carries the verdict. It must run even when a part fails, and must fail unless every part
+// succeeded: a skipped check reads as passing.
+test('W10 (test-gate-speed #1 AC4; ADR test-gate-speed/0001 Amendment 3): two parts (stack-free-part, matrix part [1, 2], GATE_PART) and a stack-free job that needs them, runs if: always() and fails unless they succeeded; no GATE_JOBS', () => {
+  const src = workflow();
+  const jobs = jobBlocks(src);
+  const ids = Object.keys(jobs).sort();
+  assert(JSON.stringify(ids) === JSON.stringify(['stack-free', 'stack-free-part']),
+    `the workflow must have two jobs: stack-free-part, the parts, and stack-free, the check main's ruleset requires by name (ADR test-gate-speed/0001 Amendment 3; ADR test-hermeticity-ci/0001 Amendment 3); found ${JSON.stringify(ids)}.`);
+  const part = flat(jobs['stack-free-part']);
+  assert(/strategy:\s*(fail-fast:\s*false\s*)?matrix:\s*part:\s*\[\s*1\s*,\s*2\s*\]/.test(part),
+    'stack-free-part must run as a matrix of part: [1, 2] (Amendment 3).');
+  assert(/GATE_PART:\s*['"]?\$\{\{\s*matrix\.part\s*\}\}\/2['"]?/.test(part),
+    'each part must run npm test with GATE_PART: ${{ matrix.part }}/2 (Amendment 3).');
+  assert(/run:\s*npm ci\b/.test(part) && /run:\s*npm test\b/.test(part) && /timeout-minutes:\s*40\b/.test(part) && /fetch-depth:\s*0/.test(part),
+    'each part must keep the gate\'s own steps (full-history checkout, npm ci, then npm test) and the 40-minute hang guard (ADR test-hermeticity-ci/0001).');
+  const check = flat(jobs['stack-free']);
+  assert(/needs:\s*\[?\s*stack-free-part\s*\]?/.test(check),
+    'stack-free must need stack-free-part, so it carries the parts\' verdict (Amendment 3).');
+  assert(/if:\s*(\$\{\{\s*)?always\(\)(\s*\}\})?/.test(check),
+    'stack-free must run if: always(). Without it, a failed part leaves stack-free skipped, and a skipped required check reads as passing (Amendment 3).');
+  assert(/needs\.stack-free-part\.result/.test(check) && /success/.test(check) && /run:/.test(check),
+    'stack-free must have a step that fails unless needs.stack-free-part.result is success, so a failed or cancelled part fails the check (Amendment 3; story AC4).');
+  assert(!/uses:/.test(check) && !/npm test/.test(check),
+    'stack-free runs no action and no tests of its own: it only reads the parts\' result.');
+  assert(!/GATE_JOBS/.test(src),
+    'the workflow must not set GATE_JOBS: each part runs the default, as many suites at a time as its runner has CPUs (ADR test-gate-speed/0001 Decision 2).');
+});
+
 // ===========================================================================
 // D* — the OPERATIONS.md documentation contract (ADR 0001 Implementation notes)
 // ===========================================================================
