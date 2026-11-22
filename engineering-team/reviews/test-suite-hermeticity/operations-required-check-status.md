@@ -203,3 +203,131 @@ One blocking item, B1. Row 14 closes as "every part of the row is fixed", but tw
 - §2, §7 and the keep-list name five branches that exist only on the old mirror.
 
 **CHANGES_REQUESTED**
+
+## Round 2 — 2026-11-21 local, 2026-11-22 UTC (over `f1c4b4e6b`, round 1's committed review)
+
+The owner chose "Fix findings first". Round 1 is committed as `f1c4b4e6b`, and no later commit touches this file. The fix round is three commits, six files, +26 −6:
+- `a05bfec59` (test, N1): D3 reads §15's **Required-check status** paragraph alone.
+- `31d8affb2` (docs): B1 by option (a), and N2–N5.
+- `dd8a4ea5f` (ledger, friction 1): a new meta row, `ledger/2026-11-22-row-close-misses-citing-rows.md`.
+
+I checked each changed claim afresh against round 1's sources, my own round-1 wording included (role rule 10), and not against the coordinator's summary.
+
+### Gates (run by the reviewer)
+
+- [x] `git diff --check f1c4b4e6b..HEAD` and `git diff --check origin/staging...HEAD`: no output, exit 0.
+- [x] `bash scripts/harness-lint.sh` on `dd8a4ea5f`, before this section was written: last line `harness-lint: clean (0 violations)`, exit 0. Its one line about this file is the INFO line (round-1 friction 3). With this section in place: the same.
+- [ ] `npm test`: not run, for round 1's reasons. The Reviewer ran no suite.
+- [x] **The fix round's gate records**, read with `npm run gate:status`:
+  - `20261122T011817Z-95446-8152 [d3-pins-required-on-main] started 2026-11-22T01:18:17.090Z on f1c4b4e6+dirty — PASS, exit 0, 14 passed, 0 failed, 0 skipped, 1/1 suites`. This ran before `a05bfec59` was committed. The two dirty paths are the test edit and the `node_modules` link.
+  - `20261122T011824Z-95532-8e60 [d3-guard-old-wording] started 2026-11-22T01:18:24.879Z on a05bfec5+dirty — FAIL, exit 1, 13 passed, 1 failed, 0 skipped, 1/1 suites; failed: ci-test-job`. The two dirty paths are OPERATIONS.md, swapped for `edc58fed8^`'s, and the link. The record doesn't name the failed test. It is D3: the replica below fails on that text, and D1, D2, D4 and the W tests read nothing that differs between the two versions.
+  - `20261122T011828Z-95620-1472 [d3-guard-restored] started 2026-11-22T01:18:28.195Z on a05bfec5+dirty — PASS, exit 0, 14 passed, 0 failed, 0 skipped, 1/1 suites`. The one dirty path is the link.
+  - `20261122T012015Z-6748-78f6 [required-check-status-round2] started 2026-11-22T01:20:15.447Z on dd8a4ea5+dirty — FAIL, exit 1, 2069 passed, 3 failed, 34 skipped, 21/21 suites; failed: router-stream-limit-on-connect`. The one dirty path is the link (`dirtyCount: 1`).
+- [x] **The round-2 gate's one failure has round 1's cause.**
+  - `router-stream-limit-on-connect` fails P1–P3 and nothing else, each on `invalid command code f` (log `gate-required-check-round2.log:580-591`). That is open row `2026-10-09-router-patch-sed-macos`.
+  - `ci-test-job` passes all 14 (`:17`), and `operations` passes with 1504 passed, 0 failed, 20 skipped (`:2657`).
+  - The totals reconcile with round 1: 2069 + 3 + 34 = 2106, which is round 1's 2098 plus 8. Round 1 counted `operations`' unloaded file's 9 tests as 1 failure.
+- [x] **Endpoints.** The record holds no environment. The wrapper's stubs and conf were last rewritten at 01:22:19Z, two minutes after this run started, so their dates can't place it. Its skip counts match round 1's dead-endpoint runs: 34 in all, 20 in `operations`.
+- [x] **The selection still covers the diff.**
+  - `ci-test-job` is the changed suite, and it ran.
+  - OPEN.md and OPERATIONS.md have the same readers as in round 1.
+  - No suite names the changed audit or either changed ledger row. `session-start` is the only suite that reads the real `ledger/` folder (`test/session-start.test.js:468`), and it ran. The other folder uses build fixtures (`test/ledger-row-ids.test.js:78`, `test/helpers/rollupFixtures.js:109`).
+  - Lint's L15 checks the real rows.
+- [x] **D3, replicated without running the suite.** I copied `ciSection()` and D3's three checks from `a05bfec59` into a scratch script, and ran it on four texts:
+  - HEAD's OPERATIONS.md: PASS. All three checks hold in "## 15. CI test gate (PRs to staging/main)".
+  - `edc58fed8^`'s: FAIL. "required on main" and "advisory on staging" are both missing.
+  - HEAD's, with "**advisory** on `staging`" changed to "on both branches": FAIL.
+  - HEAD's, with "operator decision" changed to "decision": FAIL.
+- [x] **Live state.**
+  - Two more `gh api` requests, one at a time, making ten in all: `rules/branches/feat/tags` and `rules/branches/staging`. Each still lists `deletion` and `non_fast_forward`, from ruleset 27080689.
+  - `git ls-remote --heads` of both repos again: none of the five branches is on origin, and all five are on `nous-clawds4/tapestry`. This clone has no local branch by those names, and `origin` is its only remote.
+- [x] **The moved base.** Live `staging` is now `deef26702`. Its PR #196 changes one line of OPEN.md (row 298), far from row 14. `git merge-tree --write-tree FETCH_HEAD HEAD` reports a clean merge, exit 0. `staging` was fetched into `FETCH_HEAD` only, so `origin/staging` is untouched.
+- [x] **The closing session's transcript**, read-only, on this Mac, as the model review's round 3 read the owner's message. I listed its tool calls before `edc58fed8` (00:41:37Z) that search or read OPEN.md or `ledger/`, and every call that names row 14 in any form. None is a search for rows citing row 14 (R2-B2). Nothing else from it is copied here.
+
+### Round-1 findings, re-checked
+
+- **B1 (row 14 closed too early): fixed,** by option (a) (claims 22–25).
+- **N1 (D3): fixed, in this lane** (claims 20–21). Round 1 had suggested a later test change, outside this lane. The owner's "Fix findings first" brought it in. It changes one test's assertion, pins only this diff's paragraph, and holds both ways (Gates). That is within the strictness table's doc-lane row, "Doc / one-liner" (0-intake `:27`).
+- **N2 (the endpoint sentence): fixed,** in round 1's suggested wording, which I checked afresh (claim 26).
+- **N3 (the audit tick): done** (claim 27).
+- **N4 (the repo-move row): done** (claim 28).
+- **N5 (dates):** round 1 asked for no change. The notes now carry 2026-11-22, and each date holds in UTC (claims 23, 29).
+- **Friction 1 (no step finds citing rows): recorded** as the new meta row. Two of its claims don't hold, and both came from round 1's friction text (R2-B1, R2-B2, Corrections).
+- **Friction 2 and 3:** existing rows; nothing changed.
+
+### Changed claims
+
+| # | Where | Claim | Source checked | Holds? |
+|---|---|---|---|---|
+| 20 | `test/ci-test-job.test.js:214-225` (D3) | Reads §15's **Required-check status** paragraph alone (`:219`, `:222`), and needs "required on main", "advisory on staging" and "operator decision" (`:223`) | The diff, the replica and the three guard records (Gates) | Yes |
+| 21 | Same, `:224` (the message) | "`main`'s ruleset requires `stack-free`, and `staging` has no required checks (OPERATIONS.md §4)" | Round 1's claims 3 and 5, and round 2's read of `rules/branches/staging` | Yes |
+| 22 | `OPEN.md:47`, row 14 | Status `OPEN`, the Done cell empty, and "every part of the row is fixed" gone | Seven cells. Status reads exactly `OPEN` (row 331), and the Done cell is empty | Yes |
+| 23 | Same | "**DONE, checked 2026-11-22:**" and "**FIXED 2026-11-22:**", re-dated from 2026-11-21 | This review's live reads ran 00:54:07Z–00:55:28Z on 2026-11-22 (its own transcript), and round 2 re-read `feat/tags` and `staging`. `edc58fed8` was committed at 00:41:37Z on 2026-11-22 | Yes |
+| 24 | Same, "Still open, 2026-11-22", part (1) | §9.9's checklist "still names `brainstorm.world` among 'all four existing deploy droplets'", though production has been `tapestry.brainstorm.world` since 2026-07-10. The 2026-09-12 note overstates the §9.9 part, and row 24(c) leaves the fix to this row | `OPERATIONS.md:540` (the quoted words), `:39`. The 2026-09-13 review (`engineering-team/reviews/harness-self-improvement/ledger-closeout-2026-09-13.md:104-113`). `OPEN.md:57` | Yes |
+| 25 | Same, part (2) | The five branches "did not move to `TapestryProtocol/tapestry`" and "are only on the old mirror". "§2 lists four of them, and §7 gives Vinney two." Whether they move is the owner's call | `git ls-remote --heads` of both repos, again in round 2, and no local branch by those names. `OPERATIONS.md:70-71` and `:82-83` (four), `:409` (two). The keep-list's fifth, `fix/launch-child-task-protection-audit`, is not in §2 | Yes |
+| 26 | `OPERATIONS.md:1174` (N2) | The endpoint "lists the ruleset rules that apply to a branch, and needs no admin rights" | Every `rules/branches` read returned rules tagged with a `ruleset_id`, and nothing from classic protection, which is off on both branches (round 1). The login has `admin: false` | Yes |
+| 27 | `engineering-team/audits/sandbox-security/audit.md:68` (N3) | Ticked, with "*(Done, checked 2026-11-22: the live `restrict-deletions` ruleset, 27080689 on `TapestryProtocol/tapestry`, targets `feat/tags`.)*" | Round 2's read of `rules/branches/feat/tags`, and round 1's of ruleset 27080689. The register's last item (`:70`) already carries a dated note added after the close, so annotating the register has precedent | Yes |
+| 28 | `ledger/2026-10-28-repo-move-follow-ups.md:57` (N4) | "§4 (rewritten in `c8b24d871`) and §15 now describe the live rulesets, and §9.2 only points at §4". Row 14 "stays open for two parts" | Round 1's claims 3–11 and 14. `OPERATIONS.md:460`: §9.2 names `restrict-deletions` and points at §4. Claims 24 and 25 | Yes |
+| 29 | The new dates (N5) | 2026-11-22 throughout | The UTC times in claim 23, and `31d8affb2`'s commit time, 01:19:43Z | Yes |
+| 30 | `31d8affb2`'s message | It "corrects `edc58fed8`'s message, which said row 14 closes" | A correcting commit, not an amend. So `edc58fed8`, which this review cites by hash, keeps its id | Yes |
+| 31 | New meta row `:1-7` | Title, id, type, opened date, status and done | `templates/open-row.md`. The id has five slug words and 39 characters. The file was created at 01:19:38Z on 2026-11-22 (`stat`), the UTC day its id carries. L15 is clean | Yes |
+| 32 | Same, `:9` | "The closing session searched for "row 14" and missed it, because row 24 cites the row as "#14"" | The closing session's transcript. Before `edc58fed8`, it searched the ledger for "Required-check status", which found row 14 itself (00:01:33Z, 00:01:42Z). It read row 14 (00:01:52Z, and `OPEN.md:47` at 00:38:58Z), and searched OPERATIONS.md for the row's own drift strings (00:39:29Z). It made no search for rows citing row 14. The search that missed row 24 was this review's own | **No** (R2-B2) |
+| 33 | Same, `:9`, `:11` | Row 24(c)'s quote. The ledger rules have no step for finding citing rows. Older rows cite each other as "#N", a form pull requests and issues share | `OPEN.md:57` (the words, bold marks included). `OPEN.md:18-28`. Rows 11, 12 and 13 cite rows as "#4", "#11" and "#23", and cite pull requests the same way | Yes |
+| 34 | Same, `:13` | Find the rows that cite it with "`git grep -n -E 'row N\b\|#N\b' -- OPEN.md ledger/`" | For N = 14, on this Mac's git 2.53.0, the command prints nothing and exits 1, though row 24 holds "#14" twice | **No** (R2-B1) |
+| 35 | Same, `:13` | "A lint check could only warn, since "#N" also matches pull requests and issues" | The working search below also finds a story's "#14", in `ledger/2026-11-17-walk-skips-unlabelled-keyed-nodes.md:5` | Yes |
+
+### Findings
+
+#### Blocking
+
+1. **R2-B1. `ledger/2026-11-22-row-close-misses-citing-rows.md:13`: the fix shape's search finds nothing on this Mac.**
+   - `git grep -n -E 'row 14\b|#14\b' -- OPEN.md ledger/` prints nothing and exits 1 under git 2.53.0, though `OPEN.md:57` holds "**#14**" twice. `\b` is not a word boundary in this git's `-E` syntax. Without `\b`, the same search matches 19 lines in 9 files.
+   - So the step this row proposes would miss citing rows without a word, on the machine these sessions run on. That is the failure the row exists to stop.
+   - The command is round 1's, from friction 1, and the row took it as it was (Corrections).
+   - **Asked change:** `git grep -n -w -E 'row N|#N' -- OPEN.md ledger/`. Git does `-w` itself, whatever regex library it was built with. For N = 14, it finds:
+     - row 24 (`OPEN.md:57`), the row that waits on row 14;
+     - row 223 (`OPEN.md:256`), a DONE row that names row 14 as an example;
+     - the repo-move row's two lines (`ledger/2026-10-28-repo-move-follow-ups.md:20`, `:56`), which ask whoever closes that row to re-check row 14;
+     - one false match, a story's "#14" (`ledger/2026-11-17-walk-skips-unlabelled-keyed-nodes.md:5`), as the row's last sentence predicts;
+     - the meta row itself.
+   - `-P 'row N\b|#N\b'` works here too, but only in a git built with PCRE.
+2. **R2-B2. `ledger/2026-11-22-row-close-misses-citing-rows.md:9`: "The closing session searched for "row 14" and missed it" is not what happened.**
+   - The closing session's transcript has no search for rows citing row 14 before `edc58fed8` (claim 32). It found row 14 by searching the ledger for the paragraph's name, read the row, and checked OPERATIONS.md for the row's own drift strings.
+   - The "row 14" search that missed row 24 was this review's, in round 1.
+   - Round 1's friction 1 said "that is how this closure missed row 24(c)". That was my inference, not a finding, and the row states it as an event (Corrections).
+   - The row's point stands, and so does its fix shape. No step asks for the search, and a search for "row N" misses "#N".
+   - **Asked change:** say what happened. The closing session didn't look for rows citing row 14, since no step asks for that. The review's first search, for "row 14", then missed row 24, which cites it as "#14".
+   - Optional, in the same paragraph: "One of them was row 24's" could read "One of them, §9.9's droplet list, is the fix row 24(c) leaves to row 14."
+
+#### Non-blocking
+
+None new.
+
+### Corrections to round 1 (the Reviewer's own)
+
+1. Friction 1's suggested command, `git grep -n -E 'row N\b|#N\b'`, finds nothing on this Mac (R2-B1). I suggested it without running it.
+2. Friction 1 said that a search for "row 14" missing row 24 "is how this closure missed row 24(c)". I hadn't checked how the closing session worked. Its transcript shows it never searched for citing rows (R2-B2).
+3. The Gates said the driver "resolves each file against `test/`". The engine does that, at `test/helpers/gateRunner.js:208`. The driver only passes the names on. The account of the failed invocation is otherwise unchanged.
+
+### Not checked
+
+- The round-2 gate's environment, which its record doesn't hold (Gates).
+- `-w` with the git on CI's Linux runners. I tested it only on this Mac, and Linux's regex library treats `\b` differently.
+- Which test failed in `20261122T011824Z-95532-8e60`. The record doesn't say; it is D3 by elimination and by the replica.
+
+### Close-out
+
+- [x] No story to mark Done, and no book (0-intake step 3, `:39`).
+- [ ] Commit: left to the session that started this review, which asked the Reviewer not to commit. A suggested message: `review: operations-required-check-status — CHANGES_REQUESTED, round 2 (test-suite-hermeticity, doc lane)`.
+
+### Verdict
+
+Round 1's blocking item is fixed. Row 14 is open again, and its new line names both parts that are left, each of which holds against origin, the old mirror and the tree. N1–N5 are done, and each holds: D3 now fails on the old wording and passes on the new; the endpoint sentence, the audit tick, the repo-move line and the new dates all check out.
+
+Two blocking items remain, both in the new meta row, and both from round 1's own friction text:
+- its search command finds nothing on this Mac (R2-B1);
+- it says the closing session searched for "row 14", and the transcript shows no such search (R2-B2).
+
+Each is a one-sentence fix.
+
+**CHANGES_REQUESTED**
