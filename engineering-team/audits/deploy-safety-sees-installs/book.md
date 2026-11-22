@@ -18,8 +18,8 @@
 - [x] **A running install holds merges.** While either install runs on an instance, that instance's deploy-safety answer is unsafe, with a reason that names the install, and the safe-to-merge check waits for it. (`deploy-safety-gate` #4: Done, and on `staging` since TapestryProtocol/tapestry#204; see Rollout evidence.)
 - [x] **Nothing sticks.** When an install ends, however it ends, the answer stops reporting it. That includes an install cut off by a restart. (#4.)
 - [x] **The procedures say what to check.** The written procedure tells whoever starts an install to check first that no deploy of that instance is running or queued. The gap that remains has a ledger row. (#4. The staging evidence install found the check misses a deploy that has just finished: ledger row `2026-11-22-install-after-a-deploy-loses-neo4j`.)
-- [ ] **Staging and production, seen working.** The fix reaches both. On each, during one install the owner approves, the check run against that instance waits with the install's reason, then answers safe once the install ends. The journals are recorded here.
-- [ ] **The ledger says so.** Row `2026-11-21-deploy-safety-misses-firmware-installs` is closed with its pointers, so an install no longer needs the owner to hold merges.
+- [x] **Staging and production, seen working.** The fix reaches both. On each, during one install the owner approves, the check run against that instance waits with the install's reason, then answers safe once the install ends. The journals are recorded here. (Staging and production, 2026-11-22; see Rollout evidence.)
+- [x] **The ledger says so.** Row `2026-11-21-deploy-safety-misses-firmware-installs` is closed with its pointers, so an install no longer needs the owner to hold merges. (Closed 2026-11-22. That holds on staging and production, for a merge that runs the check. The sandboxes, which lack the story, still need merges held, and the rows that stay open are listed in it.)
 
 ## Epics in this book
 
@@ -76,7 +76,35 @@
 
 This is one more merge the gate didn't hold, because nothing enforces the check at merge time (OPEN.md row 340). Raw records, git-ignored, are in the main checkout's `tmp/deploy-safety-sees-installs/production-2026-11-22/`.
 
-**The evidence install on production:** not yet. It follows on the owner's separate yes.
+**The evidence install, on the owner's separate yes ("Run it now").**
+- **The pre-check at 06:05:36:**
+  - no production deploy was running or queued, and no PR was open into `main`;
+  - Neo4j answered three polls in a row, the smoke test's readiness gate;
+  - the answer was safe, with nothing active and the next scheduled task 54 minutes away.
+- **The install ran over SSH, as the loopback call.** The command started at 06:05:46, and the install entered the handler at 06:06:05.108, 19 seconds later. It answered at 06:11:58.
+- **It was clean:**
+  - Pass 1 gave 41 concepts and 0 errors;
+  - Pass 2 enriched 41, and skipped none;
+  - Pass 3 derived 721, applied 4 enumerations, and wired 98 implicit elements.
+- **The answer:** snapshots at 06:05:51, 06:06:00 and 06:06:04 were safe, since the request hadn't reached the handler yet. At 06:06:08 it was `{"verdict":"unsafe","reasons":["FIRMWARE_INSTALL_RUNNING"],"firmware":{"installCount":1,"installs":[{"install":"firmware-install","startedAt":"2026-11-22T06:06:05.108Z"}]}}`.
+- **The check against production, at its canonical numbers,** journaled this, raw bodies left out:
+
+  ```
+  [2026-11-22T06:06:22Z] attempt 1/45 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"]
+  [2026-11-22T06:07:23Z] attempt 2/45 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"]
+  [2026-11-22T06:08:23Z] attempt 3/45 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"]
+  [2026-11-22T06:09:23Z] attempt 4/45 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"]
+  [2026-11-22T06:10:24Z] attempt 5/45 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"]
+  [2026-11-22T06:11:24Z] attempt 6/45 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"]
+  [2026-11-22T06:12:24Z] attempt 7/45 verdict=safe reasons=[]
+  SAFE — merge may proceed …
+  ```
+
+  No merge followed: the check ran as evidence only.
+
+**What production adds to the staging run.**
+- **The start latency matters.** The 19 seconds between the installer's command and the instance counting the install belong to the gap the ledger row `2026-11-22-install-starts-after-a-safe-check` records.
+- **Readiness explains staging's failures.** A clean install, started with Neo4j confirmed answering, is what ledger row `2026-11-22-install-after-a-deploy-loses-neo4j` predicts. The staging install began 20 seconds after a recreate, and lost its reads.
 
 ## Provenance
 

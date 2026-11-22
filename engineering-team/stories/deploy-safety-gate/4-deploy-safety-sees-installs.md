@@ -162,6 +162,14 @@ Run `20261122T040256Z-24746-f06e` (label `ds4-round4-1`), on `3208c7c9` with the
 
 The install itself lost its Neo4j-driver reads: it began 20 seconds after another merge's deploy recreated the container. It did no damage (ledger row `2026-11-22-install-after-a-deploy-loses-neo4j`). The book's Rollout evidence, staging, has the journal and the details.
 
+**On production (2026-11-22).** TapestryProtocol/tapestry#206 promoted `staging`, pinned at `4dfe03d11`. Its deploy finished at 06:00:34, and the smoke test was clean.
+
+**The evidence install** ran from 06:06:05 to 06:11:58, on the owner's yes, and was clean: Pass 1 gave 0 errors, and Pass 2 enriched 41.
+- **The answer** named `firmware-install`, unsafe with `FIRMWARE_INSTALL_RUNNING`.
+- **The check against production** journaled six unsafe attempts with that reason, then safe at 06:12:24.
+
+The book's Rollout evidence, production, has the details. That includes the 06:00 `refreshSearchIndex` run, which #206's own merge and deploy cut off, and which then re-ran.
+
 ## Linked artifacts
 - Book: `engineering-team/audits/deploy-safety-sees-installs/book.md`
 - ADR: `engineering-team/decisions/deploy-safety-gate/0004-deploy-safety-sees-firmware-installs.md`
