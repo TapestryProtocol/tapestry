@@ -14,6 +14,10 @@
 - **Old tags never cleared.** A new version's tag nodes are keyed by its own id, so it adds a second set of tags unless the caller deleted the first (`event-update` does; the I/O import doesn't).
 - **The `importEventDirect` copies differ** (`src/api/normalize/index.js:139` and `src/api/normalize/helpers.js:65`; OPEN.md row 142): each records no author, no `aTag` and no edge from any tag, and `DELETE r, t`, which isn't `DETACH`, fails on a tag node with a `REFERENCES`.
 
+**2026-11-21: firmware's community references no longer leave old tags** (community-reference #39, ADR community-reference/0035). That caller now prunes after each `buildImportCypher`: the event's node keeps only the tags of the letter it holds, and a community copy keeps only the relationships its letter derives.
+- **Where it runs.** On staging and production, which each had a reinstall with the fix on 2026-11-21. Their six headers and community copies now hold each tag once (story 39's Evidence).
+- **What's unchanged.** The other callers, and the other faults listed here: memo #130's failure, the 32-bit tag key, keying at kind 30000, and older versions over newer. The I/O import still adds a second set of tags.
+
 **Fix shape.** Move a caller onto `import nostr`'s recorder (`src/operations/catalog/import/_letters.js`, `record`) when its fault is wanted gone: it keys by NIP-01, keeps the newest version, keys tag nodes by the whole id, clears a newer version's old tags, and merges a placeholder keyed by an id into the event's node. Each move is a story of its own, since it changes what that caller builds (ADR 0032, Option B's cons).
 
 **Pointer:** `engineering-team/decisions/graph-operations-first-slice/0032-import-nostr.md` (Context 4; Option B; Consequences); `engineering-team/stories/graph-operations-first-slice/32-import-nostr.md` (facts 1, 2, 4–6); Loom memo #130 on A10.32; OPEN.md row 142.

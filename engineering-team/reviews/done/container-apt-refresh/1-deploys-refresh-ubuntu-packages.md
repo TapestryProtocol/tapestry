@@ -15,10 +15,10 @@ branch left `staging`. The range holds four commits:
   It touches no test file.
 
 **Against:**
-- the story, [1-deploys-refresh-ubuntu-packages.md](../../stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md),
+- the story, [1-deploys-refresh-ubuntu-packages.md](../../../stories/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.md),
   with its Deviations;
-- [ADR 0001](../../decisions/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md);
-- the [test plan](../../stories/container-apt-refresh/1-deploys-refresh-ubuntu-packages.test-plan.md);
+- [ADR 0001](../../../decisions/done/container-apt-refresh/0001-weekly-package-refresh-after-the-cached-steps.md);
+- the [test plan](../../../stories/done/container-apt-refresh/1-deploys-refresh-ubuntu-packages.test-plan.md);
 - the Implementer's records in the ignored `tmp/container-apt-refresh/`.
 
 **How it was made.**

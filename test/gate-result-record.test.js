@@ -355,16 +355,22 @@ test('C5 (AC-3): a suite that returns no result counts is a FAIL, not a silent P
   assert(bad && bad.verdict === 'FAIL', `a suite whose run() returns no { pass, fail } must be recorded FAIL; got ${JSON.stringify(bad)}`);
 });
 
+// Re-aimed 2026-11-20 (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002): the engine now gives every suite
+// back the environment it began with, so a run-time write to process.env can no longer reach a later load, eager or
+// lazy, and env-writer's run is now a FAIL. The signal is a file the writer's run leaves beside both fixtures.
 test('C6 (AC-3; ADR Decision "Load order"): every suite is loaded before any runs, so a later suite\'s load-time read cannot see an earlier suite\'s run-time write', () => {
   F.need('runner');
   const sc = F.scenario();
   try {
-    const r = F.runEngineSync(sc, [sc.suite('env-writer.test.js'), sc.suite('env-reader.test.js')]);
+    const r = F.runEngineSync(sc, [sc.suite('marker-writer.test.js'), sc.suite('marker-reader.test.js')]);
     const { rec } = onlyRecord(sc, 'C6');
-    const reader = F.entryMap(rec)['env-reader.test.js'];
+    const writer = F.entryMap(rec)['marker-writer.test.js'];
+    const reader = F.entryMap(rec)['marker-reader.test.js'];
+    assert(writer && writer.verdict === 'PASS' && fs.existsSync(path.join(sc.dir, 'load-order-marker')),
+      `precondition: marker-writer must run and leave its file, or the reader proves nothing; its record entry: ${JSON.stringify(writer)}`);
     assert(reader && reader.verdict === 'PASS',
-      'env-reader saw env-writer\'s run-time write while loading — the engine loaded suites lazily. ADR 0001 (Decision, "Load order") requires every suite loaded before any runs, so load-time reads (e.g. the eight TAPESTRY_SETTINGS_PATH readers) keep today\'s meaning. ' +
-      `env-reader's record entry: ${JSON.stringify(reader)}`);
+      'marker-reader saw the file marker-writer\'s run left while it was loading — the engine loaded suites lazily. ADR 0001 (Decision, "Load order") requires every suite loaded before any runs, so load-time reads (e.g. the eight TAPESTRY_SETTINGS_PATH readers) keep today\'s meaning. ' +
+      `marker-reader's record entry: ${JSON.stringify(reader)}`);
     assert(r.status === 0, `with both suites passing the run must exit 0; got ${r.status}`);
   } finally { sc.cleanup(); }
 });

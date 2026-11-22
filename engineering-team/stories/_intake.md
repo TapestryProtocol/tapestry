@@ -3088,3 +3088,23 @@ call.
 - whether Story 38's AC-5 and AC-6 are restated or retired.
 
 **Classification:** bug, Standard; all phases. Not on Loom.
+
+## 2026-11-21 — The stack-free gate runs one suite at a time, and each operations story adds about a minute and a half to every pull request (refactor)
+
+**Raw request:** the owner's choice, on 2026-11-21, between the two fix shapes in ledger row `2026-11-21-ci-gate-nears-25-minute-timeout`: "Raise to 40 first". Pull request TapestryProtocol/tapestry#191 makes the raise. This entry is the step after it.
+
+**What was found** (the row has the runs and how they were measured):
+
+- **About half the runs take 21 minutes.** Nine passing runs of one tree took 13 m 58 s to 22 m 53 s, depending on GitHub's runner. Five of the nine got a slow one, at about 21 minutes.
+- **`operations` is most of it.** It is about 64% of `npm test` on a slow runner, and its 111 files run one after another (`runDiscovered` in `test/operations.test.js`). The time is spread across them: the slowest 3 files hold 17% of it and the slowest 10 hold 36%, so trimming one file buys little.
+- **It grows with every operations story.** Export nostr and seed-firmware each added about 85 s on a typical slow runner.
+- **Nothing runs side by side.** The gate (`test/helpers/gateRunner.js`) runs one suite at a time in one process, and it checks each suite's `process.env` in turn (story test-suite-hermeticity #4).
+
+**Likely shape.** Decisions, none settled:
+
+- run `operations`' files side by side, each in a process of its own, so that the gate's `process.env` check still names one suite;
+- or split the job into several. That changes ADR test-hermeticity-ci/0001's one job with a stable check name, and `main`'s ruleset, which requires `stack-free` by that name;
+- or cut the cost of the slowest files themselves;
+- how a faster gate keeps the no-retry record honest: RW7's flake came from load inside the gate's one big process (OPERATIONS.md §15), so running suites side by side can bring timing flakes of its own.
+
+**Classification:** refactor (the CI gate), Standard; all phases, since it changes the gate engine or the CI job under ADR test-hermeticity-ci/0001. Not on Loom.
