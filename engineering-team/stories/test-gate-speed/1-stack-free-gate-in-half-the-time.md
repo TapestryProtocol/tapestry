@@ -34,7 +34,7 @@ As anyone who opens a pull request to `staging` or `main`, I want the `stack-fre
   - **Given** one tree, and a GitHub runner on which today's gate runs the whole of it,
   - **when** this story's gate runs it as CI runs it,
   - **then** the part of it that runs on that runner takes at most half as long as today's whole gate there. That holds on each runner the check uses, so the check's verdict comes in at most half the time even when every part lands on a slow runner.
-  - On a runner as slow as the slowest seen, that is a `stack-free` verdict in under 12 minutes, where today's took 22 m 53 s. Every CI run of this story's pull request gives its `stack-free` verdict in under 12 minutes.
+  - On a runner as slow as the slowest seen, that is a `stack-free` verdict in under 12 minutes, where today's took 22 m 53 s. Every CI run of this story's pull request that runs the gate as merged gives its `stack-free` verdict in under 12 minutes. The planned timing runs, which run today's whole gate first, are the exception (ADR Decision 11; clarified at review round 1).
 - [ ] **AC2 — The same verdict.**
   - **Given** the same tree, the same tests run, and each suite, and each file under `test/operations/`, reports the same counts passed, failed and skipped as it does today. The `Total skipped:` line and the `Overall:` line give the same totals. If the run counts its parts differently, the log says how, and no test is lost or counted twice.
   - Every guarantee of story `honest-test-gate` #1 and story `test-suite-hermeticity` #4 still holds, and their tests still pass:
