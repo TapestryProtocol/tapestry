@@ -45,6 +45,11 @@
   - Five headers hold 7 tags each, or 9 for `tagging-with-specific-tag`, with one `b` each.
   - `nostr-relay`, whose reference production curates, holds 6 tags and no `b`. Neither it nor its superset (7 tags, 14 before) has a relationship to itself.
   - Two copies still reference themselves, following their letters: the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers.
+- **Tags (2026-11-22, `73704d7f`).** Its reinstall ran from 03:29:41 UTC to about 04:09, after the `feat/tags` port (TapestryProtocol/tapestry#203).
+  - Its public summaries give 43 rows for 43 headers (49 before).
+  - None of the 53 nodes the sweep reads holds a repeated tag (6 did before).
+  - The six headers hold 7 tags each, or 9 for `tagging-with-specific-tag`, with one `b` each. Its copy of production's `nostr-relay` header no longer references itself.
+  - Two copies still reference themselves, following their letters: the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers.
 
 ## Known constraints acknowledged at kickoff
 

@@ -31,6 +31,10 @@
 
 Its copies of the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers keep their loops, as on staging.
 
+**2026-11-22: tags is reinstalled with the fix,** after its port to `feat/tags` (TapestryProtocol/tapestry#203).
+- Its copy of production's `nostr-relay` header holds production's new letter, and no longer references itself.
+- Its copies of the Mac Studio's two headers keep their loops, as everywhere.
+
 **What's left, so the row stays open.**
 - Staging's copy of production's header loses its loop at staging's next install.
 - The Mac Studio's own instance likely still points at itself on those two headers, since their letters do. That lasts until it has an install with the fix, which is the owner's word.

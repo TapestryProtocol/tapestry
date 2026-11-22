@@ -33,4 +33,5 @@
 **The two meta-supersets list themselves, and a reinstall changed one (2026-11-21, community-reference #39's reinstalls).** Seen, not looked into:
 - **On production.** A read-only query for every node linked to itself, run just before and after its firmware reinstall (23:37 to 23:41 UTC, on `196a475f`), found `39999:<TA>:set-superset -HAS_ELEMENT->` itself both times. `39999:<TA>:superset-superset -HAS_ELEMENT->` itself was there only after.
 - **On staging,** after its reinstall that day (22:07 to 22:11 UTC, on the same code), `/neighbors` shows `set-superset` listing itself as an element and `superset-superset` not.
+- **On tags,** both meta-supersets list themselves, before and after its reinstall on 2026-11-22 (read-only Cypher).
 - **Why it may belong here.** Each meta-superset is itself a set, and `superset-superset` is a superset, so the memberships may be meant. But whether one is there depends on the instance and on the install, as with this row's moves between the two meta-supersets. `class-thread-acyclic` may count each as a cycle.
