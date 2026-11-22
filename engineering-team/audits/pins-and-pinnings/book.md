@@ -7,7 +7,7 @@
 
 ## Intent anchor
 
-**Acceptance frame (no PRD).** Loom task G5.6, drafted from proposal P-163, which the owner accepted on 2026-11-22 as its builder. The bullets are G5.6's done-when as the roadmap states it. They were put to the owner on 2026-11-22 as this book's acceptance frame, together with the ADR's design, and the owner approved both ("Yes, write the ADR"), so they are the definition of done. The epic's spec is [docs/loom/G5.6.md](../../../docs/loom/G5.6.md).
+**Acceptance frame (no PRD).** Loom task G5.6, drafted from proposal P-163, which the owner accepted on 2026-11-22 as its builder. The bullets are G5.6's done-when as the roadmap states it. They were put to the owner on 2026-11-22 as this book's acceptance frame, beside the direction of four of the ADR's choices, and the owner approved them ("Yes, write the ADR"), so they are the definition of done. The epic's spec is [docs/loom/G5.6.md](../../../docs/loom/G5.6.md).
 
 ### Acceptance frame
 

@@ -15,4 +15,4 @@ Today a pin means one thing: publish this Tag's Trusted Lists. The owner wants s
 
 ## Stories
 
-Each story is planned when its Loom task is taken, and is numbered by its letter: G5.6.a is story 1, G5.6.b is story 2, and so on. The breakdown follows ADR 0001, in the `## Stories` section of [docs/loom/G5.6.md](../../docs/loom/G5.6.md).
+Each story is planned when its Loom task is taken, and is numbered by its letter: G5.6.a is story 1, G5.6.b is story 2, and so on. The breakdown goes in a `## Stories` section of [docs/loom/G5.6.md](../../docs/loom/G5.6.md) once ADR 0001 is accepted.
