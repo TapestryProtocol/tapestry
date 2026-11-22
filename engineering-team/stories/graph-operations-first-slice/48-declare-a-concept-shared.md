@@ -258,7 +258,27 @@ Each smoke test ran docs/SMOKE_TEST.md's tiers with no session. It made reads on
   - **The safe-to-merge check** first answered unsafe, `NEXT_FIRE_WITHIN_BUFFER`, then `QUEUE_TASK_RUNNING`, while the hourly search-index refresh came due at 03:00 and ran. It said safe at 03:02:10.
   - **The deploy:** run 44978776069, 2 min 17 s.
   - **The smoke test: 0 failed.** Production was stable after 3×2 s polls, and Neo4j was ready after 9×2 s. Every Tier-2 page and API answered 200, and `get-user-data` gave its documented 504 in 18 s. `/docs` listed the same 43 paths, and a signed-out POST to each new route answered 401. The concept summaries answered, with 45 concepts.
-- **david.tapestry.ninja** served the same 43 paths, the three new ones among them, by 03:07Z. The first use there waits for the owner's yes: declaring the vulnerability concept shared and exporting it to `wss://dcosl.brainstorm.world`.
+- **david.tapestry.ninja** served the same 43 paths, the three new ones among them, by 03:07Z.
+
+### The first use on david.tapestry.ninja (2026-11-22, 03:16–03:40Z, on the owner's yes)
+
+Zeus ran each step, an admin agent with its own key, through the external CLI. Its 30-day sign-in of 2026-11-17 was still good, and every call ran with `TAPESTRY_SIGNER=/usr/bin/false`, so nothing signed in. The records are in the main checkout's `tmp/a10-44-records/first-use/`.
+
+- **Declared shared.** `graph declare-shared --concept 6d51bdcb-…` answered `declared`. The header holds its self-pointing pointer `b`, `["b", "39998:a7173e2c…:vulnerability", "pointer"]`, and the self-loop. The change entry is `c986e882`, Zeus's.
+- **Scaled down, at the owner's choice.** The dry run of the whole concept graph listed 26 letters. The owner chose to publish only the DList header and its items, the three CVE entries. Each entry's `z` tag names the header's address.
+  - The two empty sets, "addressed vulnerabilities" and "open vulnerabilities", were left out, as was the schema.
+  - The concept had been reshaped since its rebuild: Tapestry Lead added the property `affectedRepositories`, and its enumeration, at 2026-11-21 05:37Z.
+- **Exported, one node at a time:** the header first, then each CVE. Each letter was signed by the assistant and accepted by the instance's own relay.
+  - The header is `38a45946…`, change `3fa0602d`.
+  - The CVEs are `1b5bcb7c…`, `39d939c5…` and `c0cd6a22…`, changes `09e198ef`, `2940e74e` and `5ee07d69`.
+  - None reached dcosl: david.tapestry.ninja has `BRAINSTORM_PUBLISH_LOCAL_ONLY=true`, so export answered `not-sent` for it. The dry run hadn't said so (ledger row `2026-11-22-export-dry-run-hides-local-only`).
+- **Copied to dcosl, on the owner's word.** The four letters were read by id from `wss://david.tapestry.ninja/relay`, each verifying and the assistant's. They were published to `wss://dcosl.brainstorm.world` exactly as signed, from the owner's Mac, and dcosl accepted all four.
+- **Read back from dcosl:**
+  - by id, 4 of 4, each verifying;
+  - `kinds: [39999], #z: ["39998:a7173e2c…:vulnerability"]` gives the three CVE entries;
+  - the header carries its self-pointing `b`.
+
+  So anyone can add an item to the DList by publishing a kind-39999 event with that `z`, and a `#z` query finds every author's. Whose items count is each reader's point of view.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
