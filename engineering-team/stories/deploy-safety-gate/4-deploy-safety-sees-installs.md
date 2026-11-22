@@ -25,7 +25,7 @@ Both times, `scripts/check-safe-to-merge.sh https://staging.brainstorm.world` ha
 
 **Who's affected:** anyone who runs a firmware install on a deployed instance, and anyone who merges into a branch that deploys.
 
-**Source:** ledger row `ledger/2026-11-21-deploy-safety-misses-firmware-installs.md` (on branch `docs/header-tags-once-ship-records` until that records PR merges into `staging`), and story community-reference #39's Evidence, "On staging".
+**Source:** ledger row `ledger/2026-11-21-deploy-safety-misses-firmware-installs.md` (on `staging` since TapestryProtocol/tapestry#195), and story community-reference #39's Evidence, "On staging".
 
 ## User-facing description
 
@@ -37,13 +37,15 @@ As someone who runs a firmware install, I want the written procedure to tell me 
 
 - [ ] **AC-1 (either install makes the answer unsafe while it runs).** Given an instance with nothing else running or due, when a firmware install starts, then every deploy-safety answer from that instance is unsafe from the moment the install starts until it ends. This holds for:
   - today's install, started through its route by any caller (the Dashboard's button, the loopback call, the install at first start), a dry run included;
-  - `lifecycle seed-firmware`, run through its route or from a shell inside the instance.
+  - `lifecycle seed-firmware`, run through its route or from a shell inside the instance, from when it takes the lifecycle lock, before it writes anything, until it lets the lock go.
+
+  *(Amended at Architecture 2026-11-21, ADR 0004 sub-decision 4: seed-firmware's span. Before it takes the lock it only reads the firmware's files, so a deploy then cuts off nothing.)*
 
   The answer gives a reason of its own, which says a firmware install is running and is none of the existing four. It also says which install is running and when it started, and nothing about who started it.
 - [ ] **AC-2 (the answer lets go when the install ends, however it ends).** Given an install is running, when it finishes, fails with an error, or is refused before it writes anything, then the next answer no longer reports it. With nothing else running or due, that answer is safe. When two installs overlap, the answer stays unsafe until the last of them ends.
 - [ ] **AC-3 (a cut-off install isn't reported afterwards).** Given an install was cut off by a restart of the instance, as a deploy's container recreation does, when the instance is back up, then its answer doesn't report that install as running. This has an explicit automated test, as story 1's phantom exclusion does.
 - [ ] **AC-4 (the check waits for an install).** Given an install is running on the instance a merge would redeploy, when the safe-to-merge check runs, then each attempt it journals is unsafe with the install's reason, and it reports safe only once the install has ended. Its numbers stay as they are (45 attempts, 60 seconds apart), which outlast an install of about 4 to 5 minutes.
-- [ ] **AC-5 (nothing else changes).** With no install running, the answer is what it is today, field for field. Its other consumers, the safe-to-merge check and the Scheduled Tasks panel's countdown line, behave as before.
+- [ ] **AC-5 (nothing else changes).** With no install running, every field the answer carries today keeps its value, and its one addition, the install block, is empty. Its other consumers, the safe-to-merge check and the Scheduled Tasks panel's countdown line, behave as before. *(Amended at Architecture 2026-11-21, ADR 0004 sub-decision 2: the install block is always present, as `legacy` is, so a consumer never has to ask whether it exists.)*
 - [ ] **AC-6 (the procedures say so).**
   - The safe-to-merge recipe says that installs are covered.
   - The written procedure for running an install on a deployed instance tells the person to check first that no deploy of that instance is running or queued, and says how.
@@ -68,13 +70,13 @@ _(Architect: the local container is David's private agent-memory instance. Don't
 
 ## Open questions
 
-For the Architect:
-1. **Seeing an install in a process of its own.** `lifecycle seed-firmware` run from a shell inside the instance is not the control panel's process. How is it seen without a record that outlives a restart and then reads as running (AC-3)?
-2. **One reason or two.** One reason for both installs with a detail that says which, or one reason each.
-3. **Where the installer's procedure goes.** No doc in the repo describes running an install on a deployed instance today. BIBLE §7 names the route, and AGENTS.md §6 the local curl.
+For the Architect (each answered in ADR 0004):
+1. **Seeing an install in a process of its own.** `lifecycle seed-firmware` run from a shell inside the instance is not the control panel's process. How is it seen without a record that outlives a restart and then reads as running (AC-3)? *Answered by sub-decision 4: the answer reads the lifecycle lock live, judged stale by the store's own rule.*
+2. **One reason or two.** One reason for both installs with a detail that says which, or one reason each. *Answered by sub-decision 1: one reason, `FIRMWARE_INSTALL_RUNNING`.*
+3. **Where the installer's procedure goes.** No doc in the repo describes running an install on a deployed instance today. BIBLE §7 names the route, and AGENTS.md §6 the local curl. *Answered by sub-decision 8: `docs/SAFE_TO_MERGE.md`, with a pointer from BIBLE §7.*
 
 ## Linked artifacts
 - Book: `engineering-team/audits/deploy-safety-sees-installs/book.md`
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/deploy-safety-gate/0004-deploy-safety-sees-firmware-installs.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
