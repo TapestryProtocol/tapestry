@@ -32,7 +32,7 @@
   - the community step re-imported production's own superset as if it were another curator's, so each of its tags is there twice;
   - the post-derive wiring (`install.js:1369`) MERGEd an `IS_A_SUPERSET_OF` from that superset to itself.
 - **Other instances' copies point at themselves.** On staging, david.tapestry.ninja, avi.tapestry.ninja and tags, the copy of `39998:919ba08a…:nostr-relay` carries a `REFERENCES` to itself. It derives from production's self-pointing `b`.
-- **`feat/tags` never re-signs.** tags.brainstorm.world's six letters all date from one install, 2026-09-22. That branch's Pass 1 has no `overwrite`, so:
+- **`feat/tags` never re-signs.** *(Not so: see the Correction of 2026-11-22, at the end.)* tags.brainstorm.world's six letters all date from one install, 2026-09-22. That branch's Pass 1 has no `overwrite`, so:
   - `create-concept` refuses an existing header;
   - the seed finds the `b` it wrote last time and stops (never-clobber);
   - nothing imports the header again, so its two sets have stood since.
@@ -215,7 +215,7 @@ We chose **Option A**. It fixes the one step that makes the duplicates on every 
 - **`feat/tags`** (tags.brainstorm.world) needs a port PR of its own, after staging's merge, on the owner's yes.
   - **What carries over:** its `buildImportCypher` has the same tag uuids and `b` branch (`eventSync.js:219`, `:259-282` there), so `buildPruneCypher` ports as it is.
   - **Its line numbers:** its `pass_communityReferences` is at `:1001`, with the "already has a `b`" check at `:1054-1058`, the seed's import at `:1063`, and the community imports at `:1094` and `:1122`.
-  - **What heals it:** its Pass 1 has no `overwrite`, so its installs take the "already has a `b`" path. That path is what heals it.
+  - **What heals it:** its Pass 1 has no `overwrite`, so its installs take the "already has a `b`" path. That path is what heals it. *(Corrected 2026-11-22, at the end: its installs sign every header again and take the seed path, which the fix heals too.)*
   - **What it lacks:** both `cypherEngine.js` and a Pass-1 child harness. The Tester decides whether the builder suite ports there with the engine helper, which is test-only and self-contained, or whether that branch falls back to Story 38's source-contract level.
 - **`feature-magic-carpet`:** nothing to port. Its headers predate Story 38 and hold no duplicates.
 
@@ -288,3 +288,21 @@ Review round 1 (`engineering-team/reviews/community-reference/39-firmware-instal
    - **Two Amended-by pointers.** ADR graph-operations-first-slice/0028 gets one, since its Decision 6 defines part (d). Its Amendment 1 item 5 records this superset loop, and ledger row `2026-11-16-curator-instance-superset-self-loop` gives the fix Decision 3 and this item make; the row gets a dated note. ADR graph-operations-first-slice/0037 gets one too, since its Decision 4 says each of the six headers gets the `b`.
 
 **Ratification:** the owner, 2026-11-21, at review round 2's gate ("Ship to staging"). The gate's message said his answer ratifies this amendment unless he says otherwise, and named item 3's new consequence, a pass-2-only install putting seed-firmware's write on such a header back as its letter says, as the cost of the exemption. He said nothing otherwise.
+
+## Correction (2026-11-22, at the feat/tags port's review)
+
+**What this ADR said about `feat/tags`, and what is so.** Four of its statements rest on one premise: that branch's Pass 1, which passes no `overwrite`, signs no header again.
+- the Context ("`feat/tags` never re-signs");
+- Option A ("It heals `feat/tags`, whose installs only ever take the "already has a `b`" path");
+- the test notes ("a feat/tags-shaped header");
+- §4 ("What heals it").
+
+In fact that Pass 1 signs every header again.
+- **Why.** create-concept's duplicate check on `feat/tags` compares stored pubkeys with `Buffer.from(nt().getPublicKey(privBytes)).toString('hex')` (`src/api/normalize/index.js:1198` there). In nostr-tools 2.10.4, the version both branches lock, `getPublicKey` already returns 64 hex characters, so the check compares 128 and never matches.
+- **Staging fixed that check,** and made the overwrite explicit, in `f3347d276` (2026-11-04). `feat/tags` doesn't have that commit.
+- **So each install on `feat/tags`** signs, publishes and imports every firmware header again, with no `b`. The community step seeds it, and its copies are brought in: the path staging and production take. The six letters of 2026-09-22 mean only that no install has run there since.
+- **What changes.** Nothing in the decision.
+  - The fix heals that path too, and the tests run it: S1, S2, S9, S10 and E1. S9's staging-shaped graph is tags' shape.
+  - The "already has a `b`" path runs there only in an install with Pass 1 off, as anywhere.
+  - The port carries the fix as this ADR describes (story 39's test plan, "The feat/tags port").
+- **How it was found.** The port review's independent check found it, and the Reviewer confirmed it (story 39's review, "The feat/tags port").

@@ -308,9 +308,12 @@ S13: it counts superset-of:39998:919ba08a…:nostr-relay node:39999:919ba08a…:
 - They test seed-firmware's target and oracle, and graph sets' model of firmware's links. `feat/tags` has none of these.
 - So the fix's parts in `src/firmware/target.js` and `src/operations/catalog/graph/_sets.js` don't port either.
 
-**Which path a tags install takes.** `feat/tags`' Pass 1 calls create-concept with no `overwrite` (`install.js:171-177`). So a routine install signs no header again, and takes the "already has a `b`" path, S3's.
-- The cases that sign again (`resign`) model a concept's first install there, or a header its owner signs again.
-- Both paths run the same community step.
+**Which path a tags install takes** (corrected at review, 2026-11-22). This paragraph first said that a routine tags install signs no header again, and takes S3's path. In fact it signs every header again:
+- **The duplicate check never matches.** `feat/tags`' Pass 1 calls create-concept with no `overwrite` (`install.js:184-190` after the port). But create-concept's duplicate check there compares stored pubkeys with a double-encoded key (`src/api/normalize/index.js:1198`), so it never matches.
+- **Staging fixed that check** in `f3347d276`, which `feat/tags` doesn't have.
+- **So each install there signs every firmware header again,** with no `b`, and the community step seeds it. That is the path S1, S2, S9, S10 and E1 run, and S9's staging-shaped graph is tags' shape.
+- **S3's path,** the "already has a `b`" one, runs there only in an install with Pass 1 off.
+- Both paths run the same community step. ADR 0035's Correction of 2026-11-22 has the details.
 
 **How to run.** Use the environment above: the dead conf, the closed ports, and curl and docker stubbed first on `PATH`. From a checkout of the port branch:
 - `node test/community-references-prune-builder.test.js`
