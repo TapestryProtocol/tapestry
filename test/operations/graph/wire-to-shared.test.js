@@ -3,7 +3,7 @@
  * graph wire-to-shared — its own suite, run by test/operations.test.js.
  *   Story: engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.md (AC2, AC3, AC5)
  *   ADR:   engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md
- *          (Decisions 1–8; Amendment 1, items 1–6)
+ *          (Decisions 1–8; Amendment 1, items 1–6; Amendment 2, items 1 and 2)
  *   Plan:  engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.test-plan.md
  *
  * Stack-free: the real catalog in a child over test/helpers/sharingGraph.js's graph, every statement on the Cypher
@@ -54,6 +54,17 @@
  *   WS18 the order of the checks: bad-target comes first, before any statement runs, on an unknown concept, another
  *        author's, a firmware concept and a graph with no concept-header concept; the header's refusals come before
  *        self-target and before the repeat; self-target comes before the repeat
+ *   (Review round 1's findings, ADR 0048 Amendment 2; a third run, over its own copy of the graph)
+ *   WS19 add-relationship's refusal of REFERENCES names graph declare-shared and wire-to-shared, besides import nostr,
+ *        and draws nothing (item 1; as EN28 pins ENUMERATES' makers)
+ *   WS20 a node another transaction commits at the target's address between nodeAt's read and the placeholder's write
+ *        (an import's NostrEvent, with a created_at, put there by the Cypher fake's failures.meanwhile at the
+ *        placeholder statement) is matched, not refused: the wire answers wired, its relationship runs to that node,
+ *        no second node is made, and target.held and target.node come from it; a placeholder the write makes itself
+ *        is still import nostr's (item 2). The MERGE adopts first (item 2, "The MERGE adopts first"): the adoption
+ *        statement runs right before each placeholder MERGE, and only when nodeAt found no node, not for a wire to a
+ *        held header; and an event-less node, seed-firmware's kind, committed just before it at RACE2 is adopted, so
+ *        the MERGE lands on it, with no second node
  */
 
 const path = require('path');
@@ -73,6 +84,27 @@ const BAD = 'not an address';
 const w = (id, caller, concept, target, extra = {}) => ({ id, method: 'POST', url: ROUTE, caller, body: { concept, target }, ...extra });
 /** The bad-target calls of the main run (WS10 and WS18), each refused before any statement runs (Amendment 1 item 4). */
 const BAD_TARGET_IDS = Object.freeze(['bad-text', 'bad-39999', 'bad-event-id', 'bad-naddr', 'bad-naddr-39999', 'bad-upper', 'bad-unknown', 'bad-other', 'bad-firmware']);
+// Review round 1's findings (Amendment 2 item 2): RACE, where an import commits its node while a wire runs, and FRESH,
+// where no node ever is. The placeholder statement is the write that names a NostrEvent by its uuid, as Decision 6's
+// CREATE and Amendment 2's MERGE both do; the b tag's own write (a NostrEventTag) and K.lock's (a disjunction) don't.
+const PUB_RACE = 'be'.repeat(32);
+const RACE = `39998:${PUB_RACE}:race`;
+const FRESH = `39998:${'fa'.repeat(32)}:fresh`;
+const RACED_KEY = '8e5c6a4b-2f1d-4c3e-9a7b-6d5e4f3a2b1c';
+const PLACEHOLDER_QUERY = String.raw`\(\s*\w+\s*:\s*NostrEvent\s*\{\s*uuid\s*:`;
+const RACED = Object.freeze({
+  labels: ['NostrEvent', 'ListHeader'],
+  props: { uuid: RACE, id: 'be'.repeat(31) + '01', kind: 39998, pubkey: PUB_RACE, created_at: 1763000500, name: 'raced in', tapestryKey: RACED_KEY },
+});
+// Amendment 2 item 2, "The MERGE adopts first": RACE2, where an event-less node (seed-firmware's kind, a TapestryNode
+// with no NostrEvent label and no created_at) is committed just before the adoption statement, which names a
+// TapestryNode by its uuid and gives it the NostrEvent label.
+const RACE2 = `39998:${'bd'.repeat(32)}:race-two`;
+const RACED2_KEY = '3a1f9c2e-7b4d-4e8a-8c6f-1d2e3f4a5b6c';
+const ADOPT_QUERY = String.raw`\(\s*\w+\s*:\s*TapestryNode\s*\{\s*uuid\s*:\s*\$\w+\s*\}\s*\)\s*WHERE\s+NOT\s+\w+\s*:\s*NostrEvent\s+SET\s+\w+\s*:\s*NostrEvent`;
+const EVENTLESS = Object.freeze({ labels: ['TapestryNode'], props: { uuid: RACE2, tapestryKey: RACED2_KEY } });
+const isAdopt = (q) => new RegExp(ADOPT_QUERY).test(String(q));
+const isPlaceholder = (q) => new RegExp(PLACEHOLDER_QUERY).test(String(q));
 
 let MAIN = null;
 function main() {
@@ -135,6 +167,35 @@ function main() {
     return { a, b, k, m, addr, lamp, yoyo, before, after, niAfter: CG.readState(ni.file) };
   })();
   return MAIN;
+}
+
+let FINDINGS = null;
+/**
+ * Review round 1's findings, over their own copy of the graph, so the main run's counts and comparisons stand: the race
+ * (failures.meanwhile commits RACED at RACE just before the race wire's placeholder statement), the second race
+ * (EVENTLESS at RACE2, just before that wire's adoption statement), a wire to FRESH, a wire to relay's header (which
+ * nodeAt finds, so neither statement runs), and add-relationship asked for REFERENCES.
+ */
+function findings() {
+  if (FINDINGS) return FINDINGS;
+  FINDINGS = (async () => {
+    H.needDecls(['wire-to-shared']);
+    const { keys: k, made: m, addr } = await H.prepared();
+    const file = await H.fileOf('wire-to-shared-findings', { failures: { meanwhile: [
+      { match: RACE, query: PLACEHOLDER_QUERY, add: [RACED] },
+      { match: RACE2, query: ADOPT_QUERY, add: [EVENTLESS] },
+    ] } });
+    const before = CG.readState(file);
+    const f = H.runOn(file, [
+      w('race', 'owner', m.lamp.conceptHeader, RACE),
+      w('race-two', 'owner', m.drum.conceptHeader, RACE2),
+      w('fresh', 'owner', m.kite.conceptHeader, FRESH),
+      w('held', 'owner', m.quilt.conceptHeader, addr.RELAY),
+      { id: 'add-references', method: 'POST', url: '/api/tapestry/graph/add-relationship', caller: 'owner', body: { from: m.yoyo.conceptHeader, to: k.relay, type: 'REFERENCES' } },
+    ]);
+    return { f, k, m, addr, before, after: CG.readState(file) };
+  })();
+  return FINDINGS;
 }
 const pointer = (target) => ['b', target, 'pointer'];
 const refsTo = (s, from, to) => H.bRefs(s, from).filter((r) => r.to === to);
@@ -385,6 +446,58 @@ test('WS18 [AC3, Amendment 1 item 4]: the order of the checks: bad-target first,
   for (const key of [k.relay, k.widgets[2], k.cat, k.word]) {
     assert(show(H.bTags(before, key)) === show(H.bTags(after, key)) && H.changedSince(before, after, key).length === 0, `${key}: nothing written for a refused call; got ${show(H.changedSince(before, after, key))}`);
   }
+});
+
+test('WS19 [review round 1 finding 1, Amendment 2 item 1]: add-relationship\'s refusal of REFERENCES names graph declare-shared and wire-to-shared, besides import nostr, and draws nothing', async () => {
+  const { f, m, before, after } = await findings();
+  const body = H.refused(f, 'add-references', 409, 'reserved-type');
+  const words = String(body.error);
+  assert(body.rule === 'relationship-type-allowed' && /import nostr/.test(words) && /graph declare-shared/.test(words) && /wire-to-shared/.test(words),
+    `REFERENCES stays reserved, and the refusal names its makers: import nostr, and graph declare-shared and wire-to-shared from a b (FIRMWARE_MADE, as EN28 pins ENUMERATES'); got ${show(body)}`);
+  const yoyo = m.yoyo.conceptHeader;
+  assert(show(H.relsOut(after, yoyo)) === show(H.relsOut(before, yoyo)), `and add-relationship drew nothing from yoyo; got ${show(H.relsOut(after, yoyo))}`);
+});
+
+test('WS20 [review round 1 finding 4, Amendment 2 item 2]: a node committed at the target\'s address between nodeAt\'s read and the placeholder\'s write is matched, not refused; a placeholder the write makes is still import nostr\'s; the MERGE adopts first, only when nodeAt found no node', async () => {
+  const { f, k, m, addr, after } = await findings();
+  const lamp = m.lamp.conceptHeader;
+  const t = H.transactions(after.log).find((x) => x.steps.some((st) => st.call === 'meanwhile' && st.match === RACE));
+  assert(t, `the race ran: another transaction committed an import's node at ${RACE} just before the wire's placeholder statement (failures.meanwhile with its query); the log: ${show(H.transactions(after.log).map((x) => x.steps.map((st) => (st.call === 'meanwhile' ? 'MARK' : `${st.call}:${String(st.query).slice(0, 24)}`))))}`);
+  const d = H.ok(f, 'race');
+  assert(d.outcome === 'wired' && t.end === 'commit', `the wire answers wired and commits: the MERGE matches the node the import committed, where a CREATE fails the uniqueness rule on NostrEvent.uuid; got ${show(d)}`);
+  const at = H.nodesAtExactly(after, RACE);
+  assert(at.length === 1 && at[0].props.tapestryKey === RACED_KEY, `one node at ${RACE}, the import's, and no second; got ${show(at.map((n) => ({ labels: n.labels, key: n.props.tapestryKey })))}`);
+  assert(at[0].props.created_at === RACED.props.created_at && ['NostrEvent', 'ListHeader', 'TapestryNode'].every((l) => at[0].labels.includes(l)), `the import's node keeps what the import gave it; got ${show({ labels: at[0].labels, props: at[0].props })}`);
+  assert(sameTarget(d.target, { address: RACE, held: true, node: RACED_KEY }), `target.held and target.node come from the merged node: held, since it has a created_at (Amendment 1 item 1), and its key; got ${show(d.target)}`);
+  assert(refsTo(after, lamp, RACED_KEY).length === 1, `lamp's REFERENCES {source:'b-tag'} runs to the import's node, once; got ${show(H.refsFrom(after, lamp))}`);
+  assert(H.changesOf(d).some((x) => show(x) === show({ change: 'relationship-added', type: 'REFERENCES', from: lamp, to: RACED_KEY })), `its entry records the relationship to that node; got ${show(H.changesOf(d))}`);
+  const fresh = H.ok(f, 'fresh');
+  const made = H.nodesAtExactly(after, FRESH);
+  assert(fresh.outcome === 'wired' && made.length === 1, `a wire to ${FRESH}, where no node is, makes one placeholder there; got ${show(fresh)} ${made.length}`);
+  const ph = made[0];
+  assert(show([...ph.labels].sort()) === show(['NostrEvent', 'TapestryNode']) && E.plainValue(ph.props.kind) === 39998 && ph.props.pubkey === 'fa'.repeat(32) && typeof ph.props.tapestryKey === 'string' && ph.props.created_at === undefined && ph.props.id === undefined,
+    `the placeholder the write makes is still import nostr's: NostrEvent and TapestryNode, its kind and pubkey from the address, a key, no created_at and no id; got ${show({ labels: ph.labels, props: ph.props })}`);
+  assert(sameTarget(fresh.target, { address: FRESH, held: false, node: ph.props.tapestryKey }), `its target is the placeholder, not held; got ${show(fresh.target)}`);
+
+  // "The MERGE adopts first": the adoption statement, right before each placeholder statement, and only where nodeAt
+  // found no node (RACE, RACE2 and FRESH; not relay's header, which the wire 'held' runs to).
+  const txs = H.transactions(after.log);
+  const statements = (x) => x.steps.filter((st) => st.call === 'tx.run' || st.call === 'tx.read');
+  const placeholders = txs.flatMap((x) => statements(x).map((st, i, all) => ({ st, prev: all[i - 1] })).filter(({ st }) => st.call === 'tx.run' && isPlaceholder(st.query)));
+  const adoptions = txs.flatMap((x) => statements(x).filter((st) => st.call === 'tx.run' && isAdopt(st.query)));
+  assert(placeholders.length === 3 && placeholders.every(({ prev }) => prev && prev.call === 'tx.run' && isAdopt(prev.query)),
+    `each of the three placeholder statements (RACE, RACE2, FRESH) has the adoption statement, MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent SET x:NostrEvent, right before it (Amendment 2 item 2, as G9 asks of every MERGE of a NostrEvent by its address); got ${show(placeholders.map(({ st, prev }) => ({ prev: prev && String(prev.query).slice(0, 70), st: String(st.query).slice(0, 50) })))}`);
+  assert(adoptions.length === 3, `and the adoption runs only when nodeAt found no node: not for the wire to relay's header; got ${adoptions.length} adoption statements`);
+  const held = H.ok(f, 'held');
+  assert(held.outcome === 'wired' && sameTarget(held.target, { address: addr.RELAY, held: true, node: k.relay }), `the wire to relay's header, which nodeAt finds, runs to it; got ${show(held)}`);
+  const t2 = txs.find((x) => x.steps.some((st) => st.call === 'meanwhile' && st.match === RACE2));
+  assert(t2 && t2.end === 'commit', `the second race ran: an event-less node, seed-firmware's kind, was committed at ${RACE2} just before the wire's adoption statement, and the wire committed; got ${show(t2 && { end: t2.end, error: t2.error })}`);
+  const d2 = H.ok(f, 'race-two');
+  const at2 = H.nodesAtExactly(after, RACE2);
+  assert(d2.outcome === 'wired' && at2.length === 1 && at2[0].props.tapestryKey === RACED2_KEY && show([...at2[0].labels].sort()) === show(['NostrEvent', 'TapestryNode']),
+    `the adoption gives that node the NostrEvent label, so the MERGE lands on it: one node at ${RACE2}, now import nostr's labels, and no second; got ${show(at2.map((n) => ({ labels: n.labels, key: n.props.tapestryKey })))}`);
+  assert(sameTarget(d2.target, { address: RACE2, held: false, node: RACED2_KEY }) && refsTo(after, m.drum.conceptHeader, RACED2_KEY).length === 1,
+    `drum's REFERENCES runs to it, and it isn't held, having no created_at; got ${show(d2.target)} ${show(H.refsFrom(after, m.drum.conceptHeader))}`);
 });
 
 if (require.main === module) run().then(({ fail }) => process.exit(fail ? 1 : 0));

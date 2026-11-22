@@ -38,6 +38,11 @@
  *                           set: [{ key, props }]: that same other transaction gives the node with that tapestryKey those
  *                           properties (null takes one off), in the saved graph and this transaction's copy alike: another
  *                           export's record of the node, committed before this one's first write to it
+ *                           (story graph-operations-first-slice #48, ADR 0048 Amendment 2 item 2) an entry may also carry
+ *                           query, a regular expression's source: it then fires only at a statement whose text, on one
+ *                           line, matches it too. So a suite can let another transaction commit a node at an address just
+ *                           before one write naming that address, its placeholder statement, and not an earlier one that
+ *                           names it too, such as the write of a b tag whose value is the address
  */
 
 const fs = require('fs');
@@ -90,7 +95,7 @@ function fakeGraph(stateFile) {
       const fire = (cypher, params) => {
         if (kindOf(cypher) !== 'write') return;
         const meanwhile = Array.isArray(f.meanwhile) ? f.meanwhile : [];
-        const m = meanwhile.findIndex((x) => x && holds(params || {}, x.match));
+        const m = meanwhile.findIndex((x) => x && holds(params || {}, x.match) && (typeof x.query !== 'string' || new RegExp(x.query).test(oneLine(cypher))));
         if (m >= 0) {
           const [one] = meanwhile.splice(m, 1);
           for (const n of one.add || []) {

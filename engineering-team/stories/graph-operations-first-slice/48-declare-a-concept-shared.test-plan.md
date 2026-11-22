@@ -135,7 +135,66 @@ Each was put to the Architect and is answered by ADR 0048's Amendment 1 (2026-11
 
 The entry sits after import nostr's identical placeholder, and gives the reason: a `CREATE` can't take a label disjunction, and it runs only when the same transaction's lookup by `NostrEvent|TapestryNode` found no node there. Stories 32 and 44 added their entries the same way. It is a commit of its own, apart from the implementation's.
 
+## Added at review round 1's findings
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/48-declare-a-concept-shared.md`) passed with five non-blocking findings. The owner chose to fix them before the pull request, so their tests come first. ADR 0048's Amendment 2 answers the findings, and these tests pin it.
+
+| Test | Amendment 2 | What it pins | File |
+|---|---|---|---|
+| **WS19** (new) | item 1 (finding 1) | add-relationship asked for `REFERENCES` is refused 409 `reserved-type` by `relationship-type-allowed`. Its words name `import nostr`, `graph declare-shared` and `wire-to-shared`, and nothing is drawn. EN28 pins `ENUMERATES`' makers the same way | `test/operations/graph/wire-to-shared.test.js` |
+| **WS20** (new) | item 2 (finding 4), with its sub-item "The MERGE adopts first" | An import's `NostrEvent`, with a `created_at`, is committed at RACE between `nodeAt`'s read and the placeholder's write. It is matched, not refused: the wire answers `wired` and commits, its `REFERENCES {source:'b-tag'}` runs to that node, and no second node is at RACE. `target.held` is true and `target.node` is that node's key, both read from the merged node. A placeholder the write makes itself, at FRESH, is still import nostr's: `NostrEvent` and `TapestryNode`, `kind`, `pubkey`, a key, no `created_at`, no `id`. **The adoption:** the adoption statement runs right before each of the run's three placeholder statements (RACE, RACE2, FRESH). It runs only when `nodeAt` found no node: not for a wire to relay's header. An event-less node, seed-firmware's kind, committed at RACE2 just before the adoption statement is adopted. So the `MERGE` lands on it, with one node there, now with import nostr's labels; `held` is false and `node` is its key | the same |
+| **G11**, **G18** (their registry changed) | item 2 | The kept entry for wire-to-shared's placeholder now names the `MERGE` line, `` const PLACEHOLDER = `MERGE (p:NostrEvent {uuid: $uuid}) ``. Its reason says it is a `MERGE` now, which matches a `NostrEvent` committed meanwhile instead of failing the uniqueness rule. The two adoption lines get entries of their own, with `importEventDirect`'s reason (ADR graph-operations-foundation/0003, Decision 9), which G9 asks for. All three fail until the lines in the code read so | `test/operations/lifecycle/nostr-event-lookups-kept.json` |
+| **G9** (unchanged) | item 2, "The MERGE adopts first" | Every `MERGE` of a `NostrEvent` by its address adopts an event-less node first. It passes today, since the placeholder is a `CREATE`. It passes again once the `MERGE` lands with `ADOPT` right before it | `test/operations/lifecycle/tapestry-key-paths.test.js` |
+| **DS14** (unchanged) | item 3 (findings 2 and 3) | It pins only that BIBLE §25 and inherit-from.md name the three operations, not the wording item 3 changes, so nothing moves. No test pins the new wording; the Reviewer reads it | `test/operations/graph/declare-shared.test.js` |
+| **WS3** (unchanged) | item 2, "why `nodeAt` still runs first" | Nodes at an address without the `NostrEvent` label are found, and no second node is made there: dog house's header and seed-firmware's placeholder at NEWT. A `MERGE` on `NostrEvent` alone, with no `nodeAt`, would fail it | the same |
+
+Item 4, the second live check (LH2), is the Implementer's, on a scratch stack.
+
+**The fake learned one thing.** A `failures.meanwhile` entry of `test/helpers/cypherGraphFake.js` may now carry `query`, the source of a regular expression. The entry then fires only at a statement whose text, on one line, matches it too. Entries without it fire as before.
+- **Why it's needed:** wire-to-shared writes the header's `b`, whose value is the address, before `nodeAt` reads. An entry matched on the address alone would fire at that write, before the read. `nodeAt` would then find the node, no placeholder statement would run, and WS20 would pass on today's `CREATE`.
+- **The pattern WS20 uses:** a `NostrEvent` named by its `uuid`. It matches Decision 6's `CREATE` and Amendment 2's `MERGE` alike, and neither the `b` tag's `NostrEventTag` nor K.lock's disjunction.
+
+**A second `meanwhile` entry.** RACE2's matches the adoption statement's text, a `TapestryNode` named by its `uuid` with `WHERE NOT x:NostrEvent SET x:NostrEvent`. So its event-less node arrives after `nodeAt`'s read and before the adoption, the window the adoption closes. With no adoption statement it never fires, and WS20 fails, naming the adoption it wants before each placeholder.
+
+**A run of its own.** WS19 and WS20 share a third harness run over their own copy of the graph, for two reasons:
+- add-relationship's guard refuses `REFERENCES` without reading the graph, so its transaction runs no statement, and WS18 counts the main run's transactions that run none;
+- the import's node at RACE would trip WS9's "nothing else changed".
+
+**Checked against Amendment 2's code, in a scratch copy.** A copy of the tree had item 1 applied (`FIRMWARE_MADE.REFERENCES`) and item 2 applied (the `MERGE`, with `held` and `node` read from the merged node). The copy was never in this worktree. In it:
+- WS1–WS20, G11 and G18 pass;
+- so do declare-shared, defer-sharing, the export cases, add-relationship, remove-relationship, relationship-type-allowed, the write path, enumerate, move-element and memberships-shared.
+
+**Raised for the Architect, and answered: G9 failed under item 2's first `MERGE`.**
+- **The rule:** G9 (`test/operations/lifecycle/tapestry-key-paths.test.js`, story graph-operations-foundation #3, ADR 0003 Decision 9) holds every `MERGE` of a `NostrEvent` by its address, outside `eventSync.js`, to adopt an event-less node there first.
+- **What the copy showed:** with `nodeAt` ahead of the `MERGE` but no adoption, G9 answered "`_dispositions.js:154`: MERGE of a NostrEvent by its address with no adoption before it".
+- **The answer:** Amendment 2 item 2's sub-item "The MERGE adopts first" takes way (a). Right before the placeholder, `_dispositions.js` holds `` const ADOPT = `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent `` and `` SET x:NostrEvent`; ``, which `drawReference` runs, then the `MERGE`, only when `nodeAt` found no node. G9 stays as it is.
+
+**The adoption entries name whole lines.** G11 counts an entry stale unless its `text` equals a source line, trimmed. In `_dispositions.js` the adoption's two lines also carry `` const ADOPT = ` `` and the closing `` `; ``. So the entries are those whole lines, not the bare statement lines that `helpers.js`' and `index.js`' entries list. In the copy, the bare texts left G11 (stale) and G18 (two lines unlisted) failing, and the whole lines pass.
+
+**Checked again, with `ADOPT`.** The copy then had `ADOPT` too, exactly as the amendment gives it.
+- WS1–WS20 pass, and so do G9, G11 and G18, with all 20 of `tapestry-key-paths`.
+- With the adoption call taken back out, WS20 fails, naming the adoption statement it wants before each placeholder.
+
 ## Verification
+
+**At review round 1's findings** (2026-11-21, at `c23552a8f`, the review's commit). The implementation had landed. ADR 0048's Amendment 2 and this round's test files were uncommitted beside it. `test/operations.test.js` ran alone through the same wrapper:
+
+```
+operations: 1552 passed, 4 failed, 20 skipped
+```
+
+The four fail for want of what Amendment 2 builds, and every other test passes:
+
+```
+  WS19: the refusal names its makers … ; got "REFERENCES is reserved: it is made by import nostr, with the checks it needs. …"
+  WS20: race must answer 200; got 500 "graph wire-to-shared failed: Node(…) already exists with label `NostrEvent` and property `uuid` = '39998:bebe…:race'"
+  G11:  kept entries are stale: the ADOPT lines and const PLACEHOLDER = `MERGE (p:NostrEvent {uuid: $uuid}) name no line of _dispositions.js yet
+  G18:  _dispositions.js:154 const PLACEHOLDER = `CREATE (p:NostrEvent {uuid: … names only NostrEvent and isn't listed
+```
+
+That is the run after the adoption's pins too (WS20's second race, the order, and the two `ADOPT` entries): the same four, and G9 passes. With Amendment 2's code applied in a scratch copy, `ADOPT` included, the four pass, and so do G9 and all of `tapestry-key-paths`.
+
+**At Test Design** (the rounds before the implementation landed):
 
 The new tests fail with the current code, each for want of what the story builds. Confirmed on 2026-11-21 on `A10.44-declare-shared-concept` at `cc3715f08` (the ADR's commit), with this phase's files and ADR 0048's Amendment 1 uncommitted beside it, and `micromark` installed (`npm ci`). `test/operations.test.js` ran alone through the session's wrapper (stubs first on `PATH`, a dead conf, dead endpoints, `TAPESTRY_CONTAINER` unset):
 
