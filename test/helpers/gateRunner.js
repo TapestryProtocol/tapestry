@@ -10,7 +10,8 @@
  *     unit per *.test.js under test/<folder>/ (test/helpers/discoverSuites.js), and its own module is called
  *     as run({ discovered: 'separately' }), so it leaves those files to the engine (Decision 3).
  *   - Each unit runs in a fresh child process (test/helpers/gateUnit.js), up to GATE_JOBS at once; by default
- *     one per CPU, os.availableParallelism() (Decisions 1 and 2). This process never loads a suite. The child
+ *     one per CPU, os.availableParallelism() (Decisions 1 and 2). Side by side, the largest test file starts first;
+ *     one at a time, unit order (Amendment 2). This process never loads a suite. The child
  *     keeps today's rules for its one suite: a guarded load, process.exit trapped, process.env checked at load
  *     and after the run (ADR test-suite-hermeticity/0002), escaped errors recorded as its strays, counts
  *     normalised, and a run() that never settles is its FAIL rather than the end of the run (Decision 4).
@@ -308,6 +309,13 @@ async function runGate({ suites, recordDir, label } = {}) {
     }
     if (units.length) logDir = fs.mkdtempSync(path.join(os.tmpdir(), `gate-${h.rec.runId}-`));
     const jobs = Math.max(1, Math.min(setting.jobs, units.length || 1));
+    // The order units start in (Amendment 2). Side by side, the largest test file first, so a long suite listed late
+    // doesn't run alone at the end; ties keep unit order. One at a time, unit order, as nothing runs beside it.
+    // Either way, each unit keeps its place in unit order for [i/N], the record and the summary.
+    const sizeOf = (u) => { try { return u.file ? fs.statSync(u.file).size : 0; } catch { return 0; } };
+    const queue = jobs > 1
+      ? units.map((u) => ({ u, size: sizeOf(u) })).sort((a, b) => b.size - a.size || a.u.index - b.u.index).map((x) => x.u)
+      : units;
 
     await new Promise((resolve, reject) => {
       let next = 0;
@@ -388,8 +396,8 @@ async function runGate({ suites, recordDir, label } = {}) {
       };
 
       function pump() {
-        while (!settled && running.size < jobs && next < units.length) launch(units[next++]);
-        if (!settled && running.size === 0 && next >= units.length) resolve();
+        while (!settled && running.size < jobs && next < queue.length) launch(queue[next++]);
+        if (!settled && running.size === 0 && next >= queue.length) resolve();
       }
 
       try { pump(); } catch (e) { reject(e); }
