@@ -20,6 +20,7 @@
  *     startedAt, updatedAt, finishedAt, pid, host, node, cwd, argv,
  *     git: { commit, branch, dirty, dirtyCount } | { error },
  *     machine: { cpus, model, jobs },
+ *     part: { index, count, of } | null   (GATE_PART=<index>/<count>, of the whole run's <of> units; Amendment 3),
  *     progress: { total, completed, running: [name], current: 'name, name' | null },
  *     totals: { passed, failed, skipped, suitesPassed, suitesFailed, suitesSkipped } | null,
  *     suites: [{ file, name, verdict, pass, fail, skipped, ms, error, failures, envChanged }]   (in unit order),
@@ -104,8 +105,8 @@ function clipFailures(failures) {
     : clip(f)));
 }
 
-/** Create the record for a new run; returns the handle { file, rec }. machine: { cpus, model, jobs }. */
-function createRecord({ dir, label, total, machine }) {
+/** Create the record for a new run; returns the handle { file, rec }. machine: { cpus, model, jobs }; part: { index, count, of }. */
+function createRecord({ dir, label, total, machine, part }) {
   fs.mkdirSync(dir, { recursive: true });
   prune(dir);
   const runId = newRunId();
@@ -130,6 +131,7 @@ function createRecord({ dir, label, total, machine }) {
       argv: process.argv.slice(),
       git: gitIdentity(),
       machine: machine || null,
+      part: part || null,
       progress: { total, completed: 0, running: [], current: null },
       totals: null,
       suites: [],

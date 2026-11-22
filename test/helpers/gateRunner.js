@@ -11,7 +11,9 @@
  *     as run({ discovered: 'separately' }), so it leaves those files to the engine (Decision 3).
  *   - Each unit runs in a fresh child process (test/helpers/gateUnit.js), up to GATE_JOBS at once; by default
  *     one per CPU, os.availableParallelism() (Decisions 1 and 2). Side by side, the largest test file starts first;
- *     one at a time, unit order (Amendment 2). This process never loads a suite. The child
+ *     one at a time, unit order (Amendment 2). With GATE_PART=<i>/<n> it runs only part i of n: largest file first,
+ *     each unit goes to the part whose files total the fewest bytes, and no unit is in two parts (Amendment 3). The
+ *     units never see GATE_PART. This process never loads a suite. The child
  *     keeps today's rules for its one suite: a guarded load, process.exit trapped, process.env checked at load
  *     and after the run (ADR test-suite-hermeticity/0002), escaped errors recorded as its strays, counts
  *     normalised, and a run() that never settles is its FAIL rather than the end of the run (Decision 4).
@@ -190,6 +192,33 @@ function jobsSetting(raw, cpus) {
   return { error: `GATE_JOBS=${JSON.stringify(raw)} is not a whole number of 1 or more — it sets how many suites run at once (unset, one per CPU; 1, one at a time)` };
 }
 
+/** GATE_PART (Amendment 3): unset or empty means the whole gate; otherwise "<i>/<n>", whole numbers with 1 ≤ i ≤ n. */
+function partSetting(raw) {
+  if (raw === undefined || raw === '') return { part: null };
+  const m = /^(\d+)\/(\d+)$/.exec(raw);
+  if (m && Number(m[2]) >= 1 && Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2])) return { part: { index: Number(m[1]), count: Number(m[2]) } };
+  return { error: `GATE_PART=${JSON.stringify(raw)} is not <i>/<n> with whole numbers 1 ≤ i ≤ n — it picks which part of the gate this run is (unset, the whole gate)` };
+}
+
+/** A unit's test file size in bytes, 0 for a unit with no file: what decides where it starts and which part it is in. */
+function sizeOf(u) { try { return u.file ? fs.statSync(u.file).size : 0; } catch { return 0; } }
+
+/**
+ * The units of each of `count` parts (Amendment 3): largest file first, each into the part whose files total the fewest
+ * bytes so far, ties to the lower part. Every unit is in exactly one part, whatever GATE_JOBS is.
+ */
+function partsOf(units, count) {
+  const parts = Array.from({ length: count }, () => ({ bytes: 0, units: [] }));
+  const bySize = units.map((u) => ({ u, size: sizeOf(u) })).sort((a, b) => b.size - a.size || a.u.index - b.u.index);
+  for (const x of bySize) {
+    let best = 0;
+    for (let k = 1; k < count; k++) if (parts[k].bytes < parts[best].bytes) best = k;
+    parts[best].bytes += x.size;
+    parts[best].units.push(x.u);
+  }
+  return parts.map((p) => p.units.sort((a, b) => a.index - b.index));
+}
+
 /** "464 suites (353 registered, with operations' 111 files run as suites of their own)" (Decision 8). */
 function unitsText(units, registered, expanded) {
   const n = `${units.length} suite${units.length === 1 ? '' : 's'}`;
@@ -207,13 +236,23 @@ async function runGate({ suites, recordDir, label } = {}) {
   const cpus = availableCpus();
   const model = cpuModel();
   const setting = jobsSetting(process.env.GATE_JOBS, cpus);
+  const partWanted = partSetting(process.env.GATE_PART);
+  const part = partWanted.part ? { ...partWanted.part, of: units.length } : null;
+  // The units this run runs: all of them, or its part's (Amendment 3). Each keeps its place in the whole run's unit order.
+  const mine = part ? partsOf(units, part.count)[part.index - 1] : units;
+  const settingError = setting.error || partWanted.error || null;
   const h = R.createRecord({
     dir: R.recordDir(recordDir),
     label: label || process.env.GATE_LABEL,
-    total: units.length,
+    total: mine.length,
     machine: { cpus, model, jobs: setting.jobs || null },
+    part,
   });
   const shown = h.file.startsWith(`${R.REPO}${path.sep}`) ? path.relative(R.REPO, h.file) : h.file;
+  // Each unit's environment is the gate's starting one, less GATE_PART: that is for the engine that runs the registry,
+  // so an engine a suite starts runs its own registry whole (Amendment 3).
+  const unitEnv = { ...process.env };
+  delete unitEnv.GATE_PART;
 
   for (const stream of [process.stdout, process.stderr]) {
     if (stream._handle && typeof stream._handle.setBlocking === 'function') stream._handle.setBlocking(true);
@@ -230,7 +269,8 @@ async function runGate({ suites, recordDir, label } = {}) {
   const writeBlock = (text) => { if (text) write(text.endsWith('\n') ? text : `${text}\n`); };
 
   const where = `${setting.jobs ? `${setting.jobs} at a time on ` : 'on '}${cpus} CPU${cpus === 1 ? '' : 's'}${model ? ` (${model})` : ''}`;
-  say(`Gate run ${h.rec.runId} — record: ${shown} · ${unitsText(units, suites.length, expanded)} · ${where}`);
+  const which = part ? `part ${part.index} of ${part.count}: ${mine.length} of ${unitsText(units, suites.length, expanded)}` : unitsText(units, suites.length, expanded);
+  say(`Gate run ${h.rec.runId} — record: ${shown} · ${which} · ${where}`);
 
   let settled = false;
   let completed = 0;
@@ -270,7 +310,7 @@ async function runGate({ suites, recordDir, label } = {}) {
       progress();
       R.finishRecord(h, { verdict: 'FAIL', exitCode, totals: totalsOf(results.filter(Boolean), 1) });
     } catch { /* the record may be what failed; the exit status still says FAIL */ }
-    say(`Overall: FAIL — ${String(why).split('\n')[0]} · after ${completed}/${units.length} suites · record ${shown}`);
+    say(`Overall: FAIL — ${String(why).split('\n')[0]} · after ${completed}/${mine.length} suites · record ${shown}`);
     cleanLogs();
   };
 
@@ -287,7 +327,7 @@ async function runGate({ suites, recordDir, label } = {}) {
         writeBlock(readSafe(x.logFile));
       }
       try { progress(); R.interruptRecord(h, { signal, exitCode }); } catch { /* best effort */ }
-      say(`Overall: INTERRUPTED — ${signal} after ${completed}/${units.length} suites · record ${shown}`);
+      say(`Overall: INTERRUPTED — ${signal} after ${completed}/${mine.length} suites · record ${shown}`);
       cleanLogs();
       realExit(exitCode);
     });
@@ -302,20 +342,19 @@ async function runGate({ suites, recordDir, label } = {}) {
   });
 
   try {
-    if (setting.error) {
-      abandon(setting.error);
+    if (settingError) {
+      abandon(settingError);
       realExit(1);
       return;
     }
-    if (units.length) logDir = fs.mkdtempSync(path.join(os.tmpdir(), `gate-${h.rec.runId}-`));
-    const jobs = Math.max(1, Math.min(setting.jobs, units.length || 1));
+    if (mine.length) logDir = fs.mkdtempSync(path.join(os.tmpdir(), `gate-${h.rec.runId}-`));
+    const jobs = Math.max(1, Math.min(setting.jobs, mine.length || 1));
     // The order units start in (Amendment 2). Side by side, the largest test file first, so a long suite listed late
     // doesn't run alone at the end; ties keep unit order. One at a time, unit order, as nothing runs beside it.
     // Either way, each unit keeps its place in unit order for [i/N], the record and the summary.
-    const sizeOf = (u) => { try { return u.file ? fs.statSync(u.file).size : 0; } catch { return 0; } };
     const queue = jobs > 1
-      ? units.map((u) => ({ u, size: sizeOf(u) })).sort((a, b) => b.size - a.size || a.u.index - b.u.index).map((x) => x.u)
-      : units;
+      ? mine.map((u) => ({ u, size: sizeOf(u) })).sort((a, b) => b.size - a.size || a.u.index - b.u.index).map((x) => x.u)
+      : mine;
 
     await new Promise((resolve, reject) => {
       let next = 0;
@@ -352,7 +391,7 @@ async function runGate({ suites, recordDir, label } = {}) {
         try {
           child = cp.fork(UNIT_RUNNER, [], {
             cwd: process.cwd(),
-            env: process.env,
+            env: unitEnv,
             // Not the engine's own flags: a gate started with `node -e …` would otherwise hand its -e to every unit.
             execArgv: [],
             stdio: ['ignore', fd, fd, 'ipc'],
@@ -408,7 +447,7 @@ async function runGate({ suites, recordDir, label } = {}) {
 
     say('\nTest Results');
     say('-------------');
-    for (const x of results) {
+    for (const x of results.filter(Boolean)) {
       const shape = x.verdict === 'SKIP' ? `SKIP (${x.skipped} tests${x.skipNote ? `; ${x.skipNote}` : ''})` : `${x.verdict} ${counts(x)}`;
       say(`${x.name}: ${shape}`);
     }
@@ -427,7 +466,7 @@ async function runGate({ suites, recordDir, label } = {}) {
     settled = true;
     progress();
     R.finishRecord(h, { verdict, exitCode, totals });
-    say(`Overall: ${verdict} — ${totals.passed} passed, ${totals.failed} failed, ${totals.skipped} skipped across ${results.length} suites · record ${shown}`);
+    say(`Overall: ${verdict} — ${totals.passed} passed, ${totals.failed} failed, ${totals.skipped} skipped across ${mine.length} suites · record ${shown}`);
     cleanLogs();
     realExit(exitCode);
   } catch (err) {

@@ -71,6 +71,7 @@ For **big-picture protocol/spec changes** — evolving `BIBLE.md` + ADRs rather 
   - Each suite runs in a fresh process of its own, as many at a time as the machine has CPUs. The files under `test/operations/` run as suites of their own.
   - `GATE_JOBS=<n>` sets how many run at once. `GATE_JOBS=1` runs one at a time: that is how to tell a failure that happens only side by side from one that happens alone.
   - The run's first line names the machine: how many ran at once, and the CPU count and model.
+  - In CI the gate runs in two parts, each on its own runner, and the `stack-free` check needs both. `GATE_PART=<i>/<n>` runs part `i` of `n`. Unset, `npm test` runs the whole gate.
   - A suite's output is printed as one block when it ends, so blocks come in the order suites finish.
   - No suite may rely on another having run, or on having the machine to itself.
 

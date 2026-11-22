@@ -22,13 +22,22 @@ permissions:
   contents: read
 
 jobs:
-  stack-free:
+  # The gate in two parts, each on a runner of its own; every suite runs in exactly one part (story test-gate-speed #1,
+  # ADR test-gate-speed/0001 Amendment 3). A part runs its suites side by side, as many at a time as its runner has
+  # CPUs. Both parts run to the end, so one part's failure never hides what the other finds.
+  stack-free-part:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2]
     env:
       # @scarf/scarf's postinstall phones home; suppress it. Install scripts
       # stay ENABLED overall — lmdb/msgpackr prebuild downloads need them.
       SCARF_ANALYTICS: "false"
+      # Which part of the gate this runner runs. Unset, as on a contributor's machine, npm test runs the whole gate.
+      GATE_PART: ${{ matrix.part }}/2
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -39,11 +48,23 @@ jobs:
           node-version: '22'   # production Dockerfile parity (nodesource 22.x)
           cache: npm
       - run: npm ci
-      # TEMPORARY (test-gate-speed #1, test plan V1): today's engine, as on staging, over this same tree on this same
-      # runner, so its time can be compared with the step after it. The next push removes this step.
+      # TEMPORARY (test-gate-speed #1, test plan V1, Amendment 3): today's engine, as on staging, over this whole tree on
+      # this same runner, so its time can be compared with this part's step after it. The next push removes this step.
       - run: |
           mkdir -p "$RUNNER_TEMP/oldgate"
           git show origin/staging:test/helpers/gateRecord.js | sed "s|path.resolve(__dirname, '..', '..')|'$PWD'|" > "$RUNNER_TEMP/oldgate/gateRecord.js"
           git show origin/staging:test/helpers/gateRunner.js | sed "s|path.resolve(__dirname, '..')|'$PWD/test'|" > "$RUNNER_TEMP/oldgate/gateRunner.js"
           node -e "process.env.BRAINSTORM_RELAY_URL='wss://test-relay.com'; process.env.BRAINSTORM_RELAY_PUBKEY='test-pubkey'; require(process.env.RUNNER_TEMP + '/oldgate/gateRunner').runGate({ suites: require('./test/registry').suites, label: 'old-engine' })" || echo "the old engine's run exited $?"
       - run: npm test
+
+  # The check main's ruleset requires by name, and it carries the parts' verdict. It runs even when a part failed or
+  # was cancelled, since a skipped required check would read as passing, and it fails unless every part succeeded.
+  stack-free:
+    needs: stack-free-part
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "The parts of the stack-free gate: ${{ needs.stack-free-part.result }}"
+          test "${{ needs.stack-free-part.result }}" = "success"

@@ -42,7 +42,7 @@ function describe({ path: file, rec: r }) {
   const p = r.progress || {};
   const t = r.totals || {};
   const commit = r.git && r.git.commit ? `${r.git.commit.slice(0, 8)}${r.git.dirty ? '+dirty' : ''}` : 'an unknown commit';
-  const head = `${r.runId}${r.label ? ` [${r.label}]` : ''} started ${r.startedAt} on ${commit}`;
+  const head = `${r.runId}${r.label ? ` [${r.label}]` : ''}${r.part ? ` (part ${r.part.index} of ${r.part.count})` : ''} started ${r.startedAt} on ${commit}`;
   const progress = `${p.completed}/${p.total} suites`;
   if (r.state === 'running') {
     if (R.isAlive(r.pid)) {
