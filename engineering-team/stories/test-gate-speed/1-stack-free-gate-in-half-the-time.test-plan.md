@@ -203,6 +203,18 @@ The ten count on the final commit.
 Every CI run of the story's PR to `staging` passes, and finishes the job in under 12 minutes. Each run's first line
 names its CPUs, so the review can say what each runner was.
 
+### The results (2026-11-21/22)
+
+| Check | Run | What it measured | Result |
+|---|---|---|---|
+| V1 | CI 44978145159, Intel Xeon Platinum 8573C, one job | today's engine 1,243 s; the new one 623 s | 0.501, over half: stop rule (Amendment 2) |
+| V1, re-time | CI 44981972812, AMD EPYC 7763, one job, longest-first | 1,349 s; 703 s | 0.521, over half: the owner chose the split (Amendment 3) |
+| **V1'** | CI 44985636771, two parts, each runner timing today's whole gate first | part 1, AMD EPYC 9V74: 1,154 s, then 215 s. Part 2, AMD EPYC 7763: 1,353 s, then 444 s | **0.186 and 0.328: passes.** The parts' totals add up to the whole gate's: 4,195 + 4,491 = 8,686 passed, and 344 + 325 = 669 skipped |
+| **V2** | sealed container, 4 CPUs, commit `7df76221` | today's engine 1,038.7 s; the new one 403.6 s | **0.389: passes.** All 354 entries have the same counts; `operations` = its own unit + its 111 files |
+| V2, split | sealed container, final tree | part 1: 232 suites, 4,375 passed, 350 skipped, 137 s. Part 2: 233 suites, 4,259 passed, 319 skipped, 233 s | **Passes:** no suite in both parts, all 465 covered, and 8,634 passed, 0 failed, 669 skipped, the same as a whole run |
+| **V3** | sealed container, commit `7836548a`: the final tests, and the workflow still with the timing step, which W1–W10 pass either way | ten full runs in a row: runs 1–6 on 4 CPUs in 357–367 s, runs 7–10 with 4 jobs on 2 CPUs in 515–520 s | **Passes:** all ten 8,634 passed, 0 failed, 669 skipped |
+| **V4** | CI 44987919987, the branch's final shape | part 1, 3 m 50 s; part 2, 4 m 20 s; `stack-free`, 3 s | **Passes:** the verdict 4 m 29 s after the run started, against 14–23 min today |
+
 ### The failing run, at the Phase-3 commit
 
 Confirmed on 2026-11-21, on the Architecture commit `25081b02` with this phase's changes, under today's engine and
