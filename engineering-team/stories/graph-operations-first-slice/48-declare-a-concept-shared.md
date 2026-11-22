@@ -1,6 +1,6 @@
 # Story 48: Declare one of the instance's own concepts a shared concept, affiliate it, or mark it deliberately unaffiliated, through the graph operations, so export nostr sends it as one
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-21
 **Type:** Feature
 **Loom:** A10.44 — https://loom.brainstorm.world/t/A10.44
@@ -209,4 +209,4 @@ The records are in the worktree's `tmp/live-check-48/`, to be copied to the main
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/graph-operations-first-slice/48-declare-a-concept-shared.md`
