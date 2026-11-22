@@ -38,11 +38,11 @@
 - **Who may call** is given for each group, with exceptions in the rows.
 - **The Today column** starts with how much of the job today's routes already do: **New** (nothing does it), **Partial** (a route does part of it), **Exists** (a route does it without signing) or **Signs** (a route does it, but signs a nostr event first). It names each route, and "(not in /docs)" marks a route that works but isn't in the instance's API document yet.
 
-## At a glance (62 operations)
+## At a glance (65 operations)
 
 - **Graph reads (10):** orient, search, resolve, describe-concept, describe-node, list-elements, class-thread-path, list-relationships, walk, history.
-- **Graph writes (26):**
-  - concepts: create-concept, update-concept, delete-concept;
+- **Graph writes (29):**
+  - concepts: create-concept, update-concept, declare-shared, wire-to-shared, defer-sharing, delete-concept;
   - properties and schema: add-property, update-property, remove-property, set-schema, enumerate, unenumerate, mark-field, unmark-field, map-fields;
   - nodes: create-element, update-node, add-to-concept, remove-from-concept, move-element, copy-node, merge-nodes, delete-node;
   - sets: create-set, link-set, unlink-set, delete-set;
@@ -83,6 +83,9 @@ Who may call: the owner and admins. Each write checks its guards before writing 
 |---|---|---|---|---|
 | `create-concept` | A concept with its eight core nodes and their wiring (BIBLE §9), with no event: each node the one the import would make of the letter today's route signs, recorded without signing (ADR graph-operations-first-slice/0016) | `name`, `plural?`, `description?` → the header's and core nodes' tapestryKeys by role; safe to repeat by slug | Answers `already-exists`, untouched, for a slug one of this instance's concepts has, naming each input that differs; reports near matches, another author's shared concept among them, and never refuses for them; refuses a key another of this instance's concepts has (`key-in-use`, `concept-slug-unique`: BIBLE §10, rule 10) and a name or plural that is empty, has no slug, has a control character, a text-direction control or an invisible character, or is over 200 characters | Signs: `POST /api/normalize/create-concept` and `POST /api/normalize/skeleton`. |
 | `update-concept` | Change a concept's names, slug or description, keeping its key, labels and address | `concept`, `name?`, `plural?`, `slug?`, `description?` → the concept, what changed, and whether its letter no longer matches it | Refuses a slug in use (`slug-in-use`, `concept-slug-unique`), another author's concept, a firmware concept, and a new singular name for a concept the server finds by name, or onto such a name | Signs: `POST /api/normalize/set-slug` changes the slug only. |
+| `declare-shared` | Offer one of the instance's own concepts as a shared concept, one other authors may affiliate with, with no event: its header gets the self-pointing pointer `b` its letter would carry, `["b", "39998:<TA>:<d-tag>", "pointer"]`, a deferral marker it held goes, and the self-loop `REFERENCES {source:'b-tag'}` the spec derives from it is drawn (protocols/drafts/inherit-from.md; ADR graph-operations-first-slice/0048). Export nostr sends it | `concept` → the concept, its disposition after the call (`selfDeclared`, `wired`, `deferred` and its `bValues`), and whether its letter no longer matches it; safe to repeat by concept (`already-declared`, for a `b` of any type naming its own address) | Refuses a node that isn't a concept header, another author's concept, one at the owner's own key (the assistant can't sign a new version of it), a firmware concept (a reinstall would drop the `b`), and a graph without the firmware | Signs: `POST /api/concept/:handle/self-declare`, owner only. |
+| `wire-to-shared` | Affiliate one of the instance's own concepts with another author's shared concept, with no event: its header gets `["b", <target>, "pointer"]` beside any `b` it holds, a deferral marker it held goes, and `REFERENCES {source:'b-tag'}` is drawn to the node at the target's address, or to a placeholder made there (ADR 0048). Export nostr sends it, and stamps the concept's elements with a `z` for the target | `concept`, `target` (a concept header's address, `39998:<pubkey>:<d-tag>`, or an naddr of one) → as `declare-shared`, with the `target`: its `address`, whether the graph holds it (`held`), and the `node` the relationship runs to; safe to repeat by concept and target (`already-wired`, for a `b` of any type naming the target) | Refuses a target that isn't a concept header's address (`bad-target`), and the concept's own address (`self-target`: `declare-shared` does that), with `declare-shared`'s refusals. A target the graph doesn't hold is reported (`held: false`) and written all the same | Signs: `POST /api/concept/:handle/b-append`, owner only. |
+| `defer-sharing` | Mark one of the instance's own concepts deliberately unaffiliated, with no event: its header gets the marker `["b", "b-tag-deferred"]`, which draws no relationship and which `declare-shared` or `wire-to-shared` later takes out (ADR 0048). It travels with its header if export nostr sends it | `concept` → as `declare-shared`; safe to repeat by concept (`already-deferred`) | Refuses a concept whose header holds a real `b`, naming an address or an event (`affiliated`: a declaration or a wiring beats a deferral), with `declare-shared`'s refusals | Signs: `POST /api/concept/:handle/b-defer`, owner only. |
 | `delete-concept` | Remove a concept and its core nodes | `concept` → removed | Refuses while the concept has elements or sets | New. |
 
 **Properties and schema**
@@ -241,7 +244,8 @@ Who may call: the owner and admins, as every lifecycle operation built so far is
 | the `io` export | export file |
 | `firmware/install` | lifecycle seed-firmware |
 | `tapestry-key/*` | cache get and rebuild; lifecycle migrate (`initialize`, `offload`); `POST /:key` gone (D10) |
-| `concept/:handle/self-declare`, `b-append`, `b-defer` | community references (BIBLE §22, §25): to place in the review |
+| `concept/:handle/self-declare`, `b-append`, `b-defer` | graph declare-shared, wire-to-shared and defer-sharing, which write the same `b` with no event (ADR graph-operations-first-slice/0048); the routes stay behind the concept page's buttons, owner only, signing as they write |
+| `normalize/set-b-tag` | still to place: it also takes a `b` out, and writes an inherit `b` and a note, which no operation does yet (ADR graph-operations-first-slice/0048 Decision 10) |
 
 **The app layer.** Operations that only make sense for one kind of concept — the second brain's goals and proposals, shared concepts, curated lists, tags — sit above the module, as combinations of its operations. The module itself stays generic.
 

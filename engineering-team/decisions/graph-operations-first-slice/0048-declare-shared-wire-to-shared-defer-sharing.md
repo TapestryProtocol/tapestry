@@ -3,6 +3,20 @@
 **Status:** Accepted
 **Date:** 2026-11-21
 **Story:** `engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.md`
+**Amended by:** Amendment 1 (2026-11-21, at Test Design). It covers:
+- what `target.held` means;
+- the field for the `b` values;
+- what a repeat answers in `target`;
+- the order of the checks;
+- the `target` input's schema;
+- the words the refusals say;
+- the two tests whose catalog count moves.
+
+**Amended by:** Amendment 2 (2026-11-21, at review round 1's findings, which the owner chose to fix before the pull request). It covers:
+- the makers add-relationship's refusal of `REFERENCES` names;
+- a merged placeholder, in place of a created one;
+- two wordings in the docs;
+- a second live check.
 
 ## Context
 
@@ -231,3 +245,86 @@ We chose **Option A**. Each operation's job matches what its name says, and the 
 - Export retract.
 - The routes for a user's own headers.
 - Whether a target is itself declared shared. It is that author's claim, read per point of view, and this ADR neither checks nor reports it.
+
+## Amendment 1 (2026-11-21, at Test Design) — what the answers hold, and the order of the checks
+
+The Tester raised four points the Decisions left open (`48-declare-a-concept-shared.test-plan.md`, § "Raised at Test Design", items 1–4). The suites pin what follows.
+
+1. **`target.held` says whether the graph holds the target itself.** It replaces Decision 7's "`held` is false when a placeholder was made".
+   - **What counts as held:** a node at the address that isn't a placeholder. A placeholder is a node with no `created_at`, whoever made it and whenever. Import nostr and `buildImportCypher` make one as a `NostrEvent`, seed-firmware as a `TapestryNode`.
+   - **An earlier placeholder:** a wire whose target holds only a placeholder an earlier call made answers `held: false`. `node` is then that placeholder's key, and no second node is made.
+   - **Why:** an agent reads `held` to learn whether the instance knows the concept it wired to, not whether this call made a node.
+2. **`disposition` carries the header's `b` values as `bValues`.** It is a list of strings: each `b`'s value, its second element, once each and sorted, read after the call. ADR shared-concepts-adoption/0001 gave the same name to the same list in the Concepts page's query.
+3. **A repeat of `wire-to-shared` answers `target` as a first call does,** read from the graph, writing nothing.
+   - `address` and `held` are as in item 1.
+   - `node` is the key of the node at the address. It is null when the graph holds none there, which happens when a route that draws no relationship wrote the `b`. The repeat doesn't draw the relationship: a repeat changes nothing.
+4. **The order of the checks.**
+   - **`wire-to-shared`:**
+     1. the input checker;
+     2. `bad-target`, the target's form, checked in `apply` before any statement, since an input's own refusal comes first (update-concept, its Decision 2);
+     3. the locks, which give `not-installed`;
+     4. the header's refusals, `unknown-concept`, `not-own-concept` and `firmware-concept`, in that order;
+     5. `self-target`;
+     6. the repeat;
+     7. the write.
+   - **`declare-shared` and `defer-sharing`:**
+     1. the locks;
+     2. the header's refusals, in the same order;
+     3. `affiliated`, for `defer-sharing` only;
+     4. the repeat;
+     5. the write.
+
+   So the first statement of every transaction is still `K.lock`'s (Decision 4).
+5. **`target`'s input schema is a string with a `maxLength` of 2048, and no `pattern`.** Its form is `targetOf`'s to check (Decision 2), so a bad form is refused `bad-target`, naming the input `target`. A pattern would let the input checker answer `invalid-input` first.
+6. **The words the suites read** follow Decisions 3 and 5:
+   - `not-own-concept` says "another author" for another author's header, and "owner" for one at the owner's key;
+   - `self-target` names `graph declare-shared`;
+   - `not-installed` names the concept-header concept.
+7. **Two existing tests move.** MF15 (`mark-field.test.js`) and EN29 (`enumerate.test.js`) now pin "At a glance (65 operations)", which Decision 10 makes the catalog say, as story 19's Test Design moved MF15.
+
+**Ratification:** the owner, 2026-11-21, at the Test Design gate ("Approved, go on").
+
+## Amendment 2 (2026-11-21, at review round 1; the owner chose to fix its non-blocking findings before the pull request) — the refusal's makers, a merged placeholder, two wordings and a second live check
+
+Review round 1 (`engineering-team/reviews/graph-operations-first-slice/48-declare-a-concept-shared.md`) passed with five non-blocking findings. The owner chose "Fix findings first". Each item below answers one or more of them.
+
+1. **add-relationship's refusal of `REFERENCES` names its makers (finding 1).**
+   - **What changes:** `FIRMWARE_MADE` in `src/operations/rules/relationship-type-allowed.js` gains `REFERENCES`: import nostr, and `graph declare-shared` and `wire-to-shared` from a `b`. Story 19 named `ENUMERATES`' makers the same way, pinned by EN28.
+   - **What doesn't:** `docs/GRAPH_RULES.md`'s entry 2 still names `REFERENCES` among the import's reserved types, which stays true. So no graph rule element is regenerated, and no firmware reinstall is needed.
+2. **The placeholder is merged, not created (finding 4).** This replaces Decision 6's "`CREATE (p:NostrEvent {uuid})`".
+   - **The race it closes:** an import can commit a node at the target's address between `nodeAt`'s read and the write. The uniqueness rule on `NostrEvent.uuid` then fails a `CREATE`, and the wire answers 500. *(Corrected at review round 2:)* Only an import can land in that gap. Import nostr takes no C1 lock, while another concept's wire, seed-firmware and create-concept all take C1 first (Decision 4; `seed-firmware.js:148-149`; `create-concept.js:71`), so they wait for the wire to end. What an import makes there is a `NostrEvent`, which the `MERGE` matches.
+   - **The two fixes:**
+     - **(a) Run the wire once more on that failure,** as import nostr runs its event again. Rejected: the write path runs a write again only when a node it needs vanished (`src/operations/write.js`). Running again on a uniqueness failure would widen that path for every write, and the operation can't open a second transaction of its own.
+     - **(b) `MERGE` the placeholder.** Chosen. With the uniqueness rule in place, a `MERGE` waits for a node another transaction is committing at the address, and then matches it instead of failing. An import's own `CREATE` that comes after it fails its constraint and runs again, as it already does (ADR 0032, Decision 7.9). It then finds the placeholder and fills it.
+   - **The statement:**
+
+     ```
+     MERGE (p:NostrEvent {uuid: $uuid})
+       ON CREATE SET p.kind = toInteger($kind), p.pubkey = $pubkey
+     ```
+
+     It then gives the node its key with `keyNode('p')`, which keeps a key the node already has, and returns `p.tapestryKey AS key, p.created_at IS NOT NULL AS dated`.
+   - **What the answer reads:** `target.node` and `target.held` come from the merged node. `held` is true when it has a `created_at`, which is Amendment 1 item 1's meaning.
+   - **Why `nodeAt` still runs first:** a `MERGE` on the `NostrEvent` label doesn't see a node at the address without that label, such as seed-firmware's kind of placeholder or a node of the instance's own with no letter.
+   - **The `MERGE` adopts first, as every `MERGE` of a `NostrEvent` by its address does.** Test Design found this (G9 in `test/operations/lifecycle/tapestry-key-paths.test.js`).
+     - **The statement:** right before the `MERGE`, a statement of its own gives a node at the address without the `NostrEvent` label that label: `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent SET x:NostrEvent`. That is `importEventDirect`'s adoption (ADR graph-operations-foundation/0003, Decision 9).
+     - **When it matters:** where `nodeAt` found nothing, it changes nothing. *(Corrected at review round 2:)* The writers that make a node without the `NostrEvent` label at a concept header's address, the only kind a wire targets, are seed-firmware and create-concept. Both take C1 first, so neither can land between the lookup and the `MERGE`. The adoption is G9's rule, kept for every `MERGE` of a `NostrEvent` by its address. It is not this race's fix: the `MERGE` is.
+     - **Why not the other fix:** listing this `MERGE` as an exception to G9 would weaken a check every other `MERGE` by address passes, so it isn't taken.
+     - **Its source text,** for the kept-lookups entries (the Tester's lane), as two lines in `_dispositions.js` right before the placeholder's:
+
+       ```
+       const ADOPT = `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent
+         SET x:NostrEvent`;
+       ```
+
+       `drawReference` runs it, then the `MERGE`, only when `nodeAt` found no node.
+   - **The registry:** the kept-lookups entry names the `MERGE` line, which is the Tester's lane.
+3. **The docs say which writes draw a relationship, and where it runs (findings 2 and 3).**
+   - **`protocols/drafts/inherit-from.md`'s implementation note:** the two pointer writes each draw the relationship the import derives, and the marker draws none.
+   - **BIBLE §25's bullet:** the relationship runs to the placeholder at the address, or to one the write makes when no node is there.
+4. **A second live check, LH2, on a scratch stack (finding 5).** On a real Neo4j:
+   - a wire to an address the graph doesn't hold makes the merged placeholder, of import nostr's shape;
+   - a declaration of a deferred concept takes the marker out;
+   - two wires of different concepts to one absent address, fired together from one node process inside the container, both answer `wired`, with one placeholder made. *(Corrected at review round 2:)* Both wires take C1, so they run one after the other, and the second finds the first's placeholder. This checks that two wires can't fail each other. The race with an import isn't run live; WS20 pins it on the Cypher engine.
+
+**Ratification:** the owner, 2026-11-21, at the round-2 gate ("Fix findings first"). The gate's message said that either answer accepts this amendment unless the owner says otherwise, and the owner said nothing otherwise. Its three examples of the race are corrected at review round 2's finding, as the owner chose. Only an import can land between the lookup and the write; the code doesn't change.
