@@ -400,3 +400,18 @@ with the test plan's approval.
    its files run as "suites of their own".
 3. **The machine fields.** `machine.model` is `os.cpus()[0].model`, trimmed, and `machine.cpus` is
    `os.availableParallelism()`. The first line uses the same two values.
+
+## Amendment 2 (2026-11-21, Implementation): side by side, the largest test file starts first
+
+The stop rule (Decision 11) fired at V1, and the owner chose this change, then one more same-runner timing on CI.
+
+- **What V1 measured.** CI run 44978145159 used an Azure runner with an Intel Xeon Platinum 8573C and 4 vCPUs. Over the same merged tree, today's engine took 1,243 s and this one 623 s. The ratio was 0.501 against the target of at most 0.5.
+  - All four slots were busy for 570 of the 623 s, so more units at a time than CPUs wouldn't help.
+  - Side by side, each suite ran 1.5 to 2.2 times slower than alone: the 4 vCPUs behave like about 2 cores.
+  - The tail after the slots stopped being full cost about 20 s: `schema-save-finds-the-right-header` (69 s) and `operations/lifecycle/seed-firmware` (107 s) were started late.
+  - In the sealed container on 4 real cores, the same tree gave 0.389, with every suite's counts the same (V2).
+- **The change, to Decision 2.** When more than one unit runs at once, the next unit to start is the one with the largest test file. Ties keep unit order, and a unit with no file counts as size 0. File size is the only predictor every run has, CI's fresh runners included, since nothing records an earlier run's times there.
+  - Re-run over V1's own times, this order gives 612 s, a ratio of 0.492. Starting the longest first, if the times were known in advance, would give 606 s.
+  - With `GATE_JOBS=1` nothing runs side by side, the order changes nothing about the time, and units keep unit order. A one-at-a-time run therefore still runs in registry order, as P3, C6 and P9 rely on.
+- **What stays.** Each unit keeps its place in unit order for `[i/N]`, the record and the summary (Decisions 5 and 7). Only the order units start in changes.
+- **The guard.** P20 in `test/gate-side-by-side.test.js` pins it: with `GATE_JOBS=2`, the largest of three fixtures, listed last, starts first.
