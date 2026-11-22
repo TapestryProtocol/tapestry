@@ -39,4 +39,11 @@ jobs:
           node-version: '22'   # production Dockerfile parity (nodesource 22.x)
           cache: npm
       - run: npm ci
+      # TEMPORARY (test-gate-speed #1, test plan V1): today's engine, as on staging, over this same tree on this same
+      # runner, so its time can be compared with the step after it. The next push removes this step.
+      - run: |
+          mkdir -p "$RUNNER_TEMP/oldgate"
+          git show origin/staging:test/helpers/gateRecord.js | sed "s|path.resolve(__dirname, '..', '..')|'$PWD'|" > "$RUNNER_TEMP/oldgate/gateRecord.js"
+          git show origin/staging:test/helpers/gateRunner.js | sed "s|path.resolve(__dirname, '..')|'$PWD/test'|" > "$RUNNER_TEMP/oldgate/gateRunner.js"
+          node -e "process.env.BRAINSTORM_RELAY_URL='wss://test-relay.com'; process.env.BRAINSTORM_RELAY_PUBKEY='test-pubkey'; require(process.env.RUNNER_TEMP + '/oldgate/gateRunner').runGate({ suites: require('./test/registry').suites, label: 'old-engine' })" || echo "the old engine's run exited $?"
       - run: npm test
