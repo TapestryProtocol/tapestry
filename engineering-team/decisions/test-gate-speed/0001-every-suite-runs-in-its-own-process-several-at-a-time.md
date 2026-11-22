@@ -451,3 +451,32 @@ The owner chose this after the re-time. One GitHub runner can't reliably reach h
   takes it out of the environment it gives each unit. A suite that starts an engine of its own, as the gate's own guard
   suites do, therefore runs that engine's whole registry, whichever part the outer run is. P23 pins it, and the fixture
   helper's `engineEnv` drops it too.
+
+## Amendment 4 (2026-11-22, review round 1): what a suite's process does after its result still counts
+
+Review round 1 found the blocking gap, and the owner chose to keep the guarantee.
+
+- **The gap.** Decision 4 sent a unit's result one macrotask after its run, and the unit exited at once. So nothing it did later counted:
+  - a throw, an un-awaited rejection, or a trapped `process.exit` that fires 300 ms after its run;
+  - an exit cleanup that throws, or a crash at exit.
+
+  Staging's engine failed each of these, since everything ran in its one process. The late ones were strays. An exit cleanup that throws was the engine's own failure. A crash at exit killed the whole run's process, though its record said PASS. This engine passed them all. Story `honest-test-gate` #1's guarantee, that a call "deferred past a suite's `run()` is a stray FAIL", rested on prose, and no test reached past one macrotask.
+- **The change, to Decision 4.**
+  1. After its run, and the `process.env` check one macrotask later, a unit stays up until either of two things happens first:
+     - its event loop has nothing left that could run, when `beforeExit` fires;
+     - **2 seconds** have passed since its run ended, on an unref'd timer, so the cap itself never keeps the process alive.
+  2. An error, a rejection or a trapped `process.exit` in that window is a stray of this unit, like one during its run. `process.env` is checked once more at the end of the window.
+  3. Then the unit sends its result and exits.
+  4. **A unit whose process exits non-zero, or by a signal, after sending its result is that unit's FAIL**: "its process ended with exit <n> (or by <signal>) after it sent its result". The parent reads the exit status with the message.
+  5. **So the exit after the result takes no code of its own.** Once the result is on its way, the unit's own stray listeners step aside and it calls the real `process.exit()` with no argument. An exit cleanup that throws then ends the process with Node's own exit 1, where an explicit `exit(0)` would have kept 0, and a listener left in place would have swallowed the error. A failure in the moment between sending and exiting goes to the unit's log and sets exit 1. A suite that leaves `process.exitCode` non-zero fails the same way. Every suite in the registry that sets it does so only when run directly, under `require.main === module`.
+- **What the cap costs** (measured 2026-11-22 in the sealed container, at `7836548a`, with a 5-second cap):
+  - Of 465 units, 446 had nothing left to run, so they wait no time at all.
+  - Nineteen held something open afterwards. About half let go at about 4 s, which is `fetch`'s idle keep-alive. The rest held on until the 5-second cap.
+  - With 5 s the whole run took 391 s against 357–367 s. At 2 s those nineteen add at most about 38 unit-seconds, about 10 s of a whole run on 4 CPUs, and a few seconds to each CI part.
+  - 2 s catches the reviewer's 300 ms cases, and most failures a suite leaves behind by mistake. A failure that fires later than 2 s after its run is lost, which the old engine also lost for the last suite of every run.
+- **Also from round 1:**
+  - **An engine failure mid-run** now prints each running unit's output so far, marked unfinished, as the signal path does.
+  - **The split's coverage rests on determinism (Amendment 3).** Both parts check out the same commit, and the split reads only the tree's file list and file sizes, with ties broken by unit order. So the two runners compute the same parts, and their union is every unit exactly once. That answers Option B's own drawback without job outputs.
+  - **Decision 6 promised too much.** The engine kills what a unit left in its own process group. A process the suite starts with `detached: true` has a group of its own and lives on: ending it is the suite's job, as it was with the old engine.
+  - **The parts balance by bytes, not time** (round 1, non-blocking 3). In the container, part 2 held 920 unit-seconds to part 1's 539. AC1 holds at worst at 0.328, so this is debt, not a defect: balancing by an earlier run's times would need that history on CI.
+- **The guards.** P24 (a late throw, rejection or exit, one at a time and side by side), P25 (an exit failure after the result), P26 (a unit waits for its own timers, and one that leaves an interval still ends within the cap) and P27 (an engine failure prints the units still running).
