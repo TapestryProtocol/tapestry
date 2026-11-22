@@ -2,14 +2,19 @@
  * Deploy-Safety Status API — epic deploy-safety-gate, Story 1 / ADR 0001.
  *
  * One unauthenticated read-only GET (/api/deploy-safety/status) answering
- * "is it safe to redeploy this instance right now?" by aggregating three
- * LIVE in-process sources:
+ * "is it safe to redeploy this instance right now?" by aggregating four
+ * LIVE sources:
  *
  *   1. BullMQ ACTIVE jobs (scheduled fires and manual run-task triggers
  *      alike) — only active jobs have a child process a deploy would kill.
  *   2. The legacy per-customer scheduler's in-flight runs
  *      (customer-schedule getInFlightCount()).
- *   3. The next fire among all enabled scheduled entries, gated by a buffer
+ *   3. The firmware installs running now (story 4 / ADR 0004): today's
+ *      install, counted in this process's memory (src/firmware/inFlight.js),
+ *      and lifecycle seed-firmware, read from the live lifecycle lock through
+ *      inspectLock(), which only reads. seed-firmware can run from a shell, a
+ *      process of its own, which only the lock is shared with.
+ *   4. The next fire among all enabled scheduled entries, gated by a buffer
  *      (ratified default: 10 minutes).
  *
  * AC-3 (phantom-running exclusion) holds STRUCTURALLY: this module must
@@ -17,6 +22,15 @@
  * orphaned TASK_START there and reads "running" for hours. Running-now
  * comes from live state only. A source sentinel in
  * test/deploy-safety-status.test.js (S1) enforces this.
+ *
+ * The same holds for installs (story 4, AC-3). The in-memory count dies with
+ * the process. The lock is judged by the lifecycle store's own staleness
+ * rule, so a cut-off run's lock, its holder gone and its host the old
+ * container's, reads as no install. This module never reads the lifecycle's
+ * run records or their logs, or the marker the first-boot install leaves,
+ * and never calls anything that takes, frees or recovers the lock, which
+ * would make the GET a write. test/deploy-safety-sees-installs.test.js (S1)
+ * enforces this.
  *
  * The verdict is computed by the exported pure function computeVerdict()
  * so AC-3/AC-4 have stack-free unit tests. This module must stay
@@ -40,14 +54,19 @@ const MAX_BUFFER_MINUTES = 1440;
  * @param {boolean} input.queueStateKnown    queue introspection succeeded
  * @param {number} input.activeCount         BullMQ active jobs (both trigger paths)
  * @param {number} input.legacyInFlightCount legacy per-customer runs in flight
+ * @param {number} [input.installCount=0]    firmware installs running (story 4 / ADR 0004)
  * @param {Array<{entryId, taskId, label, at}>} input.nextFires
  *        enabled entries with a non-null next run (ISO `at`)
  * @returns {{ safeToDeploy: boolean, verdict: string, reasons: string[], nextFire: object|null }}
  */
-function computeVerdict({ now, bufferMs, queueEnabled, queueStateKnown, activeCount, legacyInFlightCount, nextFires }) {
+function computeVerdict({ now, bufferMs, queueEnabled, queueStateKnown, activeCount, legacyInFlightCount, installCount = 0, nextFires }) {
   const reasons = [];
   if (activeCount > 0) reasons.push('QUEUE_TASK_RUNNING');
   if (legacyInFlightCount > 0) reasons.push('LEGACY_TASK_RUNNING');
+  // A running firmware install, today's or lifecycle seed-firmware, is a
+  // running source like the two above: one reason however many run, and like
+  // them it keeps NEXT_FIRE_WITHIN_BUFFER out (ADR 0004 sub-decisions 1, 5).
+  if (installCount > 0) reasons.push('FIRMWARE_INSTALL_RUNNING');
   // Fail closed: an ENABLED queue whose state is unknown blocks the deploy.
   // A disabled queue is a known state, not an unavailable one (AC-5).
   if (queueEnabled && !queueStateKnown) reasons.push('QUEUE_STATE_UNAVAILABLE');
@@ -72,6 +91,26 @@ function computeVerdict({ now, bufferMs, queueEnabled, queueStateKnown, activeCo
 
   const verdict = reasons.length === 0 ? 'safe' : 'unsafe';
   return { safeToDeploy: verdict === 'safe', verdict, reasons, nextFire };
+}
+
+/**
+ * The seed-firmware run a lifecycle lock shows (story 4 / ADR 0004
+ * sub-decision 4). Pure: it takes the lock as the lifecycle store's
+ * inspectLock() returns it.
+ *
+ * - A seed-firmware lock that isn't stale gives one install,
+ *   { install: 'seed-firmware', startedAt }.
+ * - No lock gives none, and so does one of another op (a backup, restore or
+ *   migration isn't an install).
+ * - A stale or unreadable lock gives none, as the store itself judges it. A
+ *   lock left by a run a deploy cut off is stale: its holder died with the
+ *   old container, whose host it names.
+ *
+ * Nothing about who holds it: no pid, host or run id.
+ */
+function seedFirmwareFromLock(lock) {
+  if (!lock || lock.stale || lock.op !== 'seed-firmware') return [];
+  return [{ install: 'seed-firmware', startedAt: lock.startedAt || null }];
 }
 
 /**
@@ -161,6 +200,15 @@ async function handleStatus(req, res) {
     // container restart, so this source cannot phantom (AC-3).
     const legacyInFlightCount = require('../customer-schedule').getInFlightCount();
 
+    // Firmware installs running now (story 4 / ADR 0004): today's install
+    // from this process's memory, which a restart clears; seed-firmware from
+    // the live lifecycle lock, judged stale by the store's own rule. Lazy
+    // required, like the sources above. Names and start times only.
+    const installs = [
+      ...require('../../firmware/inFlight').list(),
+      ...seedFirmwareFromLock(require('../../operations/catalog/lifecycle/_store').inspectLock()),
+    ].sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)));
+
     const { safeToDeploy, verdict, reasons, nextFire } = computeVerdict({
       now,
       bufferMs,
@@ -168,6 +216,7 @@ async function handleStatus(req, res) {
       queueStateKnown,
       activeCount,
       legacyInFlightCount,
+      installCount: installs.length,
       nextFires,
     });
 
@@ -186,6 +235,7 @@ async function handleStatus(req, res) {
       bufferMs,
       queue,
       legacy: { inFlightCount: legacyInFlightCount },
+      firmware: { installCount: installs.length, installs },
       schedule: { enabledEntryCount: enabledEntries.length, nextFire },
     });
   } catch (err) {
@@ -195,5 +245,6 @@ async function handleStatus(req, res) {
 
 module.exports = {
   computeVerdict,
+  seedFirmwareFromLock,
   handleStatus,
 };

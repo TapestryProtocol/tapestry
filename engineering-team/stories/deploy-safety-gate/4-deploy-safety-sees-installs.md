@@ -75,6 +75,49 @@ For the Architect (each answered in ADR 0004):
 2. **One reason or two.** One reason for both installs with a detail that says which, or one reason each. *Answered by sub-decision 1: one reason, `FIRMWARE_INSTALL_RUNNING`.*
 3. **Where the installer's procedure goes.** No doc in the repo describes running an install on a deployed instance today. BIBLE §7 names the route, and AGENTS.md §6 the local curl. *Answered by sub-decision 8: `docs/SAFE_TO_MERGE.md`, with a pointer from BIBLE §7.*
 
+## Deviations
+
+- **`install()` wraps the old body instead of re-indenting it.** The ADR has `install()` enter the count on its first line and leave in a `finally` around the rest. The body moved, unchanged, into a new internal `runInstall()`, and `install()` is now the three-line wrapper around it. That gives the same behavior with no 170-line re-indent. `runInstall()` isn't exported, so every caller still goes through `install()`.
+- **A seed-firmware lock with no `startedAt` reports `startedAt: null`.** The store always writes one (`acquireLock`), so this only guards a hand-made lock file.
+- **BIBLE §7's pointer is a short paragraph with two bullets, not the ADR's "one bullet".** It needed the reason, both installs and the doc's pointer, and a single bullet ran too long.
+- **The new procedure section names the droplet's loopback command** (`docker exec tapestry curl … 127.0.0.1:7778/api/firmware/install`). That is how sessions run an install on staging and production. `docs/` is outside harness-lint's wiring set, so the literal port is allowed there.
+
+## Evidence
+
+**The scoped gate, stack-free (2026-11-21, Implementation).** It ran on `239fe71e` (the failing tests' commit), with the implementation in the working tree and committed unchanged after it. Node was 22.23.1, CI's major.
+
+**The environment** was the memory's scoped-gate recipe:
+- a stub `curl` and a stub `docker` first on `PATH`;
+- `BRAINSTORM_CONF_PATH` at a conf whose `NEO4J_URI` is a closed port;
+- `BRAINSTORM_BASE_URL`, `TAPESTRY_API_BASE`, `MEILI_URL_HOST`, `CONCEPT_GRAPH_URL` and `REDIS_PORT` on port 9;
+- `TAPESTRY_CONTAINER` unset.
+
+**62 suites were derived from the diff:** every registered suite whose source names a changed file, or a function the change touched (`deploy-safety`, `firmware/install`, `firmware/inFlight`, `inspectLock`, `SAFE_TO_MERGE`, BIBLE, `ledger/`). `gate-result-record` came in because test files changed. `operations.test.js` ran in place of the suites under `test/operations/`.
+
+Three were left out:
+- `event-tagging-firmware-seed`, which calls `localhost:7778` whatever the environment says;
+- `stack-free-npm-test`, whose G2 runs live tests when a control panel answers, so it stays CI's;
+- `safe-to-merge-check`, run on its own below.
+
+**Results:**
+- **Run `20261122T021617Z-70304-eec5` (label `ds4-impl-2`): FAIL, exit 1, with 3169 passed, 3 failed and 123 skipped across 62 suites.** All three failures are `router-stream-limit-on-connect` P1–P3. There, BSD `sed` rejects the router patch's GNU `sed -i` (`invalid command code f`), which is OPEN ledger row `2026-10-09-router-patch-sed-macos`. This diff touches no script, patch or Docker file. The skips are live parts, which need a stack.
+- **This story's suites** gave `deploy-safety-sees-installs` 37 of 37, and `deploy-safety-status` 17 passed with 6 live skips. `next-task-countdown` gave 24, `close-unauth-write-surface` 14, `default-deny-mutations` 14 and `admin-action-sweep-access` 13. `firmware-install-leaves-tags-once` gave 24, and `operations` 1504 passed with 20 skipped.
+- **`test/safe-to-merge-check.test.js`, on its own with the system `curl`:** 17 of 17, B10 included. Its script talks only to its own `127.0.0.1` servers.
+
+**An earlier run is not the verdict.** Run `20261122T020532Z-2714-68de` (`ds4-impl-1`) also failed `operations`, with 48 export-nostr failures: `Cannot find package 'micromark'`. The worktree had borrowed the main checkout's `node_modules` by symlink, and that tree predates the export-nostr story's dependency. `npm ci --ignore-scripts` gave the worktree its own tree from the lockfile, and the second run passed `operations` whole.
+
+**What B10's check printed** (abridged):
+
+```
+attempt 1/10 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"] raw={…"firmware":{"installCount":1,"installs":[{"install":"firmware-install",…
+attempt 2/10 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"] …
+attempt 3/10 verdict=unsafe reasons=["FIRMWARE_INSTALL_RUNNING"] …
+attempt 4/10 verdict=safe reasons=[] raw={…"firmware":{"installCount":0,"installs":[]},…}
+SAFE — merge may proceed …
+```
+
+**Not checked here.** There was no live check, since the local container is off-limits. The live evidence is the book's: one install on staging and one on production, each on the owner's yes, with the check run against that instance during it.
+
 ## Linked artifacts
 - Book: `engineering-team/audits/deploy-safety-sees-installs/book.md`
 - ADR: `engineering-team/decisions/deploy-safety-gate/0004-deploy-safety-sees-firmware-installs.md`

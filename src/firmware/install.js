@@ -41,6 +41,9 @@ const { planElement } = require('./element-sync');
 const { runCypher } = require('../lib/neo4j-driver');
 // The form of a tapestryKey (ADR graph-operations-foundation/0004 Decision 7): Pass 2 names a header by one only when it has one.
 const TAPESTRY_KEY = new RegExp(require('../operations/catalog/graph/_nodes').KEY_PATTERN);
+// The in-memory count of the installs running in this process. Its reader is the deploy-safety answer
+// (src/api/deploy-safety), which is unsafe while an install is counted (story deploy-safety-gate #4, ADR 0004).
+const installsInFlight = require('./inFlight');
 // Relationship type aliases used by concept manifests
 const REL = {
   CLASS_THREAD_INITIATION: firmware.relAlias('CLASS_THREAD_INITIATION') || 'IS_THE_CONCEPT_FOR',
@@ -1277,7 +1280,22 @@ async function pass_communityReferences(opts = {}) {
 
 // ── Full install ─────────────────────────────────────────────
 
+/**
+ * The install, counted for its whole run in src/firmware/inFlight.js, whether it returns or throws, so the
+ * deploy-safety answer is unsafe until it ends and a merge can't redeploy the instance mid-install (story
+ * deploy-safety-gate #4, ADR deploy-safety-gate/0004 sub-decision 3). Every caller in this process is counted: the
+ * route, so the Dashboard's button, the loopback call and the install at first start, and a dry run too.
+ */
 async function install(opts = {}) {
+  const leave = installsInFlight.enter('firmware-install');
+  try {
+    return await runInstall(opts);
+  } finally {
+    leave();
+  }
+}
+
+async function runInstall(opts = {}) {
   const { pass1 = true, pass2 = true, dryRun = false } = opts;
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
