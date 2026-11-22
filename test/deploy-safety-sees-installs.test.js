@@ -986,9 +986,15 @@ t('D7 (AC-6; round 1, blocking 1): "Before a firmware install" says an answer wi
     'the transition note must name production, until `main` takes story #4.');
   assert(/held by hand/.test(note),
     'the transition note must say that on such an instance, merges into its branch are held by hand until the install ends.');
-  const nobody = s.split(/(?<=[.!?])\s+/).filter((x) => /nobody needs to hold merges/i.test(x));
-  assert(nobody.every((x) => /on that instance|carries story #4/.test(x)),
-    `"nobody needs to hold merges by hand" may stand only for an instance that carries story #4; it is false where a branch lacks it (review round 1, blocking 1). Got: ${JSON.stringify(nobody)}.`);
+  // "Nobody needs to hold merges by hand" is false where a branch lacks story #4 (review round 1, blocking 1). So its
+  // sentence must be qualified ("on that instance"), and its paragraph must name the instance it means, one that carries
+  // story #4: "on that instance" alone would let the condition drop (review round 2's fix check, F4).
+  const nobodySentences = s.split(/(?<=[.!?])\s+/).filter((x) => /nobody needs to hold merges/i.test(x));
+  assert(nobodySentences.every((x) => /on that instance|carries story #4/.test(x)),
+    `"nobody needs to hold merges by hand" must be qualified in its own sentence. Got: ${JSON.stringify(nobodySentences)}.`);
+  const nobodyParagraphs = s.split(/\n\s*\n/).filter((p) => /nobody needs to hold merges/i.test(p));
+  assert(nobodyParagraphs.every((p) => /carries story #4/.test(p)),
+    `"nobody needs to hold merges by hand" may stand only in a paragraph that limits it to an instance that carries story #4. Got: ${JSON.stringify(nobodyParagraphs)}.`);
   assert(/deploy-tags\.yml/.test(s), 'the running-deploy check must name tags\' workflow, deploy-tags.yml, beside staging\'s and production\'s.');
 });
 

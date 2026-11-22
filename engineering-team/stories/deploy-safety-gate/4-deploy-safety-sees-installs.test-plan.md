@@ -198,3 +198,14 @@ The other six findings are prose: the meta row, the story's Evidence, the D6 row
 - with the "What to do there" bullet removed: "the transition note must say that on such an instance, merges into its branch are held by hand until the install ends";
 - with ", and production until `main` takes it" removed: "the transition note must name production, until `main` takes story #4";
 - with the qualifier taken off ("and nobody needs to hold merges by hand."): ""nobody needs to hold merges by hand" may stand only for an instance that carries story #4 …".
+
+**Round 2's fix check, F4: D7 also holds the condition's paragraph.** The fix check found that D7 accepted "on that instance" alone. If the paragraph's bold sentence lost "that carries story #4", D7 stayed green. D7 now checks two things:
+- the "nobody needs to hold merges by hand" sentence is qualified in itself, "on that instance";
+- its paragraph names the instance it means, one that carries story #4.
+
+On the working tree D7 passes, and the suite gives 42 of 42. Each of five scratch edits, on its own scratch copy of the working tree, turns D7 red:
+- "that carries story #4" removed from the bold sentence: the paragraph check fails;
+- "on that instance" removed: the sentence check fails;
+- the "What to do there" bullet removed;
+- ", and production until `main` takes it" removed;
+- the "How to tell" bullet removed.
