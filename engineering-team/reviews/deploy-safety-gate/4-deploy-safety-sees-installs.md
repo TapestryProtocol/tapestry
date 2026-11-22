@@ -429,3 +429,83 @@ Every round-2 finding is fixed. Each fix holds as a fresh claim, or holds where 
 
 - [x] The story is already `Done`, from round 2's review commit, so nothing flips.
 - [ ] Completion detection performed. The result goes in the chat, not in this file.
+
+---
+
+## Second fix-check (F1–F4)
+
+**Reviewer:** Claude (acting as Reviewer)
+**Date:** 2026-11-21 (2026-11-22 UTC)
+**Diff:** `git show 3208c7c90 d780c4715`, two commits:
+- `3208c7c90` (test), F4: D7 and the test plan;
+- `d780c4715` (docs), F1–F3: the meta row, the reboot row, and ADR 0004 :278.
+
+5 files, +39 / −8. They come just before `60ecaa9e6`, the commit that holds the fix-check section above, so the fix-check's "HEAD is `d8a6d6581`" is history. The base is still `94e85fe06`, and the story is `Done`.
+
+### Quality gates (run by reviewer, not trusted)
+
+The safety constraints and environment were round 1's.
+
+- [x] **Scoped gate, the same 13 suites, on the committed HEAD `60ecaa9e6`:** `npm run gate:status -- --label ds4-review-4` gives
+  `20261122T040850Z-16361-73b4 [ds4-review-4] started 2026-11-22T04:08:50.225Z on 60ecaa9e — PASS, exit 0, 369 passed, 0 failed, 10 skipped, 13/13 suites`
+  - **The tree was clean,** and no suite left `process.env` changed. `deploy-safety-sees-installs` gave 42 of 42, and every other suite gave the fix-check's numbers.
+  - **It agrees with the coordinator's run,** `20261122T040256Z-24746-f06e` on `3208c7c9+dirty`: the same 13 suites and totals.
+- [x] **Why the same 13.** The two commits change D7's test file, the test plan, the ADR and two ledger rows. Their readers are a subset of the fix-check's 13: `deploy-safety-sees-installs`, `gate-result-record`, `harness-lint`, `harness-stats`, `rollup-scanners`, `ledger-row-ids`, `session-start` and `live-link-checks`. `safe-to-merge-check` reads the recipe, its script and the cycle skills, none of which changed, so I didn't rerun it.
+- [x] **D7's guard, on a scratch copy of `60ecaa9e6`,** one edit to the recipe at a time, each restored:
+
+  | Edit | Result |
+  |---|---|
+  | none (control) | 42 of 42 |
+  | "that carries story #4" dropped from :130's bold sentence, with "on that instance" kept (the fix-check's F4 probe) | D7 alone fails: "… may stand only in a paragraph that limits it to an instance that carries story #4 …" |
+  | "on that instance" removed from :130 | D7 alone fails: "… must be qualified in its own sentence …" |
+  | the "What to do there" bullet removed | D7 alone fails |
+  | the production clause removed | D7 alone fails |
+  | the "How to tell" bullet removed | D7 alone fails |
+
+  These are the test plan's five edits, reproduced.
+- [x] **`bash scripts/harness-lint.sh`:** clean before this section, and clean after it, with 0 violations.
+
+### F1–F4, each re-checked as a fresh claim
+
+| Finding | The fix | Checked against |
+|---|---|---|
+| F1, the meta row's readers | :13-24: seven readers, three through `getConfigFromFile` and four through `brainstormConfig` | **Holds.** I re-derived it from a grep of the whole repo outside tests and docs. The code readers are exactly these seven. The other hits are comments, log lines, and the template line that sets the flag. `control-panel.js:334` does decide whether the queue starts (:335-345). |
+| F1, "a test process never starts the queue" | :33: nothing has started it in the gate's process by the time those suites run; two later suites start it over stand-ins | **Holds.** Only `task-queue-job-gate` and `tagging-edges-wiring` call `initTaskQueue` (`task-queue-bullmq` and `task-queue-neo4j-resource-class` only mention it), and both sit after this suite in `test/registry.js` (319 and 305, against 130). B10's in-process handler runs right after this suite too. |
+| F2, the wedge | the reboot row :26-29 and ADR :278: five operations, and three ways the refusal ends | **Holds.** Backup, restore, migrate and seed-firmware take the lock through `C.begin`, and upload-backup checks it with `recoverIfStale` (`upload-backup.js:48-49`). No other lifecycle operation refuses. The refusal ends once the lock reads stale (a new pid or start time, or a new hostname after a recreate) or is removed. |
+| F3, the second fix shape | the reboot row :34: wall-clock time, and the boot id as the only full fix on its own | **Holds,** including "only … on its own". A wall-clock start rests on `btime`, which moves when the clock is stepped, so comparing it needs a tolerance; the boot id doesn't. |
+| F4, D7 | D7 also checks that the paragraph names an instance that carries story #4 | **Holds.** My probe now fails D7, and so does each of the other four edits. |
+
+**Also checked:**
+- **Phase lanes:** `3208c7c90` touches only the suite and the test plan, and `d780c4715` no test file.
+- **No new verdict vocabulary** in the ADR, the story or the test plan; harness-lint's L14 holds.
+
+### Findings, second fix-check
+
+#### Blocking
+
+None.
+
+#### Non-blocking
+
+1. **G1. `ledger/2026-11-22-brainstorm-config-ignores-conf-path.md:27` and `:37`: the file doesn't always win.** This is older text, from round 2, resting on my round-1 reading; I found it while re-deriving F1.
+   - **Why.** `brainstormConfig`'s parser keeps only bare `VAR=value` lines (`src/utils/brainstormConfig.js:57`). The template writes the flag as `export TASK_QUEUE_ENABLED=true` (`config/brainstorm.conf.template:100`), and the entrypoint renders `/etc/brainstorm.conf` from that template (`docker/entrypoint.sh:41-62`). So on a deployed instance `brainstormConfig` never takes the flag from the file. It gets it from `process.env`, because the entrypoint sources the conf (:292).
+   - **The check.** I called `parseConfig` in memory: the `export` line gave no key, the bare line did, and `get()` then returned the environment's value.
+   - **What it changes.** "The queue flag comes from `/etc/brainstorm.conf`" (:27) holds only for a bare line. "The file wins over `process.env`" (:37) is wrong for the template's own line, so the first fix shape (exporting `TASK_QUEUE_ENABLED=false`) works better than the row says.
+
+   Optional: correct both lines.
+2. **G2. `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.md:89`: this round isn't in the Evidence.** D7 changed again, and a run was made (`20261122T040256Z-24746-f06e`, on `3208c7c9+dirty`). But the story's Evidence still ends at round 3, and :89 still says round 3 "changed only prose and one test, D7". The run is recorded only in `d780c4715`'s message and in this review. Optional: one line in the Evidence.
+
+#### Harness friction *(anything the process itself got wrong this story — stale doc, wrong port/path, contradictory instruction; each becomes an OPEN.md row, type `meta`)*
+
+1. None new. G1 is one more case of my own earlier reading going into a record, caught on a fresh check.
+
+### Verdict, second fix-check
+
+F1–F4 are fixed, and each fix holds as a fresh claim. D7's guard is real, and the gate on the committed HEAD passes. What remains is two optional corrections to records, neither touching code, tests or the procedure.
+
+**PASS**
+
+### Close-out, second fix-check
+
+- [x] The story is already `Done`, so nothing flips.
+- [ ] Completion detection performed. The result goes in the chat, not in this file.
