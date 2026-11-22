@@ -29,4 +29,9 @@
   (`tmp/review-container-apt-refresh/derive-gate.js` in the main checkout). The book's audit records the sighting
   (`engineering-team/audits/container-apt-refresh/audit.md` §7).
 
+**2026-11-22 (story `deploy-safety-gate` #4, review round 1, harness friction 1): again.**
+- **What was missed.** The Implementer's token-derived list of 62 suites missed five that read files the change touched: `suite-env-changes`, `rollup-scanners`, `harness-stats`, `kill-timeout-orphans-by-default` and `note-tagging-raw-events-inspector-ui`. They read `test/registry.js`, `stories/_intake.md` and the new book.
+- **How it was found.** The Reviewer's own derivation found them. All five passed.
+- **Recorded** in book `deploy-safety-sees-installs`'s audit §7.
+
 **Pointer:** `engineering-team/reviews/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.md` (round 1, Blocking 1, and its process note; round 2, non-blocking 3 and 4); `engineering-team/stories/graph-operations-first-slice/47-wordtypes-hold-each-concepts-key.test-plan.md` (Amendment 2).
