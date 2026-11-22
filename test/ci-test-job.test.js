@@ -177,6 +177,27 @@ test('W9 (supply chain): only the two official actions/* are used — no unpinne
   }
 });
 
+// test-gate-speed #1 (ADR test-gate-speed/0001 Decision 10): the gate got faster inside the one job, by running suites
+// side by side on the runner's CPUs. The job is still one job, stack-free, and nothing in it holds the gate to one
+// suite at a time or splits it across runners.
+test('W10 (test-gate-speed #1 AC4): one job, stack-free, with no strategy or matrix and no GATE_JOBS, so CI runs as many suites at a time as the runner has CPUs', () => {
+  const src = workflow();
+  const jobsAt = src.search(/^jobs:\s*$/m);
+  assert(jobsAt !== -1, 'workflow must define a jobs: block.');
+  const jobIds = [];
+  for (const line of src.slice(jobsAt).split('\n').slice(1)) {
+    if (/^\S/.test(line)) break; // the next top-level key ends the jobs: block
+    const m = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (m) jobIds.push(m[1]);
+  }
+  assert(jobIds.length === 1 && jobIds[0] === 'stack-free',
+    `the workflow must keep exactly one job, stack-free, the check main's ruleset requires by name (ADR test-hermeticity-ci/0001; ADR test-gate-speed/0001 Decision 10); found jobs ${JSON.stringify(jobIds)}.`);
+  assert(!/^\s*(strategy|matrix):/m.test(src),
+    'the job must not use a strategy or matrix: splitting the gate across runners is ADR test-gate-speed/0001 Option B, which was not taken.');
+  assert(!/GATE_JOBS/.test(src),
+    'the workflow must not set GATE_JOBS: CI runs the default, as many suites at a time as the runner has CPUs (ADR test-gate-speed/0001 Decision 2).');
+});
+
 // ===========================================================================
 // D* — the OPERATIONS.md documentation contract (ADR 0001 Implementation notes)
 // ===========================================================================

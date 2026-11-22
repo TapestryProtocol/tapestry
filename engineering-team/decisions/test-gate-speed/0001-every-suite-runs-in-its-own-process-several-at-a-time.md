@@ -386,3 +386,17 @@ requests to `staging` and `main`, and a promotion carries it to `main`.
 - Making any suite faster on its own, and the 40-minute limit.
 - The CI log parser outside the repo.
 - Windows, which the gate has never supported.
+
+## Amendment 1 (2026-11-21, Test Design): three details the guard pins
+
+The guard suite, `test/gate-side-by-side.test.js`, pins three details that Decisions 3, 7 and 8 left loose. These come
+with the test plan's approval.
+
+1. **An expanded unit's name** is its folder's name, then its path under that folder, without `.test.js`. An example is
+   `operations/graph/add-to-concept`, which is Decision 3's own example. That way a fixture folder outside `test/` gives
+   path-based names too, such as `ops/nested/also`. The guard can test the rule without writing into `test/` during a
+   run: A2 and A7 compare `git status` before and after a run. Any other unit keeps Decision 3's rule.
+2. **The line `operations.test.js` prints** when given `{ discovered: 'separately' }` names `test/operations/` and says
+   its files run as "suites of their own".
+3. **The machine fields.** `machine.model` is `os.cpus()[0].model`, trimmed, and `machine.cpus` is
+   `os.availableParallelism()`. The first line uses the same two values.

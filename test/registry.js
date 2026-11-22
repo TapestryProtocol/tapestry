@@ -2,36 +2,29 @@
 /**
  * The gate's suite registry — honest-test-gate #1, ADR honest-test-gate/0001 §3.
  *
- * ONE ordered list. The order is the execution order (carried over from the hand-written
- * runner this replaced), and every suite is loaded before any runs, so a suite's
- * load-time reads see today's environment whatever its position. Adding a suite is one
- * line here; the engine (test/helpers/gateRunner.js) derives every summary line and
+ * ONE ordered list. Since test-gate-speed #1 (ADR test-gate-speed/0001) every suite runs in
+ * a fresh process of its own, several at a time, so the order is only the order suites
+ * start in and are listed in; no suite may rely on another having run. Adding a suite is
+ * one line here; the engine (test/helpers/gateRunner.js) derives every summary line and
  * every total from this list, so nothing else needs to agree with it.
  *
  *   { file, skipNote? }  file is resolved against test/; skipNote is the reason printed
  *                        when the whole suite skipped (e.g. no live stack).
- *   { name, run }        a pseudo-entry (the config smoke check).
+ *   { file, expand }     the same, and every *.test.js under test/<expand>/ also runs as a
+ *                        suite of its own, right after it (ADR test-gate-speed/0001
+ *                        Decision 3). Only operations.test.js has one.
+ *
+ * Every entry has a file: a function can't be handed to another process. The config smoke
+ * check, once a { name, run } entry here, is test/config-loading.test.js.
  *
  * Every test/*.test.js file must be in `suites` or in `excluded` with a reason —
  * test/stack-free-npm-test.test.js G5 fails otherwise, so a suite can never be written
  * and then silently never run.
  */
 
-// The config smoke check that used to run ahead of the suites (its env is set in test/test.js).
-async function configLoading() {
-  const { loadConfig } = require('../lib/config');
-  try {
-    const config = loadConfig();
-    console.log('Configuration loaded successfully:', Object.keys(config));
-    return { pass: 1, fail: 0 };
-  } catch (error) {
-    console.error('Configuration loading failed:', error.message);
-    return { pass: 0, fail: 1 };
-  }
-}
-
 const suites = [
-  { name: 'config-loading', run: configLoading },
+  // The config smoke check, first as it always was (its two relay keys are set in test/test.js).
+  { file: 'config-loading.test.js' },
   { file: 'profile-tags.test.js', skipNote: 'control panel not reachable' },
   { file: 'profile-tags-publish.test.js', skipNote: 'preconditions not met' },
   { file: 'tag-detail.test.js', skipNote: 'control panel not reachable' },
@@ -388,9 +381,10 @@ const suites = [
   { file: 'openapi-coverage.test.js' },
   { file: 'openapi-document.test.js' },
   // graph-operations-foundation #1: the operations module — one declaration per operation, and its route, route-table
-  // entry, /docs entry, command and list entry made from it (ADR graph-operations-foundation/0001). It also runs every
-  // suite under test/operations/, so an operation's own suite needs no line here (ADR Decision 12).
-  { file: 'operations.test.js' },
+  // entry, /docs entry, command and list entry made from it (ADR graph-operations-foundation/0001). Every suite under
+  // test/operations/ runs as a suite of its own right after it, so an operation's own suite needs no line here (ADR
+  // Decision 12; since test-gate-speed #1, expand, ADR test-gate-speed/0001 Decision 3).
+  { file: 'operations.test.js', expand: 'operations' },
   // graph-operations-foundation #5: the concept of neo4j properties in firmware, its two sets and its manifest entry
   // (ADR graph-operations-foundation/0005 Decisions 1 and 2). The story's operation suites live under test/operations/.
   { file: 'neo4j-property-firmware.test.js' },
@@ -433,6 +427,10 @@ const suites = [
   // wiring in a child over the same engine (test/helpers/communityStepChild.js).
   { file: 'community-references-prune-builder.test.js' },
   { file: 'firmware-install-leaves-tags-once.test.js' },
+  // test-gate-speed #1: every suite runs in a fresh process of its own, several at a time, and operations' files run as
+  // suites of their own (ADR test-gate-speed/0001). Stack-free in every run: it drives the engine in a child over
+  // fixture suites in a temp dir (test/helpers/gateFixtures.js).
+  { file: 'gate-side-by-side.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so

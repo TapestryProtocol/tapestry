@@ -79,7 +79,7 @@ None open. The owner answered two at planning, on 2026-11-21:
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/test-gate-speed/0001-every-suite-runs-in-its-own-process-several-at-a-time.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/test-gate-speed/1-stack-free-gate-in-half-the-time.test-plan.md`
 - Review: (filled in after Review phase)
 - Intake: `engineering-team/stories/_intake.md`, the 2026-11-21 entry "The stack-free gate runs one suite at a time, and each operations story adds about a minute and a half to every pull request (refactor)"
 - Ledger: `ledger/2026-11-21-ci-gate-nears-25-minute-timeout.md` (the measurements; closed by #191)

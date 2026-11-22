@@ -355,21 +355,27 @@ test('C5 (AC-3): a suite that returns no result counts is a FAIL, not a silent P
   assert(bad && bad.verdict === 'FAIL', `a suite whose run() returns no { pass, fail } must be recorded FAIL; got ${JSON.stringify(bad)}`);
 });
 
-// Re-aimed 2026-11-20 (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002): the engine now gives every suite
-// back the environment it began with, so a run-time write to process.env can no longer reach a later load, eager or
-// lazy, and env-writer's run is now a FAIL. The signal is a file the writer's run leaves beside both fixtures.
-test('C6 (AC-3; ADR Decision "Load order"): every suite is loaded before any runs, so a later suite\'s load-time read cannot see an earlier suite\'s run-time write', () => {
+// Re-aimed 2026-11-20 (test-suite-hermeticity #4, ADR test-suite-hermeticity/0002): the engine gives every suite back
+// the environment it began with, so a run-time write to process.env can no longer reach a later load.
+// Re-aimed again 2026-11-21 (test-gate-speed #1, ADR test-gate-speed/0001 Decision 1, superseding "Load order"): each
+// suite now loads in a fresh process of its own, just before it runs. What must still hold is that nothing an earlier
+// suite's run left in its process reaches a later suite's load. The signal is a global the writer's run sets. It is
+// no longer a file, since the file system is shared by every process and no engine isolates it. GATE_JOBS=1 runs the
+// writer first; an engine of today's kind ignores it and loads both before either runs.
+test('C6 (AC-3; ADR test-gate-speed/0001 Decision 1): a later suite\'s load-time read cannot see what an earlier suite\'s run left in its process', () => {
   F.need('runner');
   const sc = F.scenario();
   try {
-    const r = F.runEngineSync(sc, [sc.suite('marker-writer.test.js'), sc.suite('marker-reader.test.js')]);
+    const r = F.runEngineSync(sc, [sc.suite('marker-writer.test.js'), sc.suite('marker-reader.test.js')],
+      { extraEnv: { GATE_JOBS: '1' } });
     const { rec } = onlyRecord(sc, 'C6');
     const writer = F.entryMap(rec)['marker-writer.test.js'];
     const reader = F.entryMap(rec)['marker-reader.test.js'];
     assert(writer && writer.verdict === 'PASS' && fs.existsSync(path.join(sc.dir, 'load-order-marker')),
-      `precondition: marker-writer must run and leave its file, or the reader proves nothing; its record entry: ${JSON.stringify(writer)}`);
+      `precondition: marker-writer must run (it leaves load-order-marker when it does), or the reader proves nothing; its record entry: ${JSON.stringify(writer)}`);
     assert(reader && reader.verdict === 'PASS',
-      'marker-reader saw the file marker-writer\'s run left while it was loading — the engine loaded suites lazily. ADR 0001 (Decision, "Load order") requires every suite loaded before any runs, so load-time reads (e.g. the eight TAPESTRY_SETTINGS_PATH readers) keep today\'s meaning. ' +
+      'marker-reader saw, while it was loading, the global marker-writer\'s run set: the engine loaded it in the process an earlier suite ran in. ' +
+      'ADR test-gate-speed/0001 (Decision 1) loads each suite in a fresh process of its own, so nothing a suite leaves in its process reaches another. ' +
       `marker-reader's record entry: ${JSON.stringify(reader)}`);
     assert(r.status === 0, `with both suites passing the run must exit 0; got ${r.status}`);
   } finally { sc.cleanup(); }
@@ -479,17 +485,24 @@ function recordedFail(sc, r, why) {
   return rec;
 }
 
+// Re-aimed 2026-11-21 (test-gate-speed #1, ADR test-gate-speed/0001): a suite now runs in a process of its own, so
+// record-write-fault's patch of fs can no longer reach the engine's record writes. record-dir-readonly reaches them
+// from outside: its run takes write permission off the record directory, and the engine's next record write fails,
+// whichever process makes it. A root user ignores file modes, so as root this skips. CI's runner isn't root.
 test('C11 (AC-3): when the engine itself fails — its run-record write throws mid-run — the run still ends with Overall: FAIL and a non-zero exit, never with exit 0 and no verdict', () => {
   F.need('runner');
+  if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    skip('C11 needs a user that file modes bind: as root the record directory stays writable (run the gate as a non-root user, as CI does)');
+  }
   const sc = F.scenario();
   try {
     const marker = path.join(sc.dir, 'fault-fired');
     const r = F.runEngineSync(sc,
-      [sc.suite('pass.test.js'), sc.suite('record-write-fault.test.js'), sc.suite('second-pass.test.js')],
+      [sc.suite('pass.test.js'), sc.suite('record-dir-readonly.test.js'), sc.suite('second-pass.test.js')],
       { extraEnv: { GATE_FIXTURE_MARKER: marker } });
     assert(F.readSafe(marker) !== null,
-      `precondition: the injected fault must fire — once record-write-fault has returned, the engine's next write into GATE_RECORD_DIR is refused; no write was (exit ${r.status}, last line ${JSON.stringify(F.lastLine(r.stdout))}). ` +
-      'If the engine now writes its record some other way, re-aim record-write-fault in test/helpers/gateFixtures.js');
+      `precondition: the fault must be set — record-dir-readonly must run and take write permission off GATE_RECORD_DIR; it didn't (exit ${r.status}, last line ${JSON.stringify(F.lastLine(r.stdout))}). ` +
+      'If the engine now writes its record somewhere other than GATE_RECORD_DIR, re-aim record-dir-readonly in test/helpers/gateFixtures.js');
     endsFail(sc, r, "the engine's own failure (a run-record write that throws)", { exit: 'non-zero' });
   } finally { sc.cleanup(); }
 });

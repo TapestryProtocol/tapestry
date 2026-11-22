@@ -14,6 +14,12 @@
  * re-aimed gate-result-record's C6. The same carve-out holds for that story: its
  * Implementer must not modify this file either.
  *
+ * Also shared by test/gate-side-by-side.test.js (test-gate-speed #1, ADR
+ * test-gate-speed/0001), which added the fixtures under "test-gate-speed #1" below, the
+ * EXPAND_FIXTURE folder, scenario().folder() and runFunctionEntryEngine(), and re-aimed the
+ * fixtures of gate-result-record's C6 and C11. The same carve-out holds: that story's
+ * Implementer must not modify this file either.
+ *
  * Nothing here requires the gate engine at module load. Before implementation the
  * engine does not exist, and a registered suite that throws at require time would crash
  * the current runner's load phase for every suite on the branch. Every engine touch goes
@@ -96,6 +102,61 @@ const MARK_RAN = "require('fs').writeFileSync(require('path').join(__dirname, 'r
 const E = ENV_FIXTURE;
 const envSet = (key, value) => `process.env.${key} = '${value}';`;
 
+/* test-gate-speed #1 (ADR test-gate-speed/0001): fixtures that show where, when and beside what a suite ran. */
+
+// Writes met-<self> beside itself, then waits up to 15 s for met-<other>. Both pass only when they run at once.
+const meet = (self, other) =>
+  "const fs = require('fs');\n" +
+  "const path = require('path');\n" +
+  'module.exports = { run: async () => {\n' +
+  `  fs.writeFileSync(path.join(__dirname, 'met-${self}'), String(process.pid));\n` +
+  '  const end = Date.now() + 15000;\n' +
+  '  while (Date.now() < end) {\n' +
+  `    if (fs.existsSync(path.join(__dirname, 'met-${other}'))) return { pass: 1, fail: 0 };\n` +
+  '    await new Promise((r) => setTimeout(r, 25));\n' +
+  '  }\n' +
+  `  return { pass: 0, fail: 1, failures: [{ name: 'meet', message: 'meet-${other} never ran while meet-${self} was running' }] };\n` +
+  '} };\n';
+
+// Prints 15 lines over about 1.2 s, and one more on stderr halfway. Records where and when it ran in span-<name>.json:
+// the pid that loaded it, the pid that ran it, and when its run started and ended.
+const chatty = (name) =>
+  "const fs = require('fs');\n" +
+  "const path = require('path');\n" +
+  'const LOAD_PID = process.pid;\n' +
+  'module.exports = { run: async () => {\n' +
+  '  const start = Date.now();\n' +
+  '  for (let i = 0; i < 15; i++) {\n' +
+  `    console.log('${name} line ' + i);\n` +
+  `    if (i === 7) console.error('${name} on stderr');\n` +
+  '    await new Promise((r) => setTimeout(r, 80));\n' +
+  '  }\n' +
+  `  fs.writeFileSync(path.join(__dirname, 'span-${name}.json'), JSON.stringify({ pid: process.pid, loadPid: LOAD_PID, start, end: Date.now() }));\n` +
+  '  return { pass: 1, fail: 0 };\n' +
+  '} };\n';
+
+// Prints one line, then records its pid in hang-pid-<name> and waits a minute on a timer, until the guard stops it.
+const hang = (name) =>
+  "const fs = require('fs');\n" +
+  "const path = require('path');\n" +
+  'module.exports = { run: async () => {\n' +
+  `  console.log('partial output before the interrupt (fixture: ${name})');\n` +
+  `  fs.writeFileSync(path.join(__dirname, 'hang-pid-${name}'), String(process.pid));\n` +
+  '  await new Promise((r) => setTimeout(r, 60000));\n' +
+  '  return { pass: 1, fail: 0 };\n' +
+  '} };\n';
+
+// The folder an expanding entry names (ADR test-gate-speed/0001 Decision 3), written by scenario().folder().
+// Three suites at two depths, one of them with no run(); a helper that isn't a suite; and a suite under
+// node_modules, which discovery skips.
+const EXPAND_FIXTURE = {
+  'good.test.js': pass(2),
+  'nested/also.test.js': 'module.exports = { run: async () => ({ pass: 2, fail: 0, skipped: 1 }) };\n',
+  'bad.test.js': 'module.exports = {};\n',
+  'helper.js': 'module.exports = { notASuite: true };\n',
+  'node_modules/skipped.test.js': pass(99),
+};
+
 const FIXTURE_SOURCES = {
   'pass.test.js': pass(2),
   'second-pass.test.js': pass(1),
@@ -141,15 +202,16 @@ const FIXTURE_SOURCES = {
   // suite's FAIL; test/suite-env-changes.test.js uses it as such. Its old partner env-reader went with C6's re-aim.
   'env-writer.test.js':
     "module.exports = { run: async () => { process.env.GATE_FIXTURE_ENV_PROBE = 'written-by-env-writer'; return { pass: 1, fail: 0 }; } };\n",
-  // C6's load-order probe (re-aimed 2026-11-20, test-suite-hermeticity #4): the writer's run leaves a file beside
-  // both fixtures, and the reader notes at load whether it was there. A file, because the engine now gives every
-  // suite back the environment it began with, so process.env can no longer carry the signal.
+  // C6's probe (re-aimed again 2026-11-21, test-gate-speed #1, ADR test-gate-speed/0001 Decision 1): the writer's run
+  // leaves a global in its process, and the reader notes at load whether it is there. A global, because suites now
+  // load in processes of their own: a file the writer left would reach the reader through the shared file system,
+  // which no engine isolates. The writer still leaves load-order-marker, to show that it ran.
   'marker-writer.test.js':
     "const fs = require('fs');\n" +
     "const path = require('path');\n" +
-    "module.exports = { run: async () => { fs.writeFileSync(path.join(__dirname, 'load-order-marker'), 'written by marker-writer'); return { pass: 1, fail: 0 }; } };\n",
+    "module.exports = { run: async () => { globalThis.__gateLoadOrderMarker = 'written by marker-writer'; fs.writeFileSync(path.join(__dirname, 'load-order-marker'), 'written by marker-writer'); return { pass: 1, fail: 0 }; } };\n",
   'marker-reader.test.js':
-    "const SEEN_AT_LOAD = require('fs').existsSync(require('path').join(__dirname, 'load-order-marker'));\n" +
+    'const SEEN_AT_LOAD = globalThis.__gateLoadOrderMarker !== undefined;\n' +
     'module.exports = { run: async () => (SEEN_AT_LOAD ? { pass: 0, fail: 1 } : { pass: 1, fail: 0 }) };\n',
 
   /* ── Added at the review kick-back, 2026-09-13 (review c6ed2b35, Blocking 1 and 2) ── */
@@ -191,6 +253,19 @@ const FIXTURE_SOURCES = {
     "  trap(fs.promises, ['writeFile', 'appendFile'], one, true);\n" +
     "  trap(fs.promises, ['open'], opening, true);\n" +
     "  trap(fs.promises, ['rename', 'copyFile'], either, true);\n" +
+    '  return { pass: 1, fail: 0 };\n' +
+    '} };\n',
+  // C11's route since test-gate-speed #1 (ADR test-gate-speed/0001): a suite runs in a process of its own, so it can no
+  // longer patch the engine's fs. Instead its run takes write permission off the run's record directory, which the
+  // engine's next record write then meets, whichever process makes it. It marks GATE_FIXTURE_MARKER first, so the guard
+  // can tell that it ran. A root user ignores file modes, so as root it skips and leaves the marker unwritten.
+  'record-dir-readonly.test.js':
+    "const fs = require('fs');\n" +
+    "if (!process.env.GATE_RECORD_DIR) throw new Error('record-dir-readonly needs GATE_RECORD_DIR');\n" +
+    'module.exports = { run: async () => {\n' +
+    "  if (typeof process.getuid === 'function' && process.getuid() === 0) return { pass: 0, fail: 0, skipped: 1 };\n" +
+    '  if (process.env.GATE_FIXTURE_MARKER) fs.writeFileSync(process.env.GATE_FIXTURE_MARKER, String(Date.now()));\n' +
+    '  fs.chmodSync(process.env.GATE_RECORD_DIR, 0o500);\n' +
     '  return { pass: 1, fail: 0 };\n' +
     '} };\n',
   // Blocking 1, route 2 — ends the process while the engine is still loading suites.
@@ -272,6 +347,68 @@ const FIXTURE_SOURCES = {
     '  return { pass: 1, fail: 0 };\n' +
     '} };\n',
   ])),
+
+  /* ── test-gate-speed #1 (ADR test-gate-speed/0001): where, when and beside what each suite runs ── */
+
+  'meet-a.test.js': meet('a', 'b'),
+  'meet-b.test.js': meet('b', 'a'),
+  'chatty-a.test.js': chatty('chatty-a'),
+  'chatty-b.test.js': chatty('chatty-b'),
+  'prints-then-hangs.test.js': hang('prints-then-hangs'),
+  'slow-two.test.js': 'module.exports = { run: () => new Promise((r) => setTimeout(() => r({ pass: 1, fail: 0 }), 60000)) };\n',
+  // Passes after 1.5 s: long enough that a suite started beside it at the same moment finishes first, even on a
+  // loaded runner.
+  'takes-a-while.test.js': 'module.exports = { run: () => new Promise((r) => setTimeout(() => r({ pass: 1, fail: 0 }), 1500)) };\n',
+  // Leaves process state behind: a global, a patched core module, a changed working directory, and one load of a
+  // module that counts its loads.
+  'leave-state.test.js':
+    "const fs = require('fs');\n" +
+    "const os = require('os');\n" +
+    "const path = require('path');\n" +
+    "const COUNTER = path.join(__dirname, 'load-counter.js');\n" +
+    'module.exports = { run: async () => {\n' +
+    "  if (!fs.existsSync(COUNTER)) fs.writeFileSync(COUNTER, 'let n = 0; module.exports = () => ++n;\\n');\n" +
+    '  require(COUNTER)();\n' +
+    "  globalThis.__gateGuardLeak = 'left by leave-state';\n" +
+    '  fs.__gateGuardPatched = true;\n' +
+    '  process.chdir(os.tmpdir());\n' +
+    '  return { pass: 1, fail: 0 };\n' +
+    '} };\n',
+  // Records in seen-state.json which of that state it meets. Its run always passes; the guard judges the file.
+  'see-state.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    "const COUNTER = path.join(__dirname, 'load-counter.js');\n" +
+    'module.exports = { run: async () => {\n' +
+    "  if (!fs.existsSync(COUNTER)) fs.writeFileSync(COUNTER, 'let n = 0; module.exports = () => ++n;\\n');\n" +
+    '  const seen = {\n' +
+    '    leak: globalThis.__gateGuardLeak === undefined ? null : globalThis.__gateGuardLeak,\n' +
+    '    patched: fs.__gateGuardPatched === true,\n' +
+    '    cwd: process.cwd(),\n' +
+    '    loads: require(COUNTER)(),\n' +
+    '  };\n' +
+    "  fs.writeFileSync(path.join(__dirname, 'seen-state.json'), JSON.stringify(seen));\n" +
+    '  return { pass: 1, fail: 0 };\n' +
+    '} };\n',
+  // Starts a process that would live a minute, records its pid in leftover-pid, and returns without stopping it.
+  'leaves-child.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    "const cp = require('child_process');\n" +
+    'module.exports = { run: async () => {\n' +
+    "  const c = cp.spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore' });\n" +
+    '  c.unref();\n' +
+    "  fs.writeFileSync(path.join(__dirname, 'leftover-pid'), String(c.pid));\n" +
+    '  return { pass: 1, fail: 0 };\n' +
+    '} };\n',
+  // The module of an entry that carries expand (Decision 3). It records how it was called, in own-args.json.
+  'own.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    'module.exports = { run: async (...args) => {\n' +
+    "  fs.writeFileSync(path.join(__dirname, 'own-args.json'), JSON.stringify({ n: args.length, args }));\n" +
+    '  return { pass: 2, fail: 0 };\n' +
+    '} };\n',
 };
 
 const DRIVER_SOURCE =
@@ -279,6 +416,18 @@ const DRIVER_SOURCE =
   '// Drives the gate engine over a fixture registry (honest-test-gate #1 guards).\n' +
   'const { runGate } = require(process.env.GATE_FIXTURE_RUNNER);\n' +
   'const opts = { suites: JSON.parse(process.env.GATE_FIXTURE_SUITES) };\n' +
+  'if (process.env.GATE_FIXTURE_RECORD_DIR) opts.recordDir = process.env.GATE_FIXTURE_RECORD_DIR;\n' +
+  'if (process.env.GATE_FIXTURE_LABEL) opts.label = process.env.GATE_FIXTURE_LABEL;\n' +
+  "Promise.resolve(runGate(opts)).catch((e) => { console.error('driver: runGate rejected: ' + ((e && e.stack) || e)); process.exit(99); });\n";
+
+// test-gate-speed #1 (ADR test-gate-speed/0001 Decision 9): the same driver, with a { name, run } entry ahead of the
+// fixtures. A function can't be handed to another process, so the engine must take that entry as its FAIL.
+const FUNCTION_DRIVER_SOURCE =
+  "'use strict';\n" +
+  '// Drives the gate engine over a registry whose first entry is a function, with no file (test-gate-speed #1).\n' +
+  'const { runGate } = require(process.env.GATE_FIXTURE_RUNNER);\n' +
+  "const fnEntry = { name: 'a-function-suite', run: async () => ({ pass: 1, fail: 0 }) };\n" +
+  'const opts = { suites: [fnEntry, ...JSON.parse(process.env.GATE_FIXTURE_SUITES)] };\n' +
   'if (process.env.GATE_FIXTURE_RECORD_DIR) opts.recordDir = process.env.GATE_FIXTURE_RECORD_DIR;\n' +
   'if (process.env.GATE_FIXTURE_LABEL) opts.label = process.env.GATE_FIXTURE_LABEL;\n' +
   "Promise.resolve(runGate(opts)).catch((e) => { console.error('driver: runGate rejected: ' + ((e && e.stack) || e)); process.exit(99); });\n";
@@ -306,11 +455,41 @@ function scenario() {
       if (skipNote) entry.skipNote = skipNote;
       return entry;
     },
+    /**
+     * Write EXPAND_FIXTURE (or `files`) into <dir>/<name>/, and return that folder relative to test/, the value an
+     * entry's expand takes (test-gate-speed #1, ADR test-gate-speed/0001 Decision 3).
+     */
+    folder(name, files = EXPAND_FIXTURE) {
+      const root = path.join(dir, name);
+      for (const [rel, src] of Object.entries(files)) {
+        const abs = path.join(root, rel);
+        fs.mkdirSync(path.dirname(abs), { recursive: true });
+        fs.writeFileSync(abs, src);
+      }
+      return path.relative(TEST_DIR, root);
+    },
     cleanup() {
       for (const c of children) { try { c.kill('SIGKILL'); } catch { /* already gone */ } }
+      // C11 takes write permission off the record dir (test-gate-speed #1); give it back so the dir can be removed.
+      try { fs.chmodSync(recordDir, 0o700); } catch { /* already gone */ }
       fs.rmSync(dir, { recursive: true, force: true });
     },
   };
+}
+
+/** Run the engine to completion over [a { name, run } entry, ...suites] (test-gate-speed #1, Decision 9). */
+function runFunctionEntryEngine(sc, suites, opts = {}) {
+  need('runner');
+  const driver = path.join(sc.dir, 'function-driver.js');
+  if (!fs.existsSync(driver)) fs.writeFileSync(driver, FUNCTION_DRIVER_SOURCE);
+  const r = cp.spawnSync(process.execPath, [driver], {
+    cwd: REPO,
+    env: engineEnv(sc, suites, opts),
+    encoding: 'utf8',
+    timeout: opts.timeoutMs || 60000,
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return { status: r.status, signal: r.signal, stdout: r.stdout || '', stderr: r.stderr || '', error: r.error };
 }
 
 /** Child env for one engine run. recordDir null ⇒ exercise the default record location. */
@@ -479,7 +658,7 @@ function probeStackHttp(binDir, mode) {
 module.exports = {
   REPO, TEST_DIR, ADR, MODULES, modulePath, need,
   short, sleep, readSafe, lines, firstLine, lastLine,
-  FIXTURE_SOURCES, ENV_FIXTURE, scenario, engineEnv, runEngineSync, startEngine,
+  FIXTURE_SOURCES, ENV_FIXTURE, EXPAND_FIXTURE, scenario, engineEnv, runEngineSync, runFunctionEntryEngine, startEngine,
   readRecords, waitFor, entryMap, runStatus,
   hasShell, git, makeFakeDocker, probeStackHttp,
 };
