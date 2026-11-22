@@ -18,8 +18,10 @@ stability runs.
 
 ### Acceptance frame
 
-- [ ] **Half the time:** on the same runner, the `stack-free` job takes at most half as long as it does today. On the
-      slowest runner seen, that is under 12 minutes rather than 23.
+- [ ] **Half the time:** the `stack-free` verdict comes in at most half the time today's gate takes. On the slowest
+      runner seen, that is under 12 minutes rather than 23. *(Restated 2026-11-21: one runner reached only about half,
+      0.501 and 0.521 on two timings, so the owner chose to split the gate across two runners, each part at most half
+      of today's whole gate on its own runner. See the story's Open questions, 3 and 4.)*
 - [ ] **The same verdict:** the same tests run and give the same counts, skips are still counted, and every guarantee
       the gate makes today still holds.
 - [ ] **One check, no retries:** pull requests to `staging` and `main` still get one check named `stack-free`. `npm test`

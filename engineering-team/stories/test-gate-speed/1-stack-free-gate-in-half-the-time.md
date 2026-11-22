@@ -30,11 +30,11 @@ As anyone who opens a pull request to `staging` or `main`, I want the `stack-fre
 
 ## Acceptance criteria
 
-- [ ] **AC1 — Half the time.**
-  - **Given** one tree and one machine with 4 CPUs, as GitHub's runners have,
-  - **when** today's gate and this story's gate run that tree one after the other,
-  - **then** this story's `npm test` takes at most half as long as today's.
-  - On a runner as slow as the slowest seen, that is a job of under 12 minutes, where today's took 22 m 53 s. Every CI run of this story's pull request finishes the job in under 12 minutes.
+- [ ] **AC1 — Half the time.** *(Reworded 2026-11-21, at the owner's choice to split the gate across two runners; see Open questions.)*
+  - **Given** one tree, and a GitHub runner on which today's gate runs the whole of it,
+  - **when** this story's gate runs it as CI runs it,
+  - **then** the part of it that runs on that runner takes at most half as long as today's whole gate there. That holds on each runner the check uses, so the check's verdict comes in at most half the time even when every part lands on a slow runner.
+  - On a runner as slow as the slowest seen, that is a `stack-free` verdict in under 12 minutes, where today's took 22 m 53 s. Every CI run of this story's pull request gives its `stack-free` verdict in under 12 minutes.
 - [ ] **AC2 — The same verdict.**
   - **Given** the same tree, the same tests run, and each suite, and each file under `test/operations/`, reports the same counts passed, failed and skipped as it does today. The `Total skipped:` line and the `Overall:` line give the same totals. If the run counts its parts differently, the log says how, and no test is lost or counted twice.
   - Every guarantee of story `honest-test-gate` #1 and story `test-suite-hermeticity` #4 still holds, and their tests still pass:
@@ -47,8 +47,8 @@ As anyone who opens a pull request to `staging` or `main`, I want the `stack-fre
   - The log gives each suite's time, and each time for a file under `test/operations/`, so a later ledger row can measure what this one did.
   - The log names the machine's CPU count and model, so runs can be compared across GitHub's runners.
 - [ ] **AC4 — One check, one command, no retries.**
-  - Pull requests to `staging` and `main` still get one check named `stack-free`, and it carries the verdict. `main`'s ruleset needs no change.
-  - `npm test` is still the one command that CI runs and a contributor runs, and it gives the same verdict in both places.
+  - Pull requests to `staging` and `main` still get one check named `stack-free`, and it carries the verdict. `main`'s ruleset needs no change. A failed or cancelled part fails `stack-free`; it never reads as passing.
+  - `npm test` is still the one command that CI runs and a contributor runs, and it gives the same verdict in both places. Split across runners, every suite runs in exactly one part, so the parts' totals add up to a contributor's whole run.
   - Nothing retries or reruns a suite, and the 40-minute hang guard stays. The workflow tests in `test/ci-test-job.test.js` pin the new shape.
 - [ ] **AC5 — No new flakes.**
   - Running suites side by side loads the machine, and load made RW7 flaky before (OPERATIONS.md §15).
@@ -75,6 +75,11 @@ None open. The owner answered two at planning, on 2026-11-21:
 
 1. **The target.** Half the time on the same runner (AC1), not a third. Half fits the 4 CPUs a runner has with room to spare. A third might have needed the job split across several runners.
 2. **A full local run.** Yes, for this story: the full `npm test` may run on this Mac inside a throwaway Linux container. It works on a copy of the checkout, with networking switched off while the tests run and no Docker socket or host port, so it can't reach the agent-memory instance. AC1's measurement and AC5's ten runs use it.
+
+The owner made two more choices during implementation, on 2026-11-21, when the stop rule in ADR `test-gate-speed/0001` Decision 11 fired:
+
+3. **Longest-first, then re-time** (ADR Amendment 2). The first same-runner timing gave 0.501, CI run 44978145159 on an Intel Xeon Platinum 8573C. The owner chose to start the largest test files first and time it once more.
+4. **Split across two runners** (ADR Amendment 3). The re-time gave 0.521, CI run 44981972812 on an AMD EPYC 7763. A runner's 4 vCPUs behave like about 2 cores, so even a perfect start order would have given 0.506 there. The owner chose to split the job into two parts on two runners, with `stack-free` checking both. AC1 was reworded for it: each part takes at most half of today's whole gate on its own runner, rather than one machine running the whole gate against itself. In the sealed container, on 4 real cores, the single-machine engine gave 0.389 (V2).
 
 ## Deviations
 

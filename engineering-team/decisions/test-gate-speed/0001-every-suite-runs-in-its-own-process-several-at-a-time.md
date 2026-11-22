@@ -415,3 +415,35 @@ The stop rule (Decision 11) fired at V1, and the owner chose this change, then o
   - With `GATE_JOBS=1` nothing runs side by side, the order changes nothing about the time, and units keep unit order. A one-at-a-time run therefore still runs in registry order, as P3, C6 and P9 rely on.
 - **What stays.** Each unit keeps its place in unit order for `[i/N]`, the record and the summary (Decisions 5 and 7). Only the order units start in changes.
 - **The guard.** P20 in `test/gate-side-by-side.test.js` pins it: with `GATE_JOBS=2`, the largest of three fixtures, listed last, starts first.
+
+## Amendment 3 (2026-11-21, Implementation): the job splits across two runners (Option B, on top of Option A)
+
+The owner chose this after the re-time. One GitHub runner can't reliably reach half.
+
+- **What the re-time measured.** CI run 44981972812 used an Azure runner with an AMD EPYC 7763 and 4 vCPUs, the kind seen slowest in the nine runs. Today's engine took 1,349 s and this one, with Amendment 2, 703 s: a ratio of 0.521. Side by side, suites ran 1.86 to 2.13 times slower than alone. Even starting the longest first, with their times known in advance, would give 683 s, a ratio of 0.506. The job, without the timing step, would take about 12 m 03 s.
+  - So the two runs measured so far gave 0.501 and 0.521. A runner's 4 vCPUs behave like about 2 cores, which sets the ceiling near a 2x speed-up.
+  - In the sealed container on 4 real cores, the same engine gave 0.389 (V2).
+- **The change.** Option B, rejected in this ADR's first form, now sits on top of Option A:
+  1. **Two part jobs.** `.github/workflows/test.yml` gets a job `stack-free-part` with a matrix `part: [1, 2]`. Each leg runs the same steps as before (checkout with full history, Node 22, `npm ci`, then `npm test`) with `GATE_PART: <part>/2`, and keeps the 40-minute `timeout-minutes`. Each leg runs its suites side by side, as Option A runs them.
+  2. **One `stack-free` job carries the verdict.** It `needs` the part job, runs `if: always()`, uses no action, and fails unless `needs.stack-free-part.result` is `success`.
+     - The `if: always()` is required. Without it, a failed part would leave `stack-free` skipped, and a skipped check reads as passing to a ruleset.
+     - A cancelled run, superseded by a newer push, so reads red as well.
+     - `main`'s ruleset still finds the check it requires, `stack-free`, by name, and needs no change.
+  3. **`GATE_PART=<i>/<n>`** makes the engine run part `i` of `n`. The engine orders the units largest test file first (Amendment 2), then places each in turn into the part whose files total the fewest bytes so far, ties to the lower part. Part `i` runs its own units, still largest first.
+     - Every unit is in exactly one part, so the parts' totals add up to the whole run's. No part runs a unit twice.
+     - Unset, the engine runs every unit, so a contributor's `npm test` is still the whole gate.
+     - A value that isn't `<i>/<n>`, with whole numbers `1 ≤ i ≤ n`, ends the run before its first suite, as an invalid `GATE_JOBS` does.
+  4. **The log and the record name the part.** The first line says `part <i> of <n>: <k> of <N> suites`. The record holds `part: { index, count, of }`. `[i/N]` keeps each unit's place in the whole run's unit order, so a unit has the same number in either part.
+- **What stays.** One check, `stack-free`, carries the verdict. `npm test` is the command every part runs and a contributor runs. There are no retries, and only `actions/checkout` and `actions/setup-node` are used. The 40-minute guard stays on each part.
+- **What changes elsewhere.**
+  - ADR `test-hermeticity-ci/0001` gains Amendment 3: two parts, and `stack-free` checking them.
+  - W10 in `test/ci-test-job.test.js` now pins that shape. W1–W9 still hold, since they read the part job's steps.
+  - OPERATIONS.md §15 describes the parts.
+  - Because the workflow file is a harness-definition path, its commit adds a CHANGELOG row.
+  - The story's AC1 measures the check's time against today's gate, rather than one machine against itself (story, Open questions).
+- **How it is measured (Decision 11, revised).**
+  - One temporary commit makes each part's runner first run today's whole gate (the V1 step), then its part.
+  - Each runner thus gives its own pair. The check passes AC1 when, on each runner, its part takes at most half of today's whole gate there. That holds even if both parts land on the slowest runner.
+  - The next push removes the step.
+  - In the sealed container, the two parts' totals must add up to a whole run's.
+- **The guard.** P21 in `test/gate-side-by-side.test.js` checks that the parts are disjoint, cover every unit, are balanced and say which part they are. P22 checks that an invalid `GATE_PART` ends the run FAIL before its first suite.
