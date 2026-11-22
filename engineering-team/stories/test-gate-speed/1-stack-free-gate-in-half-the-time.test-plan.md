@@ -43,7 +43,10 @@ they are in Verification, V1 to V4. The tests pin the mechanism those measuremen
 | AC3 | P11: blocks come in finishing order, numbered by unit order; the record (schema 2: each suite's `name` and `ms`, `machine`) and the summary keep unit order | same | engine |
 | AC3 | P4 and P3: the record's `machine { cpus, model, jobs }`, and the first line, "`<jobs>` at a time on `<cpus>` CPUs (`<model>`)" | same | engine |
 | AC3 | P12: while two suites run, the record's `progress.running` lists both, `progress.current` carries both, and `gate:status` shows RUNNING 0/2 with both | same | engine |
-| AC4 — one check, one command, no retries | W10: one job, `stack-free`, no `strategy` or `matrix`, no `GATE_JOBS` | `test/ci-test-job.test.js` | source contract |
+| AC4 — one check, one command, no retries | W10 (rewritten for Amendment 3): two jobs. `stack-free-part` is a matrix of `part: [1, 2]` with `GATE_PART`, full-history checkout, `npm ci` then `npm test`, and the 40-minute guard. `stack-free` `needs` it, runs `if: always()`, fails unless `needs.stack-free-part.result` is `success`, and runs no action or test. There is no `GATE_JOBS` | `test/ci-test-job.test.js` | source contract |
+| AC1 (Amendment 2) | P20: with `GATE_JOBS=2`, the largest of three fixtures, listed last, starts before the smallest, listed first, and the record keeps unit order | `test/gate-side-by-side.test.js` | engine |
+| AC2, AC4 (Amendment 3) | P21: `GATE_PART=1/2` and `2/2` give two parts that share no suite, together cover all six fixtures, balance by file size within the largest file, and name the part on the first line and in the record. Their totals add up to an unsplit run's, and `[i/N]` matches the whole run's | same | engine |
+| Amendment 3 | P22: an invalid `GATE_PART` (`0/2`, `3/2`, `1/0`, `one`, `1-2`, `2`) ends the run FAIL before its first suite, naming it. P23: a suite never sees `GATE_PART`, so a gate that a suite starts runs whole | same | engine |
 | AC4 | W1–W9 unchanged: `pull_request` only, Node 22, `npm ci` then `npm test`, no retries, a 40-minute guard, two pinned actions. G5: `test/test.js` still runs the registry through `runGate` | existing | source contract |
 | AC5 — no new flakes | P3: `GATE_JOBS=1` runs one at a time, in unit order | `test/gate-side-by-side.test.js` | engine |
 | AC5 | P13: a process a suite leaves running is gone once that suite ends. P14: SIGINT prints a running suite's output so far, marked unfinished, before `Overall: INTERRUPTED`, and ends it. P15: an engine killed with SIGKILL leaves no suite running | same | engine |
@@ -123,11 +126,16 @@ uid 501 (non-root, matching the bind mount's owner), with no network while the t
 WT=/Users/wds4/repos/TapestryProtocol/tapestry/.claude/worktrees/vigorous-khorana-e9bc0e
 git clone --no-local --branch feat/test-gate-speed "$WT" "$WT/tmp/gatebox/src"
 docker run --rm --user 501:20 -e HOME=/tmp -e SCARF_ANALYTICS=false -v "$WT/tmp/gatebox/src:/work" -w /work node:22-bookworm npm ci
-docker run --rm --user 501:20 -e HOME=/tmp --network none --cpuset-cpus 0-3 --memory 6g \
-  -v "$WT/tmp/gatebox/src:/work" -w /work node:22-bookworm npm test
+docker run --rm --init --user 501:20 -e HOME=/tmp --network none --cpuset-cpus 0-3 --memory 6g \
+  -v "$WT/tmp/gatebox/src:/work" -w /work node:22-bookworm \
+  bash -c 'git config --global --add safe.directory "*" && exec npm test'
 ```
 
-`--cpuset-cpus 0-1` with `-e GATE_JOBS=4` is the 2-CPU form. The container can't reach the agent-memory instance: it has no
+`safe.directory` matters too. Docker's virtiofs mount on this Mac shows directories as owned by root and files as uid 501, so git refuses the clone as "dubious ownership". The `git config` line writes only the container's own `/tmp/.gitconfig` and leaves the gate's environment as it was. Without it the record has no git identity. Run alone, gate-result-record A2 then fails, and inside the first full container run it passed only because of what had run before it. GitHub's runners own their checkout, so they need no such line.
+
+`--cpuset-cpus 0-1` with `-e GATE_JOBS=4` is the 2-CPU form.
+
+`--init` matters. Without it `npm` is PID 1, and it never reaps an orphaned process, so a killed process group keeps zombie members. `tagging-edges-realtime-wrapper` RW15 then fails its own precondition, "the first wrapper's process group still had members 3 s after it was SIGKILLed". That happened in the first container baseline (under today's engine) on 2026-11-21. GitHub's runners have a real PID 1. The container can't reach the agent-memory instance: it has no
 network, no Docker socket and no published port. The run's record lands in the clone's `tmp/gate-runs/`.
 
 ## Verification
@@ -154,6 +162,15 @@ That is today's engine, as on `origin/staging`, run over this branch's registry.
 - **The stop rule:** if it doesn't, stop before review. The Architect brings the owner an amendment (ADR, Decision 11).
 - The next push removes the step. The review cites the run's id and both times.
 
+### V1, as run, and V1' for the split (AC1)
+
+- **V1** (CI run 44978145159, Intel Xeon Platinum 8573C): today's engine 1,243 s, the new one 623 s, ratio 0.501. The stop rule fired. The owner chose longest-first (ADR Amendment 2).
+- **The re-time** (CI run 44981972812, AMD EPYC 7763): 1,349 s against 703 s, ratio 0.521. The owner chose the split (ADR Amendment 3).
+- **V1'**, with the same temporary step inside each part job:
+  - Each part's runner first runs today's whole gate, then its own part.
+  - **Pass:** on each runner, the part takes at most half of today's whole gate there. Then even two slow runners give the verdict in at most half.
+  - The next push removes the step and its CHANGELOG row.
+
 ### V2: the same comparison, and the same counts, in the sealed container (AC1, AC2)
 
 Over the final tree, on 4 CPUs: the old engine, the same three lines as V1 run with `node`, then `npm test`. Pass when:
@@ -164,6 +181,8 @@ Over the final tree, on 4 CPUs: the old engine, the same three lines as V1 run w
 
 A short `node` script over the two records does the comparison, and the review quotes its output.
 
+**For the split:** in the same container, `GATE_PART=1/2` and `GATE_PART=2/2` over the final tree. Their totals of passed, failed and skipped must add up to a whole run's. Every suite must be in exactly one part's record.
+
 ### V3: ten runs in a row, nothing failing (AC5)
 
 Ten full `npm test` runs in the sealed container, each passing: six with `--cpuset-cpus 0-3` and four with
@@ -172,6 +191,12 @@ Ten full `npm test` runs in the sealed container, each passing: six with `--cpus
 - A suite that fails only side by side gets a ledger row and a fix at its root, and the ten-run count starts again.
 - It is never retried, and never moved out of the gate.
 - `GATE_JOBS=1` re-runs it alone, to tell the two kinds of failure apart.
+
+**Runs that went before.** None of these counts toward the ten. All passed in the container, each with 0 failed and 669 skipped:
+- three on the first engine, at commit `7df76221`: 380 to 404 s;
+- six with Amendment 2, at `85fba631`: 361 to 416 s.
+
+The ten count on the final commit.
 
 ### V4: the PR's CI runs (AC1, AC4, AC5)
 
