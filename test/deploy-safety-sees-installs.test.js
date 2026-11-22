@@ -971,14 +971,24 @@ t('D7 (AC-6; round 1, blocking 1): "Before a firmware install" says an answer wi
   const doc = readSafe(DOC);
   assert(doc !== null, 'docs/SAFE_TO_MERGE.md is missing — re-baseline.');
   const s = section(doc, /Before a firmware install/i, 'docs/SAFE_TO_MERGE.md');
-  assert(/no `firmware` block/.test(s),
-    'the section must say how to tell an instance that doesn\'t see installs yet: its answer has no `firmware` block (ADR 0004 Amendment 1, item 1).');
-  assert(/tags\.brainstorm\.world|feat\/tags/.test(s) && /production/i.test(s),
-    'the section must name the instances that don\'t see installs yet: tags (feat/tags), and production until main takes this story.');
-  assert(/held by hand|hold merges[^.]*by hand|by hand[^.]*held/i.test(s),
-    'the section must say that on such an instance, merges into its branch are held by hand until the install ends, as before this story.');
-  assert(!s.includes('So a merger\'s check waits for it, and nobody needs to hold merges by hand.'),
-    'the unqualified "nobody needs to hold merges by hand" must go: it is false on an instance whose branch lacks this story (review round 1, blocking 1).');
+  // The transition note itself, from its opening sentence to the next bold paragraph: each part is checked there, so
+  // another sentence of the section can't stand in for a part that went missing (review round 2, finding 3).
+  const start = s.indexOf('**An instance sees an install only once');
+  assert(start >= 0,
+    'the section must open its transition note with "An instance sees an install only once its branch carries story #4" (ADR 0004 Amendment 1, item 1).');
+  const end = s.indexOf('\n\n**', start + 1);
+  const note = s.slice(start, end > start ? end : undefined);
+  assert(/no `firmware` block/.test(note),
+    'the transition note must say how to tell an instance that doesn\'t see installs yet: its answer has no `firmware` block.');
+  assert(/tags\.brainstorm\.world/.test(note) && /feat\/tags/.test(note),
+    'the transition note must name tags.brainstorm.world and its branch, feat/tags, which doesn\'t see installs yet.');
+  assert(/production until `main`/.test(note),
+    'the transition note must name production, until `main` takes story #4.');
+  assert(/held by hand/.test(note),
+    'the transition note must say that on such an instance, merges into its branch are held by hand until the install ends.');
+  const nobody = s.split(/(?<=[.!?])\s+/).filter((x) => /nobody needs to hold merges/i.test(x));
+  assert(nobody.every((x) => /on that instance|carries story #4/.test(x)),
+    `"nobody needs to hold merges by hand" may stand only for an instance that carries story #4; it is false where a branch lacks it (review round 1, blocking 1). Got: ${JSON.stringify(nobody)}.`);
   assert(/deploy-tags\.yml/.test(s), 'the running-deploy check must name tags\' workflow, deploy-tags.yml, beside staging\'s and production\'s.');
 });
 

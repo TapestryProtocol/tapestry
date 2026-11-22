@@ -55,9 +55,9 @@ New suite `test/deploy-safety-sees-installs.test.js` (registered after `deploy-s
 | scope | L5, H6 a lock held by a backup, restore, migration or upload is not a firmware install (control: seed-firmware is) | sees-installs | unit, handler |
 | AC-3 *(round 2)* | H10 *(guard)* a lock naming this host and a live pid whose start time differs is no install (control: the matching start time is one). The test stands in for the `/proc/<pid>/stat` read, so it runs on macOS too | sees-installs | store |
 | AC-1 *(round 2)* | S4 seed-firmware takes the lock as `'seed-firmware'` before its write and lets it go in a `finally`; a comment at the call names the reader; the answer reads the same op | sees-installs | source |
-| AC-6 *(round 2)* | D7 the procedure says an answer with no `firmware` block doesn't see installs, names tags and production, says to hold merges by hand there, names `deploy-tags.yml`, and drops the unqualified sentence | sees-installs | content |
+| AC-6 *(round 2)* | D7 the procedure's transition note says an answer with no `firmware` block doesn't see installs, names tags and production, and says to hold merges by hand there. Each part is checked inside the note itself (strengthened at round 2's review, finding 3). The section names `deploy-tags.yml`, and "nobody needs to hold merges" stands only for an instance that carries story #4 | sees-installs | content |
 | AC-6 *(round 2)* | D8 the gap paragraph also names a merge that skips the check (OPEN.md row 340) | sees-installs | content |
-| ADR *(round 2)* | D6 the two rows carry their UTC day: the 2026-11-21 files are gone and no doc cites the old ids. D3 and D5 now name the 2026-11-22 ids | sees-installs | content |
+| ADR *(round 2)* | D6 the two rows carry their UTC day: the 2026-11-21 files are gone, and `docs/SAFE_TO_MERGE.md` doesn't cite the old ids. D3 and D5 now name the 2026-11-22 ids | sees-installs | content |
 
 **Changed, not new.** `test/deploy-safety-status.test.js`'s `REASON_CODES` gains `FIRMWARE_INSTALL_RUNNING`, and its two messages say "five contract codes". That widens what U12 and H1 accept, so the suite passes before and after the change. Without it, H1 on a live stack would fail while an install runs.
 
@@ -186,3 +186,15 @@ FAIL D8  the section must say that a merge which skips the check isn't held eith
 **Guards: each new test fails when the thing it guards is taken out.** Each was checked on a scratch copy of the working tree, never the worktree itself.
 - **H10** passes before the fixes, since the rule it pins is already in the store. With the rule's line taken out (`if (now !== null && now !== h.startTime) return false;`, `_store.js:227`), H10 fails: "a lock whose holder pid answers with a different start time … must read as no install (got [{"install":"seed-firmware",…}])".
 - **S4** fails before the fixes for its missing comment. Once the comment exists, it must still fail when the op is renamed. That is checked after the fixes, in round 2's review evidence.
+
+## Round 3: review round 2's findings
+
+Review round 2 passed, with seven non-blocking findings, and the owner chose to fix them first (2026-11-22). One finding is a test's:
+- **Finding 3, D7 is weaker than its name.** Its checks for "production" and "hold merges by hand" could be met by other sentences of the section, one of which says the opposite. So D7 now finds the transition note itself, from "An instance sees an install only once" to the next bold paragraph, and checks each part inside it. It also holds the "nobody needs to hold merges by hand" sentence to an instance that carries story #4.
+
+The other six findings are prose: the meta row, the story's Evidence, the D6 row above, the recipe's wording and the ADR's example.
+
+**D7 is a guard, and it is real.** On the working tree it passes, since the doc already has every part. Each of three scratch edits, each on its own scratch copy of the working tree and never the worktree itself, turns it red:
+- with the "What to do there" bullet removed: "the transition note must say that on such an instance, merges into its branch are held by hand until the install ends";
+- with ", and production until `main` takes it" removed: "the transition note must name production, until `main` takes story #4";
+- with the qualifier taken off ("and nobody needs to hold merges by hand."): ""nobody needs to hold merges by hand" may stand only for an instance that carries story #4 …".
