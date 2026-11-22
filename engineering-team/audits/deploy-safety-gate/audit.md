@@ -56,7 +56,7 @@ Derived from the diff (17 files, +2601/−30; every file story/ADR-attributed �
 - [ ] Drain-on-deploy / graceful shutdown: `closeTaskQueue()` still unwired to SIGTERM (2026-06-08 intake branches; spawned-task chip exists) — the gate reduces exposure but interruption of a task that slips through remains unmitigated.
 - [ ] Stale `job.data` on BullMQ stalled recovery (2026-05-25 intake) — untouched by design.
 - [ ] Auth-gating the scheduled-tasks **write** endpoints (spawned-task chip exists; the new read endpoint deliberately follows the unauthenticated-read precedent).
-- [ ] First prod/tags promotion hits the endpoint-404 fail-closed stop (§4 #7) — operator decision at that moment; consider promoting story #1 to main promptly to close the window.
+- [x] First prod/tags promotion hits the endpoint-404 fail-closed stop (§4 #7) — operator decision at that moment; consider promoting story #1 to main promptly to close the window. *(Resolved: production and tags both serve the endpoint, as read 2026-11-22 at book `deploy-safety-sees-installs`'s close.)*
 - [ ] Sandbox-branch coverage (§4 #6) — one recipe-table row each when wanted.
 - [ ] CI-side enforcement of the gate (deploy-workflow query or branch protection) — the recipe's named escalation if procedure proves insufficient.
 - [ ] Panel "why" notice for halted-scheduler / legacy-only states (ADR 0003 follow-up).

@@ -1,9 +1,9 @@
 # Book of Work: The deploy-safety answer sees a running firmware install
 
 **Slug:** deploy-safety-sees-installs
-**Status:** Open
+**Status:** Closed
 **Opened:** 2026-11-21
-**Closed:** —
+**Closed:** 2026-11-22 (the owner said "Close the book" once every acceptance-frame item was met on staging and production)
 **Strictness:** Standard (project default; no Light profile).
 
 ## Intent anchor
@@ -109,7 +109,7 @@ This is one more merge the gate didn't hold, because nothing enforces the check 
 ## Provenance
 
 - **Mode:** Acceptance-frame
-- **Confidence at close:** —
+- **Confidence at close:** high — each frame item has evidence on both instances (Rollout evidence above); see the audit
 
 ## Close artifacts *(filled by `/close-book`)*
 
