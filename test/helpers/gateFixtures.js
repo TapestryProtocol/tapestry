@@ -395,6 +395,18 @@ const FIXTURE_SOURCES = {
   // Amendment 4: leaves an interval running forever, which keeps its process alive until something ends it.
   'leaves-interval.test.js':
     'module.exports = { run: async () => { setInterval(() => {}, 1000); return { pass: 1, fail: 0 }; } };\n',
+  // Amendment 4, review round 2 (non-blocking 2): leaves a listener that swallows every error, an exit cleanup that
+  // throws, and an interval open. It records its pid in hang-pid-swallows-at-exit, so a guard can end it if it hangs.
+  'swallows-at-exit.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    'module.exports = { run: async () => {\n' +
+    "  fs.writeFileSync(path.join(__dirname, 'hang-pid-swallows-at-exit'), String(process.pid));\n" +
+    "  process.on('uncaughtException', () => {});\n" +
+    "  process.on('exit', () => { throw new Error('exit cleanup throws (fixture: swallows-at-exit)'); });\n" +
+    '  setInterval(() => {}, 1000);\n' +
+    '  return { pass: 1, fail: 0 };\n' +
+    '} };\n',
   // Amendment 3: records in seen-part.json what GATE_PART it sees in its run (null when unset).
   'sees-part.test.js':
     "const fs = require('fs');\n" +

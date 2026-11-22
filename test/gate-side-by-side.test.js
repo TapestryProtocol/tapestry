@@ -30,6 +30,8 @@
  *   P24–P27  after its result: a late throw, rejection or exit still fails the run; an exit
  *            failure is a FAIL; a unit waits for its timers up to a cap; an engine failure
  *            prints the suites still running                                          [AC2; Amendment 4]
+ *   P28–P29  nothing a suite leaves can stop its exit after its result; a suite with nothing
+ *            left reports at once                                                     [AC2; Amendment 4, round 2]
  *
  * Engine tests drive runGate() in a child process over fixture suites written to a temp dir, with records
  * in a temp GATE_RECORD_DIR, as test/gate-result-record.test.js does. Nothing here requires the engine at
@@ -714,6 +716,54 @@ test('P27 (Amendment 4; review round 1, non-blocking 1): when the engine itself 
     if (hung && alive(hung)) { try { process.kill(hung, 'SIGKILL'); } catch { /* gone */ } }
     sc.cleanup();
   }
+});
+
+/* ═══ P28–P29 — the exit after the result, and the wait's other half (Amendment 4; review round 2) ════════ */
+
+test('P28 (AC2; Amendment 4, review round 2): a suite that leaves a listener swallowing every error, an exit cleanup that throws and an interval open still ends after its result, as that suite\'s FAIL — nothing a suite leaves can stop the exit', async () => {
+  F.need('runner');
+  const sc = F.scenario();
+  let pid = null;
+  try {
+    const started = Date.now();
+    const r = F.runEngineSync(sc, [sc.suite('swallows-at-exit.test.js'), sc.suite('pass.test.js')], { ...jobs(2), timeoutMs: 20000 });
+    const took = Date.now() - started;
+    pid = pidIn(sc, 'hang-pid-swallows-at-exit');
+    const recs = F.readRecords(sc.recordDir);
+    const m = F.entryMap(recs.length === 1 ? recs[0].rec : null);
+    const bad = m['swallows-at-exit.test.js'];
+    const last = F.lastLine(r.stdout);
+    assert(pid, 'precondition: swallows-at-exit must run and record its pid');
+    assert(!(r.error && r.error.code === 'ETIMEDOUT'),
+      `the run must end on its own: after its result, swallows-at-exit's process must still exit, though its own listener swallows the throw from its exit cleanup and an interval holds it open (${ADR}, Amendment 4, item 5); the engine was still waiting after ${took} ms, last line ${JSON.stringify(last)}`);
+    assert(r.status === 1 && /^Overall: FAIL\b/.test(last),
+      `the run must end Overall: FAIL, exit 1; got exit ${r.status}, last line ${JSON.stringify(last)}`);
+    assert(bad && bad.verdict === 'FAIL' && /after it sent its result/.test(String(bad.error)),
+      `swallows-at-exit must be its own FAIL, saying its process ended so "after it sent its result"; it is recorded ${short(bad, 300)}`);
+    assert(m['pass.test.js'] && m['pass.test.js'].verdict === 'PASS',
+      `the suite beside it must pass; it is recorded ${short(m['pass.test.js'])}`);
+    assert(await gone(pid, 5000), `swallows-at-exit's process (pid ${pid}) must be gone once the run ends`);
+  } finally {
+    if (pid && alive(pid)) { try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } }
+    sc.cleanup();
+  }
+});
+
+test('P29 (Amendment 4, review round 2): a suite whose run leaves nothing to wait for reports at once — of five such suites one at a time, the middle time is well under the 2 s that waiting out the cap would take', () => {
+  F.need('runner');
+  const sc = F.scenario();
+  try {
+    const names = ['part-q1', 'part-q2', 'part-q3', 'part-q4', 'part-q5'];
+    const r = F.runEngineSync(sc, names.map((n) => sc.suite(`${n}.test.js`)), jobs(1));
+    const { rec } = onlyRecord(sc, 'P29');
+    const m = F.entryMap(rec);
+    const ms = names.map((n) => (m[`${n}.test.js`] || {}).ms);
+    assert(r.status === 0 && ms.every((x) => Number.isFinite(x)),
+      `precondition: the five plain suites pass, and each has a time; exit ${r.status}, times ${JSON.stringify(ms)}`);
+    const middle = [...ms].sort((a, b) => a - b)[Math.floor(ms.length / 2)];
+    assert(middle < 1500,
+      `a unit with nothing left must report at once, not wait out the cap: waiting would make every time at least 2000 ms (${ADR}, Amendment 4); the middle of the five is ${middle} ms (${ms.join(', ')} ms)`);
+  } finally { sc.cleanup(); }
 });
 
 /* ═══ P18–P19 — the docs ═════════════════════════════════════════════════════════════════════════════ */
