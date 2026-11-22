@@ -190,3 +190,69 @@ None open. Each of round 1's, and each the independent check raised this round, 
 ### On PASS (same commit)
 - [x] Story `**Status:**` flipped to `Done` in place.
 - [ ] Completion detection: reported in the chat, not here.
+
+## The feat/tags port (2026-11-22, ADR 0035 §4)
+
+**What was reviewed.** `port/header-tags-once-tags`, cut from `feat/tags` at `25d39636`: the failing tests at `67872714` and the port at `de43928d`. It was checked against the story, ADR 0035 (§4 and Amendment 1) and the test plan's section "The feat/tags port". An independent check read the same diff, given the code and the questions but not this review's conclusions.
+
+### Quality gates (run by reviewer, not trusted)
+- **The two ported suites pass:** 9 of 9 (`community-references-prune-builder`) and 21 of 21 (`firmware-install-leaves-tags-once`). On `feat/tags`' code with only the tests, they gave 0 of 9 and 4 of 21 (the test plan's Verification).
+- **The scoped gate on `de43928d`.** Its 21 suites were derived from the port's diff, as the test plan's "How to run" says.
+  - **Result:** run `20261122T022125Z-33781-ddc2`, FAIL, exit 1, with 361 passed, 3 failed and 58 skipped.
+  - **The Implementer's run** on the same tree (`20261122T020040Z-78681-191d`) gave the same.
+- **The three failures are `item-trusted-list`'s U18–U20, and they aren't the port's.**
+  - The suite passes alone on `feat/tags`' code: 51 of 51 (`20261122T020219Z-86431-1e65`).
+  - It fails the same three cases in the same 19 suites without the port or its tests (`20261122T020259Z-88027-cf2e`).
+  - **Why:** every suite loads before any runs. Suites loaded before it, `only-me-curation` and `per-pin-membership-method` among them, set `process.env.TA_PUBKEY` to their own fixture first. Staging's honest-test-gate work fails such a suite; `feat/tags` predates that work.
+- **No CI runs on a pull request into `feat/tags`.** `test.yml` runs on pull requests into `staging` and `main` only, so these runs are the port's test evidence.
+- **`harness-lint` on the port branch** gives one violation, L9 (`BIBLE.md`'s "Last updated" lags its last change), which `feat/tags` had before the port.
+
+### Spec and ADR adherence
+- **The source is staging's fix, and only it.** `de43928d` changes `src/api/neo4j/eventSync.js` and `src/firmware/install.js`. Their added and removed lines are byte-identical to those of `f2e14987^1..f2e14987` for the same files.
+  - **The one difference is where `tagUuidOf` sits:** above `buildImportCypher`'s doc comment.
+  - **Why it moved:** staging's copy puts it after `placeholderUnlessHeld`, which `feat/tags` doesn't have.
+- **What stays out is right.** The fix's parts in `src/firmware/target.js` and `src/operations/catalog/graph/_sets.js`, and their tests S11–S13, have nothing to port to: neither file is on `feat/tags`.
+- **The routes and labels the new lines rely on behave there as on staging:**
+  - **`POST /api/strfry/publish`** answers `{ success: true }` once strfry stores the letter, and 200 with `success: false` when `strfry import` fails (`src/api/strfry/commands/publishEvent.js:108-121`). So the seed's new `success !== true` check reads it as on staging.
+  - **`POST /api/neo4j/query`** takes `params` (`src/api/neo4j/queryPost.js`), as `removeSelfLoops` needs.
+  - **Labels.** Neo4j is pinned at 5.26.10, so `NostrEvent|TapestryNode` and `COUNT {}` parse. Nothing on `feat/tags` labels a node `TapestryNode`, so the union matches `NostrEvent` nodes alone.
+- **AC-1 to AC-4 are covered on this branch** by the ported cases: the plan's coverage map, less S11–S13.
+
+### Things tests can't catch
+- **A tags install takes the seed path, not the "already has a `b`" one.** ADR 0035 §4 and the test plan's port section say `feat/tags`' Pass 1 has no `overwrite`, so its installs sign no header again. In fact they sign every header again.
+  - **The duplicate check never matches.** create-concept compares stored pubkeys with `Buffer.from(nt().getPublicKey(privBytes)).toString('hex')` (`src/api/normalize/index.js:1198`). In nostr-tools 2.10.4, the version both branches lock, `getPublicKey` already returns 64 hex characters, so the check compares 128 (checked with that version). The branch's own comment at `:1255-1259` says the variable double-encodes.
+  - **Staging fixed that check,** and made the overwrite explicit, in `f3347d276` (2026-11-04). `feat/tags` doesn't have that commit.
+  - **So each Pass 1 there signs, publishes and imports every firmware header again,** with no `b`. The community step then seeds it, as on staging and production.
+  - **The tests already run that path:** S1, S2, S9, S10 and E1 do, and S9's staging-shaped graph is tags' shape too. The fix heals tags on either path. What changes is the record, and what the tags install will log: six "pointer-b seeded" lines.
+- **The tags install signs every firmware concept again,** as every install on that branch does. If none has run since the six letters of 2026-09-22, it also undoes edits made there to firmware concepts since then (BIBLE §7). The owner hears this before his yes to it.
+
+### Findings
+#### Blocking
+None.
+
+#### Non-blocking
+1. **The port's comments say tags' installs sign no header again.**
+   - **Where:**
+     - `test/firmware-install-leaves-tags-once.test.js:17` and `:351`: S3, "(feat/tags' installs)";
+     - `:195`: `neverResigned()`;
+     - `test/helpers/communityStep.js:18-20`: `pass1Import`, "a firmware concept the graph doesn't hold yet";
+     - `src/firmware/install.js:1097`: "as feat/tags' Pass 1".
+   - **The fix:** reword each for what is true on this branch. Add a dated correction to the test plan's port section, and a note to ADR 0035 §4.
+   - **Staging's copy** of the `install.js` comment says the same, and can change at that file's next change there.
+2. **`feat/tags`' BIBLE §22 doesn't say the step prunes or skips.** Staging's fix added a sentence to §22's "Status today", which is `BIBLE.md:1559` on this branch.
+   - Port the sentence without its last clause, which is about seed-firmware's target and doesn't apply here.
+   - Move `BIBLE.md`'s "Last updated" too, which also clears L9.
+3. **Two test nits.**
+   - **Labels:** `bringIn` and `wire` (`test/firmware-install-leaves-tags-once.test.js:121`, `:125`) match `NostrEvent|TapestryNode`, where this branch's install matches `NostrEvent`. It's harmless on the fixtures.
+   - **Line references:** the three at `:109`, `:117` and `:123` cite `install.js` as it was before the port, so in the tree they ship in they point at other code. The code they mean is at `:1102-1113`, at `:1144-1147` and `:1175-1180`, and at `:1305-1358`.
+
+### Verdict
+**PASS.**
+- The port brings staging's fix to `feat/tags`, and nothing else.
+- It behaves there as on staging, and it is tested on both install paths.
+- The gate's only failures are `feat/tags`' own.
+- The three findings are about records and comments, not behavior.
+
+### On PASS
+- The story's `**Status:**` was already `Done`, from round 2.
+- Completion detection is reported in the chat, not here.
