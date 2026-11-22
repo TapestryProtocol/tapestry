@@ -3108,3 +3108,20 @@ call.
 - how a faster gate keeps the no-retry record honest: RW7's flake came from load inside the gate's one big process (OPERATIONS.md §15), so running suites side by side can bring timing flakes of its own.
 
 **Classification:** refactor (the CI gate), Standard; all phases, since it changes the gate engine or the CI job under ADR test-hermeticity-ci/0001. Not on Loom.
+
+## 2026-11-21 — The deploy-safety answer doesn't see lifecycle backup, restore or migrate, which a deploy cuts off too (bug)
+
+**Raw request:** none as such. It came up while planning `deploy-safety-gate` #4 (book `audits/deploy-safety-sees-installs/`), and the owner kept that story to the two firmware installs (2026-11-21).
+
+**What was found** (read in the code, not seen on any instance):
+
+- **They run outside the task queue.** Lifecycle backup, restore and migrate each run detached, in a process of their own (`src/operations/catalog/lifecycle/_jobs.js`, `runDetached`), not as task-queue jobs. So the deploy-safety answer counts none of them, and the safe-to-merge check answers safe while one runs.
+- **A deploy cuts them off.** Every deploy recreates the `tapestry` container, and these jobs run in it. A restore runs in one offline window, with the graph database stopped and the writers paused, so one cut off partway is the worst case.
+- **They hold the lifecycle lock.** Each takes the lifecycle lock first (`src/operations/catalog/lifecycle/_common.js`), a file with its holders' process ids and a staleness check, as `lifecycle seed-firmware` does.
+
+**Likely shape.** Decisions, none settled:
+
+- whether they join the answer the way story 4's installs do, or whether one rule covers every job that holds the lifecycle lock;
+- whether a cut-off restore needs more than a wait, such as a check at startup.
+
+**Classification:** bug, Standard; all phases. Not on Loom.

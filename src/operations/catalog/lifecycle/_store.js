@@ -228,7 +228,13 @@ function holderAlive(h) {
   }
   return true;
 }
-/** The lock, with `stale` set, or null when there is none. */
+/**
+ * The lock, with `stale` set, or null when there is none.
+ *
+ * The deploy-safety answer (src/api/deploy-safety, ADR deploy-safety-gate/0004) also calls this, on every GET, to see a
+ * running seed-firmware. It relies on this only reading, and on `stale` meaning the run is gone, so keep both true: a
+ * write or a recovery here would make that GET a write, and a stale lock read as live would hold every merge.
+ */
 function inspectLock() {
   const lock = readJson(lockPath());
   if (!lock) return fs.existsSync(lockPath()) ? { stale: true, runId: null, op: 'unknown', holders: [], unreadable: true } : null;

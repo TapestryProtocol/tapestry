@@ -37,6 +37,11 @@
  * skill edits do not exist yet. Each guard throws a feature-missing message
  * (never an opaque spawn/ENOENT error) so the pre-implementation failure
  * reads as "the feature is missing".
+ *
+ * B10 is story deploy-safety-gate #4's (ADR deploy-safety-gate/0004, AC-4):
+ * the script against the REAL deploy-safety handler, served in-process on
+ * 127.0.0.1, while a firmware install is counted. It reads
+ * src/firmware/inFlight.js, so it fails until that story lands.
  */
 
 const { spawn } = require('child_process');
@@ -379,6 +384,61 @@ t('B9 (AC-2): with no override args the default bound is 45 attempts — the jou
     assert(lines.length === 1 && lines[0].i === 1 && lines[0].n === 45,
       `the default max-attempts must be 45 (ADR sub-decision 1: 60 s × 45 ≈ 45 min) — the journal must read "attempt 1/45" (got ${JSON.stringify(lines)}). ${fmt(r)}`);
   } finally { await fx.close(); }
+});
+
+/*
+ * B10 — story deploy-safety-gate #4 (ADR deploy-safety-gate/0004), AC-4, end to end. Not a scripted fixture: the real
+ * deploy-safety handler, served by Express on an OS-assigned 127.0.0.1 port, in this process, with the queue off (no
+ * /etc/brainstorm.conf) and the lifecycle lock read from a fresh temporary TAPESTRY_BACKUPS_DIR. Today's install is
+ * counted through src/firmware/inFlight.js for the first ~2.5 s of the run, then let go; the script must journal the
+ * install's reason on every unsafe attempt and exit 0 only after the install has ended. Nothing reaches any instance.
+ */
+t('B10 (story 4 AC-4): against the real answer, the check waits while a firmware install runs — each unsafe attempt journals FIRMWARE_INSTALL_RUNNING — and exits 0 only once the install has ended', async () => {
+  const IN_FLIGHT = path.join(ROOT, 'src', 'firmware', 'inFlight.js');
+  assert(fs.existsSync(IN_FLIGHT),
+    'src/firmware/inFlight.js does not exist yet — the in-memory count of today\'s install that the deploy-safety ' +
+    'answer reads (story deploy-safety-gate #4, ADR 0004 sub-decision 3).');
+  const inFlight = require(IN_FLIGHT);
+  const { handleStatus } = require(path.join(ROOT, 'src', 'api', 'deploy-safety'));
+  const express = require('express');
+  const had = Object.prototype.hasOwnProperty.call(process.env, 'TAPESTRY_BACKUPS_DIR');
+  const prev = process.env.TAPESTRY_BACKUPS_DIR;
+  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'safe-to-merge-b10-'));
+  process.env.TAPESTRY_BACKUPS_DIR = dir;
+  const app = express();
+  app.get('/api/deploy-safety/status', handleStatus);
+  const server = await new Promise((resolve, reject) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+    s.on('error', reject);
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const leave = inFlight.enter('firmware-install');
+  let endedAt = null;
+  const timer = setTimeout(() => { leave(); endedAt = Date.now(); }, 2500);
+  try {
+    const r = await runScript([base, '10', '1'], { timeoutMs: 30000 });
+    const exitedAt = Date.now();
+    assert(r.code === 0, `the check must exit 0 once the install has ended and nothing else runs (got ${r.code}). ${fmt(r)}`);
+    assert(endedAt !== null && exitedAt >= endedAt,
+      `the check exited before the install ended — it answered safe while a firmware install ran, the defect this story fixes. ${fmt(r)}`);
+    const lines = parseAttempts(r.stdout);
+    assert(lines.length >= 2 && lines[0].verdict === 'unsafe',
+      `the first attempt, made while the install ran, must be unsafe (got ${JSON.stringify(lines.map((l) => l.verdict))}). ${fmt(r)}`);
+    const unsafe = lines.filter((l) => l.verdict === 'unsafe');
+    assert(unsafe.every((l) => l.reasons.includes('FIRMWARE_INSTALL_RUNNING')),
+      `every unsafe attempt must journal the install's reason, FIRMWARE_INSTALL_RUNNING, in reasons= (got ${JSON.stringify(unsafe.map((l) => l.reasons))}).`);
+    assert(unsafe.every((l) => l.raw.includes('"install":"firmware-install"')),
+      `every unsafe attempt's raw body must name the running install, "install":"firmware-install" (got raw=${unsafe[0] && unsafe[0].raw}).`);
+    assert(lines[lines.length - 1].verdict === 'safe' && /merge may proceed/i.test(r.stdout),
+      `the run must end on a safe attempt and say the merge may proceed (got ${JSON.stringify(lines.map((l) => l.verdict))}). ${fmt(r)}`);
+  } finally {
+    clearTimeout(timer);
+    leave();
+    await new Promise((res) => { if (typeof server.closeAllConnections === 'function') server.closeAllConnections(); server.close(res); });
+    if (had) process.env.TAPESTRY_BACKUPS_DIR = prev;
+    else delete process.env.TAPESTRY_BACKUPS_DIR;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 /* ══════════════ C-class — canonical doc + skill content (AC-4/AC-5) ══════════════ */

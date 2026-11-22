@@ -163,6 +163,33 @@ Two were left out:
 - **Not this story's.** A read-only query for every node linked to itself found `superset-superset -HAS_ELEMENT->` itself after the install, which wasn't there before. `set-superset`'s `HAS_ELEMENT` to itself was there before and after. Staging's `set-superset` lists itself too, but its `superset-superset` doesn't. Ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` has a note.
 - **The run records** are in the main checkout's `tmp/live-check-39/production/`. The install's answer is in `/tmp/fw-install-story39-20261121T233729Z.log` on the droplet.
 
+**On tags (2026-11-22).** tags.brainstorm.world deploys `feat/tags`, which diverged from staging in September.
+- **The port.** TapestryProtocol/tapestry#203 (`port/header-tags-once-tags`) brought the fix over, as ADR 0035 §4 asks. See the test plan's and the review's sections "The feat/tags port"; the review gave PASS once its findings were fixed.
+  - It merged at 03:15:38 UTC as `73704d7f`, after a safe verdict.
+  - Deploy run 44979810348 (03:15:40 to 03:24:27) pulled the port's two source files.
+  - The smoke test was clean. Tags' `/api/ready` answers 401, as it did before.
+- **The install** started at 03:29:41, after a safe verdict, with no PR into `feat/tags` open.
+  - Pass 1 gave 43 concepts and 0 errors, and Pass 2 43 enriched. Pass 3 took most of the time: `feat/tags` doesn't have staging's faster Pass 3.
+  - The log ends "FIRMWARE INSTALL COMPLETE" at about 04:09, some 40 minutes in.
+  - The script's request gave up at 30 minutes, at 03:59:41, with no answer. Its after-reading was taken then, once the community step had run, and the log was read over SSH at 04:14.
+- **It took the seed path,** as the review found it would. Pass 1 signed each of the six headers again, the step seeded each ("pointer-b seeded"), and the copies were brought in.
+
+  | | Before | After |
+  |---|---|---|
+  | `tag`, `nostr-user-tag`, `tag-pinning`, `nostr-event-tag` and `nostr-relay` | 13 tags, one `b` | 7, one `b` |
+  | `tagging-with-specific-tag` | 17, one `b` | 9, one `b` |
+  | The copy of production's `nostr-relay` header | 7 tags, one `b`, a `REFERENCES` to itself | production's new letter: 6, no `b`, no loop |
+  | The copy of production's `nostr-relay` superset | 7 | 7 |
+  | The copies of the Mac Studio's five event-tagging headers and three supersets | 6 to 9 each | unchanged |
+  | Tag nodes no event holds | 0 | 0 |
+  | The summaries | 49 rows for 43 headers | 43 for 43 |
+
+- **AC-1.** Each of the six headers has one `REFERENCES {source:'b-tag'}`, to the community header its `b` names.
+- **The public routes, after.** install-status gives 43 of 43 concepts at 1.0.0. The sweep finds none of its 53 nodes holding a repeated tag: the 43 headers and 10 community copies. `/neighbors` finds two loops among them, on the copies of the Mac Studio's `nostr-event-tag` and `tagging-with-specific-tag` headers, as on staging and production.
+- **`dog-breed`'s header was signed again from firmware's file,** as a tags install does for every firmware concept. The `b` and the description added there on 2026-10-01 are gone. That `b` named another instance's header and derived nothing.
+- **The two meta-supersets list themselves on tags too,** before and after. Ledger row `2026-11-15-reinstall-drops-a-supersets-own-membership` has a note.
+- **The run records** are in the main checkout's `tmp/live-check-39/tags/`. The install's answer, which is empty, is in `/tmp/fw-install-story39-20261122T032941Z.log` on the droplet.
+
 ## Linked artifacts
 
 - Book: `engineering-team/audits/header-tags-once/book.md`

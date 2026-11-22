@@ -432,6 +432,12 @@ The install is a **two-pass process**:
 
 Triggered via the Dashboard "Install Tapestry firmware" button or `POST /api/firmware/install`.
 
+**While an install runs, the instance's deploy-safety answer is unsafe.** `GET /api/deploy-safety/status` gives the reason `FIRMWARE_INSTALL_RUNNING`, so the safe-to-merge check holds any merge that would redeploy the instance and cut the install off. This holds for today's install and for `lifecycle seed-firmware`, below.
+- Today's install counts itself in the control panel's memory.
+- seed-firmware is read from the lifecycle lock (ADR deploy-safety-gate/0004).
+
+Before installing on a deployed instance, see [docs/SAFE_TO_MERGE.md](docs/SAFE_TO_MERGE.md), "Before a firmware install".
+
 Pass 1 ends by wiring and pruning (`src/firmware/install.js`). Step 1d adds `HAS_ELEMENT` from every concept's Superset to each node whose `z` names that concept (`word` skipped). Step 1e prunes a Superset's direct `HAS_ELEMENT` and `IS_A_SUPERSET_OF` edges when a longer class-thread path already reaches the target. Step 1e walks only `manifest.concepts` (those with a concept manifest), so edges hanging off a local, non-manifest concept survive an install, while step 1d re-adds any direct edge a `z` tag backs, even one pruned by hand.
 
 **Elements an install keeps in line.** Step 1b creates each concept's elements from its `elements/*.json` files and leaves an element that is already there as it was. A concept whose manifest entry sets `updateElements` (only `graph-rule`) is brought in line instead. Each of its elements that the instance's assistant signed is re-signed in place, at the same address, whenever its JSON in the graph differs from its file, and left alone while they match. They differ when the file has changed, and also when someone has edited the element in the graph: the install puts that edit back. Another author's element with the same name is never signed over, and no element is deleted (ADR graph-operations-first-slice/0041 Decision 6). `graph-rule`'s element files are made from the rulebook, `docs/GRAPH_RULES.md`, and the rules' code by `node src/firmware/graph-rules.js`, one per rulebook entry, and are never edited by hand: a test fails until the script is run again after a rule changes.
