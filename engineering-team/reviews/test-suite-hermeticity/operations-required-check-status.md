@@ -390,3 +390,19 @@ Both of round 2's blocking items are fixed, and each fix holds against its sourc
 Round 1's B1 was fixed in round 2. So nothing blocking remains in the change as reviewed: `edc58fed8` and its four fix commits, `a05bfec59`, `31d8affb2`, `dd8a4ea5f` and `f89ff663a`. CI's `Test / stack-free` job runs `npm test` on the pull request.
 
 **PASS**
+
+## Round 2, R2F-N1 check — 2026-11-21 local, 2026-11-22 UTC (one commit, `c9b33c669`, over `3de89484b`)
+
+- **What changed.** `3de89484b` commits the fix check as written (59 lines, the claim-40 clarification included), and no later commit touches this file. `c9b33c669` changes one line, `ledger/2026-11-22-row-close-misses-citing-rows.md:9` (+1 −1). At word level, two things change: "never looked" becomes "didn't look", and "row 14," becomes "row 14 before closing it,". The header fields (`:1-7`) are untouched, so no reader or suite sees anything new.
+- **The claim holds.** The new sentence is "The closing session didn't look for rows that cite row 14 before closing it, since no step asks for that."
+  - The transcript shows no such search before the close, `edc58fed8` at 00:41:37Z (round 2, claim 32).
+  - `OPEN.md:18-28` has no step that asks for one.
+  - The words are R2F-N1's, and the session's later search, at 01:42:13Z, no longer contradicts them.
+- **Gates.**
+  - `git diff --check HEAD~1..HEAD` and `git diff --check origin/staging...HEAD`: no output, exit 0.
+  - `bash scripts/harness-lint.sh`: `harness-lint: clean (0 violations)`, exit 0, before and after this section.
+  - No suite was run, and no `gh api` request was made.
+- **R2F-N1: fixed.** Nothing remains open from any round.
+- **Commit:** left to the session that started this review. A suggested message: `review: operations-required-check-status — PASS, R2F-N1 check (test-suite-hermeticity, doc lane)`.
+
+**PASS**
