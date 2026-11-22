@@ -159,6 +159,10 @@ const sized = (name, pad) =>
   '} };\n' +
   `// ${'x'.repeat(pad)}\n`;
 
+// ADR test-gate-speed/0001 Amendment 3: passes at once with one test. A trailing comment of `pad` characters sets its
+// file size, which decides the part it falls in when the run is split.
+const quickSized = (pad) => `module.exports = { run: async () => ({ pass: 1, fail: 0 }) };\n// ${'q'.repeat(pad)}\n`;
+
 // The folder an expanding entry names (ADR test-gate-speed/0001 Decision 3), written by scenario().folder().
 // Three suites at two depths, one of them with no run(); a helper that isn't a suite; and a suite under
 // node_modules, which discovery skips.
@@ -369,6 +373,13 @@ const FIXTURE_SOURCES = {
   'chatty-b.test.js': chatty('chatty-b'),
   'prints-then-hangs.test.js': hang('prints-then-hangs'),
   'slow-two.test.js': 'module.exports = { run: () => new Promise((r) => setTimeout(() => r({ pass: 1, fail: 0 }), 60000)) };\n',
+  // Amendment 3: records in seen-part.json what GATE_PART it sees in its run (null when unset).
+  'sees-part.test.js':
+    "const fs = require('fs');\n" +
+    "const path = require('path');\n" +
+    "module.exports = { run: async () => { fs.writeFileSync(path.join(__dirname, 'seen-part.json'), JSON.stringify({ part: process.env.GATE_PART === undefined ? null : process.env.GATE_PART })); return { pass: 1, fail: 0 }; } };\n",
+  // Amendment 3's six, for the parts: sizes from about 0.1 KB to 12 KB.
+  ...Object.fromEntries([0, 500, 1500, 3000, 6000, 12000].map((pad, i) => [`part-q${i + 1}.test.js`, quickSized(pad)])),
   // Amendment 2's three sizes: about 0.3 KB, 3 KB and 30 KB.
   'size-small.test.js': sized('size-small', 0),
   'size-middle.test.js': sized('size-middle', 3000),
@@ -515,6 +526,9 @@ function engineEnv(sc, suites, { label, recordDir = sc.recordDir, extraEnv } = {
   delete env.GATE_LABEL;
   delete env.GATE_RECORD_DIR;
   delete env.GATE_FIXTURE_ENV_PROBE;
+  // A fixture engine runs its whole fixture registry, whichever part of the outer run it runs in (test-gate-speed #1,
+  // Amendment 3). The outer engine doesn't pass GATE_PART on either; this keeps a fixture run whole regardless.
+  delete env.GATE_PART;
   env.GATE_FIXTURE_RUNNER = modulePath('runner');
   env.GATE_FIXTURE_SUITES = JSON.stringify(suites);
   if (recordDir) { env.GATE_FIXTURE_RECORD_DIR = recordDir; env.GATE_RECORD_DIR = recordDir; }

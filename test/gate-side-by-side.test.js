@@ -25,6 +25,8 @@
  *   P17      an entry with no file is that entry's FAIL                                [AC2; Decision 9]
  *   P18–P19  the docs say how it runs and how to run one at a time                     [AC3, AC5]
  *   P20      side by side, the largest test file starts first                          [AC1; Amendment 2]
+ *   P21–P23  GATE_PART splits the run into parts that share nothing and add up; an
+ *            invalid GATE_PART fails the run; a suite never sees GATE_PART              [AC2, AC4; Amendment 3]
  *
  * Engine tests drive runGate() in a child process over fixture suites written to a temp dir, with records
  * in a temp GATE_RECORD_DIR, as test/gate-result-record.test.js does. Nothing here requires the engine at
@@ -530,6 +532,91 @@ test('P20 (AC1; Amendment 2): side by side, the largest test file starts first �
     const names = (rec.suites || []).map((s) => s.name);
     assert(JSON.stringify(names) === JSON.stringify(['size-small', 'size-middle', 'size-large']),
       `the order they start in changes nothing else: the record keeps unit order (Amendment 2); got ${short(names)}`);
+  } finally { sc.cleanup(); }
+});
+
+/* ═══ P21–P22 — the run split across runners (Amendment 3) ══════════════════════════════════════════ */
+
+test('P21 (AC2, AC4; Amendment 3): GATE_PART=1/2 and 2/2 split the suites into two parts that share none, together cover them all, balance by file size and say which part they are, and their totals add up to a whole run\'s', () => {
+  F.need('runner');
+  const names = [1, 2, 3, 4, 5, 6].map((i) => `part-q${i}`);
+  const sc = F.scenario();
+  try {
+    const suites = names.map((n) => sc.suite(`${n}.test.js`));
+    const runOf = (part) => {
+      const env = { ...jobs(2).extraEnv, GATE_PART: part };
+      const before = new Set(F.readRecords(sc.recordDir).map((x) => x.path));
+      const r = F.runEngineSync(sc, suites, { extraEnv: env });
+      const fresh = F.readRecords(sc.recordDir).filter((x) => !before.has(x.path));
+      assert(fresh.length === 1 && fresh[0].rec, `each run writes one record; GATE_PART=${part} left ${fresh.length}`);
+      return { r, rec: fresh[0].rec };
+    };
+    const whole = runOf(undefined);
+    const one = runOf('1/2');
+    const two = runOf('2/2');
+    const namesOf = (rec) => (rec.suites || []).map((s) => s.name);
+    const a = namesOf(one.rec);
+    const b = namesOf(two.rec);
+    const shared = a.filter((n) => b.includes(n));
+    assert(shared.length === 0, `no suite may run in both parts (${ADR}, Amendment 3); both ran ${short(shared)}`);
+    assert(JSON.stringify([...a, ...b].sort()) === JSON.stringify([...names].sort()),
+      `the two parts together must run every suite exactly once; part 1 ran ${short(a)}, part 2 ${short(b)}`);
+    assert(a.length > 0 && b.length > 0, `each part must have suites; got ${a.length} and ${b.length}`);
+    const bytes = (list) => list.reduce((s, n) => s + fs.statSync(path.join(sc.dir, `${n}.test.js`)).size, 0);
+    const largest = Math.max(...names.map((n) => fs.statSync(path.join(sc.dir, `${n}.test.js`)).size));
+    assert(Math.abs(bytes(a) - bytes(b)) <= largest,
+      `the parts must balance by file size, differing by no more than the largest file (${largest} bytes); they hold ${bytes(a)} and ${bytes(b)} bytes`);
+    const t = (rec) => rec.totals || {};
+    assert(t(one.rec).passed + t(two.rec).passed === t(whole.rec).passed && t(whole.rec).passed === 6
+      && t(one.rec).failed + t(two.rec).failed === 0 && t(one.rec).skipped + t(two.rec).skipped === t(whole.rec).skipped,
+      `the parts' totals must add up to the whole run's (story AC4); got ${short(one.rec.totals)} + ${short(two.rec.totals)} against ${short(whole.rec.totals)}`);
+    for (const [part, run, list] of [[1, one, a], [2, two, b]]) {
+      const first = F.firstLine(run.r.stdout);
+      assert(first.includes(`part ${part} of 2: ${list.length} of 6 suites`),
+        `the first line must name the part: "part ${part} of 2: ${list.length} of 6 suites" (Amendment 3); got ${JSON.stringify(first)}`);
+      assert(run.rec.part && run.rec.part.index === part && run.rec.part.count === 2 && run.rec.part.of === 6,
+        `the record must hold part { index: ${part}, count: 2, of: 6 }; got ${short(run.rec.part)}`);
+      assert(run.r.status === 0, `part ${part} passes (exit 0); it exited ${run.r.status}`);
+    }
+    const index = (out, n) => { const m = out.match(new RegExp(`\\[(\\d+)/(\\d+)\\] ${escRe(n)}: PASS`)); return m && `${m[1]}/${m[2]}`; };
+    for (const n of names) {
+      const inPart = index(one.r.stdout, n) || index(two.r.stdout, n);
+      assert(inPart && inPart === index(whole.r.stdout, n),
+        `${n} keeps its place in the whole run's unit order in its part's [i/N] (Amendment 3); whole run ${index(whole.r.stdout, n)}, its part ${inPart}`);
+    }
+    assert(!whole.rec.part, `a run with GATE_PART unset is the whole gate, with no part in its record; got ${short(whole.rec.part)}`);
+  } finally { sc.cleanup(); }
+});
+
+test('P22 (Amendment 3): a GATE_PART that is not <i>/<n> with whole numbers 1 ≤ i ≤ n ends the run FAIL before its first suite, naming GATE_PART', () => {
+  F.need('runner');
+  const problems = [];
+  for (const value of ['0/2', '3/2', '1/0', 'one', '1-2', '2']) {
+    const sc = F.scenario();
+    try {
+      const r = F.runEngineSync(sc, [sc.suite('env-clean.test.js')], { extraEnv: { GATE_PART: value } });
+      const ran = fs.existsSync(path.join(sc.dir, 'ran-env-clean.test.js'));
+      const got = [];
+      if (r.status !== 1) got.push(`it exited ${r.status}`);
+      if (!/^Overall: FAIL\b/.test(F.lastLine(r.stdout))) got.push(`its last line was ${JSON.stringify(F.lastLine(r.stdout))}`);
+      if (!/GATE_PART/.test(`${r.stdout}\n${r.stderr}`)) got.push('no line named GATE_PART');
+      if (ran) got.push('the suite ran');
+      if (got.length) problems.push(`GATE_PART=${JSON.stringify(value)}: ${got.join('; ')}`);
+    } finally { sc.cleanup(); }
+  }
+  assert(problems.length === 0,
+    `an invalid GATE_PART must end the run before its first suite: Overall FAIL, exit 1, a line naming GATE_PART, no suite run (${ADR}, Amendment 3):\n      - ${problems.join('\n      - ')}`);
+});
+
+test('P23 (Amendment 3): GATE_PART is for the engine that runs the registry — a suite run in part 1 of 1 doesn\'t see it, so an engine a suite starts runs whole', () => {
+  F.need('runner');
+  const sc = F.scenario();
+  try {
+    const r = F.runEngineSync(sc, [sc.suite('sees-part.test.js')], { extraEnv: { GATE_PART: '1/1' } });
+    const seen = readJson(path.join(sc.dir, 'seen-part.json'));
+    assert(r.status === 0 && seen, `precondition: part 1 of 1 holds the one suite, and it runs; exit ${r.status}, saw ${short(seen)}`);
+    assert(seen.part === null,
+      `a suite must not see GATE_PART, or a gate that a suite starts would run only part of its own registry (${ADR}, Amendment 3); it saw ${JSON.stringify(seen.part)}`);
   } finally { sc.cleanup(); }
 });
 

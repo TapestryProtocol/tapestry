@@ -447,3 +447,7 @@ The owner chose this after the re-time. One GitHub runner can't reliably reach h
   - The next push removes the step.
   - In the sealed container, the two parts' totals must add up to a whole run's.
 - **The guard.** P21 in `test/gate-side-by-side.test.js` checks that the parts are disjoint, cover every unit, are balanced and say which part they are. P22 checks that an invalid `GATE_PART` ends the run FAIL before its first suite.
+- **`GATE_PART` reaches only the engine that runs the registry** (added at Test Design for this amendment). The engine
+  takes it out of the environment it gives each unit. A suite that starts an engine of its own, as the gate's own guard
+  suites do, therefore runs that engine's whole registry, whichever part the outer run is. P23 pins it, and the fixture
+  helper's `engineEnv` drops it too.
