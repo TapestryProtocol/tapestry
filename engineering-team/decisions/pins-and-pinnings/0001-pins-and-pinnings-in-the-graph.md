@@ -1,6 +1,6 @@
 # ADR 0001: Pins and pinnings live in the graph as the instance's own, and go out under its Assistant's key
 
-**Status:** Accepted (the owner, 2026-11-22: Option A, as drafted)
+**Status:** Accepted (the owner, 2026-11-22: Option A, as drafted, and Amendment 1 with the story breakdown)
 **Date:** 2026-11-22
 **Story:** `docs/loom/G5.6.md` (the epic's spec; its stories follow this decision)
 
@@ -292,6 +292,16 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
 - **Tests the Tester moves** (Phase 3, not implementation):
   - `test/graph-rule-firmware.test.js`: GF6 holds the firmware concept order, and GF13 BIBLE §7's concept and category counts, which say 41 concepts today.
   - `test/operations/lifecycle/seed-firmware-target.test.js`: ST1 to ST5 pin today's install's addresses and tags, wherever a fixed `d` or extra tags change them. ST2's oracle, `test/helpers/todaysFirmwareRoutes.js`, needs the new `d` and tags too.
+
+## Amendment 1 (2026-11-22, at the story breakdown) — the Dictionary's house view leaves private stances out
+
+Decision 5 shows a private pinning only to its viewer's own session, on a route that names a viewer. A Dictionary view that names no viewer is the house view of `/api/trusted-dictionary` and of `/api/dictionaries/concepts` (`src/api/adoption/index.js:155-157`), which Decision 9 makes the instance's. Both are public reads, and both mark each entry's `override` as `'added'` or `'vetoed'` (`src/lib/trustedDictionary.js:128`, :199). Counting a private stance there would publish the stance itself, which Decision 5 keeps from visitors. So:
+
+- **The house view leaves private stances out.** A private `+` lets no concept past the Trusted Dictionary's check there, and no private stance sets an `override`.
+- **The owner's own session counts them,** as Decision 9 says, through the view that names the owner.
+- **Nothing a private `add-to-dictionary` pinning makes is public,** so no warning before the click is needed for it. A Trusted List that a private `spawns-trusted-list` pinning spawns is still public, as Decision 5 says.
+
+The story breakdown's review found this (`docs/loom/G5.6.md`, G5.6.g), and the owner ratifies it with the breakdown.
 
 ## Out of scope
 
