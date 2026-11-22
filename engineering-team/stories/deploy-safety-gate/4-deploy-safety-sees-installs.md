@@ -122,4 +122,4 @@ SAFE — merge may proceed …
 - Book: `engineering-team/audits/deploy-safety-sees-installs/book.md`
 - ADR: `engineering-team/decisions/deploy-safety-gate/0004-deploy-safety-sees-firmware-installs.md`
 - Test plan: `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/deploy-safety-gate/4-deploy-safety-sees-installs.md`
