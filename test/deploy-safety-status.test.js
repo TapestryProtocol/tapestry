@@ -54,6 +54,8 @@ const REASON_CODES = [
   'LEGACY_TASK_RUNNING',
   'NEXT_FIRE_WITHIN_BUFFER',
   'QUEUE_STATE_UNAVAILABLE',
+  // Story deploy-safety-gate #4 (ADR 0004): a running firmware install, today's or lifecycle seed-firmware.
+  'FIRMWARE_INSTALL_RUNNING',
 ];
 // The benign live-trigger task for H6 — registry entry has no resourceClass.
 const LIVE_TRIGGER_TASK = 'refreshApplicabilityLists';
@@ -297,7 +299,7 @@ t('U12 (contract): safeToDeploy is the boolean twin of verdict, and reasons is e
     assert(Array.isArray(r.reasons) && ((r.reasons.length === 0) === (r.verdict === 'safe')),
       `reasons must be [] iff safe (verdict=${r.verdict}, reasons=${JSON.stringify(r.reasons)}).`);
     assert(r.reasons.every((c) => REASON_CODES.includes(c)),
-      `every reason must be one of the four contract codes (got ${JSON.stringify(r.reasons)}).`);
+      `every reason must be one of the five contract codes (got ${JSON.stringify(r.reasons)}).`);
   }
 });
 
@@ -386,7 +388,7 @@ t('H1 (AC-1): one plain unauthenticated GET answers with the full machine-readab
   assert(typeof json.safeToDeploy === 'boolean' && json.safeToDeploy === (json.verdict === 'safe'),
     'safeToDeploy must be the boolean twin of verdict.');
   assert(Array.isArray(json.reasons) && json.reasons.every((c) => REASON_CODES.includes(c)),
-    `reasons must be an array drawn from the four contract codes (got ${JSON.stringify(json.reasons)}).`);
+    `reasons must be an array drawn from the five contract codes (got ${JSON.stringify(json.reasons)}).`);
   assert(typeof json.checkedAt === 'string' && !Number.isNaN(Date.parse(json.checkedAt)),
     `checkedAt must be a parseable timestamp (got ${JSON.stringify(json.checkedAt)}).`);
   assert(json.bufferMs === DEFAULT_BUFFER_MS,

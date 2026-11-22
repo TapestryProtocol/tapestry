@@ -162,6 +162,7 @@ const suites = [
   { file: 'sync-panel-tag-filters.test.js' },
   { file: 'router-stream-tag-filters.test.js' },
   { file: 'deploy-safety-status.test.js', skipNote: 'preconditions not met' },
+  { file: 'deploy-safety-sees-installs.test.js' },
   { file: 'safe-to-merge-check.test.js' },
   { file: 'next-task-countdown.test.js' },
   { file: 'close-unauth-write-surface.test.js' },

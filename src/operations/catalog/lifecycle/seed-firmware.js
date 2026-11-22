@@ -140,6 +140,9 @@ module.exports = {
     const S = require('./_seed');
     const store = require('./_store');
     const graph = require('../../graph');
+    // The lock's op, 'seed-firmware', is also how the deploy-safety answer (src/api/deploy-safety) sees this run, from
+    // any process, and holds merges until the finally below lets the lock go (story deploy-safety-gate #4, ADR 0004).
+    // Rename it there too, or the gate goes blind to a running install.
     const lock = await C.begin('seed-firmware');
     try {
       const at = new Date().toISOString();

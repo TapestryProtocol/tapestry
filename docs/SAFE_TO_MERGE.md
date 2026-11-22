@@ -2,7 +2,7 @@
 
 > **Audience:** AI agents (Claude Code, etc.) running the deploy cycles for this repo, plus human operators promoting any deploy-triggering branch by hand.
 >
-> **Purpose:** A single canonical definition of the **pre-merge deploy-safety check** — the gate that keeps a deploy-triggering merge from landing while a scheduled task is running or imminent on the instance that merge redeploys. The cycle skills reference this file rather than restating it; when the recipe changes, update this file and every consumer inherits (the `docs/SMOKE_TEST.md` pattern).
+> **Purpose:** A single canonical definition of the **pre-merge deploy-safety check** — the gate that keeps a deploy-triggering merge from landing while a scheduled task or a firmware install is running, or a scheduled task is imminent, on the instance that merge redeploys. The cycle skills reference this file rather than restating it; when the recipe changes, update this file and every consumer inherits (the `docs/SMOKE_TEST.md` pattern).
 
 **Last updated:** 2026-11-21
 
@@ -11,6 +11,12 @@
 ## What the check is
 
 Every merge into a deploy-triggering branch recreates that instance's container, killing any in-flight scheduled task and silently corrupting its scoring data. Story #1 of the deploy-safety-gate epic gave every instance the answer: `GET <base>/api/deploy-safety/status` (one plain unauthenticated request, ADR deploy-safety-gate/0001) returns `safeToDeploy` (boolean), `verdict`, `reasons[]`, `checkedAt`, the effective `bufferMs`, and per-source detail. The instance owns the verdict policy; consumers act on the verdict as delivered and never re-derive their own safety policy from the raw schedule data.
+
+A running **firmware install** counts too, as a scheduled task does (story #4, ADR deploy-safety-gate/0004).
+- **Which installs:** today's install, `POST /api/firmware/install`, or `lifecycle seed-firmware`.
+- **Why it matters:** a deploy that recreates the container mid-install leaves the graph half-installed until the next full install. That happened twice to staging on 2026-11-21.
+- **What the answer says:** while an install runs, it is unsafe with the reason `FIRMWARE_INSTALL_RUNNING`. Its `firmware` block names which install is running and when it started.
+- **For whoever starts an install:** see "Before a firmware install" below.
 
 This check is the consuming side: **as the immediate precursor of any deploy-triggering merge, ask the instance that merge will redeploy, and merge only on a safe verdict just observed.** While the verdict is unsafe, wait and recheck — bounded and journaled — rather than aborting outright or merging anyway.
 
@@ -101,6 +107,37 @@ scripts/check-safe-to-merge.sh https://tags.brainstorm.world
 Same exit-code handling, same staleness rule, same journaling — paste the check's output into wherever the promotion is being recorded (the PR body or the session report).
 
 **Transition note:** an instance whose branch predates story #1 does not serve the endpoint yet — the check gets a 404, which is "no usable answer" (exit 2), never safe. Promote the endpoint to that branch first, or proceed only as an explicit recorded operator decision.
+
+## Before a firmware install
+
+This section is for whoever starts a firmware install on a deployed instance. That means today's install, `POST /api/firmware/install`: the Dashboard's button, or the loopback call `docker exec tapestry curl -s -X POST http://127.0.0.1:7778/api/firmware/install` on the server. It also means `lifecycle seed-firmware`.
+
+**An instance sees an install only once its branch carries story #4** (ADR deploy-safety-gate/0004).
+- **How to tell:** such an instance's answer always has a `firmware` block. An answer with no `firmware` block doesn't see installs, and says safe while one runs.
+- **What to do there:** have merges into that instance's branch held by hand until the install ends, as before story #4.
+- **Today that is tags.brainstorm.world,** whose branch `feat/tags` has story #1 but not story #4, **and production until `main` takes it.**
+
+**First, check that no deploy of that instance is running or queued.** A deploy already on its way recreates the container, about 90 seconds after its merge, or later on a refreshing deploy. The instance can't see it coming. For staging:
+
+```bash
+gh run list --repo TapestryProtocol/tapestry --workflow deploy-staging.yml --limit 5 --json status,displayTitle,createdAt --jq '.[] | select(.status != "completed")'
+```
+
+Use `deploy-tapestry.yml` for production and `deploy-tags.yml` for tags.
+- **Empty output** means no deploy is running, queued or waiting. Start the install.
+- **Any line** is a deploy that hasn't completed. Wait for it to finish, then check again.
+
+**Once the install starts, an instance that carries story #4 answers unsafe until it ends,** with `FIRMWARE_INSTALL_RUNNING`. So a merger's check waits for it, and on that instance nobody needs to hold merges by hand.
+- **Today's install** counts from its first step to its last, a dry run included.
+- **seed-firmware** counts while it holds the lifecycle lock, which it takes before its first write and lets go after its last.
+
+**An install that hangs keeps the answer unsafe** until it ends or the instance restarts. A merger's check then stops at its bound (45 attempts, 60 seconds apart), with the reason in its journal, and the operator decides, as for a long task.
+
+**Today's install run from the command line** (`node src/firmware/install.js`) isn't seen. It runs in a process of its own, and nothing reads that process's count. Use the route.
+
+**Two gaps remain.**
+- **A check that came just before the install started.** Suppose a merger's check said safe just before the install started. The merger can still merge, and that merge's deploy cuts the install off. This recipe has a merger merge right after a safe verdict, so the gap is usually seconds. It is recorded in OPEN.md row `2026-11-22-install-starts-after-a-safe-check`.
+- **A merge that skips the check.** Such a merge isn't held at all, since the gate is procedural (see Limits). OPEN.md row 340 records several.
 
 ## Limits
 
