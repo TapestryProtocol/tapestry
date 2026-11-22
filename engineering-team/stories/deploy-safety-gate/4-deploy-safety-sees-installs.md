@@ -86,7 +86,7 @@ For the Architect (each answered in ADR 0004):
 
 **The scoped gate, stack-free (2026-11-21, Implementation).** It ran on `239fe71e` (the failing tests' commit), with the implementation in the working tree and committed unchanged after it. Node was 22.23.1, CI's major.
 
-*(Review round 1, finding 4: this run predates the branch's rebase onto `94e85fe06`. Its base was `deef26702`, and its list missed five suites that read changed files. Review round 1's own run and round 2's run, below, cover the final tree.)*
+*(Review round 1, finding 4: this run predates the branch's rebase onto `94e85fe06`. Its base was `deef26702`, and its list missed five suites that read changed files. Review round 1's own run covers the rebased tree before round 1's fixes. Round 2's run, below, and review round 2's own run cover the tree with them. Round 3 changed only prose and one test, D7, which passes.)*
 
 **The environment** was the memory's scoped-gate recipe:
 - a stub `curl` and a stub `docker` first on `PATH`;
@@ -118,7 +118,7 @@ attempt 4/10 verdict=safe reasons=[] raw={…"firmware":{"installCount":0,"insta
 SAFE — merge may proceed …
 ```
 
-**Round 2, after review round 1's fixes (2026-11-22).** The gate ran on `2fcc8d70` (round 2's tests), with the fixes in the working tree and committed unchanged after it, on the branch rebased onto `94e85fe06`. The environment was the same.
+**Round 2, after review round 1's fixes (2026-11-22).** The gate ran on `2fcc8d70` (round 2's tests), with the fixes in the working tree, on the branch rebased onto `94e85fe06`. The environment was the same. The fixes' code, docs and ledger rows were committed unchanged after it, in `3b2064e16`, with this paragraph added to the story.
 
 **67 suites:** round 1's 62, plus the five the review found reading changed files:
 - `suite-env-changes`;
@@ -141,6 +141,10 @@ SAFE — merge may proceed …
 - **The guards, on scratch copies of the working tree:**
   - H10 fails with the store's pid-reuse line taken out;
   - S4 fails with seed-firmware's lock op renamed to `'seed'`.
+
+**Round 3, after review round 2's findings (2026-11-22).** Round 3 changed prose and one test, D7, so it ran the 13 suites that read what changed. Those were this story's two suites, the recipe's and the ledger's readers, and the harness scanners. The run was on `9d59e3a3` (D7), with round 3's prose in the working tree and committed after it.
+- **Run `20261122T034530Z-17030-d50f` (label `ds4-round3-1`):** PASS, exit 0, with 369 passed, 0 failed and 10 skipped across 13 suites.
+- **`test/safe-to-merge-check.test.js`,** with the system `curl`: 17 of 17.
 
 **Not checked here.** There was no live check, since the local container is off-limits. The live evidence is the book's: one install on staging and one on production, each on the owner's yes, with the check run against that instance during it.
 

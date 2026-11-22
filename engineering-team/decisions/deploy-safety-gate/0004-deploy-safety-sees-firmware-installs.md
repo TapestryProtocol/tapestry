@@ -4,7 +4,7 @@
 **Date:** 2026-11-21
 **Story:** `engineering-team/stories/deploy-safety-gate/4-deploy-safety-sees-installs.md`
 **Extends:** ADR deploy-safety-gate/0001, with a fourth live source, a fifth reason and one new block. Nothing in its payload is renamed or removed. ADR 0002's script doesn't change; its recipe doc gains a section.
-**Amended by:** Amendment 1 (2026-11-22, review round 1). It adds:
+**Amended by:** Amendment 1 (2026-11-22, review round 1, revised at round 2's review, and ratified by the owner). It adds:
 - a transition note in the procedure, for instances without this story;
 - a pin on seed-firmware's side of the lock;
 - a test of the lock's pid-reuse rule;
@@ -257,6 +257,8 @@ Test-file changes the ADR requires belong to Phase 3, the Tester's lane, never t
 
 Round 1's review (`engineering-team/reviews/deploy-safety-gate/4-deploy-safety-sees-installs.md`) found one blocking issue and seven non-blocking ones. The owner chose to fix them all (2026-11-22). Each item below names its finding. Items 4 and 6 each had two possible fixes, and the Architect picked one; the owner's answer at the next gate ratifies or reverses each pick.
 
+**Ratified 2026-11-22.** At round 2's review gate the owner chose "Fix findings first". That accepts both picks.
+
 1. **The procedure gains a transition note (blocking 1).** Sub-decision 8's section said, with no condition, that an install's answer holds merges. That is false where a branch lacks this story, because story 1's answer still says safe during an install. The section now says:
    - **An instance sees an install only once its branch carries this story.** On such an instance the answer always carries a `firmware` block (sub-decision 2).
    - **So an answer with no `firmware` block doesn't see installs.** On that instance, have merges into its branch held until the install ends, as before this story.
@@ -268,7 +270,13 @@ Round 1's review (`engineering-team/reviews/deploy-safety-gate/4-deploy-safety-s
    - **A source sentinel holds that.** `seed-firmware.js` calls `C.begin('seed-firmware')` before its write transaction and releases the lock in a `finally`.
    - **A comment at that call** names the deploy-safety answer as a reader, so the "comments at both ends" of Consequences hold for the writer too.
 4. **The lock's pid-reuse rule gets a test (non-blocking 6).**
-   - **Why it matters.** After a restart that keeps the hostname, such as one under a droplet compose override that pins `hostname:`, a cut-off seed-firmware lock is stale for one reason only: its holder's process id, if it answers at all, has a different `/proc` start time (`_store.js:223-230`).
+   - **Why it matters.** After a restart that keeps the container, and so its hostname, a cut-off seed-firmware lock is stale for one reason only: its holder's process id, if it answers at all, has a different `/proc` start time (`_store.js:223-230`).
+     - **Which restart that is.** It is the one `restart: unless-stopped` gives after a crash or a droplet reboot (`docker-compose.yml`). A deploy recreates the container, which changes the hostname too.
+     - **The first version of this item** gave an unchecked example instead: a compose override that pins `hostname:` (corrected at round 2's review, finding 7).
+   - **After a droplet reboot, the rule can fail the other way.** A process that reuses the dead holder's process id can, by chance, have its start time, since start times count from boot. The lock then reads live.
+     - **For the gate,** that fails closed: the answer reports an install, and the check stops at its bound.
+     - **For lifecycle operations,** they refuse `busy` until someone removes the lock.
+     - **It predates this story.** Ledger row `2026-11-22-reboot-can-revive-a-dead-lock` records it.
    - **The test.** It stands in for the `/proc/<pid>/stat` read, so it runs on macOS, which has no `/proc`, as well as on CI. A lock naming a live process id with a different start time gives no install. The same lock with the matching start time gives one.
    - **The Architect's pick.** The review offered a ledger note instead. A test was chosen because the answer now relies on the rule.
 5. **The testing note is corrected (non-blocking 3).** The queue reads as off because `/etc/brainstorm.conf` is absent and `TASK_QUEUE_ENABLED` is unset. `src/utils/brainstormConfig.js` reads only that file and then `process.env`, and ignores `BRAINSTORM_CONF_PATH`. The review's harness-friction row records this for every later gate: ledger row `2026-11-22-brainstorm-config-ignores-conf-path`.
@@ -279,3 +287,10 @@ Round 1's review (`engineering-team/reviews/deploy-safety-gate/4-deploy-safety-s
 7. **The smaller fixes:**
    - **`handleStatus`'s JSDoc** says that the GET also reads the lifecycle lock file and probes its holders (non-blocking 2).
    - **The story's Evidence** records round 2's gate on the final HEAD, with the review's 67-suite list (non-blocking 4).
+
+**Revised at round 2's review (2026-11-22).** Round 2 passed, with seven non-blocking findings, and the owner chose to fix them before the PR. None changes a decision above:
+- **Finding 7:** item 4's example is corrected, and the reboot case has its own ledger row.
+- **Finding 6:** the procedure says "story #4" where it said "this story".
+- **Findings 1 and 2:** the meta row no longer says that `brainstormConfig` is the queue flag's only reader. It says that H1, not H8, fails first, with no Redis call.
+- **Findings 4 and 5:** the story's Evidence and the test plan's D6 row say what each run and test covers.
+- **Finding 3:** D7 checks each part inside the transition note itself.
