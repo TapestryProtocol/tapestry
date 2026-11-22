@@ -61,9 +61,22 @@
 
 **Raw records,** git-ignored, are in the main checkout's `tmp/deploy-safety-sees-installs/staging-2026-11-22/`.
 
-### Production
+### Production (2026-11-22)
 
-Not yet. It follows once #204 reaches `main`, on the owner's yes.
+**The fix reached production.**
+- **The promotion.** TapestryProtocol/tapestry#206 promoted `staging` to `main`, pinned at `4dfe03d11`, the staging tree the evidence install ran on. Its bundle was #204, plus two docs-only records PRs, #202 and #205.
+- **The merge.** The owner merged #206 by hand at 05:58:12 UTC (merge `64c5b40a9`).
+- **The deploy.** Run 44991639456 ran its SSH step from 05:58:22 to 06:00:34.
+- **The smoke test** was clean. `/api/deploy-safety/status` carried `firmware: { installCount: 0, installs: [] }`.
+
+**The merge went in while production answered unsafe.** This session's check, waiting to merge on a safe answer, had journaled `NEXT_FIRE_WITHIN_BUFFER` at 05:56:54 and 05:57:54. The task due was `refreshSearchIndex`, at 06:00:00.
+- **The deploy cut that run off.** It started at 06:00:01 on the old container, and its history still reads `running` with no end.
+- **BullMQ's stall recovery re-ran it** on the new container, from 06:01:15 to 06:02:25, as a success.
+- **So the refresh completed,** about a minute late.
+
+This is one more merge the gate didn't hold, because nothing enforces the check at merge time (OPEN.md row 340). Raw records, git-ignored, are in the main checkout's `tmp/deploy-safety-sees-installs/production-2026-11-22/`.
+
+**The evidence install on production:** not yet. It follows on the owner's separate yes.
 
 ## Provenance
 
