@@ -243,6 +243,23 @@ The setup, micromark and harness are LH1's (`tmp/live-check-48/run-r2.sh`). The 
     - The race that can happen is with an import, which takes no C1 lock and makes a `NostrEvent` that the `MERGE` matches. It isn't run live; WS20 pins it on the Cypher engine.
   - `graph history` of the first header shows its one `graph wire-to-shared` entry, by the admin.
 
+### On staging and production (2026-11-22)
+
+Each smoke test ran docs/SMOKE_TEST.md's tiers with no session. It made reads only and signed nothing. Tier 4 was skipped, as no `ui/` file changed.
+
+- **Staging.** TapestryProtocol/tapestry#199 merged into staging at 02:27:22Z, as `94e85fe06`, at the head CI had passed (the stack-free gate). The safe-to-merge check said safe seven seconds before.
+  - **The deploy:** run 44976166981, 90 s.
+  - **The smoke test: 0 failed.** Staging was stable after 3×2 s polls, and Neo4j was ready after 3×2 s. Every Tier-2 page and API answered 200. `get-user-data` for the known-active pubkey gave its documented 504 with a JSON body in 16 s.
+  - **The operations.** `/docs` listed 43 `/api/tapestry/` paths, 40 before: every one kept, and `graph/declare-shared`, `wire-to-shared` and `defer-sharing` added. A signed-out POST to each answered 401. The concept summaries answered, with 46 concepts.
+- **Loom.** `loom check A10.44` gave done, verified weakly (review after merge), at 02:27:43Z.
+- **Production.** The promotion TapestryProtocol/tapestry#200, pinned at `94e85fe06` by `promote/declare-shared-2026-11-21`, merged into main at 03:02:20Z, as `9f7d7aa30`.
+  - **What it carried:** #199 and five docs pull requests, #194–#198.
+  - **Its checks:** the stack-free gate (21 minutes), the main-source guard, publish and deploy all passed.
+  - **The safe-to-merge check** first answered unsafe, `NEXT_FIRE_WITHIN_BUFFER`, then `QUEUE_TASK_RUNNING`, while the hourly search-index refresh came due at 03:00 and ran. It said safe at 03:02:10.
+  - **The deploy:** run 44978776069, 2 min 17 s.
+  - **The smoke test: 0 failed.** Production was stable after 3×2 s polls, and Neo4j was ready after 9×2 s. Every Tier-2 page and API answered 200, and `get-user-data` gave its documented 504 in 18 s. `/docs` listed the same 43 paths, and a signed-out POST to each new route answered 401. The concept summaries answered, with 45 concepts.
+- **david.tapestry.ninja** served the same 43 paths, the three new ones among them, by 03:07Z. The first use there waits for the owner's yes: declaring the vulnerability concept shared and exporting it to `wss://dcosl.brainstorm.world`.
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`
 - Test plan: `engineering-team/stories/graph-operations-first-slice/48-declare-a-concept-shared.test-plan.md`
