@@ -10,7 +10,18 @@
 - **`src/utils/config.js`** (`getConfigFromFile`, used by the Neo4j driver) honors `BRAINSTORM_CONF_PATH`.
 - **`src/utils/brainstormConfig.js`** reads the fixed path `/etc/brainstorm.conf` (`this.configPath`, :18). Its `get()` (:109-110) then falls back to `process.env`.
 
-The deploy-safety answer reads `TASK_QUEUE_ENABLED` through the second. Other readers of the same flag use the first: `src/api/assistant/scores.js:138` and `src/api/assistant/selfMap.js:141` call `getConfigFromFile('TASK_QUEUE_ENABLED', 'false')`. So a dead conf reaches them, but not the deploy-safety answer.
+`TASK_QUEUE_ENABLED` has seven readers, split between the two.
+- **Three use the first,** through `getConfigFromFile('TASK_QUEUE_ENABLED', 'false')`:
+  - `bin/control-panel.js:334`, which decides whether the task queue starts;
+  - `src/api/assistant/scores.js:138`;
+  - `src/api/assistant/selfMap.js:141`.
+- **Four use the second:**
+  - the deploy-safety answer (`src/api/deploy-safety/index.js:141`);
+  - `src/api/index.js:578`;
+  - `src/api/manage/commands/runTask.js:419`;
+  - `src/api/tagging-edges/pass.js:69`.
+
+So a dead conf reaches the first three, but not the other four.
 
 **Why it matters for a scoped gate.** This Mac's scoped-gate recipe points `BRAINSTORM_CONF_PATH` at a dead conf, so that the Neo4j driver can't reach the agent-memory instance. That conf doesn't reach `brainstormConfig`.
 - **The queue flag** comes from `/etc/brainstorm.conf`, if the host has one, and otherwise from `process.env`.
@@ -19,7 +30,7 @@ The deploy-safety answer reads `TASK_QUEUE_ENABLED` through the second. Other re
   - on a host whose `/etc/brainstorm.conf` enables the queue;
   - in a shell that exports `TASK_QUEUE_ENABLED=true`.
 
-  A test process never starts the task queue, so `isQueueAvailable()` is false, with no Redis call made. Every answer is then unsafe with `QUEUE_STATE_UNAVAILABLE`, and `test/deploy-safety-sees-installs.test.js` H1 fails first, at the check that its answer is safe again once the install leaves.
+  Nothing has started the task queue in the gate's process by the time those suites run, so `isQueueAvailable()` is false, with no Redis call made. Two suites do start it, over stand-ins, but both run later in `test/registry.js`: `task-queue-job-gate`, and `tagging-edges-wiring`'s SWR79. Every answer is then unsafe with `QUEUE_STATE_UNAVAILABLE`, and `test/deploy-safety-sees-installs.test.js` H1 fails first, at the check that its answer is safe again once the install leaves.
 - **ADR deploy-safety-gate/0004's first testing note** assumed the dead conf did the job. Amendment 1, item 5, corrects it.
 
 **Fix shapes, none chosen:**

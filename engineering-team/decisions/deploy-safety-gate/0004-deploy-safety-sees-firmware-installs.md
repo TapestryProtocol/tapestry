@@ -275,7 +275,7 @@ Round 1's review (`engineering-team/reviews/deploy-safety-gate/4-deploy-safety-s
      - **The first version of this item** gave an unchecked example instead: a compose override that pins `hostname:` (corrected at round 2's review, finding 7).
    - **After a droplet reboot, the rule can fail the other way.** A process that reuses the dead holder's process id can, by chance, have its start time, since start times count from boot. The lock then reads live.
      - **For the gate,** that fails closed: the answer reports an install, and the check stops at its bound.
-     - **For lifecycle operations,** they refuse `busy` until someone removes the lock.
+     - **For lifecycle operations,** backup, restore, migrate, seed-firmware and upload-backup refuse `busy`. That lasts until the lock reads stale again, because the process holding that pid restarts or a deploy recreates the container, or until someone removes the lock.
      - **It predates this story.** Ledger row `2026-11-22-reboot-can-revive-a-dead-lock` records it.
    - **The test.** It stands in for the `/proc/<pid>/stat` read, so it runs on macOS, which has no `/proc`, as well as on CI. A lock naming a live process id with a different start time gives no install. The same lock with the matching start time gives one.
    - **The Architect's pick.** The review offered a ledger note instead. A test was chosen because the answer now relies on the rule.

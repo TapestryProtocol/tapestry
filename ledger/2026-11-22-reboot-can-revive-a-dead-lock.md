@@ -23,12 +23,15 @@ The lock then reads live.
 
 **What follows.**
 - **The deploy-safety answer reports a running seed-firmware** (story deploy-safety-gate #4). That fails closed: a merger's check stops at its bound, and the operator decides.
-- **Every lifecycle operation refuses `busy`:** backup, restore, migrate and seed-firmware. That lasts until someone removes the lock by hand, since `recoverIfStale` recovers only a lock it judges stale.
+- **The lifecycle operations that take or check the lock refuse `busy`:** backup, restore, migrate, seed-firmware and upload-backup. `recoverIfStale` recovers only a lock it judges stale, so the refusal lasts until one of three things happens:
+  - the process holding that pid restarts, and so has a new start time;
+  - a deploy recreates the container, which gives it a new hostname;
+  - someone removes the lock by hand.
 - **The odds are low,** and this predates story 4. Story 4 made it visible: its answer is the first reader outside the lifecycle operations.
 
 **Fix shapes, none chosen:**
 - **Record the boot** (`/proc/sys/kernel/random/boot_id`) in the lock, and treat a lock from another boot as stale.
-- **Record the container's own start,** for example the start time of process 1, and compare that.
+- **Record the container's own start as wall-clock time,** for example process 1's start converted from ticks since boot, and compare that. Kept as ticks, it could coincide after a reboot just as a holder's does. Only the boot-id shape is a full fix on its own.
 
 **Pointer:**
 - ADR `deploy-safety-gate/0004` (Amendment 1, item 4);
