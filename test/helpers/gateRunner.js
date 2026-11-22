@@ -20,7 +20,7 @@
  *   - A unit's stdout and stderr go to one file. When the unit ends, the engine prints them as one block, under
  *     "▶ [i/N] <name>" and above its result line, so suites running side by side never mix their lines; blocks
  *     come in the order units finish (Decision 5). Then it kills whatever is left in the unit's process group,
- *     so nothing a suite started outlives it (Decision 6).
+ *     so nothing a suite started in that group outlives it (Decision 6; a process it detaches is its own).
  *   - A run record (gateRecord.js, schema 2) is written before the first unit, rewritten as each starts and
  *     ends, and finished with the verdict and exit code the process exits with (Decision 7).
  *   - A run that ends before its verdict anyway — the engine's own failure, such as a record write that throws —
@@ -288,7 +288,6 @@ async function runGate({ suites, recordDir, label } = {}) {
     error: x.error ? R.clip(x.error) : null, failures: R.clipFailures(x.failures), envChanged: x.envChanged || null,
   }));
   const killGroup = (pid) => { if (Number.isInteger(pid) && pid > 0) { try { process.kill(-pid, 'SIGKILL'); } catch { /* already gone */ } } };
-  const killAll = () => { for (const x of running.values()) killGroup(x.child.pid); };
   const cleanLogs = () => { if (logDir) { try { fs.rmSync(logDir, { recursive: true, force: true }); } catch { /* best effort */ } } };
   const readSafe = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } };
 
@@ -302,9 +301,20 @@ async function runGate({ suites, recordDir, label } = {}) {
 
   // Ends a run that can't reach its own verdict: recorded as FAIL with the reason, a FAIL verdict line, and a
   // non-zero exit — never a silent exit 0.
+  // What each running unit had printed, marked unfinished, so a run cut short (a signal, a CI cancellation, the engine's
+  // own failure) shows what was still running (Decision 6; Amendment 4).
+  const printUnfinished = () => {
+    const inFlight = [...running.values()].sort((a, b) => a.unit.index - b.unit.index);
+    for (const x of inFlight) killGroup(x.child.pid);
+    for (const x of inFlight) {
+      say(`▶ [${x.unit.index + 1}/${units.length}] ${x.unit.name} (unfinished: its output so far)`);
+      writeBlock(readSafe(x.logFile));
+    }
+  };
+
   const abandon = (why, exitCode = 1) => {
     settled = true;
-    killAll();
+    printUnfinished();
     h.rec.strayErrors.push({ during: null, message: R.clip(why) });
     try {
       progress();
@@ -319,13 +329,7 @@ async function runGate({ suites, recordDir, label } = {}) {
       if (settled) return;
       settled = true;
       const exitCode = 128 + signo;
-      const inFlight = [...running.values()].sort((a, b) => a.unit.index - b.unit.index);
-      for (const x of inFlight) killGroup(x.child.pid);
-      // What each running unit had printed, so an interrupted run — a CI cancellation, a time limit — shows what was still running.
-      for (const x of inFlight) {
-        say(`▶ [${x.unit.index + 1}/${units.length}] ${x.unit.name} (unfinished: its output so far)`);
-        writeBlock(readSafe(x.logFile));
-      }
+      printUnfinished();
       try { progress(); R.interruptRecord(h, { signal, exitCode }); } catch { /* best effort */ }
       say(`Overall: INTERRUPTED — ${signal} after ${completed}/${mine.length} suites · record ${shown}`);
       cleanLogs();
@@ -363,7 +367,16 @@ async function runGate({ suites, recordDir, label } = {}) {
         const m = x.message;
         if (m && m.result) {
           for (const s of m.strays || []) h.rec.strayErrors.push({ during: x.unit.name, message: R.clip(s) });
-          return { ...m.result };
+          const r = { ...m.result };
+          // A process that fails as it exits, after its result (an exit cleanup that throws, a crash at exit), is this
+          // unit's FAIL (Amendment 4).
+          const e = x.exit || {};
+          if (e.signal || (Number.isInteger(e.code) && e.code !== 0)) {
+            const how = `its process ended ${e.signal ? `by ${e.signal}` : `with exit ${e.code}`} after it sent its result`;
+            r.fail += 1;
+            r.error = r.error ? `${r.error}; and ${how}` : how;
+          }
+          return r;
         }
         if (x.spawnError) return { pass: 0, fail: 1, skipped: 0, error: `could not start its process: ${x.spawnError}` };
         const e = x.exit || {};

@@ -14,6 +14,10 @@
  *   - the counts are normalised, and one macrotask after the run a key left changed is one more failed check,
  *     named (rule 6; as the last suite in its process, rule 7's check is this one);
  *   - escaped rejections and exceptions are this unit's strays;
+ *   - after its run the unit stays up until nothing is left that could run, or 2 seconds, so a failure its run left for
+ *     later (a timer, an un-awaited assertion, a deferred process.exit) is still its stray (Amendment 4);
+ *   - once its result is sent, it exits with no code of its own, so an exit cleanup that throws ends it non-zero, and
+ *     the engine fails a unit that exits non-zero or by a signal after its result (Amendment 4);
  *   - a run() that never settles, with nothing left to keep the process alive, is this unit's FAIL. The IPC channel
  *     is unref'd so that it doesn't keep the process alive itself;
  *   - when the IPC channel closes before the result is sent, the engine is gone. This unit then ends at once, with
@@ -29,6 +33,9 @@ const realExit = process.exit.bind(process);
 const G = require('./gateRunner');
 const R = require('./gateRecord');
 
+// How long a unit stays up after its run when something it left is still running (ADR test-gate-speed/0001 Amendment 4).
+const LINGER_MS = 2000;
+
 let unit = null;
 let reported = false;
 let phase = 'waiting for its suite';
@@ -40,13 +47,26 @@ function report(result) {
   reported = true;
   const msg = { type: 'gate-unit-result', result, strays: strays.map((s) => R.clip(s)) };
   try {
-    process.send(msg, () => realExit(0));
+    process.send(msg, () => {
+      // The result is on its way, so this unit's stray listeners have nothing left to report to. They step aside, and
+      // the exit takes no code of its own: an exit cleanup that throws then ends the process with Node's own exit 1,
+      // which the engine reads as this unit's FAIL (Amendment 4).
+      process.removeListener('uncaughtException', strayOf);
+      process.removeListener('unhandledRejection', strayOf);
+      realExit();
+    });
   } catch {
     realExit(3);
   }
 }
 
-const strayOf = (err) => strays.push(String((err && err.stack) || err));
+// Once the result has gone, a failure can't be a stray any more: it goes to the unit's log and fails its process.
+const strayOf = (err) => {
+  const text = String((err && err.stack) || err);
+  if (!reported) { strays.push(text); return; }
+  try { process.stderr.write(`after its result: ${text}\n`); } catch { /* its log is gone */ }
+  process.exitCode = 1;
+};
 process.on('unhandledRejection', strayOf);
 process.on('uncaughtException', strayOf);
 
@@ -57,7 +77,8 @@ process.on('disconnect', () => {
 });
 
 process.on('beforeExit', () => {
-  if (reported || !unit) return;
+  // While lingering after its run, an empty event loop is the end of the wait (Amendment 4), handled there.
+  if (reported || !unit || phase === 'lingering') return;
   report({
     pass: 0,
     fail: 1,
@@ -115,9 +136,30 @@ async function runUnit() {
       }
     }
   }
+  // Amendment 4: stay up until nothing is left that could run, or LINGER_MS, whichever comes first. A throw, a rejection
+  // or a trapped process.exit in that window is this unit's stray, as during its run; process.env is checked once more.
+  phase = 'lingering';
+  await linger();
+  const envAfterLinger = G.envChangesSince(START_ENV);
+  if (envAfterLinger) {
+    G.restoreEnv(START_ENV);
+    const envText = `changed process.env after its run, while it was still busy ${G.describeEnvChanges(envAfterLinger)} — put each key back before run() ends (delete one that was unset)`;
+    r.fail += 1;
+    r.error = r.error ? `${r.error}; and ${envText}` : envText;
+    r.envChanged = r.envChanged || { phase: 'after-run', ...envAfterLinger };
+  }
   // Only plain names and messages cross the channel: a failure object may hold anything.
   r.failures = R.clipFailures(r.failures);
   report(r);
+}
+
+/** Wait until the event loop has nothing left that could run, or LINGER_MS, whichever is first. The timer is unref'd. */
+function linger() {
+  return new Promise((resolve) => {
+    const cap = setTimeout(resolve, LINGER_MS);
+    cap.unref();
+    process.once('beforeExit', () => { clearTimeout(cap); resolve(); });
+  });
 }
 
 process.once('message', (msg) => {
