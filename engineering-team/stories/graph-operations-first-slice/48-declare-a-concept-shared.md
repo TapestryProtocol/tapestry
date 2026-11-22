@@ -144,6 +144,14 @@ Judgment calls made in Implementation (2026-11-21), each too small for an ADR am
 - **The helper's names.** `headerOf` answers `tags` and `values` beside the ADR's `{ facts, h, bTags }`. `addB` and `dropMarkers` take that answer rather than `h`, since the new tag's index is the header's tag count. Three small helpers are added beside the ADR's: `nodeAt` (the target's `held` and `node`, for a first call and a repeat alike), `link` (the `MERGE`) and `answerOf` (the answer's shared fields).
 - **Where the docs sit.** The catalog lists the three after update-concept, in §2 and in "At a glance". set-b-tag's §9 row follows the row for today's three routes. BIBLE §25's bullet is the section's last, and its "Last updated" line is left as it is, as story 34 left it. The skill's sentence follows "No other operation signs a nostr event."
 
+### Review round 1's findings (Amendment 2)
+
+Judgment calls made at the second Implementation round (2026-11-21), each too small for another amendment. None goes outside Amendment 2.
+
+- **`REFERENCES`' makers, in the rule's words:** "import nostr, and graph declare-shared and wire-to-shared from a b tag". So add-relationship's refusal reads "REFERENCES is reserved: it is made by import nostr, and graph declare-shared and wire-to-shared from a b tag, with the checks it needs." The rule suite's `REFERENCES: /import nostr/` still holds.
+- **The adoption's answer isn't read.** Where `nodeAt` found no node, it changes nothing, and in the race it adopts the node that appeared. Either way the `MERGE`'s `RETURN` says which node the relationship runs to.
+- **The docs' wording.** `inherit-from.md`'s sentence becomes two, the second saying which writes draw a relationship. BIBLE §25's bullet now says that, when the graph doesn't hold the target, the relationship runs to the placeholder at its address, or to one the write makes when no node is there. The catalog's wire-to-shared row already read true, so it is unchanged.
+
 ## Evidence
 
 ### The suites (Implementation, 2026-11-21, 22:13–22:44Z, on the tree uncommitted beside `092511d9c`, the tests' commit)
@@ -205,6 +213,17 @@ The image is `tapestry-tapestry`, with this branch's `src/` mounted read-only. N
   - `graph history` of toy's header shows its one `graph declare-shared` entry, by the admin.
 
 The records are in the worktree's `tmp/live-check-48/`, to be copied to the main checkout's `tmp/` before the worktree goes.
+
+### Review round 1's findings (Amendment 2): the suites (2026-11-22, 01:11–01:24Z, on the tree uncommitted beside `e0830e8df`, the tests' commit)
+
+Through the same wrapper, with nothing reaching its stubs. The records are in `tmp/a10-44-impl/r2/`.
+
+- **Before the fix,** as the tests' commit records it: `test/operations.test.js` alone gave 1,552 passed, 4 failed, 20 skipped. The four were WS19, WS20, G11 and G18.
+- **The suites the fix touches, each alone:** wire-to-shared 20 passed (WS19 and WS20 among them), `tapestry-key-paths` 20 passed (G9, G11 and G18 among them), and `relationship-type-allowed` 10 passed, none failing.
+- **After it,** `test/operations.test.js` alone: 1,556 passed, 0 failed, 20 skipped.
+- **The derived suites,** each in its own process: the Reviewer's 53 (`tmp/review-48/suites.txt`), the Reviewer's two scans of all of `src/` (config-parse-leak and assistant-taggings-publish), and the two registry suites that name the rule file (firmware-element-sync and graph-rules-builder). That is 57 suites: 1,732 passed, 10 failed, 88 skipped.
+  - The 10 failures are this Mac's known ones: router-stream-limit-on-connect P1–P3, and safe-to-merge-check B1–B3, B5, B6, B8 and B9.
+- **Not run here:** LH2, Amendment 2 item 4's live check, which the coordinating session runs on a scratch stack.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/graph-operations-first-slice/0048-declare-shared-wire-to-shared-defer-sharing.md`

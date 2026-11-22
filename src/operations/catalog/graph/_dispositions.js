@@ -18,8 +18,9 @@
  *   dropMarkers(tx, found)       each deferral marker the header holds taken out → their tag-removed changes
  *   link(tx, from, to)           REFERENCES {source: 'b-tag'} between two nodes by tapestryKey, merged with its source in
  *                                the pattern → whether this call made it (Decision 6)
- *   drawReference(tx, from, at)  that relationship to the node at an address, or to a placeholder of import nostr's
- *                                kind made there when no node of any label is → { key, held, made } (Decision 6)
+ *   drawReference(tx, from, at)  that relationship to the node at an address, or, when no node of any label is there,
+ *                                to a placeholder of import nostr's kind merged there after the adoption → { key, held,
+ *                                made } (Decision 6; Amendment 2, item 2)
  *   answerOf(found, outcome, values, changed)  the answer's outcome, concept, disposition and letterOutOfDate, from
  *                                the header's b values after the call (Decision 7; Amendment 1, item 2)
  *   BAD_TARGET, SELF_TARGET, AFFILIATED, DISPOSITION, TARGET   the refusals' and the answer's declarations
@@ -150,26 +151,39 @@ async function link(tx, from, to) {
   return counters.relationshipsCreated > 0;
 }
 
-/** Import nostr's placeholder: a NostrEvent at the address, with its kind and pubkey and no created_at. */
-const PLACEHOLDER = `CREATE (p:NostrEvent {uuid: $uuid})
-  SET p.kind = toInteger($kind), p.pubkey = $pubkey
+/**
+ * importEventDirect's adoption (ADR graph-operations-foundation/0003 Decision 9), which every MERGE of a NostrEvent by
+ * its address runs first: a node at the address without the label gets it, so the MERGE lands on that node.
+ */
+const ADOPT = `MATCH (x:TapestryNode {uuid: $uuid}) WHERE NOT x:NostrEvent
+  SET x:NostrEvent`;
+/**
+ * Import nostr's placeholder, merged (Amendment 2, item 2): a NostrEvent at the address with its kind and pubkey and no
+ * created_at, or the node another transaction committed there meanwhile, such as an import's, which the MERGE matches
+ * where a CREATE would fail the uniqueness rule on NostrEvent.uuid.
+ */
+const PLACEHOLDER = `MERGE (p:NostrEvent {uuid: $uuid})
+  ON CREATE SET p.kind = toInteger($kind), p.pubkey = $pubkey
   ${keyNode('p')}
-  RETURN p.tapestryKey AS key`;
+  RETURN p.tapestryKey AS key, p.created_at IS NOT NULL AS dated`;
 
 /**
- * REFERENCES {source: 'b-tag'} from the node keyed `from` to the node at `address`, or to a placeholder made there when
- * no node of any label is, which importing that address's letter fills in → { key (the node it runs to), held, made }.
+ * REFERENCES {source: 'b-tag'} from the node keyed `from` to the node at `address`. When nodeAt finds no node there, the
+ * adoption, then the placeholder's MERGE, give it one, which importing that address's letter fills in; its key and its
+ * created_at then say where the relationship runs and whether the target is held → { key, held, made }.
  */
 async function drawReference(tx, from, address) {
   const at = await nodeAt((cypher, params) => tx.read(cypher, params), address);
-  let key = at.node;
+  let { node: key, held } = at;
   if (key === null) {
     const [kind, pubkey] = address.split(':');
+    await tx.run(ADOPT, { uuid: address });
     const { rows } = await tx.run(PLACEHOLDER, { uuid: address, kind: Number(kind), pubkey });
     key = rows.length ? rows[0].key : null;
     if (typeof key !== 'string') throw new Error(`the placeholder at ${address} was written, but its tapestryKey did not come back`);
+    held = rows[0].dated === true;
   }
-  return { key, held: at.held, made: await link(tx, from, key) };
+  return { key, held, made: await link(tx, from, key) };
 }
 
 // ── the answer (Decision 7; Amendment 1, item 2) ──
