@@ -149,7 +149,7 @@ Judgment calls made in Implementation (2026-11-21), each too small for an ADR am
 Judgment calls made at the second Implementation round (2026-11-21), each too small for another amendment. None goes outside Amendment 2.
 
 - **`REFERENCES`' makers, in the rule's words:** "import nostr, and graph declare-shared and wire-to-shared from a b tag". So add-relationship's refusal reads "REFERENCES is reserved: it is made by import nostr, and graph declare-shared and wire-to-shared from a b tag, with the checks it needs." The rule suite's `REFERENCES: /import nostr/` still holds.
-- **The adoption's answer isn't read.** Where `nodeAt` found no node, it changes nothing, and in the race it adopts the node that appeared. Either way the `MERGE`'s `RETURN` says which node the relationship runs to.
+- **The adoption's answer isn't read.** Where `nodeAt` found no node, it changes nothing. The writers that make a node without the `NostrEvent` label take C1 first, so in practice it never adopts one (review round 2's finding). Either way the `MERGE`'s `RETURN` says which node the relationship runs to.
 - **The docs' wording.** `inherit-from.md`'s sentence becomes two, the second saying which writes draw a relationship. BIBLE §25's bullet now says that, when the graph doesn't hold the target, the relationship runs to the placeholder at its address, or to one the write makes when no node is there. The catalog's wire-to-shared row already read true, so it is unchanged.
 
 ## Evidence
@@ -239,7 +239,8 @@ The setup, micromark and harness are LH1's (`tmp/live-check-48/run-r2.sh`). The 
     One `REFERENCES {source:'b-tag'}` ran into it, from the wired header. A repeat answered `already-wired`, change null, with still one node there.
   - **The marker taken out.** A deferred concept then declared shared held only its self-pointing pointer `b`. Its entry records `tag-removed { field: 'b', was: 'b-tag-deferred' }`.
   - **Two wires at once.** Two concepts were wired to one absent address by two runs of the external CLI, started 2 ms apart inside the container. Both answered `wired`. One placeholder was made, with a relationship from each header, and both answers named it.
-    - This shows that two wires don't fail each other. It doesn't show that the narrow window between the lookup and the write was hit. WS20 pins that race on the Cypher engine.
+    - Both wires take the C1 lock, so they ran one after the other, and the second found the first's placeholder (review round 2's finding; ADR 0048 Amendment 2, item 4, as corrected). This shows that two wires don't fail each other.
+    - The race that can happen is with an import, which takes no C1 lock and makes a `NostrEvent` that the `MERGE` matches. It isn't run live; WS20 pins it on the Cypher engine.
   - `graph history` of the first header shows its one `graph wire-to-shared` entry, by the admin.
 
 ## Linked artifacts
