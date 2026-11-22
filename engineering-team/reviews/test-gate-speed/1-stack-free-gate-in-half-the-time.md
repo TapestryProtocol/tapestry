@@ -141,3 +141,182 @@ One thing I didn't re-derive: V1's and the re-time's step times (runs 4497814515
 
 ## Verdict
 **CHANGES_REQUESTED**
+
+---
+
+# Round 2
+
+**Date:** 2026-11-22
+**Diff:** `git diff 9a6aca5ba..7b89bbb59`, the four commits after round 1's review commit `9a6aca5b`. The branch is pushed at `7b89bbb5`.
+- `fdd06d61` test: guards P24–P27 and their fixtures.
+- `75cb6286` docs: AC1's timing-run exception, the test plan's corrections, and three meta ledger rows.
+- `73fc1077` adr: ADR `test-gate-speed/0001` Amendment 4.
+- `7b89bbb5` impl: the unit runner and the engine, the docs, and ledger row `2026-11-22-gate-parts-balance-by-bytes`.
+
+The owner chose to keep the guarantee and fix every round-1 finding. I re-checked each fix as a fresh claim, and the coordinator's own runs too.
+
+## Round 2: quality gates (run by reviewer, not trusted)
+
+- [x] **Guard discipline.** Only `fdd06d61`, a `test:` commit, touched the Tester's files. No `impl:` commit touched them.
+- [x] **P24–P27 alone,** under the wrapper with the coordinator's `one-test.js`, at `7b89bbb5`: 4 passed, 0 failed.
+- [x] **The same four against the engine just before the fix.** I extracted `75cb6286`'s `test/` into the scratchpad and ran them there: 0 passed, 4 failed. Each failed for the reason it names, so the guards bite.
+  - For example: "late-throw, GATE_JOBS=1: it ended exit 0, last line "Overall: PASS …"".
+- [x] **A scoped gate on the committed tree,** with `GATE_JOBS=8` and every endpoint dead:
+  `20261122T065737Z-70464-6a01 [review-tgs1-r2-scoped] started 2026-11-22T06:57:37.870Z on 7b89bbb5+dirty — PASS, exit 0, 1750 passed, 0 failed, 21 skipped, 123/123 suites`
+  - It ran `gate-side-by-side` 27/0/0, `gate-result-record` 34/0/0, `suite-env-changes` 18/0/0, `stack-free-npm-test` 6/0/1, `ci-test-job` 15/0/0, `openapi-document` 10/0/0, `harness-lint` 85/0/0, `harness-stats` 12/0/0, `ledger-row-ids` 6/0/0, `session-start` 32/0/0 and `config-loading` 1/0/0.
+  - It also ran `operations` expanded: its own 49/0/0, plus 111 files. That is 1504/0/20, the same as round 1.
+  - There were no strays, and no unit failed after its result. G2 probed `http://127.0.0.1:9` and skipped. "+dirty" is the `node_modules` link.
+- [x] **`bash scripts/harness-lint.sh`** at `7b89bbb5`: clean (0 violations).
+- [x] **The coordinator's docs gate,** read with `gate:status`:
+  `20261122T064256Z-84085-dd41 [tgs1-r2-docs] started 2026-11-22T06:42:56.712Z on 7b89bbb5+dirty — PASS, exit 0, 135 passed, 0 failed, 0 skipped, 4/4 suites`.
+- [x] **The coordinator's scoped gate,** `20261122T063930Z-93925-a782 [tgs1-r2-scoped]`, ended FAIL: 2263 passed, 10 failed, 84 skipped.
+  - It ran on `75cb6286+dirty`, before the impl commit, so the engine it ran was uncommitted work. My own gate above is on the commit.
+  - Its reading holds: the ten failures are this Mac's, not the change's. Staging's engine fails the same two suites the same way through the same wrapper (record `20261122T065513Z-68697-ca6d`, in the scratchpad).
+  - `safe-to-merge-check` is 9/7/0 under both engines. Every attempt reads `raw=curl exit 7`, the wrapper's stub.
+  - `router-stream-limit-on-connect` is 23/3/0 under both: `sed: 1: "…": invalid command code f`, BSD sed refusing GNU's `sed -i`.
+  - Both suites pass in every Linux run.
+- [ ] **The ten sealed runs at `7b89bbb5`** (V3 again, AC5): in progress. Two of ten are in, both passed, 8,638/0/669, with no strays, in 368.8 s and 364.2 s. 8,638 is round 1's 8,634 plus P24–P27.
+- [ ] **CI on `7b89bbb5`:** not yet seen. I made no GitHub requests this round.
+
+## Round 2: the round-1 findings, re-checked
+
+| Round 1 | The fix | What I found | Holds? |
+|---|---|---|---|
+| Blocking 1 | Amendment 4. After its run, a unit stays up until its event loop is empty or 2 s pass. A unit that exits non-zero or by a signal after its result is a FAIL. | My round-1 experiments, re-run at `7b89bbb5`: all five cases now fail. The three late ones are strays named for the suite that left them ("during late-throw"), where staging's engine blamed the next suite ("during after"). The two exit-time ones read "its process ended with exit 1 after it sent its result" (the cleanup that throws) and "its process ended by SIGKILL after it sent its result" (the crash). P24 and P25 pin them. | Yes, within the bound Amendment 4 states. One edge it doesn't state is round 2's non-blocking 1. |
+| Non-blocking 1 | `printUnfinished()` (`test/helpers/gateRunner.js:306`), shared by `abandon()` and the signal path | The engine-failure experiment now prints the running unit's output, marked unfinished. It still kills the unit and leaves no log folder. P27 pins it. | Yes |
+| Non-blocking 2 | `OPERATIONS.md:1162`, `engineering-team/CHANGELOG.md:127`, `test/helpers/gateRunner.js:23` and Amendment 4 | A detached child still outlives its suite, and each of these now says so | Yes |
+| Non-blocking 3 | Ledger row `2026-11-22-gate-parts-balance-by-bytes` | Its numbers match round 1's | Yes |
+| Non-blocking 4 | Amendment 4's determinism bullet (ADR `:479`) | It gives the argument, and answers Option B's own drawback | Yes |
+| Non-blocking 5 | `engineering-team/CHANGELOG.md:127` | The row now ends "the next row splits the workflow into two parts" | Yes |
+| Non-blocking 6 | Test plan `:150–161`, `:183` and `:210`, and a row for CI run 44991282286 (`:223`) | The V1 snippet is the step that ran, V2 names its commit, and V4 names the timing runs and the cancelled run. The plan's new claim, that the old engine passed in every timing run, holds. The saved logs of runs 44978145159, 44981972812 and 44985636771 show 8,682, 8,683 and 8,686 passed, 0 failed, 669 skipped. In the first two, the new engine's totals on the same tree match the old engine's exactly. | Yes |
+| Harness friction 1–3 | Ledger rows `2026-11-22-carried-guarantees-need-their-tests`, `2026-11-22-scoped-gate-recipe-lives-in-tmp` and `2026-11-22-ci-time-ac-ignores-timing-runs` | Each names its finding, a fix shape and a pointer | Yes |
+
+I also checked Amendment 4's own claims:
+- **What the cap costs.** The first ten-run record at `7b89bbb5` took 368.8 s. The full gate at `4eb1da50`, with no linger, took 365.0 s. About fifteen network-touching suites now wait the full 2 s, such as `information-for-agents`, `llms-txt` and `site-trust-signals`. Units with nothing left report at once: 31–36 ms in my experiments.
+- **"A failure that fires later than 2 s after its run is lost."** True. A throw at 2.5 s, with an interval holding the process, passed. A throw at 1 s with the same interval was a stray.
+- **"Every suite in the registry that sets `process.exitCode` does so only when run directly."** True, as far as I can check without the full runs:
+  - The ten suites that set it do so inside `require.main === module`.
+  - Three `probe-*.js` scripts set it at top level, but none of them is registered.
+  - The `src/` setters are under `require.main`, or write to an injected `proc`.
+  - The reconcile pass's `defaultDeps()` does hand over the real `process` (`proc: process`). But no suite calls its `run()` with that in its own process: `tagging-edges-runner` does it in child probes.
+  - The two finished ten-run records have no unit that failed after its result.
+
+## Round 2: findings
+
+### Blocking
+None.
+
+### Non-blocking
+1. **`test/helpers/gateUnit.js:157–163`, ADR Amendment 4 (`:466`), `OPERATIONS.md:1161` and `engineering-team/README.md:76`.** These say a unit waits until "nothing is left that could run". But `beforeExit` fires when nothing keeps the process alive, and an unref'd timer doesn't. So a throw on an unref'd 300 ms timer is lost, and the unit doesn't wait at all: 34 ms in my experiment. Staging's engine caught it, as a stray during the next suite. Optional improvement: say "until nothing keeps its process alive (an unref'd timer doesn't), or 2 seconds", and list the case beside the 2 s bound.
+2. **`test/helpers/gateUnit.js:50–57`.** The exit after the result can hang.
+   - Suppose a suite leaves its own `uncaughtException` listener that swallows errors, an exit cleanup that throws, and a handle open. Then `realExit()` (`:56`) throws, the suite's listener swallows it, and the process never ends. The engine has the result, but waits for an exit that never comes.
+   - In my experiment the engine was still waiting at 20 s. SIGTERM then cleaned up properly.
+   - No suite has all three today. Every exit listener in `test/` is wrapped in try/catch, and the realtime engine removes its listener when its run ends. In CI, the 40-minute guard would end such a run red, naming the unit.
+   - Optional improvement: `try { realExit(); } catch { process.reallyExit(1); }`. That also stops the exit code depending on Node's own handler.
+3. **`test/gate-side-by-side.test.js:673` (P26).** No guard pins the other half of the wait: that a unit with nothing left reports at once. P26 bounds only the cap, with `leaves-interval` under 8 s. A linger that always waited the full 2 s would pass every guard, and add about 4 minutes to a whole run (465 units × 2 s, 4 at a time). It holds today. Optional improvement: bound a plain fixture's time well under the cap.
+4. **The phase order.** Amendment 4 (`73fc1077`, 01:42:30) was committed after the guards it governs (`fdd06d61`, 01:28:46), and six seconds before the code. Round 1 asked for Architecture first. The guards and the amendment agree, so only the order is off.
+5. **The test plan, when the ten runs land.** "The ten count on the final commit" (`:206`) and the V3 row (`:222`) still name `7836548a`, but the final engine is `7b89bbb5`'s. The plan also records no failing run for P24–P27. I ran one, above: 0/4 at `75cb6286`.
+
+### Harness friction
+None new. Round 1's three are ledger rows now.
+
+## Round 2 verdict
+
+**Pending.** No blocking issue is left in the diff. The verdict waits on two things, both for the final engine at `7b89bbb5`:
+1. **AC5:** the ten sealed runs in a row, with nothing failing. Two of ten are in, both passed.
+2. **AC1, AC4 and AC5:** CI on `7b89bbb5`. Both parts must pass, and `stack-free` must give its verdict in under 12 minutes.
+
+If both land green, the verdict is PASS. If either fails, it is CHANGES_REQUESTED, with the failure.
+
+---
+
+# Round 3
+
+**Date:** 2026-11-22
+**Diff:** `git diff 7b89bbb59..b64934363`, three commits, this time in the harness's order (07:22:16, 07:24:11, 07:26:13):
+- `39d9c6f0` adr: Amendment 4's note on unref'd timers under item 1, item 5 rewritten, the cap's cost measured again, and guards P28–P29 listed.
+- `673dd65f` test: P28 and P29, the fixture `swallows-at-exit`, and the test plan's coverage row.
+- `b6493436` impl: `test/helpers/gateUnit.js`, OPERATIONS.md §15, README's gate recipe, the CHANGELOG's 2026-11-22 row, and the story's "Process:" deviation.
+
+The test plan's changes for round 2's non-blocking 5 came after them, in the records commit `e5aad348`. The owner chose to fix all five round-2 findings before the verdict. This round's verdict replaces round 2's pending one.
+
+## Round 3: quality gates (run by reviewer, not trusted)
+
+- [x] **Guard discipline.** Only `673dd65f`, a `test:` commit, touched the Tester's files.
+- [x] **P24–P29 alone,** at `b6493436`, under the wrapper: 6 passed, 0 failed. On its own, P28 takes 2.2 s and P29 0.3 s.
+- [x] **P28 and P29 against round 2's engine.** I laid `b6493436`'s guard file and fixture helper over `7b89bbb5`'s helpers, in the scratchpad.
+  - P28 failed, "the engine was still waiting", once its 20 s limit ran out. No unit was left running afterwards.
+  - P29 passed there, as it should: at `7b89bbb5` a unit with nothing left already reported at once.
+- [x] **P29 against a mutant.** In a copy of `b6493436`'s tree, `linger()` always waits out the cap: no `beforeExit` resolve, and no `unref()` on the cap. P29 failed, with "the middle of the five is 2045 ms (2043, 2049, 2050, 2043, 2045 ms)". P26 still passed there, so P29 is what pins that half.
+- [x] **The exit itself, in plain Node.** I set up a throwing exit listener, a listener that swallows every error, and an interval. Then I called `process.exit()` in a `try`, and `process.exit(1)` in its `catch`. The exit listener ran once, and the process ended with status 1.
+- [x] **A scoped gate on the committed engine,** with every endpoint dead. I used `GATE_JOBS=4`, to stay light beside the container runs:
+  `20261122T123908Z-17112-7311 [review-tgs1-r3-scoped] started 2026-11-22T12:39:08.480Z on b6493436+dirty — PASS, exit 0, 238 passed, 0 failed, 1 skipped, 10/10 suites`
+  - It ran `gate-side-by-side` 29/0/0, `gate-result-record` 34/0/0, `suite-env-changes` 18/0/0, `stack-free-npm-test` 6/0/1, `ci-test-job` 15/0/0, `harness-lint` 85/0/0, `harness-stats` 12/0/0, `ledger-row-ids` 6/0/0, `session-start` 32/0/0 and `config-loading` 1/0/0.
+  - "+dirty" is the `node_modules` link, this review and the test plan's uncommitted changes. `harness-lint`'s real-repo check passed with both in place.
+  - I left `operations` to the container's full runs this time.
+- [x] **`bash scripts/harness-lint.sh`** on the working tree, with this review and the test plan's changes in place: clean (0 violations).
+- [x] **The coordinator's scoped gate,** `20261122T122740Z-18170-8955 [tgs1-r3-scoped]`, ended with 2232 passed, 1 failed, 84 skipped. Its reading holds.
+  - The one failure was harness-lint's "the real repo lints clean".
+  - L1 reads a review's verdict as the last uppercase PASS or CHANGES_REQUESTED on a heading or bold line (`scripts/lib/review-verdict.awk`). Four lines of my round-2 draft carried one after round 1's verdict. So the rule read the review as passed, while the story is still Approved.
+  - I changed only the form of those four lines. Two quotes moved to lines of their own, and "both PASS" became "both passed". The rule now reads round 1's verdict until a final one is written below.
+- [x] **The ten sealed runs at `b6493436`** (V3, AC5): all ten in a row passed, 8,640/0/669 each, with no strays and no suite failing after its result. 8,640 is round 2's 8,638 plus P28 and P29.
+  - I read all ten records myself. They are the only records at `b6493436`, in a row, and they hold one and the same set of per-unit counts.
+  - Runs 1–6 had 4 CPUs, and runs 7–10 had 2, with 4 jobs each, on a clean tree.
+  - The first and the last, read with `test/gate-status.js --run`:
+    - `20261122T122716Z-22-59f9 [v3-run-1] started 2026-11-22T12:27:16.307Z on b6493436 — PASS, exit 0, 8640 passed, 0 failed, 669 skipped, 465/465 suites`
+    - `20261122T133112Z-22-4d52 [v3-run-10] started 2026-11-22T13:31:12.618Z on b6493436 — PASS, exit 0, 8640 passed, 0 failed, 669 skipped, 465/465 suites`
+  - By each record's own clock, runs 1–6 took 367.1–400.5 s, and runs 7–10 took 521.1–534.1 s.
+  - Run 1's extra 30 s, with `gate-side-by-side` doubled to 107.4 s, was load. The coordinator's host-side gate started 24 s into it, and P28 and P29 take 2.5 s on their own.
+- [x] **CI on `b6493436`:** run 45022370952, on `d32653253`, the merge of `b64934363` into staging's `61d86166`. Both parts and `stack-free` succeeded. I read the coordinator's saved log of the run, and made no GitHub requests myself.
+  - The verdict came about 7 minutes after the run started. The log runs from 12:27:33 to 12:34:33Z, and the coordinator gives 7 m 6 s from creation to finish.
+  - Part 1, on an AMD EPYC 7763: `part 1 of 2: 236 of 471 suites`, then `Overall: PASS — 4525 passed, 0 failed, 363 skipped across 236 suites`. Its gate ran 6 m 42 s by the log.
+  - Part 2, on an Intel Xeon 6975P-C: `part 2 of 2: 235 of 471 suites`, then `Overall: PASS — 4210 passed, 0 failed, 306 skipped across 235 suites`, in 3 m 36 s.
+  - `stack-free` printed "The parts of the stack-free gate: success". No line in the log names a failure.
+  - The parts add up to 471 suites, 8,735 passed and 669 skipped. CI's tree has one registered suite and five operations files more than the container's, from staging.
+  - The saved log of CI on `7b89bbb5`, run 44995116940, shows both parts passing too: 4,357/0/266 and 4,376/0/403, with gates of about 4 m 19 s and 4 m 13 s.
+
+## Round 3: the round-2 findings, re-checked
+
+| Round 2 | The fix | What I found | Holds? |
+|---|---|---|---|
+| Non-blocking 1: an unref'd timer isn't waited for | Amendment 4's note under item 1 (ADR `:469`); `OPERATIONS.md:1161`; `engineering-team/README.md:76`; the unit runner's header and `linger()` comment (`test/helpers/gateUnit.js:162–166`); `engineering-team/CHANGELOG.md:129` | Each now says the unit waits until nothing keeps it alive, and that a failure on an unref'd timer is lost. That is what the code does: the unref'd 300 ms throw is still lost, with no wait (34 ms). | Yes |
+| Non-blocking 2: the exit after the result could hang | Amendment 4, item 5. `test/helpers/gateUnit.js:52–63`: the exit runs inside a `try`, and a throw is logged, then the real exit is called again with 1. The stray listeners stay in place. | My round-2 hang fixture now ends in 2.1 s, as a FAIL "with exit 1 after it sent its result", and its unit is gone. P28 pins it, and fails against round 2's engine. The two exit-time cases from round 1 still fail. | Yes |
+| Non-blocking 3: nothing pinned that a unit with nothing left reports at once | P29 | It passes at `b6493436` and at `7b89bbb5`, and fails on a mutant whose wait always runs to the cap | Yes |
+| Non-blocking 4: the phase order | The story's "Process:" deviation (story `:91`). This round's commits run ADR, tests, then code. | Committed at 07:22:16, 07:24:11 and 07:26:13 | Yes |
+| Non-blocking 5: the test plan | In `e5aad348`: "The failing runs of the review rounds", V3's "Runs that went before", relabeled V2-split and V3 rows, and the final V3 and CI rows | Its figures match the records, the two saved CI logs and my own runs | Yes |
+
+I also checked Amendment 4's new cost claim, "the ten sealed runs took 365–386 s on 4 CPUs … 520 s", at `7b89bbb5`. All ten records there passed, 8,638/0/669, with no strays. Runs 1–6 took 364.2–386.0 s, and runs 7–10 took 518.8–520.1 s. The plan's figures are the container's clock, about a second above each record's own.
+
+## Round 3: findings
+
+### Blocking
+None.
+
+### Non-blocking
+None new.
+
+### Harness friction
+1. **A review's progress lines can flip its verdict.**
+   - L1's rule takes the last uppercase verdict word on any bold or heading line (`scripts/lib/review-verdict.awk`).
+   - A multi-round review naturally writes progress lines, such as a bold checklist item saying that runs passed, with the verdict word in capitals. Four such lines made this review read as passed, and harness-lint's real-repo check failed in the coordinator's gate.
+   - The awk file already notes this edge, for one waived case.
+   - Suggest a `meta` row: the review template's Verdict section says to keep the capitalised verdict words off every other bold or heading line. Or the rule reads only a line that holds nothing but the verdict.
+
+## Round 3 verdict
+
+Both things the verdict waited on have landed, at the final code commit `b6493436`, and both hold:
+1. AC5: the ten sealed runs in a row passed, with nothing failing.
+2. AC1, AC4 and AC5: CI passed both parts, and `stack-free` gave its verdict in about 7 minutes, under 12.
+
+The test plan's final V3 and CI rows, committed in `e5aad348`, match the records and the logs. That commit changes only the test plan and a ledger row, so the runs at `b6493436` cover the final code.
+
+Every finding of rounds 1 to 3 is resolved:
+- Round 1's blocking finding is fixed under Amendment 4. It is bounded as the amendment says: a failure later than 2 s after a run, or on a timer the suite unref'd, is lost.
+- Every non-blocking finding of rounds 1 and 2 is fixed.
+- The harness friction of rounds 1 and 3 has ledger rows.
+
+**PASS**
+
+## On PASS (same commit)
+- [x] Story `**Status:**` flipped to `Done` in place.
+- [x] Completion detection performed; the result is in the chat, not in this file. `/close-book` offered if the book looks complete.

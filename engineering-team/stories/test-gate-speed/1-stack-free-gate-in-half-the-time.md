@@ -1,6 +1,6 @@
 # Story 1: The stack-free gate gives the same verdict in half the time
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-11-21
 **Type:** Refactor
 
