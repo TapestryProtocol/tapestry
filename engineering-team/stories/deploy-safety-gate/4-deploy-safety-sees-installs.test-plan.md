@@ -53,6 +53,11 @@ New suite `test/deploy-safety-sees-installs.test.js` (registered after `deploy-s
 | AC-6 | D4 BIBLE §7's Firmware Install section says so and points to the procedure | sees-installs | content |
 | ADR | D5 the ledger row for the hazard found in passing (two of today's installs at once) | sees-installs | content |
 | scope | L5, H6 a lock held by a backup, restore, migration or upload is not a firmware install (control: seed-firmware is) | sees-installs | unit, handler |
+| AC-3 *(round 2)* | H10 *(guard)* a lock naming this host and a live pid whose start time differs is no install (control: the matching start time is one). The test stands in for the `/proc/<pid>/stat` read, so it runs on macOS too | sees-installs | store |
+| AC-1 *(round 2)* | S4 seed-firmware takes the lock as `'seed-firmware'` before its write and lets it go in a `finally`; a comment at the call names the reader; the answer reads the same op | sees-installs | source |
+| AC-6 *(round 2)* | D7 the procedure says an answer with no `firmware` block doesn't see installs, names tags and production, says to hold merges by hand there, names `deploy-tags.yml`, and drops the unqualified sentence | sees-installs | content |
+| AC-6 *(round 2)* | D8 the gap paragraph also names a merge that skips the check (OPEN.md row 340) | sees-installs | content |
+| ADR *(round 2)* | D6 the two rows carry their UTC day: the 2026-11-21 files are gone and no doc cites the old ids. D3 and D5 now name the 2026-11-22 ids | sees-installs | content |
 
 **Changed, not new.** `test/deploy-safety-status.test.js`'s `REASON_CODES` gains `FIRMWARE_INSTALL_RUNNING`, and its two messages say "five contract codes". That widens what U12 and H1 accept, so the suite passes before and after the change. Without it, H1 on a live stack would fail while an install runs.
 
@@ -161,3 +166,23 @@ FAIL B10  src/firmware/inFlight.js does not exist yet — the in-memory count of
 B1–B9 and C1–C7 pass, as before.
 
 **`test/deploy-safety-status.test.js`: 17 passed, 0 failed, 6 skipped.** The six skips are its live H tests, with no stack. With the reason list widened, it passes as before.
+
+## Round 2: review round 1's findings
+
+Review round 1 (`engineering-team/reviews/deploy-safety-gate/4-deploy-safety-sees-installs.md`) asked for one blocking fix and seven smaller ones. ADR 0004 Amendment 1 records the fixes chosen. This round adds H10, S4 and D6–D8, and moves D3 and D5 to the renamed ids. The quoted old file names in the Verification above are from round 1, before the rename. Findings 2 and 3 (a stale comment and an ADR sentence) and finding 4 (the story's Evidence) are prose fixes with no test.
+
+**Before the fixes, on 2026-11-22, on Node 22.23.1, at `7270d05fc` with these tests in the working tree.** `test/deploy-safety-sees-installs.test.js` gave 35 passed and 7 failed. Every failure names what's missing:
+
+```
+FAIL S4  a comment just above C.begin('seed-firmware') must name the deploy-safety answer as a reader of this lock
+FAIL D2  the section must point at the ledger row for the gap that remains, 2026-11-22-install-starts-after-a-safe-check
+FAIL D3  ledger/2026-11-22-install-starts-after-a-safe-check.md does not exist yet
+FAIL D5  ledger/2026-11-22-overlapping-installs-share-internal-mode.md does not exist yet
+FAIL D6  ledger/2026-11-21-install-starts-after-a-safe-check.md must be renamed to its UTC day (2026-11-22), not left beside the new one
+FAIL D7  the section must say how to tell an instance that doesn't see installs yet: its answer has no `firmware` block
+FAIL D8  the section must say that a merge which skips the check isn't held either, and point at OPEN.md row 340
+```
+
+**Guards: each new test fails when the thing it guards is taken out.** Each was checked on a scratch copy of the working tree, never the worktree itself.
+- **H10** passes before the fixes, since the rule it pins is already in the store. With the rule's line taken out (`if (now !== null && now !== h.startTime) return false;`, `_store.js:227`), H10 fails: "a lock whose holder pid answers with a different start time … must read as no install (got [{"install":"seed-firmware",…}])".
+- **S4** fails before the fixes for its missing comment. Once the comment exists, it must still fail when the op is renamed. That is checked after the fixes, in round 2's review evidence.

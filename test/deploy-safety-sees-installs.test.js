@@ -23,6 +23,8 @@
  * AC-4's end-to-end case (the real check script against the real handler) is B10 in test/safe-to-merge-check.test.js,
  * beside the script's other behavior tests.
  *
+ * Review round 1 added H10, S4 and D6–D8, and renamed the two ledger ids (ADR 0004 Amendment 1).
+ *
  * Until the feature lands, every test but the guards the plan names fails with a feature-missing message:
  * inFlight.js, seedFirmwareFromLock, the reason and the firmware block don't exist yet, and the docs say nothing.
  */
@@ -38,10 +40,13 @@ const IN_FLIGHT = path.join(ROOT, 'src/firmware/inFlight.js');
 const STORE = path.join(ROOT, 'src/operations/catalog/lifecycle/_store.js');
 const DOC = path.join(ROOT, 'docs/SAFE_TO_MERGE.md');
 const BIBLE = path.join(ROOT, 'BIBLE.md');
-const GAP_ROW_ID = '2026-11-21-install-starts-after-a-safe-check';
-const OVERLAP_ROW_ID = '2026-11-21-overlapping-installs-share-internal-mode';
+// The rows' ids carry the UTC day they were minted, 2026-11-22 (review round 1, finding 7; ADR 0004 Amendment 1, item 6).
+const GAP_ROW_ID = '2026-11-22-install-starts-after-a-safe-check';
+const OVERLAP_ROW_ID = '2026-11-22-overlapping-installs-share-internal-mode';
 const GAP_ROW = path.join(ROOT, 'ledger', `${GAP_ROW_ID}.md`);
 const OVERLAP_ROW = path.join(ROOT, 'ledger', `${OVERLAP_ROW_ID}.md`);
+const OLD_ROW_IDS = ['2026-11-21-install-starts-after-a-safe-check', '2026-11-21-overlapping-installs-share-internal-mode'];
+const SEED_FIRMWARE = path.join(ROOT, 'src/operations/catalog/lifecycle/seed-firmware.js');
 
 const REASON = 'FIRMWARE_INSTALL_RUNNING';
 const REASON_CODES = [
@@ -737,6 +742,48 @@ t('H9 (AC-3): today\'s install cut off by a restart is not reported by the resta
   });
 });
 
+/*
+ * H10 — review round 1, finding 6 (ADR 0004 Amendment 1, item 4). After a restart that keeps the hostname, a cut-off
+ * seed-firmware lock is stale only because its holder's pid, if it answers at all, has a different /proc start time
+ * (_store.js holderAlive). This stands in for that one read, /proc/<pid>/stat, so it runs on macOS, which has no /proc,
+ * as on CI. fs is the same module object the store reads through; every other path reads as it always does, and the
+ * stand-in is put back before the test ends. The reads are synchronous, so nothing else runs while it is in place.
+ */
+t('H10 (AC-3): a lock naming this host and a live pid whose start time differs — a pid the restarted container reused — is no install; with the matching start time it is one', async () => {
+  await withBackupsDir(async (dir) => {
+    const store = require(STORE);
+    const read = seedFirmwareFromLock();
+    const statPath = `/proc/${process.pid}/stat`;
+    // /proc/<pid>/stat: "<pid> (<comm>) <state> …" with the start time 20th after the ") " (field 22).
+    const stat = (startTime) => `${process.pid} (node) S 1 1 1 0 -1 4194560 100 0 0 0 1 1 0 0 20 0 1 0 ${startTime} 1000000 100 18446744073709551615`;
+    fs.writeFileSync(LOCK_FILE(dir), JSON.stringify(madeLock({
+      host: os.hostname(),
+      holders: [{ pid: process.pid, startTime: 4242 }],
+      stale: undefined,
+    })));
+    const realRead = fs.readFileSync;
+    let answers = 4242;
+    let same;
+    let reused;
+    fs.readFileSync = function readFileSync(p, ...rest) {
+      if (p === statPath) return stat(answers);
+      return realRead.call(this, p, ...rest);
+    };
+    try {
+      answers = 4242;
+      same = read(store.inspectLock());
+      answers = 9999;
+      reused = read(store.inspectLock());
+    } finally {
+      fs.readFileSync = realRead;
+    }
+    assert(Array.isArray(same) && same.length === 1 && same[0].install === 'seed-firmware',
+      `control: a lock whose holder answers with the start time it recorded must read as a live install (got ${JSON.stringify(same)}).`);
+    assert(Array.isArray(reused) && reused.length === 0,
+      `a lock whose holder pid answers with a different start time — another process, given the dead holder's pid — must read as no install (got ${JSON.stringify(reused)}); after a restart that keeps the hostname, this rule is all that marks a cut-off run's lock stale.`);
+  });
+});
+
 /* ══════════════ I-class — install() and its route, in a child process ══════════════ */
 
 t('I1 (AC-1): install() counts itself while it runs — mid-run the count holds one firmware-install entry — and is gone once it resolves (a dry run included)', async () => {
@@ -813,6 +860,27 @@ t('S3 (AC-1): the deploy-safety module reads both new sources — the in-memory 
   assert(/inspectLock\(/.test(src), 'the module never calls inspectLock() — seed-firmware would go unseen.');
 });
 
+t('S4 (AC-1; round 1, finding 1): seed-firmware takes the lifecycle lock as \'seed-firmware\' before it writes and lets it go in a finally, and the call names the deploy-safety answer as a reader', () => {
+  const src = readSafe(SEED_FIRMWARE);
+  assert(src !== null, 'src/operations/catalog/lifecycle/seed-firmware.js is missing — re-baseline.');
+  const begin = src.search(/C\.begin\(\s*'seed-firmware'\s*\)/);
+  assert(begin >= 0,
+    'seed-firmware no longer takes the lifecycle lock as C.begin(\'seed-firmware\'). The deploy-safety answer sees a running ' +
+    'seed-firmware only through a lock whose op is \'seed-firmware\' (ADR 0004 sub-decision 4); a renamed op would blind the gate.');
+  const write = src.indexOf('graph.writeTransaction(', begin);
+  assert(write > begin, 'seed-firmware must take the lock before its write transaction, so no write runs uncounted.');
+  const fin = src.indexOf('finally', write);
+  const release = fin > 0 ? src.indexOf('store.releaseLock(lock.runId)', fin) : -1;
+  assert(fin > write && release > fin, 'seed-firmware must let the lock go in a finally after its writes, so the answer lets go however it ends.');
+  const lineStart = src.lastIndexOf('\n', begin);
+  const comment = src.slice(Math.max(0, lineStart - 800), lineStart);
+  assert(/deploy-safety/.test(comment),
+    'a comment just above C.begin(\'seed-firmware\') must name the deploy-safety answer as a reader of this lock (ADR 0004 ' +
+    'Amendment 1, item 3: comments at both ends).');
+  const ds = readSafe(DEPLOY_SAFETY);
+  assert(ds !== null && /'seed-firmware'/.test(ds), 'the deploy-safety module must read the lock by the same op, \'seed-firmware\'.');
+});
+
 /* ══════════════ D-class — the procedures (AC-6) ══════════════ */
 
 /** The text of a markdown section: from its heading line to the next heading of the same or a higher level. */
@@ -885,6 +953,41 @@ t('D5 (ADR deliverable): a ledger row records the hazard found in passing — tw
   const text = ledgerRow(OVERLAP_ROW, OVERLAP_ROW_ID);
   assert(/internal mode|_internalMode/i.test(text),
     `ledger/${OVERLAP_ROW_ID}.md must name the module-wide internal mode the two installs share (ADR 0004 Consequences).`);
+});
+
+t('D6 (round 1, finding 7): the two rows carry the UTC day they were minted — the 2026-11-21 files are gone, not copied', () => {
+  for (const id of OLD_ROW_IDS) {
+    assert(!fs.existsSync(path.join(ROOT, 'ledger', `${id}.md`)),
+      `ledger/${id}.md must be renamed to its UTC day (2026-11-22), not left beside the new one (ADR 0004 Amendment 1, item 6).`);
+  }
+  for (const f of [GAP_ROW, OVERLAP_ROW]) {
+    assert(fs.existsSync(f), `${path.relative(ROOT, f)} does not exist yet.`);
+  }
+  const doc = readSafe(DOC) || '';
+  for (const id of OLD_ROW_IDS) assert(!doc.includes(id), `docs/SAFE_TO_MERGE.md still cites the old id ${id}.`);
+});
+
+t('D7 (AC-6; round 1, blocking 1): "Before a firmware install" says an answer with no firmware block doesn\'t see installs, names tags and production, says to hold merges by hand there, and names deploy-tags.yml', () => {
+  const doc = readSafe(DOC);
+  assert(doc !== null, 'docs/SAFE_TO_MERGE.md is missing — re-baseline.');
+  const s = section(doc, /Before a firmware install/i, 'docs/SAFE_TO_MERGE.md');
+  assert(/no `firmware` block/.test(s),
+    'the section must say how to tell an instance that doesn\'t see installs yet: its answer has no `firmware` block (ADR 0004 Amendment 1, item 1).');
+  assert(/tags\.brainstorm\.world|feat\/tags/.test(s) && /production/i.test(s),
+    'the section must name the instances that don\'t see installs yet: tags (feat/tags), and production until main takes this story.');
+  assert(/held by hand|hold merges[^.]*by hand|by hand[^.]*held/i.test(s),
+    'the section must say that on such an instance, merges into its branch are held by hand until the install ends, as before this story.');
+  assert(!s.includes('So a merger\'s check waits for it, and nobody needs to hold merges by hand.'),
+    'the unqualified "nobody needs to hold merges by hand" must go: it is false on an instance whose branch lacks this story (review round 1, blocking 1).');
+  assert(/deploy-tags\.yml/.test(s), 'the running-deploy check must name tags\' workflow, deploy-tags.yml, beside staging\'s and production\'s.');
+});
+
+t('D8 (AC-6; round 1, finding 5): the gap paragraph also says a merge that skips the check isn\'t held (OPEN.md row 340)', () => {
+  const doc = readSafe(DOC);
+  assert(doc !== null, 'docs/SAFE_TO_MERGE.md is missing — re-baseline.');
+  const s = section(doc, /Before a firmware install/i, 'docs/SAFE_TO_MERGE.md');
+  assert(/skips? the check/i.test(s) && /row 340/.test(s),
+    'the section must say that a merge which skips the check isn\'t held either, and point at OPEN.md row 340.');
 });
 
 /* ─────────────── Run ─────────────── */
