@@ -54,6 +54,7 @@ every `gh` command. These items remain:
 - **Still open:**
   - Item 1 holds: the new repo has no rulesets, and an org owner has to create them (admin). Their definitions are now in `.github/rulesets/` (OPERATIONS §4), with the commands.
     - **2026-11-16:** both rulesets are live on `main` now. `repos/TapestryProtocol/tapestry/rules/branches/main` lists ruleset 27080672 (`pull_request`, `required_status_checks`) and ruleset 27080689 (`deletion`, `non_fast_forward`). Read during the doc-lane review `harness-self-improvement/main-guard-actions-policy-2026-11-16`, which is where this line comes from. Item 1's owner action looks done; whoever closes it re-checks OPEN.md row 14, as item 1 asks.
+    - **2026-11-22:** §4 (rewritten in `c8b24d871`) and §15 now describe the live rulesets, and §9.2 only points at §4 (doc-lane review `test-suite-hermeticity/operations-required-check-status`). Row 14, re-checked then, stays open for two parts: §9.9's droplet list, and five branches on the keep-list that did not move here and are only on the old mirror.
   - The droplets' `origin` still names the old address, which redirects. Set it to the new one when convenient.
   - Loom's `config/repos.json` and the roadmap's `repo:` lines still name the old repo.
   - Item 3 holds: the public pointers still name the old repo.
