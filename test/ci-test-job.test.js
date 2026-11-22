@@ -211,13 +211,17 @@ function ciSection(ops) {
   return next === -1 ? rest : rest.slice(0, next + 1);
 }
 
-test('D3 (AC-4): the CI-gate section records that making the check REQUIRED is a separate, un-taken operator decision', () => {
+test('D3 (AC-4): the CI-gate section says the check is required on main and advisory on staging, and that making it required on staging is an operator decision', () => {
   const ops = safeRead(OPERATIONS);
   const section = ciSection(ops);
   assert(section.length > 0,
     'no CI-test-gate section found in OPERATIONS.md (a heading naming the "CI test" / "test gate") — AC-4.');
-  assert(/required/i.test(section) && /(operator|ruleset|branch protection|not (yet )?(taken|enabled|made))/i.test(section),
-    'the CI-gate section itself (not the pre-existing §4 branch-protection prose) must record that making the check REQUIRED in the rulesets is a deliberate operator decision NOT taken by this story — story AC-4 / ADR 0001.');
+  const at = section.search(/\*\*Required-check status/i);
+  assert(at !== -1,
+    'the CI-gate section must keep its **Required-check status** paragraph — AC-4.');
+  const paragraph = section.slice(at).split(/\n\s*\n/)[0];
+  assert(/\brequired\W+on\W+main\b/i.test(paragraph) && /\badvisory\W+on\W+staging\b/i.test(paragraph) && /operator decision/i.test(paragraph),
+    'the CI-gate section\'s **Required-check status** paragraph (not §4\'s branch-protection prose) must say that the check is required on `main` and advisory on `staging`, and that making it required on `staging` is an operator decision. `main`\'s ruleset requires `stack-free`, and `staging` has no required checks (OPERATIONS.md §4) — story AC-4 / ADR 0001.');
 });
 
 test('D4 (harness hygiene): OPERATIONS.md Last-updated header is not behind the CI-section change', () => {
