@@ -266,6 +266,12 @@ const suites = [
   { file: 'admin-action-sweep.test.js' },
   { file: 'admin-action-sweep-access.test.js' },
   { file: 'admin-action-sweep-named.test.js' },
+  // community-reference #39: a firmware install leaves each header's tags once (ADR community-reference/0035), ported
+  // from staging. Stack-free in every run: the prune builder over test/helpers/cypherEngine.js, and install's community
+  // references and their edge wiring in a child over the same engine (test/helpers/communityStepChild.js). The step
+  // suite leaves out S11 to S13 here, which test code this branch doesn't have.
+  { file: 'community-references-prune-builder.test.js' },
+  { file: 'firmware-install-leaves-tags-once.test.js' },
 ];
 
 // Suite files that had never been registered in the runner as of 2026-09-12. Listed so
