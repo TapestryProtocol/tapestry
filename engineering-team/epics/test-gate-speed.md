@@ -1,7 +1,7 @@
 # Epic: test-gate-speed
 
 **Created:** 2026-11-21
-**Status:** Done (epic retired 2026-11-22 at the test-gate-speed book close: story 1 Done, review PASS at round 3, on TapestryProtocol/tapestry#201 to `staging`, which carries the close; merging it waits for David's yes)
+**Status:** Done (epic retired 2026-11-22 at the test-gate-speed book close: story 1 Done, review PASS at round 3, merged into `staging` 2026-11-22 via TapestryProtocol/tapestry#201 as `5b135ccaa`, with the close; `main` takes it at its next promotion)
 **Book:** `engineering-team/audits/test-gate-speed/book.md` (acceptance frame, Standard; Refactor lane)
 **Provenance:** `engineering-team/stories/_intake.md`, 2026-11-21: "The stack-free gate runs one suite at a time, and
 each operations story adds about a minute and a half to every pull request (refactor)". On 2026-11-21 the owner chose to

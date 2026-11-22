@@ -4,6 +4,7 @@
 **Status:** Closed
 **Opened:** 2026-11-21
 **Closed:** 2026-11-22 (on the pull request's branch, before its merge: the frame's "Done" is the open pull request, green and reviewed)
+**Shipped:** on `staging` 2026-11-22: TapestryProtocol/tapestry#201 merged as `5b135ccaa` at 14:53:27Z, 16 s after a safe answer from the safe-to-merge check. The staging deploy, run 45035265698, took 1 m 54 s. The smoke test was clean: stable after 3 polls, Neo4j answering after 3, every page and API 200, Odell's `get-user-data` the expected 504 JSON in 15.9 s, search 2 of 314 hits, and the bundle unchanged at `index-DAxhuweK.js`, since nothing served changed. `main` takes it at its next promotion.
 **Strictness:** Standard. All five phases: a Refactor, with Architecture and Test Design, because it changes the gate
 engine or the CI job under ADR `test-hermeticity-ci/0001`.
 
