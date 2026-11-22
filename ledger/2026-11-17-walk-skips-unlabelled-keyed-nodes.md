@@ -22,4 +22,6 @@ For search, in an amendment to ADR 0008: S1's label on `p` only filters, since t
 - **A node the old initialize route keyed** has unlabelled tags too, so only migrate makes it findable. That route keys every node with a `uuid` or `id`, tags included, and labels none (`src/api/tapestry-key/index.js:114–119`, `:136–141`).
 - **By its own name,** a node is found only with the label, which the index is on.
 
+**2026-11-22: `rules check` skips such nodes too, and production has many.** Story graph-operations-first-slice #47's measurement found 152 class-thread elements on production with a tapestryKey and no `TapestryNode` label (2026-11-20). Among them are the JSON schemas of production's own four concepts, which lack the `validationTool` key that rule 12, `word-types-hold-concept-keys`, asks for. That rule judges only nodes with the label (`src/operations/rules/word-types-hold-concept-keys.js:27`), so it names none of them. So "such nodes are rare" doesn't hold on production; why it holds so many isn't looked into. Ledger row `2026-11-20-word-types-keys-await-firmware-reinstall` names the four.
+
 **Pointer:** `engineering-team/reviews/graph-operations-first-slice/14-walk.md` (Findings, non-blocking 4); `engineering-team/reviews/graph-operations-first-slice/8-search.md` (Findings, note 5).
