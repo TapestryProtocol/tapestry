@@ -1,7 +1,7 @@
 # Epic: deploy-safety-gate
 
 **Created:** 2026-07-18
-**Status:** Done (epic retired 2026-07-19 at deploy-safety-gate book close — all 3 stories Done, live on staging)
+**Status:** Done (epic retired 2026-07-19 at deploy-safety-gate book close — all 3 stories Done, live on staging. Story 4 added 2026-11-21 under the new open book `audits/deploy-safety-sees-installs/`, which carries the active-work signal; the original book stays Closed, so this epic stays Done, as OPEN.md row 268 says.)
 
 ## Goal
 
@@ -22,6 +22,7 @@ A deploy-killed scoring batch leaves owner trust scores partially written and si
 1. `stories/deploy-safety-gate/1-deploy-safety-status-endpoint.md` — the deploy-safety status endpoint: one read-only unauthenticated GET reporting running-now (both task sources, phantom-running excluded), the next scheduled fire, and the safe/unsafe verdict, with the queue-disabled/nothing-scheduled distinction. **Done** (review PASS 2026-07-18; live on staging).
 2. `stories/deploy-safety-gate/2-cycle-safe-to-merge-check.md` — cycle-skill safe-to-merge check + canonical shared recipe: the pre-merge check of the story-1 answer against the instance the merge will redeploy, bounded journaled wait-and-recheck while unsafe (never merge on unsafe, never wait silently), cycle-full inheriting by delegation, canonical in one shared recipe that also covers `feat/tags` → tags.brainstorm.world promotions. **Done** (review PASS 2026-07-18).
 3. `stories/deploy-safety-gate/3-scheduled-tasks-panel-countdown.md` — Scheduled Tasks panel aggregate countdown: one line, in the operator's phrasing ("Next Scheduled Task, \<name\>, starts in __ hours and __ minutes"), naming the soonest upcoming fire among all enabled entries and counting down live alongside the existing per-entry rows, with distinct nothing-scheduled and queue-disabled states, never contradicting the deploy-safety answer. **Draft**.
+4. `stories/deploy-safety-gate/4-deploy-safety-sees-installs.md` — the deploy-safety answer sees a running firmware install: while today's install or `lifecycle seed-firmware` runs, the answer is unsafe with a reason of its own, so the safe-to-merge check waits; it lets go however the install ends, a restart included; and the written procedure tells whoever starts an install to check first that no deploy of that instance is running. Two staging reinstalls were cut off by merges on 2026-11-21. Book: `audits/deploy-safety-sees-installs/`. **Approved** (2026-11-21).
 
 ## Key facts / guardrails
 
