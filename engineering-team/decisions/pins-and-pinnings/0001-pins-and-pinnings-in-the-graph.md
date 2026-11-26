@@ -1,6 +1,6 @@
 # ADR 0001: Pins and pinnings live in the graph as the instance's own, and go out under its Assistant's key
 
-**Status:** Proposed
+**Status:** Accepted (the owner, 2026-11-22: Option A, as drafted); Amendment 1 is ratified by the owner's merge of the story breakdown
 **Date:** 2026-11-22
 **Story:** `docs/loom/G5.6.md` (the epic's spec; its stories follow this decision)
 
@@ -292,6 +292,17 @@ Leave the Tag pin as it is, and build the draft only for DList headers.
 - **Tests the Tester moves** (Phase 3, not implementation):
   - `test/graph-rule-firmware.test.js`: GF6 holds the firmware concept order, and GF13 BIBLE §7's concept and category counts, which say 41 concepts today.
   - `test/operations/lifecycle/seed-firmware-target.test.js`: ST1 to ST5 pin today's install's addresses and tags, wherever a fixed `d` or extra tags change them. ST2's oracle, `test/helpers/todaysFirmwareRoutes.js`, needs the new `d` and tags too.
+
+## Amendment 1 (2026-11-22, at the story breakdown) — the Trusted Dictionary's house view leaves private stances out
+
+Decision 5 shows a private pinning only to its viewer's own session, on a route that names a viewer. `/api/trusted-dictionary` is a public read whose `userPubkey` is optional (`src/api/adoption/index.js:282-283`; `src/middleware/routeAccess.js:480`). A read that names none serves the house view, which Decision 9 makes the instance's. Decision 9 has the Trusted Dictionary set each entry's `override` to `'added'` or `'vetoed'` from the stance that counts (`src/lib/trustedDictionary.js:128`, `null` today). So counting a private stance in the house view would publish the stance itself, which Decision 5 keeps from visitors.
+
+- **A read of the Trusted Dictionary that names no `userPubkey` leaves private stances out.** A private `+` lets no concept past its check there, and no private stance sets an `override`.
+- **A read that names the owner counts them only for the owner's own session,** as Decisions 5 and 9 say. The rule goes by the request, not by the point of view it resolves to, so such a read keeps the owner's private stances for the owner even when it falls back to the house point of view (`adoption/index.js:172-173`).
+- **`/api/dictionaries/concepts` is unchanged.** It always names whose Dictionary it is (`adoption/index.js:465-471`), so Decision 5's rule for a route that names a viewer already covers it. Its house branch is a trust point of view, not the instance's Dictionary.
+- **A private `add-to-dictionary` pinning made without an Add makes nothing public,** so no warning before the click is needed for one. An Add publishes a wired header of the person's own (Decision 9). A Trusted List that a private `spawns-trusted-list` pinning spawns is still public, as Decision 5 says.
+
+The story breakdown's review found this (`docs/loom/G5.6.md`, G5.6.g). The owner's merge of the breakdown ratifies it.
 
 ## Out of scope
 
